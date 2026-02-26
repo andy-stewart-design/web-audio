@@ -9,17 +9,42 @@ function App() {
   const [logs, setLogs] = createSignal<string[]>([]);
   const [bpm, setBpm] = createSignal(120);
 
-  // Helper to add to a small scrolling log
   const addLog = (msg: string) => {
     setLogs((prev) => [msg, ...prev].slice(0, 5));
   };
 
-  // Subscribe to clock events
-  // Note: These callbacks run inside the Clock's setTimeout loop
-  clock().onBeat((beat) => {
+  // --- Audio Synthesis Logic ---
+  const playMetronomeClick = (beat: number, time: number) => {
+    const ctx = clock().context;
+    const osc = ctx.createOscillator();
+    const envelope = ctx.createGain();
+
+    // Frequency: High C (1000Hz) for the downbeat, Mid C (500Hz) for others
+    osc.frequency.setValueAtTime(beat === 0 ? 1000 : 500, time);
+
+    // Envelope: Quick attack and fast decay to prevent clicking
+    envelope.gain.setValueAtTime(0, time);
+    envelope.gain.linearRampToValueAtTime(0.5, time + 0.005);
+    envelope.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+
+    osc.connect(envelope);
+    envelope.connect(ctx.destination);
+
+    osc.start(time);
+    osc.stop(time + 0.1);
+
+    // Garbage Collection: Disconnect nodes after the sound finishes
+    osc.onended = () => {
+      osc.disconnect();
+      envelope.disconnect();
+    };
+  };
+
+  // --- Clock Subscriptions ---
+  clock().onBeat((beat, time) => {
     setCurrentBeat(beat);
-    // We use the AudioContext time in the log to show precision
-    addLog(`On Beat ${beat} @ ${clock().context.currentTime.toFixed(2)}s`);
+    playMetronomeClick(beat, time);
+    addLog(`On Beat ${beat} @ ${time.toFixed(2)}s`);
   });
 
   clock().onBar((bar) => {
@@ -27,8 +52,11 @@ function App() {
     addLog(`--- New Bar: ${bar} ---`);
   });
 
-  clock().beforeBeat((beat) => {
-    addLog(`(Cleanup) Before Beat ${beat}`);
+  // Example of using beforeBeat for "pre-emptive" cleanup or logic
+  clock().beforeBeat((beat, time) => {
+    // You could use this to fade out a long-running pad before the next bar
+    // addLog(`Preparing for beat ${beat}...`);
+    addLog(`(Cleanup) Before Beat ${beat} @ ${time.toFixed(2)}s`);
   });
 
   const toggleClock = async () => {
@@ -51,79 +79,87 @@ function App() {
         "max-width": "400px",
       }}
     >
-      <h2>Web Audio Clock</h2>
+      <h2>Web Audio Metronome</h2>
 
-      <div style={{ display: "flex", gap: "10px", "align-items": "center" }}>
-        <button
-          onClick={toggleClock}
-          style={{
-            padding: "10px 20px",
-            "background-color": isRunning() ? "#ff4757" : "#2ed573",
-            color: "white",
-            border: "none",
-            "border-radius": "4px",
-          }}
-        >
-          {isRunning() ? "Stop" : "Start Clock"}
-        </button>
+      <div style={{ display: "flex", "flex-direction": "column", gap: "20px" }}>
+        <div style={{ display: "flex", gap: "10px", "align-items": "center" }}>
+          <button
+            onClick={toggleClock}
+            style={{
+              padding: "10px 20px",
+              "background-color": isRunning() ? "#ff4757" : "#2ed573",
+              color: "white",
+              border: "none",
+              "border-radius": "4px",
+              cursor: "pointer",
+            }}
+          >
+            {isRunning() ? "Stop" : "Start Clock"}
+          </button>
 
-        <span>BPM: {bpm()}</span>
-        <input
-          type="range"
-          min={60}
-          max={200}
-          step={1}
-          onChange={(e) => {
-            clock().bpm = e.target.valueAsNumber;
-            setBpm(e.target.valueAsNumber);
-          }}
-        />
-      </div>
-
-      <hr style={{ margin: "20px 0" }} />
-
-      {/* Visual Metronome */}
-      <div style={{ display: "flex", gap: "10px", "margin-bottom": "20px" }}>
-        <For each={Array.from({ length: clock().beatsPerBar })}>
-          {(_, i) => (
-            <div
-              style={{
-                width: "40px",
-                height: "40px",
-                "border-radius": "50%",
-                border: "2px solid #333",
-                "background-color":
-                  currentBeat() === i() && isRunning()
-                    ? i() === 0
-                      ? "#ff4757"
-                      : "#1e90ff"
-                    : "#f1f2f6",
-                transition: "background-color 0.05s",
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", "font-size": "0.8rem" }}>
+              BPM: {bpm()}
+            </label>
+            <input
+              type="range"
+              min={60}
+              max={220}
+              value={bpm()}
+              style={{ width: "100%" }}
+              onInput={(e) => {
+                const val = e.target.valueAsNumber;
+                clock().bpm = val;
+                setBpm(val);
               }}
             />
-          )}
-        </For>
-      </div>
+          </div>
+        </div>
 
-      <div style={{ "font-size": "1.2rem" }}>
-        <strong>Bar:</strong> {currentBar()} | <strong>Beat:</strong>{" "}
-        {currentBeat() + 1}
-      </div>
+        {/* Visual Metronome */}
+        <div
+          style={{ display: "flex", gap: "10px", "justify-content": "center" }}
+        >
+          <For each={Array.from({ length: clock().beatsPerBar })}>
+            {(_, i) => (
+              <div
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  "border-radius": "50%",
+                  border: "2px solid #333",
+                  "background-color":
+                    currentBeat() === i() && isRunning()
+                      ? i() === 0
+                        ? "#ff4757"
+                        : "#1e90ff"
+                      : "#f1f2f6",
+                  transition: "background-color 0.05s",
+                }}
+              />
+            )}
+          </For>
+        </div>
 
-      {/* Event Log */}
-      <div
-        style={{
-          "margin-top": "20px",
-          padding: "10px",
-          background: "#2f3542",
-          color: "#ced4da",
-          "border-radius": "4px",
-          "font-family": "monospace",
-          "font-size": "0.8rem",
-          "min-height": "120px",
-        }}
-      >
-        <For each={logs()}>{(log) => <div>{log}</div>}</For>
+        <div style={{ "text-align": "center", "font-size": "1.2rem" }}>
+          <strong>Bar:</strong> {currentBar()} | <strong>Beat:</strong>{" "}
+          {currentBeat() + 1}
+        </div>
+
+        <div
+          style={{
+            padding: "10px",
+            background: "#2f3542",
+            color: "#ced4da",
+            "border-radius": "4px",
+            "font-family": "monospace",
+            "font-size": "0.8rem",
+            "min-height": "100px",
+            overflow: "scroll",
+          }}
+        >
+          <For each={logs()}>{(log) => <div>{log}</div>}</For>
+        </div>
       </div>
     </div>
   );
