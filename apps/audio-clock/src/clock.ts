@@ -16,6 +16,7 @@ export class AudioClock {
   private _running: boolean = false;
   private _currentBeat: number = 0;
   private _currentBar: number = 0;
+  private _nextBeforeBeatTime: number = 0;
   private _nextBeatTime: number = 0;
   private _timerId: any = null;
 
@@ -31,12 +32,22 @@ export class AudioClock {
   }
 
   private scheduler() {
+    const scheduledTime =
+      this._context.currentTime + AudioClock.scheduleAheadTime;
+    const secondsPerBeat = 60.0 / this._bpm;
+
     // While there are beats that need to be scheduled before the next lookahead...
-    while (
-      this._nextBeatTime <
-      this._context.currentTime + AudioClock.scheduleAheadTime
-    ) {
-      this.scheduleBeat(
+    while (this._nextBeforeBeatTime < scheduledTime) {
+      this.scheduleBeforeBeat(
+        this._currentBeat,
+        this._currentBar,
+        this._nextBeforeBeatTime,
+      );
+      this._nextBeforeBeatTime += secondsPerBeat;
+    }
+
+    while (this._nextBeatTime < scheduledTime) {
+      this.scheduleOnBeat(
         this._currentBeat,
         this._currentBar,
         this._nextBeatTime,
@@ -46,27 +57,26 @@ export class AudioClock {
     this._timerId = setTimeout(() => this.scheduler(), AudioClock.lookahead);
   }
 
-  private scheduleBeat(beat: number, bar: number, time: number) {
-    // 1. Fire "Before Bar" if we are at the end of a bar (beat 0 about to start)
+  private scheduleBeforeBeat(beat: number, bar: number, time: number) {
     if (beat === 0) {
+      console.log("BEFORE BAR", this.context.currentTime);
       this.beforeBarCallbacks.forEach((cb) => cb(bar, time));
     }
 
-    // 2. Fire "Before Beat"
     this.beforeBeatCallbacks.forEach((cb) => cb(beat, time));
+  }
 
-    // 3. Fire "On Bar"
+  private scheduleOnBeat(beat: number, bar: number, time: number) {
     if (beat === 0) {
+      console.log("ON BAR", this.context.currentTime);
       this.onBarCallbacks.forEach((cb) => cb(bar, time));
     }
 
-    // 4. Fire "On Beat"
     this.onBeatCallbacks.forEach((cb) => cb(beat, time));
   }
 
   private advanceBeat() {
-    const secondsPerBeat = 60.0 / this._bpm;
-    this._nextBeatTime += secondsPerBeat;
+    this._nextBeatTime += this.beatDuration;
 
     this._currentBeat++;
     if (this._currentBeat >= this._beatsPerBar) {
@@ -87,7 +97,9 @@ export class AudioClock {
     this._currentBeat = 0;
     this._currentBar = 0;
     // Set first beat slightly in the future to avoid immediate jitter
-    this._nextBeatTime = this._context.currentTime + 0.05;
+    const offset = this.beatDuration * 0.1;
+    this._nextBeforeBeatTime = this._context.currentTime + offset / 2;
+    this._nextBeatTime = this._context.currentTime + offset;
     this.scheduler();
   }
 
