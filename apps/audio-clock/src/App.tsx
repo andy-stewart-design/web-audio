@@ -1,8 +1,8 @@
 import { createSignal, onCleanup, For } from "solid-js";
-import { AudioClock } from "./clock";
+import { AudioClock } from "./clock-2";
 
 function App() {
-  const [clock] = createSignal(new AudioClock(120, 4));
+  const [clock] = createSignal(new AudioClock(new AudioContext(), 120, 4));
   const [isRunning, setIsRunning] = createSignal(false);
   const [currentBeat, setCurrentBeat] = createSignal(0);
   const [currentBar, setCurrentBar] = createSignal(0);
@@ -15,7 +15,7 @@ function App() {
 
   // --- Audio Synthesis Logic ---
   const playMetronomeClick = (beat: number, time: number) => {
-    const ctx = clock().context;
+    const ctx = clock().ctx;
     const osc = ctx.createOscillator();
     const envelope = ctx.createGain();
 
@@ -41,25 +41,24 @@ function App() {
   };
 
   // --- Clock Subscriptions ---
-  clock().onBeat((beat, time) => {
+  clock().on("beat", ({ beat }, time) => {
     setCurrentBeat(beat);
     playMetronomeClick(beat, time);
     addLog(
-      `On Beat ${beat} @ ${time.toFixed(2)}s, ${clock().context.currentTime.toFixed(3)}`,
+      `On Beat ${beat} @ ${time.toFixed(2)}s, ${clock().ctx.currentTime.toFixed(3)}`,
     );
   });
 
-  clock().onBar((bar) => {
+  clock().on("bar", ({ bar }) => {
     setCurrentBar(bar);
     addLog(`--- New Bar: ${bar} ---`);
   });
 
-  // Example of using beforeBeat for "pre-emptive" cleanup or logic
-  clock().beforeBeat((beat, time) => {
+  // Example of using prebeat for "pre-emptive" cleanup or logic
+  clock().on("prebeat", ({ beat }, time) => {
     // You could use this to fade out a long-running pad before the next bar
-    // addLog(`Preparing for beat ${beat}...`);
     addLog(
-      `(Cleanup) Before Beat ${beat} @ ${time.toFixed(2)}s, ${clock().context.currentTime.toFixed(3)}`,
+      `(Cleanup) Before Beat ${beat} @ ${time.toFixed(2)}s, ${clock().ctx.currentTime.toFixed(3)}`,
     );
   });
 
@@ -113,7 +112,7 @@ function App() {
               style={{ width: "100%" }}
               onInput={(e) => {
                 const val = e.target.valueAsNumber;
-                clock().bpm = val;
+                clock().bpm(val);
                 setBpm(val);
               }}
             />
