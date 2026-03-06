@@ -10,7 +10,7 @@ function App() {
   const [bpm, setBpm] = createSignal(120);
 
   const addLog = (msg: string) => {
-    setLogs((prev) => [msg, ...prev].slice(0, 5));
+    setLogs((prev) => [msg, ...prev]);
   };
 
   // --- Audio Synthesis Logic ---
@@ -44,7 +44,9 @@ function App() {
   clock().onBeat((beat, time) => {
     setCurrentBeat(beat);
     playMetronomeClick(beat, time);
-    addLog(`On Beat ${beat} @ ${time.toFixed(2)}s`);
+    addLog(
+      `On Beat ${beat} @ ${time.toFixed(2)}s, ${clock().context.currentTime.toFixed(3)}`,
+    );
   });
 
   clock().onBar((bar) => {
@@ -56,7 +58,9 @@ function App() {
   clock().beforeBeat((beat, time) => {
     // You could use this to fade out a long-running pad before the next bar
     // addLog(`Preparing for beat ${beat}...`);
-    addLog(`(Cleanup) Before Beat ${beat} @ ${time.toFixed(2)}s`);
+    addLog(
+      `(Cleanup) Before Beat ${beat} @ ${time.toFixed(2)}s, ${clock().context.currentTime.toFixed(3)}`,
+    );
   });
 
   const toggleClock = async () => {

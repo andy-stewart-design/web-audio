@@ -7,17 +7,33 @@ export interface ClockOptions {
 }
 
 export class AudioClock {
-  static lookahead = 25.0; // How often to call scheduler (ms)
-  static scheduleAheadTime = 0.1; // How far to look ahead (s)
+  // Timing Configuration (ms and seconds)
+  static lookahead = 25.0;
+  static scheduleAheadTime = 0.1;
+
+  /**
+   * The "Before" Lead Time.
+   * This ensures "before" callbacks fire at least 100ms early,
+   * giving the main thread plenty of time to process them before
+   * the actual audio-triggering "on" callbacks fire.
+   */
+  static beforeLeadTime = 0.1;
 
   private _context: AudioContext;
   private _bpm: number;
   private _beatsPerBar: number;
   private _running: boolean = false;
+  private _timerId: any = null;
+
+  // Real-time pointers for "On" events
+  private _nextBeatTime: number = 0;
   private _currentBeat: number = 0;
   private _currentBar: number = 0;
-  private _nextBeatTime: number = 0;
-  private _timerId: any = null;
+
+  // Lookahead pointers for "Before" events
+  private _nextBeforeTime: number = 0;
+  private _beforeBeatCount: number = 0;
+  private _beforeBarCount: number = 0;
 
   private beforeBeatCallbacks: Set<BeatCallback> = new Set();
   private onBeatCallbacks: Set<BeatCallback> = new Set();
@@ -31,43 +47,62 @@ export class AudioClock {
   }
 
   private scheduler() {
-    // While there are beats that need to be scheduled before the next lookahead...
-    while (
-      this._nextBeatTime <
-      this._context.currentTime + AudioClock.scheduleAheadTime
-    ) {
-      this.scheduleBeat(
+    if (!this._running) return;
+
+    const horizon = this._context.currentTime + AudioClock.scheduleAheadTime;
+
+    /** * 1. PROCESS "BEFORE" CALLBACKS
+     * We look further into the future (horizon + lead time) for these.
+     */
+    while (this._nextBeforeTime < horizon + AudioClock.beforeLeadTime) {
+      this.fireBeforeCallbacks(
+        this._beforeBeatCount,
+        this._beforeBarCount,
+        this._nextBeforeTime,
+      );
+      this.advanceBefore();
+    }
+
+    /** * 2. PROCESS "ON" CALLBACKS
+     * These fire exactly when they are supposed to be scheduled.
+     */
+    while (this._nextBeatTime < horizon) {
+      this.fireOnCallbacks(
         this._currentBeat,
         this._currentBar,
         this._nextBeatTime,
       );
       this.advanceBeat();
     }
+
     this._timerId = setTimeout(() => this.scheduler(), AudioClock.lookahead);
   }
 
-  private scheduleBeat(beat: number, bar: number, time: number) {
-    // 1. Fire "Before Bar" if we are at the end of a bar (beat 0 about to start)
+  private fireBeforeCallbacks(beat: number, bar: number, time: number) {
     if (beat === 0) {
       this.beforeBarCallbacks.forEach((cb) => cb(bar, time));
     }
-
-    // 2. Fire "Before Beat"
     this.beforeBeatCallbacks.forEach((cb) => cb(beat, time));
+  }
 
-    // 3. Fire "On Bar"
+  private fireOnCallbacks(beat: number, bar: number, time: number) {
     if (beat === 0) {
       this.onBarCallbacks.forEach((cb) => cb(bar, time));
     }
-
-    // 4. Fire "On Beat"
     this.onBeatCallbacks.forEach((cb) => cb(beat, time));
   }
 
-  private advanceBeat() {
-    const secondsPerBeat = 60.0 / this._bpm;
-    this._nextBeatTime += secondsPerBeat;
+  private advanceBefore() {
+    this._nextBeforeTime += this.beatDuration;
+    this._beforeBeatCount++;
+    if (this._beforeBeatCount >= this._beatsPerBar) {
+      this._beforeBeatCount = 0;
+      this._beforeBarCount++;
+    }
+  }
 
+  private advanceBeat() {
+    this._nextBeatTime += this.beatDuration;
     this._currentBeat++;
     if (this._currentBeat >= this._beatsPerBar) {
       this._currentBeat = 0;
@@ -78,16 +113,23 @@ export class AudioClock {
   public async start() {
     if (this._running) return;
 
-    // Resume context if suspended (browser security)
     if (this._context.state === "suspended") {
       await this._context.resume();
     }
 
-    this._running = true;
+    const startTime = this._context.currentTime + 0.05;
+
+    // Initialize "On" timeline
     this._currentBeat = 0;
     this._currentBar = 0;
-    // Set first beat slightly in the future to avoid immediate jitter
-    this._nextBeatTime = this._context.currentTime + 0.05;
+    this._nextBeatTime = startTime;
+
+    // Initialize "Before" timeline to match
+    this._beforeBeatCount = 0;
+    this._beforeBarCount = 0;
+    this._nextBeforeTime = startTime;
+
+    this._running = true;
     this.scheduler();
   }
 
