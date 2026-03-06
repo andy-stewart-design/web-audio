@@ -2,7 +2,7 @@ import { createSignal, onCleanup, For } from "solid-js";
 import { AudioClock } from "./clock";
 
 function App() {
-  const [clock] = createSignal(new AudioClock({ bpm: 120, beatsPerBar: 4 }));
+  const [clock] = createSignal(new AudioClock(120, 4));
   const [isRunning, setIsRunning] = createSignal(false);
   const [currentBeat, setCurrentBeat] = createSignal(0);
   const [currentBar, setCurrentBar] = createSignal(0);

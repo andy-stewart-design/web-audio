@@ -1,11 +1,6 @@
 export type BeatCallback = (beat: number, time: number) => void;
 export type BarCallback = (bar: number, time: number) => void;
 
-export interface ClockOptions {
-  bpm?: number;
-  beatsPerBar?: number;
-}
-
 export class AudioClock {
   // Timing Configuration (ms and seconds)
   static lookahead = 25.0;
@@ -40,9 +35,9 @@ export class AudioClock {
   private beforeBarCallbacks: Set<BarCallback> = new Set();
   private onBarCallbacks: Set<BarCallback> = new Set();
 
-  constructor(options: ClockOptions = {}) {
-    this._bpm = options.bpm ?? 120;
-    this._beatsPerBar = options.beatsPerBar ?? 4;
+  constructor(bpm = 120, beatsPerBar = 4) {
+    this._bpm = bpm;
+    this._beatsPerBar = beatsPerBar;
     this._context = new AudioContext();
   }
 
