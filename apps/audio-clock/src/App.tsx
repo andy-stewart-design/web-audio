@@ -14,24 +14,24 @@ function App() {
   };
 
   // --- Audio Synthesis Logic ---
-  const playMetronomeClick = (beat: number, time: number) => {
+  const playMetronomeClick = (beat: number, time: number, duration = 0.5) => {
     const ctx = clock().ctx;
-    const osc = ctx.createOscillator();
-    const envelope = ctx.createGain();
-
-    // Frequency: High C (1000Hz) for the downbeat, Mid C (500Hz) for others
-    osc.frequency.setValueAtTime(beat === 0 ? 1000 : 500, time);
+    const osc = new OscillatorNode(ctx, {
+      // Frequency: High C (1000Hz) for the downbeat, Mid C (500Hz) for others
+      frequency: beat === 0 ? 1000 : 500,
+    });
+    const envelope = new GainNode(ctx);
 
     // Envelope: Quick attack and fast decay to prevent clicking
     envelope.gain.setValueAtTime(0, time);
     envelope.gain.linearRampToValueAtTime(0.5, time + 0.005);
-    envelope.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+    envelope.gain.exponentialRampToValueAtTime(0.001, time + duration);
 
     osc.connect(envelope);
     envelope.connect(ctx.destination);
 
     osc.start(time);
-    osc.stop(time + 0.1);
+    osc.stop(time + duration);
 
     // Garbage Collection: Disconnect nodes after the sound finishes
     osc.onended = () => {
@@ -43,7 +43,13 @@ function App() {
   // --- Clock Subscriptions ---
   clock().on("beat", ({ beat }, time) => {
     setCurrentBeat(beat);
-    playMetronomeClick(beat, time);
+    const noteCount = 2;
+    const timeOffset = clock().beatDuration / noteCount;
+    for (let i = 0; i < noteCount; i++) {
+      playMetronomeClick(beat, time + timeOffset * i, timeOffset);
+    }
+    // playMetronomeClick(beat, time + 0.25);
+    // playMetronomeClick(beat, time + 0.375);
     addLog(
       `On Beat ${beat} @ ${time.toFixed(2)}s, ${clock().ctx.currentTime.toFixed(3)}`,
     );
