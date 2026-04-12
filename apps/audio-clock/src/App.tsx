@@ -1,5 +1,5 @@
 import { createSignal, onCleanup, For } from "solid-js";
-import { AudioClock } from "./clock-2";
+import AudioClock from "@web-audio/clock";
 
 function App() {
   const [clock] = createSignal(new AudioClock(new AudioContext(), 120, 4));

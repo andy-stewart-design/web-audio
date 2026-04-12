@@ -1,7 +1,8 @@
-export type BeatCallback = (beat: number, time: number) => void;
-export type BarCallback = (bar: number, time: number) => void;
+import type { ClockEventCallback, ClockEventType, Metronome } from "./types.js";
 
-export class AudioClock {
+type ListenerMap = Map<ClockEventType, Set<ClockEventCallback>>;
+
+class AudioClock {
   // Timing Configuration (ms and seconds)
   static lookahead = 25.0;
   static scheduleAheadTime = 0.1;
@@ -13,38 +14,41 @@ export class AudioClock {
    * the actual audio-triggering "on" callbacks fire.
    */
   static beforeLeadTime = 0.1;
+  static lookaheadOffset = 0.1;
 
-  private _context: AudioContext;
+  readonly ctx: AudioContext;
+  readonly metronome: Metronome = { beat: 0, bar: 0 };
+
   private _bpm: number;
   private _beatsPerBar: number;
   private _running: boolean = false;
+  private _timeOrigin: number = 0;
   private _timerId: any = null;
 
   // Real-time pointers for "On" events
   private _nextBeatTime: number = 0;
   private _currentBeat: number = 0;
   private _currentBar: number = 0;
+  private _barStart: number = 0;
 
   // Lookahead pointers for "Before" events
   private _nextBeforeTime: number = 0;
   private _beforeBeatCount: number = 0;
   private _beforeBarCount: number = 0;
 
-  private beforeBeatCallbacks: Set<BeatCallback> = new Set();
-  private onBeatCallbacks: Set<BeatCallback> = new Set();
-  private beforeBarCallbacks: Set<BarCallback> = new Set();
-  private onBarCallbacks: Set<BarCallback> = new Set();
+  private listeners: ListenerMap = new Map();
 
-  constructor(bpm = 120, beatsPerBar = 4) {
+  constructor(ctx: AudioContext, bpm = 120, beatsPerBar = 4) {
+    this.ctx = ctx;
     this._bpm = bpm;
     this._beatsPerBar = beatsPerBar;
-    this._context = new AudioContext();
+    this._timeOrigin = performance.now() - this.ctx.currentTime * 1000;
   }
 
   private scheduler() {
     if (!this._running) return;
 
-    const horizon = this._context.currentTime + AudioClock.scheduleAheadTime;
+    const horizon = this.ctx.currentTime + AudioClock.scheduleAheadTime;
 
     /** * 1. PROCESS "BEFORE" CALLBACKS
      * We look further into the future (horizon + lead time) for these.
@@ -74,17 +78,22 @@ export class AudioClock {
   }
 
   private fireBeforeCallbacks(beat: number, bar: number, time: number) {
+    const m = { beat, bar };
     if (beat === 0) {
-      this.beforeBarCallbacks.forEach((cb) => cb(bar, time));
+      this.listeners.get("prebar")?.forEach((cb) => cb(m, time));
     }
-    this.beforeBeatCallbacks.forEach((cb) => cb(beat, time));
+    this.listeners.get("prebeat")?.forEach((cb) => cb(m, time));
   }
 
   private fireOnCallbacks(beat: number, bar: number, time: number) {
+    this.metronome.beat = beat;
+    this.metronome.bar = bar;
+    const m = { ...this.metronome };
     if (beat === 0) {
-      this.onBarCallbacks.forEach((cb) => cb(bar, time));
+      this._barStart = time;
+      this.listeners.get("bar")?.forEach((cb) => cb(m, time));
     }
-    this.onBeatCallbacks.forEach((cb) => cb(beat, time));
+    this.listeners.get("beat")?.forEach((cb) => cb(m, time));
   }
 
   private advanceBefore() {
@@ -108,76 +117,85 @@ export class AudioClock {
   public async start() {
     if (this._running) return;
 
-    if (this._context.state === "suspended") {
-      await this._context.resume();
+    if (this.ctx.state === "suspended") {
+      await this.ctx.resume();
     }
 
-    const startTime = this._context.currentTime + 0.05;
+    const startTime = this.ctx.currentTime + 0.05;
 
     // Initialize "On" timeline
     this._currentBeat = 0;
     this._currentBar = 0;
     this._nextBeatTime = startTime;
+    this._barStart = startTime;
 
     // Initialize "Before" timeline to match
     this._beforeBeatCount = 0;
     this._beforeBarCount = 0;
     this._nextBeforeTime = startTime;
 
+    this._timeOrigin = performance.now() - this.ctx.currentTime * 1000;
     this._running = true;
     this.scheduler();
+
+    this.listeners
+      .get("start")
+      ?.forEach((cb) => cb({ ...this.metronome }, startTime));
   }
 
   public stop() {
+    this.listeners
+      .get("stop")
+      ?.forEach((cb) => cb({ ...this.metronome }, this.ctx.currentTime));
     this._running = false;
     if (this._timerId) {
       clearTimeout(this._timerId);
       this._timerId = null;
     }
+    this.metronome.beat = 0;
+    this.metronome.bar = 0;
   }
 
   public destroy() {
     this.stop();
-    this._context.close();
-    this.beforeBeatCallbacks.clear();
-    this.onBeatCallbacks.clear();
-    this.beforeBarCallbacks.clear();
-    this.onBarCallbacks.clear();
+    this.listeners.forEach((set) => set.clear());
+    this.listeners.clear();
   }
 
-  // --- Callback Registration ---
-
-  public beforeBeat(callback: BeatCallback): () => void {
-    this.beforeBeatCallbacks.add(callback);
-    return () => this.beforeBeatCallbacks.delete(callback);
+  public audioTimeToMIDITime(audioTimeSeconds: number) {
+    return this._timeOrigin + audioTimeSeconds * 1000;
   }
 
-  public onBeat(callback: BeatCallback): () => void {
-    this.onBeatCallbacks.add(callback);
-    return () => this.onBeatCallbacks.delete(callback);
+  // --- Event Registration ---
+
+  public on(type: ClockEventType, fn: ClockEventCallback): () => void {
+    let group = this.listeners.get(type);
+    if (!group) {
+      group = new Set();
+      this.listeners.set(type, group);
+    }
+    group.add(fn);
+    return () => group!.delete(fn);
   }
 
-  public beforeBar(callback: BarCallback): () => void {
-    this.beforeBarCallbacks.add(callback);
-    return () => this.beforeBarCallbacks.delete(callback);
+  public off(type: ClockEventType, fn: ClockEventCallback) {
+    this.listeners.get(type)?.delete(fn);
   }
 
-  public onBar(callback: BarCallback): () => void {
-    this.onBarCallbacks.add(callback);
-    return () => this.onBarCallbacks.delete(callback);
+  // --- BPM ---
+
+  public bpm(value: number) {
+    if (value > 0) this._bpm = value;
   }
 
-  // --- Getters / Setters ---
+  // --- Getters ---
 
-  get bpm(): number {
+  get paused(): boolean {
+    return !this._running;
+  }
+
+  get beatsPerMin(): number {
     return this._bpm;
-  }
-  set bpm(value: number) {
-    this._bpm = Math.max(1, value);
-  }
-
-  get context() {
-    return this._context;
   }
 
   get beatsPerBar(): number {
@@ -190,4 +208,27 @@ export class AudioClock {
   get beatDuration(): number {
     return 60 / this._bpm;
   }
+
+  get beatStartTime(): number {
+    return this._nextBeatTime;
+  }
+
+  get nextBeatStartTime(): number {
+    return this._nextBeatTime + this.beatDuration;
+  }
+
+  get barStartTime(): number {
+    return this._barStart;
+  }
+
+  get nextBarStartTime(): number {
+    return this._barStart + this.barDuration;
+  }
+
+  get barDuration(): number {
+    return this.beatDuration * this._beatsPerBar;
+  }
 }
+
+export default AudioClock;
+export type { Metronome };
