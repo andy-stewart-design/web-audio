@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@web-audio/clock": "workspace:*",
     "solid-js": "^1.9.10"
   },
   "devDependencies": {
