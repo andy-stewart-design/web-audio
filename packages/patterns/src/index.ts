@@ -1,4 +1,5 @@
 import { isCycle, isRandomCycle } from "./utils/validator";
 import PatternCycle from "./pattern-cycle";
+import RandomCycle from "./random-cycle";
 
-export { isCycle, isRandomCycle, PatternCycle };
+export { PatternCycle, RandomCycle, isCycle, isRandomCycle };

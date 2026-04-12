@@ -2,19 +2,17 @@ import { useEffect, useState } from "react";
 import reactLogo from "./assets/react.svg";
 import viteLogo from "./assets/vite.svg";
 import heroImg from "./assets/hero.png";
-import { PatternCycle } from "@web-audio/patterns";
+import { Synth } from "@web-audio/fluid";
 import "./App.css";
-
-type Nullable<T> = T | null | undefined;
-type Chord = Nullable<Nullable<number>[]>;
 
 function App() {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    const foo = new PatternCycle<Chord>([[60]], null);
-    foo.euclid(3, 8);
-    console.log(foo.at(0));
+    const inst = new Synth();
+    inst.euclid(6, 8);
+    // console.log(inst._cycle.current);
+    console.log(inst.render());
   }, []);
 
   return (
