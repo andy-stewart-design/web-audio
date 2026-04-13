@@ -1,6 +1,34 @@
 // Generic cycle utilities parameterized over a "step" type S.
 // Flat arrays use S = T, nested arrays use S = T | T[].
 
-export type NoteInput<S> = S | S[];
-export type Cycle<S> = S[][];
-export type nullableNumber = number | null | undefined;
+type NoteInput<S> = S | S[];
+type Cycle<S> = S[][];
+
+interface StaticSchemaValue {
+  value: number;
+  startOffset: number;
+  duration: number;
+}
+
+interface RandomSchema {
+  type: "float" | "integer" | "binary";
+  segments: { seed: number; len?: number }[];
+  quantValue: number | undefined;
+  range: { min: number; max: number } | undefined;
+  algorithm: "xor" | "mulberry";
+  maskCycle: StaticSchemaValue[][];
+}
+
+type Nullable<T> = T | null | undefined;
+type ScheduledValue = Nullable<number>;
+type Chord = Nullable<ScheduledValue[]>;
+
+export type {
+  NoteInput,
+  Cycle,
+  StaticSchemaValue,
+  RandomSchema,
+  Nullable,
+  ScheduledValue,
+  Chord,
+};

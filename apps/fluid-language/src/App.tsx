@@ -9,10 +9,10 @@ function App() {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    const inst = new Synth();
-    inst.euclid(6, 8);
-    // console.log(inst._cycle.current);
-    console.log(inst.render());
+    const synth = new Synth();
+    synth.note([[60, 64], 67, 71], [71, 67, 64, 60]);
+    synth.euclid(3, 8);
+    console.log(synth.getSchema());
   }, []);
 
   return (

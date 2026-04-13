@@ -23,21 +23,6 @@ class PatternCycle<T> extends BaseCycle<T> {
   replace(cycle: Cycle<T>) {
     this._cycle = cycle;
   }
-
-  /* ----------------------------------------------------------------
-  /* GETTERS
-  ---------------------------------------------------------------- */
-  at(i: number): Cycle<T>[number];
-  at(i: number, j: number): T;
-  at(i: number, j?: number) {
-    const currentValue = this.current[i % this.current.length];
-
-    if (typeof j === "number") {
-      return currentValue?.[j % currentValue.length] ?? this._nullValue;
-    }
-
-    return currentValue ?? [this._nullValue];
-  }
 }
 
 export default PatternCycle;

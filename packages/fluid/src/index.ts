@@ -1,20 +1,15 @@
-import { PatternCycle, RandomCycle } from "@web-audio/patterns";
+import { ChordCycle, RandomCycle } from "@web-audio/patterns";
 
 type Nullable<T> = T | null | undefined;
 type ScheduledValue = Nullable<number>;
 type Chord = Nullable<ScheduledValue[]>;
-
-interface SchemaValue {
-  value: number;
-  startOffset: number;
-  duration: number;
-}
+type NoteInput<T> = (T | T[] | (T | T[])[])[];
 
 class Instrument {
-  private _cycle: PatternCycle<Chord> | RandomCycle<ScheduledValue>;
+  protected _cycle: ChordCycle | RandomCycle;
 
-  constructor(defaultCycle: Chord) {
-    this._cycle = new PatternCycle<Chord>(defaultCycle, null);
+  constructor(defaultPattern: Chord) {
+    this._cycle = new ChordCycle(defaultPattern);
   }
 
   euclid(
@@ -61,23 +56,12 @@ class Instrument {
     return this;
   }
 
-  render(): SchemaValue[][] {
-    return Array.from({ length: this._cycle.current.length }, (_, i) => {
-      const pattern = this._cycle
-        .at(i)
-        .map((v) => (Array.isArray(v) ? v : [v]));
-      const stepDuration = 1 / pattern.length;
-
-      return pattern.flatMap((chord, chordIdx) =>
-        (chord ?? [])
-          .filter((v): v is number => typeof v === "number")
-          .map((value) => ({
-            value,
-            startOffset: stepDuration * chordIdx,
-            duration: stepDuration,
-          })),
-      );
-    });
+  getSchema() {
+    if (isRandomCycle(this._cycle)) {
+      return this._cycle.getRandomSchema();
+    } else {
+      return this._cycle.getStaticSchema();
+    }
   }
 }
 
@@ -85,7 +69,28 @@ class Synth extends Instrument {
   constructor() {
     super([60]);
   }
+
+  note(...input: NoteInput<ScheduledValue> | [RandomCycle]) {
+    if (isRandomCycleTuple(input)) {
+      this._cycle = input[0];
+    } else if (!isRandomCycle(this._cycle)) {
+      const cycle = input.map((p) =>
+        Array.isArray(p) ? p.map((c) => (Array.isArray(c) ? c : [c])) : [[p]],
+      );
+      this._cycle.pattern(...cycle);
+    }
+  }
 }
 
 export default Instrument;
 export { Synth };
+
+// ------------------------------------------------
+// UTILITIES
+function isRandomCycleTuple<T>(v: unknown[]): v is [T] {
+  return v.length === 1 && v[0] instanceof RandomCycle;
+}
+
+function isRandomCycle<T>(v: unknown): v is RandomCycle {
+  return v instanceof RandomCycle;
+}

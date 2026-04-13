@@ -10,11 +10,11 @@ import {
   type Cycle,
 } from "./utils";
 
-abstract class BaseCycle<ValueType, ReturnType = ValueType> {
-  protected _cycle: Cycle<ValueType>;
-  protected _nullValue: ValueType;
+abstract class BaseCycle<T> {
+  protected _cycle: Cycle<T>;
+  protected _nullValue: T;
 
-  constructor(cycle: Cycle<ValueType>, nullValue: ValueType) {
+  constructor(cycle: Cycle<T>, nullValue: T) {
     this._cycle = cycle;
     this._nullValue = nullValue;
   }
@@ -24,7 +24,7 @@ abstract class BaseCycle<ValueType, ReturnType = ValueType> {
 
     const cycles = this._cycle;
     const loops = Math.max(cycles.length, modifier.length);
-    const nextCycles: Cycle<ValueType> = [];
+    const nextCycles: Cycle<T> = [];
 
     for (let i = 0; i < loops; i++) {
       let noteIndex = 0;
@@ -90,13 +90,6 @@ abstract class BaseCycle<ValueType, ReturnType = ValueType> {
   clear() {
     this._cycle = [];
   }
-
-  /* ----------------------------------------------------------------
-  /* ABSTRACT
-  ---------------------------------------------------------------- */
-  abstract at(i: number): Cycle<ReturnType>[number];
-  abstract at(i: number, j: number): ReturnType;
-  abstract at(i: number, j?: number): Cycle<ReturnType>[number] | ReturnType;
 
   /* ----------------------------------------------------------------
   /* GETTERS
