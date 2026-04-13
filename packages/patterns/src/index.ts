@@ -1,11 +1,18 @@
 import RandomCycle from "./random-cycle";
 import { ChordCycle, BinaryCycle } from "./static-cycles";
-import type { RandomSchema, StaticSchemaValue } from "./types";
+import type {
+  Chord,
+  RandomSchema,
+  ScheduledValue,
+  StaticSchemaValue,
+} from "./types";
 
 export {
-  RandomCycle,
-  ChordCycle,
   BinaryCycle,
+  ChordCycle,
+  RandomCycle,
+  type Chord,
   type RandomSchema,
+  type ScheduledValue,
   type StaticSchemaValue,
 };

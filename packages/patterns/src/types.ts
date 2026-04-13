@@ -4,6 +4,10 @@
 type NoteInput<S> = S | S[];
 type Cycle<S> = S[][];
 
+type Nullable<T> = T | null | undefined;
+type ScheduledValue = Nullable<number>;
+type Chord = Nullable<ScheduledValue[]>;
+
 interface StaticSchemaValue {
   value: number;
   startOffset: number;
@@ -18,10 +22,6 @@ interface RandomSchema {
   algorithm: "xor" | "mulberry";
   maskCycle: StaticSchemaValue[][];
 }
-
-type Nullable<T> = T | null | undefined;
-type ScheduledValue = Nullable<number>;
-type Chord = Nullable<ScheduledValue[]>;
 
 export type {
   NoteInput,

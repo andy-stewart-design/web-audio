@@ -1,9 +1,5 @@
 import PatternCycle from "./pattern-cycle";
-import type { StaticSchemaValue } from "./types";
-
-type Nullable<T> = T | null | undefined;
-type ScheduledValue = Nullable<number>;
-type Chord = Nullable<ScheduledValue[]>;
+import type { Chord, StaticSchemaValue } from "./types";
 
 class BinaryCycle extends PatternCycle<1 | 0> {
   constructor() {

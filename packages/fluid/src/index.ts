@@ -1,8 +1,10 @@
-import { ChordCycle, RandomCycle } from "@web-audio/patterns";
+import {
+  ChordCycle,
+  RandomCycle,
+  type Chord,
+  type ScheduledValue,
+} from "@web-audio/patterns";
 
-type Nullable<T> = T | null | undefined;
-type ScheduledValue = Nullable<number>;
-type Chord = Nullable<ScheduledValue[]>;
 type NoteInput<T> = (T | T[] | (T | T[])[])[];
 
 class Instrument {
@@ -70,7 +72,7 @@ class Synth extends Instrument {
     super([60]);
   }
 
-  note(...input: NoteInput<ScheduledValue> | [RandomCycle]) {
+  notes(...input: NoteInput<ScheduledValue> | [RandomCycle]) {
     if (isRandomCycleTuple(input)) {
       this._cycle = input[0];
     } else if (!isRandomCycle(this._cycle)) {
@@ -79,6 +81,7 @@ class Synth extends Instrument {
       );
       this._cycle.pattern(...cycle);
     }
+    return this;
   }
 }
 
