@@ -1,5 +1,5 @@
 import RandomCycle from "./random-cycle";
-import { ChordCycle, BinaryCycle } from "./static-cycles";
+import { ChordCycle, BinaryCycle, ValueCycle } from "./static-cycles";
 import type {
   Chord,
   RandomSchema,
@@ -11,6 +11,7 @@ export {
   BinaryCycle,
   ChordCycle,
   RandomCycle,
+  ValueCycle,
   type Chord,
   type RandomSchema,
   type ScheduledValue,

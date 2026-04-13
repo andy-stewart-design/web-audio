@@ -10,7 +10,12 @@ function App() {
 
   useEffect(() => {
     const synth = new Synth();
-    synth.notes([[60, 64], 67, 71], [71, 67, 64, 60]).euclid(3, 8);
+    synth
+      .root("c4")
+      .scale("maj")
+      .notes([[0, 2], 4, 6], [6, 4, 2, 0])
+      .euclid(3, 8)
+      .detune([0, 100]);
     console.log(synth.getSchema());
   }, []);
 

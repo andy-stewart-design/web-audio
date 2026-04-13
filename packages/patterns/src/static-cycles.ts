@@ -25,7 +25,7 @@ class ChordCycle extends PatternCycle<Chord> {
     super(defaultPatern, null);
   }
 
-  getStaticSchema(): StaticSchemaValue[][] {
+  getStaticSchema(transformer?: (v: number) => number): StaticSchemaValue[][] {
     return this._cycle.map((pattern) => {
       const stepDuration = 1 / pattern.length;
 
@@ -33,7 +33,7 @@ class ChordCycle extends PatternCycle<Chord> {
         (chord ?? [])
           .filter((v) => typeof v === "number")
           .map((value) => ({
-            value,
+            value: transformer ? transformer(value) : value,
             startOffset: stepDuration * chordIdx,
             duration: stepDuration,
           })),
@@ -42,4 +42,21 @@ class ChordCycle extends PatternCycle<Chord> {
   }
 }
 
-export { BinaryCycle, ChordCycle };
+class ValueCycle extends PatternCycle<number> {
+  constructor(defaultPatern: number[], nullValue: number) {
+    super(defaultPatern, nullValue);
+  }
+
+  getStaticSchema() {
+    return this._cycle.map((pattern) => {
+      const duration = 1 / pattern.length;
+
+      return pattern.reduce<StaticSchemaValue[]>((acc, value, i) => {
+        acc.push({ value, duration, startOffset: duration * i });
+        return acc;
+      }, []);
+    });
+  }
+}
+
+export { BinaryCycle, ChordCycle, ValueCycle };
