@@ -1,0 +1,48 @@
+import Parameter from "@/patterns/parameter";
+import Instrument from "./instrument";
+import type { RandomCycle } from "@web-audio/patterns";
+import type { Drome } from "@/index";
+import type { Waveform } from "@/types";
+
+interface SynthesizerOptions {
+  type?: Waveform;
+  host?: Drome;
+}
+
+class Synthesizer extends Instrument {
+  private _host: Drome | undefined;
+  private _type: Waveform;
+  private _detune: Parameter | undefined;
+
+  constructor({ type = "sine", host }: SynthesizerOptions = {}) {
+    super([60]);
+    this._type = type;
+    this._host = host;
+  }
+
+  type(t: Waveform) {
+    this._type = t;
+    return this;
+  }
+
+  detune(...input: (number | number[])[] | [RandomCycle]) {
+    this._detune = new Parameter(...input);
+    return this;
+  }
+
+  push() {
+    this._host?.push(this);
+    return this;
+  }
+
+  getSchema() {
+    return {
+      type: "synthesizer" as const,
+      waveform: this._type,
+      notes: this._cycle.getSchema(),
+      detune: this._detune?.getSchema(),
+    };
+  }
+}
+
+export default Synthesizer;

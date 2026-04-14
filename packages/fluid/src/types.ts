@@ -1,3 +1,4 @@
+import Synthesizer from "./instruments/synthesizer";
 import type { scaleAliasMap } from "./utils/get-scale";
 
 type ScaleAlias = keyof typeof scaleAliasMap;
@@ -12,4 +13,7 @@ type NoteNameUpper = NaturalNote | AccidentalNote;
 type NoteName = NoteNameUpper | Lowercase<NoteNameUpper>;
 type NoteValue = `${NoteName}${number}`;
 
-export type { ScaleAlias, NoteName, NoteValue };
+type Waveform = Exclude<OscillatorType, "custom">;
+type SynthesizerSchema = ReturnType<typeof Synthesizer.prototype.getSchema>;
+
+export type { SynthesizerSchema, Waveform, ScaleAlias, NoteName, NoteValue };
