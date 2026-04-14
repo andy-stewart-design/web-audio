@@ -13,7 +13,7 @@ class SynthesizerPlayer {
     this._schema = schema;
   }
 
-  scheduleBar(barIndex: number, barStartTime: number): void {
+  scheduleBar(barIndex: number, barStartTime: number) {
     const notes = this._schema.notes;
     if (notes.type === "random") return;
 
@@ -28,7 +28,7 @@ class SynthesizerPlayer {
     });
   }
 
-  private _getDetuneBar(barIndex: number): StaticSchemaValue[] | null {
+  private _getDetuneBar(barIndex: number) {
     const detune = this._schema.detune;
     if (!detune || !Array.isArray(detune) || detune.length === 0) return null;
     return detune[barIndex % detune.length];
