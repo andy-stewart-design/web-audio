@@ -1,5 +1,5 @@
 import PatternCycle from "./pattern-cycle";
-import type { Chord, StaticSchemaValue } from "./types";
+import type { Chord, StaticSchema, StaticSchemaValue } from "./types";
 
 class BinaryCycle extends PatternCycle<1 | 0> {
   constructor() {
@@ -7,7 +7,7 @@ class BinaryCycle extends PatternCycle<1 | 0> {
   }
 
   getStaticSchema() {
-    return this._cycle.map((pattern) => {
+    const cycle = this._cycle.map((pattern) => {
       const duration = 1 / pattern.length;
 
       return pattern.reduce<StaticSchemaValue[]>((acc, value, i) => {
@@ -17,6 +17,8 @@ class BinaryCycle extends PatternCycle<1 | 0> {
         return acc;
       }, []);
     });
+
+    return { type: "static", nested: false, cycle } satisfies StaticSchema;
   }
 }
 
@@ -25,8 +27,8 @@ class ChordCycle extends PatternCycle<Chord> {
     super(defaultPatern, null);
   }
 
-  getStaticSchema(transformer?: (v: number) => number): StaticSchemaValue[][] {
-    return this._cycle.map((pattern) => {
+  getStaticSchema(transformer?: (v: number) => number) {
+    const cycle = this._cycle.map((pattern) => {
       const stepDuration = 1 / pattern.length;
 
       return pattern.flatMap((chord, chordIdx) =>
@@ -39,6 +41,8 @@ class ChordCycle extends PatternCycle<Chord> {
           })),
       );
     });
+
+    return { type: "static", nested: true, cycle } satisfies StaticSchema;
   }
 }
 
@@ -48,7 +52,7 @@ class ValueCycle extends PatternCycle<number> {
   }
 
   getStaticSchema() {
-    return this._cycle.map((pattern) => {
+    const cycle = this._cycle.map((pattern) => {
       const duration = 1 / pattern.length;
 
       return pattern.reduce<StaticSchemaValue[]>((acc, value, i) => {
@@ -56,6 +60,8 @@ class ValueCycle extends PatternCycle<number> {
         return acc;
       }, []);
     });
+
+    return { type: "static", nested: false, cycle } satisfies StaticSchema;
   }
 }
 

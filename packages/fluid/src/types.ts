@@ -1,5 +1,10 @@
 import Synthesizer from "./instruments/synthesizer";
 import type { scaleAliasMap } from "./utils/get-scale";
+import type {
+  StaticSchema,
+  StaticSchemaValue,
+  RandomSchema,
+} from "@web-audio/patterns";
 
 type ScaleAlias = keyof typeof scaleAliasMap;
 
@@ -16,4 +21,13 @@ type NoteValue = `${NoteName}${number}`;
 type Waveform = Exclude<OscillatorType, "custom">;
 type SynthesizerSchema = ReturnType<typeof Synthesizer.prototype.getSchema>;
 
-export type { SynthesizerSchema, Waveform, ScaleAlias, NoteName, NoteValue };
+export type {
+  SynthesizerSchema,
+  Waveform,
+  ScaleAlias,
+  NoteName,
+  NoteValue,
+  StaticSchema,
+  StaticSchemaValue,
+  RandomSchema,
+};

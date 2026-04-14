@@ -58,15 +58,16 @@ class RandomCycle2 extends BinaryCycle {
   }
 
   getRandomSchema(): RandomSchema {
-    const maskCycle = this.getStaticSchema();
+    const cycle = this.getStaticSchema();
 
     return {
-      type: this._type,
+      type: "random",
+      cycle,
+      dataType: this._type,
       range: this._range,
       segments: this._segments ?? [{ seed: this._baseSeed }],
       algorithm: this._algorithm,
       quantValue: this._quantValue,
-      maskCycle,
     };
   }
 }

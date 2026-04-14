@@ -42,6 +42,15 @@ importers:
 
   apps/sequencer:
     dependencies:
+      '@web-audio/audio-engine':
+        specifier: workspace:*
+        version: link:../../packages/audio-engine
+      '@web-audio/clock':
+        specifier: workspace:*
+        version: link:../../packages/clock
+      '@web-audio/fluid':
+        specifier: workspace:*
+        version: link:../../packages/fluid
       react:
         specifier: ^19.2.4
         version: 19.2.5
@@ -87,6 +96,16 @@ importers:
         version: 8.0.8(@types/node@24.12.2)(esbuild@0.27.3)(jiti@2.6.1)(yaml@2.8.3)
 
   packages/audio-engine:
+    dependencies:
+      '@web-audio/clock':
+        specifier: workspace:*
+        version: link:../clock
+      '@web-audio/fluid':
+        specifier: workspace:*
+        version: link:../fluid
+      '@web-audio/patterns':
+        specifier: workspace:*
+        version: link:../patterns
     devDependencies:
       '@types/node':
         specifier: ^25.5.0

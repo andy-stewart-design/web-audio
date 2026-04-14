@@ -4,6 +4,7 @@ import type {
   Chord,
   RandomSchema,
   ScheduledValue,
+  StaticSchema,
   StaticSchemaValue,
 } from "./types";
 
@@ -15,5 +16,6 @@ export {
   type Chord,
   type RandomSchema,
   type ScheduledValue,
+  type StaticSchema,
   type StaticSchemaValue,
 };

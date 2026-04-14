@@ -14,18 +14,26 @@ interface StaticSchemaValue {
   duration: number;
 }
 
+interface StaticSchema {
+  type: "static";
+  nested: boolean;
+  cycle: StaticSchemaValue[][];
+}
+
 interface RandomSchema {
-  type: "float" | "integer" | "binary";
+  type: "random";
+  dataType: "float" | "integer" | "binary";
   segments: { seed: number; len?: number }[];
   quantValue: number | undefined;
   range: { min: number; max: number } | undefined;
   algorithm: "xor" | "mulberry";
-  maskCycle: StaticSchemaValue[][];
+  cycle: StaticSchema;
 }
 
 export type {
   NoteInput,
   Cycle,
+  StaticSchema,
   StaticSchemaValue,
   RandomSchema,
   Nullable,

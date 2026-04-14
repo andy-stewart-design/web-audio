@@ -1,5 +1,5 @@
 {
-  "name": "tsdown-starter",
+  "name": "@web-audio/audio-engine",
   "type": "module",
   "version": "0.0.0",
   "description": "A starter for creating a TypeScript package.",
@@ -27,6 +27,11 @@
     "typecheck": "tsc --noEmit",
     "release": "bumpp",
     "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "@web-audio/clock": "workspace:*",
+    "@web-audio/fluid": "workspace:*",
+    "@web-audio/patterns": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
