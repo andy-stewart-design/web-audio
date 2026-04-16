@@ -1,6 +1,4 @@
-import Parameter from "@/patterns/parameter";
 import Instrument from "./instrument";
-import type { RandomCycle } from "@web-audio/patterns";
 import type { Drome } from "@/index";
 import type { Waveform } from "@/types";
 
@@ -12,7 +10,6 @@ interface SynthesizerOptions {
 class Synthesizer extends Instrument {
   private _host: Drome | undefined;
   private _type: Waveform;
-  private _detune: Parameter | undefined;
 
   constructor({ type = "sine", host }: SynthesizerOptions = {}) {
     super([60]);
@@ -22,11 +19,6 @@ class Synthesizer extends Instrument {
 
   type(t: Waveform) {
     this._type = t;
-    return this;
-  }
-
-  detune(...input: (number | number[])[] | [RandomCycle]) {
-    this._detune = new Parameter(...input);
     return this;
   }
 

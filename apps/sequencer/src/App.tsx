@@ -49,8 +49,6 @@ function App() {
       new Function("drome", "d", input)(d, d);
       const schema = d.getSchema();
 
-      console.log(JSON.stringify(schema, null, 2));
-
       if (!clockRef.current) {
         // Initial start: subscribe the engine BEFORE clock.start() so it
         // receives bar 0 when the scheduler fires it on the first tick.

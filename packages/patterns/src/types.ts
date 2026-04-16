@@ -12,6 +12,7 @@ interface StaticSchemaValue {
   value: number;
   startOffset: number;
   duration: number;
+  chordIndex?: number;
 }
 
 interface StaticSchema {

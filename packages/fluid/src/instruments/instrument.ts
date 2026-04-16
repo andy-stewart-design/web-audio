@@ -4,6 +4,7 @@ import {
   type ScheduledValue,
 } from "@web-audio/patterns";
 import Notes from "@/patterns/notes";
+import Parameter from "@/patterns/parameter";
 import type { NoteName, NoteValue, ScaleAlias } from "@/types";
 
 type NoteOrChord<T> = T | T[];
@@ -11,6 +12,7 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class Instrument {
   protected _cycle: Notes;
+  protected _detune: Parameter | undefined;
 
   constructor(defaultPattern: Chord) {
     this._cycle = new Notes(defaultPattern);
@@ -72,6 +74,11 @@ class Instrument {
 
   stretch(bars: number, steps?: number) {
     this._cycle.stretch(bars, steps);
+    return this;
+  }
+
+  detune(...input: (number | number[])[] | [RandomCycle]) {
+    this._detune = new Parameter(...input);
     return this;
   }
 }

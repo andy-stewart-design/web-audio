@@ -22,7 +22,7 @@ class SynthesizerPlayer {
 
     notesBar.forEach((note, noteIndex) => {
       const detuneValue = detuneBar
-        ? detuneBar[noteIndex % detuneBar.length].value
+        ? detuneBar[(note.chordIndex ?? noteIndex) % detuneBar.length].value
         : 0;
       this._scheduleNote(note, barStartTime, detuneValue);
     });
@@ -30,8 +30,10 @@ class SynthesizerPlayer {
 
   private _getDetuneBar(barIndex: number) {
     const detune = this._schema.detune;
-    if (!detune || !Array.isArray(detune) || detune.length === 0) return null;
-    return detune[barIndex % detune.length];
+    console.log(detune);
+
+    if (!detune || detune.type === "random") return null;
+    return detune.cycle[barIndex % detune.cycle.length];
   }
 
   private _scheduleNote(
@@ -54,7 +56,10 @@ class SynthesizerPlayer {
     gain.gain.setValueAtTime(0, startTime);
     gain.gain.linearRampToValueAtTime(0.25, startTime + attackTime);
     gain.gain.setValueAtTime(0.25, endTime);
-    gain.gain.linearRampToValueAtTime(0.001, endTime + 0.5 * note.duration);
+    gain.gain.linearRampToValueAtTime(
+      0.001,
+      endTime + attackTime * note.duration,
+    );
 
     osc.connect(gain);
     gain.connect(this._ctx.destination);

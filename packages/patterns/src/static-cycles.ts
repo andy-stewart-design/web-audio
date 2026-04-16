@@ -38,6 +38,7 @@ class ChordCycle extends PatternCycle<Chord> {
             value: transformer ? transformer(value) : value,
             startOffset: stepDuration * chordIdx,
             duration: stepDuration,
+            chordIndex: chordIdx,
           })),
       );
     });
