@@ -20,9 +20,9 @@ class SynthesizerPlayer {
     const notesBar = notes.cycle[barIndex % notes.cycle.length];
     const detuneBar = this._getDetuneBar(barIndex);
 
-    notesBar.forEach((note, noteIndex) => {
+    notesBar.forEach((note) => {
       const detuneValue = detuneBar
-        ? detuneBar[(note.chordIndex ?? noteIndex) % detuneBar.length].value
+        ? detuneBar[(note.chordIndex ?? 0) % detuneBar.length].value
         : 0;
       this._scheduleNote(note, barStartTime, detuneValue);
     });
