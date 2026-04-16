@@ -8,6 +8,7 @@ import { getScale } from "@/utils/get-scale";
 import { noteToMidi } from "@/utils/note-string-to-midi";
 import { midiToFrequency } from "@/utils/midi-to-frequency";
 import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
+import type { RandomSchema, StaticSchema } from "@web-audio/patterns";
 import type { NoteName, NoteValue, ScaleAlias } from "@/types";
 
 type NoteOrChord<T> = T | T[];
@@ -98,7 +99,7 @@ class Notes {
     return this;
   }
 
-  getSchema() {
+  getSchema(): RandomSchema | StaticSchema {
     if (isRandomCycle(this._cycle)) {
       return this._cycle.getRandomSchema();
     } else {
