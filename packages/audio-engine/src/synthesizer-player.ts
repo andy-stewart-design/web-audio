@@ -22,7 +22,7 @@ class SynthesizerPlayer {
 
     notesBar.forEach((note) => {
       const detuneValue = detuneBar
-        ? detuneBar[(note.chordIndex ?? 0) % detuneBar.length].value
+        ? detuneBar[note.stepIndex % detuneBar.length].value
         : 0;
       this._scheduleNote(note, barStartTime, detuneValue);
     });
@@ -30,7 +30,6 @@ class SynthesizerPlayer {
 
   private _getDetuneBar(barIndex: number) {
     const detune = this._schema.detune;
-    console.log(detune);
 
     if (!detune || detune.type === "random") return null;
     return detune.cycle[barIndex % detune.cycle.length];
@@ -42,7 +41,7 @@ class SynthesizerPlayer {
     detuneValue: number,
   ): void {
     const barDuration = this._clock.barDuration;
-    const startTime = barStartTime + note.startOffset * barDuration;
+    const startTime = barStartTime + note.offset * barDuration;
     const endTime = startTime + note.duration * barDuration;
     const attackTime = 0.005;
 

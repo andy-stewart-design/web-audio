@@ -12,13 +12,13 @@ class BinaryCycle extends PatternCycle<1 | 0> {
 
       return pattern.reduce<StaticSchemaValue[]>((acc, value, i) => {
         if (value === 1) {
-          acc.push({ value, duration, startOffset: duration * i });
+          acc.push({ value, duration, offset: duration * i, stepIndex: i });
         }
         return acc;
       }, []);
     });
 
-    return { type: "static", nested: false, cycle } satisfies StaticSchema;
+    return { type: "static", polyphonic: false, cycle } satisfies StaticSchema;
   }
 }
 
@@ -31,19 +31,19 @@ class ChordCycle extends PatternCycle<Chord> {
     const cycle = this._cycle.map((pattern) => {
       const stepDuration = 1 / pattern.length;
 
-      return pattern.flatMap((chord, chordIdx) =>
+      return pattern.flatMap((chord, stepIndex) =>
         (chord ?? [])
           .filter((v) => typeof v === "number")
           .map((value) => ({
             value: transformer ? transformer(value) : value,
-            startOffset: stepDuration * chordIdx,
+            offset: stepDuration * stepIndex,
             duration: stepDuration,
-            chordIndex: chordIdx,
+            stepIndex,
           })),
       );
     });
 
-    return { type: "static", nested: true, cycle } satisfies StaticSchema;
+    return { type: "static", polyphonic: true, cycle } satisfies StaticSchema;
   }
 }
 
@@ -57,12 +57,12 @@ class ValueCycle extends PatternCycle<number> {
       const duration = 1 / pattern.length;
 
       return pattern.reduce<StaticSchemaValue[]>((acc, value, i) => {
-        acc.push({ value, duration, startOffset: duration * i });
+        acc.push({ value, duration, offset: duration * i, stepIndex: i });
         return acc;
       }, []);
     });
 
-    return { type: "static", nested: false, cycle } satisfies StaticSchema;
+    return { type: "static", polyphonic: false, cycle } satisfies StaticSchema;
   }
 }
 

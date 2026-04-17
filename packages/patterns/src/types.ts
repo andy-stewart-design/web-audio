@@ -10,14 +10,14 @@ type Chord = Nullable<ScheduledValue[]>;
 
 interface StaticSchemaValue {
   value: number;
-  startOffset: number;
+  offset: number;
   duration: number;
-  chordIndex?: number;
+  stepIndex: number;
 }
 
 interface StaticSchema {
   type: "static";
-  nested: boolean;
+  polyphonic: boolean;
   cycle: StaticSchemaValue[][];
 }
 
