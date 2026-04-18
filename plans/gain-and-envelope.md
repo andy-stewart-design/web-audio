@@ -110,19 +110,20 @@ type SynthesizerSchema = {
 
 - Engine clamps computed A and R to a minimum of 5ms absolute, regardless of schema values, to prevent popping.
 
+## Prerequisite
+
+[Engine Random Resolution & Detune Cleanup](./engine-random-and-detune-cleanup.md) must be completed first. That plan establishes:
+- `_resolve` method in the engine (handles both `StaticSchema` and `RandomSchema`)
+- `RandomResolver` class with `Map<RandomSchema, RandomResolver>` for lazy creation
+- Detune as a required, non-optional field on `SynthesizerSchema`
+
+This plan builds on that foundation — `_resolve` is a trusted, complete primitive.
+
 ## Engine Resolution
 
-Single `_resolve` method for all `ParameterSchema` lookups:
+Uses the `_resolve` method established in the prerequisite plan:
 
 ```ts
-private _resolve(schema: ParameterSchema, barIndex: number, noteIndex: number) {
-  if (schema.type === "random") {
-    // random resolution logic (future implementation)
-  }
-  const bar = schema.cycle[barIndex % schema.cycle.length];
-  return bar[noteIndex % bar.length].value;
-}
-
 private _getEnvelopeValues(barIndex: number, noteIndex: number) {
   const gain = this._schema.gain;
   return {
@@ -139,11 +140,6 @@ private _getEnvelopeValues(barIndex: number, noteIndex: number) {
 
 ## Implementation Phases
 
-### Phase 0: Detune cleanup
-- Make `detune` required on `SynthesizerSchema` (fluid provides default static 0)
-- Implement `_resolve` method in engine
-- Refactor engine to use `_resolve` for detune lookups
-
 ### Phase 1: Simple gain
 - Add `ParameterSchema` and `EnvelopeSchema` types
 - Add `Envelope` builder class with `.adsr()`, `.a()`, `.d()`, `.s()`, `.r()`, `.mode()`, `.getSchema()`
@@ -157,7 +153,3 @@ private _getEnvelopeValues(barIndex: number, noteIndex: number) {
 - Update `.detune()` to also accept `Envelope`
 - Update engine to handle `EnvelopeSchema` on detune param
 - Engine applies detune envelope over note lifetime
-
-### Phase 3: RandomSchema in engine
-- Implement random resolution in `_resolve`
-- Works automatically for gain max, ADSR params, and detune
