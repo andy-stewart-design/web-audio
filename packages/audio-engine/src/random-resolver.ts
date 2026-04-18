@@ -89,7 +89,13 @@ class RandomResolver {
           rFloat = Math.abs(seedToRand(seed));
           seed = xorwise(seed);
         }
-        result.push(this._mapper(rFloat, rangeStart, rangeEnd));
+        const mapped = this._mapper(rFloat, rangeStart, rangeEnd);
+        if (this._schema.valueMap) {
+          const index = Math.floor(mapped) % this._schema.valueMap.length;
+          result.push(this._schema.valueMap[index]);
+        } else {
+          result.push(mapped);
+        }
       }
     }
 

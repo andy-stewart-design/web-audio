@@ -2,6 +2,7 @@ import type AudioClock from "@web-audio/clock";
 import type { SynthesizerSchema } from "@web-audio/fluid";
 import type { RandomSchema, StaticSchema, StaticSchemaValue } from "@web-audio/patterns";
 import RandomResolver from "./random-resolver";
+import { midiToFrequency } from "./utils/midi-to-frequency";
 
 type ParameterSchema = StaticSchema | RandomSchema;
 
@@ -19,10 +20,19 @@ class SynthesizerPlayer {
 
   scheduleBar(barIndex: number, barStartTime: number) {
     const notes = this._schema.notes;
-    if (notes.type === "random") return;
+
+    if (notes.type === "random") {
+      const mask = notes.cycle.cycle[barIndex % notes.cycle.cycle.length];
+      mask.forEach((step, stepIndex) => {
+        if (step.value === 0) return;
+        const midiNote = this._resolve(notes, barIndex, stepIndex);
+        const detuneValue = this._resolve(this._schema.detune, barIndex, stepIndex);
+        this._scheduleNote({ ...step, value: midiNote }, barStartTime, detuneValue);
+      });
+      return;
+    }
 
     const notesBar = notes.cycle[barIndex % notes.cycle.length];
-
     notesBar.forEach((note) => {
       const detuneValue = this._resolve(this._schema.detune, barIndex, note.stepIndex);
       this._scheduleNote(note, barStartTime, detuneValue);
@@ -58,7 +68,7 @@ class SynthesizerPlayer {
 
     const osc = new OscillatorNode(this._ctx, {
       type: this._schema.waveform,
-      frequency: note.value,
+      frequency: midiToFrequency(note.value),
       detune: detuneValue,
     });
     const gain = new GainNode(this._ctx);

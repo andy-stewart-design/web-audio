@@ -29,6 +29,7 @@ interface RandomSchema {
   range: { min: number; max: number } | undefined;
   algorithm: "xor" | "mulberry";
   cycle: StaticSchema;
+  valueMap?: number[];
 }
 
 export type {
