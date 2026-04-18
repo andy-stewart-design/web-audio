@@ -1,11 +1,15 @@
 import type AudioClock from "@web-audio/clock";
 import type { SynthesizerSchema } from "@web-audio/fluid";
-import type { StaticSchemaValue } from "@web-audio/patterns";
+import type { RandomSchema, StaticSchema, StaticSchemaValue } from "@web-audio/patterns";
+import RandomResolver from "./random-resolver";
+
+type ParameterSchema = StaticSchema | RandomSchema;
 
 class SynthesizerPlayer {
   private _ctx: AudioContext;
   private _clock: AudioClock;
   private _schema: SynthesizerSchema;
+  private _resolvers = new Map<RandomSchema, RandomResolver>();
 
   constructor(ctx: AudioContext, clock: AudioClock, schema: SynthesizerSchema) {
     this._ctx = ctx;
@@ -18,21 +22,28 @@ class SynthesizerPlayer {
     if (notes.type === "random") return;
 
     const notesBar = notes.cycle[barIndex % notes.cycle.length];
-    const detuneBar = this._getDetuneBar(barIndex);
 
     notesBar.forEach((note) => {
-      const detuneValue = detuneBar
-        ? detuneBar[note.stepIndex % detuneBar.length].value
-        : 0;
+      const detuneValue = this._resolve(this._schema.detune, barIndex, note.stepIndex);
       this._scheduleNote(note, barStartTime, detuneValue);
     });
   }
 
-  private _getDetuneBar(barIndex: number) {
-    const detune = this._schema.detune;
+  private _resolve(schema: ParameterSchema, barIndex: number, stepIndex: number): number {
+    if (schema.type === "random") {
+      return this._getResolver(schema).resolve(barIndex, stepIndex);
+    }
+    const bar = schema.cycle[barIndex % schema.cycle.length];
+    return bar[stepIndex % bar.length].value;
+  }
 
-    if (!detune || detune.type === "random") return null;
-    return detune.cycle[barIndex % detune.cycle.length];
+  private _getResolver(schema: RandomSchema): RandomResolver {
+    let resolver = this._resolvers.get(schema);
+    if (!resolver) {
+      resolver = new RandomResolver(schema);
+      this._resolvers.set(schema, resolver);
+    }
+    return resolver;
   }
 
   private _scheduleNote(

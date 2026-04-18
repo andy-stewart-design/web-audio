@@ -1,3 +1,4 @@
+import { RandomCycle } from "@web-audio/patterns";
 import Synthesizer from "./instruments/synthesizer";
 import type { SynthesizerSchema, Waveform } from "./types";
 
@@ -10,6 +11,10 @@ class Drome {
 
   synth(type?: Waveform) {
     return new Synthesizer({ host: this, type });
+  }
+
+  rand() {
+    return new RandomCycle();
   }
 
   push(inst: Synthesizer) {

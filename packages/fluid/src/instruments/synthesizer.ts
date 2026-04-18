@@ -32,7 +32,7 @@ class Synthesizer extends Instrument {
       type: "synthesizer" as const,
       waveform: this._type,
       notes: this._cycle.getSchema(),
-      detune: this._detune?.getSchema(),
+      detune: this._detune.getSchema(),
     };
   }
 }
