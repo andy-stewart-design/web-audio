@@ -13,6 +13,7 @@ class AudioEngine {
   private _pending: DromeSchema | null = null;
   private _unsubPrebar: () => void;
   private _unsubBar: () => void;
+  private _unsubStop: () => void;
 
   constructor(ctx: AudioContext, clock: AudioClock) {
     this._ctx = ctx;
@@ -24,6 +25,10 @@ class AudioEngine {
 
     this._unsubBar = clock.on("bar", ({ bar }, time) => {
       this._players.forEach((p) => p.scheduleBar(bar, time));
+    });
+
+    this._unsubStop = clock.on("stop", () => {
+      this._players.forEach((p) => p.cancelFutureNotes());
     });
   }
 
@@ -57,6 +62,7 @@ class AudioEngine {
   destroy(): void {
     this._unsubPrebar();
     this._unsubBar();
+    this._unsubStop();
     this._players = [];
     this._retiring = [];
     this._pending = null;

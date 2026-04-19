@@ -1,10 +1,12 @@
 # Engine Queue: Bar-Aligned Schema Updates
 
+Status: **Complete**
+
 ## Goal
 
 Refactor AudioEngine from a create-per-eval model to a long-lived instance with
 queued, bar-aligned schema updates. Ensures re-evaluation never disrupts
-currently-playing audio.
+currently-playing audio. Cancel future-scheduled notes on stop.
 
 ## Design Decisions
 
@@ -20,14 +22,16 @@ currently-playing audio.
   ticking, the engine does nothing
 - **Empty schemas are not special-cased**: zero instruments means nothing gets
   scheduled
+- **Cancel on stop**: when the clock stops, future-scheduled notes (startTime >
+  now) are cancelled immediately; currently-sounding notes finish naturally
 
 ## Implementation
 
-### 1. Refactor AudioEngine (`packages/audio-engine/src/index.ts`)
+### 1. Refactor AudioEngine (`packages/audio-engine/src/index.ts`) — Done
 
 **Constructor** changes from `(ctx, clock, schema)` to `(ctx, clock)`:
 - Stores `ctx` and `clock`
-- Subscribes to `prebar` and `bar` events
+- Subscribes to `prebar`, `bar`, and `stop` events
 - No players created yet
 
 **`update(schema: DromeSchema)`**:
@@ -36,22 +40,34 @@ currently-playing audio.
   has players ready
 
 **`prebar` handler (commit phase)**:
+- Clean up players retired from the previous bar
 - If `this._pending` exists:
   - Move current `_players` to `_retiring` list
   - Create new `_players` from `this._pending`
   - Clear `this._pending`
-- If `_retiring` has players from a previous swap (one bar has passed), clean
-  them up (currently a no-op since oscillators self-disconnect via `onended`,
-  but this is where future cleanup like disconnecting effect chains would go)
 
 **`bar` handler (apply phase)**:
-- Schedule all current `_players` for this bar (same as today)
+- Schedule all current `_players` for this bar
+
+**`stop` handler**:
+- Calls `cancelFutureNotes()` on all active players
 
 **`destroy()`**:
-- Unsubscribes from clock events
+- Unsubscribes from all clock events
 - Clears players and retiring list
 
-### 2. Update App (`apps/sequencer/src/App.tsx`)
+### 2. Cancel Future Notes (`packages/audio-engine/src/synthesizer-player.ts`) — Done
+
+**`ScheduledNote` tracking**:
+- Each scheduled oscillator/gain pair is tracked in a `Set<ScheduledNote>` with
+  its `startTime`
+- Self-removes via `onended` callback when the note finishes naturally
+
+**`cancelFutureNotes()`**:
+- Iterates tracked notes, stops and disconnects any where `startTime > ctx.currentTime`
+- Currently-sounding notes are left alone to finish naturally
+
+### 3. Update App (`apps/sequencer/src/App.tsx`) — Done
 
 **`getEngine()`** — lazy initializer like `getAudio()` and `getClock()`:
 - Creates `new AudioEngine(getAudio().ctx, getClock())`
@@ -63,15 +79,16 @@ currently-playing audio.
 - Starts clock if not running
 
 **`stopClock()`**:
-- Stops the clock
+- Stops the clock (engine reacts via stop event)
 - Does NOT destroy the engine
 
 **Cleanup effect**:
 - Calls `engineRef.current?.destroy()` on unmount
 
-### 3. Files Changed
+### 4. Files Changed
 
 | File | Change |
 |------|--------|
-| `packages/audio-engine/src/index.ts` | Rewrite constructor, add `update()`, add `prebar`/`bar` handlers, retiring queue |
+| `packages/audio-engine/src/index.ts` | Rewrite constructor, add `update()`, `prebar`/`bar`/`stop` handlers, retiring queue |
+| `packages/audio-engine/src/synthesizer-player.ts` | Track scheduled notes, add `cancelFutureNotes()` |
 | `apps/sequencer/src/App.tsx` | Long-lived engine via `getEngine()`, simplified `evaluate()` and `stopClock()` |
