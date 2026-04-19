@@ -43,33 +43,30 @@ function App() {
     return clockRef.current;
   };
 
+  const getEngine = () => {
+    if (!engineRef.current) {
+      engineRef.current = new AudioEngine(getAudio().ctx, getClock());
+    }
+    return engineRef.current;
+  };
+
   const stopClock = () => {
     if (!isRunning) return;
-    engineRef.current?.destroy();
-    engineRef.current = null;
     clockRef.current?.stop();
     setIsRunning(false);
   };
 
   const evaluate = async (input: string) => {
-    engineRef.current?.destroy();
-    engineRef.current = null;
-
     try {
       const d = new Drome();
       new Function("drome", "d", input)(d, d);
       const schema = d.getSchema();
 
-      const clock = getClock();
+      getEngine().update(schema);
 
       if (!isRunning) {
-        if (schema.instruments.length > 0) {
-          engineRef.current = new AudioEngine(getAudio().ctx, clock, schema);
-        }
-        await clock.start();
+        await getClock().start();
         setIsRunning(true);
-      } else if (schema.instruments.length > 0) {
-        engineRef.current = new AudioEngine(getAudio().ctx, clock, schema);
       }
 
       addLog("✓", "output");
