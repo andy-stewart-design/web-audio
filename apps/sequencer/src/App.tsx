@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import AudioClock from "@web-audio/clock";
-import { createAudioContext, type ManagedAudioContext } from "@web-audio/context";
+import {
+  createAudioContext,
+  type ManagedAudioContext,
+} from "@web-audio/context";
 import Drome from "@web-audio/fluid";
 import AudioEngine from "@web-audio/audio-engine";
 
@@ -40,12 +43,8 @@ function App() {
     return clockRef.current;
   };
 
-  const startClock = async () => {
-    await getClock().start();
-    setIsRunning(true);
-  };
-
   const stopClock = () => {
+    if (!isRunning) return;
     engineRef.current?.destroy();
     engineRef.current = null;
     clockRef.current?.stop();
@@ -100,10 +99,10 @@ function App() {
     >
       <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
         <button
-          onClick={isRunning ? stopClock : startClock}
+          onClick={() => evaluate(code)}
           style={{
             padding: "6px 16px",
-            backgroundColor: isRunning ? "#ff4757" : "#2ed573",
+            backgroundColor: "#1e90ff",
             color: "white",
             border: "none",
             borderRadius: "4px",
@@ -111,8 +110,28 @@ function App() {
             fontFamily: "monospace",
           }}
         >
-          {isRunning ? "stop" : "start"}
+          run
         </button>
+        <button
+          onClick={stopClock}
+          style={{
+            padding: "6px 16px",
+            backgroundColor: "#ff4757",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontFamily: "monospace",
+          }}
+          disabled={!isRunning}
+        >
+          stop
+        </button>
+        <span
+          style={{ fontSize: "0.75rem", color: "#888", alignSelf: "center" }}
+        >
+          ⌘↵
+        </span>
       </div>
 
       <textarea
@@ -134,28 +153,6 @@ function App() {
           boxSizing: "border-box",
         }}
       />
-
-      <div style={{ display: "flex", gap: "8px", margin: "8px 0" }}>
-        <button
-          onClick={() => evaluate(code)}
-          style={{
-            padding: "6px 16px",
-            backgroundColor: "#1e90ff",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-            fontFamily: "monospace",
-          }}
-        >
-          run
-        </button>
-        <span
-          style={{ fontSize: "0.75rem", color: "#888", alignSelf: "center" }}
-        >
-          or ⌘↵
-        </span>
-      </div>
 
       <div
         style={{

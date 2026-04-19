@@ -96,6 +96,11 @@ function createAudioContext(options: AudioContextOptions = {}): ManagedAudioCont
     window.addEventListener(event, unlock, true);
   }
 
+  // Attempt unlock immediately — createAudioContext is likely called
+  // from within a user gesture, and the listeners above will miss
+  // the current event since it's already propagating.
+  unlock();
+
   // Set up visibility listeners
   document.addEventListener("visibilitychange", handleVisibility);
   window.addEventListener("focus", handleFocus);
