@@ -116,9 +116,9 @@ interface SynthesizerSchema {
 
 The following foundational work has been completed:
 
-- [Engine Random Resolution & Detune Cleanup](./engine-random-and-detune-cleanup.md) — `_resolve` method, `RandomResolver`, detune always present on schema
-- [Schema MIDI & Random Notes](./schema-midi-and-random-notes.md) — schema uses MIDI values, random notes work, `valueMap` on `RandomSchema`
-- [Extract Schema Package](./extract-schema-package.md) — `@web-audio/schema` owns all schema types, engine no longer depends on fluid or patterns
+- [Engine Random Resolution & Detune Cleanup](./completed/engine-random-and-detune-cleanup.md) — `_resolve` method, `RandomResolver`, detune always present on schema
+- [Schema MIDI & Random Notes](./completed/schema-midi-and-random-notes.md) — schema uses MIDI values, random notes work, `valueMap` on `RandomSchema`
+- [Extract Schema Package](./completed/extract-schema-package.md) — `@web-audio/schema` owns all schema types, engine no longer depends on fluid or patterns
 
 ## Engine Resolution
 
