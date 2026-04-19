@@ -1,6 +1,11 @@
-// Generic cycle utilities parameterized over a "step" type S.
-// Flat arrays use S = T, nested arrays use S = T | T[].
+// Schema types — re-exported from @web-audio/schema
+export type {
+  StaticSchema,
+  StaticSchemaValue,
+  RandomSchema,
+} from "@web-audio/schema";
 
+// Internal pattern types — owned by this package
 type NoteInput<S> = S | S[];
 type Cycle<S> = S[][];
 
@@ -8,37 +13,4 @@ type Nullable<T> = T | null | undefined;
 type ScheduledValue = Nullable<number>;
 type Chord = Nullable<ScheduledValue[]>;
 
-interface StaticSchemaValue {
-  value: number;
-  offset: number;
-  duration: number;
-  stepIndex: number;
-}
-
-interface StaticSchema {
-  type: "static";
-  polyphonic: boolean;
-  cycle: StaticSchemaValue[][];
-}
-
-interface RandomSchema {
-  type: "random";
-  dataType: "float" | "integer" | "binary";
-  segments: { seed: number; len?: number }[];
-  quantValue: number | undefined;
-  range: { min: number; max: number } | undefined;
-  algorithm: "xor" | "mulberry";
-  cycle: StaticSchema;
-  valueMap?: number[];
-}
-
-export type {
-  NoteInput,
-  Cycle,
-  StaticSchema,
-  StaticSchemaValue,
-  RandomSchema,
-  Nullable,
-  ScheduledValue,
-  Chord,
-};
+export type { NoteInput, Cycle, Nullable, ScheduledValue, Chord };

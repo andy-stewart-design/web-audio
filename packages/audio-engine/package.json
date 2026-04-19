@@ -30,8 +30,7 @@
   },
   "dependencies": {
     "@web-audio/clock": "workspace:*",
-    "@web-audio/fluid": "workspace:*",
-    "@web-audio/patterns": "workspace:*"
+    "@web-audio/schema": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",

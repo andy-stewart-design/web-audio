@@ -7,7 +7,7 @@ const noteNames: Record<string, number> = {
   Ab: 8, A: 9, "A#": 10, Bb: 10, B: 11,
 };
 
-function noteToMidi(noteString: NoteName | NoteValue) {
+function noteStringToMidi(noteString: NoteName | NoteValue) {
   const match = noteString.match(/([CDEFGAB][#b]?)(-?\d+)?/i);
   if (!match) return null;
 
@@ -22,4 +22,4 @@ function noteToMidi(noteString: NoteName | NoteValue) {
   return (octave + 1) * 12 + baseValue;
 }
 
-export { noteToMidi };
+export { noteStringToMidi };

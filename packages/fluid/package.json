@@ -29,7 +29,8 @@
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@web-audio/patterns": "workspace:*"
+    "@web-audio/patterns": "workspace:*",
+    "@web-audio/schema": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",

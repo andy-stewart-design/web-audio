@@ -1,6 +1,6 @@
 import { RandomCycle, ValueCycle } from "@web-audio/patterns";
 import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
-import type { RandomSchema, StaticSchema } from "@web-audio/patterns";
+import type { RandomSchema, StaticSchema } from "@web-audio/schema";
 
 class Parameter {
   protected _cycle: ValueCycle | RandomCycle;

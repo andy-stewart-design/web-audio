@@ -5,9 +5,9 @@ import {
   type ScheduledValue,
 } from "@web-audio/patterns";
 import { getScale } from "@/utils/get-scale";
-import { noteToMidi } from "@/utils/note-string-to-midi";
+import { noteStringToMidi } from "@/utils/note-string-to-midi";
 import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
-import type { RandomSchema, StaticSchema } from "@web-audio/patterns";
+import type { RandomSchema, StaticSchema } from "@web-audio/schema";
 import type { NoteName, NoteValue, ScaleAlias } from "@/types";
 
 type NoteOrChord<T> = T | T[];
@@ -46,7 +46,7 @@ class Notes {
 
   root(n: NoteName | NoteValue | number) {
     if (typeof n === "number") this._root = n;
-    else this._root = noteToMidi(n) || 0;
+    else this._root = noteStringToMidi(n) || 0;
     return this;
   }
 

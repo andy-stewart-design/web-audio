@@ -1,10 +1,7 @@
 import type AudioClock from "@web-audio/clock";
-import type { SynthesizerSchema } from "@web-audio/fluid";
-import type { RandomSchema, StaticSchema, StaticSchemaValue } from "@web-audio/patterns";
+import type { ParameterSchema, RandomSchema, StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
 import RandomResolver from "./random-resolver";
 import { midiToFrequency } from "./utils/midi-to-frequency";
-
-type ParameterSchema = StaticSchema | RandomSchema;
 
 class SynthesizerPlayer {
   private _ctx: AudioContext;

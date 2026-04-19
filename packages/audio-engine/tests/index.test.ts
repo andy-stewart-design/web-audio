@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
-import { AudioEngine, SynthesizerPlayer } from '../src'
+import AudioEngine from '../src'
 
-test('exports AudioEngine and SynthesizerPlayer', () => {
+test('exports AudioEngine', () => {
   expect(AudioEngine).toBeDefined()
-  expect(SynthesizerPlayer).toBeDefined()
 })

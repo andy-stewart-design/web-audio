@@ -1,4 +1,4 @@
-import type { RandomSchema } from "@web-audio/patterns";
+import type { RandomSchema } from "@web-audio/schema";
 import {
   getSeed,
   seedToRand,

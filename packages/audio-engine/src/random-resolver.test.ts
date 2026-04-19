@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RandomSchema } from "@web-audio/patterns";
+import type { RandomSchema } from "@web-audio/schema";
 import RandomResolver from "./random-resolver";
 
 function makeSchema(overrides: Partial<RandomSchema> = {}): RandomSchema {

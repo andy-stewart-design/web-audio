@@ -52,10 +52,11 @@ Both `.gain()` and `.detune()` accept: `(number | number[])[] | [RandomCycle] | 
 
 ## Schema Types
 
-```ts
-type ParameterSchema = StaticSchema | RandomSchema;
+`EnvelopeSchema` will be added to `@web-audio/schema` alongside the existing types. `ParameterSchema` already exists there.
 
-type EnvelopeSchema = {
+```ts
+// New — added to @web-audio/schema
+interface EnvelopeSchema {
   type: "envelope";
   min: number;
   max: ParameterSchema;
@@ -64,15 +65,16 @@ type EnvelopeSchema = {
   s: ParameterSchema;
   r: ParameterSchema;
   mode: "bleed" | "clip";
-};
+}
 
-type SynthesizerSchema = {
+// Updated — already exists in @web-audio/schema
+interface SynthesizerSchema {
   type: "synthesizer";
   waveform: Waveform;
-  notes: StaticSchema | RandomSchema;
+  notes: ParameterSchema;
   detune: ParameterSchema | EnvelopeSchema;
   gain: EnvelopeSchema;
-};
+}
 ```
 
 - `gain` is always an `EnvelopeSchema` (always present).
@@ -110,18 +112,17 @@ type SynthesizerSchema = {
 
 - Engine clamps computed A and R to a minimum of 5ms absolute, regardless of schema values, to prevent popping.
 
-## Prerequisite
+## Prerequisites (completed)
 
-[Engine Random Resolution & Detune Cleanup](./engine-random-and-detune-cleanup.md) must be completed first. That plan establishes:
-- `_resolve` method in the engine (handles both `StaticSchema` and `RandomSchema`)
-- `RandomResolver` class with `Map<RandomSchema, RandomResolver>` for lazy creation
-- Detune as a required, non-optional field on `SynthesizerSchema`
+The following foundational work has been completed:
 
-This plan builds on that foundation — `_resolve` is a trusted, complete primitive.
+- [Engine Random Resolution & Detune Cleanup](./engine-random-and-detune-cleanup.md) — `_resolve` method, `RandomResolver`, detune always present on schema
+- [Schema MIDI & Random Notes](./schema-midi-and-random-notes.md) — schema uses MIDI values, random notes work, `valueMap` on `RandomSchema`
+- [Extract Schema Package](./extract-schema-package.md) — `@web-audio/schema` owns all schema types, engine no longer depends on fluid or patterns
 
 ## Engine Resolution
 
-Uses the `_resolve` method established in the prerequisite plan:
+Uses the `_resolve` method already implemented in the engine:
 
 ```ts
 private _getEnvelopeValues(barIndex: number, noteIndex: number) {
@@ -141,13 +142,14 @@ private _getEnvelopeValues(barIndex: number, noteIndex: number) {
 ## Implementation Phases
 
 ### Phase 1: Simple gain
-- Add `ParameterSchema` and `EnvelopeSchema` types
-- Add `Envelope` builder class with `.adsr()`, `.a()`, `.d()`, `.s()`, `.r()`, `.mode()`, `.getSchema()`
+- Add `EnvelopeSchema` to `@web-audio/schema`
+- Update `SynthesizerSchema` in schema package — add `gain: EnvelopeSchema`, update `detune` to `ParameterSchema | EnvelopeSchema`
+- Add `Envelope` builder class in fluid with `.adsr()`, `.a()`, `.d()`, `.s()`, `.r()`, `.mode()`, `.getSchema()`
 - Add `d.env()` to Drome
 - Add `.gain()` to Instrument (accepts numbers/cycles/RandomCycle/Envelope)
 - Fluid resolves `.gain(0.75)` into full `EnvelopeSchema` with defaults
-- Update `SynthesizerSchema` — gain required
-- Update engine `_scheduleNote` to read gain envelope from schema
+- Fluid provides default gain envelope when `.gain()` is not called
+- Update engine `_scheduleNote` to read gain envelope from schema via `_getEnvelopeValues`
 
 ### Phase 2: Envelope on detune
 - Update `.detune()` to also accept `Envelope`
