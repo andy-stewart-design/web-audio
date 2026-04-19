@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
-import { fn } from '../src'
+import AudioEngine from '../src'
 
-test('fn', () => {
-  expect(fn()).toBe('Hello, tsdown!')
+test('exports AudioEngine', () => {
+  expect(AudioEngine).toBeDefined()
 })

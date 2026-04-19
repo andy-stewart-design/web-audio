@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import AudioClock from "@web-audio/clock";
-import { Drome } from "@web-audio/fluid";
-import { AudioEngine } from "@web-audio/audio-engine";
+import Drome from "@web-audio/fluid";
+import AudioEngine from "@web-audio/audio-engine";
 
 const DEFAULT_CODE = `d.synth("triangle")
  .root("c4")
@@ -26,7 +26,7 @@ function App() {
 
   const startClock = async () => {
     const ctx = new AudioContext();
-    const clock = new AudioClock(ctx, 160, 4);
+    const clock = new AudioClock(ctx, 140, 4);
     clockRef.current = clock;
     await clock.start();
     setIsRunning(true);
@@ -53,7 +53,7 @@ function App() {
         // Initial start: subscribe the engine BEFORE clock.start() so it
         // receives bar 0 when the scheduler fires it on the first tick.
         const ctx = new AudioContext();
-        const clock = new AudioClock(ctx, 160, 4);
+        const clock = new AudioClock(ctx, 140, 4);
         clockRef.current = clock;
         if (schema.instruments.length > 0) {
           engineRef.current = new AudioEngine(ctx, clock, schema);

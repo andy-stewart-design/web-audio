@@ -12,10 +12,11 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class Instrument {
   protected _cycle: Notes;
-  protected _detune: Parameter | undefined;
+  protected _detune: Parameter;
 
   constructor(defaultPattern: Chord) {
     this._cycle = new Notes(defaultPattern);
+    this._detune = new Parameter(0);
   }
 
   notes(...input: NoteInput<ScheduledValue> | [RandomCycle]) {

@@ -5,10 +5,9 @@ import {
   type ScheduledValue,
 } from "@web-audio/patterns";
 import { getScale } from "@/utils/get-scale";
-import { noteToMidi } from "@/utils/note-string-to-midi";
-import { midiToFrequency } from "@/utils/midi-to-frequency";
+import { noteStringToMidi } from "@/utils/note-string-to-midi";
 import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
-import type { RandomSchema, StaticSchema } from "@web-audio/patterns";
+import type { RandomSchema, StaticSchema } from "@web-audio/schema";
 import type { NoteName, NoteValue, ScaleAlias } from "@/types";
 
 type NoteOrChord<T> = T | T[];
@@ -23,13 +22,14 @@ class Notes {
     this._cycle = new ChordCycle(defaultPattern);
   }
 
-  private midiToFrequency(note: number) {
-    if (!this._scale) return midiToFrequency(note + this._root);
+  private degreeToMidi(note: number) {
+    if (!this._scale) return note + this._root;
 
-    const octave = Math.floor(note / 7) * 12;
-    const degree = ((note % 7) + 7) % 7;
+    const len = this._scale.length;
+    const octave = Math.floor(note / len) * 12;
+    const degree = ((note % len) + len) % len;
     const step = this._scale[degree];
-    return midiToFrequency(this._root + octave + step);
+    return this._root + octave + step;
   }
 
   notes(...input: NoteInput<ScheduledValue> | [RandomCycle]) {
@@ -46,7 +46,7 @@ class Notes {
 
   root(n: NoteName | NoteValue | number) {
     if (typeof n === "number") this._root = n;
-    else this._root = noteToMidi(n) || 0;
+    else this._root = noteStringToMidi(n) || 0;
     return this;
   }
 
@@ -101,9 +101,13 @@ class Notes {
 
   getSchema(): RandomSchema | StaticSchema {
     if (isRandomCycle(this._cycle)) {
-      return this._cycle.getRandomSchema();
+      const schema = this._cycle.getRandomSchema();
+      if (this._scale) {
+        schema.valueMap = this._scale.map((_, i) => this.degreeToMidi(i));
+      }
+      return schema;
     } else {
-      return this._cycle.getStaticSchema(this.midiToFrequency.bind(this));
+      return this._cycle.getStaticSchema(this.degreeToMidi.bind(this));
     }
   }
 }

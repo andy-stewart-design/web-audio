@@ -100,12 +100,9 @@ importers:
       '@web-audio/clock':
         specifier: workspace:*
         version: link:../clock
-      '@web-audio/fluid':
+      '@web-audio/schema':
         specifier: workspace:*
-        version: link:../fluid
-      '@web-audio/patterns':
-        specifier: workspace:*
-        version: link:../patterns
+        version: link:../schema
     devDependencies:
       '@types/node':
         specifier: ^25.5.0
@@ -188,6 +185,9 @@ importers:
       '@web-audio/patterns':
         specifier: workspace:*
         version: link:../patterns
+      '@web-audio/schema':
+        specifier: workspace:*
+        version: link:../schema
     devDependencies:
       '@types/node':
         specifier: ^25.5.0
@@ -209,6 +209,10 @@ importers:
         version: 4.1.4(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1)(yaml@2.8.3))
 
   packages/patterns:
+    dependencies:
+      '@web-audio/schema':
+        specifier: workspace:*
+        version: link:../schema
     devDependencies:
       '@types/node':
         specifier: ^25.5.0
@@ -228,6 +232,8 @@ importers:
       vitest:
         specifier: ^4.1.2
         version: 4.1.4(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1)(yaml@2.8.3))
+
+  packages/schema: {}
 
   packages/typescript-config: {}
 

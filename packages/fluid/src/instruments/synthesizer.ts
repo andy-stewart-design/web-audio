@@ -1,5 +1,6 @@
+import type { SynthesizerSchema } from "@web-audio/schema";
 import Instrument from "./instrument";
-import type { Drome } from "@/index";
+import type Drome from "@/index";
 import type { Waveform } from "@/types";
 
 interface SynthesizerOptions {
@@ -27,12 +28,12 @@ class Synthesizer extends Instrument {
     return this;
   }
 
-  getSchema() {
+  getSchema(): SynthesizerSchema {
     return {
       type: "synthesizer" as const,
       waveform: this._type,
       notes: this._cycle.getSchema(),
-      detune: this._detune?.getSchema(),
+      detune: this._detune.getSchema(),
     };
   }
 }
