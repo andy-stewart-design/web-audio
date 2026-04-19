@@ -48,6 +48,9 @@ importers:
       '@web-audio/clock':
         specifier: workspace:*
         version: link:../../packages/clock
+      '@web-audio/context':
+        specifier: workspace:*
+        version: link:../../packages/context
       '@web-audio/fluid':
         specifier: workspace:*
         version: link:../../packages/fluid
@@ -143,6 +146,8 @@ importers:
       vitest:
         specifier: ^4.1.2
         version: 4.1.4(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1)(yaml@2.8.3))
+
+  packages/context: {}
 
   packages/eslint-config:
     devDependencies:
