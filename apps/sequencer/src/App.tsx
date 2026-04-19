@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import AudioClock from "@web-audio/clock";
+import { createAudioContext, type ManagedAudioContext } from "@web-audio/context";
 import Drome from "@web-audio/fluid";
 import AudioEngine from "@web-audio/audio-engine";
 
@@ -17,6 +18,7 @@ function App() {
   const [isRunning, setIsRunning] = useState(false);
   const [code, setCode] = useState(DEFAULT_CODE);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const audioRef = useRef<ManagedAudioContext | null>(null);
   const clockRef = useRef<AudioClock | null>(null);
   const engineRef = useRef<AudioEngine | null>(null);
 
@@ -24,11 +26,22 @@ function App() {
     setLogs((prev) => [{ text, type }, ...prev]);
   };
 
+  const getAudio = () => {
+    if (!audioRef.current) {
+      audioRef.current = createAudioContext();
+    }
+    return audioRef.current;
+  };
+
+  const getClock = () => {
+    if (!clockRef.current) {
+      clockRef.current = new AudioClock(getAudio().ctx, 140, 4);
+    }
+    return clockRef.current;
+  };
+
   const startClock = async () => {
-    const ctx = new AudioContext();
-    const clock = new AudioClock(ctx, 140, 4);
-    clockRef.current = clock;
-    await clock.start();
+    await getClock().start();
     setIsRunning(true);
   };
 
@@ -36,7 +49,6 @@ function App() {
     engineRef.current?.destroy();
     engineRef.current = null;
     clockRef.current?.stop();
-    clockRef.current = null;
     setIsRunning(false);
   };
 
@@ -49,24 +61,16 @@ function App() {
       new Function("drome", "d", input)(d, d);
       const schema = d.getSchema();
 
-      if (!clockRef.current) {
-        // Initial start: subscribe the engine BEFORE clock.start() so it
-        // receives bar 0 when the scheduler fires it on the first tick.
-        const ctx = new AudioContext();
-        const clock = new AudioClock(ctx, 140, 4);
-        clockRef.current = clock;
+      const clock = getClock();
+
+      if (!isRunning) {
         if (schema.instruments.length > 0) {
-          engineRef.current = new AudioEngine(ctx, clock, schema);
+          engineRef.current = new AudioEngine(getAudio().ctx, clock, schema);
         }
         await clock.start();
         setIsRunning(true);
       } else if (schema.instruments.length > 0) {
-        // Mid-session: AudioEngine pre-schedules the next bar internally.
-        engineRef.current = new AudioEngine(
-          clockRef.current.ctx,
-          clockRef.current,
-          schema,
-        );
+        engineRef.current = new AudioEngine(getAudio().ctx, clock, schema);
       }
 
       addLog("✓", "output");
@@ -86,6 +90,7 @@ function App() {
     return () => {
       engineRef.current?.destroy();
       clockRef.current?.stop();
+      audioRef.current?.dispose();
     };
   }, []);
 
