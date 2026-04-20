@@ -1,7 +1,11 @@
 import type AudioClock from "@web-audio/clock";
-import type { ParameterSchema, RandomSchema, StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
+import type { EnvelopeSchema, ParameterSchema, RandomSchema, StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
 import RandomResolver from "./random-resolver";
 import { midiToFrequency } from "./utils/midi-to-frequency";
+import { normalizeADSR } from "./utils/normalize";
+
+const BASE_GAIN = 0.25;
+const MIN_RAMP = 0.005;
 
 interface ScheduledNote {
   osc: OscillatorNode;
@@ -25,21 +29,23 @@ class SynthesizerPlayer {
   scheduleBar(barIndex: number, barStartTime: number) {
     const notes = this._schema.notes;
 
+    const detune = this._schema.detune;
+
     if (notes.type === "random") {
       const mask = notes.cycle.cycle[barIndex % notes.cycle.cycle.length];
       mask.forEach((step, stepIndex) => {
         if (step.value === 0) return;
         const midiNote = this._resolve(notes, barIndex, stepIndex);
-        const detuneValue = this._resolve(this._schema.detune, barIndex, stepIndex);
-        this._scheduleNote({ ...step, value: midiNote }, barStartTime, detuneValue);
+        const detuneValue = detune.type !== "envelope" ? this._resolve(detune, barIndex, stepIndex) : 0;
+        this._scheduleNote({ ...step, value: midiNote }, barStartTime, detuneValue, barIndex);
       });
       return;
     }
 
     const notesBar = notes.cycle[barIndex % notes.cycle.length];
     notesBar.forEach((note) => {
-      const detuneValue = this._resolve(this._schema.detune, barIndex, note.stepIndex);
-      this._scheduleNote(note, barStartTime, detuneValue);
+      const detuneValue = detune.type !== "envelope" ? this._resolve(detune, barIndex, note.stepIndex) : 0;
+      this._scheduleNote(note, barStartTime, detuneValue, barIndex);
     });
   }
 
@@ -63,6 +69,18 @@ class SynthesizerPlayer {
     return bar[stepIndex % bar.length].value;
   }
 
+  private _resolveEnvelope(envelope: EnvelopeSchema, barIndex: number, stepIndex: number) {
+    return {
+      min: envelope.min,
+      max: this._resolve(envelope.max, barIndex, stepIndex),
+      a: this._resolve(envelope.a, barIndex, stepIndex),
+      d: this._resolve(envelope.d, barIndex, stepIndex),
+      s: this._resolve(envelope.s, barIndex, stepIndex),
+      r: this._resolve(envelope.r, barIndex, stepIndex),
+      mode: envelope.mode,
+    };
+  }
+
   private _getResolver(schema: RandomSchema): RandomResolver {
     let resolver = this._resolvers.get(schema);
     if (!resolver) {
@@ -76,11 +94,24 @@ class SynthesizerPlayer {
     note: StaticSchemaValue,
     barStartTime: number,
     detuneValue: number,
+    barIndex: number,
   ): void {
     const barDuration = this._clock.barDuration;
     const startTime = barStartTime + note.offset * barDuration;
-    const endTime = startTime + note.duration * barDuration;
-    const attackTime = 0.005;
+    const noteDuration = note.duration * barDuration;
+    const endTime = startTime + noteDuration;
+
+    // Resolve and normalize gain envelope
+    const env = this._resolveEnvelope(this._schema.gain, barIndex, note.stepIndex);
+    const { a, d, s, r } = normalizeADSR(env.a, env.d, env.s, env.r, env.mode);
+
+    const gainMin = env.min * BASE_GAIN;
+    const gainMax = env.max * BASE_GAIN;
+    const gainSustain = gainMin + (gainMax - gainMin) * s;
+
+    const attackDur = Math.max(a * noteDuration, MIN_RAMP);
+    const decayDur = Math.max(d * noteDuration, MIN_RAMP);
+    const releaseDur = Math.max(r * noteDuration, MIN_RAMP);
 
     const osc = new OscillatorNode(this._ctx, {
       type: this._schema.waveform,
@@ -89,18 +120,16 @@ class SynthesizerPlayer {
     });
     const gain = new GainNode(this._ctx);
 
-    gain.gain.setValueAtTime(0, startTime);
-    gain.gain.linearRampToValueAtTime(0.25, startTime + attackTime);
-    gain.gain.setValueAtTime(0.25, endTime);
-    gain.gain.linearRampToValueAtTime(
-      0.001,
-      endTime + attackTime * note.duration,
-    );
+    gain.gain.setValueAtTime(gainMin, startTime);
+    gain.gain.linearRampToValueAtTime(gainMax, startTime + attackDur);
+    gain.gain.linearRampToValueAtTime(gainSustain, startTime + attackDur + decayDur);
+    gain.gain.setValueAtTime(gainSustain, endTime);
+    gain.gain.linearRampToValueAtTime(gainMin, endTime + releaseDur);
 
     osc.connect(gain);
     gain.connect(this._ctx.destination);
     osc.start(startTime);
-    osc.stop(endTime + 0.5 * note.duration);
+    osc.stop(endTime + releaseDur + 0.05);
 
     const scheduled: ScheduledNote = { osc, gain, startTime };
     this._scheduled.add(scheduled);
