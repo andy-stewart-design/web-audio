@@ -51,6 +51,7 @@ interface DromeSchema {
 
 export type {
   DromeSchema,
+  EnvelopeSchema,
   ParameterSchema,
   RandomSchema,
   StaticSchema,
