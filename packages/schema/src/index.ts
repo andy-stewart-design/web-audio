@@ -26,11 +26,23 @@ interface RandomSchema {
 
 type ParameterSchema = StaticSchema | RandomSchema;
 
+interface EnvelopeSchema {
+  type: "envelope";
+  min: number;
+  max: ParameterSchema;
+  a: ParameterSchema;
+  d: ParameterSchema;
+  s: ParameterSchema;
+  r: ParameterSchema;
+  mode: "bleed" | "clip";
+}
+
 interface SynthesizerSchema {
   type: "synthesizer";
   waveform: Waveform;
   notes: ParameterSchema;
-  detune: ParameterSchema;
+  detune: ParameterSchema | EnvelopeSchema;
+  gain: EnvelopeSchema;
 }
 
 interface DromeSchema {
