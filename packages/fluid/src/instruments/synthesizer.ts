@@ -34,6 +34,7 @@ class Synthesizer extends Instrument {
       waveform: this._type,
       notes: this._cycle.getSchema(),
       detune: this._detune.getSchema(),
+      gain: this._gain.getSchema(),
     };
   }
 }

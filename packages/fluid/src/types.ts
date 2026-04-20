@@ -4,6 +4,12 @@ export type {
   Waveform,
 } from "@web-audio/schema";
 
+import type { RandomCycle } from "@web-audio/patterns";
+
+type CycleInput = (number | number[])[] | [RandomCycle];
+
+export type { CycleInput };
+
 import type { scaleAliasMap } from "./utils/get-scale";
 
 type ScaleAlias = keyof typeof scaleAliasMap;

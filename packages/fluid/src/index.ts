@@ -1,6 +1,7 @@
 import { RandomCycle } from "@web-audio/patterns";
+import Envelope from "./automations/envelope";
 import Synthesizer from "./instruments/synthesizer";
-import type { DromeSchema, Waveform } from "./types";
+import type { CycleInput, DromeSchema, Waveform } from "./types";
 
 class Drome {
   private _instruments: Set<Synthesizer>;
@@ -15,6 +16,10 @@ class Drome {
 
   rand() {
     return new RandomCycle();
+  }
+
+  env(min?: number, ...max: CycleInput) {
+    return new Envelope(min, ...max);
   }
 
   push(inst: Synthesizer) {
