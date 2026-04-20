@@ -14,7 +14,7 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class Instrument {
   protected _cycle: Notes;
-  protected _detune: Parameter;
+  protected _detune: Parameter | Envelope;
   protected _gain: Envelope;
 
   constructor(defaultPattern: Chord) {
@@ -82,8 +82,12 @@ class Instrument {
     return this;
   }
 
-  detune(...input: CycleInput) {
-    this._detune = new Parameter(...input);
+  detune(...input: CycleInput | [Envelope]) {
+    if (isEnvelopeTuple(input)) {
+      this._detune = input[0];
+    } else {
+      this._detune = new Parameter(...input);
+    }
     return this;
   }
 

@@ -32,6 +32,7 @@ interface EnvelopeSchema {
 Export it from the package index.
 
 **Acceptance criteria:**
+
 - `EnvelopeSchema` is exported from `@web-audio/schema`
 - The type compiles with no errors (`tsc --noEmit`)
 
@@ -54,6 +55,7 @@ interface SynthesizerSchema {
 ```
 
 **Acceptance criteria:**
+
 - `SynthesizerSchema.gain` is `EnvelopeSchema`
 - `SynthesizerSchema.detune` is `ParameterSchema | EnvelopeSchema`
 - Package type-checks cleanly
@@ -70,6 +72,7 @@ interface SynthesizerSchema {
 **Files:** `packages/fluid/src/automations/envelope.ts`
 
 Replace the existing stub. The `Envelope` class:
+
 - Constructor: `(min?: number, ...max: CycleInput)` — defaults min=0, max=1
 - Stores `_min: number` and `_max: Parameter` (reuses existing `Parameter` class)
 - ADSR fields: `_a`, `_d`, `_s`, `_r` — each a `Parameter` instance, defaults: A=0.01, D=0, S=1, R=0.01
@@ -81,12 +84,14 @@ Replace the existing stub. The `Envelope` class:
 - `.getSchema(): EnvelopeSchema` — calls `.getSchema()` on each internal `Parameter` to produce the full `EnvelopeSchema`
 
 **Acceptance criteria:**
+
 - `new Envelope().getSchema()` returns a valid `EnvelopeSchema` with all defaults
 - `new Envelope(0, 0.75).adsr(0.5, 0.25, 0.1, 0.1).getSchema()` returns correct schema
 - Individual setters override `.adsr()` (last write wins)
 - `.mode("clip")` is reflected in schema
 
 **Testing:** Unit tests in `packages/fluid/src/automations/envelope.test.ts`:
+
 - Default schema output
 - Custom min/max
 - `.adsr()` sets all four
@@ -108,11 +113,13 @@ env(min?: number, ...max: CycleInput) {
 ```
 
 **Acceptance criteria:**
+
 - `d.env()` returns an `Envelope` instance
 - `d.env(0, 0.75)` passes min=0, max=0.75 to `Envelope`
 - `d.env(0, [0.75, 1.25], [0.25, 0.5])` works with cycle syntax
 
 **Testing:**
+
 - `d.env()` returns a valid default envelope schema
 - `d.env(0, 0.75).getSchema().min === 0` and max resolves to 0.75
 
@@ -136,16 +143,19 @@ gain(...input: CycleInput | [Envelope]) {
 ```
 
 This means:
+
 - `.gain(0.75)` creates `Envelope(0, 0.75)` — min=0, max=0.75, default ADSR
 - `.gain([0.75, 1.25], [0.25, 0.5])` creates `Envelope(0, [0.75, 1.25], [0.25, 0.5])` — cycling max
 - `.gain(env)` uses the provided `Envelope` directly
 
 **Acceptance criteria:**
+
 - `.gain(0.75)` produces an `EnvelopeSchema` with max resolving to 0.75
 - `.gain(envInstance)` uses the envelope as-is
 - Default gain (no `.gain()` call) produces default `EnvelopeSchema` (min=0, max=1, default ADSR)
 
 **Testing:**
+
 - Synthesizer schema includes `gain: EnvelopeSchema` when `.gain()` is not called (default)
 - `.gain(0.75)` schema output
 - `.gain(d.env(0, 0.5).adsr(0.5, 0.25, 0.1, 0.1))` schema output
@@ -169,6 +179,7 @@ getSchema(): SynthesizerSchema {
 ```
 
 **Acceptance criteria:**
+
 - `synth.getSchema()` returns an object with a `gain` property of type `EnvelopeSchema`
 - The fluid package builds and all tests pass
 
@@ -194,22 +205,36 @@ getSchema(): SynthesizerSchema {
 Pure function that normalizes raw ADSR proportions to fit within a note:
 
 ```ts
-interface NormalizedADSR { a: number; d: number; s: number; r: number }
-function normalizeADSR(a: number, d: number, s: number, r: number, mode: "bleed" | "clip"): NormalizedADSR
+interface NormalizedADSR {
+  a: number;
+  d: number;
+  s: number;
+  r: number;
+}
+function normalizeADSR(
+  a: number,
+  d: number,
+  s: number,
+  r: number,
+  mode: "bleed" | "clip",
+): NormalizedADSR;
 ```
 
 Rules:
+
 - **Bleed mode:** A + D normalized to sum ≤ 1 (proportional scaling). R is a separate proportion, capped at ≤ 1.
 - **Clip mode:** A + D + R normalized to sum ≤ 1 (proportional scaling).
 - S is a sustain level (0–1), not a duration — passed through unchanged.
 
 **Acceptance criteria:**
+
 - Bleed: `normalizeADSR(0.6, 0.6, 0.8, 0.5, "bleed")` → A=0.5, D=0.5, S=0.8, R=0.5
 - Bleed: `normalizeADSR(0.3, 0.2, 0.8, 0.5, "bleed")` → unchanged (A+D already ≤ 1)
 - Clip: `normalizeADSR(0.5, 0.3, 0.8, 0.4, "clip")` → A+D+R scaled to sum to 1
 - S passed through unchanged in all cases
 
 **Testing:** `packages/audio-engine/src/utils/normalize.test.ts`:
+
 - Bleed: A+D already ≤ 1 (no change)
 - Bleed: A+D > 1 (proportional scaling)
 - Bleed: R > 1 (capped to 1)
@@ -226,6 +251,7 @@ Rules:
 `_scheduleNote` currently has no `barIndex` parameter. Add it so envelope resolution can use the correct bar when cycling parameter values.
 
 **Acceptance criteria:**
+
 - `_scheduleNote(note, barStartTime, detuneValue, barIndex)` receives `barIndex`
 - All call sites in `scheduleBar` pass `barIndex` through
 - Existing note/detune resolution unchanged
@@ -251,6 +277,7 @@ private _resolveEnvelope(envelope: EnvelopeSchema, barIndex: number, stepIndex: 
 ```
 
 **Acceptance criteria:**
+
 - Resolves all `ParameterSchema` fields on an `EnvelopeSchema` to concrete numbers
 - Works with both static and random parameter schemas
 
@@ -272,6 +299,7 @@ Replace the hardcoded gain ramp with envelope-driven scheduling:
 6. Bleed mode: oscillator stop time extends past note end to cover release tail; clip mode: stop time is at note end
 
 **Acceptance criteria:**
+
 - Default synth sounds the same volume as before (base 0.25 × max 1.0 = 0.25)
 - `.gain(0.5)` is noticeably quieter; `.gain(1.5)` is louder
 - Audible attack/decay shape with a custom envelope
@@ -280,6 +308,7 @@ Replace the hardcoded gain ramp with envelope-driven scheduling:
 - No hardcoded gain values remain in `_scheduleNote`
 
 **Testing:** Manual/audible in the sequencer app:
+
 1. `d.synth("triangle").push()` — same volume as before
 2. `d.synth("triangle").gain(0.5).push()` — noticeably quieter
 3. `d.synth("triangle").gain(1.5).push()` — louder than default
@@ -309,11 +338,13 @@ detune(...input: CycleInput | [Envelope]) {
 `Synthesizer.getSchema()` requires no change — `this._detune.getSchema()` already returns `ParameterSchema | EnvelopeSchema` since both `Parameter` and `Envelope` expose a `getSchema()` method.
 
 **Acceptance criteria:**
+
 - `.detune(100)` still produces `ParameterSchema`
 - `.detune(d.env(0, 400).adsr(0.5, 0.25, 0.1, 0.1))` produces `EnvelopeSchema`
 - Schema type is `ParameterSchema | EnvelopeSchema` as declared
 
 **Testing:**
+
 - `.detune(100)` schema has `type: "static"`
 - `.detune(envInstance)` schema has `type: "envelope"`
 
@@ -324,18 +355,21 @@ detune(...input: CycleInput | [Envelope]) {
 **Files:** `packages/audio-engine/src/synthesizer-player.ts`
 
 In `scheduleBar`, resolve detune before calling `_scheduleNote`. Check schema type to decide handling:
+
 - `detune.type === "envelope"`: pass the full `EnvelopeSchema` to `_scheduleNote`
 - Otherwise: resolve to a scalar as before
 
 In `_scheduleNote`, schedule ADSR automation on `osc.detune` AudioParam when detune is an envelope. No `BASE_GAIN` multiplier on detune.
 
 **Acceptance criteria:**
+
 - Static detune unchanged
 - Envelope detune produces an audible pitch sweep over the note's lifetime
 - No gain multiplier applied to detune values
 - 5ms minimum ramp applies to prevent artifacts
 
 **Testing:** Manual/audible:
+
 1. `d.synth("triangle").detune(100).push()` — constant detune, same as before
 2. `d.synth("triangle").detune(d.env(0, 400).adsr(0.3, 0.2, 0.5, 0.1)).push()` — pitch sweep
 
@@ -348,12 +382,14 @@ In `_scheduleNote`, schedule ADSR automation on `osc.detune` AudioParam when det
 **Files:** `packages/fluid/src/index.test.ts` (replace placeholder)
 
 Write tests that verify complete schema output from Drome for various configurations:
+
 - Default synth (no `.gain()` call) → `gain` field is a valid default `EnvelopeSchema`
 - `.gain(0.75)` → correct envelope schema
 - `.gain(d.env(0, 0.75).adsr(0.5, 0.25, 0.1, 0.1))` → full custom envelope
 - `.detune(d.env(0, 400).adsr(0.5, 0.25, 0.1, 0.1))` → envelope on detune
 
 **Acceptance criteria:**
+
 - All schema outputs match expected shape
 - `pnpm --filter @web-audio/fluid exec vitest run` passes
 
@@ -367,6 +403,7 @@ Write tests that verify complete schema output from Drome for various configurat
 - Ensure `EnvelopeSchema` is re-exported from fluid types consistent with existing patterns
 
 **Acceptance criteria:**
+
 - All public types and classes are accessible to consumers
 - No unused exports
 
@@ -374,26 +411,27 @@ Write tests that verify complete schema output from Drome for various configurat
 
 ## File Change Summary
 
-| File | Change |
-|------|--------|
-| `packages/schema/src/index.ts` | Add `EnvelopeSchema`, update `SynthesizerSchema` ✓ |
-| `packages/fluid/src/types.ts` | Add `CycleInput` ✓ |
-| `packages/fluid/src/utils/validate.ts` | Add `isEnvelopeTuple` ✓ |
-| `packages/fluid/src/patterns/parameter.ts` | Constructor typed as `CycleInput` ✓ |
-| `packages/fluid/src/automations/envelope.ts` | Full `Envelope` builder ✓ |
-| `packages/fluid/src/automations/envelope.test.ts` | New — Envelope unit tests ✓ |
-| `packages/fluid/src/instruments/instrument.ts` | `_gain`, `.gain()`, update `.detune()` ✓ (gain done; detune Phase 4) |
-| `packages/fluid/src/instruments/synthesizer.ts` | Add `gain` to `getSchema()` ✓ |
-| `packages/fluid/src/index.ts` | Add `d.env()` ✓ |
-| `packages/fluid/vitest.config.ts` | New — path alias for tests ✓ |
-| `packages/fluid/src/index.test.ts` | Replace placeholder (Phase 5) |
-| `packages/audio-engine/src/utils/normalize.ts` | New — `normalizeADSR` pure function (Phase 3) |
-| `packages/audio-engine/src/utils/normalize.test.ts` | New — normalization unit tests (Phase 3) |
-| `packages/audio-engine/src/synthesizer-player.ts` | `_resolveEnvelope`, rewrite `_scheduleNote`, detune envelope (Phases 3–4) |
+| File                                                | Change                                                                    |
+| --------------------------------------------------- | ------------------------------------------------------------------------- |
+| `packages/schema/src/index.ts`                      | Add `EnvelopeSchema`, update `SynthesizerSchema` ✓                        |
+| `packages/fluid/src/types.ts`                       | Add `CycleInput` ✓                                                        |
+| `packages/fluid/src/utils/validate.ts`              | Add `isEnvelopeTuple` ✓                                                   |
+| `packages/fluid/src/patterns/parameter.ts`          | Constructor typed as `CycleInput` ✓                                       |
+| `packages/fluid/src/automations/envelope.ts`        | Full `Envelope` builder ✓                                                 |
+| `packages/fluid/src/automations/envelope.test.ts`   | New — Envelope unit tests ✓                                               |
+| `packages/fluid/src/instruments/instrument.ts`      | `_gain`, `.gain()`, update `.detune()` ✓ (gain done; detune Phase 4)      |
+| `packages/fluid/src/instruments/synthesizer.ts`     | Add `gain` to `getSchema()` ✓                                             |
+| `packages/fluid/src/index.ts`                       | Add `d.env()` ✓                                                           |
+| `packages/fluid/vitest.config.ts`                   | New — path alias for tests ✓                                              |
+| `packages/fluid/src/index.test.ts`                  | Replace placeholder (Phase 5)                                             |
+| `packages/audio-engine/src/utils/normalize.ts`      | New — `normalizeADSR` pure function (Phase 3)                             |
+| `packages/audio-engine/src/utils/normalize.test.ts` | New — normalization unit tests (Phase 3)                                  |
+| `packages/audio-engine/src/synthesizer-player.ts`   | `_resolveEnvelope`, rewrite `_scheduleNote`, detune envelope (Phases 3–4) |
 
 ## Verification
 
 After all phases:
+
 1. `pnpm --filter @web-audio/schema exec tsc --noEmit` — schema types clean
 2. `pnpm --filter @web-audio/fluid exec vitest run` — fluid tests pass
 3. `pnpm --filter @web-audio/audio-engine exec vitest run` — engine tests pass
