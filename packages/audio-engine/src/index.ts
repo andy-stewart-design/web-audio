@@ -1,15 +1,15 @@
 import type AudioClock from "@web-audio/clock";
 import type { DromeSchema } from "@web-audio/schema";
-import SynthesizerPlayer from "./synthesizer-player";
+import Synthesizer from "./synthesizer";
 
 class AudioEngine {
   private _ctx: AudioContext;
   private _clock: AudioClock;
-  private _players: SynthesizerPlayer[] = [];
+  private _players: Synthesizer[] = [];
   // Holds retired players for one bar so their audio graph stays connected
   // while scheduled oscillators finish playing.
   // @ts-expect-error intentionally write-only
-  private _retiring: SynthesizerPlayer[] = [];
+  private _retiring: Synthesizer[] = [];
   private _pending: DromeSchema | null = null;
   private _unsubPrebar: () => void;
   private _unsubBar: () => void;
@@ -53,7 +53,7 @@ class AudioEngine {
 
     // Create new players from the pending schema
     this._players = this._pending.instruments.map(
-      (inst) => new SynthesizerPlayer(this._ctx, this._clock, inst),
+      (inst) => new Synthesizer(this._ctx, this._clock, inst),
     );
 
     this._pending = null;

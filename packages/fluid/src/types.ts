@@ -1,6 +1,7 @@
 export type {
-  SynthesizerSchema,
   DromeSchema,
+  EnvelopeSchema,
+  SynthesizerSchema,
   Waveform,
 } from "@web-audio/schema";
 

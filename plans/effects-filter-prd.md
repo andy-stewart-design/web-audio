@@ -136,9 +136,9 @@ Per-instrument:                              Output GainNode (baseGain) -> ctx.d
 
 ## Envelope Handling
 
-Filter envelopes use the same `_resolveEnvelope` helper built for gain envelopes. The engine checks `param.type === "envelope"`:
+Filter envelopes use `_scheduleParamEnvelope(param, envelope, barIndex, stepIndex, noteDuration, endTime)` on `Instrument` — the same method used for gain and detune envelopes. It wraps `_resolveEnvelope` + `normalizeADSR` internally and schedules ADSR ramps on any `AudioParam`. The engine checks `param.type === "envelope"`:
 
-- If envelope: resolve all fields via `_resolveEnvelope`, apply `normalizeADSR`, schedule ADSR ramps on the target AudioParam
+- If envelope: call `_scheduleParamEnvelope` on the target AudioParam
 - If parameter: resolve to a static number via `_resolve`, set value once at note start
 
 Normalization (bleed/clip modes) applies identically to filter envelopes — the ADSR shape is always relative to note duration regardless of target param.
@@ -148,10 +148,11 @@ Engine clamps computed A and R to a minimum of 5ms absolute to prevent artifacts
 ## File Structure
 
 ```
-packages/schema/src/index.ts              — FilterType, FilterSchema, EffectSchema, updated SynthesizerSchema
-packages/fluid/src/effects/filter.ts      — Filter builder class
-packages/fluid/src/index.ts               — d.filter(), d.lpf(), d.hpf(), d.bpf() methods
-packages/audio-engine/src/synthesizer-player.ts — effect chain wiring, per-instrument output node
+packages/schema/src/index.ts             — FilterType, FilterSchema, EffectSchema, updated SynthesizerSchema
+packages/fluid/src/effects/filter.ts     — Filter builder class
+packages/fluid/src/index.ts              — d.filter(), d.lpf(), d.hpf(), d.bpf() methods
+packages/audio-engine/src/instrument.ts  — per-instrument output GainNode (baseGain), inherited by all players
+packages/audio-engine/src/synthesizer.ts — effect chain wiring, _scheduleNote updates
 ```
 
 ## Implementation Phases
@@ -174,12 +175,13 @@ packages/audio-engine/src/synthesizer-player.ts — effect chain wiring, per-ins
 
 ### Phase 3: Engine — effects chain wiring
 
-- Add per-instrument output GainNode (set to baseGain)
-- Update `_scheduleNote` to:
+- Add per-instrument output GainNode (set to baseGain) to `Instrument` base class — replaces the temporary `BASE_GAIN` scale factor currently applied per-note in `Synthesizer`
+- Update `Synthesizer._scheduleNote` to:
   1. Create oscillator + per-note gain node (envelope) as before
   2. For each effect in `schema.effects`, create BiquadFilterNode, resolve params
-  3. Connect chain: gain -> effect1 -> effect2 -> ... -> output node
-- Handle envelope params on filter via existing `_resolveEnvelope` + `normalizeADSR`
+  3. Connect chain: osc → per-note GainNode → BiquadFilter(s) → output GainNode → destination
+- Handle envelope params on filter via `_scheduleParamEnvelope` (already on `Instrument`)
+- Handle static params via `_resolve`, set value once at note start
 - Map filter type abbreviations to Web Audio BiquadFilterType strings
 
 ### Phase 4: Tests & cleanup
@@ -190,5 +192,5 @@ packages/audio-engine/src/synthesizer-player.ts — effect chain wiring, per-ins
 
 ## Prerequisites
 
-- Gain & envelope plan (all phases) must be complete before engine work begins
-- Schema and fluid phases can be built independently once envelope plan lands
+- Gain & envelope plan — ✓ complete
+- Schema and fluid phases can be built independently of engine work
