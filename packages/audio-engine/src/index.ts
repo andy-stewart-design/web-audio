@@ -10,25 +10,21 @@ class AudioEngine {
   // release tails) has finished. Each player removes itself via whenDone().
   private _retiring: Set<Synthesizer> = new Set();
   private _pending: DromeSchema | null = null;
-  private _unsubPrebar: () => void;
-  private _unsubBar: () => void;
-  private _unsubStop: () => void;
+  private _unsub: Set<() => void>;
 
   constructor(ctx: AudioContext, clock: AudioClock) {
     this._ctx = ctx;
     this._clock = clock;
 
-    this._unsubPrebar = clock.on("prebar", () => {
-      this._commit();
-    });
-
-    this._unsubBar = clock.on("bar", ({ bar }, time) => {
-      this._players.forEach((p) => p.scheduleBar(bar, time));
-    });
-
-    this._unsubStop = clock.on("stop", () => {
-      this._players.forEach((p) => p.cancelFutureNotes());
-    });
+    this._unsub = new Set([
+      clock.on("prebar", () => this._commit()),
+      clock.on("bar", ({ bar }, time) => {
+        this._players.forEach((p) => p.scheduleBar(bar, time));
+      }),
+      clock.on("stop", () => {
+        this._players.forEach((p) => p.cancelFutureNotes());
+      }),
+    ]);
   }
 
   update(schema: DromeSchema): void {
@@ -59,9 +55,7 @@ class AudioEngine {
   }
 
   destroy(): void {
-    this._unsubPrebar();
-    this._unsubBar();
-    this._unsubStop();
+    this._unsub.forEach((fn) => fn());
     this._players = [];
     this._retiring.clear();
     this._pending = null;
