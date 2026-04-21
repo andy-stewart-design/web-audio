@@ -24,7 +24,7 @@ class BinaryCycle extends PatternCycle<1 | 0> {
 
 class ChordCycle extends PatternCycle<Chord> {
   constructor(defaultPatern: Chord) {
-    super(defaultPatern, null);
+    super([defaultPatern], null);
   }
 
   getStaticSchema(transformer?: (v: number) => number) {

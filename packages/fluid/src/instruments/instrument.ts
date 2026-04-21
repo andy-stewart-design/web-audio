@@ -3,20 +3,24 @@ import {
   type Chord,
   type ScheduledValue,
 } from "@web-audio/patterns";
+import Envelope from "@/automations/envelope";
 import Notes from "@/patterns/notes";
 import Parameter from "@/patterns/parameter";
-import type { NoteName, NoteValue, ScaleAlias } from "@/types";
+import { isEnvelopeTuple } from "@/utils/validate";
+import type { CycleInput, NoteName, NoteValue, ScaleAlias } from "@/types";
 
 type NoteOrChord<T> = T | T[];
 type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class Instrument {
   protected _cycle: Notes;
-  protected _detune: Parameter;
+  protected _detune: Parameter | Envelope;
+  protected _gain: Envelope;
 
   constructor(defaultPattern: Chord) {
     this._cycle = new Notes(defaultPattern);
     this._detune = new Parameter(0);
+    this._gain = new Envelope();
   }
 
   notes(...input: NoteInput<ScheduledValue> | [RandomCycle]) {
@@ -78,8 +82,21 @@ class Instrument {
     return this;
   }
 
-  detune(...input: (number | number[])[] | [RandomCycle]) {
-    this._detune = new Parameter(...input);
+  detune(...input: CycleInput | [Envelope]) {
+    if (isEnvelopeTuple(input)) {
+      this._detune = input[0];
+    } else {
+      this._detune = new Parameter(...input);
+    }
+    return this;
+  }
+
+  gain(...input: CycleInput | [Envelope]) {
+    if (isEnvelopeTuple(input)) {
+      this._gain = input[0];
+    } else {
+      this._gain = new Envelope(0, ...input);
+    }
     return this;
   }
 }
