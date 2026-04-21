@@ -1,5 +1,9 @@
 import type AudioClock from "@web-audio/clock";
-import type { EnvelopeSchema, ParameterSchema, RandomSchema } from "@web-audio/schema";
+import type {
+  EnvelopeSchema,
+  ParameterSchema,
+  RandomSchema,
+} from "@web-audio/schema";
 import RandomResolver from "./random-resolver";
 import { normalizeADSR } from "./utils/normalize";
 
@@ -16,6 +20,7 @@ abstract class Instrument {
   protected _clock: AudioClock;
   private _resolvers = new Map<RandomSchema, RandomResolver>();
   private _scheduled: Set<ScheduledNote> = new Set();
+  private _onDone: (() => void) | null = null;
 
   constructor(ctx: AudioContext, clock: AudioClock) {
     this._ctx = ctx;
@@ -23,6 +28,14 @@ abstract class Instrument {
   }
 
   abstract scheduleBar(barIndex: number, barStartTime: number): void;
+
+  whenDone(cb: () => void): void {
+    if (this._scheduled.size === 0) {
+      cb();
+      return;
+    }
+    this._onDone = cb;
+  }
 
   cancelFutureNotes(): void {
     const now = this._ctx.currentTime;
@@ -36,7 +49,11 @@ abstract class Instrument {
     }
   }
 
-  protected _resolve(schema: ParameterSchema, barIndex: number, stepIndex: number): number {
+  protected _resolve(
+    schema: ParameterSchema,
+    barIndex: number,
+    stepIndex: number,
+  ): number {
     if (schema.type === "random") {
       return this._getResolver(schema).resolve(barIndex, stepIndex);
     }
@@ -44,7 +61,11 @@ abstract class Instrument {
     return bar[stepIndex % bar.length].value;
   }
 
-  protected _resolveEnvelope(envelope: EnvelopeSchema, barIndex: number, stepIndex: number) {
+  protected _resolveEnvelope(
+    envelope: EnvelopeSchema,
+    barIndex: number,
+    stepIndex: number,
+  ) {
     return {
       min: envelope.min,
       max: this._resolve(envelope.max, barIndex, stepIndex),
@@ -86,7 +107,11 @@ abstract class Instrument {
     return releaseDur;
   }
 
-  protected _track(node: AudioScheduledSourceNode, gain: GainNode, startTime: number): void {
+  protected _track(
+    node: AudioScheduledSourceNode,
+    gain: GainNode,
+    startTime: number,
+  ): void {
     const scheduled: ScheduledNote = { node, gain, startTime };
     this._scheduled.add(scheduled);
 
@@ -94,6 +119,10 @@ abstract class Instrument {
       node.disconnect();
       gain.disconnect();
       this._scheduled.delete(scheduled);
+      if (this._scheduled.size === 0 && this._onDone) {
+        this._onDone();
+        this._onDone = null;
+      }
     };
   }
 
