@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import Drome from "./index";
+import Filter from "./effects/filter";
 
 describe("Drome", () => {
   describe("default schema", () => {
@@ -143,6 +144,26 @@ describe("Drome", () => {
       if (schema.max.type === "static") {
         expect(schema.max.cycle[0][0].value).toBe(1);
       }
+    });
+  });
+
+  describe(".fx()", () => {
+    it("returns this", () => {
+      const d = new Drome();
+      const s = d.synth();
+      expect(s.fx(new Filter("lp", 800))).toBe(s);
+    });
+
+    it("variadic: accepts multiple filters at once", () => {
+      const d = new Drome();
+      const s = d.synth().fx(new Filter("lp", 800), new Filter("hp", 200));
+      expect(s["_effects"]).toHaveLength(2);
+    });
+
+    it("chained calls accumulate", () => {
+      const d = new Drome();
+      const s = d.synth().fx(new Filter("lp", 800)).fx(new Filter("hp", 200));
+      expect(s["_effects"]).toHaveLength(2);
     });
   });
 
