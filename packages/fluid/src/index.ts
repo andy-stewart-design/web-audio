@@ -1,7 +1,9 @@
 import { RandomCycle } from "@web-audio/patterns";
 import Envelope from "./automations/envelope";
+import Filter from "./effects/filter";
 import Synthesizer from "./instruments/synthesizer";
 import type { CycleInput, DromeSchema, Waveform } from "./types";
+import type { FilterType } from "@web-audio/schema";
 
 class Drome {
   private _instruments: Set<Synthesizer>;
@@ -20,6 +22,22 @@ class Drome {
 
   env(min?: number, ...max: CycleInput) {
     return new Envelope(min, ...max);
+  }
+
+  filter(type: FilterType, ...frequency: CycleInput | [Envelope]) {
+    return new Filter(type, ...frequency);
+  }
+
+  lpf(...frequency: CycleInput | [Envelope]) {
+    return new Filter("lp", ...frequency);
+  }
+
+  hpf(...frequency: CycleInput | [Envelope]) {
+    return new Filter("hp", ...frequency);
+  }
+
+  bpf(...frequency: CycleInput | [Envelope]) {
+    return new Filter("bp", ...frequency);
   }
 
   push(inst: Synthesizer) {

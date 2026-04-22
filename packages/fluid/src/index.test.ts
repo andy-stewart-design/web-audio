@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import Drome from "./index";
-import Filter from "./effects/filter";
 
 describe("Drome", () => {
   describe("default schema", () => {
@@ -147,22 +146,81 @@ describe("Drome", () => {
     });
   });
 
+  describe("filter factories", () => {
+    it("lpf alias matches filter('lp', ...)", () => {
+      const d = new Drome();
+      expect(d.lpf(800).getSchema()).toEqual(d.filter("lp", 800).getSchema());
+    });
+
+    it("hpf produces filterType hp", () => {
+      const schema = new Drome().hpf(2400).getSchema();
+      expect(schema.filterType).toBe("hp");
+      if (schema.frequency.type === "static") {
+        expect(schema.frequency.cycle[0][0].value).toBe(2400);
+      }
+    });
+
+    it("bpf produces filterType bp", () => {
+      const schema = new Drome().bpf(1000).getSchema();
+      expect(schema.filterType).toBe("bp");
+      if (schema.frequency.type === "static") {
+        expect(schema.frequency.cycle[0][0].value).toBe(1000);
+      }
+    });
+  });
+
+  describe("effects on synthesizer", () => {
+    it("no effects: effects array is empty", () => {
+      const d = new Drome();
+      expect(d.synth().getSchema().effects).toEqual([]);
+    });
+
+    it("single effect via fx()", () => {
+      const d = new Drome();
+      const schema = d.synth().fx(d.lpf(800)).getSchema();
+      expect(schema.effects).toHaveLength(1);
+      expect(schema.effects[0].filterType).toBe("lp");
+    });
+
+    it("variadic fx(): order preserved", () => {
+      const d = new Drome();
+      const schema = d.synth().fx(d.lpf(800), d.hpf(200)).getSchema();
+      expect(schema.effects).toHaveLength(2);
+      expect(schema.effects[0].filterType).toBe("lp");
+      expect(schema.effects[1].filterType).toBe("hp");
+    });
+
+    it("chained fx() calls accumulate", () => {
+      const d = new Drome();
+      const schema = d.synth().fx(d.lpf(800)).fx(d.hpf(200)).getSchema();
+      expect(schema.effects).toHaveLength(2);
+      expect(schema.effects[0].filterType).toBe("lp");
+      expect(schema.effects[1].filterType).toBe("hp");
+    });
+
+    it("three effects", () => {
+      const d = new Drome();
+      const schema = d.synth().fx(d.lpf(800)).fx(d.hpf(200)).fx(d.bpf(1000)).getSchema();
+      expect(schema.effects).toHaveLength(3);
+    });
+  });
+
   describe(".fx()", () => {
     it("returns this", () => {
       const d = new Drome();
       const s = d.synth();
-      expect(s.fx(new Filter("lp", 800))).toBe(s);
+      expect(s.fx(d.lpf(800))).toBe(s);
     });
 
     it("variadic: accepts multiple filters at once", () => {
       const d = new Drome();
-      const s = d.synth().fx(new Filter("lp", 800), new Filter("hp", 200));
+      const s = d.synth().fx(d.lpf(800), d.hpf(200));
       expect(s["_effects"]).toHaveLength(2);
     });
 
     it("chained calls accumulate", () => {
       const d = new Drome();
-      const s = d.synth().fx(new Filter("lp", 800)).fx(new Filter("hp", 200));
+      const s = d.synth().fx(d.lpf(800)).fx(d.hpf(200));
       expect(s["_effects"]).toHaveLength(2);
     });
   });
