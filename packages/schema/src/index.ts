@@ -37,12 +37,26 @@ interface EnvelopeSchema {
   mode: "bleed" | "clip";
 }
 
+type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
+
+interface FilterSchema {
+  type: "filter";
+  filterType: FilterType;
+  frequency: ParameterSchema | EnvelopeSchema;
+  q: ParameterSchema | EnvelopeSchema;
+  detune: ParameterSchema | EnvelopeSchema;
+  gain: ParameterSchema | EnvelopeSchema;
+}
+
+type EffectSchema = FilterSchema;
+
 interface SynthesizerSchema {
   type: "synthesizer";
   waveform: Waveform;
   notes: ParameterSchema;
   detune: ParameterSchema | EnvelopeSchema;
   gain: EnvelopeSchema;
+  effects: EffectSchema[];
 }
 
 interface DromeSchema {
@@ -51,7 +65,10 @@ interface DromeSchema {
 
 export type {
   DromeSchema,
+  EffectSchema,
   EnvelopeSchema,
+  FilterSchema,
+  FilterType,
   ParameterSchema,
   RandomSchema,
   StaticSchema,
