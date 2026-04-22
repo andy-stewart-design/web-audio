@@ -170,7 +170,48 @@ These return a new `Filter` instance. They do not register it anywhere — the c
 
 ## Phase 3: Engine — Effects Chain Wiring
 
-### 3a. Per-instrument output GainNode
+### 3a. Simplify ScheduledNote and node cleanup
+
+**File:** `packages/audio-engine/src/instrument.ts`
+
+Replace the current `ScheduledNote` interface:
+```ts
+interface ScheduledNote {
+  sourceNode: AudioScheduledSourceNode;
+  audioNodes: AudioNode[];
+  startTime: number;
+}
+```
+
+This flattens gain, filter, and any future intermediate nodes into a single `audioNodes` array. Both `onended` and `cancelFutureNotes` iterate the array to disconnect:
+
+```ts
+node.onended = () => {
+  scheduled.sourceNode.disconnect();
+  for (const n of scheduled.audioNodes) n.disconnect();
+  // ...existing cleanup...
+};
+```
+
+```ts
+// cancelFutureNotes
+note.sourceNode.stop(0);
+note.sourceNode.disconnect();
+for (const n of note.audioNodes) n.disconnect();
+```
+
+Update `_track` signature to match:
+```ts
+protected _track(
+  sourceNode: AudioScheduledSourceNode,
+  audioNodes: AudioNode[],
+  startTime: number,
+): void
+```
+
+Phase 3b passes `[gainNode, ...filterNodes]` as `audioNodes`.
+
+### 3b. Per-instrument output GainNode
 
 **File:** `packages/audio-engine/src/instrument.ts`
 
@@ -191,7 +232,7 @@ Move the `BASE_GAIN = 0.25` constant from `synthesizer.ts` into `instrument.ts`.
 
 **Why this matters:** Currently `BASE_GAIN` is applied as the `scale` param inside `_scheduleParamEnvelope`, scaling per-note gain automation to `[0, 0.25]`. Moving it to a dedicated output GainNode keeps per-note ADSR values in `[0, 1]`, which is cleaner and required for the correct filter signal path architecture.
 
-### 3b. Synthesizer._scheduleNote update
+### 3c. Synthesizer._scheduleNote update
 
 **File:** `packages/audio-engine/src/synthesizer.ts`
 
@@ -227,7 +268,7 @@ Update `_scheduleNote`:
    - No effects: `osc → perNoteGain → _outputNode`
    - With effects: `osc → perNoteGain → filter[0] → filter[1] → ... → _outputNode`
 
-**Note on _track() and node lifetime:** Verify that filter nodes stay alive for the full note duration. Nodes connected to a live audio graph won't be GC'd, so the connection chain should be sufficient. If `_track()` uses an explicit reference set, add filter nodes to it.
+**Node lifetime:** Filter nodes are passed in the `audioNodes` array to `_track()` (Phase 3a), so they are disconnected on `onended` and `cancelFutureNotes` alongside the gain node.
 
 **Note on `detune` name collision:** `FilterSchema.detune` targets `filterNode.detune`; `SynthesizerSchema.detune` targets `oscillatorNode.detune`. Engine code must route each to its correct `AudioParam`.
 
@@ -264,9 +305,13 @@ Schema    →   Filter builder   →   fx() method   →   getSchema()   →   D
               + unit tests         + tests           update            + integration tests
                                                          ↓
                                                     Phase 3a
-                                                  Output GainNode
+                                                  ScheduledNote
+                                                    simplify
                                                          ↓
                                                     Phase 3b
+                                                  Output GainNode
+                                                         ↓
+                                                    Phase 3c
                                                   Engine wiring
                                                          ↓
                                                     Manual audio
