@@ -10,8 +10,8 @@ import { normalizeADSR } from "./utils/normalize";
 const MIN_RAMP = 0.005;
 
 interface ScheduledNote {
-  node: AudioScheduledSourceNode;
-  gain: GainNode;
+  sourceNode: AudioScheduledSourceNode;
+  audioNodes: AudioNode[];
   startTime: number;
 }
 
@@ -41,9 +41,9 @@ abstract class Instrument {
     const now = this._ctx.currentTime;
     for (const note of this._scheduled) {
       if (note.startTime > now) {
-        note.node.stop(0);
-        note.node.disconnect();
-        note.gain.disconnect();
+        note.sourceNode.stop(0);
+        note.sourceNode.disconnect();
+        for (const n of note.audioNodes) n.disconnect();
         this._scheduled.delete(note);
       }
     }
@@ -108,16 +108,16 @@ abstract class Instrument {
   }
 
   protected _track(
-    node: AudioScheduledSourceNode,
-    gain: GainNode,
+    sourceNode: AudioScheduledSourceNode,
+    audioNodes: AudioNode[],
     startTime: number,
-  ): void {
-    const scheduled: ScheduledNote = { node, gain, startTime };
+  ) {
+    const scheduled: ScheduledNote = { sourceNode, audioNodes, startTime };
     this._scheduled.add(scheduled);
 
-    node.onended = () => {
-      node.disconnect();
-      gain.disconnect();
+    sourceNode.onended = () => {
+      sourceNode.disconnect();
+      for (const n of audioNodes) n.disconnect();
       this._scheduled.delete(scheduled);
       if (this._scheduled.size === 0 && this._onDone) {
         this._onDone();

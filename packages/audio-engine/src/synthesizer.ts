@@ -80,7 +80,7 @@ class Synthesizer extends Instrument {
     osc.start(startTime);
     osc.stop(endTime + releaseDur + 0.05);
 
-    this._track(osc, gain, startTime);
+    this._track(osc, [gain], startTime);
   }
 }
 
