@@ -8,6 +8,7 @@ import RandomResolver from "./random-resolver";
 import { normalizeADSR } from "./utils/normalize";
 
 const MIN_RAMP = 0.005;
+const BASE_GAIN = 0.25;
 
 interface ScheduledNote {
   sourceNode: AudioScheduledSourceNode;
@@ -18,6 +19,7 @@ interface ScheduledNote {
 abstract class Instrument {
   protected _ctx: AudioContext;
   protected _clock: AudioClock;
+  protected readonly _outputNode: GainNode;
   private _resolvers = new Map<RandomSchema, RandomResolver>();
   private _scheduled: Set<ScheduledNote> = new Set();
   private _onDone: (() => void) | null = null;
@@ -25,6 +27,9 @@ abstract class Instrument {
   constructor(ctx: AudioContext, clock: AudioClock) {
     this._ctx = ctx;
     this._clock = clock;
+    this._outputNode = ctx.createGain();
+    this._outputNode.gain.value = BASE_GAIN;
+    this._outputNode.connect(ctx.destination);
   }
 
   abstract scheduleBar(barIndex: number, barStartTime: number): void;

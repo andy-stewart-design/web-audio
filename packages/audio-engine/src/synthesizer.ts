@@ -3,8 +3,6 @@ import type AudioClock from "@web-audio/clock";
 import Instrument from "./instrument";
 import { midiToFrequency } from "./utils/midi-to-frequency";
 
-const BASE_GAIN = 0.25;
-
 class Synthesizer extends Instrument {
   private _schema: SynthesizerSchema;
 
@@ -61,7 +59,6 @@ class Synthesizer extends Instrument {
       note.stepIndex,
       noteDuration,
       endTime,
-      BASE_GAIN,
     );
 
     if (detune.type === "envelope") {
@@ -76,7 +73,7 @@ class Synthesizer extends Instrument {
     }
 
     osc.connect(gain);
-    gain.connect(this._ctx.destination);
+    gain.connect(this._outputNode);
     osc.start(startTime);
     osc.stop(endTime + releaseDur + 0.05);
 
