@@ -1,17 +1,6 @@
-interface NormalizedADSR {
-  a: number;
-  d: number;
-  s: number;
-  r: number;
-}
+import type { NormalizedADSR, ResolvedEnvelopeSchema } from "@/types";
 
-function normalizeADSR(
-  a: number,
-  d: number,
-  s: number,
-  r: number,
-  mode: "bleed" | "clip",
-): NormalizedADSR {
+function normalizeADSR({ a, d, s, r, mode }: ResolvedEnvelopeSchema) {
   if (mode === "bleed") {
     const adSum = a + d;
     if (adSum > 1) {
@@ -28,8 +17,7 @@ function normalizeADSR(
     }
   }
 
-  return { a, d, s, r };
+  return { a, d, s, r } satisfies NormalizedADSR;
 }
 
 export { normalizeADSR };
-export type { NormalizedADSR };

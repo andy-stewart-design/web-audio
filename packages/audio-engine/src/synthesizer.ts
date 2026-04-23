@@ -3,8 +3,6 @@ import type AudioClock from "@web-audio/clock";
 import Instrument from "./instrument";
 import { midiToFrequency } from "./utils/midi-to-frequency";
 
-const BASE_GAIN = 0.25;
-
 class Synthesizer extends Instrument {
   private _schema: SynthesizerSchema;
 
@@ -21,7 +19,11 @@ class Synthesizer extends Instrument {
       mask.forEach((step, stepIndex) => {
         if (step.value === 0) return;
         const midiNote = this._resolve(notes, barIndex, stepIndex);
-        this._scheduleNote({ ...step, value: midiNote }, barStartTime, barIndex);
+        this._scheduleNote(
+          { ...step, value: midiNote },
+          barStartTime,
+          barIndex,
+        );
       });
       return;
     }
@@ -43,9 +45,10 @@ class Synthesizer extends Instrument {
     const endTime = startTime + noteDuration;
 
     const detune = this._schema.detune;
-    const staticDetune = detune.type !== "envelope"
-      ? this._resolve(detune, barIndex, note.stepIndex)
-      : 0;
+    const staticDetune =
+      detune.type !== "envelope"
+        ? this._resolve(detune, barIndex, note.stepIndex)
+        : 0;
 
     const osc = new OscillatorNode(this._ctx, {
       type: this._schema.waveform,
@@ -61,7 +64,6 @@ class Synthesizer extends Instrument {
       note.stepIndex,
       noteDuration,
       endTime,
-      BASE_GAIN,
     );
 
     if (detune.type === "envelope") {
@@ -75,12 +77,28 @@ class Synthesizer extends Instrument {
       );
     }
 
+    const effectNodes = this._schema.effects.map((effect) =>
+      this._buildEffectNode(
+        effect,
+        barIndex,
+        note.stepIndex,
+        startTime,
+        noteDuration,
+        endTime,
+      ),
+    );
+
     osc.connect(gain);
-    gain.connect(this._ctx.destination);
+    const chain: AudioNode[] = [gain, ...effectNodes];
+    chain.reduce((src, dst) => {
+      src.connect(dst);
+      return dst;
+    });
+    chain[chain.length - 1].connect(this._outputNode);
     osc.start(startTime);
     osc.stop(endTime + releaseDur + 0.05);
 
-    this._track(osc, gain, startTime);
+    this._track(osc, chain, startTime);
   }
 }
 

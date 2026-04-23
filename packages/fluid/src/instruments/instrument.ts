@@ -4,6 +4,7 @@ import {
   type ScheduledValue,
 } from "@web-audio/patterns";
 import Envelope from "@/automations/envelope";
+import Filter from "@/effects/filter";
 import Notes from "@/patterns/notes";
 import Parameter from "@/patterns/parameter";
 import { isEnvelopeTuple } from "@/utils/validate";
@@ -16,6 +17,7 @@ class Instrument {
   protected _cycle: Notes;
   protected _detune: Parameter | Envelope;
   protected _gain: Envelope;
+  protected _effects: Filter[] = [];
 
   constructor(defaultPattern: Chord) {
     this._cycle = new Notes(defaultPattern);
@@ -97,6 +99,11 @@ class Instrument {
     } else {
       this._gain = new Envelope(0, ...input);
     }
+    return this;
+  }
+
+  fx(...effects: Filter[]) {
+    this._effects.push(...effects);
     return this;
   }
 }

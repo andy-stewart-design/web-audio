@@ -1,23 +1,19 @@
 import type AudioClock from "@web-audio/clock";
 import type {
+  EffectSchema,
   EnvelopeSchema,
   ParameterSchema,
   RandomSchema,
 } from "@web-audio/schema";
 import RandomResolver from "./random-resolver";
-import { normalizeADSR } from "./utils/normalize";
-
-const MIN_RAMP = 0.005;
-
-interface ScheduledNote {
-  node: AudioScheduledSourceNode;
-  gain: GainNode;
-  startTime: number;
-}
+import { BASE_GAIN, FILTER_TYPE_MAP } from "./constants";
+import { computeEnvelope } from "./utils/compute-envelope";
+import type { ScheduledNote, ResolvedEnvelopeSchema } from "./types";
 
 abstract class Instrument {
   protected _ctx: AudioContext;
   protected _clock: AudioClock;
+  protected readonly _outputNode: GainNode;
   private _resolvers = new Map<RandomSchema, RandomResolver>();
   private _scheduled: Set<ScheduledNote> = new Set();
   private _onDone: (() => void) | null = null;
@@ -25,6 +21,9 @@ abstract class Instrument {
   constructor(ctx: AudioContext, clock: AudioClock) {
     this._ctx = ctx;
     this._clock = clock;
+    this._outputNode = ctx.createGain();
+    this._outputNode.gain.value = BASE_GAIN;
+    this._outputNode.connect(ctx.destination);
   }
 
   abstract scheduleBar(barIndex: number, barStartTime: number): void;
@@ -41,9 +40,9 @@ abstract class Instrument {
     const now = this._ctx.currentTime;
     for (const note of this._scheduled) {
       if (note.startTime > now) {
-        note.node.stop(0);
-        note.node.disconnect();
-        note.gain.disconnect();
+        note.sourceNode.stop(0);
+        note.sourceNode.disconnect();
+        for (const n of note.audioNodes) n.disconnect();
         this._scheduled.delete(note);
       }
     }
@@ -74,50 +73,82 @@ abstract class Instrument {
       s: this._resolve(envelope.s, barIndex, stepIndex),
       r: this._resolve(envelope.r, barIndex, stepIndex),
       mode: envelope.mode,
-    };
+    } satisfies ResolvedEnvelopeSchema;
   }
 
   protected _scheduleParamEnvelope(
     param: AudioParam,
-    envelope: EnvelopeSchema,
+    envSchema: EnvelopeSchema,
     barIndex: number,
     stepIndex: number,
     noteDuration: number,
     endTime: number,
     scale = 1,
   ): number {
-    const env = this._resolveEnvelope(envelope, barIndex, stepIndex);
-    const { a, d, s, r } = normalizeADSR(env.a, env.d, env.s, env.r, env.mode);
+    const _env = this._resolveEnvelope(envSchema, barIndex, stepIndex);
+    const env = computeEnvelope(_env, noteDuration, endTime, scale);
+    const decay = env.startTime + env.attackDur + env.decayDur;
 
-    const min = env.min * scale;
-    const max = env.max * scale;
-    const sustain = min + (max - min) * s;
+    param.setValueAtTime(env.min, env.startTime);
+    param.linearRampToValueAtTime(env.max, env.startTime + env.attackDur);
+    param.linearRampToValueAtTime(env.sustain, decay);
+    param.setValueAtTime(env.sustain, env.endTime);
+    param.linearRampToValueAtTime(env.min, env.endTime + env.releaseDur);
 
-    const startTime = endTime - noteDuration;
-    const attackDur = Math.max(a * noteDuration, MIN_RAMP);
-    const decayDur = Math.max(d * noteDuration, MIN_RAMP);
-    const releaseDur = Math.max(r * noteDuration, MIN_RAMP);
+    return env.releaseDur;
+  }
 
-    param.setValueAtTime(min, startTime);
-    param.linearRampToValueAtTime(max, startTime + attackDur);
-    param.linearRampToValueAtTime(sustain, startTime + attackDur + decayDur);
-    param.setValueAtTime(sustain, endTime);
-    param.linearRampToValueAtTime(min, endTime + releaseDur);
-
-    return releaseDur;
+  protected _buildEffectNode(
+    effect: EffectSchema,
+    barIndex: number,
+    stepIndex: number,
+    startTime: number,
+    noteDuration: number,
+    endTime: number,
+  ): AudioNode {
+    switch (effect.type) {
+      case "filter": {
+        const node = new BiquadFilterNode(this._ctx, {
+          type: FILTER_TYPE_MAP[effect.filterType],
+        });
+        for (const [param, schema] of [
+          [node.frequency, effect.frequency],
+          [node.Q, effect.q],
+          [node.detune, effect.detune],
+          [node.gain, effect.gain],
+        ] as const) {
+          if (schema.type === "envelope") {
+            this._scheduleParamEnvelope(
+              param,
+              schema,
+              barIndex,
+              stepIndex,
+              noteDuration,
+              endTime,
+            );
+          } else {
+            param.setValueAtTime(
+              this._resolve(schema, barIndex, stepIndex),
+              startTime,
+            );
+          }
+        }
+        return node;
+      }
+    }
   }
 
   protected _track(
-    node: AudioScheduledSourceNode,
-    gain: GainNode,
+    sourceNode: AudioScheduledSourceNode,
+    audioNodes: AudioNode[],
     startTime: number,
-  ): void {
-    const scheduled: ScheduledNote = { node, gain, startTime };
+  ) {
+    const scheduled: ScheduledNote = { sourceNode, audioNodes, startTime };
     this._scheduled.add(scheduled);
 
-    node.onended = () => {
-      node.disconnect();
-      gain.disconnect();
+    sourceNode.onended = () => {
+      sourceNode.disconnect();
+      for (const n of audioNodes) n.disconnect();
       this._scheduled.delete(scheduled);
       if (this._scheduled.size === 0 && this._onDone) {
         this._onDone();
@@ -137,5 +168,4 @@ abstract class Instrument {
 }
 
 export default Instrument;
-export { MIN_RAMP };
 export type { ScheduledNote };
