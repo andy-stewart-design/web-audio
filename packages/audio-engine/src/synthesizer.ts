@@ -1,4 +1,9 @@
-import type { EffectSchema, FilterType, StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
+import type {
+  EffectSchema,
+  FilterType,
+  StaticSchemaValue,
+  SynthesizerSchema,
+} from "@web-audio/schema";
 import type AudioClock from "@web-audio/clock";
 import Instrument from "./instrument";
 import { midiToFrequency } from "./utils/midi-to-frequency";
@@ -30,7 +35,11 @@ class Synthesizer extends Instrument {
       mask.forEach((step, stepIndex) => {
         if (step.value === 0) return;
         const midiNote = this._resolve(notes, barIndex, stepIndex);
-        this._scheduleNote({ ...step, value: midiNote }, barStartTime, barIndex);
+        this._scheduleNote(
+          { ...step, value: midiNote },
+          barStartTime,
+          barIndex,
+        );
       });
       return;
     }
@@ -60,9 +69,19 @@ class Synthesizer extends Instrument {
           [node.gain, effect.gain],
         ] as const) {
           if (schema.type === "envelope") {
-            this._scheduleParamEnvelope(param, schema, barIndex, stepIndex, noteDuration, endTime);
+            this._scheduleParamEnvelope(
+              param,
+              schema,
+              barIndex,
+              stepIndex,
+              noteDuration,
+              endTime,
+            );
           } else {
-            param.setValueAtTime(this._resolve(schema, barIndex, stepIndex), startTime);
+            param.setValueAtTime(
+              this._resolve(schema, barIndex, stepIndex),
+              startTime,
+            );
           }
         }
         return node;
@@ -81,9 +100,10 @@ class Synthesizer extends Instrument {
     const endTime = startTime + noteDuration;
 
     const detune = this._schema.detune;
-    const staticDetune = detune.type !== "envelope"
-      ? this._resolve(detune, barIndex, note.stepIndex)
-      : 0;
+    const staticDetune =
+      detune.type !== "envelope"
+        ? this._resolve(detune, barIndex, note.stepIndex)
+        : 0;
 
     const osc = new OscillatorNode(this._ctx, {
       type: this._schema.waveform,
@@ -113,12 +133,22 @@ class Synthesizer extends Instrument {
     }
 
     const effectNodes = this._schema.effects.map((effect) =>
-      this._buildEffectNode(effect, barIndex, note.stepIndex, startTime, noteDuration, endTime)
+      this._buildEffectNode(
+        effect,
+        barIndex,
+        note.stepIndex,
+        startTime,
+        noteDuration,
+        endTime,
+      ),
     );
 
     osc.connect(gain);
     const chain: AudioNode[] = [gain, ...effectNodes];
-    chain.reduce((src, dst) => { src.connect(dst); return dst; });
+    chain.reduce((src, dst) => {
+      src.connect(dst);
+      return dst;
+    });
     chain[chain.length - 1].connect(this._outputNode);
     osc.start(startTime);
     osc.stop(endTime + releaseDur + 0.05);

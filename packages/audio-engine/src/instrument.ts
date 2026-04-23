@@ -5,16 +5,11 @@ import type {
   RandomSchema,
 } from "@web-audio/schema";
 import RandomResolver from "./random-resolver";
-import { normalizeADSR } from "./utils/normalize";
+import { computeEnvelope } from "./utils/compute-envelope";
+import type { ScheduledNote, ResolvedEnvelopeSchema } from "./types";
 
 const MIN_RAMP = 0.005;
 const BASE_GAIN = 0.25;
-
-interface ScheduledNote {
-  sourceNode: AudioScheduledSourceNode;
-  audioNodes: AudioNode[];
-  startTime: number;
-}
 
 abstract class Instrument {
   protected _ctx: AudioContext;
@@ -79,37 +74,29 @@ abstract class Instrument {
       s: this._resolve(envelope.s, barIndex, stepIndex),
       r: this._resolve(envelope.r, barIndex, stepIndex),
       mode: envelope.mode,
-    };
+    } satisfies ResolvedEnvelopeSchema;
   }
 
   protected _scheduleParamEnvelope(
     param: AudioParam,
-    envelope: EnvelopeSchema,
+    envSchema: EnvelopeSchema,
     barIndex: number,
     stepIndex: number,
     noteDuration: number,
     endTime: number,
     scale = 1,
   ): number {
-    const env = this._resolveEnvelope(envelope, barIndex, stepIndex);
-    const { a, d, s, r } = normalizeADSR(env.a, env.d, env.s, env.r, env.mode);
+    const _env = this._resolveEnvelope(envSchema, barIndex, stepIndex);
+    const env = computeEnvelope(_env, noteDuration, endTime, scale);
+    const decay = env.startTime + env.attackDur + env.decayDur;
 
-    const min = env.min * scale;
-    const max = env.max * scale;
-    const sustain = min + (max - min) * s;
+    param.setValueAtTime(env.min, env.startTime);
+    param.linearRampToValueAtTime(env.max, env.startTime + env.attackDur);
+    param.linearRampToValueAtTime(env.sustain, decay);
+    param.setValueAtTime(env.sustain, env.endTime);
+    param.linearRampToValueAtTime(env.min, env.endTime + env.releaseDur);
 
-    const startTime = endTime - noteDuration;
-    const attackDur = Math.max(a * noteDuration, MIN_RAMP);
-    const decayDur = Math.max(d * noteDuration, MIN_RAMP);
-    const releaseDur = Math.max(r * noteDuration, MIN_RAMP);
-
-    param.setValueAtTime(min, startTime);
-    param.linearRampToValueAtTime(max, startTime + attackDur);
-    param.linearRampToValueAtTime(sustain, startTime + attackDur + decayDur);
-    param.setValueAtTime(sustain, endTime);
-    param.linearRampToValueAtTime(min, endTime + releaseDur);
-
-    return releaseDur;
+    return env.releaseDur;
   }
 
   protected _track(
