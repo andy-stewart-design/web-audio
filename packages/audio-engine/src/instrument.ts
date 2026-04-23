@@ -1,15 +1,14 @@
 import type AudioClock from "@web-audio/clock";
 import type {
+  EffectSchema,
   EnvelopeSchema,
   ParameterSchema,
   RandomSchema,
 } from "@web-audio/schema";
 import RandomResolver from "./random-resolver";
+import { BASE_GAIN, FILTER_TYPE_MAP } from "./constants";
 import { computeEnvelope } from "./utils/compute-envelope";
 import type { ScheduledNote, ResolvedEnvelopeSchema } from "./types";
-
-const MIN_RAMP = 0.005;
-const BASE_GAIN = 0.25;
 
 abstract class Instrument {
   protected _ctx: AudioContext;
@@ -99,6 +98,46 @@ abstract class Instrument {
     return env.releaseDur;
   }
 
+  protected _buildEffectNode(
+    effect: EffectSchema,
+    barIndex: number,
+    stepIndex: number,
+    startTime: number,
+    noteDuration: number,
+    endTime: number,
+  ): AudioNode {
+    switch (effect.type) {
+      case "filter": {
+        const node = new BiquadFilterNode(this._ctx, {
+          type: FILTER_TYPE_MAP[effect.filterType],
+        });
+        for (const [param, schema] of [
+          [node.frequency, effect.frequency],
+          [node.Q, effect.q],
+          [node.detune, effect.detune],
+          [node.gain, effect.gain],
+        ] as const) {
+          if (schema.type === "envelope") {
+            this._scheduleParamEnvelope(
+              param,
+              schema,
+              barIndex,
+              stepIndex,
+              noteDuration,
+              endTime,
+            );
+          } else {
+            param.setValueAtTime(
+              this._resolve(schema, barIndex, stepIndex),
+              startTime,
+            );
+          }
+        }
+        return node;
+      }
+    }
+  }
+
   protected _track(
     sourceNode: AudioScheduledSourceNode,
     audioNodes: AudioNode[],
@@ -129,5 +168,4 @@ abstract class Instrument {
 }
 
 export default Instrument;
-export { MIN_RAMP };
 export type { ScheduledNote };

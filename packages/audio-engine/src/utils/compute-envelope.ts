@@ -1,7 +1,6 @@
+import { MIN_RAMP } from "../constants";
 import { normalizeADSR } from "./normalize";
 import type { EnvelopeParams, ResolvedEnvelopeSchema } from "@/types";
-
-const MIN_RAMP = 0.005;
 
 function computeEnvelope(
   envelope: ResolvedEnvelopeSchema,
