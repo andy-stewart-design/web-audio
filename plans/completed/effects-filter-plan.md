@@ -297,6 +297,15 @@ These are run after the engine phase is complete.
 
 ---
 
+## Deviations from Plan
+
+- **`FILTER_TYPE_MAP` location:** The plan placed this constant in `synthesizer.ts`. It was moved to `src/constants.ts` alongside `MIN_RAMP` and `BASE_GAIN`, which were also extracted there during implementation.
+- **`_buildEffectNode` location:** The plan placed this method on `Synthesizer`. It was moved to the `Instrument` base class, since it only uses base class members (`_ctx`, `_scheduleParamEnvelope`, `_resolve`) and any future instrument type would need the same effects chain.
+- **`scheduleParamEnvelope` / `getEnvTimes`:** During Phase 3 implementation, the original `_scheduleParamEnvelope` body was temporarily split into a `scheduleParamEnvelope` free function and a `getEnvTimes` free function at the bottom of `instrument.ts`. `getEnvTimes` was then extracted to `src/utils/compute-envelope.ts` as `computeEnvelope` with a proper `EnvelopeParams` return type (defined in `src/types.ts`). `scheduleParamEnvelope` was inlined back into `_scheduleParamEnvelope` as it had no testability benefit.
+- **`ResolvedEnvelopeSchema` / `NormalizedADSR`:** These interfaces were extracted to `src/types.ts` during implementation. `normalizeADSR` was updated to accept `ResolvedEnvelopeSchema` directly rather than positional arguments.
+
+---
+
 ## Implementation Order
 
 ```
