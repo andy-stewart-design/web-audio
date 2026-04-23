@@ -1,7 +1,18 @@
-import type { StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
+import type { EffectSchema, FilterType, StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
 import type AudioClock from "@web-audio/clock";
 import Instrument from "./instrument";
 import { midiToFrequency } from "./utils/midi-to-frequency";
+
+const FILTER_TYPE_MAP: Record<FilterType, BiquadFilterType> = {
+  lp: "lowpass",
+  hp: "highpass",
+  bp: "bandpass",
+  notch: "notch",
+  ap: "allpass",
+  pk: "peaking",
+  ls: "lowshelf",
+  hs: "highshelf",
+};
 
 class Synthesizer extends Instrument {
   private _schema: SynthesizerSchema;
@@ -28,6 +39,35 @@ class Synthesizer extends Instrument {
     notesBar.forEach((note) => {
       this._scheduleNote(note, barStartTime, barIndex);
     });
+  }
+
+  private _buildEffectNode(
+    effect: EffectSchema,
+    barIndex: number,
+    stepIndex: number,
+    startTime: number,
+    noteDuration: number,
+    endTime: number,
+  ): AudioNode {
+    switch (effect.type) {
+      case "filter": {
+        const node = this._ctx.createBiquadFilter();
+        node.type = FILTER_TYPE_MAP[effect.filterType];
+        for (const [param, schema] of [
+          [node.frequency, effect.frequency],
+          [node.Q, effect.q],
+          [node.detune, effect.detune],
+          [node.gain, effect.gain],
+        ] as const) {
+          if (schema.type === "envelope") {
+            this._scheduleParamEnvelope(param, schema, barIndex, stepIndex, noteDuration, endTime);
+          } else {
+            param.setValueAtTime(this._resolve(schema, barIndex, stepIndex), startTime);
+          }
+        }
+        return node;
+      }
+    }
   }
 
   private _scheduleNote(
@@ -72,12 +112,18 @@ class Synthesizer extends Instrument {
       );
     }
 
+    const effectNodes = this._schema.effects.map((effect) =>
+      this._buildEffectNode(effect, barIndex, note.stepIndex, startTime, noteDuration, endTime)
+    );
+
     osc.connect(gain);
-    gain.connect(this._outputNode);
+    const chain: AudioNode[] = [gain, ...effectNodes];
+    chain.reduce((src, dst) => { src.connect(dst); return dst; });
+    chain[chain.length - 1].connect(this._outputNode);
     osc.start(startTime);
     osc.stop(endTime + releaseDur + 0.05);
 
-    this._track(osc, [gain], startTime);
+    this._track(osc, chain, startTime);
   }
 }
 
