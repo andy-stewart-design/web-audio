@@ -115,7 +115,7 @@ describe("AudioEngine", () => {
 
       engine.update(makeSchema(1)); // pending = schema1
       engine.update(makeSchema(1)); // pending = schema2 (schema1 discarded)
-      clock.emit("prebar");         // commits schema2 only → 1 player created
+      clock.emit("prebar"); // commits schema2 only → 1 player created
 
       expect(instances()).toHaveLength(1);
 
@@ -191,7 +191,8 @@ describe("AudioEngine", () => {
       clock.emit("prebar"); // player[0] retired → whenDone registered
 
       // Simulate player[0] finishing its tail — invoke the registered callback
-      const retireCallback = instances()[0].whenDone.mock.calls[0][0] as () => void;
+      const retireCallback = instances()[0].whenDone.mock
+        .calls[0][0] as () => void;
       expect(() => retireCallback()).not.toThrow();
     });
   });
