@@ -30,7 +30,7 @@ function App() {
   };
 
   const getAudio = () => {
-    if (!audioRef.current) {
+    if (!audioRef.current || audioRef.current.ctx.state === "closed") {
       audioRef.current = createAudioContext();
     }
     return audioRef.current;
@@ -87,6 +87,9 @@ function App() {
       engineRef.current?.destroy();
       clockRef.current?.stop();
       audioRef.current?.dispose();
+      engineRef.current = null;
+      clockRef.current = null;
+      audioRef.current = null;
     };
   }, []);
 
