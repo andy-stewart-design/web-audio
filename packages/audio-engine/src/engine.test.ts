@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ClockEventCallback, ClockEventType } from "@web-audio/clock";
 import type { DromeSchema } from "@web-audio/schema";
 
 // Mock Synthesizer so tests don't need Web Audio APIs.
@@ -16,19 +15,21 @@ vi.mock("./synthesizer", () => {
 import AudioEngine from "./index";
 import MockSynthesizer from "./synthesizer";
 
+type EventCallback = (m: { beat: number; bar: number }, time: number) => void;
+
 // Controllable clock stub — lets tests fire events manually
 class FakeClock {
   paused = true;
   barDuration = 2;
-  private _listeners = new Map<ClockEventType, Set<ClockEventCallback>>();
+  private _listeners = new Map<string, Set<EventCallback>>();
 
-  on(type: ClockEventType, fn: ClockEventCallback): () => void {
+  on(type: string, fn: EventCallback): () => void {
     if (!this._listeners.has(type)) this._listeners.set(type, new Set());
     this._listeners.get(type)!.add(fn);
     return () => this._listeners.get(type)?.delete(fn);
   }
 
-  emit(type: ClockEventType, bar = 0, time = 0) {
+  emit(type: string, bar = 0, time = 0) {
     this._listeners.get(type)?.forEach((cb) => cb({ beat: 0, bar }, time));
   }
 }
