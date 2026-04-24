@@ -1,4 +1,5 @@
 import {
+  applyPattern,
   euclid,
   fast,
   hex,
@@ -19,25 +20,8 @@ abstract class BaseCycle<T> {
     this._nullValue = nullValue;
   }
 
-  protected applyPattern(modifier: number[][]) {
-    const nullValue = this._nullValue;
-
-    const cycles = this._cycle;
-    const loops = Math.max(cycles.length, modifier.length);
-    const nextCycles: Cycle<T> = [];
-
-    for (let i = 0; i < loops; i++) {
-      let noteIndex = 0;
-      const cycle = cycles[i % cycles.length] ?? [];
-
-      const nextCycle = modifier[i % modifier.length].map((p) =>
-        p === 0 ? nullValue : cycle[noteIndex++ % cycle.length],
-      );
-
-      nextCycles.push(nextCycle);
-    }
-
-    return nextCycles;
+  private applyPattern(modifier: number[][]) {
+    return applyPattern(this._cycle, modifier, this._nullValue);
   }
 
   /* ----------------------------------------------------------------
