@@ -90,11 +90,13 @@ class RandomResolver {
           rFloat = Math.abs(seedToRand(seed));
           seed = xorwise(seed);
         }
-        const mapped = this._mapper(rFloat, rangeStart, rangeEnd);
         if (this._schema.valueMap) {
-          const index = Math.floor(mapped) % this._schema.valueMap.length;
+          // valueMap is self-sufficient: index directly from the raw float,
+          // bypassing the range/dataType pipeline entirely.
+          const index = Math.floor(rFloat * this._schema.valueMap.length);
           result.push(this._schema.valueMap[index]);
         } else {
+          const mapped = this._mapper(rFloat, rangeStart, rangeEnd);
           result.push(mapped);
         }
       }
