@@ -19,9 +19,9 @@ d.synth("triangle").gain([0.75, 1.25], [0.25, 0.5]).push();
 
 ```js
 const env = d
-  .env(0, 0.75)                    // min and max (defaults: 0, 1). Max accepts cycle syntax.
-  .adsr(0.5, 0.25, 0.1, 0.1)      // set all four. Each arg: number or single-bar cycle.
-  .mode("bleed");                  // "bleed" (default) or "clip"
+  .env(0, 0.75) // min and max (defaults: 0, 1). Max accepts cycle syntax.
+  .adsr(0.5, 0.25, 0.1, 0.1) // set all four. Each arg: number or single-bar cycle.
+  .mode("bleed"); // "bleed" (default) or "clip"
 
 d.synth("triangle").gain(env).push();
 ```
@@ -31,7 +31,7 @@ Individual ADSR setters (full cycle + RandomCycle support, last write wins):
 ```js
 const env = d
   .env(0, 0.75)
-  .a([0.25, 0.5], [0.5, 0.25])    // multi-bar cycle on attack
+  .a([0.25, 0.5], [0.5, 0.25]) // multi-bar cycle on attack
   .d(0.1)
   .s(0.8)
   .r(0.05);
@@ -142,6 +142,7 @@ private _getEnvelopeValues(barIndex: number, noteIndex: number) {
 ## Implementation Phases
 
 ### Phase 1: Simple gain
+
 - Add `EnvelopeSchema` to `@web-audio/schema`
 - Update `SynthesizerSchema` in schema package — add `gain: EnvelopeSchema`, update `detune` to `ParameterSchema | EnvelopeSchema`
 - Add `Envelope` builder class in fluid with `.adsr()`, `.a()`, `.d()`, `.s()`, `.r()`, `.mode()`, `.getSchema()`
@@ -152,6 +153,7 @@ private _getEnvelopeValues(barIndex: number, noteIndex: number) {
 - Update engine `_scheduleNote` to read gain envelope from schema via `_getEnvelopeValues`
 
 ### Phase 2: Envelope on detune
+
 - Update `.detune()` to also accept `Envelope`
 - Update engine to handle `EnvelopeSchema` on detune param
 - Engine applies detune envelope over note lifetime

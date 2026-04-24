@@ -12,9 +12,24 @@ describe("BinaryCycle", () => {
       // euclid(3, 8) => [1, 0, 0, 1, 0, 0, 1, 0] — pulses at steps 0, 3, 6
       const bar = new BinaryCycle().euclid(3, 8).getStaticSchema().cycle[0];
       expect(bar).toHaveLength(3);
-      expect(bar[0]).toEqual({ value: 1, duration: 1 / 8, offset: 0, stepIndex: 0 });
-      expect(bar[1]).toEqual({ value: 1, duration: 1 / 8, offset: 3 / 8, stepIndex: 3 });
-      expect(bar[2]).toEqual({ value: 1, duration: 1 / 8, offset: 6 / 8, stepIndex: 6 });
+      expect(bar[0]).toEqual({
+        value: 1,
+        duration: 1 / 8,
+        offset: 0,
+        stepIndex: 0,
+      });
+      expect(bar[1]).toEqual({
+        value: 1,
+        duration: 1 / 8,
+        offset: 3 / 8,
+        stepIndex: 3,
+      });
+      expect(bar[2]).toEqual({
+        value: 1,
+        duration: 1 / 8,
+        offset: 6 / 8,
+        stepIndex: 6,
+      });
     });
 
     it("euclid([3, 4], 8) produces two bars", () => {

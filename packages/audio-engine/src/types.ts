@@ -34,4 +34,9 @@ interface EnvelopeParams {
   releaseDur: number;
 }
 
-export type { EnvelopeParams, NormalizedADSR, ResolvedEnvelopeSchema, ScheduledNote };
+export type {
+  EnvelopeParams,
+  NormalizedADSR,
+  ResolvedEnvelopeSchema,
+  ScheduledNote,
+};

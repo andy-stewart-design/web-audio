@@ -1,6 +1,10 @@
 import type { Cycle } from "../types";
 
-function applyPattern<T>(cycle: Cycle<T>, modifier: number[][], nullValue: T): Cycle<T> {
+function applyPattern<T>(
+  cycle: Cycle<T>,
+  modifier: number[][],
+  nullValue: T,
+): Cycle<T> {
   const loops = Math.max(cycle.length, modifier.length);
   const result: Cycle<T> = [];
 

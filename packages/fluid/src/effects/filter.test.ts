@@ -21,7 +21,16 @@ describe("Filter", () => {
     });
 
     it("all filter types round-trip correctly", () => {
-      const types: FilterType[] = ["lp", "hp", "bp", "notch", "ap", "pk", "ls", "hs"];
+      const types: FilterType[] = [
+        "lp",
+        "hp",
+        "bp",
+        "notch",
+        "ap",
+        "pk",
+        "ls",
+        "hs",
+      ];
       for (const t of types) {
         expect(new Filter(t, 1000).getSchema().filterType).toBe(t);
       }
@@ -131,9 +140,12 @@ describe("Filter", () => {
 
     it("all mutations applied via chaining", () => {
       const schema = new Filter("lp", 800).q(2).detune(50).gain(3).getSchema();
-      if (schema.q.type === "static") expect(schema.q.cycle[0][0].value).toBe(2);
-      if (schema.detune.type === "static") expect(schema.detune.cycle[0][0].value).toBe(50);
-      if (schema.gain.type === "static") expect(schema.gain.cycle[0][0].value).toBe(3);
+      if (schema.q.type === "static")
+        expect(schema.q.cycle[0][0].value).toBe(2);
+      if (schema.detune.type === "static")
+        expect(schema.detune.cycle[0][0].value).toBe(50);
+      if (schema.gain.type === "static")
+        expect(schema.gain.cycle[0][0].value).toBe(3);
     });
   });
 });

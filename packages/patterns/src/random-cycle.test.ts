@@ -25,7 +25,9 @@ describe("RandomCycle", () => {
 
   describe("ribbon()", () => {
     it("creates two segments from array seeds and array loops", () => {
-      const schema = new RandomCycle().ribbon([10, 20], [4, 8]).getRandomSchema();
+      const schema = new RandomCycle()
+        .ribbon([10, 20], [4, 8])
+        .getRandomSchema();
       expect(schema.segments).toEqual([
         { seed: 10, len: 4 },
         { seed: 20, len: 8 },
@@ -34,7 +36,9 @@ describe("RandomCycle", () => {
 
     it("wraps loop lengths with modulo when arrays have mismatched lengths", () => {
       // seeds [10, 20, 30], loops [4] => 3 segments, all len: 4
-      const schema = new RandomCycle().ribbon([10, 20, 30], [4]).getRandomSchema();
+      const schema = new RandomCycle()
+        .ribbon([10, 20, 30], [4])
+        .getRandomSchema();
       expect(schema.segments).toHaveLength(3);
       expect(schema.segments.every((s) => s.len === 4)).toBe(true);
     });
@@ -67,7 +71,8 @@ describe("RandomCycle", () => {
 
     it("euclid filters the inner cycle events", () => {
       // euclid(2, 4) => [1, 0, 1, 0] — pulses at steps 0 and 2
-      const bar = new RandomCycle().steps(4).euclid(2, 4).getRandomSchema().cycle.cycle[0];
+      const bar = new RandomCycle().steps(4).euclid(2, 4).getRandomSchema()
+        .cycle.cycle[0];
       expect(bar).toHaveLength(2);
       expect(bar[0].stepIndex).toBe(0);
       expect(bar[1].stepIndex).toBe(2);
@@ -76,7 +81,9 @@ describe("RandomCycle", () => {
 
   describe("configuration methods", () => {
     it("int() sets dataType to integer", () => {
-      expect(new RandomCycle().int().getRandomSchema().dataType).toBe("integer");
+      expect(new RandomCycle().int().getRandomSchema().dataType).toBe(
+        "integer",
+      );
     });
 
     it("bin() sets dataType to binary", () => {
@@ -84,15 +91,22 @@ describe("RandomCycle", () => {
     });
 
     it("range() sets min and max", () => {
-      expect(new RandomCycle().range(10, 20).getRandomSchema().range).toEqual({ min: 10, max: 20 });
+      expect(new RandomCycle().range(10, 20).getRandomSchema().range).toEqual({
+        min: 10,
+        max: 20,
+      });
     });
 
     it("quant() sets quantValue", () => {
-      expect(new RandomCycle().quant(0.25).getRandomSchema().quantValue).toBe(0.25);
+      expect(new RandomCycle().quant(0.25).getRandomSchema().quantValue).toBe(
+        0.25,
+      );
     });
 
     it("algo() sets algorithm", () => {
-      expect(new RandomCycle().algo("mulberry").getRandomSchema().algorithm).toBe("mulberry");
+      expect(
+        new RandomCycle().algo("mulberry").getRandomSchema().algorithm,
+      ).toBe("mulberry");
     });
   });
 });

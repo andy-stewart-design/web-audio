@@ -21,12 +21,15 @@ describe("ChordCycle", () => {
     it("transformer does not mutate internal state", () => {
       const cycle = new ChordCycle([60, 64, 67]);
       cycle.getStaticSchema((v) => v + 12);
-      expect(cycle.getStaticSchema().cycle[0].map((n) => n.value)).toEqual([60, 64, 67]);
+      expect(cycle.getStaticSchema().cycle[0].map((n) => n.value)).toEqual([
+        60, 64, 67,
+      ]);
     });
 
     it("null chord steps (from applyPattern) emit no events", () => {
       // euclid(1, 2) => [1, 0] — step 1 is null, so only step 0 contributes events
-      const bar = new ChordCycle([60, 64, 67]).euclid(1, 2).getStaticSchema().cycle[0];
+      const bar = new ChordCycle([60, 64, 67]).euclid(1, 2).getStaticSchema()
+        .cycle[0];
       expect(bar).toHaveLength(3);
       expect(bar.every((n) => n.stepIndex === 0)).toBe(true);
     });
@@ -41,7 +44,11 @@ describe("ChordCycle", () => {
       cycle.pattern([[60], [64]]);
       const bar = cycle.getStaticSchema().cycle[0];
       expect(bar[0]).toMatchObject({ offset: 0, duration: 0.5, stepIndex: 0 });
-      expect(bar[1]).toMatchObject({ offset: 0.5, duration: 0.5, stepIndex: 1 });
+      expect(bar[1]).toMatchObject({
+        offset: 0.5,
+        duration: 0.5,
+        stepIndex: 1,
+      });
     });
   });
 });

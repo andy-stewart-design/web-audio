@@ -6,14 +6,30 @@ describe("ValueCycle", () => {
     it("serializes each step with correct geometry", () => {
       const bar = new ValueCycle([60, 64, 67], 0).getStaticSchema().cycle[0];
       expect(bar).toHaveLength(3);
-      expect(bar[0]).toEqual({ value: 60, duration: 1 / 3, offset: 0, stepIndex: 0 });
-      expect(bar[1]).toEqual({ value: 64, duration: 1 / 3, offset: 1 / 3, stepIndex: 1 });
-      expect(bar[2]).toEqual({ value: 67, duration: 1 / 3, offset: 2 / 3, stepIndex: 2 });
+      expect(bar[0]).toEqual({
+        value: 60,
+        duration: 1 / 3,
+        offset: 0,
+        stepIndex: 0,
+      });
+      expect(bar[1]).toEqual({
+        value: 64,
+        duration: 1 / 3,
+        offset: 1 / 3,
+        stepIndex: 1,
+      });
+      expect(bar[2]).toEqual({
+        value: 67,
+        duration: 1 / 3,
+        offset: 2 / 3,
+        stepIndex: 2,
+      });
     });
 
     it("emits null-value steps — does not filter like BinaryCycle", () => {
       // euclid(1, 4) leaves 3 null steps; ValueCycle must still emit all 4 steps
-      const bar = new ValueCycle([60, 64, 67], 0).euclid(1, 4).getStaticSchema().cycle[0];
+      const bar = new ValueCycle([60, 64, 67], 0).euclid(1, 4).getStaticSchema()
+        .cycle[0];
       expect(bar).toHaveLength(4);
       expect(bar[0].value).toBe(60);
       expect(bar[1].value).toBe(0);

@@ -1,7 +1,6 @@
 function hex(hexNotation: string | number) {
-  const hexString = typeof hexNotation === "number"
-    ? hexNotation.toString(16)
-    : hexNotation;
+  const hexString =
+    typeof hexNotation === "number" ? hexNotation.toString(16) : hexNotation;
   return hexString.split("").flatMap(hexToPattern);
 }
 
