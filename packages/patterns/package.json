@@ -24,7 +24,8 @@
     "build": "tsdown",
     "dev": "tsdown --watch",
     "test": "vitest",
-    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit",
     "release": "bumpp",
     "prepublishOnly": "pnpm run build"
   },
@@ -32,7 +33,9 @@
     "@web-audio/schema": "workspace:*"
   },
   "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
     "@types/node": "^25.5.0",
+    "eslint": "^9.39.1",
     "@typescript/native-preview": "7.0.0-dev.20260328.1",
     "bumpp": "^11.0.1",
     "tsdown": "^0.21.7",
