@@ -1,4 +1,5 @@
 import type { StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
+import { isEnvelope } from "@web-audio/schema";
 import type AudioClock from "@web-audio/clock";
 import Instrument from "./instrument";
 import { midiToFrequency } from "./utils/midi-to-frequency";
@@ -45,10 +46,9 @@ class Synthesizer extends Instrument {
     const endTime = startTime + noteDuration;
 
     const detune = this._schema.detune;
-    const staticDetune =
-      detune.type !== "envelope"
-        ? this._resolve(detune, barIndex, note.stepIndex)
-        : 0;
+    const staticDetune = !isEnvelope(detune)
+      ? this._resolve(detune, barIndex, note.stepIndex)
+      : 0;
 
     const osc = new OscillatorNode(this._ctx, {
       type: this._schema.waveform,
@@ -66,7 +66,7 @@ class Synthesizer extends Instrument {
       endTime,
     );
 
-    if (detune.type === "envelope") {
+    if (isEnvelope(detune)) {
       this._scheduleParamEnvelope(
         osc.detune,
         detune,
