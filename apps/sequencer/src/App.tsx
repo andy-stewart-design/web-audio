@@ -31,7 +31,7 @@ function App() {
 
   const getAudio = () => {
     if (!audioRef.current || audioRef.current.ctx.state === "closed") {
-      audioRef.current = createAudioContext();
+      audioRef.current = createAudioContext({ allowBackgroundPlayback: true });
     }
     return audioRef.current;
   };
