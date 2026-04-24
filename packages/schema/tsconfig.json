@@ -1,15 +1,4 @@
 {
-  "compilerOptions": {
-    "target": "esnext",
-    "moduleDetection": "force",
-    "module": "preserve",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "declaration": true,
-    "emitDeclarationOnly": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "skipLibCheck": true
-  },
+  "extends": "@repo/typescript-config/library.json",
   "include": ["src"]
 }
