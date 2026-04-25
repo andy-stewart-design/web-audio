@@ -9,7 +9,11 @@ import { isEnvelope } from "@web-audio/schema";
 import RandomResolver from "./random-resolver";
 import { BASE_GAIN, FILTER_TYPE_MAP } from "./constants";
 import { computeEnvelope } from "./utils/compute-envelope";
-import type { ScheduledNote, ResolvedEnvelopeSchema } from "./types";
+import type {
+  EnvelopeParams,
+  ScheduledNote,
+  ResolvedEnvelopeSchema,
+} from "./types";
 
 abstract class Instrument {
   protected _ctx: AudioContext;
@@ -76,6 +80,18 @@ abstract class Instrument {
     } satisfies ResolvedEnvelopeSchema;
   }
 
+  protected _computeTimings(
+    envSchema: EnvelopeSchema,
+    barIndex: number,
+    stepIndex: number,
+    noteDuration: number,
+    endTime: number,
+    scale = 1,
+  ): EnvelopeParams {
+    const resolved = this._resolveEnvelope(envSchema, barIndex, stepIndex);
+    return computeEnvelope(resolved, noteDuration, endTime, scale);
+  }
+
   protected _scheduleParamEnvelope(
     param: AudioParam,
     envSchema: EnvelopeSchema,
@@ -85,8 +101,14 @@ abstract class Instrument {
     endTime: number,
     scale = 1,
   ): number {
-    const _env = this._resolveEnvelope(envSchema, barIndex, stepIndex);
-    const env = computeEnvelope(_env, noteDuration, endTime, scale);
+    const env = this._computeTimings(
+      envSchema,
+      barIndex,
+      stepIndex,
+      noteDuration,
+      endTime,
+      scale,
+    );
     const decay = env.startTime + env.attackDur + env.decayDur;
 
     param.setValueAtTime(env.min, env.startTime);
