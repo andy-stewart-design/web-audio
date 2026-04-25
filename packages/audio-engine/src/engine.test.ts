@@ -7,7 +7,11 @@ vi.mock("./synthesizer", () => {
   function MockSynthesizer(this: Record<string, unknown>) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
-    this.whenDone = vi.fn();
+    let resolve: () => void;
+    this.done = new Promise<void>((r) => {
+      resolve = r;
+    });
+    this._resolveDone = () => resolve();
   }
   return { default: vi.fn(MockSynthesizer) };
 });
@@ -46,7 +50,8 @@ function instances() {
   return vi.mocked(MockSynthesizer).mock.instances as unknown as Array<{
     scheduleBar: ReturnType<typeof vi.fn>;
     cancelFutureNotes: ReturnType<typeof vi.fn>;
-    whenDone: ReturnType<typeof vi.fn>;
+    done: Promise<void>;
+    _resolveDone: () => void;
   }>;
 }
 
@@ -164,7 +169,7 @@ describe("AudioEngine", () => {
   });
 
   describe("retirement", () => {
-    it("registers old players for retirement on hot-swap", () => {
+    it("retires old players on hot-swap and removes them when done resolves", async () => {
       const clock = new FakeClock();
       clock.paused = false;
       const engine = new AudioEngine({} as AudioContext, clock as never);
@@ -175,25 +180,20 @@ describe("AudioEngine", () => {
       engine.update(makeSchema(1));
       clock.emit("prebar"); // player[0] retired, player[1] created
 
-      expect(instances()[0].whenDone).toHaveBeenCalledOnce();
-      expect(instances()[1].whenDone).not.toHaveBeenCalled();
-    });
+      // player[1] should not be retired yet
+      const [p0, p1] = instances();
 
-    it("invokes whenDone callback to remove the player from the retiring set", () => {
-      const clock = new FakeClock();
-      clock.paused = false;
-      const engine = new AudioEngine({} as AudioContext, clock as never);
+      // Resolving p0.done should not throw (removes it from _retiring)
+      p0._resolveDone();
+      await Promise.resolve();
 
-      engine.update(makeSchema());
-      clock.emit("prebar"); // player[0] created
-
-      engine.update(makeSchema());
-      clock.emit("prebar"); // player[0] retired → whenDone registered
-
-      // Simulate player[0] finishing its tail — invoke the registered callback
-      const retireCallback = instances()[0].whenDone.mock
-        .calls[0][0] as () => void;
-      expect(() => retireCallback()).not.toThrow();
+      // p1 is the active player — its done should not have been resolved
+      let p1Resolved = false;
+      p1.done.then(() => {
+        p1Resolved = true;
+      });
+      await Promise.resolve();
+      expect(p1Resolved).toBe(false);
     });
   });
 

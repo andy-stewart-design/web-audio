@@ -157,11 +157,19 @@ describe("RandomResolver", () => {
     // The broken behavior was: float mapper with range [0,1) always produced index 0.
     // With the fix, valueMap bypasses range/dataType entirely.
     const valueMap = [60, 62, 64, 65, 67, 69, 71];
-    const schemaFloat = makeSchema({ valueMap, dataType: "float", range: undefined });
-    const schemaInt   = makeSchema({ valueMap, dataType: "integer", range: { min: 0, max: 7 } });
+    const schemaFloat = makeSchema({
+      valueMap,
+      dataType: "float",
+      range: undefined,
+    });
+    const schemaInt = makeSchema({
+      valueMap,
+      dataType: "integer",
+      range: { min: 0, max: 7 },
+    });
 
     const resolverFloat = new RandomResolver(schemaFloat);
-    const resolverInt   = new RandomResolver(schemaInt);
+    const resolverInt = new RandomResolver(schemaInt);
 
     // Both should produce the exact same sequence — valueMap overrides the pipeline
     for (let bar = 0; bar < 16; bar++) {

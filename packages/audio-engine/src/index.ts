@@ -47,7 +47,7 @@ class AudioEngine {
     // Retire current players — each removes itself from _retiring when done
     for (const player of this._players) {
       this._retiring.add(player);
-      player.whenDone(() => this._retiring.delete(player));
+      player.done.then(() => this._retiring.delete(player));
     }
 
     // Create new players from the pending schema
