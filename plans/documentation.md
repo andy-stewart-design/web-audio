@@ -45,6 +45,7 @@ Generate pages in this order (each page is a separate AI-assisted pass):
 4. **Getting started** — written last, once the full picture is clear
 
 Per-page context to provide:
+
 - Relevant source files (e.g. `instrument.ts`, `synthesizer.ts` for the instruments guide)
 - `LEXICON.md` and `UBIQUITOUS_LANGUAGE.md` for terminology
 - This plan for structural context

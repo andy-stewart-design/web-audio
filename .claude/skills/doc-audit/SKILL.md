@@ -17,12 +17,14 @@ Audit the current state of `/docs` against the source code and produce a priorit
 ## What to check
 
 ### Hard gaps (source not documented)
+
 - Exported methods or classes with no coverage in any doc file
 - Method parameters that are not described anywhere
 - Types or concepts referenced in source (e.g. `ScaleAlias`, `CycleInput`, `Waveform`) with no glossary or guide entry
 - Items documented that no longer exist in source (stale docs)
 
 ### Soft gaps (incomplete coverage)
+
 - Methods documented but with no code example
 - Parameters listed but not explained (what values are valid? what does it default to?)
 - Concepts mentioned but not linked to an explanation (e.g. "euclid rhythm" referenced without a guide entry)
