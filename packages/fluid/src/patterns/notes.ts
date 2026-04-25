@@ -103,7 +103,17 @@ class Notes {
     if (isRandomCycle(this._cycle)) {
       const schema = this._cycle.getRandomSchema();
       if (this._scale) {
-        schema.valueMap = this._scale.map((_, i) => this.degreeToMidi(i));
+        // Use range to determine how many scale degrees to resolve.
+        // range.max is exclusive, so {min:0, max:14} → degrees 0–13 (two octaves).
+        // Defaults to one octave when no range is set.
+        const degreeMin = Math.floor(schema.range?.min ?? 0);
+        const degreeMax = Math.ceil(schema.range?.max ?? this._scale.length);
+        schema.valueMap = Array.from(
+          { length: degreeMax - degreeMin },
+          (_, i) => this.degreeToMidi(i + degreeMin),
+        );
+        // range is consumed — the engine's valueMap path ignores it
+        schema.range = undefined;
       }
       return schema;
     } else {

@@ -81,14 +81,20 @@ describe("Envelope", () => {
   describe(".adsr()", () => {
     it("sets all four ADSR values", () => {
       const schema = new Envelope().adsr(0.5, 0.25, 0.8, 0.1).getSchema();
-      if (schema.a.type === "static") expect(schema.a.cycle[0][0].value).toBe(0.5);
-      if (schema.d.type === "static") expect(schema.d.cycle[0][0].value).toBe(0.25);
-      if (schema.s.type === "static") expect(schema.s.cycle[0][0].value).toBe(0.8);
-      if (schema.r.type === "static") expect(schema.r.cycle[0][0].value).toBe(0.1);
+      if (schema.a.type === "static")
+        expect(schema.a.cycle[0][0].value).toBe(0.5);
+      if (schema.d.type === "static")
+        expect(schema.d.cycle[0][0].value).toBe(0.25);
+      if (schema.s.type === "static")
+        expect(schema.s.cycle[0][0].value).toBe(0.8);
+      if (schema.r.type === "static")
+        expect(schema.r.cycle[0][0].value).toBe(0.1);
     });
 
     it("accepts array cycle syntax on each param", () => {
-      const schema = new Envelope().adsr([0.2, 0.4], 0.1, 0.8, 0.05).getSchema();
+      const schema = new Envelope()
+        .adsr([0.2, 0.4], 0.1, 0.8, 0.05)
+        .getSchema();
       expect(schema.a.type).toBe("static");
       if (schema.a.type === "static") {
         expect(schema.a.cycle[0]).toHaveLength(2);
@@ -98,28 +104,48 @@ describe("Envelope", () => {
 
   describe("individual setters", () => {
     it(".a() overrides attack", () => {
-      const schema = new Envelope().adsr(0.5, 0.25, 0.8, 0.1).a(0.9).getSchema();
-      if (schema.a.type === "static") expect(schema.a.cycle[0][0].value).toBe(0.9);
+      const schema = new Envelope()
+        .adsr(0.5, 0.25, 0.8, 0.1)
+        .a(0.9)
+        .getSchema();
+      if (schema.a.type === "static")
+        expect(schema.a.cycle[0][0].value).toBe(0.9);
     });
 
     it(".d() overrides decay", () => {
-      const schema = new Envelope().adsr(0.5, 0.25, 0.8, 0.1).d(0.9).getSchema();
-      if (schema.d.type === "static") expect(schema.d.cycle[0][0].value).toBe(0.9);
+      const schema = new Envelope()
+        .adsr(0.5, 0.25, 0.8, 0.1)
+        .d(0.9)
+        .getSchema();
+      if (schema.d.type === "static")
+        expect(schema.d.cycle[0][0].value).toBe(0.9);
     });
 
     it(".s() overrides sustain", () => {
-      const schema = new Envelope().adsr(0.5, 0.25, 0.8, 0.1).s(0.3).getSchema();
-      if (schema.s.type === "static") expect(schema.s.cycle[0][0].value).toBe(0.3);
+      const schema = new Envelope()
+        .adsr(0.5, 0.25, 0.8, 0.1)
+        .s(0.3)
+        .getSchema();
+      if (schema.s.type === "static")
+        expect(schema.s.cycle[0][0].value).toBe(0.3);
     });
 
     it(".r() overrides release", () => {
-      const schema = new Envelope().adsr(0.5, 0.25, 0.8, 0.1).r(0.9).getSchema();
-      if (schema.r.type === "static") expect(schema.r.cycle[0][0].value).toBe(0.9);
+      const schema = new Envelope()
+        .adsr(0.5, 0.25, 0.8, 0.1)
+        .r(0.9)
+        .getSchema();
+      if (schema.r.type === "static")
+        expect(schema.r.cycle[0][0].value).toBe(0.9);
     });
 
     it("last write wins between .adsr() and individual setter", () => {
-      const schema = new Envelope().a(0.9).adsr(0.5, 0.25, 0.8, 0.1).getSchema();
-      if (schema.a.type === "static") expect(schema.a.cycle[0][0].value).toBe(0.5);
+      const schema = new Envelope()
+        .a(0.9)
+        .adsr(0.5, 0.25, 0.8, 0.1)
+        .getSchema();
+      if (schema.a.type === "static")
+        expect(schema.a.cycle[0][0].value).toBe(0.5);
     });
   });
 

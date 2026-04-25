@@ -3,7 +3,11 @@ import { arrange } from "./arrange";
 
 describe("arrange", () => {
   it("repeats a single pattern the specified number of times", () => {
-    expect(arrange([3, [1, 2]])).toEqual([[1, 2], [1, 2], [1, 2]]);
+    expect(arrange([3, [1, 2]])).toEqual([
+      [1, 2],
+      [1, 2],
+      [1, 2],
+    ]);
   });
 
   it("wraps a single value in an array", () => {

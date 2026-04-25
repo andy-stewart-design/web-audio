@@ -1,16 +1,7 @@
 {
+  "extends": "@repo/typescript-config/library.json",
   "compilerOptions": {
-    "target": "esnext",
-    "lib": ["es2023", "DOM"],
-    "moduleDetection": "force",
-    "module": "preserve",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "declaration": true,
-    "emitDeclarationOnly": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "skipLibCheck": true
+    "lib": ["es2023", "DOM"]
   },
   "include": ["src"]
 }

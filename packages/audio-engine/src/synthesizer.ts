@@ -1,7 +1,10 @@
-import type { StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
-import type AudioClock from "@web-audio/clock";
+import { isEnvelope } from "@web-audio/schema";
 import Instrument from "./instrument";
 import { midiToFrequency } from "./utils/midi-to-frequency";
+
+import type { StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
+import type AudioClock from "@web-audio/clock";
+import type { ResolvedDetune } from "./types";
 
 class Synthesizer extends Instrument {
   private _schema: SynthesizerSchema;
@@ -44,16 +47,12 @@ class Synthesizer extends Instrument {
     const noteDuration = note.duration * barDuration;
     const endTime = startTime + noteDuration;
 
-    const detune = this._schema.detune;
-    const staticDetune =
-      detune.type !== "envelope"
-        ? this._resolve(detune, barIndex, note.stepIndex)
-        : 0;
+    const detune = this._resolveDetune(barIndex, note.stepIndex);
 
     const osc = new OscillatorNode(this._ctx, {
       type: this._schema.waveform,
       frequency: midiToFrequency(note.value),
-      detune: staticDetune,
+      detune: detune.value,
     });
     const gain = new GainNode(this._ctx);
 
@@ -69,7 +68,7 @@ class Synthesizer extends Instrument {
     if (detune.type === "envelope") {
       this._scheduleParamEnvelope(
         osc.detune,
-        detune,
+        detune.schema,
         barIndex,
         note.stepIndex,
         noteDuration,
@@ -99,6 +98,16 @@ class Synthesizer extends Instrument {
     osc.stop(endTime + releaseDur + 0.05);
 
     this._track(osc, chain, startTime);
+  }
+
+  private _resolveDetune(barIndex: number, stepIndex: number): ResolvedDetune {
+    const detune = this._schema.detune;
+    if (isEnvelope(detune))
+      return { type: "envelope", schema: detune, value: detune.min };
+    return {
+      type: "static",
+      value: this._resolve(detune, barIndex, stepIndex),
+    };
   }
 }
 

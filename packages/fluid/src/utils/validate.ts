@@ -5,7 +5,7 @@ function isRandomCycleTuple<T>(v: unknown[]): v is [T] {
   return v.length === 1 && v[0] instanceof RandomCycle;
 }
 
-function isRandomCycle<T>(v: unknown): v is RandomCycle {
+function isRandomCycle(v: unknown): v is RandomCycle {
   return v instanceof RandomCycle;
 }
 

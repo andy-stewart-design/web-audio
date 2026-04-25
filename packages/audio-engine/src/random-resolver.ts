@@ -71,7 +71,8 @@ class RandomResolver {
     const [currentSeed, seedOffset] = this._getSegmentInfo(barIndex);
     let seed = getSeed(currentSeed + seedOffset);
 
-    const mask = this._schema.cycle.cycle[barIndex % this._schema.cycle.cycle.length];
+    const mask =
+      this._schema.cycle.cycle[barIndex % this._schema.cycle.cycle.length];
     const rangeStart = this._schema.range?.min ?? 0;
     const rangeEnd = this._schema.range?.max ?? 1;
 
@@ -89,11 +90,13 @@ class RandomResolver {
           rFloat = Math.abs(seedToRand(seed));
           seed = xorwise(seed);
         }
-        const mapped = this._mapper(rFloat, rangeStart, rangeEnd);
         if (this._schema.valueMap) {
-          const index = Math.floor(mapped) % this._schema.valueMap.length;
+          // valueMap is self-sufficient: index directly from the raw float,
+          // bypassing the range/dataType pipeline entirely.
+          const index = Math.floor(rFloat * this._schema.valueMap.length);
           result.push(this._schema.valueMap[index]);
         } else {
+          const mapped = this._mapper(rFloat, rangeStart, rangeEnd);
           result.push(mapped);
         }
       }
