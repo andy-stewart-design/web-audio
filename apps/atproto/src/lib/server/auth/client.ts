@@ -1,15 +1,10 @@
 import { NodeOAuthClient, buildAtprotoLoopbackClientMetadata } from '@atproto/oauth-client-node';
 import type { NodeSavedSession, NodeSavedState } from '@atproto/oauth-client-node';
+import { db } from '$lib/server/db';
+import { authState, authSession } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
 
 export const SCOPE = 'atproto';
-
-// Use globalThis to persist across Next.js hot reloads
-const globalAuth = globalThis as unknown as {
-	stateStore: Map<string, NodeSavedState>;
-	sessionStore: Map<string, NodeSavedSession>;
-};
-globalAuth.stateStore ??= new Map();
-globalAuth.sessionStore ??= new Map();
 
 let client: NodeOAuthClient | null = null;
 
@@ -24,25 +19,43 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 
 		stateStore: {
 			async get(key: string) {
-				return globalAuth.stateStore.get(key);
+				const row = await db
+					.select()
+					.from(authState)
+					.where(eq(authState.key, key))
+					.limit(1);
+				return row[0] ? JSON.parse(row[0].value) : undefined;
 			},
 			async set(key: string, value: NodeSavedState) {
-				globalAuth.stateStore.set(key, value);
+				const json = JSON.stringify(value);
+				await db
+					.insert(authState)
+					.values({ key, value: json })
+					.onConflictDoUpdate({ target: authState.key, set: { value: json } });
 			},
 			async del(key: string) {
-				globalAuth.stateStore.delete(key);
+				await db.delete(authState).where(eq(authState.key, key));
 			}
 		},
 
 		sessionStore: {
 			async get(key: string) {
-				return globalAuth.sessionStore.get(key);
+				const row = await db
+					.select()
+					.from(authSession)
+					.where(eq(authSession.key, key))
+					.limit(1);
+				return row[0] ? JSON.parse(row[0].value) : undefined;
 			},
 			async set(key: string, value: NodeSavedSession) {
-				globalAuth.sessionStore.set(key, value);
+				const json = JSON.stringify(value);
+				await db
+					.insert(authSession)
+					.values({ key, value: json })
+					.onConflictDoUpdate({ target: authSession.key, set: { value: json } });
 			},
 			async del(key: string) {
-				globalAuth.sessionStore.delete(key);
+				await db.delete(authSession).where(eq(authSession.key, key));
 			}
 		}
 	});
