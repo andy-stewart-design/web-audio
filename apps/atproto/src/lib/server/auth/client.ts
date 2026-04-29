@@ -4,7 +4,7 @@ import { db } from '$lib/server/db';
 import { authState, authSession } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 
-export const SCOPE = 'atproto';
+export const SCOPE = 'atproto repo:xyz.statusphere.status';
 
 let client: NodeOAuthClient | null = null;
 
@@ -19,11 +19,7 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 
 		stateStore: {
 			async get(key: string) {
-				const row = await db
-					.select()
-					.from(authState)
-					.where(eq(authState.key, key))
-					.limit(1);
+				const row = await db.select().from(authState).where(eq(authState.key, key)).limit(1);
 				return row[0] ? JSON.parse(row[0].value) : undefined;
 			},
 			async set(key: string, value: NodeSavedState) {
@@ -40,11 +36,7 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 
 		sessionStore: {
 			async get(key: string) {
-				const row = await db
-					.select()
-					.from(authSession)
-					.where(eq(authSession.key, key))
-					.limit(1);
+				const row = await db.select().from(authSession).where(eq(authSession.key, key)).limit(1);
 				return row[0] ? JSON.parse(row[0].value) : undefined;
 			},
 			async set(key: string, value: NodeSavedSession) {
