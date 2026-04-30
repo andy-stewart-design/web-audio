@@ -13,31 +13,27 @@ export async function getAccountStatus(did: string) {
 		.from(status)
 		.where(and(eq(status.authorDid, did), eq(status.current, 1)))
 		.limit(1);
-	return row[0] ?? null;
+	return row.at(0) ?? null;
 }
 
 export async function insertStatus(data: typeof status.$inferInsert) {
-	await db.transaction(async (tx) => {
-		await tx
-			.insert(status)
-			.values(data)
-			.onConflictDoUpdate({
-				target: status.uri,
-				set: {
-					status: data.status,
-					createdAt: data.createdAt,
-					indexedAt: data.indexedAt
-				}
-			});
-		await setCurrStatus(tx, data.authorDid);
-	});
+	await db
+		.insert(status)
+		.values(data)
+		.onConflictDoUpdate({
+			target: status.uri,
+			set: {
+				status: data.status,
+				createdAt: data.createdAt,
+				indexedAt: data.indexedAt
+			}
+		});
+	await setCurrStatus(data.authorDid);
 }
 
 export async function deleteStatus(uri: AtUri) {
-	await db.transaction(async (tx) => {
-		await tx.delete(status).where(eq(status.uri, uri.toString()));
-		await setCurrStatus(tx, uri.hostname);
-	});
+	await db.delete(status).where(eq(status.uri, uri.toString()));
+	await setCurrStatus(uri.hostname);
 }
 
 // --- Account queries ---
@@ -98,14 +94,10 @@ export async function getTopStatuses(limit = 10) {
 
 // --- Helpers ---
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+async function setCurrStatus(did: string) {
+	await db.update(status).set({ current: 0 }).where(eq(status.authorDid, did));
 
-async function setCurrStatus(tx: Tx, did: string) {
-	// Clear current flag for all of this user's statuses
-	await tx.update(status).set({ current: 0 }).where(eq(status.authorDid, did));
-
-	// Find and mark the most recent one as current
-	const latest = await tx
+	const latest = await db
 		.select({ uri: status.uri })
 		.from(status)
 		.where(eq(status.authorDid, did))
@@ -113,6 +105,6 @@ async function setCurrStatus(tx: Tx, did: string) {
 		.limit(1);
 
 	if (latest[0]) {
-		await tx.update(status).set({ current: 1 }).where(eq(status.uri, latest[0].uri));
+		await db.update(status).set({ current: 1 }).where(eq(status.uri, latest[0].uri));
 	}
 }

@@ -16,7 +16,7 @@
 		<div class="card">
 			{#if data.did}
 				<div class="session">
-					<p>Signed in</p>
+					<p>Signed in ({data.did})</p>
 					<LogoutButton />
 				</div>
 				<StatusPicker currentStatus={data.currentStatus} />
