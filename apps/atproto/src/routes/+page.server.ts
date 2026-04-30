@@ -1,15 +1,27 @@
 import { getSession } from '$lib/server/auth/session';
-import { getAccountStatus } from '$lib/server/db/queries';
+import {
+	getAccountStatus,
+	getAccountHandle,
+	getRecentStatuses,
+	getTopStatuses
+} from '$lib/server/db/queries';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ cookies }) => {
 	const session = await getSession(cookies);
-	if (!session) return { did: null, currentStatus: null };
 
-	const accountStatus = await getAccountStatus(session.did);
+	const [recentStatuses, topStatuses, accountStatus, accountHandle] = await Promise.all([
+		getRecentStatuses(20),
+		getTopStatuses(),
+		session ? getAccountStatus(session.did) : null,
+		session ? getAccountHandle(session.did) : null
+	]);
 
 	return {
-		did: session.did,
-		currentStatus: accountStatus?.status ?? null
+		did: session?.did ?? null,
+		accountHandle,
+		currentStatus: accountStatus?.status ?? null,
+		recentStatuses,
+		topStatuses
 	};
 };

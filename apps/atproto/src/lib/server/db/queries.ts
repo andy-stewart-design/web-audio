@@ -28,12 +28,12 @@ export async function insertStatus(data: typeof status.$inferInsert) {
 				indexedAt: data.indexedAt
 			}
 		});
-	await setCurrStatus(data.authorDid);
+	await setCurrStatus(data.authorDid).catch((e) => console.error('setCurrStatus failed:', e));
 }
 
 export async function deleteStatus(uri: AtUri) {
 	await db.delete(status).where(eq(status.uri, uri.toString()));
-	await setCurrStatus(uri.hostname);
+	await setCurrStatus(uri.hostname).catch((e) => console.error('setCurrStatus failed:', e));
 }
 
 // --- Account queries ---
