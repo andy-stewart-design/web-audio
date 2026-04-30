@@ -1,6 +1,7 @@
 <script lang="ts">
   import LoginForm from '$lib/components/LoginForm.svelte';
   import LogoutButton from '$lib/components/LogoutButton.svelte';
+  import StatusPicker from '$lib/components/StatusPicker.svelte';
 
   let { data } = $props();
 </script>
@@ -8,17 +9,17 @@
 <div class="container">
   <main>
     <div class="header">
-      <h1>AT Protocol OAuth</h1>
-      <p>Sign in with your AT Protocol account</p>
+      <h1>Statusphere</h1>
+      <p>Set your status on the Atmosphere</p>
     </div>
 
     <div class="card">
       {#if data.did}
         <div class="session">
-          <p>Signed in as <code>{data.did}</code></p>
+          <p>Signed in</p>
           <LogoutButton />
         </div>
-        <p class="success">Authentication working!</p>
+        <StatusPicker currentStatus={data.currentStatus} />
       {:else}
         <LoginForm />
       {/if}
@@ -74,11 +75,6 @@
   .session p {
     font-size: 0.875rem;
     color: #6b7280;
-    margin: 0;
-  }
-
-  .success {
-    color: #16a34a;
     margin: 0;
   }
 </style>

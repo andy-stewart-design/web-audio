@@ -8,6 +8,9 @@ const config = {
 	},
 	kit: {
 		adapter: adapter(),
+		alias: {
+			'$lexicons': './src/lexicons'
+		},
 		typescript: {
 			config: (config) => ({
 				...config,
