@@ -3,7 +3,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import '$lib/styles/global.css';
 
-	let { children } = $props();
+	let { children, data } = $props();
 </script>
 
 <svelte:head>
@@ -11,7 +11,7 @@
 </svelte:head>
 
 <header>
-	<LoginButton />
+	<LoginButton did={data.did} />
 </header>
 {@render children()}
 
