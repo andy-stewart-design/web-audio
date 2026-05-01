@@ -46,6 +46,7 @@
 		"vitest-browser-svelte": "^2.1.0"
 	},
 	"dependencies": {
+		"@atproto/oauth-client-node": "^0.3.17",
 		"better-sqlite3": "^12.8.0"
 	}
 }

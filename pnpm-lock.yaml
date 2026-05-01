@@ -191,6 +191,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@atproto/oauth-client-node':
+        specifier: ^0.3.17
+        version: 0.3.17
       better-sqlite3:
         specifier: ^12.8.0
         version: 12.9.0
@@ -251,7 +254,7 @@ importers:
         version: 5.55.5(@typescript-eslint/types@8.58.1)
       svelte-check:
         specifier: ^4.4.6
-        version: 4.4.6(picomatch@4.0.4)(svelte@5.55.5(@typescript-eslint/types@8.58.1))(typescript@6.0.2)
+        version: 4.4.6(picomatch@4.0.3)(svelte@5.55.5(@typescript-eslint/types@8.58.1))(typescript@6.0.2)
       typescript:
         specifier: ^6.0.2
         version: 6.0.2
@@ -8000,6 +8003,18 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
+  svelte-check@4.4.6(picomatch@4.0.3)(svelte@5.55.5(@typescript-eslint/types@8.58.1))(typescript@6.0.2):
+    dependencies:
+      '@jridgewell/trace-mapping': 0.3.31
+      chokidar: 4.0.3
+      fdir: 6.5.0(picomatch@4.0.3)
+      picocolors: 1.1.1
+      sade: 1.8.1
+      svelte: 5.55.5(@typescript-eslint/types@8.58.1)
+      typescript: 6.0.2
+    transitivePeerDependencies:
+      - picomatch
+
   svelte-check@4.4.6(picomatch@4.0.4)(svelte@5.55.5(@typescript-eslint/types@8.58.1))(typescript@6.0.2):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
@@ -8396,7 +8411,7 @@ snapshots:
     dependencies:
       '@testing-library/svelte-core': 1.0.0(svelte@5.55.5(@typescript-eslint/types@8.58.1))
       svelte: 5.55.5(@typescript-eslint/types@8.58.1)
-      vitest: 4.1.4(@types/node@24.12.2)(@vitest/browser-playwright@4.1.5)(vite@8.0.8(@types/node@24.12.2)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
+      vitest: 4.1.4(@types/node@22.19.17)(@vitest/browser-playwright@4.1.5)(vite@8.0.8(@types/node@22.19.17)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
 
   vitest@4.1.4(@types/node@22.19.17)(@vitest/browser-playwright@4.1.5)(vite@8.0.8(@types/node@22.19.17)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)):
     dependencies:
