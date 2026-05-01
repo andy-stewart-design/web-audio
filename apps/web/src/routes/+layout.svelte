@@ -11,7 +11,12 @@
 </svelte:head>
 
 <header>
-	<LoginButton did={data.did} />
+	<LoginButton
+		did={data.did}
+		handle={data.handle}
+		displayName={data.displayName}
+		avatar={data.avatar}
+	/>
 </header>
 {@render children()}
 

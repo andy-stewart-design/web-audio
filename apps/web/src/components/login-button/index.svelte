@@ -1,9 +1,19 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 
-	let { did }: { did: string | null } = $props();
+	let {
+		did,
+		handle,
+		displayName,
+		avatar
+	}: {
+		did: string | null;
+		handle: string | null;
+		displayName: string | null;
+		avatar: string | null;
+	} = $props();
 
-	let handle = $state('');
+	let inputHandle = $state('');
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let dialog = $state<HTMLDialogElement>();
@@ -17,7 +27,7 @@
 			const res = await fetch('/oauth/login', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ handle })
+				body: JSON.stringify({ handle: inputHandle })
 			});
 
 			const data = await res.json();
@@ -43,7 +53,10 @@
 
 {#if did}
 	<div class="session">
-		<span class="did">{did}</span>
+		{#if avatar}
+			<img src={avatar} alt={displayName ?? handle ?? did} class="avatar" />
+		{/if}
+		<span class="name">{displayName ?? handle ?? did}</span>
 		<button onclick={handleLogout}>Logout</button>
 	</div>
 {:else}
@@ -57,7 +70,7 @@
 				<input
 					id="handle"
 					type="text"
-					bind:value={handle}
+					bind:value={inputHandle}
 					placeholder="user.bsky.social"
 					disabled={loading}
 				/>
@@ -79,7 +92,14 @@
 		gap: 1rem;
 	}
 
-	.did {
+	.avatar {
+		width: 2rem;
+		height: 2rem;
+		border-radius: 50%;
+		object-fit: cover;
+	}
+
+	.name {
 		font-size: 0.875rem;
 		color: #6b7280;
 	}

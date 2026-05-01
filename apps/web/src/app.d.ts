@@ -5,6 +5,9 @@ declare global {
 		// interface Error {}
 		interface Locals {
 			did: string | null;
+			handle: string | null;
+			displayName: string | null;
+			avatar: string | null;
 		}
 		// interface PageData {}
 		// interface PageState {}
