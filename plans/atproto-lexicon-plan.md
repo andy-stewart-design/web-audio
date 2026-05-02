@@ -35,13 +35,29 @@ The primary record. Each publication of a sketch is a **new record** (new TID rk
         "type": "object",
         "required": ["title", "code", "createdAt"],
         "properties": {
-          "title":           { "type": "string", "maxLength": 256 },
-          "code":            { "type": "string", "maxLength": 100000, "description": "The source code of the live-coded music sketch." },
-          "description":     { "type": "string", "maxLength": 2048 },
-          "tags":            { "type": "array", "items": { "type": "string", "maxLength": 64 }, "maxLength": 8 },
-          "origin":          { "type": "string", "format": "at-uri", "description": "AT URI of the sketch this was forked from." },
-          "previousVersion": { "type": "string", "format": "at-uri", "description": "AT URI of the prior version of this sketch." },
-          "createdAt":       { "type": "string", "format": "datetime" }
+          "title": { "type": "string", "maxLength": 256 },
+          "code": {
+            "type": "string",
+            "maxLength": 100000,
+            "description": "The source code of the live-coded music sketch."
+          },
+          "description": { "type": "string", "maxLength": 2048 },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 64 },
+            "maxLength": 8
+          },
+          "origin": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "AT URI of the sketch this was forked from."
+          },
+          "previousVersion": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "AT URI of the prior version of this sketch."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
         }
       }
     }
@@ -64,7 +80,7 @@ The primary record. Each publication of a sketch is a **new record** (new TID rk
         "type": "object",
         "required": ["subject", "createdAt"],
         "properties": {
-          "subject":   { "type": "ref", "ref": "com.atproto.repo.strongRef" },
+          "subject": { "type": "ref", "ref": "com.atproto.repo.strongRef" },
           "createdAt": { "type": "string", "format": "datetime" }
         }
       }
@@ -88,7 +104,7 @@ The primary record. Each publication of a sketch is a **new record** (new TID rk
         "type": "object",
         "required": ["subject", "createdAt"],
         "properties": {
-          "subject":   { "type": "ref", "ref": "com.atproto.repo.strongRef" },
+          "subject": { "type": "ref", "ref": "com.atproto.repo.strongRef" },
           "createdAt": { "type": "string", "format": "datetime" }
         }
       }
@@ -132,23 +148,14 @@ AT Protocol relay
 
 ## Phase 1: Lexicon Files + OAuth Scope
 
-**Goal:** Commit lexicon definitions, publish them to the PDS, generate TypeScript types, and update the OAuth flow to request write access to all three collections.
-
-### Prerequisites
-
-- Install `goat`: `brew install goat`
-- Authenticate: `goat account login` (or set `GOAT_USERNAME` / `GOAT_PASSWORD` env vars)
-- Add a DNS TXT record at `_lexicon.drome.live` pointing to your DID before publishing:
-  ```
-  _lexicon.drome.live  TXT  "did=did:plc:<your-did>"
-  ```
+**Goal:** Commit lexicon definitions, generate TypeScript types, and update the OAuth flow to request write access to all three collections.
 
 ### Notes
 
 - `goat lex new record` scaffolds files into a nested directory structure (`lexicons/live/drome/sketch.json`), not flat NSID-named files. Use the nested structure — goat resolves NSIDs from the path.
 - Use `goat lex lint` to validate schema files (not `goat lex validate`, which validates records against a schema).
 - `live.drome.sketch` will produce a `[large-string]` lint warning on the `code` field due to `maxLength: 100000`. This is intentional — ignore it.
-- **Publish after Phase 3**, not now. Wait until `publishSketch` is implemented and you've made at least one real write against the schema. Publishing is permanent; breaking changes to a live lexicon are a problem.
+- TypeScript types are generated via `pnpm --filter web lex:build`. Re-run with `--override` when lexicons change (already included in the `lex:build` script).
 
 ### What to build
 
@@ -156,24 +163,22 @@ AT Protocol relay
   - `lexicons/live/drome/sketch.json`
   - `lexicons/live/drome/like.json`
   - `lexicons/live/drome/repost.json`
-- [ ] Generate TypeScript types from the lexicon files. Output to `apps/web/src/lib/lexicons/`.
-- [ ] Update `SCOPE` in `apps/web/src/lib/server/auth/client.ts`:
+- [x] Generate TypeScript types from the lexicon files. Output to `apps/web/src/lib/lexicons/`.
+- [x] Update `SCOPE` in `apps/web/src/lib/server/auth/client.ts`:
   ```ts
-  export const SCOPE = 'atproto repo:live.drome.sketch repo:live.drome.like repo:live.drome.repost';
+  export const SCOPE =
+    "atproto repo:live.drome.sketch repo:live.drome.like repo:live.drome.repost";
   ```
-- [ ] Verify the `oauth-client-metadata.json` route reflects the updated scope.
+- [x] Verify the `oauth-client-metadata.json` route reflects the updated scope.
 - [ ] Existing sessions will need re-authentication (scope change invalidates prior tokens).
-- [ ] (After Phase 3) Add DNS TXT record at `_lexicon.drome.live` and publish with `goat lex publish`.
 
 ### Acceptance criteria
 
 - [x] All three lexicon JSON files exist at `lexicons/` and pass `goat lex lint`
-- [ ] TypeScript types are generated and importable from `$lib/lexicons/`
+- [x] TypeScript types are generated and importable from `$lib/lexicons/`
 - [ ] OAuth flow completes with the new scope
 - [ ] The granted token includes write access to all three collections
 - [ ] Existing auth infrastructure continues to work
-- [ ] (After Phase 3) `_lexicon.drome.live` DNS TXT record exists and resolves to your DID
-- [ ] (After Phase 3) Lexicons are published to the PDS via `goat lex publish`
 
 ---
 
@@ -186,43 +191,54 @@ AT Protocol relay
 **Extend the drizzle schema** at `apps/web/src/lib/server/db/schema.ts`:
 
 ```ts
-export const sketch = sqliteTable('sketch', {
-  uri:             text('uri').primaryKey(),
-  cid:             text('cid').notNull(),
-  authorDid:       text('author_did').notNull(),
-  title:           text('title').notNull(),
-  code:            text('code').notNull(),
-  description:     text('description'),
-  tags:            text('tags'),             // JSON array stored as string
-  origin:          text('origin'),
-  previousVersion: text('previous_version'),
-  createdAt:       text('created_at').notNull(),
-  indexedAt:       text('indexed_at').notNull(),
-  isLatestVersion: integer('is_latest_version', { mode: 'boolean' }).notNull().default(true),
+export const sketch = sqliteTable("sketch", {
+  uri: text("uri").primaryKey(),
+  cid: text("cid").notNull(),
+  authorDid: text("author_did").notNull(),
+  title: text("title").notNull(),
+  code: text("code").notNull(),
+  description: text("description"),
+  tags: text("tags"), // JSON array stored as string
+  origin: text("origin"),
+  previousVersion: text("previous_version"),
+  createdAt: text("created_at").notNull(),
+  indexedAt: text("indexed_at").notNull(),
+  isLatestVersion: integer("is_latest_version", { mode: "boolean" })
+    .notNull()
+    .default(true),
 });
 
-export const like = sqliteTable('like', {
-  uri:        text('uri').primaryKey(),
-  authorDid:  text('author_did').notNull(),
-  subjectUri: text('subject_uri').notNull(),
-  subjectCid: text('subject_cid').notNull(),
-  createdAt:  text('created_at').notNull(),
-  indexedAt:  text('indexed_at').notNull(),
+export const like = sqliteTable("like", {
+  uri: text("uri").primaryKey(),
+  authorDid: text("author_did").notNull(),
+  subjectUri: text("subject_uri").notNull(),
+  subjectCid: text("subject_cid").notNull(),
+  createdAt: text("created_at").notNull(),
+  indexedAt: text("indexed_at").notNull(),
 });
 
-export const repost = sqliteTable('repost', {
-  uri:        text('uri').primaryKey(),
-  authorDid:  text('author_did').notNull(),
-  subjectUri: text('subject_uri').notNull(),
-  subjectCid: text('subject_cid').notNull(),
-  createdAt:  text('created_at').notNull(),
-  indexedAt:  text('indexed_at').notNull(),
+export const repost = sqliteTable("repost", {
+  uri: text("uri").primaryKey(),
+  authorDid: text("author_did").notNull(),
+  subjectUri: text("subject_uri").notNull(),
+  subjectCid: text("subject_cid").notNull(),
+  createdAt: text("created_at").notNull(),
+  indexedAt: text("indexed_at").notNull(),
 });
 
-export const sketchTag = sqliteTable('sketch_tag', {
-  sketchUri: text('sketch_uri').notNull().references(() => sketch.uri, { onDelete: 'cascade' }),
-  tag:       text('tag').notNull(), // normalized slug, e.g. "hip-hop"
-}, (t) => [primaryKey({ columns: [t.sketchUri, t.tag] }), index('idx_sketch_tag_tag').on(t.tag)]);
+export const sketchTag = sqliteTable(
+  "sketch_tag",
+  {
+    sketchUri: text("sketch_uri")
+      .notNull()
+      .references(() => sketch.uri, { onDelete: "cascade" }),
+    tag: text("tag").notNull(), // normalized slug, e.g. "hip-hop"
+  },
+  (t) => [
+    primaryKey({ columns: [t.sketchUri, t.tag] }),
+    index("idx_sketch_tag_tag").on(t.tag),
+  ],
+);
 ```
 
 Tag normalization: when indexing a sketch, split the `tags` array and normalize each value (lowercase, trim, replace spaces with hyphens) before inserting into `sketch_tag`. On sketch upsert, delete existing rows for that URI before re-inserting. On delete, cascade handles cleanup.
@@ -232,35 +248,39 @@ The existing `account` table already has `did` and `handle` — this is what Tap
 **Webhook handler** at `apps/web/src/routes/api/webhook/+server.ts`:
 
 ```ts
-import { parseTapEvent, assureAdminAuth } from '@atproto/tap';
-import { AtUri } from '@atproto/syntax';
-import { TAP_ADMIN_PASSWORD } from '$env/static/private';
-import * as live from '$lib/lexicons/live';
+import { parseTapEvent, assureAdminAuth } from "@atproto/tap";
+import { AtUri } from "@atproto/syntax";
+import { TAP_ADMIN_PASSWORD } from "$env/static/private";
+import * as live from "$lib/lexicons/live";
 
 export async function POST({ request }) {
-  assureAdminAuth(TAP_ADMIN_PASSWORD, request.headers.get('Authorization'));
+  assureAdminAuth(TAP_ADMIN_PASSWORD, request.headers.get("Authorization"));
   const evt = parseTapEvent(await request.json());
 
-  if (evt.type === 'identity') {
+  if (evt.type === "identity") {
     // upsert account: did, handle, active status
   }
 
-  if (evt.type === 'record') {
+  if (evt.type === "record") {
     const uri = AtUri.make(evt.did, evt.collection, evt.rkey);
 
-    if (evt.collection === 'live.drome.sketch') {
-      if (evt.action === 'create' || evt.action === 'update') {
+    if (evt.collection === "live.drome.sketch") {
+      if (evt.action === "create" || evt.action === "update") {
         const record = live.drome.sketch.$parse(evt.record);
         // upsert sketch row
         // if record.previousVersion is set, mark that URI's isLatestVersion = false
         // delete existing sketch_tag rows for this URI, then re-insert normalized tags
-      } else if (evt.action === 'delete') {
+      } else if (evt.action === "delete") {
         // delete sketch row (sketch_tag rows cascade)
       }
     }
 
-    if (evt.collection === 'live.drome.like') { /* upsert/delete like row */ }
-    if (evt.collection === 'live.drome.repost') { /* upsert/delete repost row */ }
+    if (evt.collection === "live.drome.like") {
+      /* upsert/delete like row */
+    }
+    if (evt.collection === "live.drome.repost") {
+      /* upsert/delete repost row */
+    }
   }
 
   return new Response(JSON.stringify({ success: true }), { status: 200 });
@@ -300,7 +320,7 @@ TAP_ADMIN_PASSWORD=dev-password
 Import in server modules via SvelteKit's static private env:
 
 ```ts
-import { TAP_URL, TAP_ADMIN_PASSWORD } from '$env/static/private';
+import { TAP_URL, TAP_ADMIN_PASSWORD } from "$env/static/private";
 ```
 
 ### Acceptance criteria
@@ -407,14 +427,15 @@ const sketches = db
   .leftJoin(account, eq(sketch.authorDid, account.did))
   .where(eq(sketch.isLatestVersion, true))
   .orderBy(desc(sketch.createdAt))
-  .limit(50)
+  .limit(50);
 ```
 
 Sketch cards show: title, author handle, description, tags, `createdAt`, like count, repost count, and a "Play" button.
 
 Like and repost counts via SQL aggregation:
+
 ```ts
-db.select({ count: count() }).from(like).where(eq(like.subjectUri, uri))
+db.select({ count: count() }).from(like).where(eq(like.subjectUri, uri));
 ```
 
 "Play" navigates to `/repl?uri=<at-uri>` and loads the code into the editor. The REPL reads `uri` from the query param, fetches the record from SQLite, and hydrates the editor.
@@ -447,9 +468,11 @@ const sketches = db
   .select({ sketch, account })
   .from(sketch)
   .leftJoin(account, eq(sketch.authorDid, account.did))
-  .where(and(eq(sketch.authorDid, session.did), eq(sketch.isLatestVersion, true)))
+  .where(
+    and(eq(sketch.authorDid, session.did), eq(sketch.isLatestVersion, true)),
+  )
   .orderBy(desc(sketch.createdAt))
-  .limit(50)
+  .limit(50);
 ```
 
 - `/profile` is only accessible to authenticated users — redirect to login if no session.
@@ -479,27 +502,28 @@ IndexedDB module at `apps/web/src/lib/client/db/sketches.ts`:
 
 **Schema:**
 
-| Field               | Type               | Notes                                       |
-| ------------------- | ------------------ | ------------------------------------------- |
-| `tid`               | `string`           | TID primary key, AT Proto rkey-compatible   |
-| `title`             | `string`           | Display name                                |
-| `code`              | `string`           | Sketch source code                          |
-| `origin`            | `string \| null`   | AT URI this was forked from                 |
-| `originDid`         | `string \| null`   | DID of original author                      |
-| `originDisplayName` | `string \| null`   | Cached handle, refreshed opportunistically  |
-| `description`       | `string \| null`   | Optional description                        |
-| `tags`              | `string[] \| null` | Optional tags                               |
-| `publishedUri`      | `string \| null`   | AT URI of most recent publication           |
-| `publishedCid`      | `string \| null`   | CID of most recent publication              |
-| `createdAt`         | `string`           | ISO 8601                                    |
-| `updatedAt`         | `string`           | ISO 8601                                    |
-| `deletedAt`         | `string \| null`   | ISO 8601, soft delete                       |
+| Field               | Type               | Notes                                      |
+| ------------------- | ------------------ | ------------------------------------------ |
+| `tid`               | `string`           | TID primary key, AT Proto rkey-compatible  |
+| `title`             | `string`           | Display name                               |
+| `code`              | `string`           | Sketch source code                         |
+| `origin`            | `string \| null`   | AT URI this was forked from                |
+| `originDid`         | `string \| null`   | DID of original author                     |
+| `originDisplayName` | `string \| null`   | Cached handle, refreshed opportunistically |
+| `description`       | `string \| null`   | Optional description                       |
+| `tags`              | `string[] \| null` | Optional tags                              |
+| `publishedUri`      | `string \| null`   | AT URI of most recent publication          |
+| `publishedCid`      | `string \| null`   | CID of most recent publication             |
+| `createdAt`         | `string`           | ISO 8601                                   |
+| `updatedAt`         | `string`           | ISO 8601                                   |
+| `deletedAt`         | `string \| null`   | ISO 8601, soft delete                      |
 
 Indexes on `updatedAt`, `title`, `publishedUri`, `deletedAt`. Versioned migration framework (`onupgradeneeded` walks an ordered array of migration functions). Startup cleanup purges records with `deletedAt` older than 30 days.
 
 **Operations:** `create`, `read`, `update`, `softDelete`, `list(sortBy)`.
 
 **Routing:**
+
 - `/repl` — redirects to most recent sketch or `/repl/new`
 - `/repl/new` — blank editor, ephemeral until saved
 - `/repl/:tid` — loads sketch from IndexedDB by TID
@@ -551,13 +575,13 @@ Note: Tap handles indexing likes/reposts automatically via the webhook. No manua
 
 ## Implementation Order Summary
 
-| Phase | What                       | Key output                                    |
-| ----- | -------------------------- | --------------------------------------------- |
-| 1     | Lexicons + OAuth scope     | JSON files, generated TS types, updated scope |
-| 2     | SQLite schema + Tap webhook| DB tables, `/api/webhook`, Tap running locally|
-| 3     | Write layer                | `publishSketch`, `likeSketch`, `repostSketch` |
-| 4     | Publish from REPL          | "Publish" button, record appears on network   |
-| 5     | Feed                       | `/feed` reading from SQLite, "Play" button    |
-| 6     | Profile page               | `/profile` listing user's own published sketches |
-| 7     | Local IndexedDB            | Authoring layer, `publishedUri` sync, forks   |
-| 8     | Likes + reposts UI         | Like/repost buttons, optimistic counts        |
+| Phase | What                        | Key output                                       |
+| ----- | --------------------------- | ------------------------------------------------ |
+| 1     | Lexicons + OAuth scope      | JSON files, generated TS types, updated scope    |
+| 2     | SQLite schema + Tap webhook | DB tables, `/api/webhook`, Tap running locally   |
+| 3     | Write layer                 | `publishSketch`, `likeSketch`, `repostSketch`    |
+| 4     | Publish from REPL           | "Publish" button, record appears on network      |
+| 5     | Feed                        | `/feed` reading from SQLite, "Play" button       |
+| 6     | Profile page                | `/profile` listing user's own published sketches |
+| 7     | Local IndexedDB             | Authoring layer, `publishedUri` sync, forks      |
+| 8     | Likes + reposts UI          | Like/repost buttons, optimistic counts           |
