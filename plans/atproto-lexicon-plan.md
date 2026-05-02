@@ -187,161 +187,19 @@ AT Protocol relay
 
 ---
 
-## Phase 2: SQLite Schema + Tap Webhook
+## Phase 2: SQLite Schema
 
-**Goal:** SQLite tables for the AppView index and a webhook endpoint that Tap posts events to. This is the data foundation everything else reads from.
+**Goal:** SQLite tables for the AppView index.
 
 ### What to build
 
-**Extend the drizzle schema** at `apps/web/src/lib/server/db/schema.ts`:
-
-```ts
-export const sketch = sqliteTable("sketch", {
-  uri: text("uri").primaryKey(),
-  cid: text("cid").notNull(),
-  authorDid: text("author_did").notNull(),
-  title: text("title").notNull(),
-  code: text("code").notNull(),
-  description: text("description"),
-  tags: text("tags"), // JSON array stored as string
-  origin: text("origin"),
-  previousVersion: text("previous_version"),
-  createdAt: text("created_at").notNull(),
-  indexedAt: text("indexed_at").notNull(),
-  isLatestVersion: integer("is_latest_version", { mode: "boolean" })
-    .notNull()
-    .default(true),
-});
-
-export const like = sqliteTable("like", {
-  uri: text("uri").primaryKey(),
-  authorDid: text("author_did").notNull(),
-  subjectUri: text("subject_uri").notNull(),
-  subjectCid: text("subject_cid").notNull(),
-  createdAt: text("created_at").notNull(),
-  indexedAt: text("indexed_at").notNull(),
-});
-
-export const repost = sqliteTable("repost", {
-  uri: text("uri").primaryKey(),
-  authorDid: text("author_did").notNull(),
-  subjectUri: text("subject_uri").notNull(),
-  subjectCid: text("subject_cid").notNull(),
-  createdAt: text("created_at").notNull(),
-  indexedAt: text("indexed_at").notNull(),
-});
-
-export const sketchTag = sqliteTable(
-  "sketch_tag",
-  {
-    sketchUri: text("sketch_uri")
-      .notNull()
-      .references(() => sketch.uri, { onDelete: "cascade" }),
-    tag: text("tag").notNull(), // normalized slug, e.g. "hip-hop"
-  },
-  (t) => [
-    primaryKey({ columns: [t.sketchUri, t.tag] }),
-    index("idx_sketch_tag_tag").on(t.tag),
-  ],
-);
-```
-
-Tag normalization: when indexing a sketch, split the `tags` array and normalize each value (lowercase, trim, replace spaces with hyphens) before inserting into `sketch_tag`. On sketch upsert, delete existing rows for that URI before re-inserting. On delete, cascade handles cleanup.
-
-The existing `account` table already has `did` and `handle` — this is what Tap's identity events keep up to date.
-
-**Webhook handler** at `apps/web/src/routes/api/webhook/+server.ts`:
-
-```ts
-import { parseTapEvent, assureAdminAuth } from "@atproto/tap";
-import { AtUri } from "@atproto/syntax";
-import { TAP_ADMIN_PASSWORD } from "$env/static/private";
-import * as live from "$lib/lexicons/live";
-
-export async function POST({ request }) {
-  assureAdminAuth(TAP_ADMIN_PASSWORD, request.headers.get("Authorization"));
-  const evt = parseTapEvent(await request.json());
-
-  if (evt.type === "identity") {
-    // upsert account: did, handle, active status
-  }
-
-  if (evt.type === "record") {
-    const uri = AtUri.make(evt.did, evt.collection, evt.rkey);
-
-    if (evt.collection === "live.drome.sketch") {
-      if (evt.action === "create" || evt.action === "update") {
-        const record = live.drome.sketch.$parse(evt.record);
-        // upsert sketch row
-        // if record.previousVersion is set, mark that URI's isLatestVersion = false
-        // delete existing sketch_tag rows for this URI, then re-insert normalized tags
-      } else if (evt.action === "delete") {
-        // delete sketch row (sketch_tag rows cascade)
-      }
-    }
-
-    if (evt.collection === "live.drome.like") {
-      /* upsert/delete like row */
-    }
-    if (evt.collection === "live.drome.repost") {
-      /* upsert/delete repost row */
-    }
-  }
-
-  return new Response(JSON.stringify({ success: true }), { status: 200 });
-}
-```
-
-**Tap local dev setup** (run in a second terminal tab):
-
-```bash
-go run github.com/bluesky-social/indigo/cmd/tap run \
-  --webhook-url=http://localhost:3000/api/webhook \
-  --collection-filter=live.drome.* \
-  --signal-collection=live.drome.sketch \
-  --no-replay --disable-acks
-```
-
-`--signal-collection=live.drome.sketch` means Tap auto-discovers and starts tracking any DID that publishes a sketch — no manual `addRepos` calls needed as new users join. `--no-replay` skips cursor replay on startup and connects to the firehose head immediately.
-
-**Tap production setup (Railway):**
-
-Add a second Railway service → "Deploy from image" → `ghcr.io/bluesky-social/indigo/tap:latest`. Set the following env vars in the Railway dashboard:
-
-```
-TAP_WEBHOOK_URL=https://your-app.railway.app/api/webhook
-TAP_COLLECTION_FILTERS=live.drome.*
-TAP_SIGNAL_COLLECTION=live.drome.sketch
-TAP_ADMIN_PASSWORD=<secret>
-```
-
-**Environment variables** to add to `.env`:
-
-```
-TAP_URL=http://localhost:2480
-TAP_ADMIN_PASSWORD=dev-password
-```
-
-Import in server modules via SvelteKit's static private env:
-
-```ts
-import { TAP_URL, TAP_ADMIN_PASSWORD } from "$env/static/private";
-```
+- [x] Extend the drizzle schema at `apps/web/src/lib/server/db/schema.ts` with `sketch`, `like`, `repost`, and `sketch_tag` tables. Note: `sketch` includes `rootVersion` alongside `previousVersion`.
+- [x] Run `db:push` to apply the schema to the database.
 
 ### Acceptance criteria
 
-- [ ] Drizzle migration creates `sketch`, `like`, `repost`, and `sketch_tag` tables
-- [ ] `/api/webhook` rejects requests without valid admin auth (401)
-- [ ] `/api/webhook` handles `identity` events: upserts into `account` table
-- [ ] `/api/webhook` handles `live.drome.sketch` create/update: upserts into `sketch` table
-- [ ] `/api/webhook` handles `live.drome.sketch` delete: removes row from `sketch` table
-- [ ] On sketch upsert with `previousVersion` set, the referenced row gets `isLatestVersion = false`
-- [ ] On sketch upsert, `sketch_tag` rows are deleted and re-inserted with normalized slugs
-- [ ] On sketch delete, `sketch_tag` rows are removed via cascade
-- [ ] Querying `sketch_tag` by tag slug returns the correct sketches
-- [ ] `/api/webhook` handles `live.drome.like` and `live.drome.repost` create/delete
-- [ ] Tap running locally delivers events to the webhook and rows appear in SQLite
-- [ ] Invalid or unparseable events return `{ success: false }` without crashing
+- [x] `sketch`, `like`, `repost`, and `sketch_tag` tables exist in the database
+- [x] `sketch_tag` has a cascading foreign key to `sketch`
 
 ---
 
@@ -362,6 +220,7 @@ publishSketch(sessionDid: string, input: {
   tags?: string[]
   origin?: string          // set when publishing a forked sketch
   previousVersion?: string // set when republishing an existing sketch
+  rootVersion?: string     // set when republishing — AT URI of the first-ever version
 }): Promise<{ uri: string; cid: string }>
 
 // Like a sketch. Returns { uri, cid }.
@@ -388,41 +247,105 @@ TID generation for rkeys: use `@atproto/common-web` `TID.nextStr()`, matching th
 
 ---
 
-## Phase 3.5: Publish Lexicons to PDS
+## Phase 4: Tap Webhook
 
-**Goal:** Make the `live.drome.*` lexicons discoverable on the AT Protocol network. Deferred from Phase 1 to ensure the schema is stable before publishing permanently.
+**Goal:** A webhook endpoint that Tap posts firehose events to, indexing `live.drome.*` records into SQLite.
 
-### Prerequisites
+### What to build
 
-- Authenticate goat: `goat account login` (or set `GOAT_USERNAME` / `GOAT_PASSWORD` env vars)
-- Add a DNS TXT record at `_lexicon.drome.live` pointing to your DID:
-  ```
-  _lexicon.drome.live  TXT  "did=did:plc:<your-did>"
-  ```
-  Get your DID with `goat account whoami`.
+**Webhook handler** at `apps/web/src/routes/api/webhook/+server.ts`:
 
-### What to do
+```ts
+import { parseTapEvent, assureAdminAuth } from '@atproto/tap';
+import { AtUri } from '@atproto/syntax';
+import { TAP_ADMIN_PASSWORD } from '$env/static/private';
+import * as live from '$lib/lexicons/live';
 
-- [ ] Add DNS TXT record (requires access to drome.live DNS settings)
-- [ ] Verify DNS resolves: `goat lex check-dns lexicons/`
-- [ ] Publish: `goat lex publish lexicons/`
+export async function POST({ request }) {
+  assureAdminAuth(TAP_ADMIN_PASSWORD, request.headers.get('Authorization'));
+  const evt = parseTapEvent(await request.json());
+
+  if (evt.type === 'identity') {
+    // upsert account: did, handle, active status
+  }
+
+  if (evt.type === 'record') {
+    const uri = AtUri.make(evt.did, evt.collection, evt.rkey);
+
+    if (evt.collection === 'live.drome.sketch') {
+      if (evt.action === 'create' || evt.action === 'update') {
+        const record = live.drome.sketch.$parse(evt.record);
+        // upsert sketch row
+        // if record.previousVersion is set, mark that URI's isLatestVersion = false
+        // delete existing sketch_tag rows for this URI, then re-insert normalized tags
+      } else if (evt.action === 'delete') {
+        // delete sketch row (sketch_tag rows cascade)
+      }
+    }
+
+    if (evt.collection === 'live.drome.like') { /* upsert/delete like row */ }
+    if (evt.collection === 'live.drome.repost') { /* upsert/delete repost row */ }
+  }
+
+  return new Response(JSON.stringify({ success: true }), { status: 200 });
+}
+```
+
+Tag normalization: split the `tags` array and normalize each value (lowercase, trim, replace spaces with hyphens) before inserting into `sketch_tag`. On sketch upsert, delete existing rows for that URI before re-inserting.
+
+**Tap local dev setup** (run in a second terminal tab):
+
+```bash
+go run github.com/bluesky-social/indigo/cmd/tap run \
+  --webhook-url=http://localhost:3000/api/webhook \
+  --collection-filter=live.drome.* \
+  --signal-collection=live.drome.sketch \
+  --no-replay --disable-acks
+```
+
+`--signal-collection=live.drome.sketch` means Tap auto-discovers and starts tracking any DID that publishes a sketch. `--no-replay` connects to the firehose head immediately.
+
+**Tap production setup (Railway):**
+
+Add a second Railway service → "Deploy from image" → `ghcr.io/bluesky-social/indigo/tap:latest`. Set env vars:
+
+```
+TAP_WEBHOOK_URL=https://your-app.railway.app/api/webhook
+TAP_COLLECTION_FILTERS=live.drome.*
+TAP_SIGNAL_COLLECTION=live.drome.sketch
+TAP_ADMIN_PASSWORD=<secret>
+```
+
+**Environment variables** to add to `.env`:
+
+```
+TAP_URL=http://localhost:2480
+TAP_ADMIN_PASSWORD=dev-password
+```
 
 ### Acceptance criteria
 
-- [ ] `_lexicon.drome.live` DNS TXT record exists and resolves to your DID
-- [ ] Lexicons are published to the PDS via `goat lex publish`
-- [ ] `goat lex status lexicons/` shows all three in sync
+- [ ] `/api/webhook` rejects requests without valid admin auth (401)
+- [ ] `/api/webhook` handles `identity` events: upserts into `account` table
+- [ ] `/api/webhook` handles `live.drome.sketch` create/update: upserts into `sketch` table
+- [ ] `/api/webhook` handles `live.drome.sketch` delete: removes row from `sketch` table
+- [ ] On sketch upsert with `previousVersion` set, the referenced row gets `isLatestVersion = false`
+- [ ] On sketch upsert, `sketch_tag` rows are deleted and re-inserted with normalized slugs
+- [ ] On sketch delete, `sketch_tag` rows are removed via cascade
+- [ ] `/api/webhook` handles `live.drome.like` and `live.drome.repost` create/delete
+- [ ] Tap running locally delivers events to the webhook and rows appear in SQLite
+- [ ] Invalid or unparseable events return `{ success: false }` without crashing
 
 ---
 
-## Phase 4: Publish from REPL
+## Phase 5: Publish from REPL
 
 **Goal:** A logged-in user can publish the code currently in the REPL editor to their PDS.
 
 ### What to build
 
 - SvelteKit form action on `/repl` (or `POST /api/sketch/publish`) that:
-  1. Reads `title`, `code`, `description`, `tags`, `previousVersion` from the request
+  1. Reads `title`, `code`, `description`, `tags`, `previousVersion`, `rootVersion` from the request
   2. Reads the session DID
   3. Calls `publishSketch`
   4. Returns `{ uri, cid }`
@@ -438,13 +361,13 @@ Note: Tap will pick up the published record via the firehose and deliver it to `
 
 - [ ] Logged-in user can publish a sketch from the REPL
 - [ ] The AT URI is shown in the UI after successful publish
-- [ ] Publishing the same sketch again sends `previousVersion` (tracked in local state for now, from IndexedDB in Phase 6)
+- [ ] Publishing the same sketch again sends `previousVersion` and `rootVersion` (tracked in local state for now, from IndexedDB in Phase 8)
 - [ ] Unauthenticated users see a disabled button
 - [ ] The published sketch appears in the feed once Tap delivers the webhook event
 
 ---
 
-## Phase 5: Feed
+## Phase 6: Feed
 
 **Goal:** `/feed` displays sketches indexed in SQLite, sorted by `createdAt` descending, with a play button that loads the sketch into the REPL.
 
@@ -487,7 +410,7 @@ Version history toggle: a UI toggle switches between "latest only" (default, `is
 
 ---
 
-## Phase 6: Profile Page
+## Phase 7: Profile Page
 
 **Goal:** A logged-in user can view all of their own published sketches in one place.
 
@@ -524,7 +447,7 @@ const sketches = db
 
 ---
 
-## Phase 7: Local IndexedDB
+## Phase 8: Local IndexedDB
 
 **Goal:** Sketches are saved locally in the browser between sessions. Local becomes the authoring layer; AT Protocol is the publishing layer.
 
@@ -579,7 +502,7 @@ Indexes on `updatedAt`, `title`, `publishedUri`, `deletedAt`. Versioned migratio
 
 ---
 
-## Phase 8: Likes and Reposts UI
+## Phase 9: Likes and Reposts UI
 
 **Goal:** Users can like and repost sketches from the feed. Counts are displayed on cards and update optimistically.
 
@@ -605,16 +528,49 @@ Note: Tap handles indexing likes/reposts automatically via the webhook. No manua
 
 ---
 
+## Phase 10: Publish Lexicons + Deploy to Production
+
+**Goal:** Publish the `live.drome.*` lexicons to the AT Protocol network and deploy the full stack to production.
+
+### What to do
+
+- [ ] Add DNS TXT record at `_lexicon.drome.live` pointing to your DID:
+  ```
+  _lexicon.drome.live  TXT  "did=did:plc:<your-did>"
+  ```
+  Get your DID with `goat account whoami`.
+- [ ] Verify DNS resolves: `goat lex check-dns lexicons/`
+- [ ] Publish lexicons: `goat lex publish lexicons/`
+- [ ] Deploy app to Railway (or equivalent)
+- [ ] Add Tap as a second Railway service → "Deploy from image" → `ghcr.io/bluesky-social/indigo/tap:latest` with env vars:
+  ```
+  TAP_WEBHOOK_URL=https://your-app.railway.app/api/webhook
+  TAP_COLLECTION_FILTERS=live.drome.*
+  TAP_SIGNAL_COLLECTION=live.drome.sketch
+  TAP_ADMIN_PASSWORD=<secret>
+  ```
+
+### Acceptance criteria
+
+- [ ] `_lexicon.drome.live` DNS TXT record exists and resolves to your DID
+- [ ] Lexicons are published to the PDS via `goat lex publish`
+- [ ] `goat lex status lexicons/` shows all three in sync
+- [ ] App is deployed and reachable at production URL
+- [ ] Tap sidecar is running in production and delivering events to the webhook
+
+---
+
 ## Implementation Order Summary
 
-| Phase | What                        | Key output                                       |
-| ----- | --------------------------- | ------------------------------------------------ |
-| 1     | Lexicons + OAuth scope      | JSON files, generated TS types, updated scope    |
-| 2     | SQLite schema + Tap webhook | DB tables, `/api/webhook`, Tap running locally   |
-| 3     | Write layer                 | `publishSketch`, `likeSketch`, `repostSketch`    |
-| 3.5   | Publish lexicons to PDS     | DNS TXT record, `goat lex publish`               |
-| 4     | Publish from REPL           | "Publish" button, record appears on network      |
-| 5     | Feed                        | `/feed` reading from SQLite, "Play" button       |
-| 6     | Profile page                | `/profile` listing user's own published sketches |
-| 7     | Local IndexedDB             | Authoring layer, `publishedUri` sync, forks      |
-| 8     | Likes + reposts UI          | Like/repost buttons, optimistic counts           |
+| Phase | What                          | Key output                                       |
+| ----- | ----------------------------- | ------------------------------------------------ |
+| 1     | Lexicons + OAuth scope        | JSON files, generated TS types, updated scope    |
+| 2     | SQLite schema                 | DB tables                                        |
+| 3     | Write layer                   | `publishSketch`, `likeSketch`, `repostSketch`    |
+| 4     | Tap webhook                   | `/api/webhook`, Tap running locally              |
+| 5     | Publish from REPL             | "Publish" button, record appears on network      |
+| 6     | Feed                          | `/feed` reading from SQLite, "Play" button       |
+| 7     | Profile page                  | `/profile` listing user's own published sketches |
+| 8     | Local IndexedDB               | Authoring layer, `publishedUri` sync, forks      |
+| 9     | Likes + reposts UI            | Like/repost buttons, optimistic counts           |
+| 10    | Publish lexicons + deploy     | DNS TXT record, `goat lex publish`, production   |
