@@ -197,6 +197,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@atproto/lex':
+        specifier: ^0.0.25
+        version: 0.0.25
       '@atproto/oauth-client-node':
         specifier: ^0.3.17
         version: 0.3.17

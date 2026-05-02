@@ -143,30 +143,37 @@ AT Protocol relay
   _lexicon.drome.live  TXT  "did=did:plc:<your-did>"
   ```
 
+### Notes
+
+- `goat lex new record` scaffolds files into a nested directory structure (`lexicons/live/drome/sketch.json`), not flat NSID-named files. Use the nested structure — goat resolves NSIDs from the path.
+- Use `goat lex lint` to validate schema files (not `goat lex validate`, which validates records against a schema).
+- `live.drome.sketch` will produce a `[large-string]` lint warning on the `code` field due to `maxLength: 100000`. This is intentional — ignore it.
+- **Publish after Phase 3**, not now. Wait until `publishSketch` is implemented and you've made at least one real write against the schema. Publishing is permanent; breaking changes to a live lexicon are a problem.
+
 ### What to build
 
-- Scaffold lexicon files using `goat lex new record` for each NSID, then fill in the definitions:
-  - `lexicons/live.drome.sketch.json`
-  - `lexicons/live.drome.like.json`
-  - `lexicons/live.drome.repost.json`
-- Publish to your PDS with `goat lex publish` (requires DNS TXT record above to be live first).
-- Generate TypeScript types from the lexicon files. Output to `apps/web/src/lib/lexicons/`.
-- Update `SCOPE` in `apps/web/src/lib/server/auth/client.ts`:
+- [x] Scaffold lexicon files using `goat lex new record` for each NSID, then fill in the definitions:
+  - `lexicons/live/drome/sketch.json`
+  - `lexicons/live/drome/like.json`
+  - `lexicons/live/drome/repost.json`
+- [ ] Generate TypeScript types from the lexicon files. Output to `apps/web/src/lib/lexicons/`.
+- [ ] Update `SCOPE` in `apps/web/src/lib/server/auth/client.ts`:
   ```ts
   export const SCOPE = 'atproto repo:live.drome.sketch repo:live.drome.like repo:live.drome.repost';
   ```
-- Verify the `oauth-client-metadata.json` route reflects the updated scope.
-- Existing sessions will need re-authentication (scope change invalidates prior tokens).
+- [ ] Verify the `oauth-client-metadata.json` route reflects the updated scope.
+- [ ] Existing sessions will need re-authentication (scope change invalidates prior tokens).
+- [ ] (After Phase 3) Add DNS TXT record at `_lexicon.drome.live` and publish with `goat lex publish`.
 
 ### Acceptance criteria
 
-- [ ] `_lexicon.drome.live` DNS TXT record exists and resolves to your DID
-- [ ] All three lexicon JSON files exist at `lexicons/` and pass `goat lex` validation
-- [ ] Lexicons are published to the PDS via `goat lex publish`
+- [x] All three lexicon JSON files exist at `lexicons/` and pass `goat lex lint`
 - [ ] TypeScript types are generated and importable from `$lib/lexicons/`
 - [ ] OAuth flow completes with the new scope
 - [ ] The granted token includes write access to all three collections
 - [ ] Existing auth infrastructure continues to work
+- [ ] (After Phase 3) `_lexicon.drome.live` DNS TXT record exists and resolves to your DID
+- [ ] (After Phase 3) Lexicons are published to the PDS via `goat lex publish`
 
 ---
 
