@@ -403,7 +403,42 @@ Version history toggle: a UI toggle switches between "latest only" (default, `is
 
 ---
 
-## Phase 6: Local IndexedDB
+## Phase 6: Profile Page
+
+**Goal:** A logged-in user can view all of their own published sketches in one place.
+
+### What to build
+
+`apps/web/src/routes/profile/+page.server.ts` load function queries SQLite filtered by the session DID:
+
+```ts
+const sketches = db
+  .select({ sketch, account })
+  .from(sketch)
+  .leftJoin(account, eq(sketch.authorDid, account.did))
+  .where(and(eq(sketch.authorDid, session.did), eq(sketch.isLatestVersion, true)))
+  .orderBy(desc(sketch.createdAt))
+  .limit(50)
+```
+
+- `/profile` is only accessible to authenticated users — redirect to login if no session.
+- Uses the same sketch card component as `/feed` (title, description, tags, `createdAt`, like/repost counts, "Play" button).
+- Add a "Profile" link to the nav when the user is logged in, next to the existing logout/login controls.
+- Cursor-based pagination matching the feed's approach.
+
+### Acceptance criteria
+
+- [ ] `/profile` is only accessible to logged-in users; unauthenticated visitors are redirected
+- [ ] Page lists only the session user's latest-version published sketches
+- [ ] Records are sorted by `createdAt` descending
+- [ ] Like and repost counts are correct
+- [ ] "Play" loads the sketch code into the REPL
+- [ ] "Profile" link appears in nav when logged in
+- [ ] Cursor-based pagination works past the initial 50
+
+---
+
+## Phase 7: Local IndexedDB
 
 **Goal:** Sketches are saved locally in the browser between sessions. Local becomes the authoring layer; AT Protocol is the publishing layer.
 
@@ -457,7 +492,7 @@ Indexes on `updatedAt`, `title`, `publishedUri`, `deletedAt`. Versioned migratio
 
 ---
 
-## Phase 7: Likes and Reposts UI
+## Phase 8: Likes and Reposts UI
 
 **Goal:** Users can like and repost sketches from the feed. Counts are displayed on cards and update optimistically.
 
@@ -492,5 +527,6 @@ Note: Tap handles indexing likes/reposts automatically via the webhook. No manua
 | 3     | Write layer                | `publishSketch`, `likeSketch`, `repostSketch` |
 | 4     | Publish from REPL          | "Publish" button, record appears on network   |
 | 5     | Feed                       | `/feed` reading from SQLite, "Play" button    |
-| 6     | Local IndexedDB            | Authoring layer, `publishedUri` sync, forks   |
-| 7     | Likes + reposts UI         | Like/repost buttons, optimistic counts        |
+| 6     | Profile page               | `/profile` listing user's own published sketches |
+| 7     | Local IndexedDB            | Authoring layer, `publishedUri` sync, forks   |
+| 8     | Likes + reposts UI         | Like/repost buttons, optimistic counts        |
