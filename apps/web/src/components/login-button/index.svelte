@@ -1,17 +1,9 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import IconUser24 from '@/components/icons/icon-user-24.svelte';
+	import { getOAuthURL, type Props } from './utils';
 
-	let {
-		did,
-		handle,
-		displayName,
-		avatar
-	}: {
-		did: string | null;
-		handle: string | null;
-		displayName: string | null;
-		avatar: string | null;
-	} = $props();
+	let { did, handle, displayName, avatar }: Props = $props();
 
 	let inputHandle = $state('');
 	let loading = $state(false);
@@ -24,19 +16,8 @@
 		error = null;
 
 		try {
-			const res = await fetch('/oauth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ handle: inputHandle })
-			});
-
-			const data = await res.json();
-
-			if (!res.ok) {
-				throw new Error(data.message || data.error || 'Login failed');
-			}
-
-			window.location.href = data.redirectUrl;
+			const redirectUrl = await getOAuthURL(inputHandle);
+			window.location.href = redirectUrl;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Login failed';
 			loading = false;
@@ -51,17 +32,19 @@
 	const openDialog = () => dialog?.showModal();
 </script>
 
-{#if did}
-	<div class="session">
-		{#if avatar}
-			<img src={avatar} alt={displayName ?? handle ?? did} class="avatar" />
-		{/if}
-		<span class="name">{displayName ?? handle ?? did}</span>
-		<button onclick={handleLogout}>Logout</button>
-	</div>
-{:else}
-	<button onclick={openDialog}>Login</button>
+<button
+	class="avatar"
+	onclick={did ? handleLogout : openDialog}
+	aria-label={did ? 'Logout' : 'Login'}
+>
+	{#if avatar}
+		<img src={avatar} alt={displayName ?? handle ?? did} class="avatar" />
+	{:else}
+		<IconUser24 />
+	{/if}
+</button>
 
+{#if !did}
 	<dialog bind:this={dialog}>
 		<h2>Login</h2>
 		<form onsubmit={handleSubmit}>
@@ -86,22 +69,27 @@
 {/if}
 
 <style>
-	.session {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-	}
-
 	.avatar {
-		width: 2rem;
-		height: 2rem;
-		border-radius: 50%;
-		object-fit: cover;
-	}
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		width: 2.5rem;
+		height: 2.5rem;
+		background: #efefef;
+		padding: 0;
+		border: none;
+		border-radius: 100vmax;
 
-	.name {
-		font-size: 0.875rem;
-		color: #6b7280;
+		img {
+			display: block;
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+		}
+
+		:global(svg) {
+			opacity: 0.666;
+		}
 	}
 
 	dialog {
