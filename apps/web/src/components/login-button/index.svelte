@@ -2,20 +2,31 @@
 	import { invalidateAll } from '$app/navigation';
 	import IconUser24 from '@/components/icons/icon-user-24.svelte';
 	import LoginDialog from './login-dialog.svelte';
-	import { getOAuthURL, type Props } from './utils';
+	import ProfilePopover from './profile-popover.svelte';
+	import { getOAuthURL, type ButtonProps } from './utils';
 
-	let { did, handle, displayName, avatar }: Props = $props();
+	let { did, handle, displayName, avatar }: ButtonProps = $props();
 
+	// ── login dialog ──────────────────────────────────────────────────────────
 	let inputHandle = $state('');
 	let loading = $state(false);
 	let error = $state<string | null>(null);
-	let dialog = $state<HTMLDialogElement>();
+	let dialogEl = $state<HTMLDialogElement | undefined>();
+
+	// ── profile popover ───────────────────────────────────────────────────────
+	let isOpen = $state(false);
+	let triggerEl = $state<HTMLButtonElement | undefined>();
+
+	async function handleLogout() {
+		isOpen = false;
+		await fetch('/oauth/logout', { method: 'POST' });
+		await invalidateAll();
+	}
 
 	async function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
 		loading = true;
 		error = null;
-
 		try {
 			const redirectUrl = await getOAuthURL(inputHandle);
 			window.location.href = redirectUrl;
@@ -25,18 +36,17 @@
 		}
 	}
 
-	async function handleLogout() {
-		await fetch('/oauth/logout', { method: 'POST' });
-		await invalidateAll();
-	}
-
-	const openDialog = () => dialog?.showModal();
+	const openDialog = () => dialogEl?.showModal();
 </script>
 
 <button
+	bind:this={triggerEl}
 	class="avatar"
-	onclick={did ? handleLogout : openDialog}
-	aria-label={did ? 'Logout' : 'Login'}
+	onclick={did ? () => (isOpen = !isOpen) : openDialog}
+	aria-label={did ? (isOpen ? 'Close profile menu' : 'Open profile menu') : 'Login'}
+	aria-haspopup={did ? 'dialog' : undefined}
+	aria-expanded={did ? isOpen : undefined}
+	aria-controls={did ? 'profile-popover' : undefined}
 >
 	{#if avatar}
 		<img src={avatar} alt={displayName ?? handle ?? did} class="avatar" />
@@ -45,9 +55,11 @@
 	{/if}
 </button>
 
-{#if !did}
+{#if did}
+	<ProfilePopover bind:isOpen trigger={triggerEl} {displayName} {handle} onlogout={handleLogout} />
+{:else}
 	<LoginDialog
-		bind:ref={dialog}
+		bind:ref={dialogEl}
 		bind:handle={inputHandle}
 		onsubmit={handleSubmit}
 		{loading}
@@ -77,5 +89,10 @@
 		:global(svg) {
 			opacity: 0.666;
 		}
+	}
+
+	.avatar:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 2px;
 	}
 </style>

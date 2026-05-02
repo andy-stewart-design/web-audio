@@ -1,16 +1,7 @@
 <script lang="ts">
-	let {
-		ref = $bindable(),
-		handle = $bindable(),
-		loading,
-		error
-	}: {
-		ref: HTMLDialogElement | undefined;
-		handle: string;
-		onsubmit: (e: SubmitEvent) => Promise<void>;
-		loading: boolean;
-		error: string | null;
-	} = $props();
+	import type { DialogProps } from './utils';
+
+	let { ref = $bindable(), handle = $bindable(), loading, onsubmit, error }: DialogProps = $props();
 </script>
 
 <dialog bind:this={ref}>

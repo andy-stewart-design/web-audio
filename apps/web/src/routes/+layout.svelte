@@ -22,6 +22,8 @@
 
 <style>
 	header {
+		display: flex;
+		justify-content: flex-end;
 		padding: 1rem;
 	}
 </style>
