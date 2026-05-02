@@ -30,7 +30,7 @@ interface RandomSchema {
   range: { min: number; max: number } | undefined;
   algorithm: "xor" | "mulberry";
   cycle: StaticSchema;
-  valueMap?: number[];  // optional: map random integers to these values
+  valueMap?: number[]; // optional: map random integers to these values
 }
 ```
 
@@ -165,14 +165,14 @@ scheduleBar(barIndex: number, barStartTime: number) {
 
 ## Files Touched
 
-| Package | File | Change |
-|---------|------|--------|
-| `@web-audio/patterns` | `src/types.ts` | Add `valueMap?: number[]` to `RandomSchema` |
-| `@web-audio/fluid` | `src/patterns/notes.ts` | Emit MIDI instead of frequency; build `valueMap` for random + scale |
-| `@web-audio/fluid` | `src/utils/midi-to-frequency.ts` | Remove |
-| `@web-audio/audio-engine` | `src/utils/midi-to-frequency.ts` | Add |
-| `@web-audio/audio-engine` | `src/random-resolver.ts` | Support `valueMap` lookup |
-| `@web-audio/audio-engine` | `src/synthesizer-player.ts` | MIDI → frequency conversion; handle random notes in `scheduleBar` |
+| Package                   | File                             | Change                                                              |
+| ------------------------- | -------------------------------- | ------------------------------------------------------------------- |
+| `@web-audio/patterns`     | `src/types.ts`                   | Add `valueMap?: number[]` to `RandomSchema`                         |
+| `@web-audio/fluid`        | `src/patterns/notes.ts`          | Emit MIDI instead of frequency; build `valueMap` for random + scale |
+| `@web-audio/fluid`        | `src/utils/midi-to-frequency.ts` | Remove                                                              |
+| `@web-audio/audio-engine` | `src/utils/midi-to-frequency.ts` | Add                                                                 |
+| `@web-audio/audio-engine` | `src/random-resolver.ts`         | Support `valueMap` lookup                                           |
+| `@web-audio/audio-engine` | `src/synthesizer-player.ts`      | MIDI → frequency conversion; handle random notes in `scheduleBar`   |
 
 ## Not in Scope
 

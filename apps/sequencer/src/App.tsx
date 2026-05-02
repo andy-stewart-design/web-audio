@@ -30,8 +30,8 @@ function App() {
   };
 
   const getAudio = () => {
-    if (!audioRef.current) {
-      audioRef.current = createAudioContext();
+    if (!audioRef.current || audioRef.current.ctx.state === "closed") {
+      audioRef.current = createAudioContext({ allowBackgroundPlayback: true });
     }
     return audioRef.current;
   };
@@ -87,6 +87,9 @@ function App() {
       engineRef.current?.destroy();
       clockRef.current?.stop();
       audioRef.current?.dispose();
+      engineRef.current = null;
+      clockRef.current = null;
+      audioRef.current = null;
     };
   }, []);
 

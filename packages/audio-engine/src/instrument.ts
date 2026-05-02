@@ -5,10 +5,15 @@ import type {
   ParameterSchema,
   RandomSchema,
 } from "@web-audio/schema";
+import { isEnvelope } from "@web-audio/schema";
 import RandomResolver from "./random-resolver";
 import { BASE_GAIN, FILTER_TYPE_MAP } from "./constants";
 import { computeEnvelope } from "./utils/compute-envelope";
-import type { ScheduledNote, ResolvedEnvelopeSchema } from "./types";
+import type {
+  EnvelopeParams,
+  ScheduledNote,
+  ResolvedEnvelopeSchema,
+} from "./types";
 
 abstract class Instrument {
   protected _ctx: AudioContext;
@@ -16,7 +21,8 @@ abstract class Instrument {
   protected readonly _outputNode: GainNode;
   private _resolvers = new Map<RandomSchema, RandomResolver>();
   private _scheduled: Set<ScheduledNote> = new Set();
-  private _onDone: (() => void) | null = null;
+  private _doneResolve: (() => void) | null = null;
+  readonly done: Promise<void>;
 
   constructor(ctx: AudioContext, clock: AudioClock) {
     this._ctx = ctx;
@@ -24,17 +30,12 @@ abstract class Instrument {
     this._outputNode = ctx.createGain();
     this._outputNode.gain.value = BASE_GAIN;
     this._outputNode.connect(ctx.destination);
+    this.done = new Promise<void>((resolve) => {
+      this._doneResolve = resolve;
+    });
   }
 
   abstract scheduleBar(barIndex: number, barStartTime: number): void;
-
-  whenDone(cb: () => void): void {
-    if (this._scheduled.size === 0) {
-      cb();
-      return;
-    }
-    this._onDone = cb;
-  }
 
   cancelFutureNotes(): void {
     const now = this._ctx.currentTime;
@@ -45,6 +46,9 @@ abstract class Instrument {
         for (const n of note.audioNodes) n.disconnect();
         this._scheduled.delete(note);
       }
+    }
+    if (this._scheduled.size === 0) {
+      this._doneResolve?.();
     }
   }
 
@@ -76,6 +80,18 @@ abstract class Instrument {
     } satisfies ResolvedEnvelopeSchema;
   }
 
+  protected _computeTimings(
+    envSchema: EnvelopeSchema,
+    barIndex: number,
+    stepIndex: number,
+    noteDuration: number,
+    endTime: number,
+    scale = 1,
+  ): EnvelopeParams {
+    const resolved = this._resolveEnvelope(envSchema, barIndex, stepIndex);
+    return computeEnvelope(resolved, noteDuration, endTime, scale);
+  }
+
   protected _scheduleParamEnvelope(
     param: AudioParam,
     envSchema: EnvelopeSchema,
@@ -85,8 +101,14 @@ abstract class Instrument {
     endTime: number,
     scale = 1,
   ): number {
-    const _env = this._resolveEnvelope(envSchema, barIndex, stepIndex);
-    const env = computeEnvelope(_env, noteDuration, endTime, scale);
+    const env = this._computeTimings(
+      envSchema,
+      barIndex,
+      stepIndex,
+      noteDuration,
+      endTime,
+      scale,
+    );
     const decay = env.startTime + env.attackDur + env.decayDur;
 
     param.setValueAtTime(env.min, env.startTime);
@@ -117,7 +139,7 @@ abstract class Instrument {
           [node.detune, effect.detune],
           [node.gain, effect.gain],
         ] as const) {
-          if (schema.type === "envelope") {
+          if (isEnvelope(schema)) {
             this._scheduleParamEnvelope(
               param,
               schema,
@@ -150,9 +172,8 @@ abstract class Instrument {
       sourceNode.disconnect();
       for (const n of audioNodes) n.disconnect();
       this._scheduled.delete(scheduled);
-      if (this._scheduled.size === 0 && this._onDone) {
-        this._onDone();
-        this._onDone = null;
+      if (this._scheduled.size === 0) {
+        this._doneResolve?.();
       }
     };
   }

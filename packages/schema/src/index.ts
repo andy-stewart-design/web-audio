@@ -1,5 +1,7 @@
 type Waveform = "sine" | "square" | "sawtooth" | "triangle";
 
+type EnvelopeMode = "bleed" | "clip";
+
 interface StaticSchemaValue {
   value: number;
   offset: number;
@@ -34,7 +36,19 @@ interface EnvelopeSchema {
   d: ParameterSchema;
   s: ParameterSchema;
   r: ParameterSchema;
-  mode: "bleed" | "clip";
+  mode: EnvelopeMode;
+}
+
+function isEnvelope(v: ParameterSchema | EnvelopeSchema): v is EnvelopeSchema {
+  return v.type === "envelope";
+}
+
+function isStatic(v: ParameterSchema): v is StaticSchema {
+  return v.type === "static";
+}
+
+function isRandom(v: ParameterSchema): v is RandomSchema {
+  return v.type === "random";
 }
 
 type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
@@ -66,6 +80,7 @@ interface DromeSchema {
 export type {
   DromeSchema,
   EffectSchema,
+  EnvelopeMode,
   EnvelopeSchema,
   FilterSchema,
   FilterType,
@@ -76,3 +91,5 @@ export type {
   SynthesizerSchema,
   Waveform,
 };
+
+export { isEnvelope, isStatic, isRandom };

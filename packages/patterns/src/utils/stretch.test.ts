@@ -3,7 +3,11 @@ import { stretch } from "./stretch";
 
 describe("stretch", () => {
   it("repeats each pattern when bars > 1", () => {
-    expect(stretch([[1, 2]], 3)).toEqual([[1, 2], [1, 2], [1, 2]]);
+    expect(stretch([[1, 2]], 3)).toEqual([
+      [1, 2],
+      [1, 2],
+      [1, 2],
+    ]);
   });
 
   it("duplicates each element when steps > 1", () => {
@@ -23,7 +27,11 @@ describe("stretch", () => {
   });
 
   it("rounds fractional values", () => {
-    expect(stretch([[1, 2]], 2.7)).toEqual([[1, 2], [1, 2], [1, 2]]);
+    expect(stretch([[1, 2]], 2.7)).toEqual([
+      [1, 2],
+      [1, 2],
+      [1, 2],
+    ]);
   });
 
   it("returns an empty array for an empty cycle", () => {

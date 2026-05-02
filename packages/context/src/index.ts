@@ -4,7 +4,13 @@
 const SILENT_MP3 =
   "data:audio/mpeg;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA//////////////////////////////////////////////////////////////////8AAABhTEFNRTMuMTAwA8MAAAAAAAAAABQgJAUHQQAB9AAAAnGMHkkIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxAADgnABGiAAQBCqgCRMAAgEAH///////////////7+n/9FTuQsQH//////2NG0jWUGlio5gLQTOtIoeR2WX////X4s9Atb/JRVCbBUpeRUq//////////////////9RUi0f2jn/+xDECgPCjAEQAABN4AAANIAAAAQVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQ==";
 
-const UNLOCK_EVENTS = ["click", "touchstart", "touchend", "keydown", "mousedown"] as const;
+const UNLOCK_EVENTS = [
+  "click",
+  "touchstart",
+  "touchend",
+  "keydown",
+  "mousedown",
+] as const;
 
 interface AudioContextOptions {
   allowBackgroundPlayback?: boolean;
@@ -15,7 +21,9 @@ interface ManagedAudioContext {
   dispose(): void;
 }
 
-function createAudioContext(options: AudioContextOptions = {}): ManagedAudioContext {
+function createAudioContext(
+  options: AudioContextOptions = {},
+): ManagedAudioContext {
   const { allowBackgroundPlayback = false } = options;
 
   const ctx = new AudioContext();
@@ -125,4 +133,8 @@ function createAudioContext(options: AudioContextOptions = {}): ManagedAudioCont
   return { ctx, dispose };
 }
 
-export { createAudioContext, type ManagedAudioContext, type AudioContextOptions };
+export {
+  createAudioContext,
+  type ManagedAudioContext,
+  type AudioContextOptions,
+};

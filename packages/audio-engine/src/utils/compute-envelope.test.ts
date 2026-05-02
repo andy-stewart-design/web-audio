@@ -75,6 +75,20 @@ describe("computeEnvelope", () => {
     });
   });
 
+  describe("decay clamping", () => {
+    it("clamps decayDur so attackDur + decayDur does not exceed noteDuration", () => {
+      // a=0, d=0.98 — with a 0.25s note, MIN_RAMP pushes decay past endTime without the clamp
+      const result = computeEnvelope({ ...base, a: 0, d: 0.98 }, 0.25, 5);
+      expect(result.attackDur + result.decayDur).toBeLessThanOrEqual(0.25);
+    });
+
+    it("clamps decayDur to MIN_RAMP when attackDur already fills noteDuration", () => {
+      // a=1, d=0 — adSum=1 avoids normalizeADSR, attack fills the full note
+      const result = computeEnvelope({ ...base, a: 1, d: 0 }, 2, 5);
+      expect(result.decayDur).toBe(0.005);
+    });
+  });
+
   describe("scale", () => {
     it("scales min and max by the scale factor", () => {
       const result = computeEnvelope({ ...base, min: 0, max: 1 }, 2, 5, 0.25);

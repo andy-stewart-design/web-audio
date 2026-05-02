@@ -16,10 +16,22 @@ function computeEnvelope(
 
   const startTime = endTime - noteDuration;
   const attackDur = Math.max(a * noteDuration, MIN_RAMP);
-  const decayDur = Math.max(d * noteDuration, MIN_RAMP);
+  const decayDur = Math.max(
+    Math.min(d * noteDuration, noteDuration - attackDur),
+    MIN_RAMP,
+  );
   const releaseDur = Math.max(r * noteDuration, MIN_RAMP);
 
-  return { min, max, sustain, startTime, endTime, attackDur, decayDur, releaseDur };
+  return {
+    min,
+    max,
+    sustain,
+    startTime,
+    endTime,
+    attackDur,
+    decayDur,
+    releaseDur,
+  };
 }
 
 export { computeEnvelope };
