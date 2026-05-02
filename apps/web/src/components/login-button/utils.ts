@@ -1,10 +1,11 @@
+import type { Session } from '@/app';
 import { computePosition, flip, offset, shift } from '@floating-ui/dom';
 
 // PROP TYPES --------------------------------------------------------------------
 
-type ButtonProps =
-	| { did: null; handle: null; displayName: null; avatar: null }
-	| { did: string; handle: string; displayName: string | null; avatar: string | null };
+interface ButtonProps {
+	session: Session;
+}
 
 interface DialogProps {
 	ref: HTMLDialogElement | undefined;

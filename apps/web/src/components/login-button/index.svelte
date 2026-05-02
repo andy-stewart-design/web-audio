@@ -5,7 +5,7 @@
 	import ProfilePopover from './profile-popover.svelte';
 	import { getOAuthURL, type ButtonProps } from './utils';
 
-	let { did, handle, displayName, avatar }: ButtonProps = $props();
+	let { session }: ButtonProps = $props();
 
 	// ── login dialog ──────────────────────────────────────────────────────────
 	let inputHandle = $state('');
@@ -42,21 +42,31 @@
 <button
 	bind:this={triggerEl}
 	class="avatar"
-	onclick={did ? () => (isOpen = !isOpen) : openDialog}
-	aria-label={did ? (isOpen ? 'Close profile menu' : 'Open profile menu') : 'Login'}
-	aria-haspopup={did ? 'dialog' : undefined}
-	aria-expanded={did ? isOpen : undefined}
-	aria-controls={did ? 'profile-popover' : undefined}
+	onclick={session.did ? () => (isOpen = !isOpen) : openDialog}
+	aria-label={session.did ? (isOpen ? 'Close profile menu' : 'Open profile menu') : 'Login'}
+	aria-haspopup={session.did ? 'dialog' : undefined}
+	aria-expanded={session.did ? isOpen : undefined}
+	aria-controls={session.did ? 'profile-popover' : undefined}
 >
-	{#if avatar}
-		<img src={avatar} alt={displayName ?? handle ?? did} class="avatar" />
+	{#if session.avatar}
+		<img
+			src={session.avatar}
+			alt={session.displayName ?? session.handle ?? session.did}
+			class="avatar"
+		/>
 	{:else}
 		<IconUser24 />
 	{/if}
 </button>
 
-{#if did}
-	<ProfilePopover bind:isOpen trigger={triggerEl} {displayName} {handle} onlogout={handleLogout} />
+{#if session.did}
+	<ProfilePopover
+		bind:isOpen
+		trigger={triggerEl}
+		displayName={session.displayName}
+		handle={session.handle}
+		onlogout={handleLogout}
+	/>
 {:else}
 	<LoginDialog
 		bind:ref={dialogEl}
