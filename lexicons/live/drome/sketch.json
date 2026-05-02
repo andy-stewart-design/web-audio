@@ -16,6 +16,7 @@
           "tags":            { "type": "array", "items": { "type": "string", "maxLength": 64 }, "maxLength": 8 },
           "origin":          { "type": "string", "format": "at-uri", "description": "AT URI of the sketch this was forked from." },
           "previousVersion": { "type": "string", "format": "at-uri", "description": "AT URI of the prior version of this sketch." },
+          "rootVersion":     { "type": "string", "format": "at-uri", "description": "AT URI of the first version of this sketch. Omitted on first publish." },
           "createdAt":       { "type": "string", "format": "datetime" }
         }
       }

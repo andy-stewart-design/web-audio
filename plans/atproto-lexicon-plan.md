@@ -20,7 +20,7 @@ Three record types. All use TID rkeys.
 
 ### `live.drome.sketch`
 
-The primary record. Each publication of a sketch is a **new record** (new TID rkey). Republishing creates a new record with `previousVersion` pointing at the prior AT URI, forming a version chain on the network. The first TID in a chain is the stable identifier for a sketch across all versions.
+The primary record. Each publication of a sketch is a **new record** (new TID rkey). Republishing creates a new record with `previousVersion` pointing at the prior AT URI and `rootVersion` pointing at the first-ever AT URI, forming a version chain on the network. `rootVersion` is the stable shareable identifier for a sketch across all versions — no chain traversal needed.
 
 ```json
 {
@@ -56,6 +56,11 @@ The primary record. Each publication of a sketch is a **new record** (new TID rk
             "type": "string",
             "format": "at-uri",
             "description": "AT URI of the prior version of this sketch."
+          },
+          "rootVersion": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "AT URI of the first version of this sketch. Omitted on first publish."
           },
           "createdAt": { "type": "string", "format": "datetime" }
         }
@@ -119,9 +124,9 @@ The primary record. Each publication of a sketch is a **new record** (new TID rk
 
 ### Version chain
 
-Each sketch publish creates a new AT Protocol record with a new TID rkey. Republishing sends `previousVersion` pointing at the prior record's AT URI. The indexer sets `isLatestVersion = false` on the referenced record when it processes the new one. The feed defaults to showing only latest versions.
+Each sketch publish creates a new AT Protocol record with a new TID rkey. Republishing sends `previousVersion` (the immediately prior AT URI) and `rootVersion` (the first-ever AT URI, copied forward on every republish). The indexer sets `isLatestVersion = false` on the `previousVersion` record when it processes the new one. The feed defaults to showing only latest versions.
 
-The stable shareable URL for a sketch is the AT URI of its first publication. The feed/AppView resolves that to the latest version via the `isLatestVersion` flag.
+The stable shareable URL for a sketch is `rootVersion` — present on all republished records, and derivable from the record itself without any chain traversal. On first publish, `rootVersion` is omitted and the record's own AT URI becomes the root.
 
 ### Local vs. remote source of truth
 
@@ -170,15 +175,15 @@ AT Protocol relay
     "atproto repo:live.drome.sketch repo:live.drome.like repo:live.drome.repost";
   ```
 - [x] Verify the `oauth-client-metadata.json` route reflects the updated scope.
-- [ ] Existing sessions will need re-authentication (scope change invalidates prior tokens).
+- [x] Existing sessions will need re-authentication (scope change invalidates prior tokens).
 
 ### Acceptance criteria
 
 - [x] All three lexicon JSON files exist at `lexicons/` and pass `goat lex lint`
 - [x] TypeScript types are generated and importable from `$lib/lexicons/`
-- [ ] OAuth flow completes with the new scope
-- [ ] The granted token includes write access to all three collections
-- [ ] Existing auth infrastructure continues to work
+- [x] OAuth flow completes with the new scope
+- [x] The granted token includes write access to all three collections
+- [x] Existing auth infrastructure continues to work
 
 ---
 
@@ -383,6 +388,33 @@ TID generation for rkeys: use `@atproto/common-web` `TID.nextStr()`, matching th
 
 ---
 
+## Phase 3.5: Publish Lexicons to PDS
+
+**Goal:** Make the `live.drome.*` lexicons discoverable on the AT Protocol network. Deferred from Phase 1 to ensure the schema is stable before publishing permanently.
+
+### Prerequisites
+
+- Authenticate goat: `goat account login` (or set `GOAT_USERNAME` / `GOAT_PASSWORD` env vars)
+- Add a DNS TXT record at `_lexicon.drome.live` pointing to your DID:
+  ```
+  _lexicon.drome.live  TXT  "did=did:plc:<your-did>"
+  ```
+  Get your DID with `goat account whoami`.
+
+### What to do
+
+- [ ] Add DNS TXT record (requires access to drome.live DNS settings)
+- [ ] Verify DNS resolves: `goat lex check-dns lexicons/`
+- [ ] Publish: `goat lex publish lexicons/`
+
+### Acceptance criteria
+
+- [ ] `_lexicon.drome.live` DNS TXT record exists and resolves to your DID
+- [ ] Lexicons are published to the PDS via `goat lex publish`
+- [ ] `goat lex status lexicons/` shows all three in sync
+
+---
+
 ## Phase 4: Publish from REPL
 
 **Goal:** A logged-in user can publish the code currently in the REPL editor to their PDS.
@@ -580,6 +612,7 @@ Note: Tap handles indexing likes/reposts automatically via the webhook. No manua
 | 1     | Lexicons + OAuth scope      | JSON files, generated TS types, updated scope    |
 | 2     | SQLite schema + Tap webhook | DB tables, `/api/webhook`, Tap running locally   |
 | 3     | Write layer                 | `publishSketch`, `likeSketch`, `repostSketch`    |
+| 3.5   | Publish lexicons to PDS     | DNS TXT record, `goat lex publish`               |
 | 4     | Publish from REPL           | "Publish" button, record appears on network      |
 | 5     | Feed                        | `/feed` reading from SQLite, "Play" button       |
 | 6     | Profile page                | `/profile` listing user's own published sketches |

@@ -29,6 +29,11 @@ type Main = {
    * AT URI of the prior version of this sketch.
    */
   previousVersion?: l.AtUriString
+
+  /**
+   * AT URI of the first version of this sketch. Omitted on first publish.
+   */
+  rootVersion?: l.AtUriString
   createdAt: l.DatetimeString
 }
 
@@ -45,6 +50,7 @@ const main = l.record<'tid', Main>(
     tags: l.optional(l.array(l.string({ maxLength: 64 }), { maxLength: 8 })),
     origin: l.optional(l.string({ format: 'at-uri' })),
     previousVersion: l.optional(l.string({ format: 'at-uri' })),
+    rootVersion: l.optional(l.string({ format: 'at-uri' })),
     createdAt: l.string({ format: 'datetime' }),
   }),
 )
