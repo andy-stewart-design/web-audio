@@ -36,7 +36,7 @@ The primary record. Each publication of a sketch is a **new record** (new TID rk
         "required": ["title", "code", "createdAt"],
         "properties": {
           "title":           { "type": "string", "maxLength": 256 },
-          "code":            { "type": "string", "maxLength": 100000 },
+          "code":            { "type": "string", "maxLength": 100000, "description": "The source code of the live-coded music sketch." },
           "description":     { "type": "string", "maxLength": 2048 },
           "tags":            { "type": "array", "items": { "type": "string", "maxLength": 64 }, "maxLength": 8 },
           "origin":          { "type": "string", "format": "at-uri", "description": "AT URI of the sketch this was forked from." },
@@ -132,14 +132,25 @@ AT Protocol relay
 
 ## Phase 1: Lexicon Files + OAuth Scope
 
-**Goal:** Commit lexicon definitions, generate TypeScript types, and update the OAuth flow to request write access to all three collections.
+**Goal:** Commit lexicon definitions, publish them to the PDS, generate TypeScript types, and update the OAuth flow to request write access to all three collections.
+
+### Prerequisites
+
+- Install `goat`: `brew install goat`
+- Authenticate: `goat account login` (or set `GOAT_USERNAME` / `GOAT_PASSWORD` env vars)
+- Add a DNS TXT record at `_lexicon.drome.live` pointing to your DID before publishing:
+  ```
+  _lexicon.drome.live  TXT  "did=did:plc:<your-did>"
+  ```
 
 ### What to build
 
-- `lexicons/live.drome.sketch.json`
-- `lexicons/live.drome.like.json`
-- `lexicons/live.drome.repost.json`
-- Run `lex build` (via `@atproto/lex` CLI) to generate TypeScript types from the lexicon files. Output to `apps/web/src/lib/lexicons/`.
+- Scaffold lexicon files using `goat lex new record` for each NSID, then fill in the definitions:
+  - `lexicons/live.drome.sketch.json`
+  - `lexicons/live.drome.like.json`
+  - `lexicons/live.drome.repost.json`
+- Publish to your PDS with `goat lex publish` (requires DNS TXT record above to be live first).
+- Generate TypeScript types from the lexicon files. Output to `apps/web/src/lib/lexicons/`.
 - Update `SCOPE` in `apps/web/src/lib/server/auth/client.ts`:
   ```ts
   export const SCOPE = 'atproto repo:live.drome.sketch repo:live.drome.like repo:live.drome.repost';
@@ -149,7 +160,9 @@ AT Protocol relay
 
 ### Acceptance criteria
 
-- [ ] All three lexicon JSON files exist at `lexicons/` and are structurally valid
+- [ ] `_lexicon.drome.live` DNS TXT record exists and resolves to your DID
+- [ ] All three lexicon JSON files exist at `lexicons/` and pass `goat lex` validation
+- [ ] Lexicons are published to the PDS via `goat lex publish`
 - [ ] TypeScript types are generated and importable from `$lib/lexicons/`
 - [ ] OAuth flow completes with the new scope
 - [ ] The granted token includes write access to all three collections
@@ -198,7 +211,14 @@ export const repost = sqliteTable('repost', {
   createdAt:  text('created_at').notNull(),
   indexedAt:  text('indexed_at').notNull(),
 });
+
+export const sketchTag = sqliteTable('sketch_tag', {
+  sketchUri: text('sketch_uri').notNull().references(() => sketch.uri, { onDelete: 'cascade' }),
+  tag:       text('tag').notNull(), // normalized slug, e.g. "hip-hop"
+}, (t) => [primaryKey({ columns: [t.sketchUri, t.tag] }), index('idx_sketch_tag_tag').on(t.tag)]);
 ```
+
+Tag normalization: when indexing a sketch, split the `tags` array and normalize each value (lowercase, trim, replace spaces with hyphens) before inserting into `sketch_tag`. On sketch upsert, delete existing rows for that URI before re-inserting. On delete, cascade handles cleanup.
 
 The existing `account` table already has `did` and `handle` — this is what Tap's identity events keep up to date.
 
@@ -226,8 +246,9 @@ export async function POST({ request }) {
         const record = live.drome.sketch.$parse(evt.record);
         // upsert sketch row
         // if record.previousVersion is set, mark that URI's isLatestVersion = false
+        // delete existing sketch_tag rows for this URI, then re-insert normalized tags
       } else if (evt.action === 'delete') {
-        // delete sketch row
+        // delete sketch row (sketch_tag rows cascade)
       }
     }
 
@@ -277,12 +298,15 @@ import { TAP_URL, TAP_ADMIN_PASSWORD } from '$env/static/private';
 
 ### Acceptance criteria
 
-- [ ] Drizzle migration creates `sketch`, `like`, and `repost` tables
+- [ ] Drizzle migration creates `sketch`, `like`, `repost`, and `sketch_tag` tables
 - [ ] `/api/webhook` rejects requests without valid admin auth (401)
 - [ ] `/api/webhook` handles `identity` events: upserts into `account` table
 - [ ] `/api/webhook` handles `live.drome.sketch` create/update: upserts into `sketch` table
 - [ ] `/api/webhook` handles `live.drome.sketch` delete: removes row from `sketch` table
 - [ ] On sketch upsert with `previousVersion` set, the referenced row gets `isLatestVersion = false`
+- [ ] On sketch upsert, `sketch_tag` rows are deleted and re-inserted with normalized slugs
+- [ ] On sketch delete, `sketch_tag` rows are removed via cascade
+- [ ] Querying `sketch_tag` by tag slug returns the correct sketches
 - [ ] `/api/webhook` handles `live.drome.like` and `live.drome.repost` create/delete
 - [ ] Tap running locally delivers events to the webhook and rows appear in SQLite
 - [ ] Invalid or unparseable events return `{ success: false }` without crashing
