@@ -16,9 +16,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 			path: '/'
 		});
 
-		await fetchAndCacheProfile(session.did).catch((e) =>
-			console.error('Failed to cache profile:', e)
-		);
+		await fetchAndCacheProfile(session.did);
 
 		redirect(302, '/');
 	} catch (e) {

@@ -2,12 +2,9 @@ import { computePosition, flip, offset, shift } from '@floating-ui/dom';
 
 // PROP TYPES --------------------------------------------------------------------
 
-interface ButtonProps {
-	did: string | null;
-	handle: string | null;
-	displayName: string | null;
-	avatar: string | null;
-}
+type ButtonProps =
+	| { did: null; handle: null; displayName: null; avatar: null }
+	| { did: string; handle: string; displayName: string | null; avatar: string | null };
 
 interface DialogProps {
 	ref: HTMLDialogElement | undefined;
@@ -22,7 +19,7 @@ interface PopoverProps {
 	isOpen?: boolean;
 	trigger: HTMLButtonElement | undefined;
 	displayName: string | null;
-	handle: string | null;
+	handle: string;
 	onlogout: () => void;
 }
 

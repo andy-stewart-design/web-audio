@@ -81,9 +81,7 @@
 		{#if displayName}
 			<span class="display-name">{displayName}</span>
 		{/if}
-		{#if handle}
-			<span class="handle">@{handle}</span>
-		{/if}
+		<span class="handle">@{handle}</span>
 	</div>
 	<button class="logout-btn" onclick={onlogout}>Log out</button>
 </div>

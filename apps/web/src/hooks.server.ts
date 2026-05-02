@@ -4,13 +4,13 @@ import type { Handle } from '@sveltejs/kit';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const session = await getSession(event.cookies);
+	const account = session ? await getAccount(session.did) : null;
 
-	if (session) {
-		const account = await getAccount(session.did);
+	if (session && account) {
 		event.locals.did = session.did;
-		event.locals.handle = account?.handle ?? null;
-		event.locals.displayName = account?.displayName ?? null;
-		event.locals.avatar = account?.avatar ?? null;
+		event.locals.handle = account.handle;
+		event.locals.displayName = account.displayName;
+		event.locals.avatar = account.avatar;
 	} else {
 		event.locals.did = null;
 		event.locals.handle = null;
