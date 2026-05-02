@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import IconUser24 from '@/components/icons/icon-user-24.svelte';
+	import LoginDialog from './login-dialog.svelte';
 	import { getOAuthURL, type Props } from './utils';
 
 	let { did, handle, displayName, avatar }: Props = $props();
@@ -45,27 +46,13 @@
 </button>
 
 {#if !did}
-	<dialog bind:this={dialog}>
-		<h2>Login</h2>
-		<form onsubmit={handleSubmit}>
-			<label>
-				Handle
-				<input
-					id="handle"
-					type="text"
-					bind:value={inputHandle}
-					placeholder="user.bsky.social"
-					disabled={loading}
-				/>
-			</label>
-			<div class="button-container">
-				<button type="submit" disabled={loading}>Login</button>
-			</div>
-			{#if error}
-				<p class="error">{error}</p>
-			{/if}
-		</form>
-	</dialog>
+	<LoginDialog
+		bind:ref={dialog}
+		bind:handle={inputHandle}
+		onsubmit={handleSubmit}
+		{loading}
+		{error}
+	/>
 {/if}
 
 <style>
@@ -90,30 +77,5 @@
 		:global(svg) {
 			opacity: 0.666;
 		}
-	}
-
-	dialog {
-		gap: 1rem;
-		inline-size: 100%;
-		max-inline-size: 480px;
-
-		&[open] {
-			display: grid;
-		}
-	}
-
-	form {
-		display: grid;
-		gap: 1rem;
-	}
-
-	label {
-		display: grid;
-		gap: 0.5rem;
-	}
-
-	.button-container {
-		display: flex;
-		justify-content: flex-end;
 	}
 </style>

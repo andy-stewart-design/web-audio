@@ -47,6 +47,7 @@
 	},
 	"dependencies": {
 		"@atproto/oauth-client-node": "^0.3.17",
+		"@floating-ui/dom": "^1.7.6",
 		"better-sqlite3": "^12.8.0"
 	}
 }
