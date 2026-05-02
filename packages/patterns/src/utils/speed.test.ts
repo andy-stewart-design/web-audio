@@ -12,7 +12,10 @@ describe("fast", () => {
 
   it("compresses cycle when mult > 1", () => {
     const result = fast([[1], [2], [3], [4]], 0, 2);
-    expect(result).toEqual([[1, 2], [3, 4]]);
+    expect(result).toEqual([
+      [1, 2],
+      [3, 4],
+    ]);
   });
 
   it("returns null when mult rounds to 0", () => {
@@ -26,7 +29,10 @@ describe("fast", () => {
 
   it("rounds fractional mult to integer", () => {
     const result = fast([[1], [2], [3], [4]], 0, 2.4);
-    expect(result).toEqual([[1, 2], [3, 4]]);
+    expect(result).toEqual([
+      [1, 2],
+      [3, 4],
+    ]);
   });
 
   it("handles cycle length not evenly divisible by mult", () => {
@@ -47,7 +53,10 @@ describe("slow", () => {
 
   it("expands cycle with null values when mult > 1", () => {
     const result = slow([[1, 2]], 0, 2);
-    expect(result).toEqual([[1, 0], [2, 0]]);
+    expect(result).toEqual([
+      [1, 0],
+      [2, 0],
+    ]);
   });
 
   it("returns null when mult rounds to 0", () => {
@@ -61,6 +70,9 @@ describe("slow", () => {
 
   it("rounds fractional mult to integer", () => {
     const result = slow([[1, 2]], 0, 2.4);
-    expect(result).toEqual([[1, 0], [2, 0]]);
+    expect(result).toEqual([
+      [1, 0],
+      [2, 0],
+    ]);
   });
 });

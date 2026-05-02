@@ -9,6 +9,10 @@ class AudioEngine {
   // Holds retired players until all their scheduled audio (including envelope
   // release tails) has finished. Each player removes itself via whenDone().
   private _retiring: Set<Synthesizer> = new Set();
+  // Last-write-wins: if update() is called multiple times before the next
+  // prebar fires, only the most recent schema is committed. Earlier schemas
+  // are intentionally discarded — in a live coding context, only the latest
+  // user intent should take effect.
   private _pending: DromeSchema | null = null;
   private _unsub: Set<() => void>;
 
@@ -43,7 +47,7 @@ class AudioEngine {
     // Retire current players — each removes itself from _retiring when done
     for (const player of this._players) {
       this._retiring.add(player);
-      player.whenDone(() => this._retiring.delete(player));
+      player.done.then(() => this._retiring.delete(player));
     }
 
     // Create new players from the pending schema

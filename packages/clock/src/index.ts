@@ -23,7 +23,7 @@ class AudioClock {
   private _beatsPerBar: number;
   private _running: boolean = false;
   private _timeOrigin: number = 0;
-  private _timerId: any = null;
+  private _timerId: ReturnType<typeof setTimeout> | null = null;
 
   // Real-time pointers for "On" events
   private _nextBeatTime: number = 0;

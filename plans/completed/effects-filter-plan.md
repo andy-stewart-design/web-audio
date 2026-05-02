@@ -13,11 +13,13 @@ Implements the filter effect system described in `plans/effects-filter-prd.md`. 
 ### Changes
 
 1. Add `FilterType` union type:
+
    ```ts
    type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
    ```
 
 2. Add `FilterSchema` interface:
+
    ```ts
    interface FilterSchema {
      type: "filter";
@@ -32,6 +34,7 @@ Implements the filter effect system described in `plans/effects-filter-prd.md`. 
    `ParameterSchema` is already a union of `StaticSchema | RandomSchema`, so `ParameterSchema | EnvelopeSchema` covers all four accepted input types from the PRD: static number, cycle, RandomCycle (via `RandomSchema`), and Envelope. No new schema types are needed to support randomness.
 
 3. Add `EffectSchema` alias (union — will widen for future effect types):
+
    ```ts
    type EffectSchema = FilterSchema;
    ```
@@ -46,6 +49,7 @@ Implements the filter effect system described in `plans/effects-filter-prd.md`. 
    The field is always present; empty array means no effects.
 
 ### Success Criteria
+
 - `FilterType`, `FilterSchema`, `EffectSchema` are exported from the package root
 - `SynthesizerSchema` includes `effects: EffectSchema[]`
 
@@ -81,6 +85,7 @@ class Filter {
 ```
 
 Defaults applied in `getSchema()` if the setter was never called:
+
 - `q` → `Parameter` wrapping `1`
 - `detune` → `Parameter` wrapping `0`
 - `gain` → `Parameter` wrapping `0`
@@ -89,20 +94,20 @@ Defaults applied in `getSchema()` if the setter was never called:
 
 **Tests to write alongside (`filter.test.ts`):**
 
-| Test | Input | Expected |
-|------|-------|----------|
-| basic lowpass | `new Filter("lp", 800)` | `filterType: "lp"`, frequency static 800, q default 1, detune default 0, gain default 0 |
-| q chaining | `.q(2)` | `q` resolves to 2 |
-| detune chaining | `.detune(100)` | `detune` resolves to 100 |
-| gain chaining | `.gain(6)` | `gain` resolves to 6 |
-| cycle on frequency | `new Filter("lp", 400, 800, 1200)` | `frequency` is `StaticSchema` with those cycle values |
-| RandomCycle on frequency | `new Filter("lp", d.rand().between(200, 2000))` | `frequency.type === "random"` |
-| envelope on frequency | `new Filter("lp", d.env(200, 4000).adsr(...))` | `frequency.type === "envelope"`, correct min/max/adsr |
-| envelope on q | `.q(d.env(0.5, 4))` | `q.type === "envelope"` |
-| RandomCycle on q | `.q(d.rand().between(0.5, 8))` | `q.type === "random"` |
-| all filter types | iterate all 8 `FilterType` values | `filterType` matches input |
-| schema type field | any filter | `type === "filter"` |
-| chaining returns this | `.q(2).detune(0).gain(0)` | all mutations applied, returns same instance |
+| Test                     | Input                                           | Expected                                                                                |
+| ------------------------ | ----------------------------------------------- | --------------------------------------------------------------------------------------- |
+| basic lowpass            | `new Filter("lp", 800)`                         | `filterType: "lp"`, frequency static 800, q default 1, detune default 0, gain default 0 |
+| q chaining               | `.q(2)`                                         | `q` resolves to 2                                                                       |
+| detune chaining          | `.detune(100)`                                  | `detune` resolves to 100                                                                |
+| gain chaining            | `.gain(6)`                                      | `gain` resolves to 6                                                                    |
+| cycle on frequency       | `new Filter("lp", 400, 800, 1200)`              | `frequency` is `StaticSchema` with those cycle values                                   |
+| RandomCycle on frequency | `new Filter("lp", d.rand().between(200, 2000))` | `frequency.type === "random"`                                                           |
+| envelope on frequency    | `new Filter("lp", d.env(200, 4000).adsr(...))`  | `frequency.type === "envelope"`, correct min/max/adsr                                   |
+| envelope on q            | `.q(d.env(0.5, 4))`                             | `q.type === "envelope"`                                                                 |
+| RandomCycle on q         | `.q(d.rand().between(0.5, 8))`                  | `q.type === "random"`                                                                   |
+| all filter types         | iterate all 8 `FilterType` values               | `filterType` matches input                                                              |
+| schema type field        | any filter                                      | `type === "filter"`                                                                     |
+| chaining returns this    | `.q(2).detune(0).gain(0)`                       | all mutations applied, returns same instance                                            |
 
 Use `toEqual` for schema comparisons; `toBeCloseTo` for floats.
 
@@ -114,6 +119,7 @@ Use `toEqual` for schema comparisons; `toBeCloseTo` for floats.
 Add `_effects: Filter[] = []` (private) to `Instrument`.
 
 Add `.fx(...effects: Filter[]): this` — variadic, appends to `_effects`:
+
 ```ts
 fx(...effects: Filter[]): this {
   this._effects.push(...effects);
@@ -123,17 +129,18 @@ fx(...effects: Filter[]): this {
 
 **Tests to write alongside:**
 
-| Test | Input | Expected |
-|------|-------|----------|
-| fx() returns this | `const s = d.synth(); s.fx(d.lpf(800)) === s` | true |
-| variadic | `.fx(d.lpf(800), d.hpf(200))` | `_effects` length 2 |
-| chained calls accumulate | `.fx(d.lpf(800)).fx(d.hpf(200))` | `_effects` length 2 |
+| Test                     | Input                                         | Expected            |
+| ------------------------ | --------------------------------------------- | ------------------- |
+| fx() returns this        | `const s = d.synth(); s.fx(d.lpf(800)) === s` | true                |
+| variadic                 | `.fx(d.lpf(800), d.hpf(200))`                 | `_effects` length 2 |
+| chained calls accumulate | `.fx(d.lpf(800)).fx(d.hpf(200))`              | `_effects` length 2 |
 
 ### 2c. Synthesizer.getSchema() update
 
 **File:** `packages/fluid/src/instruments/synthesizer.ts`
 
 Update `getSchema()` to include the `effects` array — this resolves the TypeScript breakage from Phase 1:
+
 ```ts
 effects: this._effects.map((e) => e.getSchema()),
 ```
@@ -144,6 +151,7 @@ effects: this._effects.map((e) => e.getSchema()),
 **Test file:** `packages/fluid/src/index.test.ts` (extend)
 
 Add to `Drome`:
+
 ```ts
 filter(type: FilterType, ...frequency: CycleInput | [Envelope]): Filter
 lpf(...frequency: CycleInput | [Envelope]): Filter   // sugar for filter("lp", ...)
@@ -155,16 +163,16 @@ These return a new `Filter` instance. They do not register it anywhere — the c
 
 **Integration tests to write alongside (`index.test.ts`):**
 
-| Test | Input | Expected |
-|------|-------|----------|
-| alias lpf | `d.lpf(800).getSchema()` | identical to `d.filter("lp", 800).getSchema()` |
-| alias hpf | `d.hpf(2400)` | `filterType: "hp"`, frequency 2400 |
-| alias bpf | `d.bpf(1000)` | `filterType: "bp"`, frequency 1000 |
-| no effects | `d.synth().getSchema()` | `effects: []` |
-| single effect | `d.synth().fx(d.lpf(800)).getSchema()` | `effects` length 1, correct schema |
-| variadic fx() | `d.synth().fx(d.lpf(800), d.hpf(200)).getSchema()` | `effects` length 2, order preserved |
-| chained fx() | `d.synth().fx(d.lpf(800)).fx(d.hpf(200)).getSchema()` | `effects` length 2, same order |
-| three effects | `.fx(d.lpf(800)).fx(d.hpf(200)).fx(d.bpf(1000)).getSchema()` | `effects` length 3 |
+| Test          | Input                                                        | Expected                                       |
+| ------------- | ------------------------------------------------------------ | ---------------------------------------------- |
+| alias lpf     | `d.lpf(800).getSchema()`                                     | identical to `d.filter("lp", 800).getSchema()` |
+| alias hpf     | `d.hpf(2400)`                                                | `filterType: "hp"`, frequency 2400             |
+| alias bpf     | `d.bpf(1000)`                                                | `filterType: "bp"`, frequency 1000             |
+| no effects    | `d.synth().getSchema()`                                      | `effects: []`                                  |
+| single effect | `d.synth().fx(d.lpf(800)).getSchema()`                       | `effects` length 1, correct schema             |
+| variadic fx() | `d.synth().fx(d.lpf(800), d.hpf(200)).getSchema()`           | `effects` length 2, order preserved            |
+| chained fx()  | `d.synth().fx(d.lpf(800)).fx(d.hpf(200)).getSchema()`        | `effects` length 2, same order                 |
+| three effects | `.fx(d.lpf(800)).fx(d.hpf(200)).fx(d.bpf(1000)).getSchema()` | `effects` length 3                             |
 
 ---
 
@@ -175,6 +183,7 @@ These return a new `Filter` instance. They do not register it anywhere — the c
 **File:** `packages/audio-engine/src/instrument.ts`
 
 Replace the current `ScheduledNote` interface:
+
 ```ts
 interface ScheduledNote {
   sourceNode: AudioScheduledSourceNode;
@@ -201,6 +210,7 @@ for (const n of note.audioNodes) n.disconnect();
 ```
 
 Update `_track` signature to match:
+
 ```ts
 protected _track(
   sourceNode: AudioScheduledSourceNode,
@@ -222,6 +232,7 @@ protected readonly _outputNode: GainNode;
 ```
 
 Initialize in the constructor:
+
 ```ts
 this._outputNode = ctx.createGain();
 this._outputNode.gain.value = BASE_GAIN;
@@ -232,11 +243,12 @@ Move the `BASE_GAIN = 0.25` constant from `synthesizer.ts` into `instrument.ts`.
 
 **Why this matters:** Currently `BASE_GAIN` is applied as the `scale` param inside `_scheduleParamEnvelope`, scaling per-note gain automation to `[0, 0.25]`. Moving it to a dedicated output GainNode keeps per-note ADSR values in `[0, 1]`, which is cleaner and required for the correct filter signal path architecture.
 
-### 3c. Synthesizer._scheduleNote update
+### 3c. Synthesizer.\_scheduleNote update
 
 **File:** `packages/audio-engine/src/synthesizer.ts`
 
 Add a static filter type lookup table:
+
 ```ts
 const FILTER_TYPE_MAP: Record<FilterType, BiquadFilterType> = {
   lp: "lowpass",
@@ -255,6 +267,7 @@ Update `_scheduleNote`:
 1. Remove the `scale = BASE_GAIN` from the gain `_scheduleParamEnvelope` call — BASE_GAIN is now handled by `_outputNode`.
 
 2. For each effect in `schema.effects` (in order), create and configure a `BiquadFilterNode`:
+
    ```ts
    const filterNode = this._ctx.createBiquadFilter();
    filterNode.type = FILTER_TYPE_MAP[effect.filterType];
@@ -277,23 +290,16 @@ Update `_scheduleNote`:
 These are run after the engine phase is complete.
 
 **Baseline regression:**
+
 1. A synth with no effects plays identically to pre-change. Confirm no amplitude difference after the BASE_GAIN migration.
 
-**Filter behavior:**
-2. `d.synth("sawtooth").fx(d.lpf(400)).push()` — audibly darker/muffled vs. unfiltered saw.
-3. `d.synth("sawtooth").fx(d.lpf(8000)).push()` — nearly identical to unfiltered.
-4. `d.synth("sawtooth").fx(d.hpf(2000)).push()` — thin/bright, bass removed.
-5. `d.synth("sawtooth").fx(d.lpf(800).q(8)).push()` — noticeable resonant peak at cutoff.
+**Filter behavior:** 2. `d.synth("sawtooth").fx(d.lpf(400)).push()` — audibly darker/muffled vs. unfiltered saw. 3. `d.synth("sawtooth").fx(d.lpf(8000)).push()` — nearly identical to unfiltered. 4. `d.synth("sawtooth").fx(d.hpf(2000)).push()` — thin/bright, bass removed. 5. `d.synth("sawtooth").fx(d.lpf(800).q(8)).push()` — noticeable resonant peak at cutoff.
 
-**Multiple filters:**
-6. `d.synth("sawtooth").fx(d.lpf(1000), d.hpf(500)).push()` — bandpass effect; audible midrange.
+**Multiple filters:** 6. `d.synth("sawtooth").fx(d.lpf(1000), d.hpf(500)).push()` — bandpass effect; audible midrange.
 
-**Envelope sweep:**
-7. `d.synth("sawtooth").fx(d.filter("lp", d.env(200, 4000).adsr(0.3, 0.2, 0.5, 0.1))).push()` — audible filter sweep: 200Hz → 4000Hz on attack, decays to sustain.
+**Envelope sweep:** 7. `d.synth("sawtooth").fx(d.filter("lp", d.env(200, 4000).adsr(0.3, 0.2, 0.5, 0.1))).push()` — audible filter sweep: 200Hz → 4000Hz on attack, decays to sustain.
 
-**Shelf/peaking:**
-8. `d.synth("sawtooth").fx(d.filter("ls", 200).gain(12)).push()` — low-shelf boost; more bass.
-9. `d.synth("sawtooth").fx(d.filter("pk", 800).gain(12).q(4)).push()` — peaking boost at 800Hz.
+**Shelf/peaking:** 8. `d.synth("sawtooth").fx(d.filter("ls", 200).gain(12)).push()` — low-shelf boost; more bass. 9. `d.synth("sawtooth").fx(d.filter("pk", 800).gain(12).q(4)).push()` — peaking boost at 800Hz.
 
 ---
 

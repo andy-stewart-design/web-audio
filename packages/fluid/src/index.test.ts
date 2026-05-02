@@ -200,7 +200,12 @@ describe("Drome", () => {
 
     it("three effects", () => {
       const d = new Drome();
-      const schema = d.synth().fx(d.lpf(800)).fx(d.hpf(200)).fx(d.bpf(1000)).getSchema();
+      const schema = d
+        .synth()
+        .fx(d.lpf(800))
+        .fx(d.hpf(200))
+        .fx(d.bpf(1000))
+        .getSchema();
       expect(schema.effects).toHaveLength(3);
     });
   });
