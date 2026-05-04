@@ -245,11 +245,11 @@ AT Protocol relay
 
 ### Acceptance criteria
 
-- [ ] Logged-in user can publish a sketch from the REPL
-- [ ] The AT URI is shown in the UI after successful publish
-- [ ] Publishing the same sketch again sends `previousVersion` and `rootVersion` (tracked in local state for now, from IndexedDB in Phase 8)
-- [ ] Unauthenticated users see a disabled button
-- [ ] Published record is visible on the network (e.g. via pdsls.dev) before Tap is wired up
+- [x] Logged-in user can publish a sketch from the REPL
+- [x] The AT URI is shown in the UI after successful publish
+- [x] Publishing the same sketch again sends `previousVersion` and `rootVersion` (tracked in local state for now, from IndexedDB in Phase 8)
+- [x] Unauthenticated users see a disabled button
+- [x] Published record is visible on the network (e.g. via pdsls.dev) before Tap is wired up
 
 ---
 
