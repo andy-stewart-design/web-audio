@@ -229,7 +229,7 @@ likeSketch(sessionDid: string, subject: { uri: string; cid: string }): Promise<{
 // Repost a sketch. Returns { uri, cid }.
 repostSketch(sessionDid: string, subject: { uri: string; cid: string }): Promise<{ uri: string; cid: string }>
 
-// Delete any record by AT URI (used for unlike, un-repost).
+// Delete any record by AT URI (used to delete sketches, unlike, un-repost).
 deleteRecord(sessionDid: string, uri: string): Promise<void>
 ```
 
@@ -256,35 +256,39 @@ TID generation for rkeys: use `@atproto/common-web` `TID.nextStr()`, matching th
 **Webhook handler** at `apps/web/src/routes/api/webhook/+server.ts`:
 
 ```ts
-import { parseTapEvent, assureAdminAuth } from '@atproto/tap';
-import { AtUri } from '@atproto/syntax';
-import { TAP_ADMIN_PASSWORD } from '$env/static/private';
-import * as live from '$lib/lexicons/live';
+import { parseTapEvent, assureAdminAuth } from "@atproto/tap";
+import { AtUri } from "@atproto/syntax";
+import { TAP_ADMIN_PASSWORD } from "$env/static/private";
+import * as live from "$lib/lexicons/live";
 
 export async function POST({ request }) {
-  assureAdminAuth(TAP_ADMIN_PASSWORD, request.headers.get('Authorization'));
+  assureAdminAuth(TAP_ADMIN_PASSWORD, request.headers.get("Authorization"));
   const evt = parseTapEvent(await request.json());
 
-  if (evt.type === 'identity') {
+  if (evt.type === "identity") {
     // upsert account: did, handle, active status
   }
 
-  if (evt.type === 'record') {
+  if (evt.type === "record") {
     const uri = AtUri.make(evt.did, evt.collection, evt.rkey);
 
-    if (evt.collection === 'live.drome.sketch') {
-      if (evt.action === 'create' || evt.action === 'update') {
+    if (evt.collection === "live.drome.sketch") {
+      if (evt.action === "create" || evt.action === "update") {
         const record = live.drome.sketch.$parse(evt.record);
         // upsert sketch row
         // if record.previousVersion is set, mark that URI's isLatestVersion = false
         // delete existing sketch_tag rows for this URI, then re-insert normalized tags
-      } else if (evt.action === 'delete') {
+      } else if (evt.action === "delete") {
         // delete sketch row (sketch_tag rows cascade)
       }
     }
 
-    if (evt.collection === 'live.drome.like') { /* upsert/delete like row */ }
-    if (evt.collection === 'live.drome.repost') { /* upsert/delete repost row */ }
+    if (evt.collection === "live.drome.like") {
+      /* upsert/delete like row */
+    }
+    if (evt.collection === "live.drome.repost") {
+      /* upsert/delete repost row */
+    }
   }
 
   return new Response(JSON.stringify({ success: true }), { status: 200 });
@@ -562,15 +566,15 @@ Note: Tap handles indexing likes/reposts automatically via the webhook. No manua
 
 ## Implementation Order Summary
 
-| Phase | What                          | Key output                                       |
-| ----- | ----------------------------- | ------------------------------------------------ |
-| 1     | Lexicons + OAuth scope        | JSON files, generated TS types, updated scope    |
-| 2     | SQLite schema                 | DB tables                                        |
-| 3     | Write layer                   | `publishSketch`, `likeSketch`, `repostSketch`    |
-| 4     | Tap webhook                   | `/api/webhook`, Tap running locally              |
-| 5     | Publish from REPL             | "Publish" button, record appears on network      |
-| 6     | Feed                          | `/feed` reading from SQLite, "Play" button       |
-| 7     | Profile page                  | `/profile` listing user's own published sketches |
-| 8     | Local IndexedDB               | Authoring layer, `publishedUri` sync, forks      |
-| 9     | Likes + reposts UI            | Like/repost buttons, optimistic counts           |
-| 10    | Publish lexicons + deploy     | DNS TXT record, `goat lex publish`, production   |
+| Phase | What                      | Key output                                       |
+| ----- | ------------------------- | ------------------------------------------------ |
+| 1     | Lexicons + OAuth scope    | JSON files, generated TS types, updated scope    |
+| 2     | SQLite schema             | DB tables                                        |
+| 3     | Write layer               | `publishSketch`, `likeSketch`, `repostSketch`    |
+| 4     | Tap webhook               | `/api/webhook`, Tap running locally              |
+| 5     | Publish from REPL         | "Publish" button, record appears on network      |
+| 6     | Feed                      | `/feed` reading from SQLite, "Play" button       |
+| 7     | Profile page              | `/profile` listing user's own published sketches |
+| 8     | Local IndexedDB           | Authoring layer, `publishedUri` sync, forks      |
+| 9     | Likes + reposts UI        | Like/repost buttons, optimistic counts           |
+| 10    | Publish lexicons + deploy | DNS TXT record, `goat lex publish`, production   |
