@@ -47,6 +47,7 @@
 		"vitest-browser-svelte": "^2.1.0"
 	},
 	"dependencies": {
+		"@atproto/common-web": "^0.4.21",
 		"@atproto/lex": "^0.0.25",
 		"@atproto/oauth-client-node": "^0.3.17",
 		"@floating-ui/dom": "^1.7.6",
