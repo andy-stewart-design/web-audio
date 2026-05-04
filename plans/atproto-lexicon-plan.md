@@ -207,47 +207,53 @@ AT Protocol relay
 
 **Goal:** A typed server-side module for publishing records to the PDS via the authenticated OAuth agent.
 
-### What to build
+### Implementation notes
 
-`apps/web/src/lib/server/atproto/records.ts`:
-
-```ts
-// Publish a new sketch. Returns { uri, cid }.
-publishSketch(sessionDid: string, input: {
-  title: string
-  code: string
-  description?: string
-  tags?: string[]
-  origin?: string          // set when publishing a forked sketch
-  previousVersion?: string // set when republishing an existing sketch
-  rootVersion?: string     // set when republishing — AT URI of the first-ever version
-}): Promise<{ uri: string; cid: string }>
-
-// Like a sketch. Returns { uri, cid }.
-likeSketch(sessionDid: string, subject: { uri: string; cid: string }): Promise<{ uri: string; cid: string }>
-
-// Repost a sketch. Returns { uri, cid }.
-repostSketch(sessionDid: string, subject: { uri: string; cid: string }): Promise<{ uri: string; cid: string }>
-
-// Delete any record by AT URI (used to delete sketches, unlike, un-repost).
-deleteRecord(sessionDid: string, uri: string): Promise<void>
-```
-
-Agent restoration: `getOAuthClient()` → `client.restore(sessionDid)` → authenticated `Agent`.
-
-TID generation for rkeys: use `@atproto/common-web` `TID.nextStr()`, matching the format used by the local IndexedDB layer so local IDs and AT Proto rkeys are the same value.
+- File: `apps/web/src/lib/server/atproto/records.ts`
+- Uses `Client` from `@atproto/lex` (already installed) — no `@atproto/api` needed
+- Session restoration: `getOAuthClient()` → `client.restore(sessionDid)` → `new Client(session)`
+- TID generation: `TID.nextStr()` from `@atproto/common-web`, passed as `rkey` to `client.create()`
+- `publishSketch` input is typed as `Omit<SketchRecord, '$type' | 'createdAt'>` derived from the generated lexicon type — stays in sync automatically
+- `deleteRecord` parses the AT URI string to extract collection and rkey
 
 ### Acceptance criteria
 
-- [ ] `publishSketch` creates a `live.drome.sketch` record on the PDS and returns a valid AT URI and CID
-- [ ] `likeSketch` and `repostSketch` create the correct record types with a valid `strongRef` subject
-- [ ] `deleteRecord` removes the specified record from the PDS
-- [ ] All functions throw descriptively if the session is missing or the token is expired
-- [ ] No dependency on Svelte or SvelteKit routing
+- [x] `publishSketch` creates a `live.drome.sketch` record on the PDS and returns a valid AT URI and CID
+- [x] `likeSketch` and `repostSketch` create the correct record types with a valid `strongRef` subject
+- [x] `deleteRecord` removes the specified record from the PDS
+- [x] All functions throw descriptively if the session is missing or the token is expired
+- [x] No dependency on Svelte or SvelteKit routing
 
 ---
 
-## Phase 4: Tap Webhook
+## Phase 4: Publish from REPL
+
+**Goal:** A logged-in user can publish the code currently in the REPL editor to their PDS. Comes before Tap so publishing can be verified end-to-end on the network before indexing is wired up.
+
+### What to build
+
+- SvelteKit form action on `/repl` (or `POST /api/sketch/publish`) that:
+  1. Reads `title`, `code`, `description`, `tags`, `previousVersion`, `rootVersion` from the request
+  2. Reads the session DID
+  3. Calls `publishSketch`
+  4. Returns `{ uri, cid }`
+- "Publish" button in the REPL UI:
+  - Opens a small modal to confirm title, optional description, and tags
+  - Submits to the action
+  - Displays the AT URI on success
+- Unauthenticated users see the button disabled with a login prompt.
+
+### Acceptance criteria
+
+- [ ] Logged-in user can publish a sketch from the REPL
+- [ ] The AT URI is shown in the UI after successful publish
+- [ ] Publishing the same sketch again sends `previousVersion` and `rootVersion` (tracked in local state for now, from IndexedDB in Phase 8)
+- [ ] Unauthenticated users see a disabled button
+- [ ] Published record is visible on the network (e.g. via pdsls.dev) before Tap is wired up
+
+---
+
+## Phase 5: Tap Webhook
 
 **Goal:** A webhook endpoint that Tap posts firehose events to, indexing `live.drome.*` records into SQLite.
 
@@ -256,39 +262,35 @@ TID generation for rkeys: use `@atproto/common-web` `TID.nextStr()`, matching th
 **Webhook handler** at `apps/web/src/routes/api/webhook/+server.ts`:
 
 ```ts
-import { parseTapEvent, assureAdminAuth } from "@atproto/tap";
-import { AtUri } from "@atproto/syntax";
-import { TAP_ADMIN_PASSWORD } from "$env/static/private";
-import * as live from "$lib/lexicons/live";
+import { parseTapEvent, assureAdminAuth } from '@atproto/tap';
+import { AtUri } from '@atproto/syntax';
+import { TAP_ADMIN_PASSWORD } from '$env/static/private';
+import * as live from '$lib/lexicons/live';
 
 export async function POST({ request }) {
-  assureAdminAuth(TAP_ADMIN_PASSWORD, request.headers.get("Authorization"));
+  assureAdminAuth(TAP_ADMIN_PASSWORD, request.headers.get('Authorization'));
   const evt = parseTapEvent(await request.json());
 
-  if (evt.type === "identity") {
+  if (evt.type === 'identity') {
     // upsert account: did, handle, active status
   }
 
-  if (evt.type === "record") {
+  if (evt.type === 'record') {
     const uri = AtUri.make(evt.did, evt.collection, evt.rkey);
 
-    if (evt.collection === "live.drome.sketch") {
-      if (evt.action === "create" || evt.action === "update") {
+    if (evt.collection === 'live.drome.sketch') {
+      if (evt.action === 'create' || evt.action === 'update') {
         const record = live.drome.sketch.$parse(evt.record);
         // upsert sketch row
         // if record.previousVersion is set, mark that URI's isLatestVersion = false
         // delete existing sketch_tag rows for this URI, then re-insert normalized tags
-      } else if (evt.action === "delete") {
+      } else if (evt.action === 'delete') {
         // delete sketch row (sketch_tag rows cascade)
       }
     }
 
-    if (evt.collection === "live.drome.like") {
-      /* upsert/delete like row */
-    }
-    if (evt.collection === "live.drome.repost") {
-      /* upsert/delete repost row */
-    }
+    if (evt.collection === 'live.drome.like') { /* upsert/delete like row */ }
+    if (evt.collection === 'live.drome.repost') { /* upsert/delete repost row */ }
   }
 
   return new Response(JSON.stringify({ success: true }), { status: 200 });
@@ -339,35 +341,6 @@ TAP_ADMIN_PASSWORD=dev-password
 - [ ] `/api/webhook` handles `live.drome.like` and `live.drome.repost` create/delete
 - [ ] Tap running locally delivers events to the webhook and rows appear in SQLite
 - [ ] Invalid or unparseable events return `{ success: false }` without crashing
-
----
-
-## Phase 5: Publish from REPL
-
-**Goal:** A logged-in user can publish the code currently in the REPL editor to their PDS.
-
-### What to build
-
-- SvelteKit form action on `/repl` (or `POST /api/sketch/publish`) that:
-  1. Reads `title`, `code`, `description`, `tags`, `previousVersion`, `rootVersion` from the request
-  2. Reads the session DID
-  3. Calls `publishSketch`
-  4. Returns `{ uri, cid }`
-- "Publish" button in the REPL UI:
-  - Opens a small modal to confirm title, optional description, and tags
-  - Submits to the action
-  - Displays the AT URI on success
-- Unauthenticated users see the button disabled with a login prompt.
-
-Note: Tap will pick up the published record via the firehose and deliver it to `/api/webhook` automatically. No manual SQLite write needed on publish — the webhook handles indexing.
-
-### Acceptance criteria
-
-- [ ] Logged-in user can publish a sketch from the REPL
-- [ ] The AT URI is shown in the UI after successful publish
-- [ ] Publishing the same sketch again sends `previousVersion` and `rootVersion` (tracked in local state for now, from IndexedDB in Phase 8)
-- [ ] Unauthenticated users see a disabled button
-- [ ] The published sketch appears in the feed once Tap delivers the webhook event
 
 ---
 
@@ -571,8 +544,8 @@ Note: Tap handles indexing likes/reposts automatically via the webhook. No manua
 | 1     | Lexicons + OAuth scope    | JSON files, generated TS types, updated scope    |
 | 2     | SQLite schema             | DB tables                                        |
 | 3     | Write layer               | `publishSketch`, `likeSketch`, `repostSketch`    |
-| 4     | Tap webhook               | `/api/webhook`, Tap running locally              |
-| 5     | Publish from REPL         | "Publish" button, record appears on network      |
+| 4     | Publish from REPL         | "Publish" button, record visible on network      |
+| 5     | Tap webhook               | `/api/webhook`, Tap running locally              |
 | 6     | Feed                      | `/feed` reading from SQLite, "Play" button       |
 | 7     | Profile page              | `/profile` listing user's own published sketches |
 | 8     | Local IndexedDB           | Authoring layer, `publishedUri` sync, forks      |
