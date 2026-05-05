@@ -1,3 +1,8 @@
+import {
+	$parse as parseSketch,
+	$safeParse as safeParseSketch
+} from '$lib/lexicons/live/drome/sketch';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type FollowRecord = {
@@ -137,37 +142,34 @@ export async function listSketches(did: string, limit = 50): Promise<SketchCard[
 	if (!res.ok) return [];
 
 	const data = await res.json();
-	return (
-		data.records ?? []
-	).map(
-		(r: {
-			uri: string;
-			cid: string;
-			value: {
-				title: string;
-				description?: string;
-				tags?: string[];
-				createdAt: string;
-			};
-		}) => ({
+	const cards: SketchCard[] = [];
+
+	for (const r of data.records ?? []) {
+		const result = safeParseSketch(r.value);
+		if (!result.success) continue;
+		const v = result.value;
+		cards.push({
 			uri: r.uri,
 			cid: r.cid,
 			authorDid: did,
 			authorHandle: profile.handle,
 			authorDisplayName: profile.displayName,
-			title: r.value.title,
-			description: r.value.description,
-			tags: r.value.tags,
-			createdAt: r.value.createdAt
-		})
-	);
+			title: v.title,
+			description: v.description,
+			tags: v.tags,
+			createdAt: v.createdAt
+		});
+	}
+
+	return cards;
 }
 
 /**
  * Fetch a single live.drome.sketch record by AT URI.
  */
 export async function getSketch(atUri: string): Promise<SketchRecord> {
-	const [, did, collection, rkey] = atUri.replace('at://', '').match(/^([^/]+)\/([^/]+)\/(.+)$/) ?? [];
+	const [, did, collection, rkey] =
+		atUri.replace('at://', '').match(/^([^/]+)\/([^/]+)\/(.+)$/) ?? [];
 	if (!did) throw new Error(`Invalid AT URI: ${atUri}`);
 
 	const pds = await resolveDidToPds(did);
@@ -180,7 +182,7 @@ export async function getSketch(atUri: string): Promise<SketchRecord> {
 	if (!res.ok) throw new Error(`Failed to fetch record ${atUri}: ${res.status}`);
 
 	const data = await res.json();
-	const v = data.value;
+	const v = parseSketch(data.value); // throws if the record doesn't match the lexicon
 	return {
 		uri: atUri,
 		cid: data.cid,

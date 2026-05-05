@@ -12,6 +12,13 @@ import { main as likeMain } from '$lib/lexicons/live/drome/like';
 import { main as repostMain } from '$lib/lexicons/live/drome/repost';
 import { main as followMain } from '$lib/lexicons/live/drome/follow';
 
+/**
+ * A strong reference to a specific version of an AT Protocol record.
+ * The URI identifies the record; the CID identifies the exact version.
+ * Mirrors com.atproto.repo.strongRef.
+ */
+export type StrongRef = { uri: string; cid: string };
+
 type WithStringUris<T> = T extends AtUriString
 	? string
 	: T extends (infer U)[]
@@ -28,10 +35,7 @@ async function getLexClient(sessionDid: string): Promise<Client> {
 	return new Client(session);
 }
 
-export async function publishSketch(
-	sessionDid: string,
-	input: PublishInput
-): Promise<{ uri: string; cid: string }> {
+export async function publishSketch(sessionDid: string, input: PublishInput): Promise<StrongRef> {
 	const client = await getLexClient(sessionDid);
 	const rkey = TID.nextStr();
 	return client.create(
@@ -47,10 +51,7 @@ export async function publishSketch(
 	);
 }
 
-export async function likeSketch(
-	sessionDid: string,
-	subject: { uri: string; cid: string }
-): Promise<{ uri: string; cid: string }> {
+export async function likeSketch(sessionDid: string, subject: StrongRef): Promise<StrongRef> {
 	const client = await getLexClient(sessionDid);
 	const rkey = TID.nextStr();
 	return client.create(
@@ -63,10 +64,7 @@ export async function likeSketch(
 	);
 }
 
-export async function repostSketch(
-	sessionDid: string,
-	subject: { uri: string; cid: string }
-): Promise<{ uri: string; cid: string }> {
+export async function repostSketch(sessionDid: string, subject: StrongRef): Promise<StrongRef> {
 	const client = await getLexClient(sessionDid);
 	const rkey = TID.nextStr();
 	return client.create(
@@ -79,10 +77,7 @@ export async function repostSketch(
 	);
 }
 
-export async function followUser(
-	sessionDid: string,
-	subjectDid: string
-): Promise<{ uri: string; cid: string }> {
+export async function followUser(sessionDid: string, subjectDid: string): Promise<StrongRef> {
 	const client = await getLexClient(sessionDid);
 	const rkey = TID.nextStr();
 	return client.create(
