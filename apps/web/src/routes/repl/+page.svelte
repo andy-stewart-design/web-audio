@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import type { PageData, ActionData } from './$types';
 	import AudioClock from '@web-audio/clock';
@@ -19,22 +19,26 @@
 
 	type LogEntry = { id: string; text: string; type: 'output' | 'error' };
 
-	// REPL state
-	let code = $state(DEFAULT_CODE);
+	// Read initial sketch data once — untrack prevents Svelte from warning about
+	// one-time reads of reactive `data` inside $state() initializers.
+	const initial = untrack(() => data.loadedSketch);
+
+	// REPL state — seeded from ?load= param if present
+	let code = $state(initial?.code ?? DEFAULT_CODE);
 	let isRunning = $state(false);
 	let logs = $state<LogEntry[]>([]);
 
 	// Publish dialog state
 	let dialogEl = $state<HTMLDialogElement | undefined>();
-	let publishTitle = $state('');
-	let publishDescription = $state('');
-	let publishTags = $state('');
+	let publishTitle = $state(initial?.title ?? '');
+	let publishDescription = $state(initial?.description ?? '');
+	let publishTags = $state(initial?.tags?.join(', ') ?? '');
 	let publishing = $state(false);
 	let publishedUri = $state<string | null>(null);
 
-	// Version chain — persists across publishes within this session
-	let rootVersionUri = $state<string | null>(null); // first-ever URI for this sketch
-	let previousVersionUri = $state<string | null>(null); // most recent URI
+	// Version chain — seeded from loaded sketch if it's a fork/republish
+	let rootVersionUri = $state<string | null>(initial?.rootVersion ?? initial?.uri ?? null);
+	let previousVersionUri = $state<string | null>(initial?.uri ?? null);
 
 	// Audio refs — not reactive, initialized lazily
 	let audioCtx: ManagedAudioContext | null = null;

@@ -76,7 +76,7 @@ This plan picks up after the core AT Protocol write layer is in place (lexicons,
 - [x] OAuth scope updated — existing sessions need re-authentication
 - [x] `followUser` creates a `live.drome.follow` record on the PDS
 - [x] `unfollowUser` deletes the record
-- [ ] `getFollows` returns the correct list for a given DID
+- [x] `getFollows` returns the correct list for a given DID
 
 ---
 
@@ -114,20 +114,20 @@ Each sketch card shows: title, author handle, `createdAt`, description (truncate
 
 ### What to build
 
-- [ ] `apps/web/src/lib/server/atproto/reads.ts` with `resolveDidToPds` and `getSketchesForDid`
-- [ ] `apps/web/src/routes/feed/+page.server.ts` — load function implementing the fetch/merge/sort pipeline
-- [ ] `apps/web/src/routes/feed/+page.svelte` — feed UI with sketch cards, empty state for unauthenticated users
-- [ ] Sketch card component at `apps/web/src/components/sketch-card/index.svelte`
-- [ ] REPL `?load={at-uri}` param handling — fetch record from PDS and hydrate editor
+- [x] `apps/web/src/lib/server/atproto/reads.ts` with `resolveDidToPds`, `resolveIdentifier`, `getProfile`, `listSketches`, `getSketch`
+- [x] `apps/web/src/routes/feed/+page.server.ts` — load function implementing the fetch/merge/sort pipeline
+- [x] `apps/web/src/routes/feed/+page.svelte` — feed UI with sketch cards, empty state for unauthenticated users
+- [x] Sketch card component at `apps/web/src/components/sketch-card/index.svelte`
+- [x] REPL `?load={at-uri}` param handling — fetch record from PDS and hydrate editor
 
 ### Acceptance criteria
 
-- [ ] Logged-in user sees sketches from followed users, sorted by `createdAt` descending
-- [ ] Unauthenticated users see an empty state with a login prompt
-- [ ] "Play" loads sketch code into the REPL editor
-- [ ] Loading from `?load=` param sets `previousVersion` and `rootVersion` correctly if the user republishes
-- [ ] Handles the case where a followed user has no sketches (no crash, graceful empty)
-- [ ] Handles PDS resolution failure gracefully (skip that user, don't crash the whole feed)
+- [x] Logged-in user sees sketches from followed users, sorted by `createdAt` descending
+- [x] Unauthenticated users see an empty state with a login prompt
+- [x] "Play" loads sketch code into the REPL editor
+- [x] Loading from `?load=` param sets `previousVersion` and `rootVersion` correctly if the user republishes
+- [x] Handles the case where a followed user has no sketches (no crash, graceful empty)
+- [x] Handles PDS resolution failure gracefully (skip that user, don't crash the whole feed)
 
 ---
 
@@ -152,12 +152,12 @@ Each sketch card shows: title, author handle, `createdAt`, description (truncate
 
 ### Acceptance criteria
 
-- [ ] `/profile/[did]` renders any user's published sketches
-- [ ] Follow/Unfollow button visible to logged-in users on other users' profiles
-- [ ] Following a user adds them to the feed on next load
-- [ ] Unfollowing removes them
-- [ ] Own profile shows no Follow button
-- [ ] "Profile" link appears in header when logged in
+- [x] `/profile/[identifier]` renders any user's published sketches (accepts both handle and DID)
+- [x] Follow/Unfollow button visible to logged-in users on other users' profiles
+- [x] Following a user adds them to the feed on next load
+- [x] Unfollowing removes them
+- [x] Own profile shows no Follow button
+- [x] "Profile" link appears in header when logged in
 
 ---
 

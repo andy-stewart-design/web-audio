@@ -19,6 +19,7 @@ interface PopoverProps {
 	ref?: HTMLDivElement;
 	isOpen?: boolean;
 	trigger: HTMLButtonElement | undefined;
+	did: string;
 	displayName: string | null;
 	handle: string;
 	onlogout: () => void;

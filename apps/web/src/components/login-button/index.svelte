@@ -63,6 +63,7 @@
 	<ProfilePopover
 		bind:isOpen
 		trigger={triggerEl}
+		did={session.did}
 		displayName={session.displayName}
 		handle={session.handle}
 		onlogout={handleLogout}

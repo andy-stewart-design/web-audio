@@ -5,6 +5,7 @@
 		ref = $bindable(),
 		isOpen = $bindable(false),
 		trigger,
+		did,
 		displayName,
 		handle,
 		onlogout
@@ -83,6 +84,7 @@
 		{/if}
 		<span class="handle">@{handle}</span>
 	</div>
+	<a href="/profile/{did}" class="profile-link" onclick={dismiss}>Profile</a>
 	<button class="logout-btn" onclick={onlogout}>Log out</button>
 </div>
 
@@ -128,6 +130,28 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.profile-link {
+		display: flex;
+		align-items: center;
+		inline-size: 100%;
+		block-size: 2rem;
+		padding-inline: 0.75rem;
+		border: 1px solid rgba(0, 0, 0, 0.15);
+		border-radius: 0.375rem;
+		font-size: 0.875rem;
+		text-decoration: none;
+		color: inherit;
+
+		&:hover {
+			background: rgba(0, 0, 0, 0.05);
+		}
+
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: 2px;
+		}
 	}
 
 	.logout-btn {
