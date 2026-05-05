@@ -12,7 +12,15 @@ import { main as likeMain } from '$lib/lexicons/live/drome/like';
 import { main as repostMain } from '$lib/lexicons/live/drome/repost';
 import { main as followMain } from '$lib/lexicons/live/drome/follow';
 
-type PublishInput = Omit<SketchRecord, '$type' | 'createdAt'>;
+type WithStringUris<T> = T extends AtUriString
+	? string
+	: T extends (infer U)[]
+		? WithStringUris<U>[]
+		: T extends object
+			? { [K in keyof T]: WithStringUris<T[K]> }
+			: T;
+
+export type PublishInput = WithStringUris<Omit<SketchRecord, '$type' | 'createdAt'>>;
 
 async function getLexClient(sessionDid: string): Promise<Client> {
 	const oauthClient = await getOAuthClient();
@@ -28,7 +36,13 @@ export async function publishSketch(
 	const rkey = TID.nextStr();
 	return client.create(
 		sketchMain,
-		{ ...input, createdAt: new Date().toISOString() as DatetimeString },
+		{
+			...input,
+			origin: input.origin as AtUriString | undefined,
+			previousVersion: input.previousVersion as AtUriString | undefined,
+			rootVersion: input.rootVersion as AtUriString | undefined,
+			createdAt: new Date().toISOString() as DatetimeString
+		},
 		{ rkey }
 	);
 }
