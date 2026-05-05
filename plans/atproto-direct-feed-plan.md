@@ -57,25 +57,25 @@ This plan picks up after the core AT Protocol write layer is in place (lexicons,
 
 ### What to build
 
-- [ ] Add `lexicons/live/drome/follow.json`
-- [ ] Regenerate TypeScript types (`pnpm --filter web lex:build`)
-- [ ] Update OAuth scope in `client.ts`:
+- [x] Add `lexicons/live/drome/follow.json`
+- [x] Regenerate TypeScript types (`pnpm --filter web lex:build`)
+- [x] Update OAuth scope in `client.ts`:
   ```ts
   export const SCOPE =
     'atproto repo:live.drome.sketch repo:live.drome.like repo:live.drome.repost repo:live.drome.follow';
   ```
-- [ ] Add `followUser` and `unfollowUser` to `apps/web/src/lib/server/atproto/records.ts`:
+- [x] Add `followUser` and `unfollowUser` to `apps/web/src/lib/server/atproto/records.ts`:
   - `followUser(sessionDid, subjectDid)` — creates a `live.drome.follow` record, returns `{ uri, cid }`
   - `unfollowUser(sessionDid, followUri)` — calls `deleteRecord` with the follow's AT URI
-- [ ] Add `getFollows(did)` to a new read module `apps/web/src/lib/server/atproto/reads.ts` — fetches `live.drome.follow` records from the PDS for a given DID, returns `{ uri, subject }[]`
+- [x] Add `getFollows(did)` to a new read module `apps/web/src/lib/server/atproto/reads.ts` — fetches `live.drome.follow` records from the PDS for a given DID, returns `{ uri, subject }[]`
 
 ### Acceptance criteria
 
-- [ ] `live.drome.follow` lexicon exists and passes `goat lex lint`
-- [ ] TypeScript types regenerated and importable
-- [ ] OAuth scope updated — existing sessions need re-authentication
-- [ ] `followUser` creates a `live.drome.follow` record on the PDS
-- [ ] `unfollowUser` deletes the record
+- [x] `live.drome.follow` lexicon exists and passes `goat lex lint`
+- [x] TypeScript types regenerated and importable
+- [x] OAuth scope updated — existing sessions need re-authentication
+- [x] `followUser` creates a `live.drome.follow` record on the PDS
+- [x] `unfollowUser` deletes the record
 - [ ] `getFollows` returns the correct list for a given DID
 
 ---

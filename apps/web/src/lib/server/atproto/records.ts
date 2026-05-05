@@ -1,9 +1,16 @@
-import { Client, type AtUriString, type DatetimeString, type NsidString } from '@atproto/lex';
+import {
+	Client,
+	type AtUriString,
+	type DatetimeString,
+	type DidString,
+	type NsidString
+} from '@atproto/lex';
 import { TID } from '@atproto/common-web';
 import { getOAuthClient } from '$lib/server/auth/client';
 import { main as sketchMain, type Main as SketchRecord } from '$lib/lexicons/live/drome/sketch';
 import { main as likeMain } from '$lib/lexicons/live/drome/like';
 import { main as repostMain } from '$lib/lexicons/live/drome/repost';
+import { main as followMain } from '$lib/lexicons/live/drome/follow';
 
 type PublishInput = Omit<SketchRecord, '$type' | 'createdAt'>;
 
@@ -56,6 +63,23 @@ export async function repostSketch(
 		},
 		{ rkey }
 	);
+}
+
+export async function followUser(
+	sessionDid: string,
+	subjectDid: string
+): Promise<{ uri: string; cid: string }> {
+	const client = await getLexClient(sessionDid);
+	const rkey = TID.nextStr();
+	return client.create(
+		followMain,
+		{ subject: subjectDid as DidString, createdAt: new Date().toISOString() as DatetimeString },
+		{ rkey }
+	);
+}
+
+export async function unfollowUser(sessionDid: string, followUri: string): Promise<void> {
+	return deleteRecord(sessionDid, followUri);
 }
 
 export async function deleteRecord(sessionDid: string, uri: string): Promise<void> {

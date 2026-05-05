@@ -45,9 +45,7 @@ export const actions: Actions = {
 						? (previousVersion as AtUriString)
 						: undefined,
 				rootVersion:
-					typeof rootVersion === 'string' && rootVersion
-						? (rootVersion as AtUriString)
-						: undefined
+					typeof rootVersion === 'string' && rootVersion ? (rootVersion as AtUriString) : undefined
 			});
 			return { uri: result.uri, cid: result.cid };
 		} catch (err) {

@@ -4,7 +4,8 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { authState, authSession } from '$lib/server/db/schema';
 
-export const SCOPE = 'atproto repo:live.drome.sketch repo:live.drome.like repo:live.drome.repost';
+export const SCOPE =
+	'atproto repo:live.drome.sketch repo:live.drome.like repo:live.drome.repost repo:live.drome.follow';
 
 let client: NodeOAuthClient | null = null;
 
