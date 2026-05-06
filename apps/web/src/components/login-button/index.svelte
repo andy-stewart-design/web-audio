@@ -85,7 +85,7 @@
 		align-items: center;
 		width: 2.5rem;
 		height: 2.5rem;
-		background: #efefef;
+		background: var(--ui-color-bg-secondary);
 		padding: 0;
 		border: none;
 		border-radius: 100vmax;

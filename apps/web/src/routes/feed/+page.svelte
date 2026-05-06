@@ -27,10 +27,11 @@
 	.feed {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: 0.5rem;
 		list-style: none;
 		padding: 0;
-		max-width: 640px;
+		max-width: 720px;
+		margin: auto;
 	}
 
 	.empty {

@@ -27,7 +27,7 @@
 			else ref.classList.add('is-open');
 
 			updatePosition(ref, trigger);
-			requestAnimationFrame(() => ref?.querySelector('button')?.focus());
+			requestAnimationFrame(() => ref?.querySelector('a')?.focus());
 		} else {
 			if (supportsPopover && ref.matches(':popover-open')) {
 				(ref as unknown as { hidePopover: () => void }).hidePopover();
@@ -80,12 +80,16 @@
 >
 	<div class="profile-info">
 		{#if displayName}
-			<span class="display-name">{displayName}</span>
+			<p class="display-name">{displayName}</p>
 		{/if}
-		<span class="handle">@{handle}</span>
+		<p class="handle">@{handle}</p>
 	</div>
-	<a href="/profile/{did}" class="profile-link" onclick={dismiss}>Profile</a>
-	<button class="logout-btn" onclick={onlogout}>Log out</button>
+	<nav class="links">
+		<a href="/repl" class="profile-link" onclick={dismiss}>Repl</a>
+		<a href="/feed" class="profile-link" onclick={dismiss}>Feed</a>
+		<a href="/profile/{did}" class="profile-link" onclick={dismiss}>Profile</a>
+		<button class="logout-btn" onclick={onlogout}>Log out</button>
+	</nav>
 </div>
 
 <style>
@@ -95,81 +99,58 @@
 		top: 0;
 		left: 0;
 		display: none;
-		flex-direction: column;
-		gap: 0.75rem;
+		gap: 1rem;
 		min-width: 14rem;
-		padding: 1rem;
+		padding: 1rem 0.5rem 0.75rem;
 		margin: 0;
-		border: 1px solid rgba(0, 0, 0, 0.12);
+		border: none;
 		border-radius: 0.5rem;
-		background: #fff;
+		background: light-dark(var(--ui-color-bg-primary), var(--ui-color-bg-secondary));
+		outline: 1px solid rgb(255 255 255 / 0.2);
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+		font-size: 0.875rem;
 
 		&:is(:popover-open, [data-open='true']) {
-			display: flex;
+			display: grid;
 		}
 	}
 
 	.profile-info {
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-		overflow: hidden;
-	}
-
-	.display-name {
-		font-weight: 600;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.handle {
-		font-size: 0.875rem;
-		color: #666;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.profile-link {
-		display: flex;
-		align-items: center;
-		inline-size: 100%;
-		block-size: 2rem;
 		padding-inline: 0.75rem;
-		border: 1px solid rgba(0, 0, 0, 0.15);
-		border-radius: 0.375rem;
-		font-size: 0.875rem;
-		text-decoration: none;
-		color: inherit;
 
-		&:hover {
-			background: rgba(0, 0, 0, 0.05);
+		.display-name {
+			font-size: 0.9375rem;
+			font-weight: 600;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
 		}
 
-		&:focus-visible {
-			outline: 2px solid currentColor;
-			outline-offset: 2px;
+		.handle {
+			color: var(--ui-color-fg-tertiary);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
 		}
 	}
 
-	.logout-btn {
-		inline-size: 100%;
-		block-size: 2rem;
-		background: transparent;
-		padding-inline: 0.75rem;
-		border: 1px solid rgba(0, 0, 0, 0.15);
-		border-radius: 0.375rem;
-		font-size: 0.875rem;
-	}
+	.links {
+		display: grid;
 
-	.logout-btn:hover {
-		background: rgba(0, 0, 0, 0.05);
-	}
+		:is(a, button) {
+			display: flex;
+			align-items: center;
+			block-size: 2rem;
+			padding: 0 0.75rem;
+			border: none;
+			background: none;
+			text-decoration: none;
+			border-radius: 0.375rem;
+			cursor: pointer;
 
-	.logout-btn:focus-visible {
-		outline: 2px solid currentColor;
-		outline-offset: 2px;
+			&:hover {
+				color: var(--ui-color-fg-secondary);
+			}
+		}
 	}
 </style>

@@ -31,14 +31,14 @@
 
 	{#if sketch.tags?.length}
 		<ul class="tags">
-			{#each sketch.tags as tag}
+			{#each sketch.tags as tag (tag)}
 				<li class="tag">{tag}</li>
 			{/each}
 		</ul>
 	{/if}
 
 	<footer class="card-footer">
-		<a href="/repl?load={encodeURIComponent(sketch.uri)}" class="play-btn">play</a>
+		<a href="/repl?load={encodeURIComponent(sketch.uri)}" class="play-btn">Play</a>
 	</footer>
 </article>
 
@@ -48,15 +48,15 @@
 		flex-direction: column;
 		gap: 0.5rem;
 		padding: 1rem;
-		background: #1e1e2e;
-		border: 1px solid #45475a;
+		background: var(--ui-color-bg-secondary);
+		border: 1px solid var(--ui-color-border-subtle);
 		border-radius: 6px;
 	}
 
 	.card-header {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: 0.5rem;
 	}
 
 	.meta {
@@ -67,7 +67,6 @@
 
 	.author {
 		font-size: 0.8rem;
-		color: #89b4fa;
 		text-decoration: none;
 
 		&:hover {
@@ -77,18 +76,17 @@
 
 	.date {
 		font-size: 0.75rem;
-		color: #585b70;
+		color: var(--ui-color-fg-tertiary);
 	}
 
 	.title {
-		font-size: 1rem;
+		font-size: 1.25rem;
 		font-weight: 600;
-		color: #cdd6f4;
 	}
 
 	.description {
 		font-size: 0.875rem;
-		color: #a6adc8;
+		color: var(--ui-color-fg-tertiary);
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
 		line-clamp: 2;
@@ -107,8 +105,7 @@
 	.tag {
 		font-size: 0.75rem;
 		padding: 0.125rem 0.5rem;
-		background: #313244;
-		color: #a6adc8;
+		background: var(--ui-color-bg-secondary);
 		border-radius: 100vmax;
 	}
 
@@ -118,18 +115,15 @@
 
 	.play-btn {
 		display: inline-block;
-		padding: 0.25rem 0.75rem;
-		font-family: monospace;
+		padding: 0.25rem 0.75rem 0.275rem;
 		font-size: 0.8rem;
-		color: #a6e3a1;
-		background: #1e1e2e;
-		border: 1px solid #a6e3a1;
-		border-radius: 4px;
+		font-weight: 500;
+		border: 1px solid var(--ui-color-border-subtle);
+		border-radius: 3px;
 		text-decoration: none;
 
 		&:hover {
-			background: #a6e3a1;
-			color: #1e1e2e;
+			color: var(--ui-color-fg-secondary);
 		}
 	}
 </style>
