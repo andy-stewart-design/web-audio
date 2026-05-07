@@ -120,10 +120,17 @@ export async function getFollows(did: string): Promise<FollowRecord[]> {
 	if (!res.ok) return [];
 
 	const data = await res.json();
-	return (data.records ?? []).map((r: { uri: string; value: { subject: string } }) => ({
-		uri: r.uri,
-		subject: r.value.subject
-	}));
+	const seen = new Set<string>();
+	const follows: FollowRecord[] = [];
+
+	for (const r of data.records ?? []) {
+		const subject = r.value.subject as string;
+		if (seen.has(subject)) continue;
+		seen.add(subject);
+		follows.push({ uri: r.uri, subject });
+	}
+
+	return follows;
 }
 
 /**
