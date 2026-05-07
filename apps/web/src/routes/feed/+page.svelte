@@ -15,7 +15,7 @@
 	</div>
 {:else}
 	<ul class="feed">
-		{#each data.sketches as sketch (sketch.uri)}
+		{#each data.sketches as sketch, i (i)}
 			<li>
 				<SketchCard {sketch} />
 			</li>

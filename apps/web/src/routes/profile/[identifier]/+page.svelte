@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageData } from './$types';
 	import SketchCard from '@/components/sketch-card/index.svelte';
 
@@ -10,6 +11,27 @@
 	// without creating a reactive dependency on `data`.
 	let followUri = $state(untrack(() => data.followUri));
 	const isFollowing = $derived(!!followUri);
+
+	const handleFollow: SubmitFunction = () => {
+		return async ({ result, update }) => {
+			if (result.type === 'success' && result.data?.followUri) {
+				followUri = result.data.followUri as string;
+			} else {
+				await update();
+			}
+		};
+	};
+
+	const handleUnfollow: SubmitFunction = ({ formData }) => {
+		formData.set('followUri', followUri!);
+		return async ({ result, update }) => {
+			if (result.type === 'success') {
+				followUri = null;
+			} else {
+				await update();
+			}
+		};
+	};
 </script>
 
 <div class="profile">
@@ -33,37 +55,12 @@
 
 		{#if !data.isOwnProfile && data.session?.did}
 			{#if isFollowing}
-				<form
-					method="POST"
-					action="?/unfollow"
-					use:enhance={({ formData }) => {
-						formData.set('followUri', followUri!);
-						return async ({ result, update }) => {
-							if (result.type === 'success') {
-								followUri = null;
-							} else {
-								await update();
-							}
-						};
-					}}
-				>
-					<button type="submit" class="follow-btn following">following</button>
+				<form method="POST" action="?/unfollow" use:enhance={handleUnfollow}>
+					<button type="submit" class="follow-btn following">✓ Following</button>
 				</form>
 			{:else}
-				<form
-					method="POST"
-					action="?/follow"
-					use:enhance={() => {
-						return async ({ result, update }) => {
-							if (result.type === 'success' && result.data?.followUri) {
-								followUri = result.data.followUri as string;
-							} else {
-								await update();
-							}
-						};
-					}}
-				>
-					<button type="submit" class="follow-btn">follow</button>
+				<form method="POST" action="?/follow" use:enhance={handleFollow}>
+					<button type="submit" class="follow-btn">+ Follow</button>
 				</form>
 			{/if}
 		{/if}
@@ -84,10 +81,12 @@
 
 <style>
 	.profile {
-		max-width: 640px;
 		display: flex;
 		flex-direction: column;
 		gap: 1.5rem;
+		padding: 2rem 1rem;
+		max-width: 720px;
+		margin: auto;
 	}
 
 	.profile-header {
@@ -102,7 +101,7 @@
 		height: 4rem;
 		border-radius: 100vmax;
 		overflow: hidden;
-		background: #313244;
+		background: var(--ui-color-bg-secondary);
 
 		img {
 			display: block;
@@ -127,27 +126,26 @@
 	.display-name {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: #cdd6f4;
+		color: var(--ui-color-fg-primary);
 	}
 
 	.handle {
 		font-size: 0.875rem;
-		color: #585b70;
+		color: var(--ui-color-fg-tertiary);
 	}
 
 	.follow-btn {
 		padding: 0.375rem 1rem;
-		font-family: monospace;
 		font-size: 0.875rem;
+		font-weight: 500;
 		border-radius: 100vmax;
-		border: 1px solid #89b4fa;
-		background: #89b4fa;
-		color: #1e1e2e;
+		border: none;
+		background: var(--ui-color-fg-primary);
+		color: var(--ui-color-bg-primary);
 		cursor: pointer;
 
 		&.following {
-			background: transparent;
-			color: #89b4fa;
+			background: var(--ui-color-fg-tertiary);
 		}
 
 		&:hover {
@@ -158,13 +156,13 @@
 	.sketches {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: 0.5rem;
 		list-style: none;
 		padding: 0;
 	}
 
 	.empty {
-		color: #585b70;
-		font-size: 0.9rem;
+		color: var(--ui-color-fg-tertiary);
+		font-size: 0.875rem;
 	}
 </style>

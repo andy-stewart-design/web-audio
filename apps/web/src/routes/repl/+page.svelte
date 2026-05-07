@@ -9,13 +9,7 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	const DEFAULT_CODE = `d.synth("triangle")
- .root("c4")
- .scale("maj")
- .notes([[0, 2], 4, 6], [6, 4, 2, 0])
- .euclid(3, 8)
- .detune([0, 100])
- .push()`;
+	const DEFAULT_CODE = `d.synth("triangle").push()`;
 
 	type LogEntry = { id: string; text: string; type: 'output' | 'error' };
 
@@ -112,8 +106,8 @@
 
 <div class="repl">
 	<div class="toolbar">
-		<button onclick={() => evaluate(code)}>run</button>
-		<button onclick={stop} disabled={!isRunning}>stop</button>
+		<button onclick={() => evaluate(code)}>Run</button>
+		<button onclick={stop} disabled={!isRunning}>Stop</button>
 		<span class="hint">⌘↵</span>
 		<button
 			class="publish-btn"
@@ -121,7 +115,7 @@
 			disabled={!data.session.did || !code.trim()}
 			title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
 		>
-			publish
+			Publish
 		</button>
 	</div>
 
@@ -171,7 +165,9 @@
 			}}
 		>
 			<label>
-				Title <span class="required">*</span>
+				<div class="label-row">
+					Title <span class="required">Required</span>
+				</div>
 				<input name="title" bind:value={publishTitle} required autocomplete="off" />
 			</label>
 			<label>
@@ -179,7 +175,9 @@
 				<textarea name="description" bind:value={publishDescription} rows={3}></textarea>
 			</label>
 			<label>
-				Tags <span class="hint-small">comma-separated</span>
+				<div class="label-row">
+					Tags <span class="hint-small">Comma-separated</span>
+				</div>
 				<input name="tags" bind:value={publishTags} placeholder="ambient, generative, …" />
 			</label>
 
@@ -201,19 +199,31 @@
 	.repl {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
-		max-width: 640px;
+		gap: 1rem;
+		max-width: 720px;
+		margin: auto;
 	}
 
 	.toolbar {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+
+		button {
+			padding: 0.375rem 1rem;
+			font-size: 0.875rem;
+			font-weight: 500;
+			border-radius: 100vmax;
+			border: none;
+			background: var(--ui-color-fg-primary);
+			color: var(--ui-color-bg-primary);
+			cursor: pointer;
+		}
 	}
 
 	.hint {
-		font-size: 0.75rem;
-		color: #888;
+		font-size: 0.875rem;
+		color: var(--ui-color-fg-tertiary);
 		margin-right: auto;
 	}
 
@@ -222,28 +232,28 @@
 		height: 180px;
 		padding: 0.625rem;
 		font-family: monospace;
-		font-size: 0.9rem;
-		background: #1e1e2e;
-		color: #cdd6f4;
-		border: 1px solid #45475a;
+		font-size: 0.9375rem;
+		background: var(--ui-color-bg-secondary);
+		color: var(--ui-color-fg-primary);
+		border: 1px solid var(--ui-color-border-subtle);
 		border-radius: 4px;
 		resize: vertical;
 	}
 
 	.log {
 		padding: 0.625rem;
-		background: #1e1e2e;
-		border: 1px solid #45475a;
+		background: var(--ui-color-bg-secondary);
+		border: 1px solid var(--ui-color-border-subtle);
 		border-radius: 4px;
 		font-family: monospace;
-		font-size: 0.8rem;
+		font-size: 0.9375rem;
 		min-height: 80px;
 		max-height: 200px;
 		overflow-y: auto;
 	}
 
 	.empty {
-		color: #585b70;
+		color: var(--ui-color-fg-tertiary);
 	}
 
 	.output {
@@ -258,13 +268,14 @@
 	.publish-dialog {
 		width: min(480px, 90vw);
 		padding: 1.5rem;
-		border: 1px solid #45475a;
+		background: var(--ui-color-bg-secondary);
+		border: 1px solid var(--ui-color-border-subtle);
 		border-radius: 8px;
-		background: #1e1e2e;
 		color: #cdd6f4;
 
 		&::backdrop {
-			background: hsl(0 0% 0% / 0.5);
+			background: rgb(0 0 0 / 0.5);
+			backdrop-filter: blur(2px);
 		}
 
 		h2 {
@@ -282,14 +293,20 @@
 			flex-direction: column;
 			gap: 0.25rem;
 			font-size: 0.875rem;
+
+			.label-row {
+				display: flex;
+				justify-content: space-between;
+				align-items: baseline;
+			}
 		}
 
 		input,
 		textarea {
 			padding: 0.375rem 0.5rem;
-			background: #313244;
-			color: #cdd6f4;
-			border: 1px solid #45475a;
+			background: var(--ui-color-bg-primary);
+			color: var(--ui-color-fg-primary);
+			border: 1px solid var(--ui-color-border-subtle);
 			border-radius: 4px;
 			font-family: monospace;
 			font-size: 0.875rem;
@@ -299,11 +316,12 @@
 
 	.required {
 		color: #f38ba8;
+		font-size: 0.75rem;
 	}
 
 	.hint-small {
 		font-size: 0.75rem;
-		color: #888;
+		color: var(--ui-color-fg-tertiary);
 	}
 
 	.form-error {
