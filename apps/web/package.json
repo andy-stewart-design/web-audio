@@ -55,6 +55,7 @@
 		"@web-audio/clock": "workspace:*",
 		"@web-audio/context": "workspace:*",
 		"@web-audio/fluid": "workspace:*",
+		"@web-audio/schema": "workspace:*",
 		"better-sqlite3": "^12.8.0"
 	}
 }

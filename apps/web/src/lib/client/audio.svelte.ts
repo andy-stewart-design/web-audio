@@ -1,7 +1,9 @@
 import AudioClock from '@web-audio/clock';
 import { createAudioContext, type ManagedAudioContext } from '@web-audio/context';
-import Drome from '@web-audio/fluid';
 import AudioEngine from '@web-audio/audio-engine';
+import type { DromeSchema } from '@web-audio/schema';
+
+type PendingEval = { resolve: (schema: DromeSchema) => void; reject: (err: Error) => void };
 
 class AudioPlayer {
 	isRunning = $state(false);
@@ -11,6 +13,8 @@ class AudioPlayer {
 	private audioCtx: ManagedAudioContext | null = null;
 	private clock: AudioClock | null = null;
 	private engine: AudioEngine | null = null;
+	private worker: Worker | null = null;
+	private pending = new Map<string, PendingEval>();
 
 	private getAudio(): ManagedAudioContext {
 		if (!this.audioCtx || this.audioCtx.ctx.state === 'closed') {
@@ -29,12 +33,35 @@ class AudioPlayer {
 		return this.engine;
 	}
 
+	private getWorker(): Worker {
+		if (!this.worker) {
+			this.worker = new Worker(new URL('./eval.worker.ts', import.meta.url), { type: 'module' });
+			this.worker.onmessage = (
+				e: MessageEvent<{ id: string; schema?: DromeSchema; error?: string }>
+			) => {
+				const { id, schema, error } = e.data;
+				const p = this.pending.get(id);
+				if (!p) return;
+				this.pending.delete(id);
+				if (error) p.reject(new Error(error));
+				else p.resolve(schema!);
+			};
+		}
+		return this.worker;
+	}
+
+	private evalCode(code: string): Promise<DromeSchema> {
+		return new Promise((resolve, reject) => {
+			const id = crypto.randomUUID();
+			this.pending.set(id, { resolve, reject });
+			this.getWorker().postMessage({ id, code });
+		});
+	}
+
 	async play(code: string, uri?: string): Promise<void> {
 		this.lastError = null;
 		try {
-			const d = new Drome();
-			new Function('drome', 'd', code)(d, d);
-			const schema = d.getSchema();
+			const schema = await this.evalCode(code);
 			this.getEngine().update(schema);
 			if (!this.isRunning) {
 				await this.getClock().start();
