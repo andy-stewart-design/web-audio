@@ -1,7 +1,12 @@
 <script lang="ts">
 	import type { SketchCard } from '$lib/server/atproto/reads';
+	import { audio } from '$lib/client/audio.svelte';
 
 	let { sketch }: { sketch: SketchCard } = $props();
+
+	let loading = $state(false);
+
+	const isThisPlaying = $derived(audio.currentUri === sketch.uri && audio.isRunning);
 
 	const formattedDate = $derived(
 		new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(
@@ -14,6 +19,24 @@
 			? `${sketch.authorDisplayName} (@${sketch.authorHandle})`
 			: `@${sketch.authorHandle}`
 	);
+
+	async function handlePlay() {
+		if (isThisPlaying) {
+			audio.stop();
+			return;
+		}
+		loading = true;
+		try {
+			const res = await fetch(`/api/sketch?uri=${encodeURIComponent(sketch.uri)}`);
+			if (!res.ok) throw new Error('Failed to fetch sketch');
+			const { code } = await res.json();
+			await audio.play(code, sketch.uri);
+		} catch {
+			// error is set on audio.lastError; nothing more to do here
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
 <article class="card">
@@ -38,7 +61,16 @@
 	{/if}
 
 	<footer class="card-footer">
-		<a href="/repl?load={encodeURIComponent(sketch.uri)}" class="play-btn">Play</a>
+		<button class="play-btn" class:active={isThisPlaying} onclick={handlePlay} disabled={loading}>
+			{#if loading}
+				…
+			{:else if isThisPlaying}
+				Stop
+			{:else}
+				Play
+			{/if}
+		</button>
+		<a href="/repl?load={encodeURIComponent(sketch.uri)}" class="remix-btn">Remix</a>
 	</footer>
 </article>
 
@@ -110,10 +142,13 @@
 	}
 
 	.card-footer {
+		display: flex;
+		gap: 0.5rem;
 		margin-top: 0.25rem;
 	}
 
-	.play-btn {
+	.play-btn,
+	.remix-btn {
 		display: inline-block;
 		padding: 0.25rem 0.75rem 0.275rem;
 		font-size: 0.8rem;
@@ -121,9 +156,16 @@
 		border: 1px solid var(--ui-color-border-subtle);
 		border-radius: 3px;
 		text-decoration: none;
+		cursor: pointer;
+		background: none;
+		color: inherit;
 
 		&:hover {
 			color: var(--ui-color-fg-secondary);
 		}
+	}
+
+	.play-btn.active {
+		border-color: currentColor;
 	}
 </style>

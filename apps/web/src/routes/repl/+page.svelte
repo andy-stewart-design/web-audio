@@ -1,11 +1,8 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import type { PageData, ActionData } from './$types';
-	import AudioClock from '@web-audio/clock';
-	import { createAudioContext, type ManagedAudioContext } from '@web-audio/context';
-	import Drome from '@web-audio/fluid';
-	import AudioEngine from '@web-audio/audio-engine';
+	import { audio } from '$lib/client/audio.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -19,7 +16,7 @@
 
 	// REPL state — seeded from ?load= param if present
 	let code = $state(initial?.code ?? DEFAULT_CODE);
-	let isRunning = $state(false);
+	const isRunning = $derived(audio.isRunning);
 	let logs = $state<LogEntry[]>([]);
 
 	// Publish dialog state
@@ -34,52 +31,21 @@
 	let rootVersionUri = $state<string | null>(initial?.rootVersion ?? initial?.uri ?? null);
 	let previousVersionUri = $state<string | null>(initial?.uri ?? null);
 
-	// Audio refs — not reactive, initialized lazily
-	let audioCtx: ManagedAudioContext | null = null;
-	let clock: AudioClock | null = null;
-	let engine: AudioEngine | null = null;
-
-	function getAudio() {
-		if (!audioCtx || audioCtx.ctx.state === 'closed') {
-			audioCtx = createAudioContext({ allowBackgroundPlayback: true });
-		}
-		return audioCtx;
-	}
-
-	function getClock() {
-		if (!clock) clock = new AudioClock(getAudio().ctx, 140, 4);
-		return clock;
-	}
-
-	function getEngine() {
-		if (!engine) engine = new AudioEngine(getAudio().ctx, getClock());
-		return engine;
-	}
-
 	function addLog(text: string, type: LogEntry['type']) {
 		logs = [{ id: crypto.randomUUID(), text, type }, ...logs];
 	}
 
 	async function evaluate(input: string) {
 		try {
-			const d = new Drome();
-			new Function('drome', 'd', input)(d, d);
-			const schema = d.getSchema();
-			getEngine().update(schema);
-			if (!isRunning) {
-				await getClock().start();
-				isRunning = true;
-			}
+			await audio.play(input);
 			addLog('✓', 'output');
-		} catch (error) {
-			addLog(`✗ ${(error as Error).message}`, 'error');
+		} catch (err) {
+			addLog(`✗ ${(err as Error).message}`, 'error');
 		}
 	}
 
 	function stop() {
-		if (!isRunning) return;
-		clock?.stop();
-		isRunning = false;
+		audio.stop();
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
@@ -93,15 +59,6 @@
 		publishedUri = null;
 		dialogEl?.showModal();
 	}
-
-	onDestroy(() => {
-		engine?.destroy();
-		clock?.stop();
-		audioCtx?.dispose();
-		engine = null;
-		clock = null;
-		audioCtx = null;
-	});
 </script>
 
 <div class="repl">
@@ -166,7 +123,7 @@
 		>
 			<label>
 				<div class="label-row">
-					Title <span class="required">Required</span>
+					Title <span class="hint-small">Required</span>
 				</div>
 				<input name="title" bind:value={publishTitle} required autocomplete="off" />
 			</label>
@@ -271,7 +228,7 @@
 		background: var(--ui-color-bg-secondary);
 		border: 1px solid var(--ui-color-border-subtle);
 		border-radius: 8px;
-		color: #cdd6f4;
+		color: var(--ui-color-fg-primary);
 
 		&::backdrop {
 			background: rgb(0 0 0 / 0.5);
@@ -312,11 +269,6 @@
 			font-size: 0.875rem;
 			resize: vertical;
 		}
-	}
-
-	.required {
-		color: #f38ba8;
-		font-size: 0.75rem;
 	}
 
 	.hint-small {
