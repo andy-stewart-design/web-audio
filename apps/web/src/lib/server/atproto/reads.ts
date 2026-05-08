@@ -23,6 +23,8 @@ export type SketchCard = {
 	authorDid: string;
 	authorHandle: string;
 	authorDisplayName: string | null;
+	authorAvatar: string | null;
+	code: string;
 	title: string;
 	description: string | undefined;
 	tags: string[] | undefined;
@@ -161,6 +163,8 @@ export async function listSketches(did: string, limit = 50): Promise<SketchCard[
 			authorDid: did,
 			authorHandle: profile.handle,
 			authorDisplayName: profile.displayName,
+			authorAvatar: profile.avatar,
+			code: v.code,
 			title: v.title,
 			description: v.description,
 			tags: v.tags,

@@ -4,8 +4,6 @@
 
 	let { sketch }: { sketch: SketchCard } = $props();
 
-	let loading = $state(false);
-
 	const isThisPlaying = $derived(audio.currentUri === sketch.uri && audio.isRunning);
 
 	const formattedDate = $derived(
@@ -14,10 +12,12 @@
 		)
 	);
 
-	const authorLabel = $derived(
-		sketch.authorDisplayName
-			? `${sketch.authorDisplayName} (@${sketch.authorHandle})`
-			: `@${sketch.authorHandle}`
+	const authorPrimaryLabel = $derived(
+		sketch.authorDisplayName ? sketch.authorDisplayName : `@${sketch.authorHandle}`
+	);
+
+	const authorSecondaryLabel = $derived(
+		sketch.authorDisplayName ? `@${sketch.authorHandle}` : undefined
 	);
 
 	async function handlePlay() {
@@ -25,105 +25,104 @@
 			audio.stop();
 			return;
 		}
-		loading = true;
 		try {
-			const res = await fetch(`/api/sketch?uri=${encodeURIComponent(sketch.uri)}`);
-			if (!res.ok) throw new Error('Failed to fetch sketch');
-			const { code } = await res.json();
-			await audio.play(code, sketch.uri);
+			await audio.play(sketch.code, sketch.uri);
 		} catch {
 			// error is set on audio.lastError; nothing more to do here
-		} finally {
-			loading = false;
 		}
 	}
 </script>
 
 <article class="card">
-	<header class="card-header">
+	<header>
 		<div class="meta">
-			<a href="/profile/{sketch.authorDid}" class="author">{authorLabel}</a>
 			<time datetime={sketch.createdAt} class="date">{formattedDate}</time>
+
+			{#if sketch.tags?.length}
+				<ul class="tags">
+					{#each sketch.tags as tag (tag)}
+						<li class="tag">{tag}</li>
+					{/each}
+				</ul>
+			{/if}
 		</div>
-		<h2 class="title">{sketch.title}</h2>
+
+		<button class="bookmark" aria-label="bookmark">
+			<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+				<path
+					d="M15.8334 17.5L10 13.3333L4.16669 17.5V4.16667C4.16669 3.72464 4.34228 3.30072 4.65484 2.98816C4.9674 2.67559 5.39133 2.5 5.83335 2.5H14.1667C14.6087 2.5 15.0326 2.67559 15.3452 2.98816C15.6578 3.30072 15.8334 3.72464 15.8334 4.16667V17.5Z"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/>
+			</svg>
+		</button>
 	</header>
 
-	{#if sketch.description}
-		<p class="description">{sketch.description}</p>
-	{/if}
+	<div class="main">
+		<h2 class="title">{sketch.title}</h2>
 
-	{#if sketch.tags?.length}
-		<ul class="tags">
-			{#each sketch.tags as tag (tag)}
-				<li class="tag">{tag}</li>
-			{/each}
-		</ul>
-	{/if}
+		{#if sketch.description}
+			<p class="description">{sketch.description}</p>
+		{/if}
+	</div>
 
-	<footer class="card-footer">
-		<button class="play-btn" class:active={isThisPlaying} onclick={handlePlay} disabled={loading}>
-			{#if loading}
-				…
-			{:else if isThisPlaying}
-				Stop
-			{:else}
-				Play
-			{/if}
-		</button>
-		<a href="/repl?load={encodeURIComponent(sketch.uri)}" class="remix-btn">Remix</a>
+	<footer>
+		<div>
+			<a href="/profile/{sketch.authorDid}" class="author">
+				{#if sketch.authorAvatar}
+					<span class="avatar">
+						<img src={sketch.authorAvatar} alt={authorPrimaryLabel} />
+					</span>
+				{/if}
+				{authorPrimaryLabel}
+				{#if authorSecondaryLabel}
+					<span class="handle">{authorSecondaryLabel}</span>
+				{/if}
+			</a>
+
+			<div class="controls">
+				<button class="control" class:active={isThisPlaying} onclick={handlePlay}>
+					{isThisPlaying ? 'Stop' : 'Play'}
+				</button>
+				<a href="/repl?load={encodeURIComponent(sketch.uri)}" class="control">Remix</a>
+			</div>
+		</div>
 	</footer>
 </article>
 
 <style>
 	.card {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		padding: 1rem;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		background: var(--ui-color-bg-secondary);
 		border: 1px solid var(--ui-color-border-subtle);
 		border-radius: 6px;
 	}
 
-	.card-header {
+	/* HEADER ---------------------------------------- */
+
+	header {
 		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
+		align-items: center;
+		gap: 1rem;
+		justify-content: space-between;
 	}
 
 	.meta {
+		flex: 1 0 0;
 		display: flex;
-		align-items: baseline;
+		align-items: center;
 		gap: 0.75rem;
-	}
+		block-size: 3rem;
+		padding-inline: 1rem;
+		/*padding-block-start: 1rem;*/
 
-	.author {
-		font-size: 0.8rem;
-		text-decoration: none;
-
-		&:hover {
-			text-decoration: underline;
+		.date {
+			font-size: 0.75rem;
+			color: var(--ui-color-fg-tertiary);
 		}
-	}
-
-	.date {
-		font-size: 0.75rem;
-		color: var(--ui-color-fg-tertiary);
-	}
-
-	.title {
-		font-size: 1.25rem;
-		font-weight: 600;
-	}
-
-	.description {
-		font-size: 0.875rem;
-		color: var(--ui-color-fg-tertiary);
-		display: -webkit-box;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
 	}
 
 	.tags {
@@ -141,16 +140,101 @@
 		border-radius: 100vmax;
 	}
 
-	.card-footer {
-		display: flex;
-		gap: 0.5rem;
-		margin-top: 0.25rem;
+	.bookmark {
+		display: inline-flex;
+		justify-content: center;
+		place-items: center;
+		block-size: 3rem;
+		inline-size: 3rem;
+		background: none;
+		border: none;
 	}
 
-	.play-btn,
-	.remix-btn {
-		display: inline-block;
-		padding: 0.25rem 0.75rem 0.275rem;
+	/* MAIN ---------------------------------------- */
+
+	.main {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 0.75rem;
+		padding: 1rem;
+		padding-block: 0 1.25rem;
+
+		.title {
+			font-size: 1.25rem;
+			font-weight: 600;
+		}
+
+		.description {
+			font-size: 0.875rem;
+			color: var(--ui-color-fg-tertiary);
+			display: -webkit-box;
+			-webkit-line-clamp: 2;
+			line-clamp: 2;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		}
+	}
+
+	/* FOOTER ---------------------------------------- */
+
+	footer {
+		padding: 1rem;
+		padding-block-start: 0;
+
+		& > div {
+			display: flex;
+			align-items: center;
+			gap: 1rem;
+			padding-block-start: 1rem;
+			border-block-start: 1px solid var(--ui-color-border-subtle);
+		}
+	}
+
+	.author {
+		flex: 1 0 0;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		text-decoration: none;
+
+		.avatar {
+			display: inline-block;
+			block-size: 1.75rem;
+			inline-size: 1.75rem;
+			border-radius: 100vmax;
+			background: var(--ui-color-bg-primary);
+			margin-inline-end: 0.125rem;
+
+			img {
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+				border-radius: 100vmax;
+			}
+		}
+
+		.handle {
+			color: var(--ui-color-fg-tertiary);
+		}
+
+		&:hover .handle {
+			color: var(--ui-color-fg-primary);
+		}
+	}
+
+	.controls {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.control {
+		display: inline-flex;
+		align-items: center;
+		block-size: 2rem;
+		padding: 0 0.75rem 1px;
 		font-size: 0.8rem;
 		font-weight: 500;
 		border: 1px solid var(--ui-color-border-subtle);
@@ -163,9 +247,9 @@
 		&:hover {
 			color: var(--ui-color-fg-secondary);
 		}
-	}
 
-	.play-btn.active {
-		border-color: currentColor;
+		&.active {
+			border-color: currentColor;
+		}
 	}
 </style>
