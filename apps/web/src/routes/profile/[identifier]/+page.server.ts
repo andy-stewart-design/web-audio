@@ -1,7 +1,13 @@
 import { error } from '@sveltejs/kit';
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { resolveIdentifier, getProfile, listSketches, getFollows } from '$lib/server/atproto/reads';
+import {
+	resolveIdentifier,
+	getProfile,
+	listSketches,
+	getFollows,
+	getBookmarks
+} from '$lib/server/atproto/reads';
 import { followUser, unfollowUser } from '$lib/server/atproto/records';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -14,16 +20,25 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const [profile, sketches] = await Promise.all([getProfile(did), listSketches(did)]);
 
-	// Check if the logged-in user is following this profile
+	// Check follow state and bookmark state for the logged-in user
 	let followUri: string | null = null;
+	let bookmarkMap = new Map<string, string>();
+
 	if (locals.session.did && locals.session.did !== did) {
-		const follows = await getFollows(locals.session.did);
+		const [follows, bookmarks] = await Promise.all([
+			getFollows(locals.session.did),
+			getBookmarks(locals.session.did)
+		]);
 		followUri = follows.find((f) => f.subject === did)?.uri ?? null;
+		bookmarkMap = new Map(bookmarks.map((b) => [b.subject, b.uri]));
+	} else if (locals.session.did === did) {
+		const bookmarks = await getBookmarks(locals.session.did);
+		bookmarkMap = new Map(bookmarks.map((b) => [b.subject, b.uri]));
 	}
 
 	return {
 		profile,
-		sketches,
+		sketches: sketches.map((s) => ({ ...s, bookmarkUri: bookmarkMap.get(s.uri) ?? null })),
 		isOwnProfile: locals.session.did === did,
 		followUri
 	};

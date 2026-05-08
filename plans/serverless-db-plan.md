@@ -204,13 +204,29 @@ Pass these to the `OAuthClient` constructor in `client.ts`.
 
 ---
 
-## Phase 11: Write-Through on Publish + Feed from DB
+## Phase 11: Write-Through + Feed and Bookmarks from DB
 
-**Goal:** Write sketch metadata to the DB on publish, then use the DB for the feed instead of direct PDS fan-out reads.
+**Goal:** Write sketch and bookmark data to the DB on every mutation, then use the DB for feed and bookmark queries instead of direct PDS reads.
 
-### Write-through
+### DB schema additions
 
-In the `?/publish` action in `repl/+page.server.ts`, after the AT Protocol write succeeds, insert into the `sketches` table:
+Add a `bookmarks` table to `schema.ts`:
+
+```ts
+export const bookmarks = pgTable('bookmarks', {
+  uri:        text('uri').primaryKey(),         // bookmark record AT URI
+  authorDid:  text('author_did').notNull(),      // who bookmarked it
+  subjectUri: text('subject_uri').notNull(),     // AT URI of the bookmarked sketch
+  subjectCid: text('subject_cid').notNull(),
+  createdAt:  timestamp('created_at', { withTimezone: true }).notNull(),
+});
+```
+
+Index: `(author_did, subject_uri)` for bookmark state lookups.
+
+### Write-through on publish
+
+In `repl/+page.server.ts`, after the PDS write:
 
 ```ts
 const ref = await publishSketch(agent, input);
@@ -231,24 +247,61 @@ await db.insert(sketches).values({
 
 The `onConflictDoUpdate` handles republish (same URI, new CID).
 
-### Feed from DB
+### Write-through on bookmark/unbookmark
 
-Replace the `Promise.allSettled` fan-out in `feed/+page.server.ts` with a single query:
+In `api/bookmark/+server.ts`, after the PDS write:
+
+```ts
+// POST — bookmark
+const ref = await bookmarkSketch(session.did, { uri: subjectUri, cid: subjectCid });
+await db.insert(bookmarks).values({
+  uri: ref.uri, authorDid: session.did,
+  subjectUri, subjectCid, createdAt: new Date()
+});
+
+// DELETE — unbookmark
+await unbookmarkSketch(session.did, bookmarkUri);
+await db.delete(bookmarks).where(eq(bookmarks.uri, bookmarkUri));
+```
+
+### Feed from DB with bookmark state
+
+Replace the `Promise.allSettled` fan-out in `feed/+page.server.ts` with a single joined query:
 
 ```ts
 const followedDids = [session.did, ...follows.map(f => f.subject)];
 
 const rows = await db
-  .select()
+  .select({ sketch: sketches, bookmarkUri: bookmarks.uri })
   .from(sketches)
+  .leftJoin(bookmarks, and(
+    eq(bookmarks.subjectUri, sketches.uri),
+    eq(bookmarks.authorDid, session.did)
+  ))
   .where(inArray(sketches.authorDid, followedDids))
   .orderBy(desc(sketches.createdAt))
   .limit(50);
 ```
 
+This replaces both the PDS fan-out and the separate `getBookmarks` call — bookmark state is resolved in the same query for exactly the sketches in the feed.
+
+### Bookmarks page from DB
+
+Replace `getBookmarkedSketches` (which fetches each sketch individually from PDS) with a DB join:
+
+```ts
+const rows = await db
+  .select({ sketch: sketches, bookmarkUri: bookmarks.uri })
+  .from(bookmarks)
+  .innerJoin(sketches, eq(sketches.uri, bookmarks.subjectUri))
+  .where(eq(bookmarks.authorDid, session.did))
+  .orderBy(desc(bookmarks.createdAt))
+  .limit(50);
+```
+
 ### Cursor-based pagination
 
-With the DB in place, pagination is straightforward. When the client wants more, pass the `createdAt` of the last item as a cursor:
+With the DB in place, pagination is straightforward. Pass the `createdAt` of the last item as a cursor:
 
 ```ts
 .where(and(
@@ -259,15 +312,20 @@ With the DB in place, pagination is straightforward. When the client wants more,
 
 ### What to build
 
+- [ ] Add `bookmarks` table to `schema.ts`
 - [ ] Update `repl/+page.server.ts` publish action to insert into `sketches` after PDS write
-- [ ] Update `feed/+page.server.ts` to query `sketches` table instead of fan-out reads
+- [ ] Update `api/bookmark/+server.ts` to insert/delete from `bookmarks` after PDS write
+- [ ] Update `feed/+page.server.ts` to use joined DB query (replaces fan-out + `getBookmarks`)
+- [ ] Update `bookmarks/+page.server.ts` to use DB join instead of `getBookmarkedSketches`
 - [ ] Add cursor param to feed load function for "load more" support
 - [ ] Remove fan-out logic from `feed/+page.server.ts` (keep `listSketches` in `reads.ts` — still used by profile pages and backfill)
 
 ### Acceptance criteria
 
-- [ ] Publishing a sketch appears in the feed immediately (DB write is synchronous with the publish action)
-- [ ] Feed is a single DB query — no PDS fan-out on load
+- [ ] Publishing a sketch appears in the feed immediately
+- [ ] Feed is a single DB query — no PDS fan-out, no separate bookmark call
+- [ ] Bookmarking/unbookmarking writes to both PDS and DB
+- [ ] Bookmarks page queries DB — no per-sketch PDS calls
 - [ ] Cursor-based "load more" returns the next page in correct order
 - [ ] Republishing updates the DB record (onConflict)
 
@@ -275,15 +333,15 @@ With the DB in place, pagination is straightforward. When the client wants more,
 
 ## Phase 12: Backfill
 
-**Goal:** Populate the `sketches` table with existing records published before the DB was introduced.
+**Goal:** Populate the `sketches` and `bookmarks` tables with existing records created before the DB was introduced.
 
 ### Approach
 
 A one-time server action (or admin endpoint) that:
 
 1. Fetches all known DIDs (session user + all follows)
-2. Calls `listSketches(did)` for each (the existing read function, which hits PDS directly)
-3. Batch-inserts into `sketches` with `onConflictDoNothing` (idempotent — safe to run multiple times)
+2. Calls `listSketches(did)` for each DID and `getBookmarks(session.did)` for the session user
+3. Batch-inserts into `sketches` and `bookmarks` with `onConflictDoNothing` (idempotent — safe to run multiple times)
 
 Since the current user base is 2–3 accounts with ~5 sketches total, this is a trivial operation. No pagination needed at this scale.
 

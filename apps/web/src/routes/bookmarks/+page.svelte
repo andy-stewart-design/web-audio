@@ -6,13 +6,7 @@
 </script>
 
 {#if data.sketches.length === 0}
-	<div class="empty">
-		{#if data.session?.did}
-			<p>No sketches yet. Follow some people to see their work here.</p>
-		{:else}
-			<p>Log in to see sketches from people you follow.</p>
-		{/if}
-	</div>
+	<p class="empty">No bookmarks yet.</p>
 {:else}
 	<ul class="feed">
 		{#each data.sketches as sketch (sketch.uri)}

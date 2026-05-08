@@ -11,6 +11,7 @@ import { main as sketchMain, type Main as SketchRecord } from '$lib/lexicons/liv
 import { main as likeMain } from '$lib/lexicons/live/drome/like';
 import { main as repostMain } from '$lib/lexicons/live/drome/repost';
 import { main as followMain } from '$lib/lexicons/live/drome/follow';
+import { main as bookmarkMain } from '$lib/lexicons/live/drome/bookmark';
 
 /**
  * A strong reference to a specific version of an AT Protocol record.
@@ -89,6 +90,24 @@ export async function followUser(sessionDid: string, subjectDid: string): Promis
 
 export async function unfollowUser(sessionDid: string, followUri: string): Promise<void> {
 	return deleteRecord(sessionDid, followUri);
+}
+
+export async function bookmarkSketch(sessionDid: string, subject: StrongRef): Promise<StrongRef> {
+	const client = await getLexClient(sessionDid);
+	const rkey = TID.nextStr();
+	return client.create(
+		bookmarkMain,
+		{
+			subject: subject.uri as AtUriString,
+			subjectCid: subject.cid,
+			createdAt: new Date().toISOString() as DatetimeString
+		},
+		{ rkey }
+	);
+}
+
+export async function unbookmarkSketch(sessionDid: string, bookmarkUri: string): Promise<void> {
+	return deleteRecord(sessionDid, bookmarkUri);
 }
 
 export async function deleteRecord(sessionDid: string, uri: string): Promise<void> {

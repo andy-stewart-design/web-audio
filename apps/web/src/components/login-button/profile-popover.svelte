@@ -87,6 +87,7 @@
 	<nav class="links">
 		<a href="/repl" class="profile-link" onclick={dismiss}>Repl</a>
 		<a href="/feed" class="profile-link" onclick={dismiss}>Feed</a>
+		<a href="/bookmarks" class="profile-link" onclick={dismiss}>Bookmarks</a>
 		<a href="/profile/{did}" class="profile-link" onclick={dismiss}>Profile</a>
 		<button class="logout-btn" onclick={onlogout}>Log out</button>
 	</nav>

@@ -1,10 +1,29 @@
 <script lang="ts">
-	import type { SketchCard } from '$lib/server/atproto/reads';
-	import { audio } from '$lib/client/audio.svelte';
+	import { invalidateAll } from '$app/navigation';
+	import type { SketchCard } from '@/lib/server/atproto/reads';
+	import { audio } from '@/lib/client/audio.svelte';
+	import IconBookmark from '@/components/icons/icon-bookmark.svelte';
 
 	let { sketch }: { sketch: SketchCard } = $props();
 
 	const isThisPlaying = $derived(audio.currentUri === sketch.uri && audio.isRunning);
+
+	async function handleBookmark() {
+		if (sketch.bookmarkUri) {
+			await fetch('/api/bookmark', {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ bookmarkUri: sketch.bookmarkUri })
+			});
+		} else {
+			await fetch('/api/bookmark', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ subjectUri: sketch.uri, subjectCid: sketch.cid })
+			});
+		}
+		await invalidateAll();
+	}
 
 	const formattedDate = $derived(
 		new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(
@@ -47,16 +66,27 @@
 			{/if}
 		</div>
 
-		<button class="bookmark" aria-label="bookmark">
-			<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+		<button
+			class="bookmark"
+			class:active={!!sketch.bookmarkUri}
+			aria-label={sketch.bookmarkUri ? 'Remove bookmark' : 'Bookmark'}
+			onclick={handleBookmark}
+		>
+			<!-- <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
 				<path
 					d="M15.8334 17.5L10 13.3333L4.16669 17.5V4.16667C4.16669 3.72464 4.34228 3.30072 4.65484 2.98816C4.9674 2.67559 5.39133 2.5 5.83335 2.5H14.1667C14.6087 2.5 15.0326 2.67559 15.3452 2.98816C15.6578 3.30072 15.8334 3.72464 15.8334 4.16667V17.5Z"
 					stroke="currentColor"
+					fill={sketch.bookmarkUri ? 'currentColor' : undefined}
 					stroke-width="2"
 					stroke-linecap="round"
 					stroke-linejoin="round"
 				/>
-			</svg>
+			</svg> -->
+			<IconBookmark
+				size={24}
+				fill={sketch.bookmarkUri ? 'currentColor' : undefined}
+				opacity={sketch.bookmarkUri ? 1 : 0.5}
+			/>
 		</button>
 	</header>
 

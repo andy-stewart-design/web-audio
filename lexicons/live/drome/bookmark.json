@@ -1,0 +1,20 @@
+{
+  "lexicon": 1,
+  "id": "live.drome.bookmark",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A saved reference to a sketch.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["subject", "subjectCid", "createdAt"],
+        "properties": {
+          "subject":    { "type": "string", "format": "at-uri" },
+          "subjectCid": { "type": "string", "format": "cid" },
+          "createdAt":  { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

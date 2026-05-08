@@ -10,6 +10,11 @@ export type FollowRecord = {
 	subject: string; // DID of the followed user
 };
 
+export type BookmarkRecord = {
+	uri: string;
+	subject: string; // AT URI of the bookmarked sketch
+};
+
 export type Profile = {
 	did: string;
 	handle: string;
@@ -26,6 +31,7 @@ export type SketchCard = {
 	authorAvatar: string | null;
 	code: string;
 	title: string;
+	bookmarkUri: string | null;
 	description: string | undefined;
 	tags: string[] | undefined;
 	createdAt: string;
@@ -166,6 +172,7 @@ export async function listSketches(did: string, limit = 50): Promise<SketchCard[
 			authorAvatar: profile.avatar,
 			code: v.code,
 			title: v.title,
+			bookmarkUri: null,
 			description: v.description,
 			tags: v.tags,
 			createdAt: v.createdAt
@@ -205,4 +212,78 @@ export async function getSketch(atUri: string): Promise<SketchRecord> {
 		rootVersion: v.rootVersion,
 		createdAt: v.createdAt
 	};
+}
+
+/**
+ * Fetch all live.drome.bookmark records for a given DID.
+ */
+export async function getBookmarks(did: string): Promise<BookmarkRecord[]> {
+	const pds = await resolveDidToPds(did);
+	const url = new URL(`${pds}/xrpc/com.atproto.repo.listRecords`);
+	url.searchParams.set('repo', did);
+	url.searchParams.set('collection', 'live.drome.bookmark');
+	url.searchParams.set('limit', '100');
+
+	const res = await fetch(url);
+	if (!res.ok) return [];
+
+	const data = await res.json();
+	const seen = new Set<string>();
+	const bookmarks: BookmarkRecord[] = [];
+
+	for (const r of data.records ?? []) {
+		const subject = r.value.subject as string;
+		if (seen.has(subject)) continue;
+		seen.add(subject);
+		bookmarks.push({ uri: r.uri, subject });
+	}
+
+	return bookmarks;
+}
+
+/**
+ * Fetch the bookmarked sketches for a given DID, enriched with author profiles.
+ * Returns SketchCards with bookmarkUri set.
+ */
+export async function getBookmarkedSketches(did: string): Promise<SketchCard[]> {
+	const bookmarks = await getBookmarks(did);
+	if (bookmarks.length === 0) return [];
+
+	// Extract unique author DIDs from AT URIs (at://did/collection/rkey)
+	const authorDids = [
+		...new Set(bookmarks.map((b) => b.subject.replace('at://', '').split('/')[0]))
+	];
+
+	const [profileResults, sketchResults] = await Promise.all([
+		Promise.allSettled(authorDids.map((d) => getProfile(d))),
+		Promise.allSettled(bookmarks.map((b) => getSketch(b.subject)))
+	]);
+
+	const profileMap = new Map<string, Profile>(
+		profileResults.flatMap((r, i) => (r.status === 'fulfilled' ? [[authorDids[i], r.value]] : []))
+	);
+
+	return sketchResults.flatMap((r, i) => {
+		if (r.status !== 'fulfilled') return [];
+		const s = r.value;
+		const authorDid = bookmarks[i].subject.replace('at://', '').split('/')[0];
+		const profile = profileMap.get(authorDid);
+		if (!profile) return [];
+		return [
+			{
+				uri: s.uri,
+				cid: s.cid,
+				authorDid: profile.did,
+				authorHandle: profile.handle,
+				authorDisplayName: profile.displayName,
+				authorAvatar: profile.avatar,
+				code: s.code,
+				title: s.title,
+				description: s.description,
+				tags: s.tags,
+				createdAt: s.createdAt,
+				bookmarkUri: bookmarks[i].uri
+			} satisfies SketchCard
+		];
+	});
 }
