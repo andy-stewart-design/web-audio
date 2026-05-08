@@ -82,131 +82,23 @@ This plan picks up after Phases 1–7 (lexicons, write layer, REPL publish, foll
 
 ---
 
-## Phase 9: Serverless DB Setup
+## ✅ Phase 9 + 10: Serverless DB Setup + OAuth Refactor
 
-**Goal:** Set up Neon + Drizzle, define the schema, wire up the Neon driver, and swap the deployment adapter.
+Phases 9 and 10 were completed together since removing `better-sqlite3` forced the OAuth refactor immediately.
 
-### Dependency changes
+**What was done:**
+- Removed `@sveltejs/adapter-node`, `better-sqlite3`, `@types/better-sqlite3`
+- Added `@neondatabase/serverless`, `@sveltejs/adapter-vercel`
+- Rewrote `schema.ts` for Postgres: `auth_state`, `auth_session`, `account`, `sketches`, `bookmarks`
+- Rewrote `db/index.ts` using `neon()` + `drizzle-orm/neon-http`
+- Updated `auth/client.ts` — state/session stores now use async Postgres queries (no separate store files needed)
+- Updated `drizzle.config.ts` to `dialect: 'postgresql'`
+- Updated `svelte.config.js` to `adapter-vercel` with `runtime: 'nodejs22.x'`
+- Tables pushed to Neon, `pnpm build` passes clean
 
-**Remove:**
+**Note:** `auth_state` rows are deleted automatically on successful login (`stateStore.del` is called by the OAuth client after callback). Rows from abandoned logins (tab closed mid-flow) will linger but accumulate very slowly — cleanup deferred.
 
-- `@sveltejs/adapter-node`
-
-**Add:**
-
-- `@neondatabase/serverless` — Neon's HTTP-based driver (works in Vercel edge/serverless)
-- `@sveltejs/adapter-vercel`
-
-### DB schema (Drizzle)
-
-```ts
-// src/lib/server/db/schema.ts
-
-export const sketches = pgTable("sketches", {
-  uri: text("uri").primaryKey(),
-  cid: text("cid").notNull(),
-  authorDid: text("author_did").notNull(),
-  title: text("title").notNull(),
-  code: text("code").notNull(),
-  description: text("description"),
-  tags: text("tags").array(),
-  previousVersion: text("previous_version"),
-  rootVersion: text("root_version"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-});
-
-export const oauthState = pgTable("oauth_state", {
-  key: text("key").primaryKey(),
-  value: jsonb("value").notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-});
-
-export const oauthSessions = pgTable("oauth_sessions", {
-  key: text("key").primaryKey(),
-  value: jsonb("value").notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-```
-
-Indexes: `author_did` + `created_at` on `sketches` for feed query performance.
-
-### Drizzle config
-
-Update `drizzle.config.ts` to use Neon's connection string from `DATABASE_URL` env var.
-
-### What to build
-
-- [ ] Remove unused deps, add Neon driver + Vercel adapter
-- [ ] `src/lib/server/db/schema.ts` with the three tables above
-- [ ] `src/lib/server/db/index.ts` — exports a `db` client using `@neondatabase/serverless` + Drizzle
-- [ ] Update `drizzle.config.ts` to point at `DATABASE_URL`
-- [ ] Run `pnpm db:push` against the Neon dev branch to create tables
-- [ ] Swap `@sveltejs/adapter-node` → `@sveltejs/adapter-vercel` in `svelte.config.js`
-- [ ] Add `.env` entries: `DATABASE_URL`, `PUBLIC_URL` (Vercel sets this automatically in prod)
-
-### Acceptance criteria
-
-- [ ] `pnpm db:push` creates tables in Neon without errors
-- [ ] `db` client importable from `$lib/server/db`
-- [ ] `svelte-check` passes with 0 errors
-- [ ] `pnpm build` succeeds with Vercel adapter
-
----
-
-## Phase 10: OAuth Refactor (DB-backed Sessions)
-
-**Goal:** Replace the in-memory/file-based OAuth state and session stores with DB-backed implementations, making the app compatible with serverless deployment.
-
-### Problem
-
-`@atproto/oauth-client-node` defaults to in-memory stores for OAuth state (the code/PKCE verifier during the handshake) and sessions (access/refresh tokens after login). Serverless functions have no shared memory between invocations, so these are lost on cold starts.
-
-### Solution
-
-Implement the `StateStore` and `SessionStore` interfaces from `@atproto/oauth-client-node` using the `oauth_state` and `oauth_sessions` tables. No change to the OAuth flow itself — just swap the storage backend.
-
-```ts
-// src/lib/server/auth/state-store.ts
-export class DbStateStore implements StateStore {
-  async set(key: string, state: NodeSavedState): Promise<void> {
-    await db.insert(oauthState).values({ key, value: state, expiresAt: ... }).onConflictDoUpdate(...)
-  }
-  async get(key: string): Promise<NodeSavedState | undefined> { ... }
-  async del(key: string): Promise<void> { ... }
-}
-
-// src/lib/server/auth/session-store.ts
-export class DbSessionStore implements SessionStore {
-  async set(key: string, session: NodeSavedSession): Promise<void> { ... }
-  async get(key: string): Promise<NodeSavedSession | undefined> { ... }
-  async del(key: string): Promise<void> { ... }
-}
-```
-
-Pass these to the `OAuthClient` constructor in `client.ts`.
-
-### Dependency changes
-
-**Remove:**
-
-- `better-sqlite3` — replaced by DB-backed stores
-- `@types/better-sqlite3`
-
-### What to build
-
-- [ ] `src/lib/server/auth/state-store.ts` — `DbStateStore` implementing `StateStore`
-- [ ] `src/lib/server/auth/session-store.ts` — `DbSessionStore` implementing `SessionStore`
-- [ ] Update `src/lib/server/auth/client.ts` to pass both stores to `OAuthClient`
-- [ ] Remove `better-sqlite3` and `@types/better-sqlite3`
-- [ ] Add a cron/cleanup job (or in-request cleanup) to delete expired `oauth_state` rows
-
-### Acceptance criteria
-
-- [ ] Login flow completes successfully when deployed to Vercel (no shared memory between invocations)
-- [ ] Sessions persist across cold starts
-- [ ] OAuth state rows are cleaned up after use (not left indefinitely)
+**Known gap:** `NodeOAuthClient` warns "No lock mechanism provided. Credentials might get revoked." A `requestLock` option exists to serialize concurrent token refreshes for the same session, preventing a race where two simultaneous requests both try to refresh an expired token and one invalidates the other. The correct fix in a serverless environment is a distributed lock (Postgres advisory locks or Redis) — not worth the complexity at current scale. Revisit if users report being randomly logged out.
 
 ---
 

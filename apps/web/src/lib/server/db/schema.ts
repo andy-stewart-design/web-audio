@@ -1,63 +1,45 @@
-import { sqliteTable, text, integer, index, primaryKey } from 'drizzle-orm/sqlite-core';
+import { pgTable, text, timestamp, jsonb } from 'drizzle-orm/pg-core';
 
-export const authState = sqliteTable('auth_state', {
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export const authState = pgTable('auth_state', {
 	key: text('key').primaryKey(),
-	value: text('value').notNull()
+	value: jsonb('value').notNull(),
+	expiresAt: timestamp('expires_at', { withTimezone: true }).notNull()
 });
 
-export const authSession = sqliteTable('auth_session', {
+export const authSession = pgTable('auth_session', {
 	key: text('key').primaryKey(),
-	value: text('value').notNull()
+	value: jsonb('value').notNull(),
+	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 });
 
-export const account = sqliteTable('account', {
+export const account = pgTable('account', {
 	did: text('did').primaryKey(),
 	handle: text('handle').notNull(),
-	displayName: text('displayName'),
+	displayName: text('display_name'),
 	avatar: text('avatar')
 });
 
-export const sketch = sqliteTable('sketch', {
+// ── App data ──────────────────────────────────────────────────────────────────
+
+export const sketches = pgTable('sketches', {
 	uri: text('uri').primaryKey(),
 	cid: text('cid').notNull(),
 	authorDid: text('author_did').notNull(),
 	title: text('title').notNull(),
 	code: text('code').notNull(),
 	description: text('description'),
-	tags: text('tags'),
-	origin: text('origin'),
+	tags: text('tags').array(),
 	previousVersion: text('previous_version'),
 	rootVersion: text('root_version'),
-	createdAt: text('created_at').notNull(),
-	indexedAt: text('indexed_at').notNull(),
-	isLatestVersion: integer('is_latest_version', { mode: 'boolean' }).notNull().default(true)
+	createdAt: timestamp('created_at', { withTimezone: true }).notNull()
 });
 
-export const like = sqliteTable('like', {
+export const bookmarks = pgTable('bookmarks', {
 	uri: text('uri').primaryKey(),
 	authorDid: text('author_did').notNull(),
 	subjectUri: text('subject_uri').notNull(),
 	subjectCid: text('subject_cid').notNull(),
-	createdAt: text('created_at').notNull(),
-	indexedAt: text('indexed_at').notNull()
+	createdAt: timestamp('created_at', { withTimezone: true }).notNull()
 });
-
-export const repost = sqliteTable('repost', {
-	uri: text('uri').primaryKey(),
-	authorDid: text('author_did').notNull(),
-	subjectUri: text('subject_uri').notNull(),
-	subjectCid: text('subject_cid').notNull(),
-	createdAt: text('created_at').notNull(),
-	indexedAt: text('indexed_at').notNull()
-});
-
-export const sketchTag = sqliteTable(
-	'sketch_tag',
-	{
-		sketchUri: text('sketch_uri')
-			.notNull()
-			.references(() => sketch.uri, { onDelete: 'cascade' }),
-		tag: text('tag').notNull()
-	},
-	(t) => [primaryKey({ columns: [t.sketchUri, t.tag] }), index('idx_sketch_tag_tag').on(t.tag)]
-);

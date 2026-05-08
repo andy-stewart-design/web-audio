@@ -17,12 +17,12 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		});
 
 		await fetchAndCacheProfile(session.did);
-
-		redirect(302, '/');
 	} catch (e) {
 		console.error('OAuth callback error:', e);
 		redirect(302, '/?error=login_failed');
 	}
+
+	redirect(302, '/');
 };
 
 async function fetchAndCacheProfile(did: string) {

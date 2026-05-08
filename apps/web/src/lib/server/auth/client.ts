@@ -20,35 +20,34 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 
 		stateStore: {
 			async get(key: string) {
-				const row = db.select().from(authState).where(eq(authState.key, key)).limit(1).all();
-				return row[0] ? JSON.parse(row[0].value) : undefined;
+				const rows = await db.select().from(authState).where(eq(authState.key, key)).limit(1);
+				return rows[0] ? (rows[0].value as NodeSavedState) : undefined;
 			},
 			async set(key: string, value: NodeSavedState) {
-				const json = JSON.stringify(value);
-				db.insert(authState)
-					.values({ key, value: json })
-					.onConflictDoUpdate({ target: authState.key, set: { value: json } })
-					.run();
+				const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min TTL
+				await db
+					.insert(authState)
+					.values({ key, value, expiresAt })
+					.onConflictDoUpdate({ target: authState.key, set: { value, expiresAt } });
 			},
 			async del(key: string) {
-				db.delete(authState).where(eq(authState.key, key)).run();
+				await db.delete(authState).where(eq(authState.key, key));
 			}
 		},
 
 		sessionStore: {
 			async get(key: string) {
-				const row = db.select().from(authSession).where(eq(authSession.key, key)).limit(1).all();
-				return row[0] ? JSON.parse(row[0].value) : undefined;
+				const rows = await db.select().from(authSession).where(eq(authSession.key, key)).limit(1);
+				return rows[0] ? (rows[0].value as NodeSavedSession) : undefined;
 			},
 			async set(key: string, value: NodeSavedSession) {
-				const json = JSON.stringify(value);
-				db.insert(authSession)
-					.values({ key, value: json })
-					.onConflictDoUpdate({ target: authSession.key, set: { value: json } })
-					.run();
+				await db
+					.insert(authSession)
+					.values({ key, value })
+					.onConflictDoUpdate({ target: authSession.key, set: { value } });
 			},
 			async del(key: string) {
-				db.delete(authSession).where(eq(authSession.key, key)).run();
+				await db.delete(authSession).where(eq(authSession.key, key));
 			}
 		}
 	});
