@@ -7,6 +7,7 @@ This plan picks up after Phases 1–7 (lexicons, write layer, REPL publish, foll
 **The core shift:** instead of a persistent server running a firehose listener, we write to the DB directly on publish (since our app is the only publisher of `live.drome.*` records). The feed becomes a single SQL query instead of a fan-out across N PDSes. Auth sessions are stored in the DB to survive serverless cold starts.
 
 **Key architectural decisions:**
+
 - Neon (serverless Postgres) + Drizzle ORM — already installed, just unused
 - Write-through on publish: PDS write succeeds → DB insert
 - Feed query: `SELECT * FROM sketches WHERE author_did = ANY($dids) ORDER BY created_at DESC LIMIT 50`
@@ -63,21 +64,21 @@ This plan picks up after Phases 1–7 (lexicons, write layer, REPL publish, foll
 
 ### What to build
 
-- [ ] `lexicons/live/drome/bookmark.json`
-- [ ] Regenerate TypeScript types (`pnpm --filter web lex:build`)
-- [ ] Update OAuth scope in `client.ts`: add `repo:live.drome.bookmark`
-- [ ] Add `bookmarkSketch(sessionDid, subjectUri, subjectCid)` and `unbookmarkSketch(sessionDid, bookmarkUri)` to `records.ts`
-- [ ] Add `getBookmarks(did)` to `reads.ts` — fetches `live.drome.bookmark` records from PDS, returns `{ uri, subject, subjectCid }[]`
-- [ ] Bookmark action + unaction in `/profile/[identifier]/+page.server.ts` (or a new `/api/bookmark` route — whichever is cleaner given how follow is wired)
-- [ ] Wire the bookmark button in `sketch-card/index.svelte` to the action, with optimistic active state (same pattern as follow/unfollow)
-- [ ] `/bookmarks` page — lists the logged-in user's bookmarked sketches (fetch bookmark records, then batch-fetch the sketches by URI)
+- [x] `lexicons/live/drome/bookmark.json`
+- [x] Regenerate TypeScript types (`pnpm --filter web lex:build`)
+- [x] Update OAuth scope in `client.ts`: add `repo:live.drome.bookmark`
+- [x] Add `bookmarkSketch(sessionDid, subjectUri, subjectCid)` and `unbookmarkSketch(sessionDid, bookmarkUri)` to `records.ts`
+- [x] Add `getBookmarks(did)` to `reads.ts` — fetches `live.drome.bookmark` records from PDS, returns `{ uri, subject, subjectCid }[]`
+- [x] Bookmark action + unaction via `/api/bookmark` route (POST + DELETE)
+- [x] Wire the bookmark button in `sketch-card/index.svelte` to the action
+- [x] `/bookmarks` page — lists the logged-in user's bookmarked sketches
 
 ### Acceptance criteria
 
-- [ ] Logged-in users can bookmark/unbookmark any sketch
-- [ ] Bookmark button shows active state when bookmarked
-- [ ] `/bookmarks` page shows all bookmarked sketches, reverse-chronological
-- [ ] Unauthenticated users see the button disabled
+- [x] Logged-in users can bookmark/unbookmark any sketch
+- [x] Bookmark button shows active state when bookmarked
+- [x] `/bookmarks` page shows all bookmarked sketches, reverse-chronological
+- [x] Unauthenticated users see the button disabled
 
 ---
 
@@ -88,9 +89,11 @@ This plan picks up after Phases 1–7 (lexicons, write layer, REPL publish, foll
 ### Dependency changes
 
 **Remove:**
+
 - `@sveltejs/adapter-node`
 
 **Add:**
+
 - `@neondatabase/serverless` — Neon's HTTP-based driver (works in Vercel edge/serverless)
 - `@sveltejs/adapter-vercel`
 
@@ -99,29 +102,31 @@ This plan picks up after Phases 1–7 (lexicons, write layer, REPL publish, foll
 ```ts
 // src/lib/server/db/schema.ts
 
-export const sketches = pgTable('sketches', {
-  uri:             text('uri').primaryKey(),
-  cid:             text('cid').notNull(),
-  authorDid:       text('author_did').notNull(),
-  title:           text('title').notNull(),
-  code:            text('code').notNull(),
-  description:     text('description'),
-  tags:            text('tags').array(),
-  previousVersion: text('previous_version'),
-  rootVersion:     text('root_version'),
-  createdAt:       timestamp('created_at', { withTimezone: true }).notNull(),
+export const sketches = pgTable("sketches", {
+  uri: text("uri").primaryKey(),
+  cid: text("cid").notNull(),
+  authorDid: text("author_did").notNull(),
+  title: text("title").notNull(),
+  code: text("code").notNull(),
+  description: text("description"),
+  tags: text("tags").array(),
+  previousVersion: text("previous_version"),
+  rootVersion: text("root_version"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
 
-export const oauthState = pgTable('oauth_state', {
-  key:       text('key').primaryKey(),
-  value:     jsonb('value').notNull(),
-  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+export const oauthState = pgTable("oauth_state", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
 
-export const oauthSessions = pgTable('oauth_sessions', {
-  key:       text('key').primaryKey(),
-  value:     jsonb('value').notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+export const oauthSessions = pgTable("oauth_sessions", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 ```
 
@@ -185,6 +190,7 @@ Pass these to the `OAuthClient` constructor in `client.ts`.
 ### Dependency changes
 
 **Remove:**
+
 - `better-sqlite3` — replaced by DB-backed stores
 - `@types/better-sqlite3`
 
@@ -213,12 +219,12 @@ Pass these to the `OAuthClient` constructor in `client.ts`.
 Add a `bookmarks` table to `schema.ts`:
 
 ```ts
-export const bookmarks = pgTable('bookmarks', {
-  uri:        text('uri').primaryKey(),         // bookmark record AT URI
-  authorDid:  text('author_did').notNull(),      // who bookmarked it
-  subjectUri: text('subject_uri').notNull(),     // AT URI of the bookmarked sketch
-  subjectCid: text('subject_cid').notNull(),
-  createdAt:  timestamp('created_at', { withTimezone: true }).notNull(),
+export const bookmarks = pgTable("bookmarks", {
+  uri: text("uri").primaryKey(), // bookmark record AT URI
+  authorDid: text("author_did").notNull(), // who bookmarked it
+  subjectUri: text("subject_uri").notNull(), // AT URI of the bookmarked sketch
+  subjectCid: text("subject_cid").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
 ```
 
@@ -231,18 +237,21 @@ In `repl/+page.server.ts`, after the PDS write:
 ```ts
 const ref = await publishSketch(agent, input);
 
-await db.insert(sketches).values({
-  uri:             ref.uri,
-  cid:             ref.cid,
-  authorDid:       session.did,
-  title:           input.title,
-  code:            input.code,
-  description:     input.description ?? null,
-  tags:            input.tags ?? null,
-  previousVersion: input.previousVersion ?? null,
-  rootVersion:     input.rootVersion ?? null,
-  createdAt:       new Date(),
-}).onConflictDoUpdate({ target: sketches.uri, set: { cid: ref.cid } });
+await db
+  .insert(sketches)
+  .values({
+    uri: ref.uri,
+    cid: ref.cid,
+    authorDid: session.did,
+    title: input.title,
+    code: input.code,
+    description: input.description ?? null,
+    tags: input.tags ?? null,
+    previousVersion: input.previousVersion ?? null,
+    rootVersion: input.rootVersion ?? null,
+    createdAt: new Date(),
+  })
+  .onConflictDoUpdate({ target: sketches.uri, set: { cid: ref.cid } });
 ```
 
 The `onConflictDoUpdate` handles republish (same URI, new CID).
@@ -253,10 +262,16 @@ In `api/bookmark/+server.ts`, after the PDS write:
 
 ```ts
 // POST — bookmark
-const ref = await bookmarkSketch(session.did, { uri: subjectUri, cid: subjectCid });
+const ref = await bookmarkSketch(session.did, {
+  uri: subjectUri,
+  cid: subjectCid,
+});
 await db.insert(bookmarks).values({
-  uri: ref.uri, authorDid: session.did,
-  subjectUri, subjectCid, createdAt: new Date()
+  uri: ref.uri,
+  authorDid: session.did,
+  subjectUri,
+  subjectCid,
+  createdAt: new Date(),
 });
 
 // DELETE — unbookmark
@@ -269,15 +284,18 @@ await db.delete(bookmarks).where(eq(bookmarks.uri, bookmarkUri));
 Replace the `Promise.allSettled` fan-out in `feed/+page.server.ts` with a single joined query:
 
 ```ts
-const followedDids = [session.did, ...follows.map(f => f.subject)];
+const followedDids = [session.did, ...follows.map((f) => f.subject)];
 
 const rows = await db
   .select({ sketch: sketches, bookmarkUri: bookmarks.uri })
   .from(sketches)
-  .leftJoin(bookmarks, and(
-    eq(bookmarks.subjectUri, sketches.uri),
-    eq(bookmarks.authorDid, session.did)
-  ))
+  .leftJoin(
+    bookmarks,
+    and(
+      eq(bookmarks.subjectUri, sketches.uri),
+      eq(bookmarks.authorDid, session.did),
+    ),
+  )
   .where(inArray(sketches.authorDid, followedDids))
   .orderBy(desc(sketches.createdAt))
   .limit(50);
@@ -347,10 +365,13 @@ Since the current user base is 2–3 accounts with ~5 sketches total, this is a 
 
 ```ts
 // One-time: POST /api/admin/backfill (protected by checking session.did === ADMIN_DID)
-const dids = [session.did, ...follows.map(f => f.subject)];
-const results = await Promise.allSettled(dids.map(did => listSketches(did)));
-const cards = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
-await db.insert(sketches).values(cards.map(sketchCardToRow)).onConflictDoNothing();
+const dids = [session.did, ...follows.map((f) => f.subject)];
+const results = await Promise.allSettled(dids.map((did) => listSketches(did)));
+const cards = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+await db
+  .insert(sketches)
+  .values(cards.map(sketchCardToRow))
+  .onConflictDoNothing();
 ```
 
 ### What to build
@@ -398,12 +419,12 @@ await db.insert(sketches).values(cards.map(sketchCardToRow)).onConflictDoNothing
 
 ## Implementation Order Summary
 
-| Phase | What                             | Key output                                              |
-| ----- | -------------------------------- | ------------------------------------------------------- |
-| 1–7   | ✅ Done                          | Lexicons, write layer, feed, profiles, audio            |
-| 8     | Bookmarks                        | `live.drome.bookmark`, bookmark button, `/bookmarks`    |
-| 9     | Serverless DB setup              | Neon + Drizzle schema, Vercel adapter, dep cleanup      |
-| 10    | OAuth refactor                   | DB-backed state/session stores                          |
-| 11    | Write-through + feed from DB     | Publish → DB insert, feed query replaces PDS fan-out    |
-| 12    | Backfill                         | One-time populate of existing sketches                  |
-| 13    | Vercel deployment                | Production deploy, lexicons published                   |
+| Phase | What                         | Key output                                           |
+| ----- | ---------------------------- | ---------------------------------------------------- |
+| 1–7   | ✅ Done                      | Lexicons, write layer, feed, profiles, audio         |
+| 8     | Bookmarks                    | `live.drome.bookmark`, bookmark button, `/bookmarks` |
+| 9     | Serverless DB setup          | Neon + Drizzle schema, Vercel adapter, dep cleanup   |
+| 10    | OAuth refactor               | DB-backed state/session stores                       |
+| 11    | Write-through + feed from DB | Publish → DB insert, feed query replaces PDS fan-out |
+| 12    | Backfill                     | One-time populate of existing sketches               |
+| 13    | Vercel deployment            | Production deploy, lexicons published                |
