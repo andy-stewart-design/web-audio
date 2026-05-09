@@ -1,0 +1,19 @@
+{
+  "lexicon": 1,
+  "id": "live.drome.repost",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A repost of a live.drome.sketch record.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["subject", "createdAt"],
+        "properties": {
+          "subject":   { "type": "ref", "ref": "com.atproto.repo.strongRef" },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}
