@@ -2,6 +2,8 @@ import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { publishSketch } from '$lib/server/atproto/records';
 import { getSketch } from '$lib/server/atproto/reads';
+import { db } from '$lib/server/db';
+import { sketches } from '$lib/server/db/schema';
 
 export const load: PageServerLoad = async ({ url }) => {
 	const loadUri = url.searchParams.get('load');
@@ -54,6 +56,23 @@ export const actions: Actions = {
 				previousVersion: (typeof prevVersion === 'string' && prevVersion.trim()) || undefined,
 				rootVersion: (typeof rootVersion === 'string' && rootVersion.trim()) || undefined
 			});
+
+			await db
+				.insert(sketches)
+				.values({
+					uri: result.uri,
+					cid: result.cid,
+					authorDid: locals.session.did,
+					title: title.trim(),
+					code,
+					description: (typeof description === 'string' && description.trim()) || null,
+					tags: tags ?? null,
+					previousVersion: (typeof prevVersion === 'string' && prevVersion.trim()) || null,
+					rootVersion: (typeof rootVersion === 'string' && rootVersion.trim()) || null,
+					createdAt: new Date()
+				})
+				.onConflictDoUpdate({ target: sketches.uri, set: { cid: result.cid } });
+
 			return { uri: result.uri, cid: result.cid };
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Failed to publish.';
