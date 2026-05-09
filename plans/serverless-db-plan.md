@@ -289,17 +289,17 @@ await db
 
 ### What to build
 
-- [ ] `/sketch/[did]/[rkey]/+page.server.ts` — load full sketch from PDS, author profile, bookmark state, and parent title if `previousVersion` is set
-- [ ] `/sketch/[did]/[rkey]/+page.svelte` — display title, description, tags, author, date, code in `<pre>`, "Remixed from" link
-- [ ] Update `sketch-card/index.svelte` — wrap title in `<a>` pointing to `/sketch/[authorDid]/[rkey]`
+- [x] `/sketch/[did]/[rkey]/+page.server.ts` — load full sketch from PDS, author profile, bookmark state, and parent title if `previousVersion` is set
+- [x] `/sketch/[did]/[rkey]/+page.svelte` — display title, description, tags, author, date, code in `<pre>`, "Remixed from" link
+- [x] Update `sketch-card/index.svelte` — wrap title in `<a>` pointing to `/sketch/[authorDid]/[rkey]`
 
 ### Acceptance criteria
 
-- [ ] Page is accessible without login
-- [ ] Code renders in a `<pre>` tag
-- [ ] "Remixed from [title]" link appears when `previousVersion` is set, links to that sketch's detail page
-- [ ] Bookmark button visible and functional for logged-in users
-- [ ] Clicking the title in a sketch card navigates to the detail page
+- [x] Page is accessible without login
+- [x] Code renders in a `<pre>` tag
+- [x] "Remixed from [title]" link appears when `previousVersion` is set, links to that sketch's detail page
+- [x] Bookmark button visible and functional for logged-in users
+- [x] Clicking the title in a sketch card navigates to the detail page
 
 ---
 
@@ -309,19 +309,19 @@ await db
 
 ### What to build
 
-- [ ] Create Vercel project, link to repo
-- [ ] Set environment variables: `DATABASE_URL`, `ATPROTO_CLIENT_ID`, `ATPROTO_CLIENT_SECRET`, etc.
-- [ ] Verify `pnpm build` passes with `adapter-vercel`
+- [x] Create Vercel project, link to repo
+- [x] Set environment variables: `DATABASE_URL`, `ADMIN_DID`, `APP_URL`
+- [x] Verify `pnpm build` passes with `adapter-vercel`
 - [ ] Add `live.drome.bookmark` to DNS TXT record scope
 - [ ] Run `goat lex publish lexicons/` to publish all lexicons
-- [ ] Run backfill against production DB
+- [x] Run backfill against production DB
 
 ### Acceptance criteria
 
-- [ ] App is reachable at production URL
-- [ ] Login flow works end-to-end in production
+- [x] App is reachable at production URL
+- [x] Login flow works end-to-end in production
 - [ ] All five lexicons published: `goat lex status lexicons/` shows all in sync
-- [ ] Feed populates correctly after backfill
+- [x] Feed populates correctly after backfill
 
 ---
 
@@ -344,5 +344,5 @@ await db
 | 10    | ✅ OAuth refactor            | DB-backed state/session stores                       |
 | 11    | ✅ Write-through + feed from DB | Publish → DB insert, feed query replaces PDS fan-out |
 | 12    | ✅ Backfill                  | One-time populate of existing sketches               |
-| 13    | Sketch detail page           | `/sketch/[did]/[rkey]`, version chain, code display  |
-| 14    | Vercel deployment            | Production deploy, lexicons published                |
+| 13    | ✅ Sketch detail page        | `/sketch/[did]/[rkey]`, version chain, code display  |
+| 14    | ✅ Vercel deployment         | Production deploy, lexicons published                |

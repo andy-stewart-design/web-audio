@@ -8,7 +8,9 @@ export async function getSession(cookies: Cookies) {
 	try {
 		const client = await getOAuthClient();
 		return await client.restore(did);
-	} catch {
+	} catch (e) {
+		console.error('Failed to restore OAuth session:', e);
+		cookies.delete('did', { path: '/' });
 		return null;
 	}
 }
