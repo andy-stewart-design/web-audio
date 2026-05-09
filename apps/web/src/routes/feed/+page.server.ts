@@ -1,24 +1,34 @@
 import type { PageServerLoad } from './$types';
-import { getFollows, listSketches, getBookmarks } from '$lib/server/atproto/reads';
+import { getFollows } from '$lib/server/atproto/reads';
+import { db } from '$lib/server/db';
+import { sketches, bookmarks, account } from '$lib/server/db/schema';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.session.did) return { sketches: [] };
 
-	const [follows, bookmarks] = await Promise.all([
-		getFollows(locals.session.did),
-		getBookmarks(locals.session.did)
-	]);
+	const follows = await getFollows(locals.session.did);
+	const followedDids = [locals.session.did, ...follows.map((f) => f.subject)];
 
-	const bookmarkMap = new Map(bookmarks.map((b) => [b.subject, b.uri]));
-	const dids = [locals.session.did, ...follows.map((f) => f.subject)];
+	const rows = await db
+		.select({ sketch: sketches, bookmarkUri: bookmarks.uri, author: account })
+		.from(sketches)
+		.leftJoin(account, eq(account.did, sketches.authorDid))
+		.leftJoin(
+			bookmarks,
+			and(eq(bookmarks.subjectUri, sketches.uri), eq(bookmarks.authorDid, locals.session.did))
+		)
+		.where(inArray(sketches.authorDid, followedDids))
+		.orderBy(desc(sketches.createdAt))
+		.limit(50);
 
-	const results = await Promise.allSettled(dids.map((did) => listSketches(did)));
-
-	const sketches = results
-		.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
-		.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-		.slice(0, 50)
-		.map((s) => ({ ...s, bookmarkUri: bookmarkMap.get(s.uri) ?? null }));
-
-	return { sketches };
+	return {
+		sketches: rows.map((r) => ({
+			...r.sketch,
+			authorHandle: r.author?.handle ?? r.sketch.authorDid,
+			authorDisplayName: r.author?.displayName ?? null,
+			authorAvatar: r.author?.avatar ?? null,
+			bookmarkUri: r.bookmarkUri ?? null
+		}))
+	};
 };
