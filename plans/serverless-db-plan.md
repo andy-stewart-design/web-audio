@@ -279,7 +279,31 @@ await db
 
 ---
 
-## Phase 13: Vercel Deployment
+## Phase 13: Sketch Detail Page
+
+**Goal:** A public `/sketch/[did]/[rkey]` page showing the full sketch — title, description, tags, author, code, and version chain.
+
+**Data source:** PDS fetch via `getSketch(atUri)` + `getProfile(did)` — PDS is authoritative for `previousVersion`/`rootVersion`, which are null in the DB for backfilled rows. If the user is logged in, bookmark state is resolved from the DB.
+
+**Version chain:** If `previousVersion` is set, fetch the parent sketch's title and show "Remixed from [title]" as a link to its detail page. Display only one level up (not the full chain).
+
+### What to build
+
+- [ ] `/sketch/[did]/[rkey]/+page.server.ts` — load full sketch from PDS, author profile, bookmark state, and parent title if `previousVersion` is set
+- [ ] `/sketch/[did]/[rkey]/+page.svelte` — display title, description, tags, author, date, code in `<pre>`, "Remixed from" link
+- [ ] Update `sketch-card/index.svelte` — wrap title in `<a>` pointing to `/sketch/[authorDid]/[rkey]`
+
+### Acceptance criteria
+
+- [ ] Page is accessible without login
+- [ ] Code renders in a `<pre>` tag
+- [ ] "Remixed from [title]" link appears when `previousVersion` is set, links to that sketch's detail page
+- [ ] Bookmark button visible and functional for logged-in users
+- [ ] Clicking the title in a sketch card navigates to the detail page
+
+---
+
+## Phase 14: Vercel Deployment
 
 **Goal:** Deploy to Vercel with production environment variables and publish the `live.drome.bookmark` lexicon.
 
@@ -315,9 +339,10 @@ await db
 | Phase | What                         | Key output                                           |
 | ----- | ---------------------------- | ---------------------------------------------------- |
 | 1–7   | ✅ Done                      | Lexicons, write layer, feed, profiles, audio         |
-| 8     | Bookmarks                    | `live.drome.bookmark`, bookmark button, `/bookmarks` |
-| 9     | Serverless DB setup          | Neon + Drizzle schema, Vercel adapter, dep cleanup   |
-| 10    | OAuth refactor               | DB-backed state/session stores                       |
-| 11    | Write-through + feed from DB | Publish → DB insert, feed query replaces PDS fan-out |
-| 12    | Backfill                     | One-time populate of existing sketches               |
-| 13    | Vercel deployment            | Production deploy, lexicons published                |
+| 8     | ✅ Bookmarks                 | `live.drome.bookmark`, bookmark button, `/bookmarks` |
+| 9     | ✅ Serverless DB setup       | Neon + Drizzle schema, Vercel adapter, dep cleanup   |
+| 10    | ✅ OAuth refactor            | DB-backed state/session stores                       |
+| 11    | ✅ Write-through + feed from DB | Publish → DB insert, feed query replaces PDS fan-out |
+| 12    | ✅ Backfill                  | One-time populate of existing sketches               |
+| 13    | Sketch detail page           | `/sketch/[did]/[rkey]`, version chain, code display  |
+| 14    | Vercel deployment            | Production deploy, lexicons published                |

@@ -9,6 +9,7 @@
 	let { sketch }: { sketch: SketchCard } = $props();
 
 	const isThisPlaying = $derived(audio.currentUri === sketch.uri && audio.isRunning);
+	const rkey = $derived(sketch.uri.split('/').at(-1));
 
 	async function handleBookmark() {
 		if (sketch.bookmarkUri) {
@@ -85,7 +86,7 @@
 	</header>
 
 	<div class="main">
-		<h2 class="title">{sketch.title}</h2>
+		<a href="/sketch/{sketch.authorDid}/{rkey}" class="title">{sketch.title}</a>
 
 		{#if sketch.description}
 			<p class="description">{sketch.description}</p>
@@ -169,8 +170,9 @@
 	/* MAIN ---------------------------------------- */
 
 	.main {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr);
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
 		gap: 0.75rem;
 		padding: 1rem;
 		padding-block: 0 1.25rem;
@@ -178,6 +180,12 @@
 		.title {
 			font-size: 1.25rem;
 			font-weight: 600;
+			text-decoration: none;
+			color: inherit;
+
+			&:hover {
+				color: var(--ui-color-fg-secondary);
+			}
 		}
 
 		.description {
@@ -235,8 +243,8 @@
 			color: var(--ui-color-fg-tertiary);
 		}
 
-		&:hover .handle {
-			color: var(--ui-color-fg-primary);
+		&:hover {
+			color: var(--ui-color-fg-secondary);
 		}
 	}
 
