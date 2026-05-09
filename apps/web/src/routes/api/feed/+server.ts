@@ -1,4 +1,5 @@
-import type { PageServerLoad } from './$types';
+import { json, error } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 import { getFollows } from '$lib/server/atproto/reads';
 import { db } from '$lib/server/db';
 import { sketches, bookmarks, account } from '$lib/server/db/schema';
@@ -6,8 +7,8 @@ import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 
 const PAGE_SIZE = 50;
 
-export const load: PageServerLoad = async ({ locals, url }) => {
-	if (!locals.session.did) return { sketches: [], hasMore: false, nextCursor: null };
+export const GET: RequestHandler = async ({ locals, url }) => {
+	if (!locals.session.did) error(401, 'Not logged in');
 
 	const cursorParam = url.searchParams.get('cursor');
 	const cursor = cursorParam ? new Date(cursorParam) : null;
@@ -35,7 +36,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const page = rows.slice(0, PAGE_SIZE);
 	const nextCursor = hasMore ? page[page.length - 1].sketch.createdAt.toISOString() : null;
 
-	return {
+	return json({
 		sketches: page.map((r) => ({
 			...r.sketch,
 			authorAvatar: r.author?.avatar,
@@ -46,5 +47,5 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		})),
 		hasMore,
 		nextCursor
-	};
+	});
 };
