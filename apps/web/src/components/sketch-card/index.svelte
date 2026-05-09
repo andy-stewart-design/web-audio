@@ -4,6 +4,7 @@
 	import { audio } from '@/lib/client/audio.svelte';
 	import IconBookmark from '@/components/icons/icon-bookmark.svelte';
 	import type { SketchCard } from '@/lib/server/atproto/reads';
+	import Button from '@/components/core/button/index.svelte';
 
 	let { sketch }: { sketch: SketchCard } = $props();
 
@@ -106,10 +107,10 @@
 			</a>
 
 			<div class="controls">
-				<button class="control" class:active={isThisPlaying} onclick={handlePlay}>
+				<Button active={isThisPlaying} onclick={handlePlay}>
 					{isThisPlaying ? 'Stop' : 'Play'}
-				</button>
-				<a href="/repl?load={encodeURIComponent(sketch.uri)}" class="control">Remix</a>
+				</Button>
+				<Button href="/repl?load={encodeURIComponent(sketch.uri)}">Remix</Button>
 			</div>
 		</div>
 	</footer>
@@ -206,6 +207,7 @@
 
 		& > div {
 			display: flex;
+			justify-content: space-between;
 			align-items: center;
 			gap: 1rem;
 			padding-block-start: 1rem;
@@ -214,7 +216,6 @@
 	}
 
 	.author {
-		flex: 1 0 0;
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
@@ -253,26 +254,4 @@
 		gap: 0.5rem;
 	}
 
-	.control {
-		display: inline-flex;
-		align-items: center;
-		block-size: 2rem;
-		padding: 0 0.75rem 1px;
-		font-size: 0.8rem;
-		font-weight: 500;
-		border: 1px solid var(--ui-color-border-subtle);
-		border-radius: 3px;
-		text-decoration: none;
-		cursor: pointer;
-		background: none;
-		color: inherit;
-
-		&:hover {
-			color: var(--ui-color-fg-secondary);
-		}
-
-		&.active {
-			border-color: currentColor;
-		}
-	}
 </style>

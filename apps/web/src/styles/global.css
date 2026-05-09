@@ -69,8 +69,14 @@
 
 a {
 	color: var(--ui-color-fg-primary);
+	user-select: none;
 
 	&:visited {
 		color: var(--ui-color-fg-primary);
 	}
+}
+
+button {
+	user-select: none;
+	touch-action: none;
 }
