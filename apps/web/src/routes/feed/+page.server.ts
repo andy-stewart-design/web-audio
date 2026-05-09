@@ -25,10 +25,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		sketches: rows.map((r) => ({
 			...r.sketch,
+			authorAvatar: r.author?.avatar,
+			authorDisplayName: r.author?.displayName,
 			authorHandle: r.author?.handle ?? r.sketch.authorDid,
-			authorDisplayName: r.author?.displayName ?? null,
-			authorAvatar: r.author?.avatar ?? null,
-			bookmarkUri: r.bookmarkUri ?? null
+			bookmarkUri: r.bookmarkUri,
+			createdAt: r.sketch.createdAt.toISOString()
 		}))
 	};
 };

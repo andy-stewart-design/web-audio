@@ -87,6 +87,7 @@ This plan picks up after Phases 1–7 (lexicons, write layer, REPL publish, foll
 Phases 9 and 10 were completed together since removing `better-sqlite3` forced the OAuth refactor immediately.
 
 **What was done:**
+
 - Removed `@sveltejs/adapter-node`, `better-sqlite3`, `@types/better-sqlite3`
 - Added `@neondatabase/serverless`, `@sveltejs/adapter-vercel`
 - Rewrote `schema.ts` for Postgres: `auth_state`, `auth_session`, `account`, `sketches`, `bookmarks`
@@ -232,10 +233,10 @@ With the DB in place, pagination is straightforward. Pass the `createdAt` of the
 
 ### Acceptance criteria
 
-- [ ] Publishing a sketch appears in the feed immediately
+- [x] Publishing a sketch appears in the feed immediately
 - [ ] Feed is a single DB query — no PDS fan-out, no separate bookmark call
-- [ ] Bookmarking/unbookmarking writes to both PDS and DB
-- [ ] Bookmarks page queries DB — no per-sketch PDS calls
+- [x] Bookmarking/unbookmarking writes to both PDS and DB
+- [x] Bookmarks page queries DB — no per-sketch PDS calls
 - [ ] Cursor-based "load more" returns the next page in correct order
 - [ ] Republishing updates the DB record (onConflict)
 

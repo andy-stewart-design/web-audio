@@ -27,13 +27,13 @@ export type SketchCard = {
 	cid: string;
 	authorDid: string;
 	authorHandle: string;
-	authorDisplayName: string | null;
-	authorAvatar: string | null;
+	authorDisplayName: string | null | undefined;
+	authorAvatar: string | null | undefined;
 	code: string;
 	title: string;
 	bookmarkUri: string | null;
-	description: string | undefined;
-	tags: string[] | undefined;
+	description: string | null | undefined;
+	tags: string[] | null | undefined;
 	createdAt: string;
 };
 
@@ -239,51 +239,4 @@ export async function getBookmarks(did: string): Promise<BookmarkRecord[]> {
 	}
 
 	return bookmarks;
-}
-
-/**
- * Fetch the bookmarked sketches for a given DID, enriched with author profiles.
- * Returns SketchCards with bookmarkUri set.
- */
-export async function getBookmarkedSketches(did: string): Promise<SketchCard[]> {
-	const bookmarks = await getBookmarks(did);
-	if (bookmarks.length === 0) return [];
-
-	// Extract unique author DIDs from AT URIs (at://did/collection/rkey)
-	const authorDids = [
-		...new Set(bookmarks.map((b) => b.subject.replace('at://', '').split('/')[0]))
-	];
-
-	const [profileResults, sketchResults] = await Promise.all([
-		Promise.allSettled(authorDids.map((d) => getProfile(d))),
-		Promise.allSettled(bookmarks.map((b) => getSketch(b.subject)))
-	]);
-
-	const profileMap = new Map<string, Profile>(
-		profileResults.flatMap((r, i) => (r.status === 'fulfilled' ? [[authorDids[i], r.value]] : []))
-	);
-
-	return sketchResults.flatMap((r, i) => {
-		if (r.status !== 'fulfilled') return [];
-		const s = r.value;
-		const authorDid = bookmarks[i].subject.replace('at://', '').split('/')[0];
-		const profile = profileMap.get(authorDid);
-		if (!profile) return [];
-		return [
-			{
-				uri: s.uri,
-				cid: s.cid,
-				authorDid: profile.did,
-				authorHandle: profile.handle,
-				authorDisplayName: profile.displayName,
-				authorAvatar: profile.avatar,
-				code: s.code,
-				title: s.title,
-				description: s.description,
-				tags: s.tags,
-				createdAt: s.createdAt,
-				bookmarkUri: bookmarks[i].uri
-			} satisfies SketchCard
-		];
-	});
 }

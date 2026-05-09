@@ -57,15 +57,15 @@
 <article class="card">
 	<header>
 		<div class="meta">
-			<time datetime={sketch.createdAt} class="date">{formattedDate}</time>
-
 			{#if sketch.tags?.length}
 				<ul class="tags">
-					{#each sketch.tags as tag (tag)}
+					{#each sketch.tags.slice(0, 1) as tag (tag)}
 						<li class="tag">{tag}</li>
 					{/each}
 				</ul>
 			{/if}
+
+			<time datetime={sketch.createdAt} class="date">{formattedDate}</time>
 		</div>
 
 		{#if page.data.session.did}
@@ -141,12 +141,11 @@
 		gap: 0.75rem;
 		block-size: 3rem;
 		padding-inline: 1rem;
-		/*padding-block-start: 1rem;*/
+		font-size: 0.75rem;
+	}
 
-		.date {
-			font-size: 0.75rem;
-			color: var(--ui-color-fg-tertiary);
-		}
+	.date {
+		color: var(--ui-color-fg-tertiary);
 	}
 
 	.tags {
@@ -155,13 +154,6 @@
 		gap: 0.375rem;
 		list-style: none;
 		padding: 0;
-	}
-
-	.tag {
-		font-size: 0.75rem;
-		padding: 0.125rem 0.5rem;
-		background: var(--ui-color-bg-secondary);
-		border-radius: 100vmax;
 	}
 
 	.bookmark {
@@ -253,5 +245,4 @@
 		align-items: center;
 		gap: 0.5rem;
 	}
-
 </style>
