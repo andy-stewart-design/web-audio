@@ -223,21 +223,21 @@ With the DB in place, pagination is straightforward. Pass the `createdAt` of the
 
 ### What to build
 
-- [ ] Add `bookmarks` table to `schema.ts`
-- [ ] Update `repl/+page.server.ts` publish action to insert into `sketches` after PDS write
-- [ ] Update `api/bookmark/+server.ts` to insert/delete from `bookmarks` after PDS write
-- [ ] Update `feed/+page.server.ts` to use joined DB query (replaces fan-out + `getBookmarks`)
-- [ ] Update `bookmarks/+page.server.ts` to use DB join instead of `getBookmarkedSketches`
-- [ ] Add cursor param to feed load function for "load more" support
-- [ ] Remove fan-out logic from `feed/+page.server.ts` (keep `listSketches` in `reads.ts` — still used by profile pages and backfill)
+- [x] Add `bookmarks` table to `schema.ts`
+- [x] Update `repl/+page.server.ts` publish action to insert into `sketches` after PDS write
+- [x] Update `api/bookmark/+server.ts` to insert/delete from `bookmarks` after PDS write
+- [x] Update `feed/+page.server.ts` to use joined DB query (replaces fan-out + `getBookmarks`)
+- [x] Update `bookmarks/+page.server.ts` to use DB join instead of `getBookmarkedSketches`
+- [x] Add cursor param to feed load function for "load more" support
+- [x] Remove fan-out logic from `feed/+page.server.ts` (keep `listSketches` in `reads.ts` — still used by profile pages and backfill)
 
 ### Acceptance criteria
 
 - [x] Publishing a sketch appears in the feed immediately
-- [ ] Feed is a single DB query — no PDS fan-out, no separate bookmark call
+- [x] Feed is a single DB query — no PDS fan-out, no separate bookmark call
 - [x] Bookmarking/unbookmarking writes to both PDS and DB
 - [x] Bookmarks page queries DB — no per-sketch PDS calls
-- [ ] Cursor-based "load more" returns the next page in correct order
+- [x] Cursor-based "load more" returns the next page in correct order
 - [ ] Republishing updates the DB record (onConflict)
 
 ---
@@ -269,13 +269,13 @@ await db
 
 ### What to build
 
-- [ ] `POST /api/admin/backfill` — protected endpoint that runs the backfill
-- [ ] Run once after deploy, verify row count matches expected sketch count
+- [x] `POST /api/admin/backfill` — protected endpoint that runs the backfill
+- [x] Run once after deploy, verify row count matches expected sketch count
 
 ### Acceptance criteria
 
-- [ ] All pre-DB sketches appear in the feed after backfill
-- [ ] Running the backfill a second time is a no-op (idempotent)
+- [x] All pre-DB sketches appear in the feed after backfill
+- [x] Running the backfill a second time is a no-op (idempotent)
 
 ---
 
