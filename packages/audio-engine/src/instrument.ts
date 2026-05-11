@@ -5,7 +5,6 @@ import type {
   ParameterSchema,
   RandomSchema,
 } from "@web-audio/schema";
-import { isEnvelope } from "@web-audio/schema";
 import RandomResolver from "./random-resolver";
 import { BASE_GAIN, FILTER_TYPE_MAP } from "./constants";
 import { computeEnvelope } from "./utils/compute-envelope";
@@ -139,7 +138,7 @@ abstract class Instrument {
           [node.detune, effect.detune],
           [node.gain, effect.gain],
         ] as const) {
-          if (isEnvelope(schema)) {
+          if (schema.type === "envelope") {
             this._scheduleParamEnvelope(
               param,
               schema,

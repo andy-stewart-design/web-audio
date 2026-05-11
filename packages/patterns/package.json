@@ -2,17 +2,6 @@
   "name": "@web-audio/patterns",
   "type": "module",
   "version": "0.0.0",
-  "description": "A starter for creating a TypeScript package.",
-  "author": "Author Name <author.name@mail.com>",
-  "license": "MIT",
-  "homepage": "https://github.com/author/library#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/author/library.git"
-  },
-  "bugs": {
-    "url": "https://github.com/author/library/issues"
-  },
   "exports": {
     ".": "./dist/index.mjs",
     "./package.json": "./package.json"
@@ -26,7 +15,8 @@
     "test": "vitest",
     "test:ci": "vitest run",
     "lint": "eslint . --max-warnings 0",
-    "check-types": "tsc --noEmit",
+    "format": "prettier --write .",
+    "check": "tsc --noEmit",
     "release": "bumpp",
     "prepublishOnly": "pnpm run build"
   },
@@ -36,12 +26,12 @@
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@types/node": "^25.5.0",
-    "@typescript/native-preview": "7.0.0-dev.20260328.1",
-    "bumpp": "^11.0.1",
-    "eslint": "^9.39.1",
-    "tsdown": "^0.21.7",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.2"
+    "@types/node": "^25.6.2",
+    "@typescript/native-preview": "7.0.0-dev.20260511.1",
+    "bumpp": "^11.1.0",
+    "eslint": "^9.39.4",
+    "tsdown": "^0.22.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
   }
 }

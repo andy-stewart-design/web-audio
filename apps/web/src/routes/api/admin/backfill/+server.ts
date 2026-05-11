@@ -48,7 +48,13 @@ export const POST: RequestHandler = async ({ locals }) => {
 	url.searchParams.set('limit', '100');
 
 	const res = await fetch(url);
-	const bookmarkRecords: { uri: string; authorDid: string; subjectUri: string; subjectCid: string; createdAt: Date }[] = [];
+	const bookmarkRecords: {
+		uri: string;
+		authorDid: string;
+		subjectUri: string;
+		subjectCid: string;
+		createdAt: Date;
+	}[] = [];
 
 	if (res.ok) {
 		const data = await res.json();

@@ -39,18 +39,6 @@ interface EnvelopeSchema {
   mode: EnvelopeMode;
 }
 
-function isEnvelope(v: ParameterSchema | EnvelopeSchema): v is EnvelopeSchema {
-  return v.type === "envelope";
-}
-
-function isStatic(v: ParameterSchema): v is StaticSchema {
-  return v.type === "static";
-}
-
-function isRandom(v: ParameterSchema): v is RandomSchema {
-  return v.type === "random";
-}
-
 type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
 
 interface FilterSchema {
@@ -91,5 +79,3 @@ export type {
   SynthesizerSchema,
   Waveform,
 };
-
-export { isEnvelope, isStatic, isRandom };

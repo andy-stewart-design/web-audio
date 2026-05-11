@@ -12,6 +12,7 @@
 
 	// Reset client-loaded pages when server data refreshes (e.g. after invalidateAll)
 	$effect(() => {
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 		data.sketches;
 		extraSketches = [];
 		loadedCursor = null;

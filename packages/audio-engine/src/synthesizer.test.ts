@@ -61,6 +61,7 @@ function makeEnvelope(min = 0): EnvelopeSchema {
 
 function makeSchema(detune: SynthesizerSchema["detune"]): SynthesizerSchema {
   return {
+    type: "synthesizer",
     waveform: "sine",
     notes: staticParam(60),
     detune,
