@@ -43,6 +43,12 @@ export default defineConfig(
 		}
 	},
 	{
+		files: ['src/lib/lexicons/**'],
+		rules: {
+			'@typescript-eslint/no-explicit-any': 'off'
+		}
+	},
+	{
 		rules: {
 			'svelte/no-navigation-without-resolve': 'off'
 		}

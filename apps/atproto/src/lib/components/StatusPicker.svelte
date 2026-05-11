@@ -58,7 +58,7 @@
 <div>
 	<p class="label">Set your status</p>
 	<div class="grid">
-		{#each EMOJIS as emoji}
+		{#each EMOJIS as emoji (emoji)}
 			<button
 				onclick={() => handleSelect(emoji)}
 				disabled={loading}
