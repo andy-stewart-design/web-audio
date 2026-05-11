@@ -9,7 +9,7 @@
     "test": "vitest",
     "test:ci": "vitest run",
     "lint": "eslint . --max-warnings 0",
-    "check-types": "tsc --noEmit"
+    "check": "tsc --noEmit"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
