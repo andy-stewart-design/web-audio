@@ -100,7 +100,7 @@ class Synthesizer extends Instrument {
     this._track(osc, chain, startTime);
   }
 
-  private _resolveDetune(barIndex: number, stepIndex: number): ResolvedDetune {
+  protected _resolveDetune(barIndex: number, stepIndex: number): ResolvedDetune {
     const detune = this._schema.detune;
     if (isEnvelope(detune))
       return { type: "envelope", schema: detune, value: detune.min };
