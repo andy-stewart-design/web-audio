@@ -1,4 +1,3 @@
-import { isEnvelope } from "@web-audio/schema";
 import Instrument from "./instrument";
 import { midiToFrequency } from "./utils/midi-to-frequency";
 
@@ -105,7 +104,7 @@ class Synthesizer extends Instrument {
     stepIndex: number,
   ): ResolvedDetune {
     const detune = this._schema.detune;
-    if (isEnvelope(detune))
+    if (detune.type === "envelope")
       return { type: "envelope", schema: detune, value: detune.min };
     return {
       type: "static",
