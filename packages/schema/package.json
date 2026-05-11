@@ -9,6 +9,7 @@
     "test": "vitest",
     "test:ci": "vitest run",
     "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
     "check": "tsc --noEmit"
   },
   "devDependencies": {
