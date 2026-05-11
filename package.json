@@ -11,9 +11,9 @@
     "test:ci": "turbo run test:ci"
   },
   "devDependencies": {
-    "prettier": "^3.7.4",
-    "turbo": "^2.8.11",
-    "typescript": "5.9.2"
+    "prettier": "^3.8.3",
+    "turbo": "^2.9.12",
+    "typescript": "^6.0.3"
   },
   "packageManager": "pnpm@10.33.2",
   "engines": {
