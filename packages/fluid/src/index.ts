@@ -1,6 +1,8 @@
 import { RandomCycle } from "@web-audio/patterns";
 import Envelope from "./automations/envelope";
+import Lfo, { type LfoInput } from "./automations/lfo";
 import Filter from "./effects/filter";
+import GainEffect from "./effects/gain";
 import Synthesizer from "./instruments/synthesizer";
 import type { CycleInput, DromeSchema, Waveform } from "./types";
 import type { FilterType } from "@web-audio/schema";
@@ -24,19 +26,27 @@ class Drome {
     return new Envelope(min, ...max);
   }
 
-  filter(type: FilterType, ...frequency: CycleInput | [Envelope]) {
+  lfo(outputA: LfoInput, outputB: LfoInput) {
+    return new Lfo(outputA, outputB);
+  }
+
+  gain(input: number | Envelope | Lfo) {
+    return new GainEffect(input);
+  }
+
+  filter(type: FilterType, ...frequency: CycleInput | [Envelope] | [Lfo]) {
     return new Filter(type, ...frequency);
   }
 
-  lpf(...frequency: CycleInput | [Envelope]) {
+  lpf(...frequency: CycleInput | [Envelope] | [Lfo]) {
     return new Filter("lp", ...frequency);
   }
 
-  hpf(...frequency: CycleInput | [Envelope]) {
+  hpf(...frequency: CycleInput | [Envelope] | [Lfo]) {
     return new Filter("hp", ...frequency);
   }
 
-  bpf(...frequency: CycleInput | [Envelope]) {
+  bpf(...frequency: CycleInput | [Envelope] | [Lfo]) {
     return new Filter("bp", ...frequency);
   }
 

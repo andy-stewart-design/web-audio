@@ -43,13 +43,13 @@ Export from the package.
 
 **Acceptance criteria:**
 
-- [ ] `LfoSchema` is exported from `@web-audio/schema`
-- [ ] `LfoSchema` reuses the existing `Waveform` type for its `waveform` field
-- [ ] Package type-checks cleanly: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] `LfoSchema` is exported from `@web-audio/schema`
+- [x] `LfoSchema` reuses the existing `Waveform` type for its `waveform` field
+- [x] Package type-checks cleanly: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 **Testing:**
 
-- [ ] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 ---
 
@@ -74,13 +74,13 @@ Export all new types.
 
 **Acceptance criteria:**
 
-- [ ] `GainEffectSchema` is exported from `@web-audio/schema`
-- [ ] `EffectSchema` is now `FilterSchema | GainEffectSchema`
-- [ ] Package type-checks cleanly
+- [x] `GainEffectSchema` is exported from `@web-audio/schema`
+- [x] `EffectSchema` is now `FilterSchema | GainEffectSchema`
+- [x] Package type-checks cleanly
 
 **Testing:**
 
-- [ ] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 ---
 
@@ -116,15 +116,15 @@ interface SynthesizerSchema {
 
 **Acceptance criteria:**
 
-- [ ] `FilterSchema` parameters accept `LfoSchema`
-- [ ] `SynthesizerSchema.detune` accepts `LfoSchema`
-- [ ] `SynthesizerSchema.gain` remains `EnvelopeSchema` only
-- [ ] Package type-checks cleanly
-- [ ] Downstream packages (`fluid`, `audio-engine`) will show type errors — expected, resolved in later phases
+- [x] `FilterSchema` parameters accept `LfoSchema`
+- [x] `SynthesizerSchema.detune` accepts `LfoSchema`
+- [x] `SynthesizerSchema.gain` remains `EnvelopeSchema` only
+- [x] Package type-checks cleanly
+- [x] Downstream packages (`fluid`, `audio-engine`) will show type errors — expected, resolved in later phases
 
 **Testing:**
 
-- [ ] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 ---
 
@@ -140,13 +140,13 @@ Create `packages/worklets/` with:
 
 **Acceptance criteria:**
 
-- [ ] Package exists at `packages/worklets/`
-- [ ] `pnpm install` succeeds with the new workspace
-- [ ] Package builds cleanly: `pnpm --filter @web-audio/worklets build`
+- [x] Package exists at `packages/worklets/`
+- [x] `pnpm install` succeeds with the new workspace
+- [x] Package builds cleanly: `pnpm --filter @web-audio/worklets build`
 
 **Testing:**
 
-- [ ] Build produces `dist/index.mjs`
+- [x] Build produces `dist/index.mjs`
 
 ---
 
@@ -192,18 +192,18 @@ function square(phase: number): number {
 
 **Acceptance criteria:**
 
-- [ ] `LfoProcessor` generates correct waveform values for all four types
-- [ ] Norm mode remaps output from [-1, 1] to [0, 1]
-- [ ] Phase accumulator wraps correctly
-- [ ] Speed and waveform indices advance independently on phase wrap
-- [ ] Output follows formula: `outputA + outputB * oscillatorValue`
+- [x] `LfoProcessor` generates correct waveform values for all four types
+- [x] Norm mode remaps output from [-1, 1] to [0, 1]
+- [x] Phase accumulator wraps correctly
+- [x] Speed and waveform indices advance independently on phase wrap
+- [x] Output follows formula: `outputA + outputB * oscillatorValue`
 
 **Testing:**
 
-- [ ] Unit test: each waveform function produces correct values at key phases (0, 0.25, 0.5, 0.75)
-- [ ] Unit test: norm remapping
-- [ ] Unit test: phase wrap triggers index advancement
-- [ ] Unit test: independent cycling of speed and waveform arrays
+- [x] Unit test: each waveform function produces correct values at key phases (0, 0.25, 0.5, 0.75)
+- [x] Unit test: norm remapping
+- [x] Unit test: phase wrap triggers index advancement
+- [x] Unit test: independent cycling of speed and waveform arrays
 
 ---
 
@@ -223,14 +223,14 @@ export const lfoProcessorSource: string = `
 
 **Acceptance criteria:**
 
-- [ ] `lfoProcessorSource` is exported as a string from `@web-audio/worklets`
-- [ ] The string contains valid JavaScript that registers an `AudioWorkletProcessor`
-- [ ] Package builds cleanly
+- [x] `lfoProcessorSource` is exported as a string from `@web-audio/worklets`
+- [x] The string contains valid JavaScript that registers an `AudioWorkletProcessor`
+- [x] Package builds cleanly
 
 **Testing:**
 
-- [ ] Unit test: `lfoProcessorSource` contains `registerProcessor`
-- [ ] Integration: string can be loaded via `new Blob()` + `audioContext.audioWorklet.addModule()` (manual or browser test)
+- [x] Unit test: `lfoProcessorSource` contains `registerProcessor`
+- [x] Integration: string can be loaded via `new Blob()` + `audioContext.audioWorklet.addModule()` (manual or browser test)
 
 ---
 
@@ -260,22 +260,22 @@ The `Lfo` class follows the same pattern as `Envelope`:
 
 **Acceptance criteria:**
 
-- [ ] `new Lfo(800, 400).getSchema()` returns a valid `LfoSchema` with all defaults
-- [ ] All chainable methods modify the schema output correctly
-- [ ] `outputA` and `outputB` accept `CycleInput` (static, array cycling, `RandomCycle`)
-- [ ] `speed()` and `wave()` accept variadic args and store as arrays
-- [ ] Each `Lfo` instance has a unique `id`
+- [x] `new Lfo(800, 400).getSchema()` returns a valid `LfoSchema` with all defaults
+- [x] All chainable methods modify the schema output correctly
+- [x] `outputA` and `outputB` accept `CycleInput` (static, array cycling, `RandomCycle`)
+- [x] `speed()` and `wave()` accept variadic args and store as arrays
+- [x] Each `Lfo` instance has a unique `id`
 
 **Testing:**
 
-- [ ] Default schema output: speed `[1]`, waveform `["sine"]`, phase `0`, norm `false`
-- [ ] `.speed(2, 1)` → schema has `speed: [2, 1]`
-- [ ] `.wave("sawtooth", "triangle")` → schema has `waveform: ["sawtooth", "triangle"]`
-- [ ] `.offset(0.5)` → schema has `phase: 0.5`
-- [ ] `.norm()` → schema has `norm: true`
-- [ ] `outputA` with array input: `new Lfo([600, 800], 400)` → `outputA` is a `StaticSchema` with cycling values
-- [ ] `outputB` with `RandomCycle`: produces `RandomSchema`
-- [ ] Two `Lfo` instances have different `id` values
+- [x] Default schema output: speed `[1]`, waveform `["sine"]`, phase `0`, norm `false`
+- [x] `.speed(2, 1)` → schema has `speed: [2, 1]`
+- [x] `.wave("sawtooth", "triangle")` → schema has `waveform: ["sawtooth", "triangle"]`
+- [x] `.offset(0.5)` → schema has `phase: 0.5`
+- [x] `.norm()` → schema has `norm: true`
+- [x] `outputA` with array input: `new Lfo([600, 800], 400)` → `outputA` is a `StaticSchema` with cycling values
+- [x] `outputB` with `RandomCycle`: produces `RandomSchema`
+- [x] Two `Lfo` instances have different `id` values
 
 ---
 
@@ -330,15 +330,15 @@ Import `Lfo` and add to `Drome` class.
 
 **Acceptance criteria:**
 
-- [ ] `d.lfo(800, 400)` returns an `Lfo` instance
-- [ ] `d.lfo([600, 800], 400)` works with array cycling on `outputA`
-- [ ] `d.lfo(d.rand(600, 1000), 400)` works with `RandomCycle` on `outputA`
-- [ ] Chaining works: `d.lfo(800, 400).speed(2).wave("sawtooth").norm()`
+- [x] `d.lfo(800, 400)` returns an `Lfo` instance
+- [x] `d.lfo([600, 800], 400)` works with array cycling on `outputA`
+- [x] `d.lfo(d.rand(600, 1000), 400)` works with `RandomCycle` on `outputA`
+- [x] Chaining works: `d.lfo(800, 400).speed(2).wave("sawtooth").norm()`
 
 **Testing:**
 
-- [ ] `d.lfo(800, 400).getSchema()` produces valid schema
-- [ ] `d.lfo([600, 800], 400).getSchema()` — `outputA` is cycling `StaticSchema`
+- [x] `d.lfo(800, 400).getSchema()` produces valid schema
+- [x] `d.lfo([600, 800], 400).getSchema()` — `outputA` is cycling `StaticSchema`
 
 ---
 
@@ -374,15 +374,15 @@ Same pattern for `q()`, `detune()`, `gain()`.
 
 **Acceptance criteria:**
 
-- [ ] `d.lpf(d.lfo(400, 1200).norm())` compiles and produces correct schema
-- [ ] Existing `Parameter` and `Envelope` inputs still work unchanged
-- [ ] `filter.getSchema()` correctly serializes `LfoSchema` on any parameter
+- [x] `d.lpf(d.lfo(400, 1200).norm())` compiles and produces correct schema
+- [x] Existing `Parameter` and `Envelope` inputs still work unchanged
+- [x] `filter.getSchema()` correctly serializes `LfoSchema` on any parameter
 
 **Testing:**
 
-- [ ] Filter with LFO on frequency: schema has `type: "lfo"` on `frequency` field
-- [ ] Filter with LFO on q: schema has `type: "lfo"` on `q` field
-- [ ] Existing filter tests still pass
+- [x] Filter with LFO on frequency: schema has `type: "lfo"` on `frequency` field
+- [x] Filter with LFO on q: schema has `type: "lfo"` on `q` field
+- [x] Existing filter tests still pass
 
 ---
 
@@ -407,14 +407,14 @@ detune(...input: CycleInput | [Envelope] | [Lfo]) {
 
 **Acceptance criteria:**
 
-- [ ] `.detune(d.lfo(0, 100))` produces `LfoSchema` on the detune field
-- [ ] Existing `Parameter` and `Envelope` detune inputs still work
+- [x] `.detune(d.lfo(0, 100))` produces `LfoSchema` on the detune field
+- [x] Existing `Parameter` and `Envelope` detune inputs still work
 
 **Testing:**
 
-- [ ] `.detune(d.lfo(0, 100)).getSchema()` — detune has `type: "lfo"`
-- [ ] `.detune(100)` — detune still has `type: "static"`
-- [ ] `.detune(d.env(0, 100))` — detune still has `type: "envelope"`
+- [x] `.detune(d.lfo(0, 100)).getSchema()` — detune has `type: "lfo"`
+- [x] `.detune(100)` — detune still has `type: "static"`
+- [x] `.detune(d.env(0, 100))` — detune still has `type: "envelope"`
 
 ---
 
@@ -464,17 +464,17 @@ Update `_effects` field type accordingly.
 
 **Acceptance criteria:**
 
-- [ ] `d.gain(0.5)` produces a `GainEffectSchema` with a static parameter
-- [ ] `d.gain(d.lfo(0, 1).norm())` produces a `GainEffectSchema` with an `LfoSchema`
-- [ ] `d.gain(d.env(0, 1))` produces a `GainEffectSchema` with an `EnvelopeSchema`
-- [ ] `.fx(d.gain(...))` works alongside `.fx(d.lpf(...))`
-- [ ] Synth schema output includes gain effects in the `effects` array
+- [x] `d.gain(0.5)` produces a `GainEffectSchema` with a static parameter
+- [x] `d.gain(d.lfo(0, 1).norm())` produces a `GainEffectSchema` with an `LfoSchema`
+- [x] `d.gain(d.env(0, 1))` produces a `GainEffectSchema` with an `EnvelopeSchema`
+- [x] `.fx(d.gain(...))` works alongside `.fx(d.lpf(...))`
+- [x] Synth schema output includes gain effects in the `effects` array
 
 **Testing:**
 
-- [ ] `d.gain(0.5).getSchema()` → `{ type: "gain", gain: { type: "static", ... } }`
-- [ ] `d.gain(d.lfo(0, 1).norm()).getSchema()` → `{ type: "gain", gain: { type: "lfo", ... } }`
-- [ ] Synth with mixed effects: `d.synth().fx(d.lpf(800), d.gain(0.5)).getSchema()` — effects array has both types
+- [x] `d.gain(0.5).getSchema()` → `{ type: "gain", gain: { type: "static", ... } }`
+- [x] `d.gain(d.lfo(0, 1).norm()).getSchema()` → `{ type: "gain", gain: { type: "lfo", ... } }`
+- [x] Synth with mixed effects: `d.synth().fx(d.lpf(800), d.gain(0.5)).getSchema()` — effects array has both types
 
 ---
 

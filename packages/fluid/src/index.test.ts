@@ -179,23 +179,23 @@ describe("Drome", () => {
       const d = new Drome();
       const schema = d.synth().fx(d.lpf(800)).getSchema();
       expect(schema.effects).toHaveLength(1);
-      expect(schema.effects[0].filterType).toBe("lp");
+      expect(schema.effects[0].type === "filter" && schema.effects[0].filterType).toBe("lp");
     });
 
     it("variadic fx(): order preserved", () => {
       const d = new Drome();
       const schema = d.synth().fx(d.lpf(800), d.hpf(200)).getSchema();
       expect(schema.effects).toHaveLength(2);
-      expect(schema.effects[0].filterType).toBe("lp");
-      expect(schema.effects[1].filterType).toBe("hp");
+      expect(schema.effects[0].type === "filter" && schema.effects[0].filterType).toBe("lp");
+      expect(schema.effects[1].type === "filter" && schema.effects[1].filterType).toBe("hp");
     });
 
     it("chained fx() calls accumulate", () => {
       const d = new Drome();
       const schema = d.synth().fx(d.lpf(800)).fx(d.hpf(200)).getSchema();
       expect(schema.effects).toHaveLength(2);
-      expect(schema.effects[0].filterType).toBe("lp");
-      expect(schema.effects[1].filterType).toBe("hp");
+      expect(schema.effects[0].type === "filter" && schema.effects[0].filterType).toBe("lp");
+      expect(schema.effects[1].type === "filter" && schema.effects[1].filterType).toBe("hp");
     });
 
     it("three effects", () => {

@@ -1,27 +1,32 @@
 import type { FilterSchema, FilterType } from "@web-audio/schema";
 import Envelope from "@/automations/envelope";
+import Lfo from "@/automations/lfo";
 import Parameter from "@/patterns/parameter";
-import { isEnvelopeTuple } from "@/utils/validate";
+import { isEnvelopeTuple, isLfoTuple } from "@/utils/validate";
 import type { CycleInput } from "@/types";
 
 class Filter {
   private _filterType: FilterType;
-  private _frequency: Parameter | Envelope;
-  private _q: Parameter | Envelope | undefined;
-  private _detune: Parameter | Envelope | undefined;
-  private _gain: Parameter | Envelope | undefined;
+  private _frequency: Parameter | Envelope | Lfo;
+  private _q: Parameter | Envelope | Lfo | undefined;
+  private _detune: Parameter | Envelope | Lfo | undefined;
+  private _gain: Parameter | Envelope | Lfo | undefined;
 
-  constructor(type: FilterType, ...frequency: CycleInput | [Envelope]) {
+  constructor(type: FilterType, ...frequency: CycleInput | [Envelope] | [Lfo]) {
     this._filterType = type;
-    if (isEnvelopeTuple(frequency)) {
+    if (isLfoTuple(frequency)) {
+      this._frequency = frequency[0];
+    } else if (isEnvelopeTuple(frequency)) {
       this._frequency = frequency[0];
     } else {
       this._frequency = new Parameter(...frequency);
     }
   }
 
-  q(...input: CycleInput | [Envelope]) {
-    if (isEnvelopeTuple(input)) {
+  q(...input: CycleInput | [Envelope] | [Lfo]) {
+    if (isLfoTuple(input)) {
+      this._q = input[0];
+    } else if (isEnvelopeTuple(input)) {
       this._q = input[0];
     } else {
       this._q = new Parameter(...input);
@@ -29,8 +34,10 @@ class Filter {
     return this;
   }
 
-  detune(...input: CycleInput | [Envelope]) {
-    if (isEnvelopeTuple(input)) {
+  detune(...input: CycleInput | [Envelope] | [Lfo]) {
+    if (isLfoTuple(input)) {
+      this._detune = input[0];
+    } else if (isEnvelopeTuple(input)) {
       this._detune = input[0];
     } else {
       this._detune = new Parameter(...input);
@@ -38,8 +45,10 @@ class Filter {
     return this;
   }
 
-  gain(...input: CycleInput | [Envelope]) {
-    if (isEnvelopeTuple(input)) {
+  gain(...input: CycleInput | [Envelope] | [Lfo]) {
+    if (isLfoTuple(input)) {
+      this._gain = input[0];
+    } else if (isEnvelopeTuple(input)) {
       this._gain = input[0];
     } else {
       this._gain = new Parameter(...input);
