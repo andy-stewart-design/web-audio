@@ -140,8 +140,8 @@ abstract class Instrument {
         this._scheduled.delete(note);
       }
     }
-    this._cleanupLfos();
     if (this._scheduled.size === 0) {
+      this._cleanupLfos();
       this._doneResolve?.();
     }
   }
@@ -274,6 +274,7 @@ abstract class Instrument {
       for (const n of audioNodes) n.disconnect();
       this._scheduled.delete(scheduled);
       if (this._scheduled.size === 0) {
+        this._cleanupLfos();
         this._doneResolve?.();
       }
     };
