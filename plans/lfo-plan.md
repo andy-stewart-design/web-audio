@@ -744,12 +744,12 @@ Call this in `cancelFutureNotes` and when the instrument is done.
 
 Test complete schema output from `Drome` for LFO configurations:
 
-- [ ] Synth with LFO on detune → `detune` field has `type: "lfo"` with correct values
-- [ ] Synth with LFO filter → effect's frequency field has `type: "lfo"`
-- [ ] Synth with gain effect → effects array includes `{ type: "gain", ... }`
-- [ ] Synth with mixed effects (filter + gain) → both present in effects array
-- [ ] LFO with all options: `.speed(2, 1).wave("sawtooth", "triangle").offset(0.25).norm()`
-- [ ] Two filters using the same `Lfo` variable → two different `id` values in schema
+- [x] Synth with LFO on detune → `detune` field has `type: "lfo"` with correct values
+- [x] Synth with LFO filter → effect's frequency field has `type: "lfo"`
+- [x] Synth with gain effect → effects array includes `{ type: "gain", ... }`
+- [x] Synth with mixed effects (filter + gain) → both present in effects array
+- [x] LFO with all options: `.speed(2, 1).wave("sawtooth", "triangle").offset(0.25).norm()`
+- [x] Two filters using the same `Lfo` variable → same `id` in schema (same instance)
 
 ---
 
@@ -757,13 +757,13 @@ Test complete schema output from `Drome` for LFO configurations:
 
 Using the sequencer app, verify the following produce correct audio output:
 
-- [ ] `d.synth("sine").notes("C4").fx(d.lpf(d.lfo(400, 1200).norm())).push()` — filter sweep, 1 bar period
-- [ ] `d.synth("sine").notes("C4").fx(d.lpf(d.lfo(800, 400).speed(4))).push()` — fast wobble
-- [ ] `d.synth("sine").notes("C4").fx(d.lpf(d.lfo(800, 400).wave("sawtooth"))).push()` — sawtooth sweep
-- [ ] `d.synth("sine").notes("C4").fx(d.gain(d.lfo(0, 1).norm().speed(4))).push()` — tremolo
-- [ ] `d.synth("sine").notes("C4").detune(d.lfo(0, 100).speed(8)).push()` — vibrato
-- [ ] `d.synth("sine").notes("C4").fx(d.lpf(d.lfo(400, 1200).norm().speed(0.5))).push()` — slow 2-bar sweep
-- [ ] `d.synth("sine").notes("C4").fx(d.lpf(d.lfo([400, 800], [400, 1200]).norm())).push()` — cycling values per bar
+- [ ] `d.synth("triangle").notes(60).fx(d.lpf(d.lfo(400, 1200).norm())).push()` — filter sweep, 1 bar period
+- [ ] `d.synth("triangle").notes(60).fx(d.lpf(d.lfo(800, 400).speed(4))).push()` — fast wobble
+- [ ] `d.synth("triangle").notes(60).fx(d.lpf(d.lfo(800, 400).wave("sawtooth"))).push()` — sawtooth sweep
+- [ ] `d.synth("triangle").notes(60).fx(d.gain(d.lfo(0, 1).norm().speed(4))).push()` — tremolo
+- [ ] `d.synth("triangle").notes(60).detune(d.lfo(0, 100).speed(8)).push()` — vibrato
+- [ ] `d.synth("triangle").notes(60).fx(d.lpf(d.lfo(400, 1200).norm().speed(0.5))).push()` — slow 2-bar sweep
+- [ ] `d.synth("triangle").notes(60).fx(d.lpf(d.lfo([400, 800], [400, 1200]).norm())).push()` — cycling values per bar
 
 ---
 
