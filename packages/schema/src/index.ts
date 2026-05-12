@@ -39,24 +39,40 @@ interface EnvelopeSchema {
   mode: EnvelopeMode;
 }
 
+interface LfoSchema {
+  type: "lfo";
+  id: string;
+  outputA: ParameterSchema;
+  outputB: ParameterSchema;
+  speed: number[];
+  waveform: Waveform[];
+  phase: number;
+  norm: boolean;
+}
+
 type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
 
 interface FilterSchema {
   type: "filter";
   filterType: FilterType;
-  frequency: ParameterSchema | EnvelopeSchema;
-  q: ParameterSchema | EnvelopeSchema;
-  detune: ParameterSchema | EnvelopeSchema;
-  gain: ParameterSchema | EnvelopeSchema;
+  frequency: ParameterSchema | EnvelopeSchema | LfoSchema;
+  q: ParameterSchema | EnvelopeSchema | LfoSchema;
+  detune: ParameterSchema | EnvelopeSchema | LfoSchema;
+  gain: ParameterSchema | EnvelopeSchema | LfoSchema;
 }
 
-type EffectSchema = FilterSchema;
+interface GainEffectSchema {
+  type: "gain";
+  gain: ParameterSchema | EnvelopeSchema | LfoSchema;
+}
+
+type EffectSchema = FilterSchema | GainEffectSchema;
 
 interface SynthesizerSchema {
   type: "synthesizer";
   waveform: Waveform;
   notes: ParameterSchema;
-  detune: ParameterSchema | EnvelopeSchema;
+  detune: ParameterSchema | EnvelopeSchema | LfoSchema;
   gain: EnvelopeSchema;
   effects: EffectSchema[];
 }
@@ -72,6 +88,8 @@ export type {
   EnvelopeSchema,
   FilterSchema,
   FilterType,
+  GainEffectSchema,
+  LfoSchema,
   ParameterSchema,
   RandomSchema,
   StaticSchema,
