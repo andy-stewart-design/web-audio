@@ -22,7 +22,8 @@
   },
   "dependencies": {
     "@web-audio/clock": "workspace:*",
-    "@web-audio/schema": "workspace:*"
+    "@web-audio/schema": "workspace:*",
+    "@web-audio/worklets": "workspace:*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

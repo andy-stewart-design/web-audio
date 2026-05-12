@@ -496,8 +496,8 @@ Add `@web-audio/worklets` to dependencies:
 
 **Acceptance criteria:**
 
-- [ ] `pnpm install` succeeds
-- [ ] Audio engine can import from `@web-audio/worklets`
+- [x] `pnpm install` succeeds
+- [x] Audio engine can import from `@web-audio/worklets`
 
 ---
 
@@ -524,13 +524,13 @@ The `_commit()` method needs to await this before creating `Synthesizer` instanc
 
 **Acceptance criteria:**
 
-- [ ] Worklet module is registered before any LFO nodes are created
-- [ ] Registration happens only once per `AudioEngine` instance
-- [ ] Non-LFO schemas still work without waiting for worklet registration
+- [x] Worklet module is registered before any LFO nodes are created
+- [x] Registration happens only once per `AudioEngine` instance
+- [x] Non-LFO schemas still work without waiting for worklet registration
 
 **Testing:**
 
-- [ ] Engine creates successfully and can register the worklet module
+- [x] Engine creates successfully and can register the worklet module
 
 ---
 
@@ -583,14 +583,14 @@ protected _initLfos(schema: SynthesizerSchema): void {
 
 **Acceptance criteria:**
 
-- [ ] LFO nodes are created for every `LfoSchema` in the instrument's schema
-- [ ] Nodes are stored by `id` in the map
-- [ ] `AudioWorkletNode` is created with correct `parameterData` and `processorOptions`
-- [ ] LFO nodes are connected to `this._outputNode` (they need to be in the audio graph to process)
+- [x] LFO nodes are created for every `LfoSchema` in the instrument's schema
+- [x] Nodes are stored by `id` in the map
+- [x] `AudioWorkletNode` is created with correct `parameterData` and `processorOptions`
+- [x] LFO nodes are connected to `this._outputNode` (they need to be in the audio graph to process)
 
 **Testing:**
 
-- [ ] Mock-based unit test: `_initLfos` creates the correct number of nodes for a schema with LFOs on multiple parameters
+- [x] Mock-based unit test: `_initLfos` creates the correct number of nodes for a schema with LFOs on multiple parameters
 
 ---
 
@@ -616,10 +616,10 @@ Same pattern for detune on the oscillator.
 
 **Acceptance criteria:**
 
-- [ ] LFO worklet node is connected to the correct `AudioParam` on each note's filter/oscillator
-- [ ] Multiple notes' params all receive the same LFO signal (fan-out)
-- [ ] Envelope and static parameter handling is unchanged
-- [ ] Connections are cleaned up when notes end (automatic via node GC)
+- [x] LFO worklet node is connected to the correct `AudioParam` on each note's filter/oscillator
+- [x] Multiple notes' params all receive the same LFO signal (fan-out)
+- [x] Envelope and static parameter handling is unchanged
+- [x] Connections are cleaned up when notes end (automatic via node GC)
 
 **Testing:**
 
@@ -652,10 +652,10 @@ case "gain": {
 
 **Acceptance criteria:**
 
-- [ ] `GainEffectSchema` creates a `GainNode` in the effects chain
-- [ ] LFO on gain effect produces tremolo
-- [ ] Envelope and static values on gain effect work correctly
-- [ ] Gain effect integrates correctly in the `osc → gain → effects → destination` chain
+- [x] `GainEffectSchema` creates a `GainNode` in the effects chain
+- [x] LFO on gain effect produces tremolo
+- [x] Envelope and static values on gain effect work correctly
+- [x] Gain effect integrates correctly in the `osc → gain → effects → destination` chain
 
 **Testing:**
 
@@ -696,9 +696,9 @@ This requires storing the LFO schemas alongside the nodes. Add a `_lfoSchemas: M
 
 **Acceptance criteria:**
 
-- [ ] `outputA` and `outputB` `AudioParam`s are updated at each bar boundary
-- [ ] Cycling values change per bar: `d.lfo([600, 800, 1000], 400)` shifts baseline each bar
-- [ ] Random values resolve differently each bar
+- [x] `outputA` and `outputB` `AudioParam`s are updated at each bar boundary
+- [x] Cycling values change per bar: `d.lfo([600, 800, 1000], 400)` shifts baseline each bar
+- [x] Random values resolve differently each bar
 
 **Testing:**
 
@@ -725,14 +725,14 @@ Call this in `cancelFutureNotes` and when the instrument is done.
 
 **Acceptance criteria:**
 
-- [ ] LFO worklet nodes are disconnected when the instrument is retired
-- [ ] No LFO nodes leak across schema commits
-- [ ] The `_lfoNodes` map is cleared
+- [x] LFO worklet nodes are disconnected when the instrument is retired
+- [x] No LFO nodes leak across schema commits
+- [x] The `_lfoNodes` map is cleared
 
 **Testing:**
 
-- [ ] After `cancelFutureNotes()`, `_lfoNodes` is empty
-- [ ] Updating the schema (triggering `_commit()`) replaces LFO nodes cleanly
+- [x] After `cancelFutureNotes()`, `_lfoNodes` is empty
+- [x] Updating the schema (triggering `_commit()`) replaces LFO nodes cleanly
 
 ---
 

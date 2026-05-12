@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sawtooth, sine, square, triangle } from "./lfo-processor";
+import { sawtooth, sine, square, triangle } from "./waveforms";
 
 describe("sine", () => {
   it("returns 0 at phase 0", () => {

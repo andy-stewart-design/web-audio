@@ -62,7 +62,9 @@ class AudioPlayer {
 		this.lastError = null;
 		try {
 			const schema = await this.evalCode(code);
-			this.getEngine().update(schema);
+			const engine = this.getEngine();
+			await engine.ready;
+			engine.update(schema);
 			if (!this.isRunning) {
 				await this.getClock().start();
 				this.isRunning = true;

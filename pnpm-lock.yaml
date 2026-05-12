@@ -306,6 +306,9 @@ importers:
       '@web-audio/schema':
         specifier: workspace:*
         version: link:../schema
+      '@web-audio/worklets':
+        specifier: workspace:*
+        version: link:../worklets
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*

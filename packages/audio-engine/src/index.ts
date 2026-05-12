@@ -1,5 +1,6 @@
 import type AudioClock from "@web-audio/clock";
 import type { DromeSchema } from "@web-audio/schema";
+import { lfoProcessorSource } from "@web-audio/worklets";
 import Synthesizer from "./synthesizer";
 
 class AudioEngine {
@@ -15,10 +16,17 @@ class AudioEngine {
   // user intent should take effect.
   private _pending: DromeSchema | null = null;
   private _unsub: Set<() => void>;
+  readonly ready: Promise<void>;
 
   constructor(ctx: AudioContext, clock: AudioClock) {
     this._ctx = ctx;
     this._clock = clock;
+
+    const blob = new Blob([lfoProcessorSource], {
+      type: "application/javascript",
+    });
+    const url = URL.createObjectURL(blob);
+    this.ready = this._ctx.audioWorklet.addModule(url);
 
     this._unsub = new Set([
       clock.on("prebar", () => this._commit()),

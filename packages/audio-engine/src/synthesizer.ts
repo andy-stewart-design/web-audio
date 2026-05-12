@@ -11,9 +11,11 @@ class Synthesizer extends Instrument {
   constructor(ctx: AudioContext, clock: AudioClock, schema: SynthesizerSchema) {
     super(ctx, clock);
     this._schema = schema;
+    this._initLfos(schema);
   }
 
   scheduleBar(barIndex: number, barStartTime: number): void {
+    this._updateLfoParams(barIndex, barStartTime);
     const notes = this._schema.notes;
 
     if (notes.type === "random") {
@@ -73,6 +75,9 @@ class Synthesizer extends Instrument {
         noteDuration,
         endTime,
       );
+    } else if (detune.type === "lfo") {
+      const lfoNode = this._lfoNodes.get(detune.schema.id);
+      if (lfoNode) lfoNode.connect(osc.detune);
     }
 
     const effectNodes = this._schema.effects.map((effect) =>
@@ -104,6 +109,8 @@ class Synthesizer extends Instrument {
     stepIndex: number,
   ): ResolvedDetune {
     const detune = this._schema.detune;
+    if (detune.type === "lfo")
+      return { type: "lfo", schema: detune, value: 0 };
     if (detune.type === "envelope")
       return { type: "envelope", schema: detune, value: detune.min };
     return {

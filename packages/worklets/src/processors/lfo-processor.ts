@@ -1,19 +1,19 @@
 type WaveformType = "sine" | "triangle" | "square" | "sawtooth";
 type WaveformFn = (phase: number) => number;
 
-export function sine(phase: number): number {
+function sine(phase: number): number {
   return Math.sin(2 * Math.PI * phase);
 }
 
-export function triangle(phase: number): number {
+function triangle(phase: number): number {
   return 1 - 4 * Math.abs(Math.round(phase) - phase);
 }
 
-export function sawtooth(phase: number): number {
+function sawtooth(phase: number): number {
   return 2 * (phase - Math.floor(phase + 0.5));
 }
 
-export function square(phase: number): number {
+function square(phase: number): number {
   return phase % 1 < 0.5 ? 1 : -1;
 }
 
