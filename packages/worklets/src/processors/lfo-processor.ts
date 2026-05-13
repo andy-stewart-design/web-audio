@@ -1,21 +1,7 @@
+import { sine, triangle, sawtooth, square } from "@/utils/waveforms";
+
 type WaveformType = "sine" | "triangle" | "square" | "sawtooth";
 type WaveformFn = (phase: number) => number;
-
-function sine(phase: number): number {
-  return Math.sin(2 * Math.PI * phase);
-}
-
-function triangle(phase: number): number {
-  return 1 - 4 * Math.abs(Math.round(phase) - phase);
-}
-
-function sawtooth(phase: number): number {
-  return 2 * phase - 1;
-}
-
-function square(phase: number): number {
-  return phase % 1 < 0.5 ? 1 : -1;
-}
 
 const WAVEFORM_FNS: Record<WaveformType, WaveformFn> = {
   sine,

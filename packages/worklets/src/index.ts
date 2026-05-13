@@ -1,1 +1,1 @@
-export { default as lfoProcessorSource } from "./processors/lfo-processor?raw";
+export { default as lfoProcessorSource } from "./processors/lfo-processor?worklet";
