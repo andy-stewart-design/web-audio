@@ -5,7 +5,7 @@ declare const sampleRate: number;
 
 declare function registerProcessor(
   name: string,
-  // biome-ignore lint: worklet processor constructors accept varying option types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- worklet processor constructors accept varying option types
   processorCtor: new (options: any) => AudioWorkletProcessor,
 ): void;
 
