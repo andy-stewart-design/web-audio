@@ -35,6 +35,7 @@ class LfoProcessor extends AudioWorkletProcessor {
   private _barDuration: number;
   private _waveformIndex: number;
   private _speedIndex: number;
+  private _prevOutput: number;
 
   constructor(options: LfoProcessorOptions) {
     super();
@@ -46,6 +47,7 @@ class LfoProcessor extends AudioWorkletProcessor {
     this._barDuration = opts.barDuration;
     this._waveformIndex = 0;
     this._speedIndex = 0;
+    this._prevOutput = 0;
   }
 
   process(
@@ -65,7 +67,16 @@ class LfoProcessor extends AudioWorkletProcessor {
       const b = outputB.length > 1 ? outputB[i] : outputB[0];
 
       const waveformFn = WAVEFORM_FNS[this._waveforms[this._waveformIndex]];
-      let oscValue = waveformFn(this._phase);
+      const raw = waveformFn(this._phase);
+      // Slew limiter: caps rate of change to avoid hard clicks on square wave
+      // transitions. 256 samples (~5.8ms at 44100Hz) to traverse the full range.
+      const maxDelta = 2 / 256;
+      const slewed = Math.max(
+        this._prevOutput - maxDelta,
+        Math.min(this._prevOutput + maxDelta, raw),
+      );
+      this._prevOutput = slewed;
+      let oscValue = slewed;
       if (this._norm) oscValue = (oscValue + 1) * 0.5;
 
       output[i] = a + b * oscValue;
