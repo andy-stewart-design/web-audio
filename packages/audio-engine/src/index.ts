@@ -29,7 +29,7 @@ class AudioEngine {
     this.ready = this._ctx.audioWorklet.addModule(url);
 
     this._unsub = new Set([
-      clock.on("prebar", () => this._commit()),
+      clock.on("prebar", ({ bar }, time) => this._commit(bar, time)),
       clock.on("bar", ({ bar }, time) => {
         this._players.forEach((p) => p.scheduleBar(bar, time));
       }),
@@ -41,15 +41,9 @@ class AudioEngine {
 
   update(schema: DromeSchema): void {
     this._pending = schema;
-
-    // If the clock is paused, commit immediately so players are ready
-    // when the first bar event fires.
-    if (this._clock.paused) {
-      this._commit();
-    }
   }
 
-  private _commit(): void {
+  private _commit(upcomingBar = 0, barStartTime?: number): void {
     if (!this._pending) return;
 
     if (this._pending.bpm !== undefined) {
@@ -64,7 +58,14 @@ class AudioEngine {
 
     // Create new players from the pending schema
     this._players = this._pending.instruments.map(
-      (inst) => new Synthesizer(this._ctx, this._clock, inst),
+      (inst) =>
+        new Synthesizer(
+          this._ctx,
+          this._clock,
+          inst,
+          upcomingBar,
+          barStartTime,
+        ),
     );
 
     this._pending = null;

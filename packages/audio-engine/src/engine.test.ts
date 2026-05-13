@@ -65,30 +65,39 @@ beforeEach(() => {
 });
 
 describe("AudioEngine", () => {
-  describe("update() with paused clock", () => {
-    it("commits immediately when the clock is paused", () => {
+  describe("update() always defers to prebar", () => {
+    it("does not commit until prebar fires, even when paused", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);
 
       engine.update(makeSchema());
+      clock.emit("bar"); // no prebar yet — nothing committed
+
+      expect(instances()).toHaveLength(0);
+    });
+
+    it("commits on prebar and schedules on the subsequent bar", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+
+      engine.update(makeSchema());
+      clock.emit("prebar");
       clock.emit("bar");
 
       expect(instances()[0].scheduleBar).toHaveBeenCalledOnce();
     });
 
-    it("last update wins when called multiple times while paused", () => {
+    it("last update wins when called multiple times before prebar", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);
 
-      engine.update(makeSchema(1)); // committed immediately → player[0]
-      engine.update(makeSchema(1)); // committed immediately → player[1], player[0] retires
+      engine.update(makeSchema(1));
+      engine.update(makeSchema(1)); // only this one should commit
+      clock.emit("prebar");
       clock.emit("bar");
 
-      const all = instances();
-      expect(all).toHaveLength(2);
-      // Only the most-recently committed player schedules audio
-      expect(all[0].scheduleBar).not.toHaveBeenCalled();
-      expect(all[1].scheduleBar).toHaveBeenCalledOnce();
+      expect(instances()).toHaveLength(1);
+      expect(instances()[0].scheduleBar).toHaveBeenCalledOnce();
     });
   });
 

@@ -40,9 +40,27 @@ abstract class Instrument {
 
   abstract scheduleBar(barIndex: number, barStartTime: number): void;
 
-  protected _initLfos(schema: SynthesizerSchema): void {
+  protected _initLfos(
+    schema: SynthesizerSchema,
+    startingBar = 0,
+    barStartTime?: number,
+  ): void {
     const register = (lfo: LfoSchema) => {
       if (this._lfoNodes.has(lfo.id)) return;
+      // Seed the phase so a hot-swapped LFO sounds like a continuous oscillation
+      // rather than restarting at zero. For multi-speed LFOs, speed[0] is used
+      // as an approximation — exact only when all speeds are equal.
+      const basePhase = lfo.phase + startingBar * lfo.speed[0];
+      // The AudioWorkletNode starts processing immediately on creation, but the
+      // bar won't begin until barStartTime. Subtract the phase that will
+      // accumulate between now and then so the LFO lands at basePhase on the
+      // beat rather than running ahead by ~beforeLeadTime worth of phase.
+      const preAdvance =
+        barStartTime !== undefined
+          ? ((barStartTime - this._ctx.currentTime) * lfo.speed[0]) /
+            this._clock.barDuration
+          : 0;
+      const seedPhase = (((basePhase - preAdvance) % 1.0) + 1.0) % 1.0;
       const node = new AudioWorkletNode(this._ctx, "lfo-processor", {
         parameterData: {
           outputA: this._resolve(lfo.outputA, 0, 0),
@@ -51,7 +69,7 @@ abstract class Instrument {
         processorOptions: {
           waveform: lfo.waveform,
           speed: lfo.speed,
-          phase: lfo.phase,
+          phase: seedPhase,
           norm: lfo.norm,
           barDuration: this._clock.barDuration,
         },

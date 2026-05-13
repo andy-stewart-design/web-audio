@@ -8,10 +8,16 @@ import type { ResolvedDetune } from "./types";
 class Synthesizer extends Instrument {
   private _schema: SynthesizerSchema;
 
-  constructor(ctx: AudioContext, clock: AudioClock, schema: SynthesizerSchema) {
+  constructor(
+    ctx: AudioContext,
+    clock: AudioClock,
+    schema: SynthesizerSchema,
+    startingBar = 0,
+    barStartTime?: number,
+  ) {
     super(ctx, clock);
     this._schema = schema;
-    this._initLfos(schema);
+    this._initLfos(schema, startingBar, barStartTime);
   }
 
   scheduleBar(barIndex: number, barStartTime: number): void {
@@ -109,8 +115,7 @@ class Synthesizer extends Instrument {
     stepIndex: number,
   ): ResolvedDetune {
     const detune = this._schema.detune;
-    if (detune.type === "lfo")
-      return { type: "lfo", schema: detune, value: 0 };
+    if (detune.type === "lfo") return { type: "lfo", schema: detune, value: 0 };
     if (detune.type === "envelope")
       return { type: "envelope", schema: detune, value: detune.min };
     return {

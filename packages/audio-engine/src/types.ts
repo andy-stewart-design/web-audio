@@ -1,4 +1,8 @@
-import type { EnvelopeMode, EnvelopeSchema, LfoSchema } from "@web-audio/schema";
+import type {
+  EnvelopeMode,
+  EnvelopeSchema,
+  LfoSchema,
+} from "@web-audio/schema";
 
 interface ScheduledNote {
   sourceNode: AudioScheduledSourceNode;
