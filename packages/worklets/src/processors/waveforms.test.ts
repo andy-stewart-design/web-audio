@@ -38,20 +38,16 @@ describe("triangle", () => {
 });
 
 describe("sawtooth", () => {
-  it("returns 0 at phase 0", () => {
-    expect(sawtooth(0)).toBeCloseTo(0);
+  it("returns -1 at phase 0", () => {
+    expect(sawtooth(0)).toBeCloseTo(-1);
   });
 
-  it("returns ~1 just before phase 0.5", () => {
-    expect(sawtooth(0.499)).toBeCloseTo(1, 1);
+  it("returns 0 at phase 0.5", () => {
+    expect(sawtooth(0.5)).toBeCloseTo(0);
   });
 
-  it("returns ~-1 just after phase 0.5", () => {
-    expect(sawtooth(0.501)).toBeCloseTo(-1, 1);
-  });
-
-  it("returns 0 at phase 1", () => {
-    expect(sawtooth(1)).toBeCloseTo(0);
+  it("returns ~1 just before phase 1", () => {
+    expect(sawtooth(0.999)).toBeCloseTo(1, 1);
   });
 });
 

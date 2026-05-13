@@ -11,7 +11,7 @@ export function triangle(phase: number): number {
 }
 
 export function sawtooth(phase: number): number {
-  return 2 * (phase - Math.floor(phase + 0.5));
+  return 2 * phase - 1;
 }
 
 export function square(phase: number): number {
