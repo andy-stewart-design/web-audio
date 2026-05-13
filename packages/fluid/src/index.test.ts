@@ -230,6 +230,24 @@ describe("Drome", () => {
     });
   });
 
+  describe(".bpm()", () => {
+    it("sets bpm in the schema", () => {
+      const d = new Drome();
+      d.bpm(145);
+      expect(d.getSchema().bpm).toBe(145);
+    });
+
+    it("omits bpm from schema when not set", () => {
+      const d = new Drome();
+      expect(d.getSchema().bpm).toBeUndefined();
+    });
+
+    it("returns this for chaining", () => {
+      const d = new Drome();
+      expect(d.bpm(120)).toBe(d);
+    });
+  });
+
   describe("multiple instruments", () => {
     it("each instrument schema is independent", () => {
       const d = new Drome();

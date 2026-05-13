@@ -52,6 +52,10 @@ class AudioEngine {
   private _commit(): void {
     if (!this._pending) return;
 
+    if (this._pending.bpm !== undefined) {
+      this._clock.bpm(this._pending.bpm);
+    }
+
     // Retire current players — each removes itself from _retiring when done
     for (const player of this._players) {
       this._retiring.add(player);

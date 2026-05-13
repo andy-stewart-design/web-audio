@@ -78,6 +78,7 @@ interface SynthesizerSchema {
 }
 
 interface DromeSchema {
+  bpm?: number;
   instruments: SynthesizerSchema[];
 }
 

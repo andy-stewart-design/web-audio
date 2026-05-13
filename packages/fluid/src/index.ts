@@ -9,9 +9,15 @@ import type { FilterType } from "@web-audio/schema";
 
 class Drome {
   private _instruments: Set<Synthesizer>;
+  private _bpm: number | undefined;
 
   constructor() {
     this._instruments = new Set();
+  }
+
+  bpm(value: number) {
+    this._bpm = value;
+    return this;
   }
 
   synth(type?: Waveform) {
@@ -56,6 +62,7 @@ class Drome {
 
   getSchema(): DromeSchema {
     return {
+      ...(this._bpm !== undefined && { bpm: this._bpm }),
       instruments: Array.from(this._instruments).map((i) => i.getSchema()),
     };
   }
