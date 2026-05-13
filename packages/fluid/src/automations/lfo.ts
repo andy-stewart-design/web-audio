@@ -13,6 +13,8 @@ class Lfo {
   private _phase: number;
   private _norm: boolean;
 
+  off: (n: number) => this;
+
   constructor(outputA: LfoInput, outputB: LfoInput) {
     this._id = crypto.randomUUID();
     this._outputA = Lfo._toParameter(outputA);
@@ -21,6 +23,7 @@ class Lfo {
     this._waveform = ["sine"];
     this._phase = 0;
     this._norm = false;
+    this.off = this.offset.bind(this);
   }
 
   speed(...n: number[]) {
