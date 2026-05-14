@@ -2,6 +2,7 @@ import type AudioClock from "@web-audio/clock";
 import type { DromeSchema } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
 import Synthesizer from "./synthesizer";
+import { registerWorklets } from "./utils/register-worklets";
 
 class AudioEngine {
   private _ctx: AudioContext;
@@ -22,11 +23,7 @@ class AudioEngine {
     this._ctx = ctx;
     this._clock = clock;
 
-    const blob = new Blob([lfoProcessorSource], {
-      type: "application/javascript",
-    });
-    const url = URL.createObjectURL(blob);
-    this.ready = this._ctx.audioWorklet.addModule(url);
+    this.ready = registerWorklets(this._ctx, [lfoProcessorSource]);
 
     this._unsub = new Set([
       clock.on("prebar", ({ bar }, time) => this._commit(bar, time)),

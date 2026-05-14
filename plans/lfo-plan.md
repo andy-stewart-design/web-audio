@@ -757,13 +757,14 @@ Test complete schema output from `Drome` for LFO configurations:
 
 Using the sequencer app, verify the following produce correct audio output:
 
-- [ ] `d.synth("triangle").notes(60).fx(d.lpf(d.lfo(400, 1200).norm())).push()` — filter sweep, 1 bar period
-- [ ] `d.synth("triangle").notes(60).fx(d.lpf(d.lfo(800, 400).speed(4))).push()` — fast wobble
-- [ ] `d.synth("triangle").notes(60).fx(d.lpf(d.lfo(800, 400).wave("sawtooth"))).push()` — sawtooth sweep
-- [ ] `d.synth("triangle").notes(60).fx(d.gain(d.lfo(0, 1).norm().speed(4))).push()` — tremolo
-- [ ] `d.synth("triangle").notes(60).detune(d.lfo(0, 100).speed(8)).push()` — vibrato
-- [ ] `d.synth("triangle").notes(60).fx(d.lpf(d.lfo(400, 1200).norm().speed(0.5))).push()` — slow 2-bar sweep
-- [ ] `d.synth("triangle").notes(60).fx(d.lpf(d.lfo([400, 800], [400, 1200]).norm())).push()` — cycling values per bar
+- [x] `d.synth("sawtooth").notes(60).fx(d.lpf(d.lfo(400, 1200).norm())).push()` — filter sweep, 1 bar period
+- [x] `d.synth("sawtooth").notes(60).fx(d.lpf(d.lfo(800, 400).speed(4))).push()` — fast wobble
+- [x] `d.synth("sawtooth").notes(60).fx(d.lpf(d.lfo(800, 400).wave("sawtooth"))).push()` — sawtooth sweep
+- [x] `d.synth("sawtooth").notes(60).fx(d.gain(d.lfo(0, 1).norm().speed(4))).push()` — tremolo
+- [x] `d.synth("sawtooth").notes(60).detune(d.lfo(0, 100).speed(8)).push()` — vibrato
+- [x] `d.synth("sawtooth").notes(60).fx(d.lpf(d.lfo(400, 1200).norm().speed(0.5))).push()` — slow 2-bar sweep
+- [x] `d.synth("sawtooth").notes(60).fx(d.lpf(d.lfo([400, 800], [400, 1200]).norm())).push()` — cycling values per bar
+- [x] `d.synth("sawtooth").notes(60).detune(d.lfo(0, 100).speed(8,8,4)).push()` — cycling values per bar
 
 ---
 
