@@ -1,4 +1,8 @@
-import type { EnvelopeMode, EnvelopeSchema } from "@web-audio/schema";
+import type {
+  EnvelopeMode,
+  EnvelopeSchema,
+  LfoSchema,
+} from "@web-audio/schema";
 
 interface ScheduledNote {
   sourceNode: AudioScheduledSourceNode;
@@ -36,7 +40,8 @@ interface EnvelopeParams {
 
 type ResolvedDetune =
   | { type: "static"; value: number }
-  | { type: "envelope"; value: number; schema: EnvelopeSchema };
+  | { type: "envelope"; value: number; schema: EnvelopeSchema }
+  | { type: "lfo"; value: number; schema: LfoSchema };
 
 export type {
   EnvelopeParams,

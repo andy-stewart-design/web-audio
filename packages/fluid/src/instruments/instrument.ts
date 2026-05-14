@@ -4,10 +4,12 @@ import {
   type ScheduledValue,
 } from "@web-audio/patterns";
 import Envelope from "@/automations/envelope";
+import Lfo from "@/automations/lfo";
 import Filter from "@/effects/filter";
+import GainEffect from "@/effects/gain";
 import Notes from "@/patterns/notes";
 import Parameter from "@/patterns/parameter";
-import { isEnvelopeTuple } from "@/utils/validate";
+import { isEnvelopeTuple, isLfoTuple } from "@/utils/validate";
 import type { CycleInput, NoteName, NoteValue, ScaleAlias } from "@/types";
 
 type NoteOrChord<T> = T | T[];
@@ -15,9 +17,9 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class Instrument {
   protected _cycle: Notes;
-  protected _detune: Parameter | Envelope;
+  protected _detune: Parameter | Envelope | Lfo;
   protected _gain: Envelope;
-  protected _effects: Filter[] = [];
+  protected _effects: (Filter | GainEffect)[] = [];
 
   constructor(defaultPattern: Chord) {
     this._cycle = new Notes(defaultPattern);
@@ -84,8 +86,10 @@ class Instrument {
     return this;
   }
 
-  detune(...input: CycleInput | [Envelope]) {
-    if (isEnvelopeTuple(input)) {
+  detune(...input: CycleInput | [Envelope] | [Lfo]) {
+    if (isLfoTuple(input)) {
+      this._detune = input[0];
+    } else if (isEnvelopeTuple(input)) {
       this._detune = input[0];
     } else {
       this._detune = new Parameter(...input);
@@ -102,7 +106,7 @@ class Instrument {
     return this;
   }
 
-  fx(...effects: Filter[]) {
+  fx(...effects: (Filter | GainEffect)[]) {
     this._effects.push(...effects);
     return this;
   }

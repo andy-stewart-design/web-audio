@@ -1,9 +1,12 @@
 {
-  "name": "@web-audio/audio-engine",
+  "name": "@web-audio/worklets",
   "type": "module",
   "version": "0.0.0",
   "exports": {
-    ".": "./dist/index.mjs",
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -20,11 +23,6 @@
     "release": "bumpp",
     "prepublishOnly": "pnpm run build"
   },
-  "dependencies": {
-    "@web-audio/clock": "workspace:*",
-    "@web-audio/schema": "workspace:*",
-    "@web-audio/worklets": "workspace:*"
-  },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
@@ -32,6 +30,7 @@
     "@typescript/native-preview": "7.0.0-dev.20260511.1",
     "bumpp": "^11.1.0",
     "eslint": "^9.39.4",
+    "rolldown": "^1.0.1",
     "tsdown": "^0.22.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"

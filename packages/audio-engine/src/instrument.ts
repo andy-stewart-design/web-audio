@@ -2,8 +2,10 @@ import type AudioClock from "@web-audio/clock";
 import type {
   EffectSchema,
   EnvelopeSchema,
+  LfoSchema,
   ParameterSchema,
   RandomSchema,
+  SynthesizerSchema,
 } from "@web-audio/schema";
 import RandomResolver from "./random-resolver";
 import { BASE_GAIN, FILTER_TYPE_MAP } from "./constants";
@@ -18,6 +20,8 @@ abstract class Instrument {
   protected _ctx: AudioContext;
   protected _clock: AudioClock;
   protected readonly _outputNode: GainNode;
+  protected _lfoNodes = new Map<string, AudioWorkletNode>();
+  protected _lfoSchemas = new Map<string, LfoSchema>();
   private _resolvers = new Map<RandomSchema, RandomResolver>();
   private _scheduled: Set<ScheduledNote> = new Set();
   private _doneResolve: (() => void) | null = null;
@@ -36,6 +40,114 @@ abstract class Instrument {
 
   abstract scheduleBar(barIndex: number, barStartTime: number): void;
 
+  protected _initLfos(
+    schema: SynthesizerSchema,
+    startingBar = 0,
+    barStartTime?: number,
+  ): void {
+    const register = (lfo: LfoSchema) => {
+      if (this._lfoNodes.has(lfo.id)) return;
+      // Seed the phase so a hot-swapped LFO sounds like a continuous oscillation
+      // rather than restarting at zero. For multi-speed LFOs, speed[0] is used
+      // as an approximation — exact only when all speeds are equal.
+      const basePhase = lfo.phase + startingBar * lfo.speed[0];
+      // The AudioWorkletNode starts processing immediately on creation, but the
+      // bar won't begin until barStartTime. Subtract the phase that will
+      // accumulate between now and then so the LFO lands at basePhase on the
+      // beat rather than running ahead by ~beforeLeadTime worth of phase.
+      const preAdvance =
+        barStartTime !== undefined
+          ? ((barStartTime - this._ctx.currentTime) * lfo.speed[0]) /
+            this._clock.barDuration
+          : 0;
+      const seedPhase = (((basePhase - preAdvance) % 1.0) + 1.0) % 1.0;
+      const node = new AudioWorkletNode(this._ctx, "lfo-processor", {
+        parameterData: {
+          outputA: this._resolve(lfo.outputA, 0, 0),
+          outputB: this._resolve(lfo.outputB, 0, 0),
+        },
+        processorOptions: {
+          waveform: lfo.waveform,
+          speed: lfo.speed,
+          phase: seedPhase,
+          norm: lfo.norm,
+          barDuration: this._clock.barDuration,
+        },
+        numberOfInputs: 0,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+      });
+      this._lfoNodes.set(lfo.id, node);
+      this._lfoSchemas.set(lfo.id, lfo);
+    };
+
+    if (schema.detune.type === "lfo") register(schema.detune);
+    for (const effect of schema.effects) {
+      if (effect.type === "filter") {
+        for (const param of [
+          effect.frequency,
+          effect.q,
+          effect.detune,
+          effect.gain,
+        ]) {
+          if (param.type === "lfo") register(param);
+        }
+      } else if (effect.type === "gain") {
+        if (effect.gain.type === "lfo") register(effect.gain);
+      }
+    }
+  }
+
+  protected _connectLfoOrSchedule(
+    param: AudioParam,
+    schema: ParameterSchema | EnvelopeSchema | LfoSchema,
+    barIndex: number,
+    stepIndex: number,
+    startTime: number,
+    noteDuration: number,
+    endTime: number,
+    scale = 1,
+  ): void {
+    if (schema.type === "lfo") {
+      const node = this._lfoNodes.get(schema.id);
+      if (node) node.connect(param);
+    } else if (schema.type === "envelope") {
+      this._scheduleParamEnvelope(
+        param,
+        schema,
+        barIndex,
+        stepIndex,
+        noteDuration,
+        endTime,
+        scale,
+      );
+    } else {
+      param.setValueAtTime(
+        this._resolve(schema, barIndex, stepIndex) * scale,
+        startTime,
+      );
+    }
+  }
+
+  protected _updateLfoParams(barIndex: number, barStartTime: number): void {
+    for (const [id, schema] of this._lfoSchemas) {
+      const node = this._lfoNodes.get(id);
+      if (!node) continue;
+      const outputA = this._resolve(schema.outputA, barIndex, 0);
+      const outputB = this._resolve(schema.outputB, barIndex, 0);
+      node.parameters.get("outputA")!.setValueAtTime(outputA, barStartTime);
+      node.parameters.get("outputB")!.setValueAtTime(outputB, barStartTime);
+    }
+  }
+
+  private _cleanupLfos(): void {
+    for (const node of this._lfoNodes.values()) {
+      node.disconnect();
+    }
+    this._lfoNodes.clear();
+    this._lfoSchemas.clear();
+  }
+
   cancelFutureNotes(): void {
     const now = this._ctx.currentTime;
     for (const note of this._scheduled) {
@@ -47,6 +159,7 @@ abstract class Instrument {
       }
     }
     if (this._scheduled.size === 0) {
+      this._cleanupLfos();
       this._doneResolve?.();
     }
   }
@@ -138,22 +251,29 @@ abstract class Instrument {
           [node.detune, effect.detune],
           [node.gain, effect.gain],
         ] as const) {
-          if (schema.type === "envelope") {
-            this._scheduleParamEnvelope(
-              param,
-              schema,
-              barIndex,
-              stepIndex,
-              noteDuration,
-              endTime,
-            );
-          } else {
-            param.setValueAtTime(
-              this._resolve(schema, barIndex, stepIndex),
-              startTime,
-            );
-          }
+          this._connectLfoOrSchedule(
+            param,
+            schema,
+            barIndex,
+            stepIndex,
+            startTime,
+            noteDuration,
+            endTime,
+          );
         }
+        return node;
+      }
+      case "gain": {
+        const node = new GainNode(this._ctx);
+        this._connectLfoOrSchedule(
+          node.gain,
+          effect.gain,
+          barIndex,
+          stepIndex,
+          startTime,
+          noteDuration,
+          endTime,
+        );
         return node;
       }
     }
@@ -172,6 +292,7 @@ abstract class Instrument {
       for (const n of audioNodes) n.disconnect();
       this._scheduled.delete(scheduled);
       if (this._scheduled.size === 0) {
+        this._cleanupLfos();
         this._doneResolve?.();
       }
     };

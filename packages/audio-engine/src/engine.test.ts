@@ -19,6 +19,11 @@ vi.mock("./synthesizer", () => {
 import AudioEngine from "./index";
 import MockSynthesizer from "./synthesizer";
 
+// Stub AudioContext with audioWorklet.addModule for worklet registration
+const fakeCtx = {
+  audioWorklet: { addModule: () => Promise.resolve() },
+} as unknown as AudioContext;
+
 type EventCallback = (m: { beat: number; bar: number }, time: number) => void;
 
 // Controllable clock stub — lets tests fire events manually
@@ -60,30 +65,39 @@ beforeEach(() => {
 });
 
 describe("AudioEngine", () => {
-  describe("update() with paused clock", () => {
-    it("commits immediately when the clock is paused", () => {
+  describe("update() always defers to prebar", () => {
+    it("does not commit until prebar fires, even when paused", () => {
       const clock = new FakeClock();
-      const engine = new AudioEngine({} as AudioContext, clock as never);
+      const engine = new AudioEngine(fakeCtx, clock as never);
 
       engine.update(makeSchema());
+      clock.emit("bar"); // no prebar yet — nothing committed
+
+      expect(instances()).toHaveLength(0);
+    });
+
+    it("commits on prebar and schedules on the subsequent bar", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+
+      engine.update(makeSchema());
+      clock.emit("prebar");
       clock.emit("bar");
 
       expect(instances()[0].scheduleBar).toHaveBeenCalledOnce();
     });
 
-    it("last update wins when called multiple times while paused", () => {
+    it("last update wins when called multiple times before prebar", () => {
       const clock = new FakeClock();
-      const engine = new AudioEngine({} as AudioContext, clock as never);
+      const engine = new AudioEngine(fakeCtx, clock as never);
 
-      engine.update(makeSchema(1)); // committed immediately → player[0]
-      engine.update(makeSchema(1)); // committed immediately → player[1], player[0] retires
+      engine.update(makeSchema(1));
+      engine.update(makeSchema(1)); // only this one should commit
+      clock.emit("prebar");
       clock.emit("bar");
 
-      const all = instances();
-      expect(all).toHaveLength(2);
-      // Only the most-recently committed player schedules audio
-      expect(all[0].scheduleBar).not.toHaveBeenCalled();
-      expect(all[1].scheduleBar).toHaveBeenCalledOnce();
+      expect(instances()).toHaveLength(1);
+      expect(instances()[0].scheduleBar).toHaveBeenCalledOnce();
     });
   });
 
@@ -91,7 +105,7 @@ describe("AudioEngine", () => {
     it("defers commit until prebar fires", () => {
       const clock = new FakeClock();
       clock.paused = false;
-      const engine = new AudioEngine({} as AudioContext, clock as never);
+      const engine = new AudioEngine(fakeCtx, clock as never);
 
       engine.update(makeSchema());
       clock.emit("bar"); // no commit yet — prebar hasn't fired
@@ -102,7 +116,7 @@ describe("AudioEngine", () => {
     it("commits on prebar and schedules on the subsequent bar", () => {
       const clock = new FakeClock();
       clock.paused = false;
-      const engine = new AudioEngine({} as AudioContext, clock as never);
+      const engine = new AudioEngine(fakeCtx, clock as never);
 
       engine.update(makeSchema());
       clock.emit("prebar"); // _commit() fires
@@ -116,7 +130,7 @@ describe("AudioEngine", () => {
     it("only the last schema is committed when update() is called twice before prebar", () => {
       const clock = new FakeClock();
       clock.paused = false;
-      const engine = new AudioEngine({} as AudioContext, clock as never);
+      const engine = new AudioEngine(fakeCtx, clock as never);
 
       engine.update(makeSchema(1)); // pending = schema1
       engine.update(makeSchema(1)); // pending = schema2 (schema1 discarded)
@@ -131,7 +145,7 @@ describe("AudioEngine", () => {
     it("multi-instrument schema creates one player per instrument", () => {
       const clock = new FakeClock();
       clock.paused = false;
-      const engine = new AudioEngine({} as AudioContext, clock as never);
+      const engine = new AudioEngine(fakeCtx, clock as never);
 
       engine.update(makeSchema(3));
       clock.emit("prebar");
@@ -146,7 +160,7 @@ describe("AudioEngine", () => {
     it("players exist after prebar but have no scheduled audio until bar fires", () => {
       const clock = new FakeClock();
       clock.paused = false;
-      const engine = new AudioEngine({} as AudioContext, clock as never);
+      const engine = new AudioEngine(fakeCtx, clock as never);
 
       engine.update(makeSchema());
       clock.emit("prebar");
@@ -158,7 +172,7 @@ describe("AudioEngine", () => {
     it("bar passes its index to scheduleBar", () => {
       const clock = new FakeClock();
       clock.paused = false;
-      const engine = new AudioEngine({} as AudioContext, clock as never);
+      const engine = new AudioEngine(fakeCtx, clock as never);
 
       engine.update(makeSchema());
       clock.emit("prebar");
@@ -172,7 +186,7 @@ describe("AudioEngine", () => {
     it("retires old players on hot-swap and removes them when done resolves", async () => {
       const clock = new FakeClock();
       clock.paused = false;
-      const engine = new AudioEngine({} as AudioContext, clock as never);
+      const engine = new AudioEngine(fakeCtx, clock as never);
 
       engine.update(makeSchema(1));
       clock.emit("prebar"); // player[0] created
@@ -201,7 +215,7 @@ describe("AudioEngine", () => {
     it("cancels future notes on all active players", () => {
       const clock = new FakeClock();
       clock.paused = false;
-      const engine = new AudioEngine({} as AudioContext, clock as never);
+      const engine = new AudioEngine(fakeCtx, clock as never);
 
       engine.update(makeSchema(2));
       clock.emit("prebar");
@@ -217,7 +231,7 @@ describe("AudioEngine", () => {
     it("unsubscribes from clock events so subsequent events have no effect", () => {
       const clock = new FakeClock();
       clock.paused = false;
-      const engine = new AudioEngine({} as AudioContext, clock as never);
+      const engine = new AudioEngine(fakeCtx, clock as never);
 
       engine.update(makeSchema());
       clock.emit("prebar");

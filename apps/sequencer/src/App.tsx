@@ -62,7 +62,9 @@ function App() {
       new Function("drome", "d", input)(d, d);
       const schema = d.getSchema();
 
-      getEngine().update(schema);
+      const engine = getEngine();
+      await engine.ready;
+      engine.update(schema);
 
       if (!isRunning) {
         await getClock().start();

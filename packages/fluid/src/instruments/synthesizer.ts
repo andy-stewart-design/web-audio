@@ -1,10 +1,10 @@
-import type { SynthesizerSchema } from "@web-audio/schema";
+import type { SynthesizerSchema, Waveform } from "@web-audio/schema";
 import Instrument from "./instrument";
 import type Drome from "@/index";
-import type { Waveform } from "@/types";
+import { resolveWaveform, type WaveformAlias } from "@/utils/waveform";
 
 interface SynthesizerOptions {
-  type?: Waveform;
+  type?: WaveformAlias;
   host?: Drome;
 }
 
@@ -14,12 +14,12 @@ class Synthesizer extends Instrument {
 
   constructor({ type = "sine", host }: SynthesizerOptions = {}) {
     super([60]);
-    this._type = type;
+    this._type = resolveWaveform(type);
     this._host = host;
   }
 
-  type(t: Waveform) {
-    this._type = t;
+  type(t: WaveformAlias) {
+    this._type = resolveWaveform(t);
     return this;
   }
 

@@ -179,23 +179,33 @@ describe("Drome", () => {
       const d = new Drome();
       const schema = d.synth().fx(d.lpf(800)).getSchema();
       expect(schema.effects).toHaveLength(1);
-      expect(schema.effects[0].filterType).toBe("lp");
+      expect(
+        schema.effects[0].type === "filter" && schema.effects[0].filterType,
+      ).toBe("lp");
     });
 
     it("variadic fx(): order preserved", () => {
       const d = new Drome();
       const schema = d.synth().fx(d.lpf(800), d.hpf(200)).getSchema();
       expect(schema.effects).toHaveLength(2);
-      expect(schema.effects[0].filterType).toBe("lp");
-      expect(schema.effects[1].filterType).toBe("hp");
+      expect(
+        schema.effects[0].type === "filter" && schema.effects[0].filterType,
+      ).toBe("lp");
+      expect(
+        schema.effects[1].type === "filter" && schema.effects[1].filterType,
+      ).toBe("hp");
     });
 
     it("chained fx() calls accumulate", () => {
       const d = new Drome();
       const schema = d.synth().fx(d.lpf(800)).fx(d.hpf(200)).getSchema();
       expect(schema.effects).toHaveLength(2);
-      expect(schema.effects[0].filterType).toBe("lp");
-      expect(schema.effects[1].filterType).toBe("hp");
+      expect(
+        schema.effects[0].type === "filter" && schema.effects[0].filterType,
+      ).toBe("lp");
+      expect(
+        schema.effects[1].type === "filter" && schema.effects[1].filterType,
+      ).toBe("hp");
     });
 
     it("three effects", () => {
@@ -230,6 +240,24 @@ describe("Drome", () => {
     });
   });
 
+  describe(".bpm()", () => {
+    it("sets bpm in the schema", () => {
+      const d = new Drome();
+      d.bpm(145);
+      expect(d.getSchema().bpm).toBe(145);
+    });
+
+    it("omits bpm from schema when not set", () => {
+      const d = new Drome();
+      expect(d.getSchema().bpm).toBeUndefined();
+    });
+
+    it("returns this for chaining", () => {
+      const d = new Drome();
+      expect(d.bpm(120)).toBe(d);
+    });
+  });
+
   describe("multiple instruments", () => {
     it("each instrument schema is independent", () => {
       const d = new Drome();
@@ -243,6 +271,101 @@ describe("Drome", () => {
       }
       expect(sine.gain.mode).toBe("bleed");
       expect(triangle.gain.mode).toBe("clip");
+    });
+  });
+
+  describe("LFO schema round-trip", () => {
+    it("synth with LFO on detune produces type 'lfo'", () => {
+      const d = new Drome();
+      d.synth("triangle").detune(d.lfo(0, 100)).push();
+      const { detune } = d.getSchema().instruments[0];
+
+      expect(detune.type).toBe("lfo");
+      if (detune.type === "lfo") {
+        expect(detune.outputA.type).toBe("static");
+        expect(detune.outputB.type).toBe("static");
+      }
+    });
+
+    it("synth with LFO on filter frequency", () => {
+      const d = new Drome();
+      d.synth("triangle")
+        .fx(d.lpf(d.lfo(400, 1200).norm()))
+        .push();
+      const effect = d.getSchema().instruments[0].effects[0];
+
+      expect(effect.type).toBe("filter");
+      if (effect.type === "filter") {
+        expect(effect.frequency.type).toBe("lfo");
+        if (effect.frequency.type === "lfo") {
+          expect(effect.frequency.norm).toBe(true);
+        }
+      }
+    });
+
+    it("synth with gain effect", () => {
+      const d = new Drome();
+      d.synth("triangle").fx(d.gain(0.5)).push();
+      const effect = d.getSchema().instruments[0].effects[0];
+
+      expect(effect.type).toBe("gain");
+      if (effect.type === "gain") {
+        expect(effect.gain.type).toBe("static");
+      }
+    });
+
+    it("synth with mixed effects (filter + gain)", () => {
+      const d = new Drome();
+      d.synth("triangle")
+        .fx(d.lpf(800), d.gain(d.lfo(0, 1).norm()))
+        .push();
+      const { effects } = d.getSchema().instruments[0];
+
+      expect(effects).toHaveLength(2);
+      expect(effects[0].type).toBe("filter");
+      expect(effects[1].type).toBe("gain");
+      if (effects[1].type === "gain") {
+        expect(effects[1].gain.type).toBe("lfo");
+      }
+    });
+
+    it("LFO with all options", () => {
+      const d = new Drome();
+      const lfo = d
+        .lfo(400, 1200)
+        .speed(2, 1)
+        .wave("sawtooth", "triangle")
+        .offset(0.25)
+        .norm();
+      d.synth("triangle").fx(d.lpf(lfo)).push();
+      const effect = d.getSchema().instruments[0].effects[0];
+
+      if (effect.type === "filter" && effect.frequency.type === "lfo") {
+        expect(effect.frequency.speed).toEqual([2, 1]);
+        expect(effect.frequency.waveform).toEqual(["sawtooth", "triangle"]);
+        expect(effect.frequency.phase).toBe(0.25);
+        expect(effect.frequency.norm).toBe(true);
+      } else {
+        expect.unreachable("expected filter with lfo frequency");
+      }
+    });
+
+    it("same Lfo instance reused on two filters shares the same id", () => {
+      const d = new Drome();
+      const lfo = d.lfo(800, 400);
+      d.synth("triangle").fx(d.lpf(lfo), d.hpf(lfo)).push();
+      const { effects } = d.getSchema().instruments[0];
+
+      if (
+        effects[0].type === "filter" &&
+        effects[0].frequency.type === "lfo" &&
+        effects[1].type === "filter" &&
+        effects[1].frequency.type === "lfo"
+      ) {
+        expect(effects[0].frequency.id).toBe(effects[1].frequency.id);
+      } else {
+        expect.unreachable("expected two filters with lfo frequency");
+      }
     });
   });
 });
