@@ -4,7 +4,8 @@ import Lfo, { type LfoInput } from "./automations/lfo";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
 import Synthesizer from "./instruments/synthesizer";
-import type { CycleInput, DromeSchema, Waveform } from "./types";
+import type { CycleInput, DromeSchema } from "./types";
+import type { WaveformAlias } from "./utils/waveform";
 import type { FilterType } from "@web-audio/schema";
 
 class Drome {
@@ -20,7 +21,7 @@ class Drome {
     return this;
   }
 
-  synth(type?: Waveform) {
+  synth(type?: WaveformAlias) {
     return new Synthesizer({ host: this, type });
   }
 
