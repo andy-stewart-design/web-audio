@@ -55,11 +55,11 @@ class AudioEngine {
 
     // Create new players from the pending schema
     this._players = this._pending.instruments.map(
-      (inst) =>
+      (schema) =>
         new Synthesizer(
           this._ctx,
           this._clock,
-          inst,
+          schema,
           upcomingBar,
           barStartTime,
         ),
