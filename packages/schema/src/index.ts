@@ -48,6 +48,7 @@ interface LfoSchema {
   waveform: Waveform[];
   phase: number;
   norm: boolean;
+  invert: boolean;
 }
 
 type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
