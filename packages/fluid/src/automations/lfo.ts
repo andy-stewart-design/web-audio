@@ -13,7 +13,10 @@ class Lfo {
   private _waveform: Waveform[];
   private _phase: number;
   private _norm: boolean;
+  private _invert: boolean;
 
+  inv: () => this;
+  norm: () => this;
   off: (n: number) => this;
 
   constructor(outputA: LfoInput, outputB: LfoInput) {
@@ -24,6 +27,9 @@ class Lfo {
     this._waveform = ["sine"];
     this._phase = 0;
     this._norm = false;
+    this._invert = false;
+    this.inv = this.invert.bind(this);
+    this.norm = this.normalize.bind(this);
     this.off = this.offset.bind(this);
   }
 
@@ -42,8 +48,13 @@ class Lfo {
     return this;
   }
 
-  norm() {
+  normalize() {
     this._norm = true;
+    return this;
+  }
+
+  invert() {
+    this._invert = true;
     return this;
   }
 
@@ -57,6 +68,7 @@ class Lfo {
       waveform: this._waveform,
       phase: this._phase,
       norm: this._norm,
+      invert: this._invert,
     };
   }
 

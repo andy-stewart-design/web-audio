@@ -16,6 +16,7 @@ interface LfoProcessorOptions {
     speed: number[];
     phase: number;
     norm: boolean;
+    invert: boolean;
     barDuration: number;
   };
 }
@@ -32,6 +33,7 @@ class LfoProcessor extends AudioWorkletProcessor {
   private _speeds: number[];
   private _phase: number;
   private _norm: boolean;
+  private _invert: boolean;
   private _barDuration: number;
   private _waveformIndex: number;
   private _speedIndex: number;
@@ -44,6 +46,7 @@ class LfoProcessor extends AudioWorkletProcessor {
     this._speeds = opts.speed;
     this._phase = opts.phase;
     this._norm = opts.norm;
+    this._invert = opts.invert;
     this._barDuration = opts.barDuration;
     this._waveformIndex = 0;
     this._speedIndex = 0;
@@ -77,6 +80,7 @@ class LfoProcessor extends AudioWorkletProcessor {
       );
       this._prevOutput = slewed;
       let oscValue = slewed;
+      if (this._invert) oscValue = -oscValue;
       if (this._norm) oscValue = (oscValue + 1) * 0.5;
 
       output[i] = a + b * oscValue;

@@ -71,6 +71,7 @@ abstract class Instrument {
           speed: lfo.speed,
           phase: seedPhase,
           norm: lfo.norm,
+          invert: lfo.invert,
           barDuration: this._clock.barDuration,
         },
         numberOfInputs: 0,
