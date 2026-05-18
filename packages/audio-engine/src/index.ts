@@ -18,6 +18,7 @@ class AudioEngine {
   // user intent should take effect.
   private _pending: DromeSchema | null = null;
   private _unsub: Set<() => void>;
+  private _bufferCache = new Map<string, Promise<AudioBuffer | null>>();
   readonly ready: Promise<void>;
 
   constructor(ctx: AudioContext, clock: AudioClock) {
@@ -41,6 +42,28 @@ class AudioEngine {
     this._pending = schema;
   }
 
+  async prepare(): Promise<void> {
+    if (!this._pending) return;
+    const { instruments, banks } = this._pending;
+    const samplers = instruments.filter((s) => s.type === "sampler");
+    if (samplers.length === 0) return;
+
+    const tempCtx = this._ctx;
+    const cache = this._bufferCache;
+
+    const loads = samplers.map((schema) => {
+      if (schema.type !== "sampler") return Promise.resolve();
+      const player = new Sampler(tempCtx, this._clock, {
+        schema,
+        banks,
+        bufferCache: cache,
+      });
+      return player.load();
+    });
+
+    await Promise.all(loads);
+  }
+
   private _commit(upcomingBar = 0, barStartTime?: number): void {
     if (!this._pending) return;
 
@@ -61,6 +84,7 @@ class AudioEngine {
         return new Sampler(this._ctx, this._clock, {
           schema,
           banks,
+          bufferCache: this._bufferCache,
           startingBar: upcomingBar,
           barStartTime,
         });
@@ -71,6 +95,13 @@ class AudioEngine {
         barStartTime,
       });
     });
+
+    // Trigger non-blocking load for any sampler not yet ready
+    for (const player of this._players) {
+      if (player instanceof Sampler && !player.isReady()) {
+        player.load();
+      }
+    }
 
     this._pending = null;
   }
