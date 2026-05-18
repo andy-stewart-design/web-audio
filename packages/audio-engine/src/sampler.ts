@@ -67,7 +67,42 @@ class Sampler extends Instrument {
     const notes = this._schema.notes;
 
     if (notes.type === "fit") {
-      // Handled in Step 3.4
+      // Only trigger at the start of each N-bar window
+      if (barIndex % notes.bars !== 0) return;
+
+      const barDuration = this._clock.barDuration;
+      const playbackRate = this._buffer!.duration / (notes.bars * barDuration);
+
+      const source = new AudioBufferSourceNode(this._ctx, {
+        buffer: this._buffer,
+        playbackRate,
+        loop: this._schema.loop,
+      });
+      const gain = new GainNode(this._ctx);
+      const fitDuration = notes.bars * barDuration;
+
+      this._scheduleParamEnvelope(
+        gain.gain,
+        this._schema.gain,
+        barIndex,
+        0,
+        fitDuration,
+        barStartTime + fitDuration,
+      );
+
+      const effectNodes = this._schema.effects.map((effect) =>
+        this._buildEffectNode(effect, barIndex, 0, barStartTime, fitDuration, barStartTime + fitDuration),
+      );
+
+      source.connect(gain);
+      const chain: AudioNode[] = [gain, ...effectNodes];
+      chain.reduce((src, dst) => { src.connect(dst); return dst; });
+      chain[chain.length - 1].connect(this._outputNode);
+
+      source.start(barStartTime);
+      source.stop(barStartTime + fitDuration);
+
+      this._track(source, chain, barStartTime);
       return;
     }
 
