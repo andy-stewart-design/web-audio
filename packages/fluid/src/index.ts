@@ -1,12 +1,21 @@
 import { RandomCycle } from "@web-audio/patterns";
 import Envelope from "./automations/envelope";
 import Lfo, { type LfoInput } from "./automations/lfo";
+import { BUILT_IN_BANKS } from "./banks";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
 import Synthesizer from "./instruments/synthesizer";
 import type { CycleInput, DromeSchema } from "./types";
 import type { WaveformAlias } from "./utils/waveform";
-import type { FilterType } from "@web-audio/schema";
+import type { BankDefinition, BankSchema, FilterType } from "@web-audio/schema";
+
+function resolveBank(def: BankDefinition): BankSchema {
+  const samples: Record<string, string[]> = {};
+  for (const [name, paths] of Object.entries(def.samples)) {
+    samples[name] = paths.map((p) => def.basePath + p);
+  }
+  return { samples };
+}
 
 class Drome {
   private _instruments: Set<Synthesizer>;
@@ -62,10 +71,26 @@ class Drome {
   }
 
   getSchema(): DromeSchema {
+    const instruments = Array.from(this._instruments).map((i) =>
+      i.getSchema(),
+    ) as DromeSchema["instruments"];
+    const banks: Record<string, BankSchema> = {};
+
+    for (const instrument of instruments) {
+      if (instrument.type === "sampler") {
+        const { bank: bankName } = instrument;
+        if (!banks[bankName] && BUILT_IN_BANKS[bankName]) {
+          banks[bankName] = resolveBank(BUILT_IN_BANKS[bankName]);
+        } else if (!banks[bankName]) {
+          console.warn(`[Sampler] Unknown bank "${bankName}" — skipping`);
+        }
+      }
+    }
+
     return {
       ...(this._bpm !== undefined && { bpm: this._bpm }),
-      instruments: Array.from(this._instruments).map((i) => i.getSchema()),
-      banks: {},
+      instruments,
+      banks,
     };
   }
 }

@@ -169,15 +169,15 @@ export const DEFAULT_BANK = "tr808";
 
 **Acceptance criteria:**
 
-- [ ] `tr808.ts` and `tr909.ts` each export a valid `BankDefinition`
-- [ ] `BUILT_IN_BANKS` and `DEFAULT_BANK` are exported from `banks/index.ts`
-- [ ] Each bank file uses `satisfies BankDefinition` for type-checking
-- [ ] All files type-check cleanly
+- [x] `tr808.ts` and `tr909.ts` each export a valid `BankDefinition`
+- [x] `BUILT_IN_BANKS` and `DEFAULT_BANK` are exported from `banks/index.ts`
+- [x] Each bank file uses `satisfies BankDefinition` for type-checking
+- [x] All files type-check cleanly
 
 **Testing:**
 
-- [ ] Unit: `BUILT_IN_BANKS.tr909.samples.bd` is a non-empty array of relative path strings
-- [ ] Unit: `BUILT_IN_BANKS.tr909.basePath` is a valid URL string
+- [x] Unit: `BUILT_IN_BANKS.tr909.samples.bd` is a non-empty array of relative path strings
+- [x] Unit: `BUILT_IN_BANKS.tr909.basePath` is a valid URL string
 
 ---
 
@@ -223,16 +223,15 @@ If a bank name is not found in either source, fluid logs a warning and omits it 
 
 **Acceptance criteria:**
 
-- [ ] `d.sample("bd").bank("tr808").push(); d.getSchema().banks["tr808"]` is populated
-- [ ] Only banks actually referenced by instruments are included in the schema
-- [ ] An unknown bank name logs a warning and is omitted
-- [ ] Custom banks (from `loadSamples`) take precedence over built-in banks with the same name
+- [x] `d.sample("bd").bank("tr808").push(); d.getSchema().banks["tr808"]` is populated
+- [x] Only banks actually referenced by instruments are included in the schema
+- [x] An unknown bank name logs a warning and is omitted
 
 **Testing:**
 
-- [ ] Unit: schema with two tr808 instruments → `banks` contains `tr808` exactly once
-- [ ] Unit: schema with no samplers → `banks` is `{}`
-- [ ] Unit: unknown bank name logs a console warning
+- [x] Unit: schema with two tr808 instruments → `banks` contains `tr808` exactly once
+- [x] Unit: schema with no samplers → `banks` is `{}`
+- [x] Unit: unknown bank name logs a console warning
 
 ---
 
@@ -349,6 +348,7 @@ sample(name: string, bank?: string) {
 - [ ] `d.sample("bd")` returns a `Sampler` instance
 - [ ] `d.sample("bd", "tr808")` sets bank directly
 - [ ] `.push()` registers the sampler in Drome
+- [ ] `Drome._instruments` is widened to accept both `Synthesizer` and `Sampler`, and the type assertion in `getSchema()` is removed
 
 **Testing:**
 
@@ -732,6 +732,7 @@ In `scheduleBar`, resolve the variation index per step, pick the correct buffer,
 - [ ] `d.loadSamples({ kick: ["url.wav"] }).sample("kick").bank("user").getSchema()` — `banks.user.samples.kick` present
 - [ ] Named bank round-trip
 - [ ] Variation cycling: `d.sample("bd").variation([0, 1, 2]).getSchema().variation` is a StaticSchema
+- [ ] Custom bank with same name as a built-in bank takes precedence in `DromeSchema.banks`
 
 #### Step 4.2 — Manual verification
 
