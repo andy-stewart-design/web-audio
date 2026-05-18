@@ -5,6 +5,7 @@ import { BUILT_IN_BANKS } from "./banks";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
 import Instrument from "./instruments/instrument";
+import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import { resolveBank } from "./utils/sample-utils";
 import type { CycleInput, DromeSchema } from "./types";
@@ -26,6 +27,17 @@ class Drome {
 
   synth(type?: WaveformAlias) {
     return new Synthesizer({ host: this, type });
+  }
+
+  sample(nameOrToken: string, variation?: number) {
+    const [sampleName, variationStr] = nameOrToken.split(":");
+    const sampler = new Sampler(sampleName, { host: this });
+    if (variationStr !== undefined) {
+      sampler.variation(parseInt(variationStr, 10));
+    } else if (variation !== undefined) {
+      sampler.variation(variation);
+    }
+    return sampler;
   }
 
   rand() {
