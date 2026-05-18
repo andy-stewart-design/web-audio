@@ -7,7 +7,7 @@ import Envelope from "@/automations/envelope";
 import Lfo from "@/automations/lfo";
 import Filter from "@/effects/filter";
 import GainEffect from "@/effects/gain";
-import Notes from "@/patterns/notes";
+import MidiNotes from "@/patterns/midi-notes";
 import Parameter from "@/patterns/parameter";
 import { isEnvelopeTuple, isLfoTuple } from "@/utils/validate";
 import type { CycleInput, NoteName, NoteValue, ScaleAlias } from "@/types";
@@ -16,13 +16,13 @@ type NoteOrChord<T> = T | T[];
 type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class Instrument {
-  protected _cycle: Notes;
+  protected _cycle: MidiNotes;
   protected _detune: Parameter | Envelope | Lfo;
   protected _gain: Envelope;
   protected _effects: (Filter | GainEffect)[] = [];
 
   constructor(defaultPattern: Chord) {
-    this._cycle = new Notes(defaultPattern);
+    this._cycle = new MidiNotes(defaultPattern);
     this._detune = new Parameter(0);
     this._gain = new Envelope();
   }

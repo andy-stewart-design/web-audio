@@ -13,7 +13,7 @@ import type { NoteName, NoteValue, ScaleAlias } from "@/types";
 type NoteOrChord<T> = T | T[];
 type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
-class Notes {
+class MidiNotes {
   private _cycle: ChordCycle | RandomCycle;
   private _root = 0;
   private _scale: number[] | undefined;
@@ -122,4 +122,4 @@ class Notes {
   }
 }
 
-export default Notes;
+export default MidiNotes;
