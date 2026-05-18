@@ -17,7 +17,10 @@ class AudioEngine {
   // are intentionally discarded — in a live coding context, only the latest
   // user intent should take effect.
   private _pending: DromeSchema | null = null;
+  // Players created and fully loaded by prepare() — consumed by _commit()
+  private _pendingPlayers: (Synthesizer | Sampler)[] | null = null;
   private _unsub: Set<() => void>;
+  // Shared cache across commits — keyed by URL, deduplicates concurrent fetches
   private _bufferCache = new Map<string, Promise<AudioBuffer | null>>();
   readonly ready: Promise<void>;
 
@@ -45,23 +48,24 @@ class AudioEngine {
   async prepare(): Promise<void> {
     if (!this._pending) return;
     const { instruments, banks } = this._pending;
-    const samplers = instruments.filter((s) => s.type === "sampler");
-    if (samplers.length === 0) return;
 
-    const tempCtx = this._ctx;
-    const cache = this._bufferCache;
-
-    const loads = samplers.map((schema) => {
-      if (schema.type !== "sampler") return Promise.resolve();
-      const player = new Sampler(tempCtx, this._clock, {
-        schema,
-        banks,
-        bufferCache: cache,
-      });
-      return player.load();
+    const players: (Synthesizer | Sampler)[] = instruments.map((schema) => {
+      if (schema.type === "sampler") {
+        return new Sampler(this._ctx, this._clock, {
+          schema,
+          banks,
+          bufferCache: this._bufferCache,
+        });
+      }
+      return new Synthesizer(this._ctx, this._clock, { schema });
     });
 
+    const loads = players
+      .filter((p): p is Sampler => p instanceof Sampler)
+      .map((p) => p.load());
+
     await Promise.all(loads);
+    this._pendingPlayers = players;
   }
 
   private _commit(upcomingBar = 0, barStartTime?: number): void {
@@ -77,29 +81,34 @@ class AudioEngine {
       player.done.then(() => this._retiring.delete(player));
     }
 
-    // Create new players from the pending schema
-    const banks = this._pending.banks;
-    this._players = this._pending.instruments.map((schema) => {
-      if (schema.type === "sampler") {
-        return new Sampler(this._ctx, this._clock, {
+    if (this._pendingPlayers) {
+      // Use fully-loaded players from prepare() — buffers already decoded
+      this._players = this._pendingPlayers;
+      this._pendingPlayers = null;
+    } else {
+      // Mid-playback commit without prepare() — create players and load async
+      const banks = this._pending.banks;
+      this._players = this._pending.instruments.map((schema) => {
+        if (schema.type === "sampler") {
+          return new Sampler(this._ctx, this._clock, {
+            schema,
+            banks,
+            bufferCache: this._bufferCache,
+            startingBar: upcomingBar,
+            barStartTime,
+          });
+        }
+        return new Synthesizer(this._ctx, this._clock, {
           schema,
-          banks,
-          bufferCache: this._bufferCache,
           startingBar: upcomingBar,
           barStartTime,
         });
-      }
-      return new Synthesizer(this._ctx, this._clock, {
-        schema,
-        startingBar: upcomingBar,
-        barStartTime,
       });
-    });
 
-    // Trigger non-blocking load for any sampler not yet ready
-    for (const player of this._players) {
-      if (player instanceof Sampler && !player.isReady()) {
-        player.load();
+      for (const player of this._players) {
+        if (player instanceof Sampler && !player.isReady()) {
+          player.load();
+        }
       }
     }
 

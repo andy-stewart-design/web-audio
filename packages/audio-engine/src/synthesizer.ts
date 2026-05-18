@@ -3,7 +3,6 @@ import { midiToFrequency } from "./utils/midi-to-frequency";
 
 import type { StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
 import type AudioClock from "@web-audio/clock";
-import type { ResolvedDetune } from "./types";
 
 interface SynthesizerOptions {
   schema: SynthesizerSchema;
@@ -12,7 +11,7 @@ interface SynthesizerOptions {
 }
 
 class Synthesizer extends Instrument {
-  private _schema: SynthesizerSchema;
+  protected _schema: SynthesizerSchema;
 
   constructor(
     ctx: AudioContext,
@@ -58,7 +57,7 @@ class Synthesizer extends Instrument {
     const noteDuration = note.duration * barDuration;
     const endTime = startTime + noteDuration;
 
-    const detune = this._resolveDetune(barIndex, note.stepIndex);
+    const detune = this._resolveDetune(this._schema.detune, barIndex, note.stepIndex);
 
     const osc = new OscillatorNode(this._ctx, {
       type: this._schema.waveform,
@@ -114,19 +113,6 @@ class Synthesizer extends Instrument {
     this._track(osc, chain, startTime);
   }
 
-  protected _resolveDetune(
-    barIndex: number,
-    stepIndex: number,
-  ): ResolvedDetune {
-    const detune = this._schema.detune;
-    if (detune.type === "lfo") return { type: "lfo", schema: detune, value: 0 };
-    if (detune.type === "envelope")
-      return { type: "envelope", schema: detune, value: detune.min };
-    return {
-      type: "static",
-      value: this._resolve(detune, barIndex, stepIndex),
-    };
-  }
 }
 
 export default Synthesizer;

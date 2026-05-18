@@ -7,6 +7,7 @@ import type {
   ParameterSchema,
   RandomSchema,
 } from "@web-audio/schema";
+import type { ResolvedDetune } from "./types";
 import RandomResolver from "./random-resolver";
 import { BASE_GAIN, FILTER_TYPE_MAP } from "./constants";
 import { computeEnvelope } from "./utils/compute-envelope";
@@ -231,6 +232,16 @@ abstract class Instrument {
     param.linearRampToValueAtTime(env.min, env.endTime + env.releaseDur);
 
     return env.releaseDur;
+  }
+
+  protected _resolveDetune(
+    detune: ParameterSchema | EnvelopeSchema | LfoSchema,
+    barIndex: number,
+    stepIndex: number,
+  ): ResolvedDetune {
+    if (detune.type === "lfo") return { type: "lfo", schema: detune, value: 0 };
+    if (detune.type === "envelope") return { type: "envelope", schema: detune, value: detune.min };
+    return { type: "static", value: this._resolve(detune, barIndex, stepIndex) };
   }
 
   protected _buildEffectNode(

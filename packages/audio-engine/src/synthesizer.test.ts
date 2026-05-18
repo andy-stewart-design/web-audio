@@ -30,7 +30,7 @@ class FakeAudioContext {
 
 class TestSynthesizer extends Synthesizer {
   resolveDetune(barIndex: number, stepIndex: number) {
-    return this._resolveDetune(barIndex, stepIndex);
+    return this._resolveDetune(this._schema.detune, barIndex, stepIndex);
   }
 }
 

@@ -65,6 +65,7 @@ class AudioPlayer {
 			const engine = this.getEngine();
 			await engine.ready;
 			engine.update(schema);
+			await engine.prepare();
 			if (!this.isRunning) {
 				await this.getClock().start();
 				this.isRunning = true;
