@@ -44,6 +44,14 @@ interface FitSchema {
 }
 
 // ---------------------------------------------------
+// SAMPLING ------------------------------------------
+// ---------------------------------------------------
+
+interface BankSchema {
+  samples: Record<string, string[]>;
+}
+
+// ---------------------------------------------------
 // AUTOMATIONS ---------------------------------------
 // ---------------------------------------------------
 
@@ -94,23 +102,24 @@ type EffectSchema = FilterSchema | GainEffectSchema;
 // INSTRUMENTS ---------------------------------------
 // ---------------------------------------------------
 
-interface SynthesizerSchema {
+interface InstrumentSchema {
+  gain: EnvelopeSchema;
+  effects: EffectSchema[];
+  detune: ParameterSchema | EnvelopeSchema | LfoSchema;
+}
+
+interface SynthesizerSchema extends InstrumentSchema {
   type: "synthesizer";
   waveform: Waveform;
   notes: ParameterSchema;
-  detune: ParameterSchema | EnvelopeSchema | LfoSchema;
-  gain: EnvelopeSchema;
-  effects: EffectSchema[];
 }
 
-interface SamplerSchema {
+interface SamplerSchema extends InstrumentSchema {
   type: "sampler";
   bank: string;
   sample: string;
   variation: ParameterSchema;
   notes: ParameterSchema | FitSchema;
-  gain: EnvelopeSchema;
-  effects: EffectSchema[];
   loop: boolean;
 }
 
@@ -120,10 +129,12 @@ interface SamplerSchema {
 
 interface DromeSchema {
   bpm?: number;
-  instruments: SynthesizerSchema[];
+  instruments: (SynthesizerSchema | SamplerSchema)[];
+  banks: Record<string, BankSchema>;
 }
 
 export type {
+  BankSchema,
   DromeSchema,
   EffectSchema,
   EnvelopeMode,
@@ -132,6 +143,7 @@ export type {
   FilterType,
   FitSchema,
   GainEffectSchema,
+  InstrumentSchema,
   LfoSchema,
   ParameterSchema,
   RandomSchema,

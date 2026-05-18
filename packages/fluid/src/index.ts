@@ -65,6 +65,7 @@ class Drome {
     return {
       ...(this._bpm !== undefined && { bpm: this._bpm }),
       instruments: Array.from(this._instruments).map((i) => i.getSchema()),
+      banks: {},
     };
   }
 }
