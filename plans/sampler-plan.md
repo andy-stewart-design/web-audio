@@ -121,7 +121,7 @@ Note: `DromeSchema.instruments` uses an inline union rather than a named union t
 **Acceptance criteria:**
 
 - [x] `BankSchema` is exported from `@web-audio/schema`
-- [ ] `BankDefinition` is exported from `@web-audio/schema`
+- [x] `BankDefinition` is exported from `@web-audio/schema`
 - [x] `DromeSchema.banks` is present and typed correctly
 - [x] `DromeSchema.instruments` accepts both synths and samplers
 - [x] Package type-checks cleanly

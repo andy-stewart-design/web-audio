@@ -47,6 +47,11 @@ interface FitSchema {
 // SAMPLING ------------------------------------------
 // ---------------------------------------------------
 
+interface BankDefinition {
+  basePath: string;
+  samples: Record<string, string[]>;
+}
+
 interface BankSchema {
   samples: Record<string, string[]>;
 }
@@ -134,6 +139,7 @@ interface DromeSchema {
 }
 
 export type {
+  BankDefinition,
   BankSchema,
   DromeSchema,
   EffectSchema,
