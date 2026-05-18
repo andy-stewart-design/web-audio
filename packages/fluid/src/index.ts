@@ -4,6 +4,7 @@ import Lfo, { type LfoInput } from "./automations/lfo";
 import { BUILT_IN_BANKS } from "./banks";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
+import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import { resolveBank } from "./utils/sample-utils";
 import type { CycleInput, DromeSchema } from "./types";
@@ -11,7 +12,7 @@ import type { WaveformAlias } from "./utils/waveform";
 import type { BankSchema, FilterType } from "@web-audio/schema";
 
 class Drome {
-  private _instruments: Set<Synthesizer>;
+  private _instruments: Set<Synthesizer | Sampler>;
   private _bpm: number | undefined;
 
   constructor() {
@@ -59,14 +60,12 @@ class Drome {
     return new Filter("bp", ...frequency);
   }
 
-  push(inst: Synthesizer) {
+  push(inst: Synthesizer | Sampler) {
     this._instruments.add(inst);
   }
 
   getSchema(): DromeSchema {
-    const instruments = Array.from(this._instruments).map((i) =>
-      i.getSchema(),
-    ) as DromeSchema["instruments"];
+    const instruments = Array.from(this._instruments).map((i) => i.getSchema());
     const banks: Record<string, BankSchema> = {};
 
     for (const instrument of instruments) {
