@@ -48,6 +48,7 @@ class FakeClock {
 function makeSchema(instrumentCount = 1): DromeSchema {
   return {
     instruments: Array.from({ length: instrumentCount }, () => ({}) as never),
+    banks: {},
   };
 }
 

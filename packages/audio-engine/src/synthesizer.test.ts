@@ -72,11 +72,9 @@ function makeSchema(detune: SynthesizerSchema["detune"]): SynthesizerSchema {
 
 function makeSynth(detune: SynthesizerSchema["detune"]) {
   const ctx = new FakeAudioContext();
-  return new TestSynthesizer(
-    ctx as unknown as AudioContext,
-    {} as never,
-    makeSchema(detune),
-  );
+  return new TestSynthesizer(ctx as unknown as AudioContext, {} as never, {
+    schema: makeSchema(detune),
+  });
 }
 
 // ---------------------------------------------------------------------------

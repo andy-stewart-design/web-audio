@@ -1,16 +1,17 @@
 import type AudioClock from "@web-audio/clock";
 import type { DromeSchema } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
+import Sampler from "./sampler";
 import Synthesizer from "./synthesizer";
 import { registerWorklets } from "./utils/register-worklets";
 
 class AudioEngine {
   private _ctx: AudioContext;
   private _clock: AudioClock;
-  private _players: Synthesizer[] = [];
+  private _players: (Synthesizer | Sampler)[] = [];
   // Holds retired players until all their scheduled audio (including envelope
   // release tails) has finished. Each player removes itself via whenDone().
-  private _retiring: Set<Synthesizer> = new Set();
+  private _retiring: Set<Synthesizer | Sampler> = new Set();
   // Last-write-wins: if update() is called multiple times before the next
   // prebar fires, only the most recent schema is committed. Earlier schemas
   // are intentionally discarded — in a live coding context, only the latest
@@ -54,16 +55,22 @@ class AudioEngine {
     }
 
     // Create new players from the pending schema
-    this._players = this._pending.instruments.map(
-      (schema) =>
-        new Synthesizer(
-          this._ctx,
-          this._clock,
+    const banks = this._pending.banks;
+    this._players = this._pending.instruments.map((schema) => {
+      if (schema.type === "sampler") {
+        return new Sampler(this._ctx, this._clock, {
           schema,
-          upcomingBar,
+          banks,
+          startingBar: upcomingBar,
           barStartTime,
-        ),
-    );
+        });
+      }
+      return new Synthesizer(this._ctx, this._clock, {
+        schema,
+        startingBar: upcomingBar,
+        barStartTime,
+      });
+    });
 
     this._pending = null;
   }

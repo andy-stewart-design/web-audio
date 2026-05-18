@@ -333,12 +333,12 @@ Second argument is variation index only. Bank is always set via `.bank()`. `Drom
 
 The engine `Sampler` class extends `Instrument`. It is responsible for fetching and caching `AudioBuffer` instances.
 
-- **Constructor:** receives `SamplerSchema`, the `DromeSchema.banks` map, `AudioContext`, and `AudioClock`
+- **Constructor:** `(ctx, clock, { schema, banks, bufferCache, startingBar?, barStartTime? })`
 - **`_buffer: AudioBuffer | null`** — null until loaded
-- **`load(): Promise<void>`** — looks up the sample URL from the `banks` map using `bank`, `sample`, and variation index `0`. Fetches and decodes the audio data. Sets `_buffer` on success. Logs a warning on failure.
+- **`load(): Promise<void>`** — resolves the URL from `banks`, checks `bufferCache` before fetching. Sets `_buffer` on resolution.
 - **`isReady(): boolean`** — returns `_buffer !== null`
 
-URL resolution: `banks[schema.bank]?.samples[schema.sample]?.[0]`. No CDN logic in the engine — all URLs come from the schema.
+URL resolution: `banks[schema.bank]?.samples[schema.sample]?.[variationIndex]`. No CDN logic in the engine — all URLs come from the schema.
 
 **Acceptance criteria:**
 
@@ -354,21 +354,45 @@ URL resolution: `banks[schema.bank]?.samples[schema.sample]?.[0]`. No CDN logic 
 
 ---
 
-#### Step 3.2 — `AudioEngine` integration: load-before-play and mid-playback miss
+#### Step 3.2 — `AudioEngine` integration: shared buffer cache, load-before-play, and mid-playback miss
 
-**Files:** `packages/audio-engine/src/index.ts`
+**Files:** `packages/audio-engine/src/index.ts`, `packages/audio-engine/src/sampler.ts`
 
-On `play()`:
-- Collect all `SamplerSchema` instruments from the committed schema
-- Call `load()` on each that is not yet ready
-- Await all load promises before starting the clock
+**Shared buffer cache:** `AudioEngine` maintains a `Map<string, Promise<AudioBuffer>>` keyed by URL. It persists across `_commit()` calls so buffers are never re-fetched for the same URL. The cache is passed to each `Sampler` instance via its options object. Storing `Promise<AudioBuffer>` rather than `AudioBuffer` means simultaneous requests for the same URL share one fetch.
 
-On `_commit()` (schema update while playing):
-- For newly added samplers, call `load()` but do not block
-- The sampler's `scheduleBar` skips silently if `!isReady()`, with a console warning: `[Sampler] "${bank}/${sample}" not yet loaded — skipping bar ${barIndex}`
+```ts
+// In AudioEngine:
+private _bufferCache = new Map<string, Promise<AudioBuffer>>();
+
+// Passed to each Sampler:
+new Sampler(this._ctx, this._clock, { schema, banks, bufferCache: this._bufferCache, ... })
+
+// In Sampler.load():
+async load(): Promise<void> {
+  const url = this._resolveUrl();
+  if (!this._bufferCache.has(url)) {
+    this._bufferCache.set(url, fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((b) => this._ctx.decodeAudioData(b))
+      .catch(() => {
+        console.warn(`[Sampler] Failed to load ${url}`);
+        this._bufferCache.delete(url);
+        return null;
+      })
+    );
+  }
+  this._buffer = await this._bufferCache.get(url)!;
+}
+```
+
+**Load-before-play:** on `play()`, collect all sampler players, call `load()` on each, await all promises before starting the clock.
+
+**Mid-playback miss:** on `_commit()`, call `load()` on new sampler players but do not block. `scheduleBar` skips silently if `!isReady()`, with a console warning.
 
 **Acceptance criteria:**
 
+- [ ] `AudioEngine` holds a `_bufferCache` that persists across commits
+- [ ] Two samplers using the same URL share one fetch (cache hit on second)
 - [ ] Clock does not start until all sampler buffers are loaded
 - [ ] A sampler added while playing does not block other instruments
 - [ ] A not-yet-loaded sampler emits a console warning and produces no audio for that bar
@@ -376,6 +400,8 @@ On `_commit()` (schema update while playing):
 
 **Testing:**
 
+- [ ] Unit: two samplers with the same URL result in one `fetch` call
+- [ ] Unit: buffer cache persists across `_commit()` calls — re-commit with same sampler does not re-fetch
 - [ ] Unit (mock fetch): `play()` awaits load before emitting first `prebar` event
 - [ ] Unit: `scheduleBar` on an unready sampler logs a warning and returns early
 

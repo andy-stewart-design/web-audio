@@ -5,15 +5,19 @@ import type { StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
 import type AudioClock from "@web-audio/clock";
 import type { ResolvedDetune } from "./types";
 
+interface SynthesizerOptions {
+  schema: SynthesizerSchema;
+  startingBar?: number;
+  barStartTime?: number;
+}
+
 class Synthesizer extends Instrument {
   private _schema: SynthesizerSchema;
 
   constructor(
     ctx: AudioContext,
     clock: AudioClock,
-    schema: SynthesizerSchema,
-    startingBar = 0,
-    barStartTime?: number,
+    { schema, startingBar = 0, barStartTime }: SynthesizerOptions,
   ) {
     super(ctx, clock);
     this._schema = schema;

@@ -2,10 +2,10 @@ import type AudioClock from "@web-audio/clock";
 import type {
   EffectSchema,
   EnvelopeSchema,
+  InstrumentSchema,
   LfoSchema,
   ParameterSchema,
   RandomSchema,
-  SynthesizerSchema,
 } from "@web-audio/schema";
 import RandomResolver from "./random-resolver";
 import { BASE_GAIN, FILTER_TYPE_MAP } from "./constants";
@@ -41,7 +41,7 @@ abstract class Instrument {
   abstract scheduleBar(barIndex: number, barStartTime: number): void;
 
   protected _initLfos(
-    schema: SynthesizerSchema,
+    schema: InstrumentSchema,
     startingBar = 0,
     barStartTime?: number,
   ): void {
