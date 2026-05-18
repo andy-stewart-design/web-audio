@@ -342,10 +342,11 @@ URL resolution: `banks[schema.bank]?.samples[schema.sample]?.[variationIndex]`. 
 
 **Acceptance criteria:**
 
-- [ ] `sampler.load()` reads the URL from `banks` and populates `_buffer`
-- [ ] `sampler.isReady()` returns `false` before load, `true` after
-- [ ] A failed fetch logs a console warning and leaves `_buffer` as null
-- [ ] Engine contains no hardcoded CDN URL or `CDN_BASE` constant
+- [x] `sampler.load()` reads the URL from `banks` and populates `_buffer`
+- [x] `sampler.isReady()` returns `false` before load, `true` after
+- [x] A failed fetch logs a console warning and leaves `_buffer` as null
+- [x] Engine contains no hardcoded CDN URL or `CDN_BASE` constant
+- [x] `_resolveDetune` moved to `Instrument` base class, accepting `detune` as a parameter
 
 **Testing:**
 
@@ -356,88 +357,45 @@ URL resolution: `banks[schema.bank]?.samples[schema.sample]?.[variationIndex]`. 
 
 #### Step 3.2 — `AudioEngine` integration: shared buffer cache, load-before-play, and mid-playback miss
 
-**Files:** `packages/audio-engine/src/index.ts`, `packages/audio-engine/src/sampler.ts`
+**Files:** `packages/audio-engine/src/index.ts`, `packages/audio-engine/src/sampler.ts`, `apps/web/src/lib/client/audio.svelte.ts`, `apps/sequencer/src/App.tsx`
 
-**Shared buffer cache:** `AudioEngine` maintains a `Map<string, Promise<AudioBuffer>>` keyed by URL. It persists across `_commit()` calls so buffers are never re-fetched for the same URL. The cache is passed to each `Sampler` instance via its options object. Storing `Promise<AudioBuffer>` rather than `AudioBuffer` means simultaneous requests for the same URL share one fetch.
+**Shared buffer cache:** `AudioEngine` holds `_bufferCache: Map<string, Promise<AudioBuffer | null>>` keyed by URL, persisting across commits. Passed to each `Sampler` via options. Deduplicates concurrent fetches — a second `load()` for the same URL awaits the in-flight promise.
 
-```ts
-// In AudioEngine:
-private _bufferCache = new Map<string, Promise<AudioBuffer>>();
+**Load-before-play:** `AudioEngine.prepare()` creates the actual players (`_pendingPlayers`), fully loads all samplers, then stores them. `_commit()` uses `_pendingPlayers` directly when available — buffers are guaranteed ready before `scheduleBar` fires. App code calls `await engine.prepare()` before `clock.start()`.
 
-// Passed to each Sampler:
-new Sampler(this._ctx, this._clock, { schema, banks, bufferCache: this._bufferCache, ... })
-
-// In Sampler.load():
-async load(): Promise<void> {
-  const url = this._resolveUrl();
-  if (!this._bufferCache.has(url)) {
-    this._bufferCache.set(url, fetch(url)
-      .then((r) => r.arrayBuffer())
-      .then((b) => this._ctx.decodeAudioData(b))
-      .catch(() => {
-        console.warn(`[Sampler] Failed to load ${url}`);
-        this._bufferCache.delete(url);
-        return null;
-      })
-    );
-  }
-  this._buffer = await this._bufferCache.get(url)!;
-}
-```
-
-**Load-before-play:** on `play()`, collect all sampler players, call `load()` on each, await all promises before starting the clock.
-
-**Mid-playback miss:** on `_commit()`, call `load()` on new sampler players but do not block. `scheduleBar` skips silently if `!isReady()`, with a console warning.
+**Mid-playback miss:** when `_commit()` fires without `_pendingPlayers` (schema updated without `prepare()`), players are created fresh and `load()` is called non-blocking. `scheduleBar` skips silently if `!isReady()` with a console warning.
 
 **Acceptance criteria:**
 
-- [ ] `AudioEngine` holds a `_bufferCache` that persists across commits
-- [ ] Two samplers using the same URL share one fetch (cache hit on second)
-- [ ] Clock does not start until all sampler buffers are loaded
-- [ ] A sampler added while playing does not block other instruments
-- [ ] A not-yet-loaded sampler emits a console warning and produces no audio for that bar
-- [ ] Once loaded, the sampler plays normally from the next bar
+- [x] `AudioEngine` holds a `_bufferCache` that persists across commits
+- [x] Two samplers using the same URL share one fetch (cache hit on second)
+- [x] Clock does not start until all sampler buffers are loaded
+- [x] A sampler added while playing does not block other instruments
+- [x] A not-yet-loaded sampler emits a console warning and produces no audio for that bar
+- [x] Once loaded, the sampler plays normally from the next bar
 
 **Testing:**
 
 - [ ] Unit: two samplers with the same URL result in one `fetch` call
 - [ ] Unit: buffer cache persists across `_commit()` calls — re-commit with same sampler does not re-fetch
-- [ ] Unit (mock fetch): `play()` awaits load before emitting first `prebar` event
 - [ ] Unit: `scheduleBar` on an unready sampler logs a warning and returns early
 
 ---
 
-#### Step 3.3 — `scheduleBar`: fire-and-forget + loop playback
+#### Step 3.3 — `scheduleBar`: per-note sample playback
 
 **Files:** `packages/audio-engine/src/sampler.ts`
 
-For each note in the resolved `ParameterSchema`:
-
-```ts
-const node = ctx.createBufferSource();
-node.buffer = this._buffer;
-node.playbackRate.value = note.value; // resolved float from SamplerNotes
-node.loop = this._schema.loop;
-
-const startTime = barStartTime + note.offset * barDuration;
-const stopTime = startTime + note.duration * barDuration;
-
-node.connect(gainNode);
-node.start(startTime);
-node.stop(stopTime); // always schedule stop — sample self-terminates if shorter
-```
-
-For `FitSchema` notes, see Step 3.4.
-
-Gain and effects follow the same scheduling pattern as `Synthesizer` — reuse `_connectLfoOrSchedule`, `_scheduleParamEnvelope`, and `_buildEffectNode` from `Instrument`.
+Mirrors the `Synthesizer` scheduling pattern. For each note in the resolved `ParameterSchema`, creates an `AudioBufferSourceNode` with `playbackRate` set to the resolved float value (output of `SampleNotes`), applies the gain envelope and effects chain via the shared base class methods, and schedules start/stop. `FitSchema` notes are stubbed — see Step 3.4.
 
 **Acceptance criteria:**
 
-- [ ] A one-shot sample starts at the correct bar offset and stops at `startTime + duration * barDuration`
-- [ ] A looping sample wraps if shorter than the scheduled duration
-- [ ] `node.playbackRate.value` reflects the resolved note value
-- [ ] Gain envelope is applied identically to the synth
-- [ ] Effects chain is constructed identically to the synth
+- [x] A sample starts at the correct bar offset and stops at `startTime + duration * barDuration`
+- [x] `node.playbackRate.value` reflects the resolved note value
+- [x] `node.loop` is set from `schema.loop`
+- [x] Gain envelope is applied identically to the synth
+- [x] Effects chain is constructed identically to the synth
+- [x] Detune (static, envelope, LFO) handled via `_resolveDetune` from base class
 
 **Testing:**
 
