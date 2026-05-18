@@ -237,99 +237,56 @@ If a bank name is not found in either source, fluid logs a warning and omits it 
 
 ### Phase 2: Fluid — `Sampler` class
 
-#### Step 2.1 — Implement `SamplerNotes` helper
+#### Step 2.1 — Implement `SampleNotes` helper
 
-**Files:** `packages/fluid/src/patterns/sampler-notes.ts` (new)
+**Files:** `packages/fluid/src/patterns/sample-notes.ts` (new)
 
-`SamplerNotes` wraps the existing `Notes` class and overrides `getSchema()` to output playback rate multipliers instead of MIDI note integers. Given a root MIDI value `r` and a resolved MIDI note `n`, the rate is `2^((n - r) / 12)`.
-
-- **Constructor:** same signature as `Notes`, accepts `defaultPattern: Chord`
-- **`root(n)` / `scale(name)`:** delegate to the inner `Notes` instance (same API, same behaviour)
-- **`getSchema()`:** calls the inner `Notes.getSchema()`, then remaps each `StaticSchemaValue.value` from MIDI integer to a float playback rate. If no root is set, defaults to MIDI 69 (A4), which produces `1.0` for a note value of 69.
+`SampleNotes extends MidiNotes` (formerly `Notes`, renamed to `MidiNotes`). Overrides `getSchema()` to remap MIDI values to playback rate multipliers (`2^((midi - root) / 12)`). Defaults root to A4 (69) in its constructor so `notes([0])` always produces rate `1.0` without requiring an explicit `.root()` call.
 
 **Acceptance criteria:**
 
-- [ ] `SamplerNotes.getSchema()` with root A4 (69) and note 69 produces `value: 1.0`
-- [ ] Note 81 (A5, one octave up) produces `value: 2.0`
-- [ ] Note 57 (A3, one octave down) produces `value: 0.5`
-- [ ] `RandomCycle` input still works; the random MIDI values are remapped to rates in the output
+- [x] `SampleNotes.getSchema()` with root A4, note 0 (degree 0) produces `value: 1.0`
+- [x] Degree 12 (one octave up) produces `value: 2.0`
+- [x] Degree -12 (one octave down) produces `value: 0.5`
+- [x] `RandomCycle` with scale remaps valueMap entries from MIDI to rates
+- [x] `RandomCycle` without valueMap builds one from the range and clears `range`
 
 **Testing:**
 
-- [ ] Unit: root A4, note A4 → rate 1.0
-- [ ] Unit: root A4, note A5 → rate 2.0
-- [ ] Unit: root A4, note A3 → rate 0.5
-- [ ] Unit: root C4, notes [0, 3, 5] in major scale → correct rates for E4, G4
+- [x] Unit: root A4, note A4 → rate 1.0
+- [x] Unit: root A4, note A5 → rate 2.0
+- [x] Unit: root A4, note A3 → rate 0.5
+- [x] Unit: random + scale → valueMap remapped to rates
+- [x] Unit: random + range, no valueMap → valueMap built, range cleared
 
 ---
 
-#### Step 2.2 — Implement `Sampler` class
+#### Step 2.2 — Implement `Sampler` class and make `Instrument` abstract
 
-**Files:** `packages/fluid/src/instruments/sampler.ts` (new)
+**Files:** `packages/fluid/src/instruments/sampler.ts` (new), `packages/fluid/src/instruments/instrument.ts`, `packages/fluid/src/instruments/synthesizer.ts`
 
-`Sampler` extends `Instrument` and uses a `SamplerNotes` instance instead of `Notes` for `_cycle`.
-
-```ts
-class Sampler extends Instrument {
-  private _host: Drome | undefined;
-  private _bank: string;
-  private _sample: string;
-  private _fit: FitSchema | null = null;
-
-  constructor(sample: string, { bank = "default", host }: SamplerOptions = {}) {
-    super([69]); // default root A4
-    this._bank = bank;
-    this._sample = sample;
-    this._host = host;
-    // _cycle is overridden to a SamplerNotes instance
-  }
-
-  bank(name: string) { this._bank = name; return this; }
-
-  fit(bars: number) {
-    this._fit = { type: "fit", bars };
-    return this;
-  }
-
-  loop(enabled = true) { this._loop = enabled; return this; }
-
-  push() { this._host?.push(this); return this; }
-
-  getSchema(): SamplerSchema {
-    return {
-      type: "sampler",
-      bank: this._bank,
-      sample: this._sample,
-      variation: this._variation.getSchema(),
-      notes: this._fit ?? this._cycle.getSchema(),
-      gain: this._gain.getSchema(),
-      effects: this._effects.map((e) => e.getSchema()),
-      loop: this._loop,
-    };
-  }
-}
-```
-
-If `.notes()` is called after `.fit()`, the `_fit` field is set to `null` (explicit notes win).
+`Sampler extends Instrument` and overrides `_cycle` with a `SampleNotes` instance. `Instrument` is now `abstract` with `abstract getSchema(): SynthesizerSchema | SamplerSchema`. `_host` and `push()` moved from subclasses into `Instrument` — subclasses pass `host` to `super()`. Default bank is `DEFAULT_BANK` (`"tr909"`).
 
 **Acceptance criteria:**
 
-- [ ] `d.sample("bd").getSchema()` returns a valid `SamplerSchema`
-- [ ] Default bank is `"default"`
-- [ ] `.bank("tr808")` changes the bank in the schema
-- [ ] `.fit(2)` sets `notes` to `{ type: "fit", bars: 2 }` in the schema
-- [ ] Calling `.notes([0])` after `.fit(2)` uses the note ParameterSchema (fit is cleared)
-- [ ] `.loop(true)` sets `loop: true` in the schema
-- [ ] `.gain()`, `.fx()`, `.root()`, `.scale()` all work identically to `Synthesizer`
+- [x] `d.sample("bd").getSchema()` returns a valid `SamplerSchema`
+- [x] Default bank is `DEFAULT_BANK` (`"tr909"`)
+- [x] `.bank("tr808")` changes the bank in the schema
+- [x] `.fit(2)` sets `notes` to `{ type: "fit", bars: 2 }` in the schema
+- [x] Calling `.notes([0])` after `.fit(2)` uses the note ParameterSchema (fit is cleared)
+- [x] `.loop(true)` sets `loop: true` in the schema
+- [x] `.gain()`, `.fx()`, `.root()`, `.scale()` all work identically to `Synthesizer`
+- [x] `_host` and `push()` live in `Instrument` base — not duplicated in subclasses
+- [x] `Instrument` is abstract with `abstract getSchema()`
 
 **Testing:**
 
-- [ ] `d.sample("bd").getSchema()` → `{ type: "sampler", bank: "default", sample: "bd", loop: false, ... }`
-- [ ] `d.sample("bd").bank("tr808").getSchema()` → `bank: "tr808"`
-- [ ] `d.sample("loop").fit(2).getSchema()` → `notes: { type: "fit", bars: 2 }`
-- [ ] `d.sample("loop").fit(2).notes([0]).getSchema()` → `notes` is a `ParameterSchema` (not FitSchema)
-- [ ] `d.sample("bd").root("A4").notes([0]).getSchema()` → `notes` has value `1.0`
-- [ ] `d.sample("bd").root("A4").notes([12]).getSchema()` → `notes` has value `2.0`
+- [x] `d.sample("bd").getSchema()` → `{ type: "sampler", bank: "tr909", sample: "bd", loop: false, ... }`
+- [x] `d.sample("bd").bank("tr808").getSchema()` → `bank: "tr808"`
+- [x] `d.sample("loop").fit(2).getSchema()` → `notes: { type: "fit", bars: 2 }`
+- [x] `d.sample("loop").fit(2).notes([0]).getSchema()` → `notes` is a `ParameterSchema` (not FitSchema)
+- [x] `d.sample("bd").root("A4").notes([0]).getSchema()` → `notes` has value `1.0`
+- [x] `d.sample("bd").root("A4").notes([12]).getSchema()` → `notes` has value `2.0`
 
 ---
 
@@ -338,22 +295,33 @@ If `.notes()` is called after `.fit()`, the `_fit` field is set to `null` (expli
 **Files:** `packages/fluid/src/index.ts`
 
 ```ts
-sample(name: string, bank?: string) {
-  return new Sampler(name, { bank, host: this });
+sample(nameOrToken: string, variation?: number) {
+  const [sampleName, variationStr] = nameOrToken.split(":");
+  const sampler = new Sampler(sampleName, { host: this });
+  if (variationStr !== undefined) {
+    sampler.variation(parseInt(variationStr, 10));
+  } else if (variation !== undefined) {
+    sampler.variation(variation);
+  }
+  return sampler;
 }
 ```
 
+Second argument is variation index only. Bank is always set via `.bank()`. `Drome._instruments` is `Set<Instrument>`, `push()` accepts `Instrument`, type assertion removed from `getSchema()`.
+
 **Acceptance criteria:**
 
-- [ ] `d.sample("bd")` returns a `Sampler` instance
-- [ ] `d.sample("bd", "tr808")` sets bank directly
-- [ ] `.push()` registers the sampler in Drome
-- [ ] `Drome._instruments` is widened to accept both `Synthesizer` and `Sampler`, and the type assertion in `getSchema()` is removed
+- [x] `d.sample("bd")` returns a `Sampler` with default bank and variation 0
+- [x] `d.sample("bd:1")` sets variation to 1 via colon shorthand
+- [x] `d.sample("bd", 1)` sets variation to 1 via second argument
+- [x] `d.sample("bd").bank("tr808")` sets bank via chaining
+- [x] `.push()` registers the sampler in Drome
+- [x] `Drome._instruments` is `Set<Instrument>`, type assertion removed
 
 **Testing:**
 
-- [ ] `d.sample("bd") instanceof Sampler`
-- [ ] `d.sample("bd").push()` — sampler appears in `d.getSchema().instruments`
+- [x] `d.sample("bd") instanceof Sampler`
+- [x] `d.sample("bd").push()` — sampler appears in `d.getSchema().instruments`
 
 ---
 
@@ -1101,11 +1069,13 @@ node.stop(startTime + regionDuration);
 
 | File | Change |
 |---|---|
-| `packages/schema/src/index.ts` | PR1: Add `FitSchema`, `SamplerSchema`, `BankSchema`, `InstrumentSchema` union; update `DromeSchema`. PR3: Add `BankSampleValue`, `SpriteRegion`; widen `BankSchema`. PR4: Add `RegionSchema`, `StaticRegionSchema`, `ChopRegionSchema`, `ChopSlice` |
+| `packages/schema/src/index.ts` | PR1: Add `FitSchema`, `SamplerSchema`, `BankDefinition`, `BankSchema`, `InstrumentSchema` base; update `DromeSchema`. PR3: Add `BankSampleValue`, `SpriteRegion`; widen `BankSchema`. PR4: Add `RegionSchema`, `StaticRegionSchema`, `ChopRegionSchema`, `ChopSlice` |
 | `packages/fluid/src/banks/tr808.ts` | New — TR-808 `BankDefinition` |
 | `packages/fluid/src/banks/tr909.ts` | New — TR-909 `BankDefinition` |
 | `packages/fluid/src/banks/index.ts` | New — `BUILT_IN_BANKS` map and `DEFAULT_BANK` export |
-| `packages/fluid/src/patterns/sampler-notes.ts` | New — `SamplerNotes` helper converting MIDI notes to playback rates |
+| `packages/fluid/src/patterns/midi-notes.ts` | Renamed from `notes.ts` — `MidiNotes` class |
+| `packages/fluid/src/patterns/sample-notes.ts` | New — `SampleNotes extends MidiNotes`, outputs playback rates |
+| `packages/fluid/src/instruments/instrument.ts` | Made abstract; `_host`/`push()` moved here from subclasses |
 | `packages/fluid/src/instruments/sampler.ts` | New — `Sampler` builder class; extended across PRs for variation, loadSamples, region, chop |
 | `packages/fluid/src/index.ts` | Add `d.sample()`, `d.loadSamples()`; update `getSchema()` to inline bank manifests |
 | `packages/audio-engine/src/sampler.ts` | New — engine `Sampler` class; extended across PRs for variation buffers, multi-sample, sprites, regions |
