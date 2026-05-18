@@ -5,17 +5,10 @@ import { BUILT_IN_BANKS } from "./banks";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
 import Synthesizer from "./instruments/synthesizer";
+import { resolveBank } from "./utils/sample-utils";
 import type { CycleInput, DromeSchema } from "./types";
 import type { WaveformAlias } from "./utils/waveform";
-import type { BankDefinition, BankSchema, FilterType } from "@web-audio/schema";
-
-function resolveBank(def: BankDefinition): BankSchema {
-  const samples: Record<string, string[]> = {};
-  for (const [name, paths] of Object.entries(def.samples)) {
-    samples[name] = paths.map((p) => def.basePath + p);
-  }
-  return { samples };
-}
+import type { BankSchema, FilterType } from "@web-audio/schema";
 
 class Drome {
   private _instruments: Set<Synthesizer>;
