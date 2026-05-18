@@ -12,20 +12,21 @@ interface SamplerOptions {
 }
 
 class Sampler extends Instrument {
-  private _host: Drome | undefined;
   private _bank: string;
   private _sample: string;
   private _variation: Parameter;
   private _fit: FitSchema | null = null;
   private _loop = false;
 
-  constructor(sample: string, { bank = DEFAULT_BANK, host }: SamplerOptions = {}) {
-    super([0]);
+  constructor(
+    sample: string,
+    { bank = DEFAULT_BANK, host }: SamplerOptions = {},
+  ) {
+    super([0], host);
     this._cycle = new SampleNotes([0]);
     this._bank = bank;
     this._sample = sample;
     this._variation = new Parameter(0);
-    this._host = host;
   }
 
   bank(name: string) {
@@ -50,11 +51,6 @@ class Sampler extends Instrument {
 
   loop(enabled = true) {
     this._loop = enabled;
-    return this;
-  }
-
-  push() {
-    this._host?.push(this);
     return this;
   }
 

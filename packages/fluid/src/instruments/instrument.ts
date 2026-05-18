@@ -11,20 +11,31 @@ import MidiNotes from "@/patterns/midi-notes";
 import Parameter from "@/patterns/parameter";
 import { isEnvelopeTuple, isLfoTuple } from "@/utils/validate";
 import type { CycleInput, NoteName, NoteValue, ScaleAlias } from "@/types";
+import type { SamplerSchema, SynthesizerSchema } from "@web-audio/schema";
+import type Drome from "@/index";
 
 type NoteOrChord<T> = T | T[];
 type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
-class Instrument {
+abstract class Instrument {
   protected _cycle: MidiNotes;
   protected _detune: Parameter | Envelope | Lfo;
   protected _gain: Envelope;
   protected _effects: (Filter | GainEffect)[] = [];
+  protected _host: Drome | undefined;
 
-  constructor(defaultPattern: Chord) {
+  constructor(defaultPattern: Chord, host?: Drome) {
     this._cycle = new MidiNotes(defaultPattern);
     this._detune = new Parameter(0);
     this._gain = new Envelope();
+    this._host = host;
+  }
+
+  abstract getSchema(): SynthesizerSchema | SamplerSchema;
+
+  push() {
+    this._host?.push(this);
+    return this;
   }
 
   notes(...input: NoteInput<ScheduledValue> | [RandomCycle]) {

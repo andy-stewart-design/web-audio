@@ -4,7 +4,7 @@ import Lfo, { type LfoInput } from "./automations/lfo";
 import { BUILT_IN_BANKS } from "./banks";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
-import Sampler from "./instruments/sampler";
+import Instrument from "./instruments/instrument";
 import Synthesizer from "./instruments/synthesizer";
 import { resolveBank } from "./utils/sample-utils";
 import type { CycleInput, DromeSchema } from "./types";
@@ -12,7 +12,7 @@ import type { WaveformAlias } from "./utils/waveform";
 import type { BankSchema, FilterType } from "@web-audio/schema";
 
 class Drome {
-  private _instruments: Set<Synthesizer | Sampler>;
+  private _instruments: Set<Instrument>;
   private _bpm: number | undefined;
 
   constructor() {
@@ -60,7 +60,7 @@ class Drome {
     return new Filter("bp", ...frequency);
   }
 
-  push(inst: Synthesizer | Sampler) {
+  push(inst: Instrument) {
     this._instruments.add(inst);
   }
 

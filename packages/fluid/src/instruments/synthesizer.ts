@@ -9,22 +9,15 @@ interface SynthesizerOptions {
 }
 
 class Synthesizer extends Instrument {
-  private _host: Drome | undefined;
   private _type: Waveform;
 
   constructor({ type = "sine", host }: SynthesizerOptions = {}) {
-    super([60]);
+    super([60], host);
     this._type = resolveWaveform(type);
-    this._host = host;
   }
 
   type(t: WaveformAlias) {
     this._type = resolveWaveform(t);
-    return this;
-  }
-
-  push() {
-    this._host?.push(this);
     return this;
   }
 
