@@ -35,28 +35,40 @@ interface FitSchema {
 
 **Acceptance criteria:**
 
-- [ ] `FitSchema` is exported from `@web-audio/schema`
-- [ ] Package type-checks cleanly: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] `FitSchema` is exported from `@web-audio/schema`
+- [x] Package type-checks cleanly: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 **Testing:**
 
-- [ ] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 ---
 
-#### Step 1.2 — Add `SamplerSchema`
+#### Step 1.2 — Add `InstrumentSchema` base and `SamplerSchema`
 
 **Files:** `packages/schema/src/index.ts`
 
+`InstrumentSchema` is a base interface shared by all instruments. `SynthesizerSchema` and `SamplerSchema` extend it, removing the duplicated `gain`, `effects`, and `detune` fields.
+
 ```ts
-interface SamplerSchema {
+interface InstrumentSchema {
+  gain: EnvelopeSchema;
+  effects: EffectSchema[];
+  detune: ParameterSchema | EnvelopeSchema | LfoSchema;
+}
+
+interface SynthesizerSchema extends InstrumentSchema {
+  type: "synthesizer";
+  waveform: Waveform;
+  notes: ParameterSchema;
+}
+
+interface SamplerSchema extends InstrumentSchema {
   type: "sampler";
   bank: string;
   sample: string;
   variation: ParameterSchema;
   notes: ParameterSchema | FitSchema;
-  gain: EnvelopeSchema;
-  effects: EffectSchema[];
   loop: boolean;
 }
 ```
@@ -65,113 +77,107 @@ interface SamplerSchema {
 
 **Acceptance criteria:**
 
-- [ ] `SamplerSchema` is exported from `@web-audio/schema`
-- [ ] `notes` accepts both `ParameterSchema` and `FitSchema`
-- [ ] Package type-checks cleanly
+- [x] `InstrumentSchema` base interface is exported from `@web-audio/schema`
+- [x] `SamplerSchema` extends `InstrumentSchema` and is exported
+- [x] `SynthesizerSchema` extends `InstrumentSchema`
+- [x] `notes` accepts both `ParameterSchema` and `FitSchema`
+- [x] Package type-checks cleanly
 
 **Testing:**
 
-- [ ] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 ---
 
-#### Step 1.3 — Add `BankSchema` and update `DromeSchema`
+#### Step 1.3 — Add `BankDefinition`, `BankSchema`, and update `DromeSchema`
 
 **Files:** `packages/schema/src/index.ts`
 
+Two distinct types are needed: `BankDefinition` is the authoring format (used in bank files and by `d.loadSamples()`); `BankSchema` is the resolved schema format (full URLs, lives in `DromeSchema`). Fluid resolves the former into the latter.
+
 ```ts
-interface BankSchema {
-  samples: Record<string, string[]>; // sample name → array of variation URLs
+// Authoring format — basePath + relative paths
+interface BankDefinition {
+  basePath: string;
+  samples: Record<string, string[]>;
 }
 
-type InstrumentSchema = SynthesizerSchema | SamplerSchema;
+// Schema format — full URLs only, engine reads these directly
+interface BankSchema {
+  samples: Record<string, string[]>;
+}
 
 interface DromeSchema {
   bpm?: number;
-  instruments: InstrumentSchema[];
+  instruments: (SynthesizerSchema | SamplerSchema)[];
   banks: Record<string, BankSchema>; // bank name → manifest (built-in and custom)
 }
 ```
 
 `banks` is always present (empty object if no instruments reference any banks). Both built-in and custom banks live here — the engine makes no distinction. Built-in bank manifests are inlined by fluid at schema-build time.
 
+Note: `DromeSchema.instruments` uses an inline union rather than a named union type — `InstrumentSchema` is the base interface, not a union.
+
 **Acceptance criteria:**
 
-- [ ] `BankSchema` is exported from `@web-audio/schema`
-- [ ] `InstrumentSchema` union is exported
-- [ ] `DromeSchema.banks` is present and typed correctly
-- [ ] `DromeSchema.instruments` accepts both synths and samplers
-- [ ] Downstream packages (`fluid`, `audio-engine`) may show type errors — expected, resolved in later phases
-- [ ] Package type-checks cleanly
+- [x] `BankSchema` is exported from `@web-audio/schema`
+- [ ] `BankDefinition` is exported from `@web-audio/schema`
+- [x] `DromeSchema.banks` is present and typed correctly
+- [x] `DromeSchema.instruments` accepts both synths and samplers
+- [x] Package type-checks cleanly
 
 **Testing:**
 
-- [ ] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 ---
 
 #### Step 1.4 — Define built-in bank constants
 
-**Files:** `packages/fluid/src/data/banks.ts` (new)
+**Files:** `packages/fluid/src/banks/index.ts`, `packages/fluid/src/banks/tr808.ts`, `packages/fluid/src/banks/tr909.ts` (all new)
 
-Built-in banks are defined as `Record<string, BankSchema>` constants in the fluid package. Each sample lists its variation URLs in full (using the CDN base URL). This is the source of truth for what built-in samples exist.
+Each bank is a separate `.ts` file exporting a `BankDefinition` using `satisfies` for inline type-checking. The `index.ts` assembles them into a single `BUILT_IN_BANKS` map.
 
 ```ts
-import type { BankSchema } from "@web-audio/schema";
+// tr909.ts
+import type { BankDefinition } from "@web-audio/schema";
 
-const CDN_BASE = "https://samples.web-audio.dev";
-
-export const BUILT_IN_BANKS: Record<string, BankSchema> = {
-  tr808: {
-    samples: {
-      bd: Array.from({ length: 25 }, (_, i) => `${CDN_BASE}/tr808/bd/${i}.wav`),
-      sd: Array.from({ length: 25 }, (_, i) => `${CDN_BASE}/tr808/sd/${i}.wav`),
-      hh: Array.from({ length: 25 }, (_, i) => `${CDN_BASE}/tr808/hh/${i}.wav`),
-      oh: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr808/oh/${i}.wav`),
-      lt: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr808/lt/${i}.wav`),
-      mt: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr808/mt/${i}.wav`),
-      ht: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr808/ht/${i}.wav`),
-      cp: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr808/cp/${i}.wav`),
-      rs: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr808/rs/${i}.wav`),
-      cy: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr808/cy/${i}.wav`),
-      cb: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr808/cb/${i}.wav`),
-      ma: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr808/ma/${i}.wav`),
-      cl: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr808/cl/${i}.wav`),
-    },
+export default {
+  basePath:
+    "https://raw.githubusercontent.com/ritchse/tidal-drum-machines/main/machines/",
+  samples: {
+    bd: [
+      "RolandTR909/rolandtr909-bd/Bassdrum-01.wav",
+      "RolandTR909/rolandtr909-bd/Bassdrum-02.wav",
+      // ...
+    ],
+    sd: ["RolandTR909/rolandtr909-sd/naredrum.wav", /* ... */],
+    // ... remaining samples
   },
-  tr909: {
-    samples: {
-      bd: Array.from({ length: 10 }, (_, i) => `${CDN_BASE}/tr909/bd/${i}.wav`),
-      sd: Array.from({ length: 10 }, (_, i) => `${CDN_BASE}/tr909/sd/${i}.wav`),
-      hh: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr909/hh/${i}.wav`),
-      oh: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr909/oh/${i}.wav`),
-      lt: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr909/lt/${i}.wav`),
-      mt: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr909/mt/${i}.wav`),
-      ht: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr909/ht/${i}.wav`),
-      cp: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr909/cp/${i}.wav`),
-      rs: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr909/rs/${i}.wav`),
-      cy: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr909/cy/${i}.wav`),
-    },
-  },
-};
+} satisfies BankDefinition;
+```
 
+```ts
+// banks/index.ts
+import type { BankDefinition } from "@web-audio/schema";
+import tr808 from "./tr808";
+import tr909 from "./tr909";
+
+export const BUILT_IN_BANKS: Record<string, BankDefinition> = { tr808, tr909 };
 export const DEFAULT_BANK = "tr808";
 ```
 
-Exact variation counts are TBD until the CDN is populated — the structure is what matters here. The `CDN_BASE` constant lives here so it is only defined in one place.
-
 **Acceptance criteria:**
 
-- [ ] `BUILT_IN_BANKS` covers at least `tr808` and `tr909`
-- [ ] Each bank lists all sample names with their variation URL arrays
-- [ ] `DEFAULT_BANK` is exported and set to `"tr808"`
-- [ ] `CDN_BASE` is defined once here, not duplicated in the engine
-- [ ] File type-checks cleanly against `BankSchema`
+- [ ] `tr808.ts` and `tr909.ts` each export a valid `BankDefinition`
+- [ ] `BUILT_IN_BANKS` and `DEFAULT_BANK` are exported from `banks/index.ts`
+- [ ] Each bank file uses `satisfies BankDefinition` for type-checking
+- [ ] All files type-check cleanly
 
 **Testing:**
 
-- [ ] Unit: `BUILT_IN_BANKS.tr808.samples.bd` is a non-empty array of strings
-- [ ] Unit: all URLs follow the `${CDN_BASE}/{bank}/{sample}/{index}.wav` pattern
+- [ ] Unit: `BUILT_IN_BANKS.tr909.samples.bd` is a non-empty array of relative path strings
+- [ ] Unit: `BUILT_IN_BANKS.tr909.basePath` is a valid URL string
 
 ---
 
@@ -179,18 +185,32 @@ Exact variation counts are TBD until the CDN is populated — the structure is w
 
 **Files:** `packages/fluid/src/index.ts`
 
-When building the `DromeSchema`, fluid collects the bank name from each `Sampler` instrument and looks it up in `BUILT_IN_BANKS`. The resolved manifests are merged with any user-registered banks and placed in `DromeSchema.banks`.
+When building the `DromeSchema`, fluid collects the bank name from each `Sampler`, resolves the `BankDefinition` into a `BankSchema` by prepending `basePath` to each relative path, and places it in `DromeSchema.banks`. User-registered banks take precedence over built-in banks with the same name.
 
 ```ts
+function resolveBank(def: BankDefinition): BankSchema {
+  const samples: Record<string, string[]> = {};
+  for (const [name, paths] of Object.entries(def.samples)) {
+    samples[name] = paths.map((p) => def.basePath + p);
+  }
+  return { samples };
+}
+
 getSchema(): DromeSchema {
   const instruments = this._instruments.map((i) => i.getSchema());
-  const banks: Record<string, BankSchema> = { ...this._banks };
+  const banks: Record<string, BankSchema> = {};
 
+  // Resolve user-registered banks first (they take precedence)
+  for (const [name, def] of Object.entries(this._banks)) {
+    banks[name] = resolveBank(def);
+  }
+
+  // Inline built-in banks for any referenced bank not already present
   for (const instrument of instruments) {
     if (instrument.type === "sampler") {
-      const bankName = instrument.bank;
+      const { bank: bankName } = instrument;
       if (!banks[bankName] && BUILT_IN_BANKS[bankName]) {
-        banks[bankName] = BUILT_IN_BANKS[bankName];
+        banks[bankName] = resolveBank(BUILT_IN_BANKS[bankName]);
       }
     }
   }
@@ -199,7 +219,7 @@ getSchema(): DromeSchema {
 }
 ```
 
-If a bank name is not found in either `BUILT_IN_BANKS` or `_customBanks`, fluid logs a warning and omits it from the schema — the engine will skip that sampler.
+If a bank name is not found in either source, fluid logs a warning and omits it — the engine will skip that sampler.
 
 **Acceptance criteria:**
 
@@ -1081,7 +1101,9 @@ node.stop(startTime + regionDuration);
 | File | Change |
 |---|---|
 | `packages/schema/src/index.ts` | PR1: Add `FitSchema`, `SamplerSchema`, `BankSchema`, `InstrumentSchema` union; update `DromeSchema`. PR3: Add `BankSampleValue`, `SpriteRegion`; widen `BankSchema`. PR4: Add `RegionSchema`, `StaticRegionSchema`, `ChopRegionSchema`, `ChopSlice` |
-| `packages/fluid/src/data/banks.ts` | New — `BUILT_IN_BANKS` constants (`tr808`, `tr909`) and `DEFAULT_BANK` |
+| `packages/fluid/src/banks/tr808.ts` | New — TR-808 `BankDefinition` |
+| `packages/fluid/src/banks/tr909.ts` | New — TR-909 `BankDefinition` |
+| `packages/fluid/src/banks/index.ts` | New — `BUILT_IN_BANKS` map and `DEFAULT_BANK` export |
 | `packages/fluid/src/patterns/sampler-notes.ts` | New — `SamplerNotes` helper converting MIDI notes to playback rates |
 | `packages/fluid/src/instruments/sampler.ts` | New — `Sampler` builder class; extended across PRs for variation, loadSamples, region, chop |
 | `packages/fluid/src/index.ts` | Add `d.sample()`, `d.loadSamples()`; update `getSchema()` to inline bank manifests |
