@@ -2,10 +2,15 @@ import type AudioClock from "@web-audio/clock";
 import type { BankSchema, SamplerSchema, StaticSchemaValue } from "@web-audio/schema";
 import Instrument from "./instrument";
 
+interface SampleCache {
+  resolved: Map<string, AudioBuffer>;
+  promises: Map<string, Promise<AudioBuffer | null>>;
+}
+
 interface SamplerOptions {
   schema: SamplerSchema;
   banks: Record<string, BankSchema>;
-  bufferCache: Map<string, Promise<AudioBuffer | null>>;
+  cache: SampleCache;
   startingBar?: number;
   barStartTime?: number;
 }
@@ -13,18 +18,18 @@ interface SamplerOptions {
 class Sampler extends Instrument {
   private _schema: SamplerSchema;
   private _banks: Record<string, BankSchema>;
-  private _bufferCache: Map<string, Promise<AudioBuffer | null>>;
+  private _cache: SampleCache;
   private _buffer: AudioBuffer | null = null;
 
   constructor(
     ctx: AudioContext,
     clock: AudioClock,
-    { schema, banks, bufferCache, startingBar = 0, barStartTime }: SamplerOptions,
+    { schema, banks, cache, startingBar = 0, barStartTime }: SamplerOptions,
   ) {
     super(ctx, clock);
     this._schema = schema;
     this._banks = banks;
-    this._bufferCache = bufferCache;
+    this._cache = cache;
     this._initLfos(schema, startingBar, barStartTime);
   }
 
@@ -36,22 +41,32 @@ class Sampler extends Instrument {
     const url = this._resolveUrl();
     if (!url) return;
 
-    if (!this._bufferCache.has(url)) {
-      this._bufferCache.set(
+    // Synchronous hit — buffer already decoded, set _buffer before any yield
+    const resolved = this._cache.resolved.get(url);
+    if (resolved) {
+      this._buffer = resolved;
+      return;
+    }
+
+    if (!this._cache.promises.has(url)) {
+      this._cache.promises.set(
         url,
         fetch(url)
           .then((r) => r.arrayBuffer())
           .then((b) => this._ctx.decodeAudioData(b))
           .catch(() => {
             console.warn(`[Sampler] Failed to load "${this._schema.bank}/${this._schema.sample}" from ${url}`);
-            this._bufferCache.delete(url);
+            this._cache.promises.delete(url);
             return null;
           }),
       );
     }
 
-    const buffer = await this._bufferCache.get(url)!;
-    if (buffer) this._buffer = buffer;
+    const buffer = await this._cache.promises.get(url)!;
+    if (buffer) {
+      this._cache.resolved.set(url, buffer);
+      this._buffer = buffer;
+    }
   }
 
   scheduleBar(barIndex: number, barStartTime: number): void {

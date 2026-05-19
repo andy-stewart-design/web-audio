@@ -1,5 +1,5 @@
 import type AudioClock from "@web-audio/clock";
-import type { DromeSchema } from "@web-audio/schema";
+import type { BankSchema, DromeSchema, SamplerSchema } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
 import Sampler from "./sampler";
 import Synthesizer from "./synthesizer";
@@ -17,11 +17,13 @@ class AudioEngine {
   // are intentionally discarded — in a live coding context, only the latest
   // user intent should take effect.
   private _pending: DromeSchema | null = null;
-  // Players created and fully loaded by prepare() — consumed by _commit()
-  private _pendingPlayers: (Synthesizer | Sampler)[] | null = null;
   private _unsub: Set<() => void>;
-  // Shared cache across commits — keyed by URL, deduplicates concurrent fetches
-  private _bufferCache = new Map<string, Promise<AudioBuffer | null>>();
+  // Two-level cache: resolved for synchronous access in _commit(), promises
+  // for deduplicating concurrent fetches across players and commits.
+  private _cache = {
+    resolved: new Map<string, AudioBuffer>(),
+    promises: new Map<string, Promise<AudioBuffer | null>>(),
+  };
   readonly ready: Promise<void>;
 
   constructor(ctx: AudioContext, clock: AudioClock) {
@@ -45,27 +47,40 @@ class AudioEngine {
     this._pending = schema;
   }
 
+  // Pre-loads all sampler buffers into the cache before the clock starts.
+  // Does NOT create players — player creation (with LFO init) happens in
+  // _commit() where startingBar and barStartTime are known.
   async prepare(): Promise<void> {
     if (!this._pending) return;
     const { instruments, banks } = this._pending;
 
-    const players: (Synthesizer | Sampler)[] = instruments.map((schema) => {
-      if (schema.type === "sampler") {
-        return new Sampler(this._ctx, this._clock, {
-          schema,
-          banks,
-          bufferCache: this._bufferCache,
-        });
+    const urls = new Set<string>();
+    for (const schema of instruments) {
+      if (schema.type !== "sampler") continue;
+      const url = this._resolveUrl(schema, banks);
+      if (url) urls.add(url);
+    }
+
+    const loads = Array.from(urls).map((url) => {
+      if (!this._cache.promises.has(url)) {
+        this._cache.promises.set(
+          url,
+          fetch(url)
+            .then((r) => r.arrayBuffer())
+            .then((b) => this._ctx.decodeAudioData(b))
+            .catch(() => {
+              console.warn(`[Sampler] Failed to pre-load ${url}`);
+              this._cache.promises.delete(url);
+              return null;
+            }),
+        );
       }
-      return new Synthesizer(this._ctx, this._clock, { schema });
+      return this._cache.promises.get(url)!.then((buffer) => {
+        if (buffer) this._cache.resolved.set(url, buffer);
+      });
     });
 
-    const loads = players
-      .filter((p): p is Sampler => p instanceof Sampler)
-      .map((p) => p.load());
-
     await Promise.all(loads);
-    this._pendingPlayers = players;
   }
 
   private _commit(upcomingBar = 0, barStartTime?: number): void {
@@ -81,38 +96,39 @@ class AudioEngine {
       player.done.then(() => this._retiring.delete(player));
     }
 
-    if (this._pendingPlayers) {
-      // Use fully-loaded players from prepare() — buffers already decoded
-      this._players = this._pendingPlayers;
-      this._pendingPlayers = null;
-    } else {
-      // Mid-playback commit without prepare() — create players and load async
-      const banks = this._pending.banks;
-      this._players = this._pending.instruments.map((schema) => {
-        if (schema.type === "sampler") {
-          return new Sampler(this._ctx, this._clock, {
-            schema,
-            banks,
-            bufferCache: this._bufferCache,
-            startingBar: upcomingBar,
-            barStartTime,
-          });
-        }
-        return new Synthesizer(this._ctx, this._clock, {
+    // Create players with correct startingBar/barStartTime for LFO phase init
+    const banks = this._pending.banks;
+    this._players = this._pending.instruments.map((schema) => {
+      if (schema.type === "sampler") {
+        const player = new Sampler(this._ctx, this._clock, {
           schema,
+          banks,
+          cache: this._cache,
           startingBar: upcomingBar,
           barStartTime,
         });
-      });
-
-      for (const player of this._players) {
-        if (player instanceof Sampler && !player.isReady()) {
-          player.load();
-        }
+        // load() hits _cache.resolved synchronously if prepare() ran — no yield
+        player.load();
+        return player;
       }
-    }
+      return new Synthesizer(this._ctx, this._clock, {
+        schema,
+        startingBar: upcomingBar,
+        barStartTime,
+      });
+    });
 
     this._pending = null;
+  }
+
+  // Resolves the primary URL for a sampler schema (variation 0).
+  // Duplicated from Sampler._resolveUrl to avoid creating player instances.
+  private _resolveUrl(schema: SamplerSchema, banks: Record<string, BankSchema>): string | null {
+    const bank = banks[schema.bank];
+    if (!bank) return null;
+    const variations = bank.samples[schema.sample];
+    if (!variations?.length) return null;
+    return variations[0];
   }
 
   destroy(): void {
