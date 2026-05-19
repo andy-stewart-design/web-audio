@@ -350,8 +350,8 @@ URL resolution: `banks[schema.bank]?.samples[schema.sample]?.[variationIndex]`. 
 
 **Testing:**
 
-- [ ] Unit (mock fetch): `load()` reads the correct URL from the banks map and calls `decodeAudioData`
-- [ ] Unit: failed fetch logs a warning, `isReady()` remains false
+- [x] Unit (mock fetch): `load()` reads the correct URL from the banks map and calls `decodeAudioData`
+- [x] Unit: failed fetch logs a warning, `isReady()` remains false
 
 ---
 
@@ -376,9 +376,9 @@ URL resolution: `banks[schema.bank]?.samples[schema.sample]?.[variationIndex]`. 
 
 **Testing:**
 
-- [ ] Unit: two samplers with the same URL result in one `fetch` call
-- [ ] Unit: buffer cache persists across `_commit()` calls — re-commit with same sampler does not re-fetch
-- [ ] Unit: `scheduleBar` on an unready sampler logs a warning and returns early
+- [x] Unit: two samplers with the same URL result in one `fetch` call
+- [x] Unit: buffer cache persists across `_commit()` calls — re-commit with same sampler does not re-fetch
+- [x] Unit: `scheduleBar` on an unready sampler logs a warning and returns early
 
 ---
 
@@ -399,9 +399,9 @@ Mirrors the `Synthesizer` scheduling pattern. For each note in the resolved `Par
 
 **Testing:**
 
-- [ ] Unit (mock AudioContext): `scheduleBar` creates an `AudioBufferSourceNode` with correct `playbackRate` and scheduled start/stop times
-- [ ] Unit: loop flag is set correctly on the node
-- [ ] Unit: gain envelope ramps are scheduled at the correct timestamps
+- [x] Unit (mock AudioContext): `scheduleBar` creates an `AudioBufferSourceNode` with correct `playbackRate` and scheduled start/stop times
+- [x] Unit: loop flag is set correctly on the node
+- [x] Unit: gain envelope ramps are scheduled at the correct timestamps
 
 ---
 
@@ -437,9 +437,9 @@ node.stop(stopTime);
 
 **Testing:**
 
-- [ ] Unit: `fit(1)` on a 1-second buffer at 120 BPM (0.5s bar) → `playbackRate = 2.0`
-- [ ] Unit: `fit(2)` on a 2-second buffer at 120 BPM → `playbackRate = 1.0`
-- [ ] Unit: node stop time equals `barStartTime + bars * barDuration`
+- [x] Unit: `fit(1)` on a 1-second buffer at 120 BPM (0.5s bar) → `playbackRate = 2.0`
+- [x] Unit: `fit(2)` on a 2-second buffer at 120 BPM → `playbackRate = 1.0`
+- [x] Unit: node stop time equals `barStartTime + bars * barDuration`
 
 ---
 
@@ -449,11 +449,11 @@ node.stop(stopTime);
 
 **Files:** `packages/fluid/src/index.test.ts`
 
-- [ ] `d.sample("bd").getSchema()` — valid `SamplerSchema` in `instruments[]`
-- [ ] `d.sample("bd").bank("tr808").root("A4").notes([0, 3, 7]).getSchema()` — notes field is a ParameterSchema with float rates
-- [ ] `d.sample("loop").fit(2).loop(true).getSchema()` — `notes` is `FitSchema`, `loop: true`
-- [ ] `d.sample("bd").gain(d.env(0, 1)).fx(d.lpf(800)).getSchema()` — gain and effects present
-- [ ] Mixed schema: synth + sampler both in `instruments[]`
+- [x] `d.sample("bd").getSchema()` — valid `SamplerSchema` in `instruments[]`
+- [x] `d.sample("bd").bank("tr808").root("A4").notes([0, 3, 7]).getSchema()` — notes field is a ParameterSchema with float rates
+- [x] `d.sample("loop").fit(2).loop(true).getSchema()` — `notes` is `FitSchema`, `loop: true`
+- [x] `d.sample("bd").gain(d.env(0, 1)).fx(d.lpf(800)).getSchema()` — gain and effects present
+- [x] Mixed schema: synth + sampler both in `instruments[]`
 
 ---
 

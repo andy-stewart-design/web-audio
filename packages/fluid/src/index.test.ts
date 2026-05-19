@@ -274,6 +274,78 @@ describe("Drome", () => {
     });
   });
 
+  describe("sampler schema round-trip", () => {
+    it("d.sample('bd') produces a valid SamplerSchema", () => {
+      const d = new Drome();
+      d.sample("bd").push();
+      const schema = d.getSchema();
+      const inst = schema.instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.bank).toBe("tr909");
+        expect(inst.sample).toBe("bd");
+        expect(inst.loop).toBe(false);
+        expect(inst.variation.type).toBe("static");
+        expect(inst.notes).not.toHaveProperty("type", "fit");
+      }
+      expect(schema.banks).toHaveProperty("tr909");
+    });
+
+    it("notes with root and scale produce float playback rates", () => {
+      const d = new Drome();
+      d.sample("bd").root("A4").notes([0, 3, 7]).push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler" && inst.notes.type === "static") {
+        const rates = inst.notes.cycle[0].map((s) => s.value);
+        // MIDI 69 (A4) root: semitone 0 → rate 1.0
+        expect(rates[0]).toBeCloseTo(1.0);
+        // semitone 3 → 2^(3/12) ≈ 1.189
+        expect(rates[1]).toBeCloseTo(Math.pow(2, 3 / 12));
+        // semitone 7 → 2^(7/12) ≈ 1.498
+        expect(rates[2]).toBeCloseTo(Math.pow(2, 7 / 12));
+      }
+    });
+
+    it("fit(2).loop(true) produces FitSchema with loop flag", () => {
+      const d = new Drome();
+      d.sample("loop").fit(2).loop(true).push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.notes).toEqual({ type: "fit", bars: 2 });
+        expect(inst.loop).toBe(true);
+      }
+    });
+
+    it("gain envelope and effects are present", () => {
+      const d = new Drome();
+      d.sample("bd").gain(d.env(0, 1)).fx(d.lpf(800)).push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.gain.type).toBe("envelope");
+        expect(inst.effects).toHaveLength(1);
+        expect(inst.effects[0].type).toBe("filter");
+      }
+    });
+
+    it("synth + sampler both appear in instruments[]", () => {
+      const d = new Drome();
+      d.synth("sine").push();
+      d.sample("sd").push();
+      const instruments = d.getSchema().instruments;
+
+      expect(instruments).toHaveLength(2);
+      expect(instruments[0].type).toBe("synthesizer");
+      expect(instruments[1].type).toBe("sampler");
+    });
+  });
+
   describe("LFO schema round-trip", () => {
     it("synth with LFO on detune produces type 'lfo'", () => {
       const d = new Drome();

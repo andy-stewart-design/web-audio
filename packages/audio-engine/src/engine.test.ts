@@ -16,8 +16,31 @@ vi.mock("./synthesizer", () => {
   return { default: vi.fn(MockSynthesizer) };
 });
 
+vi.mock("./sampler", () => {
+  function MockSampler(
+    this: Record<string, unknown>,
+    _ctx: unknown,
+    _clock: unknown,
+    opts: { cache: { resolved: Map<string, unknown> } },
+  ) {
+    this.scheduleBar = vi.fn();
+    this.cancelFutureNotes = vi.fn();
+    this.isReady = vi.fn(() => true);
+    this.load = vi.fn();
+    this.fallbackBufferFor = vi.fn(() => null);
+    this._cache = opts.cache;
+    let resolve: () => void;
+    this.done = new Promise<void>((r) => {
+      resolve = r;
+    });
+    this._resolveDone = () => resolve();
+  }
+  return { default: vi.fn(MockSampler) };
+});
+
 import AudioEngine from "./index";
 import MockSynthesizer from "./synthesizer";
+import MockSampler from "./sampler";
 
 // Stub AudioContext with audioWorklet.addModule for worklet registration
 const fakeCtx = {
@@ -52,10 +75,85 @@ function makeSchema(instrumentCount = 1): DromeSchema {
   };
 }
 
+function makeSamplerSchema(): DromeSchema {
+  return {
+    instruments: [
+      {
+        type: "sampler",
+        bank: "kit",
+        sample: "bd",
+        variation: {
+          type: "static",
+          polyphonic: false,
+          cycle: [[{ value: 0, offset: 0, duration: 1, stepIndex: 0 }]],
+        },
+        notes: {
+          type: "static",
+          polyphonic: false,
+          cycle: [[{ value: 1, offset: 0, duration: 1, stepIndex: 0 }]],
+        },
+        detune: {
+          type: "static",
+          polyphonic: false,
+          cycle: [[{ value: 0, offset: 0, duration: 1, stepIndex: 0 }]],
+        },
+        gain: {
+          type: "envelope",
+          min: 0,
+          max: {
+            type: "static",
+            polyphonic: false,
+            cycle: [[{ value: 1, offset: 0, duration: 1, stepIndex: 0 }]],
+          },
+          a: {
+            type: "static",
+            polyphonic: false,
+            cycle: [[{ value: 0, offset: 0, duration: 1, stepIndex: 0 }]],
+          },
+          d: {
+            type: "static",
+            polyphonic: false,
+            cycle: [[{ value: 0, offset: 0, duration: 1, stepIndex: 0 }]],
+          },
+          s: {
+            type: "static",
+            polyphonic: false,
+            cycle: [[{ value: 1, offset: 0, duration: 1, stepIndex: 0 }]],
+          },
+          r: {
+            type: "static",
+            polyphonic: false,
+            cycle: [[{ value: 0, offset: 0, duration: 1, stepIndex: 0 }]],
+          },
+          mode: "bleed",
+        },
+        effects: [],
+        loop: false,
+      },
+    ],
+    banks: {
+      kit: { samples: { bd: ["https://example.com/bd.wav"] } },
+    },
+  };
+}
+
 function instances() {
   return vi.mocked(MockSynthesizer).mock.instances as unknown as Array<{
     scheduleBar: ReturnType<typeof vi.fn>;
     cancelFutureNotes: ReturnType<typeof vi.fn>;
+    done: Promise<void>;
+    _resolveDone: () => void;
+  }>;
+}
+
+function samplerInstances() {
+  return vi.mocked(MockSampler).mock.instances as unknown as Array<{
+    scheduleBar: ReturnType<typeof vi.fn>;
+    cancelFutureNotes: ReturnType<typeof vi.fn>;
+    load: ReturnType<typeof vi.fn>;
+    isReady: ReturnType<typeof vi.fn>;
+    fallbackBufferFor: ReturnType<typeof vi.fn>;
+    _cache: { resolved: Map<string, unknown> };
     done: Promise<void>;
     _resolveDone: () => void;
   }>;
@@ -241,6 +339,36 @@ describe("AudioEngine", () => {
       // After destroy, bar events must not call scheduleBar
       clock.emit("bar");
       expect(instances()[0].scheduleBar).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("sampler buffer cache", () => {
+    it("persists across _commit() calls — re-commit with same sampler does not re-fetch", () => {
+      const clock = new FakeClock();
+      clock.paused = false;
+      const engine = new AudioEngine(fakeCtx, clock as never);
+
+      const schema = makeSamplerSchema();
+
+      // First commit
+      engine.update(schema);
+      clock.emit("prebar");
+
+      const firstSampler = samplerInstances()[0];
+      expect(firstSampler.load).toHaveBeenCalledOnce();
+
+      // Resolve first sampler's done so retirement completes
+      firstSampler._resolveDone();
+
+      // Second commit with the same schema
+      engine.update(schema);
+      clock.emit("prebar");
+
+      const secondSampler = samplerInstances()[1];
+      expect(secondSampler.load).toHaveBeenCalledOnce();
+
+      // Both samplers received the same cache object
+      expect(secondSampler._cache).toBe(firstSampler._cache);
     });
   });
 });

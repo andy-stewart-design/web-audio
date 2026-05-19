@@ -30,10 +30,10 @@ class FakeBiquadFilterNode {
   connect = vi.fn();
   disconnect = vi.fn();
 
-  constructor(
-    _ctx: AudioContext,
-    _options?: { type?: BiquadFilterType },
-  ) {}
+  constructor(_ctx: AudioContext, _options?: { type?: BiquadFilterType }) {
+    void _ctx;
+    void _options;
+  }
 }
 
 class FakeBufferSourceNode {
@@ -130,10 +130,12 @@ function randomNotes(): RandomSchema {
     cycle: {
       type: "static",
       polyphonic: false,
-      cycle: [[
-        { value: 1, offset: 0, duration: 0.5, stepIndex: 0 },
-        { value: 0, offset: 0.5, duration: 0.5, stepIndex: 1 },
-      ]],
+      cycle: [
+        [
+          { value: 1, offset: 0, duration: 0.5, stepIndex: 0 },
+          { value: 0, offset: 0.5, duration: 0.5, stepIndex: 1 },
+        ],
+      ],
     },
   };
 }
@@ -164,7 +166,9 @@ function makeSchema(overrides: Partial<SamplerSchema> = {}): SamplerSchema {
   };
 }
 
-function makeBanks(url = "https://example.com/bd.wav"): Record<string, BankSchema> {
+function makeBanks(
+  url = "https://example.com/bd.wav",
+): Record<string, BankSchema> {
   return {
     kit: {
       samples: {
@@ -248,11 +252,15 @@ describe("Sampler", () => {
       arrayBuffer: async () => new ArrayBuffer(8),
     })) as unknown as typeof fetch;
 
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema(),
-      banks: makeBanks(url),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema(),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
 
     expect(sampler.isReady()).toBe(false);
     await sampler.load();
@@ -268,11 +276,15 @@ describe("Sampler", () => {
       throw new Error("network failed");
     }) as unknown as typeof fetch;
 
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema(),
-      banks: makeBanks(),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema(),
+        banks: makeBanks(),
+        cache,
+      },
+    );
 
     await sampler.load();
 
@@ -283,11 +295,15 @@ describe("Sampler", () => {
   });
 
   it("load() warns when the bank is missing from schema", async () => {
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema({ bank: "missing" }),
-      banks: makeBanks(),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ bank: "missing" }),
+        banks: makeBanks(),
+        cache,
+      },
+    );
 
     await sampler.load();
 
@@ -298,11 +314,15 @@ describe("Sampler", () => {
   });
 
   it("load() warns when the sample is missing from the bank", async () => {
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema({ sample: "sn" }),
-      banks: makeBanks(),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ sample: "sn" }),
+        banks: makeBanks(),
+        cache,
+      },
+    );
 
     await sampler.load();
 
@@ -317,11 +337,15 @@ describe("Sampler", () => {
     cache.resolved.set(url, makeBuffer(0.75));
     globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema(),
-      banks: makeBanks(url),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema(),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
 
     const loadPromise = sampler.load();
 
@@ -358,11 +382,15 @@ describe("Sampler", () => {
   });
 
   it("scheduleBar() warns and returns early when the sampler is not ready", () => {
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema(),
-      banks: makeBanks(),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema(),
+        banks: makeBanks(),
+        cache,
+      },
+    );
 
     sampler.scheduleBar(0, 10);
 
@@ -375,12 +403,14 @@ describe("Sampler", () => {
   it("uses a fallback buffer until the requested sample finishes loading", async () => {
     const fallback = makeBuffer(0.5);
     const target = makeBuffer(1);
-    let resolveFetch!: (response: { arrayBuffer: () => Promise<ArrayBuffer> }) => void;
-    const fetchPromise = new Promise<{ arrayBuffer: () => Promise<ArrayBuffer> }>(
-      (resolve) => {
-        resolveFetch = resolve;
-      },
-    );
+    let resolveFetch!: (response: {
+      arrayBuffer: () => Promise<ArrayBuffer>;
+    }) => void;
+    const fetchPromise = new Promise<{
+      arrayBuffer: () => Promise<ArrayBuffer>;
+    }>((resolve) => {
+      resolveFetch = resolve;
+    });
     ctx.decodedBuffers.push(target);
     globalThis.fetch = vi.fn(() => fetchPromise) as unknown as typeof fetch;
 
@@ -419,11 +449,15 @@ describe("Sampler", () => {
     cache.resolved.set(url, buffer);
     const notes: ParameterSchema = staticPattern(2, 0.25, 0.5, 0);
 
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema({ notes, detune: staticParam(123), loop: true }),
-      banks: makeBanks(url),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ notes, detune: staticParam(123), loop: true }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
 
     await sampler.load();
     sampler.scheduleBar(0, 10);
@@ -464,11 +498,15 @@ describe("Sampler", () => {
     const url = "https://example.com/bd.wav";
     cache.resolved.set(url, makeBuffer(1));
 
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema({ notes: randomNotes() }),
-      banks: makeBanks(url),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ notes: randomNotes() }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
 
     await sampler.load();
     sampler.scheduleBar(0, 8);
@@ -484,17 +522,23 @@ describe("Sampler", () => {
     const notes: ParameterSchema = {
       type: "static",
       polyphonic: false,
-      cycle: [[
-        { value: 1, offset: 0, duration: 0.25, stepIndex: 0 },
-        { value: 2, offset: 0.5, duration: 0.25, stepIndex: 1 },
-      ]],
+      cycle: [
+        [
+          { value: 1, offset: 0, duration: 0.25, stepIndex: 0 },
+          { value: 2, offset: 0.5, duration: 0.25, stepIndex: 1 },
+        ],
+      ],
     };
 
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema({ notes }),
-      banks: makeBanks(url),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ notes }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
 
     await sampler.load();
     sampler.scheduleBar(0, 4);
@@ -510,11 +554,15 @@ describe("Sampler", () => {
     const url = "https://example.com/bd.wav";
     cache.resolved.set(url, makeBuffer(1));
 
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema({ effects: [lowpassEffect(1200)] }),
-      banks: makeBanks(url),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ effects: [lowpassEffect(1200)] }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
 
     await sampler.load();
     sampler.scheduleBar(0, 6);
@@ -524,7 +572,10 @@ describe("Sampler", () => {
     expect(createdFilters).toHaveLength(1);
     expect(createdSources[0].connect).toHaveBeenCalledWith(createdGains[0]);
     expect(createdGains[0].connect).toHaveBeenCalledWith(createdFilters[0]);
-    expect(createdFilters[0].frequency.setValueAtTime).toHaveBeenCalledWith(1200, 6);
+    expect(createdFilters[0].frequency.setValueAtTime).toHaveBeenCalledWith(
+      1200,
+      6,
+    );
   });
 
   it("fit() computes playbackRate from buffer duration and target bars", async () => {
@@ -532,14 +583,18 @@ describe("Sampler", () => {
     const buffer = makeBuffer(1);
     cache.resolved.set(url, buffer);
 
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema({
-        sample: "bd",
-        notes: { type: "fit", bars: 1 },
-      }),
-      banks: makeBanks(url),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sample: "bd",
+          notes: { type: "fit", bars: 1 },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
 
     await sampler.load();
     sampler.scheduleBar(0, 12);
@@ -555,11 +610,15 @@ describe("Sampler", () => {
     const url = "https://example.com/loop.wav";
     cache.resolved.set(url, makeBuffer(2));
 
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema({ notes: { type: "fit", bars: 2 } }),
-      banks: makeBanks(url),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ notes: { type: "fit", bars: 2 } }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
 
     await sampler.load();
     sampler.scheduleBar(1, 10);
@@ -573,11 +632,15 @@ describe("Sampler", () => {
 
   it("done resolves after the scheduled source ends", async () => {
     cache.resolved.set("https://example.com/bd.wav", makeBuffer(1));
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema(),
-      banks: makeBanks(),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema(),
+        banks: makeBanks(),
+        cache,
+      },
+    );
 
     await sampler.load();
     sampler.scheduleBar(0, 2);
@@ -600,11 +663,15 @@ describe("Sampler", () => {
     cache.resolved.set("https://example.com/bd.wav", makeBuffer(1));
     const notes: ParameterSchema = staticPattern(1, 0.75, 0.25, 0);
 
-    const sampler = new Sampler(ctx as unknown as AudioContext, clock as never, {
-      schema: makeSchema({ notes }),
-      banks: makeBanks(),
-      cache,
-    });
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ notes }),
+        banks: makeBanks(),
+        cache,
+      },
+    );
 
     await sampler.load();
     sampler.scheduleBar(0, 2);
