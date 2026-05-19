@@ -39,13 +39,11 @@ class LfoProcessor extends AudioWorkletProcessor {
   private _waveformIndex: number;
   private _speedIndex: number;
   private _prevOutput: number;
-  // Absolute-time fields (single-speed only)
-  private _isSingleSpeed: boolean;
-  private _initialPhase: number;
-  private _barOriginTime: number;
-  private _phasePerSample: number;
-  // One-time sync flag (multi-speed fallback)
   private _needsSync: boolean;
+  // Precomputed for absolute-time phase derivation
+  private _adjustedOriginTime: number;
+  private _cumBars: number[];
+  private _periodBars: number;
 
   constructor(options: LfoProcessorOptions) {
     super();
@@ -55,15 +53,69 @@ class LfoProcessor extends AudioWorkletProcessor {
     this._norm = opts.norm;
     this._invert = opts.invert;
     this._barDuration = opts.barDuration;
-    this._initialPhase = opts.initialPhase;
-    this._barOriginTime = opts.barOriginTime;
-    this._isSingleSpeed = opts.speed.length === 1;
-    this._phasePerSample = opts.speed[0] / (opts.barDuration * sampleRate);
     this._waveformIndex = 0;
     this._speedIndex = 0;
     this._phase = 0;
     this._prevOutput = 0;
     this._needsSync = true;
+
+    // Precompute cumulative bar fractions per speed segment.
+    // For speed [2, 1]: segment 0 takes 1/2 bar, segment 1 takes 1 bar,
+    // so cumBars = [0, 0.5, 1.5] and periodBars = 1.5.
+    this._cumBars = [0];
+    for (let i = 0; i < this._speeds.length; i++) {
+      this._cumBars.push(this._cumBars[i] + 1 / this._speeds[i]);
+    }
+    this._periodBars = this._cumBars[this._speeds.length];
+
+    // Convert initialPhase (in cycles) to an equivalent bar offset and
+    // bake it into the origin time so elapsed-bar calculations naturally
+    // include it.
+    let remainingPhase = opts.initialPhase;
+    let initialBars = 0;
+    let segIdx = 0;
+    while (remainingPhase >= 1.0) {
+      initialBars += 1 / this._speeds[segIdx % this._speeds.length];
+      remainingPhase -= 1.0;
+      segIdx++;
+    }
+    if (remainingPhase > 0) {
+      initialBars += remainingPhase / this._speeds[segIdx % this._speeds.length];
+    }
+    this._adjustedOriginTime =
+      opts.barOriginTime - initialBars * opts.barDuration;
+  }
+
+  // Derive phase, speed index, and waveform index from the absolute
+  // audio timeline. Called at the start of every process() quantum so
+  // the LFO is always perfectly locked to the bar grid — no
+  // accumulation drift, no startup-timing sensitivity.
+  private _syncPhase(): void {
+    const elapsedBars =
+      (currentFrame / sampleRate - this._adjustedOriginTime) / this._barDuration;
+
+    // Which complete speed-period are we in?
+    const completePeriods = Math.floor(elapsedBars / this._periodBars);
+    const barsInPeriod = elapsedBars - completePeriods * this._periodBars;
+
+    // Which speed segment within this period?
+    let k = 0;
+    while (
+      k < this._speeds.length - 1 &&
+      barsInPeriod >= this._cumBars[k + 1]
+    ) {
+      k++;
+    }
+
+    const barsInSegment = barsInPeriod - this._cumBars[k];
+    const phaseInCycle = barsInSegment * this._speeds[k];
+    const totalCycles = completePeriods * this._speeds.length + k;
+
+    this._phase = ((phaseInCycle % 1.0) + 1.0) % 1.0;
+    this._speedIndex = k;
+    this._waveformIndex =
+      ((totalCycles % this._waveforms.length) + this._waveforms.length) %
+      this._waveforms.length;
   }
 
   process(
@@ -74,35 +126,17 @@ class LfoProcessor extends AudioWorkletProcessor {
     const output = outputs[0][0];
     if (!output) return true;
 
+    this._syncPhase();
+
+    if (this._needsSync) {
+      this._prevOutput =
+        WAVEFORM_FNS[this._waveforms[this._waveformIndex]](this._phase);
+      this._needsSync = false;
+    }
+
     const outputA = parameters.outputA;
     const outputB = parameters.outputB;
     const barSamples = this._barDuration * sampleRate;
-
-    if (this._isSingleSpeed) {
-      // Derive phase from absolute time — immune to drift and startup
-      // timing mismatches. currentFrame is the exact audio-thread time.
-      const elapsed = currentFrame / sampleRate - this._barOriginTime;
-      const absolutePhase = this._initialPhase + elapsed * this._speeds[0] / this._barDuration;
-      this._phase = ((absolutePhase % 1.0) + 1.0) % 1.0;
-      const totalCycles = Math.floor(absolutePhase);
-      this._waveformIndex = ((totalCycles % this._waveforms.length) + this._waveforms.length) % this._waveforms.length;
-
-      if (this._needsSync) {
-        this._prevOutput = WAVEFORM_FNS[this._waveforms[this._waveformIndex]](this._phase);
-        this._needsSync = false;
-      }
-    } else if (this._needsSync) {
-      // Multi-speed fallback: one-time sync using currentFrame, then
-      // accumulate sample-by-sample (absolute computation isn't feasible
-      // with varying speeds per cycle).
-      const currentTime = currentFrame / sampleRate;
-      const leadTime = (this._barOriginTime + this._initialPhase / this._speeds[0] * this._barDuration) - currentTime;
-      const basePhase = this._initialPhase + Math.round((currentTime - this._barOriginTime) / this._barDuration) * this._speeds[0];
-      const preAdvance = (leadTime * this._speeds[0]) / this._barDuration;
-      this._phase = (((basePhase - preAdvance) % 1.0) + 1.0) % 1.0;
-      this._prevOutput = WAVEFORM_FNS[this._waveforms[0]](this._phase);
-      this._needsSync = false;
-    }
 
     for (let i = 0; i < output.length; i++) {
       const a = outputA.length > 1 ? outputA[i] : outputA[0];
