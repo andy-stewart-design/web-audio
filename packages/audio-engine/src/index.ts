@@ -123,7 +123,10 @@ class AudioEngine {
 
   // Resolves the primary URL for a sampler schema (variation 0).
   // Duplicated from Sampler._resolveUrl to avoid creating player instances.
-  private _resolveUrl(schema: SamplerSchema, banks: Record<string, BankSchema>): string | null {
+  private _resolveUrl(
+    schema: SamplerSchema,
+    banks: Record<string, BankSchema>,
+  ): string | null {
     const bank = banks[schema.bank];
     if (!bank) return null;
     const variations = bank.samples[schema.sample];

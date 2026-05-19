@@ -151,7 +151,7 @@ export default {
       "RolandTR909/rolandtr909-bd/Bassdrum-02.wav",
       // ...
     ],
-    sd: ["RolandTR909/rolandtr909-sd/naredrum.wav", /* ... */],
+    sd: ["RolandTR909/rolandtr909-sd/naredrum.wav" /* ... */],
     // ... remaining samples
   },
 } satisfies BankDefinition;
@@ -711,9 +711,9 @@ Extends the `CustomBankSchema` to support multi-sample maps (note → file(s)) a
 type SpriteRegion = [number, number]; // [start, end], normalized 0–1
 
 type BankSampleValue =
-  | string[]                                  // simple variations
-  | Record<string, string | string[]>         // multi-sample: note name → file(s)
-  | Record<string, SpriteRegion>;             // sprites: note name → [start, end]
+  | string[] // simple variations
+  | Record<string, string | string[]> // multi-sample: note name → file(s)
+  | Record<string, SpriteRegion>; // sprites: note name → [start, end]
 
 interface BankSchema {
   samples: Record<string, BankSampleValue>; // widened from string[]
@@ -847,13 +847,13 @@ interface StaticRegionSchema {
 
 interface ChopSlice {
   start: number; // normalized 0–1
-  end: number;   // normalized 0–1
+  end: number; // normalized 0–1
 }
 
 interface ChopRegionSchema {
   type: "chop";
-  slices: ChopSlice[];        // pre-computed by fluid, in playback order
-  sequence: ParameterSchema;  // index into slices[], resolved per step
+  slices: ChopSlice[]; // pre-computed by fluid, in playback order
+  sequence: ParameterSchema; // index into slices[], resolved per step
 }
 
 type RegionSchema = StaticRegionSchema | ChopRegionSchema;
@@ -979,7 +979,7 @@ When `region.type === "static"`, resolve `start` and `end` per step and apply to
 
 ```ts
 const start = this._resolve(region.start, barIndex, stepIndex); // 0–1
-const end = this._resolve(region.end, barIndex, stepIndex);     // 0–1
+const end = this._resolve(region.end, barIndex, stepIndex); // 0–1
 
 node.offset = start * buffer.duration;
 const regionDuration = (end - start) * buffer.duration;
@@ -1008,7 +1008,9 @@ Note duration from the step is ignored when a region is present — the region b
 When `region.type === "chop"`, resolve the `sequence` ParameterSchema per step to get a slice index, then look up the pre-computed `ChopSlice`:
 
 ```ts
-const sliceIndex = Math.floor(this._resolve(region.sequence, barIndex, stepIndex));
+const sliceIndex = Math.floor(
+  this._resolve(region.sequence, barIndex, stepIndex),
+);
 const slice = region.slices[Math.min(sliceIndex, region.slices.length - 1)];
 
 node.offset = slice.start * buffer.duration;
@@ -1052,23 +1054,23 @@ node.stop(startTime + regionDuration);
 
 ## File Change Summary
 
-| File | Change |
-|---|---|
-| `packages/schema/src/index.ts` | PR1: Add `FitSchema`, `SamplerSchema`, `BankDefinition`, `BankSchema`, `InstrumentSchema` base; update `DromeSchema`. PR3: Add `BankSampleValue`, `SpriteRegion`; widen `BankSchema`. PR4: Add `RegionSchema`, `StaticRegionSchema`, `ChopRegionSchema`, `ChopSlice` |
-| `packages/fluid/src/banks/tr808.ts` | New — TR-808 `BankDefinition` |
-| `packages/fluid/src/banks/tr909.ts` | New — TR-909 `BankDefinition` |
-| `packages/fluid/src/banks/index.ts` | New — `BUILT_IN_BANKS` map and `DEFAULT_BANK` export |
-| `packages/fluid/src/patterns/midi-notes.ts` | Renamed from `notes.ts` — `MidiNotes` class |
-| `packages/fluid/src/patterns/sample-notes.ts` | New — `SampleNotes extends MidiNotes`, outputs playback rates |
-| `packages/fluid/src/instruments/instrument.ts` | Made abstract; `_host`/`push()` moved here from subclasses |
-| `packages/fluid/src/instruments/sampler.ts` | New — `Sampler` builder class; extended across PRs for variation, loadSamples, region, chop |
-| `packages/fluid/src/index.ts` | Add `d.sample()`, `d.loadSamples()`; update `getSchema()` to inline bank manifests |
-| `packages/audio-engine/src/instrument.ts` | `_initLfos` widened to `InstrumentSchema`; `_resolveDetune` moved here from `Synthesizer` |
-| `packages/audio-engine/src/synthesizer.ts` | `_schema` made `protected`; `_resolveDetune` removed (now in base) |
-| `packages/audio-engine/src/sampler.ts` | New — engine `Sampler` class with JIT loading, `AudioBufferSourceNode` scheduling, fit resolution |
-| `packages/audio-engine/src/index.ts` | `prepare()` method for pre-loading; `_cache` for buffer deduplication; `_pendingPlayers` removed |
-| `apps/web/src/lib/client/audio.svelte.ts` | Added `await engine.prepare()` before `clock.start()` |
-| `apps/sequencer/src/App.tsx` | Added `await engine.prepare()` before `clock.start()` |
+| File                                           | Change                                                                                                                                                                                                                                                               |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/schema/src/index.ts`                 | PR1: Add `FitSchema`, `SamplerSchema`, `BankDefinition`, `BankSchema`, `InstrumentSchema` base; update `DromeSchema`. PR3: Add `BankSampleValue`, `SpriteRegion`; widen `BankSchema`. PR4: Add `RegionSchema`, `StaticRegionSchema`, `ChopRegionSchema`, `ChopSlice` |
+| `packages/fluid/src/banks/tr808.ts`            | New — TR-808 `BankDefinition`                                                                                                                                                                                                                                        |
+| `packages/fluid/src/banks/tr909.ts`            | New — TR-909 `BankDefinition`                                                                                                                                                                                                                                        |
+| `packages/fluid/src/banks/index.ts`            | New — `BUILT_IN_BANKS` map and `DEFAULT_BANK` export                                                                                                                                                                                                                 |
+| `packages/fluid/src/patterns/midi-notes.ts`    | Renamed from `notes.ts` — `MidiNotes` class                                                                                                                                                                                                                          |
+| `packages/fluid/src/patterns/sample-notes.ts`  | New — `SampleNotes extends MidiNotes`, outputs playback rates                                                                                                                                                                                                        |
+| `packages/fluid/src/instruments/instrument.ts` | Made abstract; `_host`/`push()` moved here from subclasses                                                                                                                                                                                                           |
+| `packages/fluid/src/instruments/sampler.ts`    | New — `Sampler` builder class; extended across PRs for variation, loadSamples, region, chop                                                                                                                                                                          |
+| `packages/fluid/src/index.ts`                  | Add `d.sample()`, `d.loadSamples()`; update `getSchema()` to inline bank manifests                                                                                                                                                                                   |
+| `packages/audio-engine/src/instrument.ts`      | `_initLfos` widened to `InstrumentSchema`; `_resolveDetune` moved here from `Synthesizer`                                                                                                                                                                            |
+| `packages/audio-engine/src/synthesizer.ts`     | `_schema` made `protected`; `_resolveDetune` removed (now in base)                                                                                                                                                                                                   |
+| `packages/audio-engine/src/sampler.ts`         | New — engine `Sampler` class with JIT loading, `AudioBufferSourceNode` scheduling, fit resolution                                                                                                                                                                    |
+| `packages/audio-engine/src/index.ts`           | `prepare()` method for pre-loading; `_cache` for buffer deduplication; `_pendingPlayers` removed                                                                                                                                                                     |
+| `apps/web/src/lib/client/audio.svelte.ts`      | Added `await engine.prepare()` before `clock.start()`                                                                                                                                                                                                                |
+| `apps/sequencer/src/App.tsx`                   | Added `await engine.prepare()` before `clock.start()`                                                                                                                                                                                                                |
 
 ## Verification (all PRs)
 

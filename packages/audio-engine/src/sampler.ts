@@ -1,5 +1,9 @@
 import type AudioClock from "@web-audio/clock";
-import type { BankSchema, SamplerSchema, StaticSchemaValue } from "@web-audio/schema";
+import type {
+  BankSchema,
+  SamplerSchema,
+  StaticSchemaValue,
+} from "@web-audio/schema";
 import Instrument from "./instrument";
 
 interface SampleCache {
@@ -55,7 +59,9 @@ class Sampler extends Instrument {
           .then((r) => r.arrayBuffer())
           .then((b) => this._ctx.decodeAudioData(b))
           .catch(() => {
-            console.warn(`[Sampler] Failed to load "${this._schema.bank}/${this._schema.sample}" from ${url}`);
+            console.warn(
+              `[Sampler] Failed to load "${this._schema.bank}/${this._schema.sample}" from ${url}`,
+            );
             this._cache.promises.delete(url);
             return null;
           }),
@@ -106,12 +112,22 @@ class Sampler extends Instrument {
       );
 
       const effectNodes = this._schema.effects.map((effect) =>
-        this._buildEffectNode(effect, barIndex, 0, barStartTime, fitDuration, barStartTime + fitDuration),
+        this._buildEffectNode(
+          effect,
+          barIndex,
+          0,
+          barStartTime,
+          fitDuration,
+          barStartTime + fitDuration,
+        ),
       );
 
       source.connect(gain);
       const chain: AudioNode[] = [gain, ...effectNodes];
-      chain.reduce((src, dst) => { src.connect(dst); return dst; });
+      chain.reduce((src, dst) => {
+        src.connect(dst);
+        return dst;
+      });
       chain[chain.length - 1].connect(this._outputNode);
 
       source.start(barStartTime);
@@ -148,7 +164,11 @@ class Sampler extends Instrument {
     const noteDuration = note.duration * barDuration;
     const endTime = startTime + noteDuration;
 
-    const detune = this._resolveDetune(this._schema.detune, barIndex, note.stepIndex);
+    const detune = this._resolveDetune(
+      this._schema.detune,
+      barIndex,
+      note.stepIndex,
+    );
 
     const source = new AudioBufferSourceNode(this._ctx, {
       buffer,
@@ -182,12 +202,22 @@ class Sampler extends Instrument {
     }
 
     const effectNodes = this._schema.effects.map((effect) =>
-      this._buildEffectNode(effect, barIndex, note.stepIndex, startTime, noteDuration, endTime),
+      this._buildEffectNode(
+        effect,
+        barIndex,
+        note.stepIndex,
+        startTime,
+        noteDuration,
+        endTime,
+      ),
     );
 
     source.connect(gain);
     const chain: AudioNode[] = [gain, ...effectNodes];
-    chain.reduce((src, dst) => { src.connect(dst); return dst; });
+    chain.reduce((src, dst) => {
+      src.connect(dst);
+      return dst;
+    });
     chain[chain.length - 1].connect(this._outputNode);
 
     source.start(startTime);

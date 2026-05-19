@@ -57,7 +57,11 @@ class Synthesizer extends Instrument {
     const noteDuration = note.duration * barDuration;
     const endTime = startTime + noteDuration;
 
-    const detune = this._resolveDetune(this._schema.detune, barIndex, note.stepIndex);
+    const detune = this._resolveDetune(
+      this._schema.detune,
+      barIndex,
+      note.stepIndex,
+    );
 
     const osc = new OscillatorNode(this._ctx, {
       type: this._schema.waveform,
@@ -112,7 +116,6 @@ class Synthesizer extends Instrument {
 
     this._track(osc, chain, startTime);
   }
-
 }
 
 export default Synthesizer;
