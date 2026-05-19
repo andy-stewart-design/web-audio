@@ -80,7 +80,8 @@ class LfoProcessor extends AudioWorkletProcessor {
       segIdx++;
     }
     if (remainingPhase > 0) {
-      initialBars += remainingPhase / this._speeds[segIdx % this._speeds.length];
+      initialBars +=
+        remainingPhase / this._speeds[segIdx % this._speeds.length];
     }
     this._adjustedOriginTime =
       opts.barOriginTime - initialBars * opts.barDuration;
@@ -92,7 +93,8 @@ class LfoProcessor extends AudioWorkletProcessor {
   // accumulation drift, no startup-timing sensitivity.
   private _syncPhase(): void {
     const elapsedBars =
-      (currentFrame / sampleRate - this._adjustedOriginTime) / this._barDuration;
+      (currentFrame / sampleRate - this._adjustedOriginTime) /
+      this._barDuration;
 
     // Which complete speed-period are we in?
     const completePeriods = Math.floor(elapsedBars / this._periodBars);
@@ -129,8 +131,9 @@ class LfoProcessor extends AudioWorkletProcessor {
     this._syncPhase();
 
     if (this._needsSync) {
-      this._prevOutput =
-        WAVEFORM_FNS[this._waveforms[this._waveformIndex]](this._phase);
+      this._prevOutput = WAVEFORM_FNS[this._waveforms[this._waveformIndex]](
+        this._phase,
+      );
       this._needsSync = false;
     }
 

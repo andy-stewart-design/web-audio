@@ -162,7 +162,12 @@ class Sampler extends Instrument {
       mask.forEach((step, stepIndex) => {
         if (step.value === 0) return;
         const rate = this._resolve(notes, barIndex, stepIndex);
-        this._scheduleNote(buffer, { ...step, value: rate }, barStartTime, barIndex);
+        this._scheduleNote(
+          buffer,
+          { ...step, value: rate },
+          barStartTime,
+          barIndex,
+        );
       });
       return;
     }
