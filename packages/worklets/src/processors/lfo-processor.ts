@@ -14,10 +14,11 @@ interface LfoProcessorOptions {
   processorOptions: {
     waveform: WaveformType[];
     speed: number[];
-    phase: number;
+    basePhase: number;
     norm: boolean;
     invert: boolean;
     barDuration: number;
+    barStartTime: number;
   };
 }
 
@@ -38,19 +39,28 @@ class LfoProcessor extends AudioWorkletProcessor {
   private _waveformIndex: number;
   private _speedIndex: number;
   private _prevOutput: number;
+  private _needsSync: boolean;
+  private _basePhase: number;
+  private _barStartTime: number;
 
   constructor(options: LfoProcessorOptions) {
     super();
     const opts = options.processorOptions;
     this._waveforms = opts.waveform;
     this._speeds = opts.speed;
-    this._phase = opts.phase;
     this._norm = opts.norm;
     this._invert = opts.invert;
     this._barDuration = opts.barDuration;
+    this._basePhase = opts.basePhase;
+    this._barStartTime = opts.barStartTime;
     this._waveformIndex = 0;
     this._speedIndex = 0;
     this._prevOutput = 0;
+    // Phase is computed on the first process() call using currentFrame,
+    // which gives us the exact audio-thread time and eliminates the
+    // JS↔audio timing mismatch from the old preAdvance approach.
+    this._phase = 0;
+    this._needsSync = true;
   }
 
   process(
@@ -60,6 +70,21 @@ class LfoProcessor extends AudioWorkletProcessor {
   ): boolean {
     const output = outputs[0][0];
     if (!output) return true;
+
+    if (this._needsSync) {
+      // Compute the exact preAdvance using the audio thread's currentFrame,
+      // which is precise — unlike ctx.currentTime read from the JS thread.
+      const currentTime = currentFrame / sampleRate;
+      const leadTime = this._barStartTime - currentTime;
+      const preAdvance =
+        (leadTime * this._speeds[0]) / this._barDuration;
+      this._phase =
+        (((this._basePhase - preAdvance) % 1.0) + 1.0) % 1.0;
+      // Seed the slew limiter with the raw waveform value so it doesn't
+      // ramp from 0 on the first sample.
+      this._prevOutput = WAVEFORM_FNS[this._waveforms[0]](this._phase);
+      this._needsSync = false;
+    }
 
     const outputA = parameters.outputA;
     const outputB = parameters.outputB;

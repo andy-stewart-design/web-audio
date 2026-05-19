@@ -2,6 +2,7 @@
 // These are not part of the standard DOM lib because they only exist
 // inside the AudioWorklet thread, not the main thread.
 declare const sampleRate: number;
+declare const currentFrame: number;
 
 declare function registerProcessor(
   name: string,
