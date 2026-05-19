@@ -430,10 +430,10 @@ node.stop(stopTime);
 
 **Acceptance criteria:**
 
-- [ ] `fit(2)` plays the sample over exactly 2 bars
-- [ ] Playback rate is calculated as `buffer.duration / (bars * barDuration)`
-- [ ] The node is stopped at `barStartTime + bars * barDuration`
-- [ ] `fit` is not re-triggered on every bar — only at the start of each N-bar window
+- [x] `fit(2)` plays the sample over exactly 2 bars
+- [x] Playback rate is calculated as `buffer.duration / (bars * barDuration)`
+- [x] The node is stopped at `barStartTime + bars * barDuration`
+- [x] `fit` is not re-triggered on every bar — only at the start of each N-bar window
 
 **Testing:**
 
@@ -461,9 +461,9 @@ node.stop(stopTime);
 
 Using the sequencer app:
 
-- [ ] `d.sample("bd").bank("tr808").push()` — bass drum plays on every beat
+- [x] `d.sample("bd").bank("tr808").push()` — bass drum plays on every beat
 - [ ] `d.sample("bd").bank("tr808").notes([0, 0, 12, 0]).root("A4").push()` — third hit is one octave up
-- [ ] `d.sample("loop").bank("tr808").fit(2).loop(true).push()` — loop stretches to fill 2 bars
+- [x] `d.sample("loop").bank("tr909").fit(2).push()` — loop stretches to fill 2 bars
 - [ ] `d.sample("bd").bank("tr808").fx(d.lpf(400)).push()` — filtered drum hit
 - [ ] Sampler + synth playing simultaneously with no timing drift
 
@@ -496,16 +496,17 @@ variation(...input: CycleInput) {
 }
 ```
 
-`d.sample("bd", 1)` — the second argument to `d.sample()` is a variation index shorthand:
+`d.sample("bd", 1)` — the second argument to `d.sample()` is a variation index only (bank is always set via `.bank()`):
 
 ```ts
 // In Drome:
-sample(nameOrToken: string, variationOrBank?: number | string) {
-  const sampler = new Sampler(name, { host: this });
-  if (typeof variationOrBank === "number") {
-    sampler.variation(variationOrBank);
-  } else if (typeof variationOrBank === "string") {
-    sampler.bank(variationOrBank);
+sample(nameOrToken: string, variation?: number) {
+  const [sampleName, variationStr] = nameOrToken.split(":");
+  const sampler = new Sampler(sampleName, { host: this });
+  if (variationStr !== undefined) {
+    sampler.variation(parseInt(variationStr, 10));
+  } else if (variation !== undefined) {
+    sampler.variation(variation);
   }
   return sampler;
 }
@@ -1062,8 +1063,12 @@ node.stop(startTime + regionDuration);
 | `packages/fluid/src/instruments/instrument.ts` | Made abstract; `_host`/`push()` moved here from subclasses |
 | `packages/fluid/src/instruments/sampler.ts` | New — `Sampler` builder class; extended across PRs for variation, loadSamples, region, chop |
 | `packages/fluid/src/index.ts` | Add `d.sample()`, `d.loadSamples()`; update `getSchema()` to inline bank manifests |
-| `packages/audio-engine/src/sampler.ts` | New — engine `Sampler` class; extended across PRs for variation buffers, multi-sample, sprites, regions |
-| `packages/audio-engine/src/index.ts` | Load samplers before clock start; pass `banks` map to sampler instances; handle mid-playback adds |
+| `packages/audio-engine/src/instrument.ts` | `_initLfos` widened to `InstrumentSchema`; `_resolveDetune` moved here from `Synthesizer` |
+| `packages/audio-engine/src/synthesizer.ts` | `_schema` made `protected`; `_resolveDetune` removed (now in base) |
+| `packages/audio-engine/src/sampler.ts` | New — engine `Sampler` class with JIT loading, `AudioBufferSourceNode` scheduling, fit resolution |
+| `packages/audio-engine/src/index.ts` | `prepare()` method for pre-loading; `_cache` for buffer deduplication; `_pendingPlayers` removed |
+| `apps/web/src/lib/client/audio.svelte.ts` | Added `await engine.prepare()` before `clock.start()` |
+| `apps/sequencer/src/App.tsx` | Added `await engine.prepare()` before `clock.start()` |
 
 ## Verification (all PRs)
 
