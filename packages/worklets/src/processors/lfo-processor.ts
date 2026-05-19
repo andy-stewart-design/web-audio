@@ -14,11 +14,11 @@ interface LfoProcessorOptions {
   processorOptions: {
     waveform: WaveformType[];
     speed: number[];
-    basePhase: number;
+    initialPhase: number;
     norm: boolean;
     invert: boolean;
     barDuration: number;
-    barStartTime: number;
+    barOriginTime: number;
   };
 }
 
@@ -39,9 +39,13 @@ class LfoProcessor extends AudioWorkletProcessor {
   private _waveformIndex: number;
   private _speedIndex: number;
   private _prevOutput: number;
+  // Absolute-time fields (single-speed only)
+  private _isSingleSpeed: boolean;
+  private _initialPhase: number;
+  private _barOriginTime: number;
+  private _phasePerSample: number;
+  // One-time sync flag (multi-speed fallback)
   private _needsSync: boolean;
-  private _basePhase: number;
-  private _barStartTime: number;
 
   constructor(options: LfoProcessorOptions) {
     super();
@@ -51,15 +55,14 @@ class LfoProcessor extends AudioWorkletProcessor {
     this._norm = opts.norm;
     this._invert = opts.invert;
     this._barDuration = opts.barDuration;
-    this._basePhase = opts.basePhase;
-    this._barStartTime = opts.barStartTime;
+    this._initialPhase = opts.initialPhase;
+    this._barOriginTime = opts.barOriginTime;
+    this._isSingleSpeed = opts.speed.length === 1;
+    this._phasePerSample = opts.speed[0] / (opts.barDuration * sampleRate);
     this._waveformIndex = 0;
     this._speedIndex = 0;
-    this._prevOutput = 0;
-    // Phase is computed on the first process() call using currentFrame,
-    // which gives us the exact audio-thread time and eliminates the
-    // JS↔audio timing mismatch from the old preAdvance approach.
     this._phase = 0;
+    this._prevOutput = 0;
     this._needsSync = true;
   }
 
@@ -71,24 +74,35 @@ class LfoProcessor extends AudioWorkletProcessor {
     const output = outputs[0][0];
     if (!output) return true;
 
-    if (this._needsSync) {
-      // Compute the exact preAdvance using the audio thread's currentFrame,
-      // which is precise — unlike ctx.currentTime read from the JS thread.
-      const currentTime = currentFrame / sampleRate;
-      const leadTime = this._barStartTime - currentTime;
-      const preAdvance =
-        (leadTime * this._speeds[0]) / this._barDuration;
-      this._phase =
-        (((this._basePhase - preAdvance) % 1.0) + 1.0) % 1.0;
-      // Seed the slew limiter with the raw waveform value so it doesn't
-      // ramp from 0 on the first sample.
-      this._prevOutput = WAVEFORM_FNS[this._waveforms[0]](this._phase);
-      this._needsSync = false;
-    }
-
     const outputA = parameters.outputA;
     const outputB = parameters.outputB;
     const barSamples = this._barDuration * sampleRate;
+
+    if (this._isSingleSpeed) {
+      // Derive phase from absolute time — immune to drift and startup
+      // timing mismatches. currentFrame is the exact audio-thread time.
+      const elapsed = currentFrame / sampleRate - this._barOriginTime;
+      const absolutePhase = this._initialPhase + elapsed * this._speeds[0] / this._barDuration;
+      this._phase = ((absolutePhase % 1.0) + 1.0) % 1.0;
+      const totalCycles = Math.floor(absolutePhase);
+      this._waveformIndex = ((totalCycles % this._waveforms.length) + this._waveforms.length) % this._waveforms.length;
+
+      if (this._needsSync) {
+        this._prevOutput = WAVEFORM_FNS[this._waveforms[this._waveformIndex]](this._phase);
+        this._needsSync = false;
+      }
+    } else if (this._needsSync) {
+      // Multi-speed fallback: one-time sync using currentFrame, then
+      // accumulate sample-by-sample (absolute computation isn't feasible
+      // with varying speeds per cycle).
+      const currentTime = currentFrame / sampleRate;
+      const leadTime = (this._barOriginTime + this._initialPhase / this._speeds[0] * this._barDuration) - currentTime;
+      const basePhase = this._initialPhase + Math.round((currentTime - this._barOriginTime) / this._barDuration) * this._speeds[0];
+      const preAdvance = (leadTime * this._speeds[0]) / this._barDuration;
+      this._phase = (((basePhase - preAdvance) % 1.0) + 1.0) % 1.0;
+      this._prevOutput = WAVEFORM_FNS[this._waveforms[0]](this._phase);
+      this._needsSync = false;
+    }
 
     for (let i = 0; i < output.length; i++) {
       const a = outputA.length > 1 ? outputA[i] : outputA[0];

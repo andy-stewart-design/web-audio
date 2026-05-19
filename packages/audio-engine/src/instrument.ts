@@ -48,9 +48,13 @@ abstract class Instrument {
   ): void {
     const register = (lfo: LfoSchema) => {
       if (this._lfoNodes.has(lfo.id)) return;
-      // Target phase at barStartTime — accounts for hot-swap continuity.
-      // For multi-speed LFOs, speed[0] is used as an approximation.
-      const basePhase = lfo.phase + startingBar * lfo.speed[0];
+      // barOriginTime is the audio time of bar 0. The worklet uses this
+      // with currentFrame to compute the exact phase at any point, so
+      // single-speed LFOs stay perfectly locked to the bar grid without
+      // accumulation drift.
+      const effectiveBarStart = barStartTime ?? this._ctx.currentTime;
+      const barOriginTime =
+        effectiveBarStart - startingBar * this._clock.barDuration;
       const node = new AudioWorkletNode(this._ctx, "lfo-processor", {
         parameterData: {
           outputA: this._resolve(lfo.outputA, 0, 0),
@@ -59,14 +63,11 @@ abstract class Instrument {
         processorOptions: {
           waveform: lfo.waveform,
           speed: lfo.speed,
-          basePhase,
+          initialPhase: lfo.phase,
           norm: lfo.norm,
           invert: lfo.invert,
           barDuration: this._clock.barDuration,
-          // The worklet uses currentFrame to compute the exact preAdvance
-          // on its first process() call, avoiding the JS↔audio thread
-          // timing mismatch that caused phase offset glitches.
-          barStartTime: barStartTime ?? this._ctx.currentTime,
+          barOriginTime,
         },
         numberOfInputs: 0,
         numberOfOutputs: 1,
@@ -233,8 +234,12 @@ abstract class Instrument {
     stepIndex: number,
   ): ResolvedDetune {
     if (detune.type === "lfo") return { type: "lfo", schema: detune, value: 0 };
-    if (detune.type === "envelope") return { type: "envelope", schema: detune, value: detune.min };
-    return { type: "static", value: this._resolve(detune, barIndex, stepIndex) };
+    if (detune.type === "envelope")
+      return { type: "envelope", schema: detune, value: detune.min };
+    return {
+      type: "static",
+      value: this._resolve(detune, barIndex, stepIndex),
+    };
   }
 
   protected _buildEffectNode(
