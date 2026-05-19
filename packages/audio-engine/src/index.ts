@@ -1,5 +1,10 @@
 import type AudioClock from "@web-audio/clock";
-import type { BankSchema, DromeSchema, SamplerSchema } from "@web-audio/schema";
+import type {
+  BankSchema,
+  DromeSchema,
+  ParameterSchema,
+  SamplerSchema,
+} from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
 import Sampler from "./sampler";
 import Synthesizer from "./synthesizer";
@@ -98,7 +103,7 @@ class AudioEngine {
 
     // Create players with correct startingBar/barStartTime for LFO phase init
     const banks = this._pending.banks;
-    this._players = this._pending.instruments.map((schema) => {
+    this._players = this._pending.instruments.map((schema, index) => {
       if (schema.type === "sampler") {
         const player = new Sampler(this._ctx, this._clock, {
           schema,
@@ -106,8 +111,11 @@ class AudioEngine {
           cache: this._cache,
           startingBar: upcomingBar,
           barStartTime,
+          fallbackBuffer: this._fallbackBufferFor(schema, index),
         });
-        // load() hits _cache.resolved synchronously if prepare() ran — no yield
+        // load() hits _cache.resolved synchronously if prepare() ran — no yield.
+        // If the requested sample is still loading, the sampler keeps using the
+        // previous matching buffer until the new one is decoded.
         player.load();
         return player;
       }
@@ -121,8 +129,17 @@ class AudioEngine {
     this._pending = null;
   }
 
-  // Resolves the primary URL for a sampler schema (variation 0).
-  // Duplicated from Sampler._resolveUrl to avoid creating player instances.
+  private _fallbackBufferFor(
+    schema: SamplerSchema,
+    index: number,
+  ): AudioBuffer | null {
+    const previous = this._players[index];
+    if (!(previous instanceof Sampler)) return null;
+    return previous.fallbackBufferFor(schema);
+  }
+
+  // Resolves the primary URL for a sampler schema. Duplicated from
+  // Sampler._resolveUrl to avoid creating player instances during prepare().
   private _resolveUrl(
     schema: SamplerSchema,
     banks: Record<string, BankSchema>,
@@ -131,7 +148,16 @@ class AudioEngine {
     if (!bank) return null;
     const variations = bank.samples[schema.sample];
     if (!variations?.length) return null;
-    return variations[0];
+    const variationIndex = Math.min(
+      Math.round(this._firstValue(schema.variation)),
+      variations.length - 1,
+    );
+    return variations[variationIndex];
+  }
+
+  private _firstValue(schema: ParameterSchema): number {
+    if (schema.type === "random") return schema.cycle.cycle[0]?.[0]?.value ?? 0;
+    return schema.cycle[0]?.[0]?.value ?? 0;
   }
 
   destroy(): void {

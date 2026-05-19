@@ -17,6 +17,7 @@ interface SamplerOptions {
   cache: SampleCache;
   startingBar?: number;
   barStartTime?: number;
+  fallbackBuffer?: AudioBuffer | null;
 }
 
 class Sampler extends Instrument {
@@ -24,21 +25,40 @@ class Sampler extends Instrument {
   private _banks: Record<string, BankSchema>;
   private _cache: SampleCache;
   private _buffer: AudioBuffer | null = null;
+  private _fallbackBuffer: AudioBuffer | null;
 
   constructor(
     ctx: AudioContext,
     clock: AudioClock,
-    { schema, banks, cache, startingBar = 0, barStartTime }: SamplerOptions,
+    {
+      schema,
+      banks,
+      cache,
+      startingBar = 0,
+      barStartTime,
+      fallbackBuffer = null,
+    }: SamplerOptions,
   ) {
     super(ctx, clock);
     this._schema = schema;
     this._banks = banks;
     this._cache = cache;
+    this._fallbackBuffer = fallbackBuffer;
     this._initLfos(schema, startingBar, barStartTime);
   }
 
   isReady(): boolean {
-    return this._buffer !== null;
+    return this._playbackBuffer !== null;
+  }
+
+  fallbackBufferFor(schema: SamplerSchema): AudioBuffer | null {
+    if (this._schema.bank !== schema.bank) return null;
+    if (this._schema.sample !== schema.sample) return null;
+    return this._playbackBuffer;
+  }
+
+  private get _playbackBuffer(): AudioBuffer | null {
+    return this._buffer ?? this._fallbackBuffer;
   }
 
   async load(): Promise<void> {
@@ -52,23 +72,22 @@ class Sampler extends Instrument {
       return;
     }
 
-    if (!this._cache.promises.has(url)) {
-      this._cache.promises.set(
-        url,
-        fetch(url)
-          .then((r) => r.arrayBuffer())
-          .then((b) => this._ctx.decodeAudioData(b))
-          .catch(() => {
-            console.warn(
-              `[Sampler] Failed to load "${this._schema.bank}/${this._schema.sample}" from ${url}`,
-            );
-            this._cache.promises.delete(url);
-            return null;
-          }),
-      );
+    let promise = this._cache.promises.get(url);
+    if (!promise) {
+      promise = fetch(url)
+        .then((r) => r.arrayBuffer())
+        .then((b) => this._ctx.decodeAudioData(b))
+        .catch(() => {
+          console.warn(
+            `[Sampler] Failed to load "${this._schema.bank}/${this._schema.sample}" from ${url}`,
+          );
+          this._cache.promises.delete(url);
+          return null;
+        });
+      this._cache.promises.set(url, promise);
     }
 
-    const buffer = await this._cache.promises.get(url)!;
+    const buffer = await promise;
     if (buffer) {
       this._cache.resolved.set(url, buffer);
       this._buffer = buffer;
@@ -76,7 +95,8 @@ class Sampler extends Instrument {
   }
 
   scheduleBar(barIndex: number, barStartTime: number): void {
-    if (!this.isReady()) {
+    const buffer = this._playbackBuffer;
+    if (!buffer) {
       console.warn(
         `[Sampler] "${this._schema.bank}/${this._schema.sample}" not yet loaded — skipping bar ${barIndex}`,
       );
@@ -92,10 +112,10 @@ class Sampler extends Instrument {
       if (barIndex % notes.bars !== 0) return;
 
       const barDuration = this._clock.barDuration;
-      const playbackRate = this._buffer!.duration / (notes.bars * barDuration);
+      const playbackRate = buffer.duration / (notes.bars * barDuration);
 
       const source = new AudioBufferSourceNode(this._ctx, {
-        buffer: this._buffer,
+        buffer,
         playbackRate,
         loop: this._schema.loop,
       });
@@ -142,23 +162,23 @@ class Sampler extends Instrument {
       mask.forEach((step, stepIndex) => {
         if (step.value === 0) return;
         const rate = this._resolve(notes, barIndex, stepIndex);
-        this._scheduleNote({ ...step, value: rate }, barStartTime, barIndex);
+        this._scheduleNote(buffer, { ...step, value: rate }, barStartTime, barIndex);
       });
       return;
     }
 
     const notesBar = notes.cycle[barIndex % notes.cycle.length];
     notesBar.forEach((note) => {
-      this._scheduleNote(note, barStartTime, barIndex);
+      this._scheduleNote(buffer, note, barStartTime, barIndex);
     });
   }
 
   private _scheduleNote(
+    buffer: AudioBuffer,
     note: StaticSchemaValue,
     barStartTime: number,
     barIndex: number,
-  ): void {
-    const buffer = this._buffer!;
+  ) {
     const barDuration = this._clock.barDuration;
     const startTime = barStartTime + note.offset * barDuration;
     const noteDuration = note.duration * barDuration;
