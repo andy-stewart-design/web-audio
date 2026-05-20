@@ -46,10 +46,10 @@ d.synth("saw")
 // Sample Tests
 // ------------------------------------------------
 
-d.sample("bd:3").bank("tr909").hex(0xf).push();
+d.sample("bd", 3).bank("tr909").hex(0xf).push();
 d.sample("hh").bank("tr909").hex(0xffff).gain([0.5, 0.375]).push();
 d.sample("sd").bank("tr909").hex(0x5).push();
-d.sample("cp:1").bank("tr808").hex(0x1).push();
-d.sample("oh").bank("tr909").hex(0x55).gain(0.375).push();
+d.sample("cp", 1).bank("tr808").hex(0x1).push();
+d.sample("oh", 3).bank("tr909").hex(0x55).gain(0.375).clip(false).push();
 
 d.sample("breaks").bank("loops").fit(2).push();

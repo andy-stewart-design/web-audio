@@ -286,6 +286,7 @@ describe("Drome", () => {
         expect(inst.bank).toBe("tr909");
         expect(inst.sample).toBe("bd");
         expect(inst.loop).toBe(false);
+        expect(inst.durationMode).toBe("clip");
         expect(inst.variation.type).toBe("static");
         expect(inst.notes).not.toHaveProperty("type", "fit");
       }
@@ -318,6 +319,39 @@ describe("Drome", () => {
       if (inst.type === "sampler") {
         expect(inst.notes).toEqual({ type: "fit", bars: 2 });
         expect(inst.loop).toBe(true);
+      }
+    });
+
+    it("clip(false) sets sampler duration mode to one-shot", () => {
+      const d = new Drome();
+      d.sample("oh").clip(false).push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.durationMode).toBe("one-shot");
+      }
+    });
+
+    it("clip() sets sampler duration mode to clip", () => {
+      const d = new Drome();
+      d.sample("oh").clip(false).clip().push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.durationMode).toBe("clip");
+      }
+    });
+
+    it("clip(true) sets sampler duration mode to clip", () => {
+      const d = new Drome();
+      d.sample("oh").clip(false).clip(true).push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.durationMode).toBe("clip");
       }
     });
 

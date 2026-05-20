@@ -1,7 +1,11 @@
 import SampleNotes from "@/patterns/sample-notes";
 import Parameter from "@/patterns/parameter";
 import type { CycleInput } from "@/types";
-import type { FitSchema, SamplerSchema } from "@web-audio/schema";
+import type {
+  FitSchema,
+  SamplerDurationMode,
+  SamplerSchema,
+} from "@web-audio/schema";
 import { DEFAULT_BANK } from "@/banks";
 import Instrument from "./instrument";
 import type Drome from "@/index";
@@ -17,6 +21,7 @@ class Sampler extends Instrument {
   private _variation: Parameter;
   private _fit: FitSchema | null = null;
   private _loop = false;
+  private _durationMode: SamplerDurationMode = "clip";
 
   constructor(
     sample: string,
@@ -54,6 +59,11 @@ class Sampler extends Instrument {
     return this;
   }
 
+  clip(enabled = true) {
+    this._durationMode = enabled ? "clip" : "one-shot";
+    return this;
+  }
+
   getSchema(): SamplerSchema {
     return {
       type: "sampler",
@@ -65,6 +75,7 @@ class Sampler extends Instrument {
       gain: this._gain.getSchema(),
       effects: this._effects.map((e) => e.getSchema()),
       loop: this._loop,
+      durationMode: this._durationMode,
     };
   }
 }

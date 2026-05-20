@@ -162,6 +162,7 @@ function makeSchema(overrides: Partial<SamplerSchema> = {}): SamplerSchema {
     gain: envelope(),
     effects: [],
     loop: false,
+    durationMode: "clip",
     ...overrides,
   };
 }
@@ -489,6 +490,40 @@ describe("Sampler", () => {
     );
     expect(gain.gain.setValueAtTime).toHaveBeenNthCalledWith(2, 1, endTime);
     expect(gain.gain.linearRampToValueAtTime.mock.calls[2][0]).toBe(0);
+    expect(gain.gain.linearRampToValueAtTime.mock.calls[2][1]).toBeCloseTo(
+      endTime + releaseDur,
+    );
+  });
+
+  it("scheduleBar() lets one-shot samples play through their full duration", async () => {
+    const url = "https://example.com/oh.wav";
+    cache.resolved.set(url, makeBuffer(3));
+    const notes: ParameterSchema = staticPattern(2, 0.25, 0.5, 0);
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ notes, durationMode: "one-shot" }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    const startTime = 10 + 0.25 * clock.barDuration;
+    const sampleDuration = 3 / 2;
+    const endTime = startTime + sampleDuration;
+    const releaseDur = 0.0025;
+    const source = createdSources[0];
+
+    expect(source.start).toHaveBeenCalledWith(startTime);
+    expect(source.stop).toHaveBeenCalledWith(endTime + releaseDur + 0.05);
+
+    const gain = createdGains[0];
+    expect(gain.gain.setValueAtTime).toHaveBeenNthCalledWith(2, 1, endTime);
     expect(gain.gain.linearRampToValueAtTime.mock.calls[2][1]).toBeCloseTo(
       endTime + releaseDur,
     );

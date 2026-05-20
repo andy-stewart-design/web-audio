@@ -6,6 +6,8 @@ type Waveform = "sine" | "square" | "sawtooth" | "triangle";
 
 type EnvelopeMode = "bleed" | "clip";
 
+type SamplerDurationMode = "clip" | "one-shot";
+
 type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
 
 // ---------------------------------------------------
@@ -126,6 +128,7 @@ interface SamplerSchema extends InstrumentSchema {
   variation: ParameterSchema;
   notes: ParameterSchema | FitSchema;
   loop: boolean;
+  durationMode: SamplerDurationMode;
 }
 
 // ---------------------------------------------------
@@ -153,6 +156,7 @@ export type {
   LfoSchema,
   ParameterSchema,
   RandomSchema,
+  SamplerDurationMode,
   SamplerSchema,
   StaticSchema,
   StaticSchemaValue,

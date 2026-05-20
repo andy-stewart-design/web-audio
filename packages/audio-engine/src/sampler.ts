@@ -188,7 +188,12 @@ class Sampler extends Instrument {
     const barDuration = this._clock.barDuration;
     const startTime = barStartTime + note.offset * barDuration;
     const noteDuration = note.duration * barDuration;
-    const endTime = startTime + noteDuration;
+    const sampleDuration = buffer.duration / note.value;
+    const duration =
+      this._schema.durationMode === "one-shot" && !this._schema.loop
+        ? sampleDuration
+        : noteDuration;
+    const endTime = startTime + duration;
 
     const detune = this._resolveDetune(
       this._schema.detune,
