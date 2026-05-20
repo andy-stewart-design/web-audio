@@ -1,3 +1,4 @@
+- Adjust sample default envelope?
 - Sample clip method?
   - by defaul, samples play until the end of the buffer. Adding `.clip()` would contrain them to their note duration.
 
@@ -5,3 +6,4 @@
 - repo cleanup
   - organize audio engine
   - dep updates/culling
+  - import sorting?

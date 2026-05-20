@@ -462,10 +462,10 @@ node.stop(stopTime);
 Using the sequencer app:
 
 - [x] `d.sample("bd").bank("tr808").push()` — bass drum plays on every beat
-- [ ] `d.sample("bd").bank("tr808").notes([0, 0, 12, 0]).root("A4").push()` — third hit is one octave up
-- [x] `d.sample("loop").bank("tr909").fit(2).push()` — loop stretches to fill 2 bars
-- [ ] `d.sample("bd").bank("tr808").fx(d.lpf(400)).push()` — filtered drum hit
-- [ ] Sampler + synth playing simultaneously with no timing drift
+- [x] `d.sample("bd").bank("tr808").notes([0, 0, 12, 0]).root("A4").push()` — third hit is one octave up
+- [x] `d.sample("breaks").bank("loops").fit(2).push()` — loop stretches to fill 2 bars
+- [x] `d.sample("bd").bank("tr909").fx(d.hpf(400)).push()` — filtered drum hit
+- [x] Sampler + synth playing simultaneously with no timing drift
 
 ---
 
