@@ -1,7 +1,8 @@
 import type { FilterType } from "@web-audio/schema";
 
 const MIN_RAMP = 0.005;
-const BASE_GAIN = 0.25;
+const SYNTH_BASE_GAIN = 0.325;
+const SAMPLE_BASE_GAIN = 0.875;
 
 const FILTER_TYPE_MAP: Record<FilterType, BiquadFilterType> = {
   lp: "lowpass",
@@ -14,4 +15,4 @@ const FILTER_TYPE_MAP: Record<FilterType, BiquadFilterType> = {
   hs: "highshelf",
 };
 
-export { BASE_GAIN, FILTER_TYPE_MAP, MIN_RAMP };
+export { SYNTH_BASE_GAIN, SAMPLE_BASE_GAIN, FILTER_TYPE_MAP, MIN_RAMP };

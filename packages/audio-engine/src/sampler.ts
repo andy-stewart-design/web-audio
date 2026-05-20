@@ -5,6 +5,7 @@ import type {
   StaticSchemaValue,
 } from "@web-audio/schema";
 import Instrument from "./instrument";
+import { SAMPLE_BASE_GAIN } from "./constants";
 
 interface SampleCache {
   resolved: Map<string, AudioBuffer>;
@@ -39,7 +40,7 @@ class Sampler extends Instrument {
       fallbackBuffer = null,
     }: SamplerOptions,
   ) {
-    super(ctx, clock);
+    super(ctx, clock, SAMPLE_BASE_GAIN);
     this._schema = schema;
     this._banks = banks;
     this._cache = cache;

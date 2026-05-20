@@ -9,7 +9,7 @@ import type {
 } from "@web-audio/schema";
 import type { ResolvedDetune } from "./types";
 import RandomResolver from "./random-resolver";
-import { BASE_GAIN, FILTER_TYPE_MAP } from "./constants";
+import { SYNTH_BASE_GAIN, FILTER_TYPE_MAP } from "./constants";
 import { computeEnvelope } from "./utils/compute-envelope";
 import type {
   EnvelopeParams,
@@ -28,11 +28,11 @@ abstract class Instrument {
   private _doneResolve: (() => void) | null = null;
   readonly done: Promise<void>;
 
-  constructor(ctx: AudioContext, clock: AudioClock) {
+  constructor(ctx: AudioContext, clock: AudioClock, baseGain?: number) {
     this._ctx = ctx;
     this._clock = clock;
     this._outputNode = ctx.createGain();
-    this._outputNode.gain.value = BASE_GAIN;
+    this._outputNode.gain.value = baseGain ?? SYNTH_BASE_GAIN;
     this._outputNode.connect(ctx.destination);
     this.done = new Promise<void>((resolve) => {
       this._doneResolve = resolve;
