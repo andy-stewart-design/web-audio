@@ -2,13 +2,14 @@ import type AudioClock from "@web-audio/clock";
 import type {
   EffectSchema,
   EnvelopeSchema,
+  InstrumentSchema,
   LfoSchema,
   ParameterSchema,
   RandomSchema,
-  SynthesizerSchema,
 } from "@web-audio/schema";
+import type { ResolvedDetune } from "./types";
 import RandomResolver from "./random-resolver";
-import { BASE_GAIN, FILTER_TYPE_MAP } from "./constants";
+import { SYNTH_BASE_GAIN, FILTER_TYPE_MAP } from "./constants";
 import { computeEnvelope } from "./utils/compute-envelope";
 import type {
   EnvelopeParams,
@@ -27,11 +28,11 @@ abstract class Instrument {
   private _doneResolve: (() => void) | null = null;
   readonly done: Promise<void>;
 
-  constructor(ctx: AudioContext, clock: AudioClock) {
+  constructor(ctx: AudioContext, clock: AudioClock, baseGain?: number) {
     this._ctx = ctx;
     this._clock = clock;
     this._outputNode = ctx.createGain();
-    this._outputNode.gain.value = BASE_GAIN;
+    this._outputNode.gain.value = baseGain ?? SYNTH_BASE_GAIN;
     this._outputNode.connect(ctx.destination);
     this.done = new Promise<void>((resolve) => {
       this._doneResolve = resolve;
@@ -41,26 +42,19 @@ abstract class Instrument {
   abstract scheduleBar(barIndex: number, barStartTime: number): void;
 
   protected _initLfos(
-    schema: SynthesizerSchema,
+    schema: InstrumentSchema,
     startingBar = 0,
     barStartTime?: number,
   ): void {
     const register = (lfo: LfoSchema) => {
       if (this._lfoNodes.has(lfo.id)) return;
-      // Seed the phase so a hot-swapped LFO sounds like a continuous oscillation
-      // rather than restarting at zero. For multi-speed LFOs, speed[0] is used
-      // as an approximation — exact only when all speeds are equal.
-      const basePhase = lfo.phase + startingBar * lfo.speed[0];
-      // The AudioWorkletNode starts processing immediately on creation, but the
-      // bar won't begin until barStartTime. Subtract the phase that will
-      // accumulate between now and then so the LFO lands at basePhase on the
-      // beat rather than running ahead by ~beforeLeadTime worth of phase.
-      const preAdvance =
-        barStartTime !== undefined
-          ? ((barStartTime - this._ctx.currentTime) * lfo.speed[0]) /
-            this._clock.barDuration
-          : 0;
-      const seedPhase = (((basePhase - preAdvance) % 1.0) + 1.0) % 1.0;
+      // barOriginTime is the audio time of bar 0. The worklet uses this
+      // with currentFrame to compute the exact phase at any point, so
+      // single-speed LFOs stay perfectly locked to the bar grid without
+      // accumulation drift.
+      const effectiveBarStart = barStartTime ?? this._ctx.currentTime;
+      const barOriginTime =
+        effectiveBarStart - startingBar * this._clock.barDuration;
       const node = new AudioWorkletNode(this._ctx, "lfo-processor", {
         parameterData: {
           outputA: this._resolve(lfo.outputA, 0, 0),
@@ -69,10 +63,11 @@ abstract class Instrument {
         processorOptions: {
           waveform: lfo.waveform,
           speed: lfo.speed,
-          phase: seedPhase,
+          initialPhase: lfo.phase,
           norm: lfo.norm,
           invert: lfo.invert,
           barDuration: this._clock.barDuration,
+          barOriginTime,
         },
         numberOfInputs: 0,
         numberOfOutputs: 1,
@@ -231,6 +226,20 @@ abstract class Instrument {
     param.linearRampToValueAtTime(env.min, env.endTime + env.releaseDur);
 
     return env.releaseDur;
+  }
+
+  protected _resolveDetune(
+    detune: ParameterSchema | EnvelopeSchema | LfoSchema,
+    barIndex: number,
+    stepIndex: number,
+  ): ResolvedDetune {
+    if (detune.type === "lfo") return { type: "lfo", schema: detune, value: 0 };
+    if (detune.type === "envelope")
+      return { type: "envelope", schema: detune, value: detune.min };
+    return {
+      type: "static",
+      value: this._resolve(detune, barIndex, stepIndex),
+    };
   }
 
   protected _buildEffectNode(

@@ -8,6 +8,7 @@ The audio system currently has a single instrument type — `Synthesizer` — wh
 
 - A "note" for the sampler is a **playback rate** (float), not a frequency. The `Sampler` fluid class uses a `SamplerNotes` helper that converts MIDI pitch + root to a playback rate multiplier at schema build time (`2^((note - root) / 12)`). Root does not appear in the schema.
 - Sample loading is **JIT** — the engine waits for all required samples to be loaded before the clock starts. If a sample is added mid-playback, the instrument is silently skipped until its sample is ready (console warning emitted on each miss).
+- Sample playback defaults to **clipped** note-duration behavior for backwards compatibility. Fluid exposes `.clip()`, `.clip(true)`, and `.clip(false)`; disabling clip emits `durationMode: "one-shot"`, allowing non-looping samples to play through their natural buffer duration.
 - Built-in sample banks are hosted on a **self-hosted CDN**. Bank manifests are defined as TypeScript constants in `packages/fluid/src/data/banks.ts` with full CDN URLs. Fluid inlines them into `DromeSchema.banks` at schema-build time — the engine reads URLs from the schema and has no CDN awareness.
 - The reserved bank name `"user"` is the destination for `loadSamples({ name: ... })` calls using the flat (no-name) format.
 - `fit(bars)` cannot be resolved in fluid (requires sample duration from the loaded buffer), so it is a first-class `FitSchema` value in the schema — the only exception to the fluid-smart principle.
@@ -18,7 +19,7 @@ The audio system currently has a single instrument type — `Synthesizer` — wh
 
 ## PR 1: Core Sampler
 
-Basic single-sample playback: fire-and-forget, looping, `fit`, built-in banks, full gain/effects parity with `Synthesizer`.
+Basic single-sample playback: note-duration clipping by default, optional one-shot playback, looping, `fit`, built-in banks, full gain/effects parity with `Synthesizer`. This PR also tuned default gain-envelope ramps for synths/samples and lowered the engine's minimum ramp clamp to preserve sample transients.
 
 ### Phase 1: Schema
 
@@ -35,29 +36,44 @@ interface FitSchema {
 
 **Acceptance criteria:**
 
-- [ ] `FitSchema` is exported from `@web-audio/schema`
-- [ ] Package type-checks cleanly: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] `FitSchema` is exported from `@web-audio/schema`
+- [x] Package type-checks cleanly: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 **Testing:**
 
-- [ ] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 ---
 
-#### Step 1.2 — Add `SamplerSchema`
+#### Step 1.2 — Add `InstrumentSchema` base and `SamplerSchema`
 
 **Files:** `packages/schema/src/index.ts`
 
+`InstrumentSchema` is a base interface shared by all instruments. `SynthesizerSchema` and `SamplerSchema` extend it, removing the duplicated `gain`, `effects`, and `detune` fields.
+
 ```ts
-interface SamplerSchema {
+interface InstrumentSchema {
+  gain: EnvelopeSchema;
+  effects: EffectSchema[];
+  detune: ParameterSchema | EnvelopeSchema | LfoSchema;
+}
+
+interface SynthesizerSchema extends InstrumentSchema {
+  type: "synthesizer";
+  waveform: Waveform;
+  notes: ParameterSchema;
+}
+
+type SamplerDurationMode = "clip" | "one-shot";
+
+interface SamplerSchema extends InstrumentSchema {
   type: "sampler";
   bank: string;
   sample: string;
   variation: ParameterSchema;
   notes: ParameterSchema | FitSchema;
-  gain: EnvelopeSchema;
-  effects: EffectSchema[];
   loop: boolean;
+  durationMode: SamplerDurationMode;
 }
 ```
 
@@ -65,113 +81,108 @@ interface SamplerSchema {
 
 **Acceptance criteria:**
 
-- [ ] `SamplerSchema` is exported from `@web-audio/schema`
-- [ ] `notes` accepts both `ParameterSchema` and `FitSchema`
-- [ ] Package type-checks cleanly
+- [x] `InstrumentSchema` base interface is exported from `@web-audio/schema`
+- [x] `SamplerSchema` extends `InstrumentSchema` and is exported
+- [x] `SynthesizerSchema` extends `InstrumentSchema`
+- [x] `notes` accepts both `ParameterSchema` and `FitSchema`
+- [x] `durationMode` accepts `"clip" | "one-shot"`
+- [x] Package type-checks cleanly
 
 **Testing:**
 
-- [ ] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 ---
 
-#### Step 1.3 — Add `BankSchema` and update `DromeSchema`
+#### Step 1.3 — Add `BankDefinition`, `BankSchema`, and update `DromeSchema`
 
 **Files:** `packages/schema/src/index.ts`
 
+Two distinct types are needed: `BankDefinition` is the authoring format (used in bank files and by `d.loadSamples()`); `BankSchema` is the resolved schema format (full URLs, lives in `DromeSchema`). Fluid resolves the former into the latter.
+
 ```ts
-interface BankSchema {
-  samples: Record<string, string[]>; // sample name → array of variation URLs
+// Authoring format — basePath + relative paths
+interface BankDefinition {
+  basePath: string;
+  samples: Record<string, string[]>;
 }
 
-type InstrumentSchema = SynthesizerSchema | SamplerSchema;
+// Schema format — full URLs only, engine reads these directly
+interface BankSchema {
+  samples: Record<string, string[]>;
+}
 
 interface DromeSchema {
   bpm?: number;
-  instruments: InstrumentSchema[];
+  instruments: (SynthesizerSchema | SamplerSchema)[];
   banks: Record<string, BankSchema>; // bank name → manifest (built-in and custom)
 }
 ```
 
 `banks` is always present (empty object if no instruments reference any banks). Both built-in and custom banks live here — the engine makes no distinction. Built-in bank manifests are inlined by fluid at schema-build time.
 
+Note: `DromeSchema.instruments` uses an inline union rather than a named union type — `InstrumentSchema` is the base interface, not a union.
+
 **Acceptance criteria:**
 
-- [ ] `BankSchema` is exported from `@web-audio/schema`
-- [ ] `InstrumentSchema` union is exported
-- [ ] `DromeSchema.banks` is present and typed correctly
-- [ ] `DromeSchema.instruments` accepts both synths and samplers
-- [ ] Downstream packages (`fluid`, `audio-engine`) may show type errors — expected, resolved in later phases
-- [ ] Package type-checks cleanly
+- [x] `BankSchema` is exported from `@web-audio/schema`
+- [x] `BankDefinition` is exported from `@web-audio/schema`
+- [x] `DromeSchema.banks` is present and typed correctly
+- [x] `DromeSchema.instruments` accepts both synths and samplers
+- [x] Package type-checks cleanly
 
 **Testing:**
 
-- [ ] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] Type-level only: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 ---
 
 #### Step 1.4 — Define built-in bank constants
 
-**Files:** `packages/fluid/src/data/banks.ts` (new)
+**Files:** `packages/fluid/src/banks/index.ts`, `packages/fluid/src/banks/tr808.ts`, `packages/fluid/src/banks/tr909.ts` (all new)
 
-Built-in banks are defined as `Record<string, BankSchema>` constants in the fluid package. Each sample lists its variation URLs in full (using the CDN base URL). This is the source of truth for what built-in samples exist.
+Each bank is a separate `.ts` file exporting a `BankDefinition` using `satisfies` for inline type-checking. The `index.ts` assembles them into a single `BUILT_IN_BANKS` map.
 
 ```ts
-import type { BankSchema } from "@web-audio/schema";
+// tr909.ts
+import type { BankDefinition } from "@web-audio/schema";
 
-const CDN_BASE = "https://samples.web-audio.dev";
-
-export const BUILT_IN_BANKS: Record<string, BankSchema> = {
-  tr808: {
-    samples: {
-      bd: Array.from({ length: 25 }, (_, i) => `${CDN_BASE}/tr808/bd/${i}.wav`),
-      sd: Array.from({ length: 25 }, (_, i) => `${CDN_BASE}/tr808/sd/${i}.wav`),
-      hh: Array.from({ length: 25 }, (_, i) => `${CDN_BASE}/tr808/hh/${i}.wav`),
-      oh: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr808/oh/${i}.wav`),
-      lt: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr808/lt/${i}.wav`),
-      mt: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr808/mt/${i}.wav`),
-      ht: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr808/ht/${i}.wav`),
-      cp: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr808/cp/${i}.wav`),
-      rs: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr808/rs/${i}.wav`),
-      cy: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr808/cy/${i}.wav`),
-      cb: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr808/cb/${i}.wav`),
-      ma: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr808/ma/${i}.wav`),
-      cl: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr808/cl/${i}.wav`),
-    },
+export default {
+  basePath:
+    "https://raw.githubusercontent.com/ritchse/tidal-drum-machines/main/machines/",
+  samples: {
+    bd: [
+      "RolandTR909/rolandtr909-bd/Bassdrum-01.wav",
+      "RolandTR909/rolandtr909-bd/Bassdrum-02.wav",
+      // ...
+    ],
+    sd: ["RolandTR909/rolandtr909-sd/naredrum.wav" /* ... */],
+    // ... remaining samples
   },
-  tr909: {
-    samples: {
-      bd: Array.from({ length: 10 }, (_, i) => `${CDN_BASE}/tr909/bd/${i}.wav`),
-      sd: Array.from({ length: 10 }, (_, i) => `${CDN_BASE}/tr909/sd/${i}.wav`),
-      hh: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr909/hh/${i}.wav`),
-      oh: Array.from({ length: 5 },  (_, i) => `${CDN_BASE}/tr909/oh/${i}.wav`),
-      lt: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr909/lt/${i}.wav`),
-      mt: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr909/mt/${i}.wav`),
-      ht: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr909/ht/${i}.wav`),
-      cp: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr909/cp/${i}.wav`),
-      rs: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr909/rs/${i}.wav`),
-      cy: Array.from({ length: 3 },  (_, i) => `${CDN_BASE}/tr909/cy/${i}.wav`),
-    },
-  },
-};
+} satisfies BankDefinition;
+```
 
+```ts
+// banks/index.ts
+import type { BankDefinition } from "@web-audio/schema";
+import tr808 from "./tr808";
+import tr909 from "./tr909";
+
+export const BUILT_IN_BANKS: Record<string, BankDefinition> = { tr808, tr909 };
 export const DEFAULT_BANK = "tr808";
 ```
 
-Exact variation counts are TBD until the CDN is populated — the structure is what matters here. The `CDN_BASE` constant lives here so it is only defined in one place.
-
 **Acceptance criteria:**
 
-- [ ] `BUILT_IN_BANKS` covers at least `tr808` and `tr909`
-- [ ] Each bank lists all sample names with their variation URL arrays
-- [ ] `DEFAULT_BANK` is exported and set to `"tr808"`
-- [ ] `CDN_BASE` is defined once here, not duplicated in the engine
-- [ ] File type-checks cleanly against `BankSchema`
+- [x] `tr808.ts` and `tr909.ts` each export a valid `BankDefinition`
+- [x] `BUILT_IN_BANKS` and `DEFAULT_BANK` are exported from `banks/index.ts`
+- [x] Each bank file uses `satisfies BankDefinition` for type-checking
+- [x] All files type-check cleanly
 
 **Testing:**
 
-- [ ] Unit: `BUILT_IN_BANKS.tr808.samples.bd` is a non-empty array of strings
-- [ ] Unit: all URLs follow the `${CDN_BASE}/{bank}/{sample}/{index}.wav` pattern
+- [x] Unit: `BUILT_IN_BANKS.tr909.samples.bd` is a non-empty array of relative path strings
+- [x] Unit: `BUILT_IN_BANKS.tr909.basePath` is a valid URL string
 
 ---
 
@@ -179,18 +190,32 @@ Exact variation counts are TBD until the CDN is populated — the structure is w
 
 **Files:** `packages/fluid/src/index.ts`
 
-When building the `DromeSchema`, fluid collects the bank name from each `Sampler` instrument and looks it up in `BUILT_IN_BANKS`. The resolved manifests are merged with any user-registered banks and placed in `DromeSchema.banks`.
+When building the `DromeSchema`, fluid collects the bank name from each `Sampler`, resolves the `BankDefinition` into a `BankSchema` by prepending `basePath` to each relative path, and places it in `DromeSchema.banks`. User-registered banks take precedence over built-in banks with the same name.
 
 ```ts
+function resolveBank(def: BankDefinition): BankSchema {
+  const samples: Record<string, string[]> = {};
+  for (const [name, paths] of Object.entries(def.samples)) {
+    samples[name] = paths.map((p) => def.basePath + p);
+  }
+  return { samples };
+}
+
 getSchema(): DromeSchema {
   const instruments = this._instruments.map((i) => i.getSchema());
-  const banks: Record<string, BankSchema> = { ...this._banks };
+  const banks: Record<string, BankSchema> = {};
 
+  // Resolve user-registered banks first (they take precedence)
+  for (const [name, def] of Object.entries(this._banks)) {
+    banks[name] = resolveBank(def);
+  }
+
+  // Inline built-in banks for any referenced bank not already present
   for (const instrument of instruments) {
     if (instrument.type === "sampler") {
-      const bankName = instrument.bank;
+      const { bank: bankName } = instrument;
       if (!banks[bankName] && BUILT_IN_BANKS[bankName]) {
-        banks[bankName] = BUILT_IN_BANKS[bankName];
+        banks[bankName] = resolveBank(BUILT_IN_BANKS[bankName]);
       }
     }
   }
@@ -199,118 +224,76 @@ getSchema(): DromeSchema {
 }
 ```
 
-If a bank name is not found in either `BUILT_IN_BANKS` or `_customBanks`, fluid logs a warning and omits it from the schema — the engine will skip that sampler.
+If a bank name is not found in either source, fluid logs a warning and omits it — the engine will skip that sampler.
 
 **Acceptance criteria:**
 
-- [ ] `d.sample("bd").bank("tr808").push(); d.getSchema().banks["tr808"]` is populated
-- [ ] Only banks actually referenced by instruments are included in the schema
-- [ ] An unknown bank name logs a warning and is omitted
-- [ ] Custom banks (from `loadSamples`) take precedence over built-in banks with the same name
+- [x] `d.sample("bd").bank("tr808").push(); d.getSchema().banks["tr808"]` is populated
+- [x] Only banks actually referenced by instruments are included in the schema
+- [x] An unknown bank name logs a warning and is omitted
 
 **Testing:**
 
-- [ ] Unit: schema with two tr808 instruments → `banks` contains `tr808` exactly once
-- [ ] Unit: schema with no samplers → `banks` is `{}`
-- [ ] Unit: unknown bank name logs a console warning
+- [x] Unit: schema with two tr808 instruments → `banks` contains `tr808` exactly once
+- [x] Unit: schema with no samplers → `banks` is `{}`
+- [x] Unit: unknown bank name logs a console warning
 
 ---
 
 ### Phase 2: Fluid — `Sampler` class
 
-#### Step 2.1 — Implement `SamplerNotes` helper
+#### Step 2.1 — Implement `SampleNotes` helper
 
-**Files:** `packages/fluid/src/patterns/sampler-notes.ts` (new)
+**Files:** `packages/fluid/src/patterns/sample-notes.ts` (new)
 
-`SamplerNotes` wraps the existing `Notes` class and overrides `getSchema()` to output playback rate multipliers instead of MIDI note integers. Given a root MIDI value `r` and a resolved MIDI note `n`, the rate is `2^((n - r) / 12)`.
-
-- **Constructor:** same signature as `Notes`, accepts `defaultPattern: Chord`
-- **`root(n)` / `scale(name)`:** delegate to the inner `Notes` instance (same API, same behaviour)
-- **`getSchema()`:** calls the inner `Notes.getSchema()`, then remaps each `StaticSchemaValue.value` from MIDI integer to a float playback rate. If no root is set, defaults to MIDI 69 (A4), which produces `1.0` for a note value of 69.
+`SampleNotes extends MidiNotes` (formerly `Notes`, renamed to `MidiNotes`). Overrides `getSchema()` to remap MIDI values to playback rate multipliers (`2^((midi - root) / 12)`). Defaults root to A4 (69) in its constructor so `notes([0])` always produces rate `1.0` without requiring an explicit `.root()` call.
 
 **Acceptance criteria:**
 
-- [ ] `SamplerNotes.getSchema()` with root A4 (69) and note 69 produces `value: 1.0`
-- [ ] Note 81 (A5, one octave up) produces `value: 2.0`
-- [ ] Note 57 (A3, one octave down) produces `value: 0.5`
-- [ ] `RandomCycle` input still works; the random MIDI values are remapped to rates in the output
+- [x] `SampleNotes.getSchema()` with root A4, note 0 (degree 0) produces `value: 1.0`
+- [x] Degree 12 (one octave up) produces `value: 2.0`
+- [x] Degree -12 (one octave down) produces `value: 0.5`
+- [x] `RandomCycle` with scale remaps valueMap entries from MIDI to rates
+- [x] `RandomCycle` without valueMap builds one from the range and clears `range`
 
 **Testing:**
 
-- [ ] Unit: root A4, note A4 → rate 1.0
-- [ ] Unit: root A4, note A5 → rate 2.0
-- [ ] Unit: root A4, note A3 → rate 0.5
-- [ ] Unit: root C4, notes [0, 3, 5] in major scale → correct rates for E4, G4
+- [x] Unit: root A4, note A4 → rate 1.0
+- [x] Unit: root A4, note A5 → rate 2.0
+- [x] Unit: root A4, note A3 → rate 0.5
+- [x] Unit: random + scale → valueMap remapped to rates
+- [x] Unit: random + range, no valueMap → valueMap built, range cleared
 
 ---
 
-#### Step 2.2 — Implement `Sampler` class
+#### Step 2.2 — Implement `Sampler` class and make `Instrument` abstract
 
-**Files:** `packages/fluid/src/instruments/sampler.ts` (new)
+**Files:** `packages/fluid/src/instruments/sampler.ts` (new), `packages/fluid/src/instruments/instrument.ts`, `packages/fluid/src/instruments/synthesizer.ts`
 
-`Sampler` extends `Instrument` and uses a `SamplerNotes` instance instead of `Notes` for `_cycle`.
-
-```ts
-class Sampler extends Instrument {
-  private _host: Drome | undefined;
-  private _bank: string;
-  private _sample: string;
-  private _fit: FitSchema | null = null;
-
-  constructor(sample: string, { bank = "default", host }: SamplerOptions = {}) {
-    super([69]); // default root A4
-    this._bank = bank;
-    this._sample = sample;
-    this._host = host;
-    // _cycle is overridden to a SamplerNotes instance
-  }
-
-  bank(name: string) { this._bank = name; return this; }
-
-  fit(bars: number) {
-    this._fit = { type: "fit", bars };
-    return this;
-  }
-
-  loop(enabled = true) { this._loop = enabled; return this; }
-
-  push() { this._host?.push(this); return this; }
-
-  getSchema(): SamplerSchema {
-    return {
-      type: "sampler",
-      bank: this._bank,
-      sample: this._sample,
-      variation: this._variation.getSchema(),
-      notes: this._fit ?? this._cycle.getSchema(),
-      gain: this._gain.getSchema(),
-      effects: this._effects.map((e) => e.getSchema()),
-      loop: this._loop,
-    };
-  }
-}
-```
-
-If `.notes()` is called after `.fit()`, the `_fit` field is set to `null` (explicit notes win).
+`Sampler extends Instrument` and overrides `_cycle` with a `SampleNotes` instance. `Instrument` is now `abstract` with `abstract getSchema(): SynthesizerSchema | SamplerSchema`. `_host` and `push()` moved from subclasses into `Instrument` — subclasses pass `host` to `super()`. Default bank is `DEFAULT_BANK` (`"tr909"`).
 
 **Acceptance criteria:**
 
-- [ ] `d.sample("bd").getSchema()` returns a valid `SamplerSchema`
-- [ ] Default bank is `"default"`
-- [ ] `.bank("tr808")` changes the bank in the schema
-- [ ] `.fit(2)` sets `notes` to `{ type: "fit", bars: 2 }` in the schema
-- [ ] Calling `.notes([0])` after `.fit(2)` uses the note ParameterSchema (fit is cleared)
-- [ ] `.loop(true)` sets `loop: true` in the schema
-- [ ] `.gain()`, `.fx()`, `.root()`, `.scale()` all work identically to `Synthesizer`
+- [x] `d.sample("bd").getSchema()` returns a valid `SamplerSchema`
+- [x] Default bank is `DEFAULT_BANK` (`"tr909"`)
+- [x] `.bank("tr808")` changes the bank in the schema
+- [x] `.fit(2)` sets `notes` to `{ type: "fit", bars: 2 }` in the schema
+- [x] Calling `.notes([0])` after `.fit(2)` uses the note ParameterSchema (fit is cleared)
+- [x] `.loop(true)` sets `loop: true` in the schema
+- [x] `.clip()`, `.clip(true)`, and `.clip(false)` set `durationMode` appropriately
+- [x] `.gain()`, `.fx()`, `.root()`, `.scale()` all work identically to `Synthesizer`
+- [x] `_host` and `push()` live in `Instrument` base — not duplicated in subclasses
+- [x] `Instrument` is abstract with `abstract getSchema()`
 
 **Testing:**
 
-- [ ] `d.sample("bd").getSchema()` → `{ type: "sampler", bank: "default", sample: "bd", loop: false, ... }`
-- [ ] `d.sample("bd").bank("tr808").getSchema()` → `bank: "tr808"`
-- [ ] `d.sample("loop").fit(2).getSchema()` → `notes: { type: "fit", bars: 2 }`
-- [ ] `d.sample("loop").fit(2).notes([0]).getSchema()` → `notes` is a `ParameterSchema` (not FitSchema)
-- [ ] `d.sample("bd").root("A4").notes([0]).getSchema()` → `notes` has value `1.0`
-- [ ] `d.sample("bd").root("A4").notes([12]).getSchema()` → `notes` has value `2.0`
+- [x] `d.sample("bd").getSchema()` → `{ type: "sampler", bank: "tr909", sample: "bd", loop: false, ... }`
+- [x] `d.sample("bd").bank("tr808").getSchema()` → `bank: "tr808"`
+- [x] `d.sample("loop").fit(2).getSchema()` → `notes: { type: "fit", bars: 2 }`
+- [x] `d.sample("loop").fit(2).notes([0]).getSchema()` → `notes` is a `ParameterSchema` (not FitSchema)
+- [x] `d.sample("bd").root("A4").notes([0]).getSchema()` → `notes` has value `1.0`
+- [x] `d.sample("bd").root("A4").notes([12]).getSchema()` → `notes` has value `2.0`
+- [x] `d.sample("oh").clip(false).getSchema()` → `durationMode: "one-shot"`
 
 ---
 
@@ -319,21 +302,33 @@ If `.notes()` is called after `.fit()`, the `_fit` field is set to `null` (expli
 **Files:** `packages/fluid/src/index.ts`
 
 ```ts
-sample(name: string, bank?: string) {
-  return new Sampler(name, { bank, host: this });
+sample(nameOrToken: string, variation?: number) {
+  const [sampleName, variationStr] = nameOrToken.split(":");
+  const sampler = new Sampler(sampleName, { host: this });
+  if (variationStr !== undefined) {
+    sampler.variation(parseInt(variationStr, 10));
+  } else if (variation !== undefined) {
+    sampler.variation(variation);
+  }
+  return sampler;
 }
 ```
 
+Second argument is variation index only. Bank is always set via `.bank()`. `Drome._instruments` is `Set<Instrument>`, `push()` accepts `Instrument`, type assertion removed from `getSchema()`.
+
 **Acceptance criteria:**
 
-- [ ] `d.sample("bd")` returns a `Sampler` instance
-- [ ] `d.sample("bd", "tr808")` sets bank directly
-- [ ] `.push()` registers the sampler in Drome
+- [x] `d.sample("bd")` returns a `Sampler` with default bank and variation 0
+- [x] `d.sample("bd:1")` sets variation to 1 via colon shorthand
+- [x] `d.sample("bd", 1)` sets variation to 1 via second argument
+- [x] `d.sample("bd").bank("tr808")` sets bank via chaining
+- [x] `.push()` registers the sampler in Drome
+- [x] `Drome._instruments` is `Set<Instrument>`, type assertion removed
 
 **Testing:**
 
-- [ ] `d.sample("bd") instanceof Sampler`
-- [ ] `d.sample("bd").push()` — sampler appears in `d.getSchema().instruments`
+- [x] `d.sample("bd") instanceof Sampler`
+- [x] `d.sample("bd").push()` — sampler appears in `d.getSchema().instruments`
 
 ---
 
@@ -345,91 +340,77 @@ sample(name: string, bank?: string) {
 
 The engine `Sampler` class extends `Instrument`. It is responsible for fetching and caching `AudioBuffer` instances.
 
-- **Constructor:** receives `SamplerSchema`, the `DromeSchema.banks` map, `AudioContext`, and `AudioClock`
+- **Constructor:** `(ctx, clock, { schema, banks, bufferCache, startingBar?, barStartTime? })`
 - **`_buffer: AudioBuffer | null`** — null until loaded
-- **`load(): Promise<void>`** — looks up the sample URL from the `banks` map using `bank`, `sample`, and variation index `0`. Fetches and decodes the audio data. Sets `_buffer` on success. Logs a warning on failure.
+- **`load(): Promise<void>`** — resolves the URL from `banks`, checks `bufferCache` before fetching. Sets `_buffer` on resolution.
 - **`isReady(): boolean`** — returns `_buffer !== null`
 
-URL resolution: `banks[schema.bank]?.samples[schema.sample]?.[0]`. No CDN logic in the engine — all URLs come from the schema.
+URL resolution: `banks[schema.bank]?.samples[schema.sample]?.[variationIndex]`. No CDN logic in the engine — all URLs come from the schema.
 
 **Acceptance criteria:**
 
-- [ ] `sampler.load()` reads the URL from `banks` and populates `_buffer`
-- [ ] `sampler.isReady()` returns `false` before load, `true` after
-- [ ] A failed fetch logs a console warning and leaves `_buffer` as null
-- [ ] Engine contains no hardcoded CDN URL or `CDN_BASE` constant
+- [x] `sampler.load()` reads the URL from `banks` and populates `_buffer`
+- [x] `sampler.isReady()` returns `false` before load, `true` after
+- [x] A failed fetch logs a console warning and leaves `_buffer` as null
+- [x] Engine contains no hardcoded CDN URL or `CDN_BASE` constant
+- [x] `_resolveDetune` moved to `Instrument` base class, accepting `detune` as a parameter
 
 **Testing:**
 
-- [ ] Unit (mock fetch): `load()` reads the correct URL from the banks map and calls `decodeAudioData`
-- [ ] Unit: failed fetch logs a warning, `isReady()` remains false
+- [x] Unit (mock fetch): `load()` reads the correct URL from the banks map and calls `decodeAudioData`
+- [x] Unit: failed fetch logs a warning, `isReady()` remains false
 
 ---
 
-#### Step 3.2 — `AudioEngine` integration: load-before-play and mid-playback miss
+#### Step 3.2 — `AudioEngine` integration: shared buffer cache, load-before-play, and mid-playback miss
 
-**Files:** `packages/audio-engine/src/index.ts`
+**Files:** `packages/audio-engine/src/index.ts`, `packages/audio-engine/src/sampler.ts`, `apps/web/src/lib/client/audio.svelte.ts`, `apps/sequencer/src/App.tsx`
 
-On `play()`:
-- Collect all `SamplerSchema` instruments from the committed schema
-- Call `load()` on each that is not yet ready
-- Await all load promises before starting the clock
+**Shared buffer cache:** `AudioEngine` holds `_bufferCache: Map<string, Promise<AudioBuffer | null>>` keyed by URL, persisting across commits. Passed to each `Sampler` via options. Deduplicates concurrent fetches — a second `load()` for the same URL awaits the in-flight promise.
 
-On `_commit()` (schema update while playing):
-- For newly added samplers, call `load()` but do not block
-- The sampler's `scheduleBar` skips silently if `!isReady()`, with a console warning: `[Sampler] "${bank}/${sample}" not yet loaded — skipping bar ${barIndex}`
+**Load-before-play:** `AudioEngine.prepare()` creates the actual players (`_pendingPlayers`), fully loads all samplers, then stores them. `_commit()` uses `_pendingPlayers` directly when available — buffers are guaranteed ready before `scheduleBar` fires. App code calls `await engine.prepare()` before `clock.start()`.
+
+**Mid-playback miss:** when `_commit()` fires without `_pendingPlayers` (schema updated without `prepare()`), players are created fresh and `load()` is called non-blocking. `scheduleBar` skips silently if `!isReady()` with a console warning.
 
 **Acceptance criteria:**
 
-- [ ] Clock does not start until all sampler buffers are loaded
-- [ ] A sampler added while playing does not block other instruments
-- [ ] A not-yet-loaded sampler emits a console warning and produces no audio for that bar
-- [ ] Once loaded, the sampler plays normally from the next bar
+- [x] `AudioEngine` holds a `_bufferCache` that persists across commits
+- [x] Two samplers using the same URL share one fetch (cache hit on second)
+- [x] Clock does not start until all sampler buffers are loaded
+- [x] A sampler added while playing does not block other instruments
+- [x] A not-yet-loaded sampler emits a console warning and produces no audio for that bar
+- [x] Once loaded, the sampler plays normally from the next bar
 
 **Testing:**
 
-- [ ] Unit (mock fetch): `play()` awaits load before emitting first `prebar` event
-- [ ] Unit: `scheduleBar` on an unready sampler logs a warning and returns early
+- [x] Unit: two samplers with the same URL result in one `fetch` call
+- [x] Unit: buffer cache persists across `_commit()` calls — re-commit with same sampler does not re-fetch
+- [x] Unit: `scheduleBar` on an unready sampler logs a warning and returns early
 
 ---
 
-#### Step 3.3 — `scheduleBar`: fire-and-forget + loop playback
+#### Step 3.3 — `scheduleBar`: per-note sample playback
 
 **Files:** `packages/audio-engine/src/sampler.ts`
 
-For each note in the resolved `ParameterSchema`:
-
-```ts
-const node = ctx.createBufferSource();
-node.buffer = this._buffer;
-node.playbackRate.value = note.value; // resolved float from SamplerNotes
-node.loop = this._schema.loop;
-
-const startTime = barStartTime + note.offset * barDuration;
-const stopTime = startTime + note.duration * barDuration;
-
-node.connect(gainNode);
-node.start(startTime);
-node.stop(stopTime); // always schedule stop — sample self-terminates if shorter
-```
-
-For `FitSchema` notes, see Step 3.4.
-
-Gain and effects follow the same scheduling pattern as `Synthesizer` — reuse `_connectLfoOrSchedule`, `_scheduleParamEnvelope`, and `_buildEffectNode` from `Instrument`.
+Mirrors the `Synthesizer` scheduling pattern. For each note in the resolved `ParameterSchema`, creates an `AudioBufferSourceNode` with `playbackRate` set to the resolved float value (output of `SampleNotes`), applies the gain envelope and effects chain via the shared base class methods, and schedules start/stop. `FitSchema` notes are stubbed — see Step 3.4.
 
 **Acceptance criteria:**
 
-- [ ] A one-shot sample starts at the correct bar offset and stops at `startTime + duration * barDuration`
-- [ ] A looping sample wraps if shorter than the scheduled duration
-- [ ] `node.playbackRate.value` reflects the resolved note value
-- [ ] Gain envelope is applied identically to the synth
-- [ ] Effects chain is constructed identically to the synth
+- [x] A sample starts at the correct bar offset and, in default `clip` mode, stops at `startTime + duration * barDuration`
+- [x] In `one-shot` mode, non-looping samples stop after their natural buffer duration adjusted by playback rate
+- [x] `node.playbackRate.value` reflects the resolved note value
+- [x] `node.loop` is set from `schema.loop`
+- [x] Gain envelope is applied identically to the synth
+- [x] Effects chain is constructed identically to the synth
+- [x] Detune (static, envelope, LFO) handled via `_resolveDetune` from base class
 
 **Testing:**
 
-- [ ] Unit (mock AudioContext): `scheduleBar` creates an `AudioBufferSourceNode` with correct `playbackRate` and scheduled start/stop times
-- [ ] Unit: loop flag is set correctly on the node
-- [ ] Unit: gain envelope ramps are scheduled at the correct timestamps
+- [x] Unit (mock AudioContext): `scheduleBar` creates an `AudioBufferSourceNode` with correct `playbackRate` and scheduled start/stop times
+- [x] Unit: loop flag is set correctly on the node
+- [x] Unit: gain envelope ramps are scheduled at the correct timestamps
+- [x] Unit: one-shot duration mode schedules stop/release from the adjusted buffer duration
 
 ---
 
@@ -458,16 +439,16 @@ node.stop(stopTime);
 
 **Acceptance criteria:**
 
-- [ ] `fit(2)` plays the sample over exactly 2 bars
-- [ ] Playback rate is calculated as `buffer.duration / (bars * barDuration)`
-- [ ] The node is stopped at `barStartTime + bars * barDuration`
-- [ ] `fit` is not re-triggered on every bar — only at the start of each N-bar window
+- [x] `fit(2)` plays the sample over exactly 2 bars
+- [x] Playback rate is calculated as `buffer.duration / (bars * barDuration)`
+- [x] The node is stopped at `barStartTime + bars * barDuration`
+- [x] `fit` is not re-triggered on every bar — only at the start of each N-bar window
 
 **Testing:**
 
-- [ ] Unit: `fit(1)` on a 1-second buffer at 120 BPM (0.5s bar) → `playbackRate = 2.0`
-- [ ] Unit: `fit(2)` on a 2-second buffer at 120 BPM → `playbackRate = 1.0`
-- [ ] Unit: node stop time equals `barStartTime + bars * barDuration`
+- [x] Unit: `fit(1)` on a 1-second buffer at 120 BPM (0.5s bar) → `playbackRate = 2.0`
+- [x] Unit: `fit(2)` on a 2-second buffer at 120 BPM → `playbackRate = 1.0`
+- [x] Unit: node stop time equals `barStartTime + bars * barDuration`
 
 ---
 
@@ -477,11 +458,12 @@ node.stop(stopTime);
 
 **Files:** `packages/fluid/src/index.test.ts`
 
-- [ ] `d.sample("bd").getSchema()` — valid `SamplerSchema` in `instruments[]`
-- [ ] `d.sample("bd").bank("tr808").root("A4").notes([0, 3, 7]).getSchema()` — notes field is a ParameterSchema with float rates
-- [ ] `d.sample("loop").fit(2).loop(true).getSchema()` — `notes` is `FitSchema`, `loop: true`
-- [ ] `d.sample("bd").gain(d.env(0, 1)).fx(d.lpf(800)).getSchema()` — gain and effects present
-- [ ] Mixed schema: synth + sampler both in `instruments[]`
+- [x] `d.sample("bd").getSchema()` — valid `SamplerSchema` in `instruments[]`
+- [x] `d.sample("bd").bank("tr808").root("A4").notes([0, 3, 7]).getSchema()` — notes field is a ParameterSchema with float rates
+- [x] `d.sample("loop").fit(2).loop(true).getSchema()` — `notes` is `FitSchema`, `loop: true`
+- [x] `d.sample("oh").clip(false).getSchema()` — `durationMode: "one-shot"`
+- [x] `d.sample("bd").gain(d.env(0, 1)).fx(d.lpf(800)).getSchema()` — gain and effects present
+- [x] Mixed schema: synth + sampler both in `instruments[]`
 
 ---
 
@@ -489,11 +471,11 @@ node.stop(stopTime);
 
 Using the sequencer app:
 
-- [ ] `d.sample("bd").bank("tr808").push()` — bass drum plays on every beat
-- [ ] `d.sample("bd").bank("tr808").notes([0, 0, 12, 0]).root("A4").push()` — third hit is one octave up
-- [ ] `d.sample("loop").bank("tr808").fit(2).loop(true).push()` — loop stretches to fill 2 bars
-- [ ] `d.sample("bd").bank("tr808").fx(d.lpf(400)).push()` — filtered drum hit
-- [ ] Sampler + synth playing simultaneously with no timing drift
+- [x] `d.sample("bd").bank("tr808").push()` — bass drum plays on every beat
+- [x] `d.sample("bd").bank("tr808").notes([0, 0, 12, 0]).root("A4").push()` — third hit is one octave up
+- [x] `d.sample("breaks").bank("loops").fit(2).push()` — loop stretches to fill 2 bars
+- [x] `d.sample("bd").bank("tr909").fx(d.hpf(400)).push()` — filtered drum hit
+- [x] Sampler + synth playing simultaneously with no timing drift
 
 ---
 
@@ -524,16 +506,17 @@ variation(...input: CycleInput) {
 }
 ```
 
-`d.sample("bd", 1)` — the second argument to `d.sample()` is a variation index shorthand:
+`d.sample("bd", 1)` — the second argument to `d.sample()` is a variation index only (bank is always set via `.bank()`):
 
 ```ts
 // In Drome:
-sample(nameOrToken: string, variationOrBank?: number | string) {
-  const sampler = new Sampler(name, { host: this });
-  if (typeof variationOrBank === "number") {
-    sampler.variation(variationOrBank);
-  } else if (typeof variationOrBank === "string") {
-    sampler.bank(variationOrBank);
+sample(nameOrToken: string, variation?: number) {
+  const [sampleName, variationStr] = nameOrToken.split(":");
+  const sampler = new Sampler(sampleName, { host: this });
+  if (variationStr !== undefined) {
+    sampler.variation(parseInt(variationStr, 10));
+  } else if (variation !== undefined) {
+    sampler.variation(variation);
   }
   return sampler;
 }
@@ -712,6 +695,7 @@ In `scheduleBar`, resolve the variation index per step, pick the correct buffer,
 - [ ] `d.loadSamples({ kick: ["url.wav"] }).sample("kick").bank("user").getSchema()` — `banks.user.samples.kick` present
 - [ ] Named bank round-trip
 - [ ] Variation cycling: `d.sample("bd").variation([0, 1, 2]).getSchema().variation` is a StaticSchema
+- [ ] Custom bank with same name as a built-in bank takes precedence in `DromeSchema.banks`
 
 #### Step 4.2 — Manual verification
 
@@ -737,9 +721,9 @@ Extends the `CustomBankSchema` to support multi-sample maps (note → file(s)) a
 type SpriteRegion = [number, number]; // [start, end], normalized 0–1
 
 type BankSampleValue =
-  | string[]                                  // simple variations
-  | Record<string, string | string[]>         // multi-sample: note name → file(s)
-  | Record<string, SpriteRegion>;             // sprites: note name → [start, end]
+  | string[] // simple variations
+  | Record<string, string | string[]> // multi-sample: note name → file(s)
+  | Record<string, SpriteRegion>; // sprites: note name → [start, end]
 
 interface BankSchema {
   samples: Record<string, BankSampleValue>; // widened from string[]
@@ -873,13 +857,13 @@ interface StaticRegionSchema {
 
 interface ChopSlice {
   start: number; // normalized 0–1
-  end: number;   // normalized 0–1
+  end: number; // normalized 0–1
 }
 
 interface ChopRegionSchema {
   type: "chop";
-  slices: ChopSlice[];        // pre-computed by fluid, in playback order
-  sequence: ParameterSchema;  // index into slices[], resolved per step
+  slices: ChopSlice[]; // pre-computed by fluid, in playback order
+  sequence: ParameterSchema; // index into slices[], resolved per step
 }
 
 type RegionSchema = StaticRegionSchema | ChopRegionSchema;
@@ -1005,7 +989,7 @@ When `region.type === "static"`, resolve `start` and `end` per step and apply to
 
 ```ts
 const start = this._resolve(region.start, barIndex, stepIndex); // 0–1
-const end = this._resolve(region.end, barIndex, stepIndex);     // 0–1
+const end = this._resolve(region.end, barIndex, stepIndex); // 0–1
 
 node.offset = start * buffer.duration;
 const regionDuration = (end - start) * buffer.duration;
@@ -1034,7 +1018,9 @@ Note duration from the step is ignored when a region is present — the region b
 When `region.type === "chop"`, resolve the `sequence` ParameterSchema per step to get a slice index, then look up the pre-computed `ChopSlice`:
 
 ```ts
-const sliceIndex = Math.floor(this._resolve(region.sequence, barIndex, stepIndex));
+const sliceIndex = Math.floor(
+  this._resolve(region.sequence, barIndex, stepIndex),
+);
 const slice = region.slices[Math.min(sliceIndex, region.slices.length - 1)];
 
 node.offset = slice.start * buffer.duration;
@@ -1078,15 +1064,23 @@ node.stop(startTime + regionDuration);
 
 ## File Change Summary
 
-| File | Change |
-|---|---|
-| `packages/schema/src/index.ts` | PR1: Add `FitSchema`, `SamplerSchema`, `BankSchema`, `InstrumentSchema` union; update `DromeSchema`. PR3: Add `BankSampleValue`, `SpriteRegion`; widen `BankSchema`. PR4: Add `RegionSchema`, `StaticRegionSchema`, `ChopRegionSchema`, `ChopSlice` |
-| `packages/fluid/src/data/banks.ts` | New — `BUILT_IN_BANKS` constants (`tr808`, `tr909`) and `DEFAULT_BANK` |
-| `packages/fluid/src/patterns/sampler-notes.ts` | New — `SamplerNotes` helper converting MIDI notes to playback rates |
-| `packages/fluid/src/instruments/sampler.ts` | New — `Sampler` builder class; extended across PRs for variation, loadSamples, region, chop |
-| `packages/fluid/src/index.ts` | Add `d.sample()`, `d.loadSamples()`; update `getSchema()` to inline bank manifests |
-| `packages/audio-engine/src/sampler.ts` | New — engine `Sampler` class; extended across PRs for variation buffers, multi-sample, sprites, regions |
-| `packages/audio-engine/src/index.ts` | Load samplers before clock start; pass `banks` map to sampler instances; handle mid-playback adds |
+| File                                           | Change                                                                                                                                                                                                                                                               |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/schema/src/index.ts`                 | PR1: Add `FitSchema`, `SamplerSchema`, `BankDefinition`, `BankSchema`, `InstrumentSchema` base; update `DromeSchema`. PR3: Add `BankSampleValue`, `SpriteRegion`; widen `BankSchema`. PR4: Add `RegionSchema`, `StaticRegionSchema`, `ChopRegionSchema`, `ChopSlice` |
+| `packages/fluid/src/banks/tr808.ts`            | New — TR-808 `BankDefinition`                                                                                                                                                                                                                                        |
+| `packages/fluid/src/banks/tr909.ts`            | New — TR-909 `BankDefinition`                                                                                                                                                                                                                                        |
+| `packages/fluid/src/banks/index.ts`            | New — `BUILT_IN_BANKS` map and `DEFAULT_BANK` export                                                                                                                                                                                                                 |
+| `packages/fluid/src/patterns/midi-notes.ts`    | Renamed from `notes.ts` — `MidiNotes` class                                                                                                                                                                                                                          |
+| `packages/fluid/src/patterns/sample-notes.ts`  | New — `SampleNotes extends MidiNotes`, outputs playback rates                                                                                                                                                                                                        |
+| `packages/fluid/src/instruments/instrument.ts` | Made abstract; `_host`/`push()` moved here from subclasses                                                                                                                                                                                                           |
+| `packages/fluid/src/instruments/sampler.ts`    | New — `Sampler` builder class; extended across PRs for variation, loadSamples, region, chop                                                                                                                                                                          |
+| `packages/fluid/src/index.ts`                  | Add `d.sample()`, `d.loadSamples()`; update `getSchema()` to inline bank manifests                                                                                                                                                                                   |
+| `packages/audio-engine/src/instrument.ts`      | `_initLfos` widened to `InstrumentSchema`; `_resolveDetune` moved here from `Synthesizer`                                                                                                                                                                            |
+| `packages/audio-engine/src/synthesizer.ts`     | `_schema` made `protected`; `_resolveDetune` removed (now in base)                                                                                                                                                                                                   |
+| `packages/audio-engine/src/sampler.ts`         | New — engine `Sampler` class with JIT loading, `AudioBufferSourceNode` scheduling, fit resolution                                                                                                                                                                    |
+| `packages/audio-engine/src/index.ts`           | `prepare()` method for pre-loading; `_cache` for buffer deduplication; `_pendingPlayers` removed                                                                                                                                                                     |
+| `apps/web/src/lib/client/audio.svelte.ts`      | Added `await engine.prepare()` before `clock.start()`                                                                                                                                                                                                                |
+| `apps/sequencer/src/App.tsx`                   | Added `await engine.prepare()` before `clock.start()`                                                                                                                                                                                                                |
 
 ## Verification (all PRs)
 

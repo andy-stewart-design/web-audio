@@ -37,17 +37,17 @@ describe("computeEnvelope", () => {
 
     it("clamps attackDur to MIN_RAMP when computed value is too small", () => {
       const result = computeEnvelope({ ...base, a: 0 }, 2, 5);
-      expect(result.attackDur).toBe(0.005);
+      expect(result.attackDur).toBe(0.0025);
     });
 
     it("clamps decayDur to MIN_RAMP when computed value is too small", () => {
       const result = computeEnvelope({ ...base, d: 0 }, 2, 5);
-      expect(result.decayDur).toBe(0.005);
+      expect(result.decayDur).toBe(0.0025);
     });
 
     it("clamps releaseDur to MIN_RAMP when computed value is too small", () => {
       const result = computeEnvelope({ ...base, r: 0 }, 2, 5);
-      expect(result.releaseDur).toBe(0.005);
+      expect(result.releaseDur).toBe(0.0025);
     });
   });
 
@@ -85,7 +85,7 @@ describe("computeEnvelope", () => {
     it("clamps decayDur to MIN_RAMP when attackDur already fills noteDuration", () => {
       // a=1, d=0 — adSum=1 avoids normalizeADSR, attack fills the full note
       const result = computeEnvelope({ ...base, a: 1, d: 0 }, 2, 5);
-      expect(result.decayDur).toBe(0.005);
+      expect(result.decayDur).toBe(0.0025);
     });
   });
 

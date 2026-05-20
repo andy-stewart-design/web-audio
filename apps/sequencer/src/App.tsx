@@ -65,6 +65,7 @@ function App() {
       const engine = getEngine();
       await engine.ready;
       engine.update(schema);
+      await engine.prepare();
 
       if (!isRunning) {
         await getClock().start();

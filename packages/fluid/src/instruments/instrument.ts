@@ -7,24 +7,49 @@ import Envelope from "@/automations/envelope";
 import Lfo from "@/automations/lfo";
 import Filter from "@/effects/filter";
 import GainEffect from "@/effects/gain";
-import Notes from "@/patterns/notes";
+import MidiNotes from "@/patterns/midi-notes";
 import Parameter from "@/patterns/parameter";
 import { isEnvelopeTuple, isLfoTuple } from "@/utils/validate";
-import type { CycleInput, NoteName, NoteValue, ScaleAlias } from "@/types";
+import type {
+  ADSR,
+  CycleInput,
+  NoteName,
+  NoteValue,
+  ScaleAlias,
+} from "@/types";
+import type { SamplerSchema, SynthesizerSchema } from "@web-audio/schema";
+import type Drome from "@/index";
 
 type NoteOrChord<T> = T | T[];
 type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
-class Instrument {
-  protected _cycle: Notes;
+const DEFAULT_GAIN_ENVELOPE = { a: 0.01, d: 0, s: 1, r: 0.01 } satisfies ADSR;
+
+abstract class Instrument {
+  protected _cycle: MidiNotes;
   protected _detune: Parameter | Envelope | Lfo;
   protected _gain: Envelope;
   protected _effects: (Filter | GainEffect)[] = [];
+  protected _host: Drome | undefined;
+  private _gainEnvelope: ADSR;
 
-  constructor(defaultPattern: Chord) {
-    this._cycle = new Notes(defaultPattern);
+  constructor(
+    defaultPattern: Chord,
+    host?: Drome,
+    gainEnvelope: Partial<ADSR> = {},
+  ) {
+    this._cycle = new MidiNotes(defaultPattern);
     this._detune = new Parameter(0);
-    this._gain = new Envelope();
+    this._gainEnvelope = { ...DEFAULT_GAIN_ENVELOPE, ...gainEnvelope };
+    this._gain = this._createGainEnvelope();
+    this._host = host;
+  }
+
+  abstract getSchema(): SynthesizerSchema | SamplerSchema;
+
+  push() {
+    this._host?.push(this);
+    return this;
   }
 
   notes(...input: NoteInput<ScheduledValue> | [RandomCycle]) {
@@ -101,9 +126,14 @@ class Instrument {
     if (isEnvelopeTuple(input)) {
       this._gain = input[0];
     } else {
-      this._gain = new Envelope(0, ...input);
+      this._gain = this._createGainEnvelope(...input);
     }
     return this;
+  }
+
+  private _createGainEnvelope(...max: CycleInput) {
+    const { a, d, s, r } = this._gainEnvelope;
+    return new Envelope(0, ...max).adsr(a, d, s, r);
   }
 
   fx(...effects: (Filter | GainEffect)[]) {

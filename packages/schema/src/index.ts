@@ -1,6 +1,18 @@
+// ---------------------------------------------------
+// PRIMITIVES ----------------------------------------
+// ---------------------------------------------------
+
 type Waveform = "sine" | "square" | "sawtooth" | "triangle";
 
 type EnvelopeMode = "bleed" | "clip";
+
+type SamplerDurationMode = "clip" | "one-shot";
+
+type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
+
+// ---------------------------------------------------
+// SEQUENCING ----------------------------------------
+// ---------------------------------------------------
 
 interface StaticSchemaValue {
   value: number;
@@ -28,6 +40,28 @@ interface RandomSchema {
 
 type ParameterSchema = StaticSchema | RandomSchema;
 
+interface FitSchema {
+  type: "fit";
+  bars: number;
+}
+
+// ---------------------------------------------------
+// SAMPLING ------------------------------------------
+// ---------------------------------------------------
+
+interface BankDefinition {
+  basePath: string;
+  samples: Record<string, string[]>;
+}
+
+interface BankSchema {
+  samples: Record<string, string[]>;
+}
+
+// ---------------------------------------------------
+// AUTOMATIONS ---------------------------------------
+// ---------------------------------------------------
+
 interface EnvelopeSchema {
   type: "envelope";
   min: number;
@@ -51,7 +85,9 @@ interface LfoSchema {
   invert: boolean;
 }
 
-type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
+// ---------------------------------------------------
+// EFFECTS -------------------------------------------
+// ---------------------------------------------------
 
 interface FilterSchema {
   type: "filter";
@@ -69,31 +105,59 @@ interface GainEffectSchema {
 
 type EffectSchema = FilterSchema | GainEffectSchema;
 
-interface SynthesizerSchema {
+// ---------------------------------------------------
+// INSTRUMENTS ---------------------------------------
+// ---------------------------------------------------
+
+interface InstrumentSchema {
+  gain: EnvelopeSchema;
+  effects: EffectSchema[];
+  detune: ParameterSchema | EnvelopeSchema | LfoSchema;
+}
+
+interface SynthesizerSchema extends InstrumentSchema {
   type: "synthesizer";
   waveform: Waveform;
   notes: ParameterSchema;
-  detune: ParameterSchema | EnvelopeSchema | LfoSchema;
-  gain: EnvelopeSchema;
-  effects: EffectSchema[];
 }
+
+interface SamplerSchema extends InstrumentSchema {
+  type: "sampler";
+  bank: string;
+  sample: string;
+  variation: ParameterSchema;
+  notes: ParameterSchema | FitSchema;
+  loop: boolean;
+  durationMode: SamplerDurationMode;
+}
+
+// ---------------------------------------------------
+// DROME ---------------------------------------------
+// ---------------------------------------------------
 
 interface DromeSchema {
   bpm?: number;
-  instruments: SynthesizerSchema[];
+  instruments: (SynthesizerSchema | SamplerSchema)[];
+  banks: Record<string, BankSchema>;
 }
 
 export type {
+  BankDefinition,
+  BankSchema,
   DromeSchema,
   EffectSchema,
   EnvelopeMode,
   EnvelopeSchema,
   FilterSchema,
   FilterType,
+  FitSchema,
   GainEffectSchema,
+  InstrumentSchema,
   LfoSchema,
   ParameterSchema,
   RandomSchema,
+  SamplerDurationMode,
+  SamplerSchema,
   StaticSchema,
   StaticSchemaValue,
   SynthesizerSchema,
