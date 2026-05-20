@@ -1,6 +1,6 @@
 import type { FilterType } from "@web-audio/schema";
 
-const MIN_RAMP = 0.005;
+const MIN_RAMP = 0.0025;
 const SYNTH_BASE_GAIN = 0.325;
 const SAMPLE_BASE_GAIN = 0.875;
 

@@ -12,7 +12,7 @@ class Synthesizer extends Instrument {
   private _type: Waveform;
 
   constructor({ type = "sine", host }: SynthesizerOptions = {}) {
-    super([60], host);
+    super([60], host, { a: 0.005, r: 0.005 });
     this._type = resolveWaveform(type);
   }
 

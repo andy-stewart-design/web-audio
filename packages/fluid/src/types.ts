@@ -4,14 +4,12 @@ export type {
   SynthesizerSchema,
   Waveform,
 } from "@web-audio/schema";
-
 import type { RandomCycle } from "@web-audio/patterns";
+import type { scaleAliasMap } from "./utils/get-scale";
 
 type CycleInput = (number | number[])[] | [RandomCycle];
 
-export type { CycleInput };
-
-import type { scaleAliasMap } from "./utils/get-scale";
+type ADSR = { a: number; d: number; s: number; r: number };
 
 type ScaleAlias = keyof typeof scaleAliasMap;
 
@@ -25,4 +23,4 @@ type NoteNameUpper = NaturalNote | AccidentalNote;
 type NoteName = NoteNameUpper | Lowercase<NoteNameUpper>;
 type NoteValue = `${NoteName}${number}`;
 
-export type { ScaleAlias, NoteName, NoteValue };
+export type { ADSR, CycleInput, ScaleAlias, NoteName, NoteValue };

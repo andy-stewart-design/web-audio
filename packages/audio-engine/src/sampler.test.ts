@@ -467,7 +467,7 @@ describe("Sampler", () => {
     const noteDuration = 0.5 * clock.barDuration;
     const startTime = 10 + 0.25 * clock.barDuration;
     const endTime = startTime + noteDuration;
-    const releaseDur = 0.005;
+    const releaseDur = 0.0025;
 
     expect(source.playbackRate.value).toBe(2);
     expect(source.detune.value).toBe(123);
@@ -481,11 +481,11 @@ describe("Sampler", () => {
     expect(gain.gain.linearRampToValueAtTime).toHaveBeenNthCalledWith(
       1,
       1,
-      startTime + 0.005,
+      startTime + 0.0025,
     );
     expect(gain.gain.linearRampToValueAtTime.mock.calls[1][0]).toBe(1);
     expect(gain.gain.linearRampToValueAtTime.mock.calls[1][1]).toBeCloseTo(
-      startTime + 0.01,
+      startTime + 0.005,
     );
     expect(gain.gain.setValueAtTime).toHaveBeenNthCalledWith(2, 1, endTime);
     expect(gain.gain.linearRampToValueAtTime.mock.calls[2][0]).toBe(0);

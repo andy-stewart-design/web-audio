@@ -22,7 +22,7 @@ class Sampler extends Instrument {
     sample: string,
     { bank = DEFAULT_BANK, host }: SamplerOptions = {},
   ) {
-    super([0], host);
+    super([0], host, { a: 0.0025, r: 0.005 });
     this._cycle = new SampleNotes([0]);
     this._bank = bank;
     this._sample = sample;
