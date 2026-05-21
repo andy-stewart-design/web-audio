@@ -1,5 +1,3 @@
-- adsr convenience method
 - repo cleanup
-  - organize audio engine
   - dep updates/culling
   - import sorting?
