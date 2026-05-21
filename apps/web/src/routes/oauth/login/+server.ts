@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { getOAuthClient, SCOPE } from '$lib/server/auth/client';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, url }) => {
 	const { handle } = await request.json();
 
 	if (!handle || typeof handle !== 'string') {
@@ -10,7 +10,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	try {
-		const client = await getOAuthClient();
+		const client = await getOAuthClient(url.origin);
 		const authUrl = await client.authorize(handle, { scope: SCOPE });
 		return json({ redirectUrl: authUrl.toString() });
 	} catch (e) {

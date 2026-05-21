@@ -4,13 +4,14 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { authState, authSession } from '$lib/server/db/schema';
 import { env } from '$env/dynamic/private';
+import { dev } from '$app/environment';
 
 export const SCOPE =
 	'atproto repo:live.drome.sketch repo:live.drome.like repo:live.drome.repost repo:live.drome.follow repo:live.drome.bookmark';
 
 const PRODUCTION_CLIENT_ID = 'https://drome-at.vercel.app/client-metadata.json';
 
-let client: NodeOAuthClient | null = null;
+const clients = new Map<string, NodeOAuthClient>();
 
 const stateStore = {
 	async get(key: string) {
@@ -45,12 +46,15 @@ const sessionStore = {
 	}
 };
 
-export async function getOAuthClient(): Promise<NodeOAuthClient> {
-	if (client) return client;
+export async function getOAuthClient(origin?: string): Promise<NodeOAuthClient> {
+	const publicUrl = !dev && env.APP_URL ? env.APP_URL : origin;
+	const cacheKey = publicUrl ?? 'loopback-default';
+	const cachedClient = clients.get(cacheKey);
+	if (cachedClient) return cachedClient;
 
-	const publicUrl = env.APP_URL;
+	let client: NodeOAuthClient;
 
-	if (publicUrl) {
+	if (!dev && publicUrl) {
 		client = new NodeOAuthClient({
 			clientMetadata: {
 				client_id: PRODUCTION_CLIENT_ID,
@@ -71,12 +75,13 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 		client = new NodeOAuthClient({
 			clientMetadata: buildAtprotoLoopbackClientMetadata({
 				scope: SCOPE,
-				redirect_uris: ['http://127.0.0.1:3000/oauth/callback']
+				redirect_uris: [`${publicUrl ?? 'http://127.0.0.1:3000'}/oauth/callback`]
 			}),
 			stateStore,
 			sessionStore
 		});
 	}
 
+	clients.set(cacheKey, client);
 	return client;
 }
