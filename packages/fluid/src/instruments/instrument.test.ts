@@ -51,4 +51,10 @@ describe("Instrument gain envelopes", () => {
 
     expectGainADSR(schema.gain, { a: 0.1, d: 0.2, s: 0.3, r: 0.4 });
   });
+
+  it("supports adsr shorthand for gain envelope", () => {
+    const schema = new Synthesizer().adsr(0, 1, 0.333, 1).getSchema();
+
+    expectGainADSR(schema.gain, { a: 0, d: 1, s: 0.333, r: 1 });
+  });
 });

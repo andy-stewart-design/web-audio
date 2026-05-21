@@ -131,6 +131,16 @@ abstract class Instrument {
     return this;
   }
 
+  adsr(
+    a: number | number[],
+    d: number | number[],
+    s: number | number[],
+    r: number | number[],
+  ) {
+    this._gain.adsr(a, d, s, r);
+    return this;
+  }
+
   private _createGainEnvelope(...max: CycleInput) {
     const { a, d, s, r } = this._gainEnvelope;
     return new Envelope(0, ...max).adsr(a, d, s, r);

@@ -1,5 +1,5 @@
 import Instrument from "./instrument";
-import { midiToFrequency } from "./utils/midi-to-frequency";
+import { midiToFrequency } from "@/utils/midi-to-frequency";
 
 import type { StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
 import type AudioClock from "@web-audio/clock";

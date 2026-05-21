@@ -5,7 +5,7 @@ import type {
   StaticSchemaValue,
 } from "@web-audio/schema";
 import Instrument from "./instrument";
-import { SAMPLE_BASE_GAIN } from "./constants";
+import { SAMPLE_BASE_GAIN } from "@/constants";
 
 interface SampleCache {
   resolved: Map<string, AudioBuffer>;

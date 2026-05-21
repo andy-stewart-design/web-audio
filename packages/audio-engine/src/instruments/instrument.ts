@@ -7,15 +7,15 @@ import type {
   ParameterSchema,
   RandomSchema,
 } from "@web-audio/schema";
-import type { ResolvedDetune } from "./types";
-import RandomResolver from "./random-resolver";
-import { SYNTH_BASE_GAIN, FILTER_TYPE_MAP } from "./constants";
-import { computeEnvelope } from "./utils/compute-envelope";
+import type { ResolvedDetune } from "@/types";
+import RandomResolver from "@/resolvers/random-resolver";
+import { SYNTH_BASE_GAIN, FILTER_TYPE_MAP } from "@/constants";
+import { computeEnvelope } from "@/utils/compute-envelope";
 import type {
   EnvelopeParams,
   ScheduledNote,
   ResolvedEnvelopeSchema,
-} from "./types";
+} from "@/types";
 
 abstract class Instrument {
   protected _ctx: AudioContext;

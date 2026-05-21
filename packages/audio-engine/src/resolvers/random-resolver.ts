@@ -9,7 +9,7 @@ import {
   binaryMapper,
   quantizeMapper,
   type RandMapper,
-} from "./utils/random";
+} from "@/utils/random";
 
 class RandomResolver {
   private _schema: RandomSchema;

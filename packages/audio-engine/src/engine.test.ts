@@ -39,8 +39,8 @@ vi.mock("./sampler", () => {
 });
 
 import AudioEngine from "./index";
-import MockSynthesizer from "./synthesizer";
-import MockSampler from "./sampler";
+import MockSynthesizer from "./instruments/synthesizer";
+import MockSampler from "./instruments/sampler";
 
 // Stub AudioContext with audioWorklet.addModule for worklet registration
 const fakeCtx = {

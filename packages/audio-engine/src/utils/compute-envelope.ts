@@ -1,4 +1,4 @@
-import { MIN_RAMP } from "../constants";
+import { MIN_RAMP } from "@/constants";
 import { normalizeADSR } from "./normalize";
 import type { EnvelopeParams, ResolvedEnvelopeSchema } from "@/types";
 

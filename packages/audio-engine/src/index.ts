@@ -6,8 +6,8 @@ import type {
   SamplerSchema,
 } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
-import Sampler from "./sampler";
-import Synthesizer from "./synthesizer";
+import Sampler from "./instruments/sampler";
+import Synthesizer from "./instruments/synthesizer";
 import { registerWorklets } from "./utils/register-worklets";
 
 class AudioEngine {

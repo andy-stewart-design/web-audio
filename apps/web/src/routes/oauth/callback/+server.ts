@@ -5,7 +5,7 @@ import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
 	try {
-		const client = await getOAuthClient();
+		const client = await getOAuthClient(url.origin);
 		const { session } = await client.callback(url.searchParams);
 
 		cookies.set('did', session.did, {
