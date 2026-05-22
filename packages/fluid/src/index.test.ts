@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import Drome from "./index";
 
 describe("Drome", () => {
@@ -428,6 +428,88 @@ describe("Drome", () => {
       expect(instruments).toHaveLength(2);
       expect(instruments[0].type).toBe("synthesizer");
       expect(instruments[1].type).toBe("sampler");
+    });
+  });
+
+  describe("loadSamples", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("registers flat samples into the user bank", () => {
+      const d = new Drome();
+      d.loadSamples({ kick: ["url.wav"] });
+
+      expect(d.getSchema().banks.user.samples.kick).toEqual(["url.wav"]);
+    });
+
+    it("merges multiple flat loadSamples calls into the user bank", () => {
+      const d = new Drome();
+      d.loadSamples({ kick: ["kick.wav"] }).loadSamples({ snare: ["snare.wav"] });
+
+      expect(d.getSchema().banks.user.samples).toEqual({
+        kick: ["kick.wav"],
+        snare: ["snare.wav"],
+      });
+    });
+
+    it("lets samplers reference registered user samples", () => {
+      const d = new Drome();
+      d.loadSamples({ kick: ["url.wav"] });
+      d.sample("kick").bank("user").push();
+
+      const schema = d.getSchema();
+      expect(schema.instruments[0].type).toBe("sampler");
+      expect(schema.banks.user.samples.kick).toEqual(["url.wav"]);
+    });
+
+    it("registers named banks without polluting the user bank", () => {
+      const d = new Drome();
+      d.loadSamples({ name: "mykit", samples: { kick: ["url.wav"] } });
+
+      const schema = d.getSchema();
+      expect(schema.banks.mykit.samples.kick).toEqual(["url.wav"]);
+      expect(schema.banks.user).toBeUndefined();
+    });
+
+    it("custom named banks take precedence over built-in banks", () => {
+      const d = new Drome();
+      d.loadSamples({ name: "tr909", samples: { bd: ["custom.wav"] } });
+      d.sample("bd").bank("tr909").push();
+
+      expect(d.getSchema().banks.tr909.samples.bd).toEqual(["custom.wav"]);
+    });
+
+    it("fetches and registers external JSON manifests", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        json: vi.fn().mockResolvedValue({
+          name: "remote",
+          samples: { kick: ["remote.wav"] },
+        }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const d = new Drome();
+      await d.loadSamples("https://example.com/samples.json");
+
+      expect(fetchMock).toHaveBeenCalledWith("https://example.com/samples.json");
+      expect(d.getSchema().banks.remote.samples.kick).toEqual(["remote.wav"]);
+    });
+
+    it("external JSON produces the same schema as equivalent inline data", async () => {
+      const manifest = { kick: ["remote.wav"] };
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ json: vi.fn().mockResolvedValue(manifest) }),
+      );
+
+      const remote = new Drome();
+      await remote.loadSamples("https://example.com/samples.json");
+
+      const inline = new Drome();
+      inline.loadSamples(manifest);
+
+      expect(remote.getSchema()).toEqual(inline.getSchema());
     });
   });
 

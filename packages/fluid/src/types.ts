@@ -23,4 +23,15 @@ type NoteNameUpper = NaturalNote | AccidentalNote;
 type NoteName = NoteNameUpper | Lowercase<NoteNameUpper>;
 type NoteValue = `${NoteName}${number}`;
 
-export type { ADSR, CycleInput, ScaleAlias, NoteName, NoteValue };
+type SampleBank = Record<string, string[]>;
+type NamedSampleBank = { name: string; samples: SampleBank };
+
+export type {
+  ADSR,
+  CycleInput,
+  ScaleAlias,
+  NoteName,
+  NoteValue,
+  SampleBank,
+  NamedSampleBank,
+};
