@@ -325,7 +325,10 @@ describe("Drome", () => {
 
     it("variation accepts random cycles", () => {
       const d = new Drome();
-      const inst = d.sample("bd").variation(d.rand().int().range(0, 2)).getSchema();
+      const inst = d
+        .sample("bd")
+        .variation(d.rand().int().range(0, 2))
+        .getSchema();
 
       expect(inst.variation.type).toBe("random");
       if (inst.variation.type === "random") {
@@ -445,7 +448,9 @@ describe("Drome", () => {
 
     it("merges multiple flat loadSamples calls into the user bank", () => {
       const d = new Drome();
-      d.loadSamples({ kick: ["kick.wav"] }).loadSamples({ snare: ["snare.wav"] });
+      d.loadSamples({ kick: ["kick.wav"] }).loadSamples({
+        snare: ["snare.wav"],
+      });
 
       expect(d.getSchema().banks.user.samples).toEqual({
         kick: ["kick.wav"],
@@ -492,7 +497,9 @@ describe("Drome", () => {
       const d = new Drome();
       await d.loadSamples("https://example.com/samples.json");
 
-      expect(fetchMock).toHaveBeenCalledWith("https://example.com/samples.json");
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://example.com/samples.json",
+      );
       expect(d.getSchema().banks.remote.samples.kick).toEqual(["remote.wav"]);
     });
 
@@ -500,7 +507,9 @@ describe("Drome", () => {
       const manifest = { kick: ["remote.wav"] };
       vi.stubGlobal(
         "fetch",
-        vi.fn().mockResolvedValue({ json: vi.fn().mockResolvedValue(manifest) }),
+        vi
+          .fn()
+          .mockResolvedValue({ json: vi.fn().mockResolvedValue(manifest) }),
       );
 
       const remote = new Drome();

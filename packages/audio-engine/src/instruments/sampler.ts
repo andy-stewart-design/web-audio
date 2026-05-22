@@ -6,6 +6,7 @@ import type {
 } from "@web-audio/schema";
 import Instrument from "./instrument";
 import { SAMPLE_BASE_GAIN } from "@/constants";
+import { preloadVariationIndices } from "@/utils/preload-variations";
 
 interface SampleCache {
   resolved: Map<string, AudioBuffer>;
@@ -25,6 +26,7 @@ class Sampler extends Instrument {
   private _schema: SamplerSchema;
   private _banks: Record<string, BankSchema>;
   private _cache: SampleCache;
+  private _buffers = new Map<number, AudioBuffer>();
   private _buffer: AudioBuffer | null = null;
   private _fallbackBuffer: AudioBuffer | null;
 
@@ -62,42 +64,20 @@ class Sampler extends Instrument {
     return this._buffer ?? this._fallbackBuffer;
   }
 
+  private get _initialVariationIndex(): number {
+    return this._resolveVariationIndex(0, 0);
+  }
+
   async load(): Promise<void> {
-    const url = this._resolveUrl(this._initialVariationIndex());
-    if (!url) return;
-
-    // Synchronous hit — buffer already decoded, set _buffer before any yield
-    const resolved = this._cache.resolved.get(url);
-    if (resolved) {
-      this._buffer = resolved;
-      return;
-    }
-
-    let promise = this._cache.promises.get(url);
-    if (!promise) {
-      promise = fetch(url)
-        .then((r) => r.arrayBuffer())
-        .then((b) => this._ctx.decodeAudioData(b))
-        .catch(() => {
-          console.warn(
-            `[Sampler] Failed to load "${this._schema.bank}/${this._schema.sample}" from ${url}`,
-          );
-          this._cache.promises.delete(url);
-          return null;
-        });
-      this._cache.promises.set(url, promise);
-    }
-
-    const buffer = await promise;
-    if (buffer) {
-      this._cache.resolved.set(url, buffer);
-      this._buffer = buffer;
-    }
+    await Promise.all(
+      preloadVariationIndices(this._schema).map((index) =>
+        this._loadVariation(index),
+      ),
+    );
   }
 
   scheduleBar(barIndex: number, barStartTime: number): void {
-    const buffer = this._playbackBuffer;
-    if (!buffer) {
+    if (!this._playbackBuffer) {
       console.warn(
         `[Sampler] "${this._schema.bank}/${this._schema.sample}" not yet loaded — skipping bar ${barIndex}`,
       );
@@ -111,6 +91,10 @@ class Sampler extends Instrument {
     if (notes.type === "fit") {
       // Only trigger at the start of each N-bar window
       if (barIndex % notes.bars !== 0) return;
+
+      const variationIndex = this._resolveVariationIndex(barIndex, 0);
+      const buffer = this._bufferForVariation(variationIndex, barIndex);
+      if (!buffer) return;
 
       const barDuration = this._clock.barDuration;
       const playbackRate = buffer.duration / (notes.bars * barDuration);
@@ -163,6 +147,9 @@ class Sampler extends Instrument {
       mask.forEach((step, stepIndex) => {
         if (step.value === 0) return;
         const rate = this._resolve(notes, barIndex, stepIndex);
+        const variationIndex = this._resolveVariationIndex(barIndex, stepIndex);
+        const buffer = this._bufferForVariation(variationIndex, barIndex);
+        if (!buffer) return;
         this._scheduleNote(
           buffer,
           { ...step, value: rate },
@@ -175,6 +162,12 @@ class Sampler extends Instrument {
 
     const notesBar = notes.cycle[barIndex % notes.cycle.length];
     notesBar.forEach((note) => {
+      const variationIndex = this._resolveVariationIndex(
+        barIndex,
+        note.stepIndex,
+      );
+      const buffer = this._bufferForVariation(variationIndex, barIndex);
+      if (!buffer) return;
       this._scheduleNote(buffer, note, barStartTime, barIndex);
     });
   }
@@ -257,8 +250,67 @@ class Sampler extends Instrument {
     this._track(source, chain, startTime);
   }
 
-  private _initialVariationIndex(): number {
-    return Math.round(this._resolve(this._schema.variation, 0, 0));
+  private _resolveVariationIndex(barIndex: number, stepIndex: number): number {
+    return Math.round(
+      this._resolve(this._schema.variation, barIndex, stepIndex),
+    );
+  }
+
+  private _bufferForVariation(
+    variationIndex: number,
+    barIndex: number,
+  ): AudioBuffer | null {
+    const buffer = this._buffers.get(variationIndex);
+    if (buffer) return buffer;
+    if (
+      variationIndex === this._initialVariationIndex &&
+      this._fallbackBuffer
+    ) {
+      return this._fallbackBuffer;
+    }
+
+    void this._loadVariation(variationIndex);
+    console.warn(
+      `[Sampler] "${this._schema.bank}/${this._schema.sample}" variation ${variationIndex} not yet loaded — skipping bar ${barIndex}`,
+    );
+    return null;
+  }
+
+  private async _loadVariation(variationIndex: number): Promise<void> {
+    if (this._buffers.has(variationIndex)) return;
+
+    const url = this._resolveUrl(variationIndex);
+    if (!url) return;
+
+    const resolved = this._cache.resolved.get(url);
+    if (resolved) {
+      this._buffers.set(variationIndex, resolved);
+      if (variationIndex === this._initialVariationIndex)
+        this._buffer = resolved;
+      return;
+    }
+
+    let promise = this._cache.promises.get(url);
+    if (!promise) {
+      promise = fetch(url)
+        .then((r) => r.arrayBuffer())
+        .then((b) => this._ctx.decodeAudioData(b))
+        .catch(() => {
+          console.warn(
+            `[Sampler] Failed to load "${this._schema.bank}/${this._schema.sample}" from ${url}`,
+          );
+          this._cache.promises.delete(url);
+          return null;
+        });
+      this._cache.promises.set(url, promise);
+    }
+
+    const buffer = await promise;
+    if (buffer) {
+      this._cache.resolved.set(url, buffer);
+      this._buffers.set(variationIndex, buffer);
+      if (variationIndex === this._initialVariationIndex) this._buffer = buffer;
+    }
   }
 
   private _resolveUrl(variationIndex: number): string | null {

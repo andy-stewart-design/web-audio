@@ -648,9 +648,9 @@ The engine receives `banks` from the `DromeSchema` via its constructor — same 
 
 **Acceptance criteria:**
 
-- [ ] URL is read from `banks[bank].samples[sample][variationIndex]`
-- [ ] Falls back to index 0 if the requested variation index is out of range
-- [ ] Engine contains no special-case logic for built-in vs. custom banks
+- [x] URL is read from `banks[bank].samples[sample][variationIndex]`
+- [x] Falls back to index 0 if the requested variation index is out of range
+- [x] Engine contains no special-case logic for built-in vs. custom banks
 
 ---
 
@@ -676,15 +676,15 @@ In `scheduleBar`, resolve the variation index per step, pick the correct buffer,
 
 **Acceptance criteria:**
 
-- [ ] Each distinct variation index fetches and caches its own buffer
-- [ ] Variation 0 is pre-loaded on `load()`; others are loaded on demand
-- [ ] An unloaded variation causes a silent skip (same behaviour as unready sampler)
-- [ ] Cycling variations (`[0, 1, 2]`) each play their respective buffer
+- [x] Each distinct variation index fetches and caches its own buffer
+- [x] Variation 0 is pre-loaded on `load()`; others are loaded on demand
+- [x] An unloaded variation causes a silent skip (same behaviour as unready sampler)
+- [x] Cycling variations (`[0, 1, 2]`) each play their respective buffer
 
 **Testing:**
 
-- [ ] Unit: cycling variation `[0, 1, 2]` results in three `_loadVariation` calls
-- [ ] Unit: second access to variation 0 does not re-fetch
+- [x] Unit: cycling variation `[0, 1, 2]` results in three `_loadVariation` calls
+- [x] Unit: second access to variation 0 does not re-fetch
 
 ---
 

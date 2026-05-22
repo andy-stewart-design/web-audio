@@ -1,14 +1,10 @@
 import type AudioClock from "@web-audio/clock";
-import type {
-  BankSchema,
-  DromeSchema,
-  ParameterSchema,
-  SamplerSchema,
-} from "@web-audio/schema";
+import type { BankSchema, DromeSchema, SamplerSchema } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import { registerWorklets } from "./utils/register-worklets";
+import { preloadVariationIndices } from "./utils/preload-variations";
 
 class AudioEngine {
   private _ctx: AudioContext;
@@ -62,8 +58,10 @@ class AudioEngine {
     const urls = new Set<string>();
     for (const schema of instruments) {
       if (schema.type !== "sampler") continue;
-      const url = this._resolveUrl(schema, banks);
-      if (url) urls.add(url);
+      for (const variationIndex of preloadVariationIndices(schema)) {
+        const url = this._resolveUrl(schema, banks, variationIndex);
+        if (url) urls.add(url);
+      }
     }
 
     const loads = Array.from(urls).map((url) => {
@@ -138,23 +136,18 @@ class AudioEngine {
     return previous.fallbackBufferFor(schema);
   }
 
-  // Resolves the primary URL for a sampler schema. Duplicated from
-  // Sampler._resolveUrl to avoid creating player instances during prepare().
+  // Resolves a sampler URL. Duplicated from Sampler._resolveUrl to avoid
+  // creating player instances during prepare().
   private _resolveUrl(
     schema: SamplerSchema,
     banks: Record<string, BankSchema>,
+    variationIndex: number,
   ): string | null {
     const bank = banks[schema.bank];
     if (!bank) return null;
     const variations = bank.samples[schema.sample];
     if (!variations?.length) return null;
-    const variationIndex = Math.round(this._firstValue(schema.variation));
     return variations[variationIndex] ?? variations[0];
-  }
-
-  private _firstValue(schema: ParameterSchema): number {
-    if (schema.type === "random") return schema.cycle.cycle[0]?.[0]?.value ?? 0;
-    return schema.cycle[0]?.[0]?.value ?? 0;
   }
 
   destroy(): void {
