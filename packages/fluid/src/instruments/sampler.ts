@@ -22,6 +22,8 @@ class Sampler extends Instrument {
   private _fit: FitSchema | null = null;
   private _loop = false;
   private _durationMode: SamplerDurationMode = "clip";
+  // method aliases
+  var: (...input: CycleInput) => this;
 
   constructor(
     sample: string,
@@ -32,6 +34,7 @@ class Sampler extends Instrument {
     this._bank = bank;
     this._sample = sample;
     this._variation = new Parameter(0);
+    this.var = this.variation.bind(this);
   }
 
   bank(name: string) {

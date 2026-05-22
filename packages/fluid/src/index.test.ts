@@ -293,6 +293,57 @@ describe("Drome", () => {
       expect(schema.banks).toHaveProperty("tr909");
     });
 
+    it("variation(1) sets the variation parameter", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").variation(1).getSchema();
+
+      expect(inst.variation.type).toBe("static");
+      if (inst.variation.type === "static") {
+        expect(inst.variation.cycle[0][0].value).toBe(1);
+      }
+    });
+
+    it("all three variation syntax forms produce identical schema output", () => {
+      const d = new Drome();
+      const explicit = d.sample("bd").variation(1).getSchema().variation;
+      const secondArg = d.sample("bd", 1).getSchema().variation;
+      const shorthand = d.sample("bd:1").getSchema().variation;
+
+      expect(secondArg).toEqual(explicit);
+      expect(shorthand).toEqual(explicit);
+    });
+
+    it("variation cycles static values", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").variation([0, 1, 2]).getSchema();
+
+      expect(inst.variation.type).toBe("static");
+      if (inst.variation.type === "static") {
+        expect(inst.variation.cycle[0].map((s) => s.value)).toEqual([0, 1, 2]);
+      }
+    });
+
+    it("variation accepts random cycles", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").variation(d.rand().int().range(0, 2)).getSchema();
+
+      expect(inst.variation.type).toBe("random");
+      if (inst.variation.type === "random") {
+        expect(inst.variation.dataType).toBe("integer");
+        expect(inst.variation.range).toEqual({ min: 0, max: 2 });
+      }
+    });
+
+    it("defaults variation to 0", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").getSchema();
+
+      expect(inst.variation.type).toBe("static");
+      if (inst.variation.type === "static") {
+        expect(inst.variation.cycle[0][0].value).toBe(0);
+      }
+    });
+
     it("notes with root and scale produce float playback rates", () => {
       const d = new Drome();
       d.sample("bd").root("A4").notes([0, 3, 7]).push();
