@@ -522,6 +522,64 @@ describe("Drome", () => {
     });
   });
 
+  describe("PR 2 integration round-trip", () => {
+    it("flat loadSamples + user-bank sampler round-trips in one chain", () => {
+      const d = new Drome();
+      d.loadSamples({ kick: ["url.wav"] }).sample("kick").bank("user").push();
+
+      const schema = d.getSchema();
+      const inst = schema.instruments[0];
+
+      expect(schema.banks.user.samples.kick).toEqual(["url.wav"]);
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.bank).toBe("user");
+        expect(inst.sample).toBe("kick");
+      }
+    });
+
+    it("named custom bank round-trips with a sampler reference", () => {
+      const d = new Drome();
+      d.loadSamples({ name: "mykit", samples: { kick: ["url.wav"] } });
+      d.sample("kick").bank("mykit").push();
+
+      const schema = d.getSchema();
+      const inst = schema.instruments[0];
+
+      expect(schema.banks.mykit.samples.kick).toEqual(["url.wav"]);
+      expect(schema.banks.user).toBeUndefined();
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.bank).toBe("mykit");
+        expect(inst.sample).toBe("kick");
+      }
+    });
+
+    it("variation cycling round-trips as a StaticSchema", () => {
+      const d = new Drome();
+      d.sample("bd").variation([0, 1, 2]).push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.variation.type).toBe("static");
+        if (inst.variation.type === "static") {
+          expect(inst.variation.cycle[0].map((step) => step.value)).toEqual([
+            0, 1, 2,
+          ]);
+        }
+      }
+    });
+
+    it("custom bank with same name as a built-in bank takes precedence", () => {
+      const d = new Drome();
+      d.loadSamples({ name: "tr909", samples: { bd: ["custom.wav"] } });
+      d.sample("bd").bank("tr909").push();
+
+      expect(d.getSchema().banks.tr909.samples.bd).toEqual(["custom.wav"]);
+    });
+  });
+
   describe("LFO schema round-trip", () => {
     it("synth with LFO on detune produces type 'lfo'", () => {
       const d = new Drome();
