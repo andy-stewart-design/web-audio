@@ -148,11 +148,8 @@ class AudioEngine {
     if (!bank) return null;
     const variations = bank.samples[schema.sample];
     if (!variations?.length) return null;
-    const variationIndex = Math.min(
-      Math.round(this._firstValue(schema.variation)),
-      variations.length - 1,
-    );
-    return variations[variationIndex];
+    const variationIndex = Math.round(this._firstValue(schema.variation));
+    return variations[variationIndex] ?? variations[0];
   }
 
   private _firstValue(schema: ParameterSchema): number {

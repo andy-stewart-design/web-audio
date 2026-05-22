@@ -63,7 +63,7 @@ class Sampler extends Instrument {
   }
 
   async load(): Promise<void> {
-    const url = this._resolveUrl();
+    const url = this._resolveUrl(this._initialVariationIndex());
     if (!url) return;
 
     // Synchronous hit — buffer already decoded, set _buffer before any yield
@@ -257,8 +257,12 @@ class Sampler extends Instrument {
     this._track(source, chain, startTime);
   }
 
-  private _resolveUrl(): string | null {
-    const { bank, sample, variation } = this._schema;
+  private _initialVariationIndex(): number {
+    return Math.round(this._resolve(this._schema.variation, 0, 0));
+  }
+
+  private _resolveUrl(variationIndex: number): string | null {
+    const { bank, sample } = this._schema;
     const bankSchema = this._banks[bank];
 
     if (!bankSchema) {
@@ -272,11 +276,7 @@ class Sampler extends Instrument {
       return null;
     }
 
-    const variationIndex = Math.min(
-      Math.round(this._resolve(variation, 0, 0)),
-      variations.length - 1,
-    );
-    return variations[variationIndex];
+    return variations[variationIndex] ?? variations[0];
   }
 }
 

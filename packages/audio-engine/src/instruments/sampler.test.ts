@@ -272,6 +272,59 @@ describe("Sampler", () => {
     expect(cache.resolved.get(url)).toBe(buffer);
   });
 
+  it("load() resolves the URL for the selected variation index", async () => {
+    const urls = [
+      "https://example.com/bd-0.wav",
+      "https://example.com/bd-1.wav",
+    ];
+    const buffer = makeBuffer(1);
+    ctx.decodedBuffers.push(buffer);
+    globalThis.fetch = vi.fn(async () => ({
+      arrayBuffer: async () => new ArrayBuffer(8),
+    })) as unknown as typeof fetch;
+
+    const banks = makeBanks(urls[0]);
+    banks.kit.samples.bd = urls;
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ variation: staticParam(1) }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(urls[1]);
+    expect(cache.resolved.get(urls[1])).toBe(buffer);
+  });
+
+  it("load() falls back to variation 0 when the requested variation is out of range", async () => {
+    const urls = ["https://example.com/bd-0.wav"];
+    const buffer = makeBuffer(1);
+    ctx.decodedBuffers.push(buffer);
+    globalThis.fetch = vi.fn(async () => ({
+      arrayBuffer: async () => new ArrayBuffer(8),
+    })) as unknown as typeof fetch;
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ variation: staticParam(99) }),
+        banks: makeBanks(urls[0]),
+        cache,
+      },
+    );
+
+    await sampler.load();
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(urls[0]);
+    expect(cache.resolved.get(urls[0])).toBe(buffer);
+  });
+
   it("load() warns on fetch failure and leaves the sampler unready", async () => {
     globalThis.fetch = vi.fn(async () => {
       throw new Error("network failed");

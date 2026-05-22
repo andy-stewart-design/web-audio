@@ -3,7 +3,7 @@ import type { DromeSchema } from "@web-audio/schema";
 
 // Mock Synthesizer so tests don't need Web Audio APIs.
 // Must use a regular function (not arrow) so it's usable as a constructor.
-vi.mock("./synthesizer", () => {
+vi.mock("./instruments/synthesizer", () => {
   function MockSynthesizer(this: Record<string, unknown>) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
@@ -16,7 +16,7 @@ vi.mock("./synthesizer", () => {
   return { default: vi.fn(MockSynthesizer) };
 });
 
-vi.mock("./sampler", () => {
+vi.mock("./instruments/sampler", () => {
   function MockSampler(
     this: Record<string, unknown>,
     _ctx: unknown,
