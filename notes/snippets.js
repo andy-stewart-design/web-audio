@@ -52,4 +52,26 @@ d.sample("sd").bank("tr909").hex(0x5).push();
 d.sample("cp", 1).bank("tr808").hex(0x1).push();
 d.sample("oh", 3).bank("tr909").hex(0x55).gain(0.375).clip(false).push();
 
+// Fit sample to bar
 d.sample("breaks").bank("loops").fit(2).push();
+
+// Sample loading, named
+d.loadSamples({
+  name: "dmx",
+  samples: {
+    bd: [
+      "https://raw.githubusercontent.com/ritchse/tidal-drum-machines/main/machines/OberheimDMX/oberheimdmx-bd/Bassdrum-01.wav",
+    ],
+  },
+});
+
+d.sample("bd").bank("dmx").hex(0xf).push();
+
+// Sample loading, unnamed
+d.loadSamples({
+  bd: [
+    "https://raw.githubusercontent.com/ritchse/tidal-drum-machines/main/machines/OberheimDMX/oberheimdmx-bd/Bassdrum-01.wav",
+  ],
+});
+
+d.sample("bd").bank("user").hex(0xf).push();

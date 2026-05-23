@@ -143,6 +143,7 @@ class Sampler extends Instrument {
     }
 
     if (notes.type === "random") {
+      // TODO: Update schema to make this notes.mask.cycle
       const mask = notes.cycle.cycle[barIndex % notes.cycle.cycle.length];
       mask.forEach((step, stepIndex) => {
         if (step.value === 0) return;
