@@ -74,67 +74,83 @@ class Sampler extends Instrument {
 
     this._updateLfoParams(barIndex, barStartTime);
 
+    switch (this._schema.notes.type) {
+      case "fit":
+        this._scheduleFitBar(barIndex, barStartTime);
+        return;
+      case "random":
+        this._scheduleRandomBar(barIndex, barStartTime);
+        return;
+      default:
+        this._scheduleSequenceBar(barIndex, barStartTime);
+        return;
+    }
+  }
+
+  private _scheduleFitBar(barIndex: number, barStartTime: number): void {
     const notes = this._schema.notes;
+    if (notes.type !== "fit") return;
 
-    if (notes.type === "fit") {
-      // Only trigger at the start of each N-bar window
-      if (barIndex % notes.bars !== 0) return;
+    // Only trigger at the start of each N-bar window
+    if (barIndex % notes.bars !== 0) return;
 
-      const variationIndex = this._resolveVariationIndex(barIndex, 0);
+    const variationIndex = this._resolveVariationIndex(barIndex, 0);
+    const buffer = this._bufferStore.getPlaybackBuffer(
+      variationIndex,
+      barIndex,
+    );
+    if (!buffer) return;
+
+    const barDuration = this._clock.barDuration;
+    const playbackRate = buffer.duration / (notes.bars * barDuration);
+    const fitDuration = notes.bars * barDuration;
+
+    const source = new AudioBufferSourceNode(this._ctx, {
+      buffer,
+      playbackRate,
+      loop: this._schema.loop,
+    });
+
+    this._scheduleVoice({
+      source,
+      gainEnvelope: this._schema.gain,
+      effects: this._schema.effects,
+      barIndex,
+      stepIndex: 0,
+      startTime: barStartTime,
+      noteDuration: fitDuration,
+      endTime: barStartTime + fitDuration,
+      stopTime: barStartTime + fitDuration,
+    });
+  }
+
+  private _scheduleRandomBar(barIndex: number, barStartTime: number): void {
+    const notes = this._schema.notes;
+    if (notes.type !== "random") return;
+
+    // TODO: Update schema to make this notes.mask.cycle
+    const mask = notes.cycle.cycle[barIndex % notes.cycle.cycle.length];
+    mask.forEach((step, stepIndex) => {
+      if (step.value === 0) return;
+      const rate = this._resolve(notes, barIndex, stepIndex);
+      const variationIndex = this._resolveVariationIndex(barIndex, stepIndex);
       const buffer = this._bufferStore.getPlaybackBuffer(
         variationIndex,
         barIndex,
       );
       if (!buffer) return;
-
-      const barDuration = this._clock.barDuration;
-      const playbackRate = buffer.duration / (notes.bars * barDuration);
-      const fitDuration = notes.bars * barDuration;
-
-      const source = new AudioBufferSourceNode(this._ctx, {
+      this._scheduleSampleNote(
         buffer,
-        playbackRate,
-        loop: this._schema.loop,
-      });
-
-      this._scheduleVoice({
-        source,
-        gainEnvelope: this._schema.gain,
-        effects: this._schema.effects,
+        { ...step, value: rate },
+        barStartTime,
         barIndex,
-        stepIndex: 0,
-        startTime: barStartTime,
-        noteDuration: fitDuration,
-        endTime: barStartTime + fitDuration,
-        stopTime: barStartTime + fitDuration,
-      });
-      return;
-    }
+      );
+    });
+  }
 
-    if (notes.type === "random") {
-      // TODO: Update schema to make this notes.mask.cycle
-      const mask = notes.cycle.cycle[barIndex % notes.cycle.cycle.length];
-      mask.forEach((step, stepIndex) => {
-        if (step.value === 0) return;
-        const rate = this._resolve(notes, barIndex, stepIndex);
-        const variationIndex = this._resolveVariationIndex(
-          barIndex,
-          stepIndex,
-        );
-        const buffer = this._bufferStore.getPlaybackBuffer(
-          variationIndex,
-          barIndex,
-        );
-        if (!buffer) return;
-        this._scheduleNote(
-          buffer,
-          { ...step, value: rate },
-          barStartTime,
-          barIndex,
-        );
-      });
-      return;
-    }
+  private _scheduleSequenceBar(barIndex: number, barStartTime: number): void {
+    const notes = this._schema.notes;
+    if (notes.type !== "static") return;
 
     const notesBar = notes.cycle[barIndex % notes.cycle.length];
     notesBar.forEach((note) => {
@@ -147,11 +163,11 @@ class Sampler extends Instrument {
         barIndex,
       );
       if (!buffer) return;
-      this._scheduleNote(buffer, note, barStartTime, barIndex);
+      this._scheduleSampleNote(buffer, note, barStartTime, barIndex);
     });
   }
 
-  private _scheduleNote(
+  private _scheduleSampleNote(
     buffer: AudioBuffer,
     note: StaticSchemaValue,
     barStartTime: number,
