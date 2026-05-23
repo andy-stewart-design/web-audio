@@ -25,29 +25,42 @@ class Synthesizer extends Instrument {
 
   scheduleBar(barIndex: number, barStartTime: number): void {
     this._updateLfoParams(barIndex, barStartTime);
-    const notes = this._schema.notes;
 
-    if (notes.type === "random") {
-      const mask = notes.cycle.cycle[barIndex % notes.cycle.cycle.length];
-      mask.forEach((step, stepIndex) => {
-        if (step.value === 0) return;
-        const midiNote = this._resolve(notes, barIndex, stepIndex);
-        this._scheduleNote(
-          { ...step, value: midiNote },
-          barStartTime,
-          barIndex,
-        );
-      });
+    if (this._schema.notes.type === "random") {
+      this._scheduleRandomBar(barIndex, barStartTime);
       return;
     }
 
-    const notesBar = notes.cycle[barIndex % notes.cycle.length];
-    notesBar.forEach((note) => {
-      this._scheduleNote(note, barStartTime, barIndex);
+    this._scheduleSequenceBar(barIndex, barStartTime);
+  }
+
+  private _scheduleRandomBar(barIndex: number, barStartTime: number): void {
+    const notes = this._schema.notes;
+    if (notes.type !== "random") return;
+
+    const mask = notes.cycle.cycle[barIndex % notes.cycle.cycle.length];
+    mask.forEach((step, stepIndex) => {
+      if (step.value === 0) return;
+      const midiNote = this._resolve(notes, barIndex, stepIndex);
+      this._scheduleSynthNote(
+        { ...step, value: midiNote },
+        barStartTime,
+        barIndex,
+      );
     });
   }
 
-  private _scheduleNote(
+  private _scheduleSequenceBar(barIndex: number, barStartTime: number): void {
+    const notes = this._schema.notes;
+    if (notes.type !== "static") return;
+
+    const notesBar = notes.cycle[barIndex % notes.cycle.length];
+    notesBar.forEach((note) => {
+      this._scheduleSynthNote(note, barStartTime, barIndex);
+    });
+  }
+
+  private _scheduleSynthNote(
     note: StaticSchemaValue,
     barStartTime: number,
     barIndex: number,
