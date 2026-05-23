@@ -155,7 +155,10 @@ class SampleBufferStore {
 
   preload(variationIndices: number[]): Promise<void>;
 
-  getPlaybackBuffer(variationIndex: number, barIndex: number): AudioBuffer | null;
+  getPlaybackBuffer(
+    variationIndex: number,
+    barIndex: number,
+  ): AudioBuffer | null;
 
   getInitialPlaybackBuffer(): AudioBuffer | null;
 
@@ -795,3 +798,56 @@ The key is that Phase 1 and Phase 2 each improve the architecture independently:
 - Phase 3/4 are readability and symmetry passes.
 
 Avoid combining Phase 1 and Phase 2 in one PR/commit because if something breaks, it will be much harder to tell whether the bug came from buffer lifecycle changes or graph-scheduling changes.
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary of the entire refactor
+
+### Files changed
+
+┌─────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ File │ What happened │
+├─────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ sample-buffer-store.ts │ New — extracted all sampler asset/buffer lifecycle │
+├─────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ sample-buffer-store.test.ts │ New — focused unit tests for the store │
+├─────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ sampler.ts │ Refactored — delegates loading to SampleBufferStore, delegates voice rendering to │
+│ │ Instrument.\_scheduleVoice(), split scheduleBar into per-mode methods │
+├─────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ synthesizer.ts │ Refactored — delegates voice rendering to Instrument.\_scheduleVoice(), split scheduleBar into │
+│ │ per-mode methods │
+├─────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ instrument.ts │ Extended — added shared \_scheduleVoice() method │
+└─────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+### Architecture after refactor
+
+```
+  Instrument (abstract)
+  ├── _scheduleVoice()      ← shared gain/envelope/effects/graph wiring
+  ├── _buildEffectNode()
+  ├── _scheduleParamEnvelope()
+  ├── _resolveDetune()
+  └── ...
+
+  Sampler extends Instrument
+  ├── SampleBufferStore     ← asset loading/cache/fallback
+  ├── scheduleBar()         ← dispatch to per-mode methods
+  ├── _scheduleFitBar()
+  ├── _scheduleRandomBar()
+  ├── _scheduleSequenceBar()
+  └── _scheduleSampleNote() ← creates AudioBufferSourceNode, delegates to _scheduleVoice()
+
+  Synthesizer extends Instrument
+  ├── scheduleBar()         ← dispatch to per-mode methods
+  ├── _scheduleRandomBar()
+  ├── _scheduleSequenceBar()
+  └── _scheduleSynthNote()  ← creates OscillatorNode, delegates to _scheduleVoice()
+```
+
+### Key design decisions preserved
+
+- \_resolveVariationIndex stays in Sampler (musical scheduling concern)
+- stopTime option in \_scheduleVoice preserves fit-mode's no-release-tail behavior
+- SampleBufferStore removed redundant \_buffer field, uses \_buffers Map as single source of truth

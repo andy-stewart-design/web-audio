@@ -210,10 +210,7 @@ class Sampler extends Instrument {
     });
   }
 
-  private _resolveVariationIndex(
-    barIndex: number,
-    stepIndex: number,
-  ): number {
+  private _resolveVariationIndex(barIndex: number, stepIndex: number): number {
     return Math.round(
       this._resolve(this._schema.variation, barIndex, stepIndex),
     );

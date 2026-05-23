@@ -525,7 +525,10 @@ describe("Drome", () => {
   describe("PR 2 integration round-trip", () => {
     it("flat loadSamples + user-bank sampler round-trips in one chain", () => {
       const d = new Drome();
-      d.loadSamples({ kick: ["url.wav"] }).sample("kick").bank("user").push();
+      d.loadSamples({ kick: ["url.wav"] })
+        .sample("kick")
+        .bank("user")
+        .push();
 
       const schema = d.getSchema();
       const inst = schema.instruments[0];

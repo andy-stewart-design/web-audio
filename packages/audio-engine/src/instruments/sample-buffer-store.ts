@@ -70,7 +70,9 @@ class SampleBufferStore {
   }
 
   getInitialPlaybackBuffer(): AudioBuffer | null {
-    return this._buffers.get(this._initialVariationIndex) ?? this._fallbackBuffer;
+    return (
+      this._buffers.get(this._initialVariationIndex) ?? this._fallbackBuffer
+    );
   }
 
   hasInitialBuffer(): boolean {
