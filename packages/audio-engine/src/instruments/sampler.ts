@@ -89,47 +89,25 @@ class Sampler extends Instrument {
 
       const barDuration = this._clock.barDuration;
       const playbackRate = buffer.duration / (notes.bars * barDuration);
+      const fitDuration = notes.bars * barDuration;
 
       const source = new AudioBufferSourceNode(this._ctx, {
         buffer,
         playbackRate,
         loop: this._schema.loop,
       });
-      const gain = new GainNode(this._ctx);
-      const fitDuration = notes.bars * barDuration;
 
-      this._scheduleParamEnvelope(
-        gain.gain,
-        this._schema.gain,
+      this._scheduleVoice({
+        source,
+        gainEnvelope: this._schema.gain,
+        effects: this._schema.effects,
         barIndex,
-        0,
-        fitDuration,
-        barStartTime + fitDuration,
-      );
-
-      const effectNodes = this._schema.effects.map((effect) =>
-        this._buildEffectNode(
-          effect,
-          barIndex,
-          0,
-          barStartTime,
-          fitDuration,
-          barStartTime + fitDuration,
-        ),
-      );
-
-      source.connect(gain);
-      const chain: AudioNode[] = [gain, ...effectNodes];
-      chain.reduce((src, dst) => {
-        src.connect(dst);
-        return dst;
+        stepIndex: 0,
+        startTime: barStartTime,
+        noteDuration: fitDuration,
+        endTime: barStartTime + fitDuration,
+        stopTime: barStartTime + fitDuration,
       });
-      chain[chain.length - 1].connect(this._outputNode);
-
-      source.start(barStartTime);
-      source.stop(barStartTime + fitDuration);
-
-      this._track(source, chain, barStartTime);
       return;
     }
 
@@ -201,54 +179,19 @@ class Sampler extends Instrument {
       detune: detune.value,
       loop: this._schema.loop,
     });
-    const gain = new GainNode(this._ctx);
 
-    const releaseDur = this._scheduleParamEnvelope(
-      gain.gain,
-      this._schema.gain,
+    this._scheduleVoice({
+      source,
+      detuneParam: source.detune,
+      detune,
+      gainEnvelope: this._schema.gain,
+      effects: this._schema.effects,
       barIndex,
-      note.stepIndex,
+      stepIndex: note.stepIndex,
+      startTime,
       noteDuration,
       endTime,
-    );
-
-    if (detune.type === "envelope") {
-      this._scheduleParamEnvelope(
-        source.detune,
-        detune.schema,
-        barIndex,
-        note.stepIndex,
-        noteDuration,
-        endTime,
-      );
-    } else if (detune.type === "lfo") {
-      const lfoNode = this._lfoNodes.get(detune.schema.id);
-      if (lfoNode) lfoNode.connect(source.detune);
-    }
-
-    const effectNodes = this._schema.effects.map((effect) =>
-      this._buildEffectNode(
-        effect,
-        barIndex,
-        note.stepIndex,
-        startTime,
-        noteDuration,
-        endTime,
-      ),
-    );
-
-    source.connect(gain);
-    const chain: AudioNode[] = [gain, ...effectNodes];
-    chain.reduce((src, dst) => {
-      src.connect(dst);
-      return dst;
     });
-    chain[chain.length - 1].connect(this._outputNode);
-
-    source.start(startTime);
-    source.stop(endTime + releaseDur + 0.05);
-
-    this._track(source, chain, startTime);
   }
 
   private _resolveVariationIndex(

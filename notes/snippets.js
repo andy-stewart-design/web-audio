@@ -75,3 +75,6 @@ d.loadSamples({
 });
 
 d.sample("bd").bank("user").hex(0xf).push();
+
+// Multiple Variations
+d.sample("bd").var([0, 1, 2, 3]).bank("tr909").hex(0xf).push();
