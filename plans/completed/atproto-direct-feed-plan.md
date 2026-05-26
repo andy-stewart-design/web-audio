@@ -1,5 +1,7 @@
 # Plan: Drome Network — Direct Feed Architecture
 
+> ⚠️ **Superseded.** This plan replaced the Tap/SQLite indexer from [`atproto-lexicon-plan.md`](atproto-lexicon-plan.md) with a direct PDS fan-out approach. It was subsequently superseded by [`serverless-db-plan.md`](../serverless-db-plan.md) (Neon/Postgres + Vercel), which is the current source of truth. This file is retained for historical reference.
+
 ## Overview
 
 This plan picks up after the core AT Protocol write layer is in place (lexicons, OAuth, write functions, REPL publish). It replaces the original Tap-based indexing plan with a simpler direct-fetch architecture suited to the current scale.

@@ -329,7 +329,7 @@ await db
 
 - **Tap + firehose indexer** — revisit if the app ever has users writing records outside this app (direct PDS writes, third-party clients)
 - **Like/repost counts** — requires aggregation; straightforward to add once the DB is in place
-- **Local IndexedDB authoring layer** — Cmd+S save, sketch list sidebar, fork provenance in REPL (from old Phase 9)
+- **Local IndexedDB authoring layer** — Cmd+S save, sketch list sidebar, fork provenance in REPL. See [`indexeddb-plan.md`](indexeddb-plan.md) for the full spec.
 - **Login handle autocomplete** — combobox with Bluesky actor search (from old Phase 10)
 
 ---
