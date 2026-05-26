@@ -487,6 +487,7 @@ describe("Drome", () => {
 
     it("fetches and registers external JSON manifests", async () => {
       const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
         json: vi.fn().mockResolvedValue({
           name: "remote",
           samples: { kick: ["remote.wav"] },
@@ -507,9 +508,10 @@ describe("Drome", () => {
       const manifest = { kick: ["remote.wav"] };
       vi.stubGlobal(
         "fetch",
-        vi
-          .fn()
-          .mockResolvedValue({ json: vi.fn().mockResolvedValue(manifest) }),
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: vi.fn().mockResolvedValue(manifest),
+        }),
       );
 
       const remote = new Drome();
@@ -519,6 +521,51 @@ describe("Drome", () => {
       inline.loadSamples(manifest);
 
       expect(remote.getSchema()).toEqual(inline.getSchema());
+    });
+
+    it("throws when an external sample manifest response is not ok", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 404,
+          json: vi.fn(),
+        }),
+      );
+
+      const d = new Drome();
+
+      await expect(
+        d.loadSamples("https://example.com/missing-samples.json"),
+      ).rejects.toThrow(
+        "Failed to load sample manifest from https://example.com/missing-samples.json: HTTP 404",
+      );
+    });
+
+    it("throws when an external sample manifest has an invalid shape", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: vi.fn().mockResolvedValue({ kick: [123] }),
+        }),
+      );
+
+      const d = new Drome();
+
+      await expect(
+        d.loadSamples("https://example.com/samples.json"),
+      ).rejects.toThrow(
+        "Invalid sample manifest: expected { [sampleName]: string[] } or { name: string; samples: { [sampleName]: string[] } }",
+      );
+    });
+
+    it("throws when inline sample input has an invalid shape", () => {
+      const d = new Drome();
+
+      expect(() => d.loadSamples({ kick: [123] } as unknown as never)).toThrow(
+        "Invalid sample manifest: expected { [sampleName]: string[] } or { name: string; samples: { [sampleName]: string[] } }",
+      );
     });
   });
 

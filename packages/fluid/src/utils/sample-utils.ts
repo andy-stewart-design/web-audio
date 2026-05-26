@@ -1,4 +1,4 @@
-import type { NamedSampleBank } from "@/types";
+import type { NamedSampleBank, SampleBank } from "@/types";
 import type { BankDefinition, BankSchema } from "@web-audio/schema";
 
 function resolveBank(def: BankDefinition): BankSchema {
@@ -9,6 +9,15 @@ function resolveBank(def: BankDefinition): BankSchema {
   return { samples };
 }
 
+function isSampleBank(obj: unknown): obj is SampleBank {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+
+  return Object.values(obj as Record<string, unknown>).every(
+    (value) =>
+      Array.isArray(value) && value.every((item) => typeof item === "string"),
+  );
+}
+
 function isNamedBank(obj: unknown): obj is NamedSampleBank {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
 
@@ -16,13 +25,7 @@ function isNamedBank(obj: unknown): obj is NamedSampleBank {
 
   if (typeof record.name !== "string") return false;
 
-  const { samples } = record;
-  if (!samples || typeof samples !== "object" || Array.isArray(samples))
-    return false;
-
-  return Object.values(samples as Record<string, unknown>).every(
-    (v) => Array.isArray(v) && v.every((item) => typeof item === "string"),
-  );
+  return isSampleBank(record.samples);
 }
 
-export { isNamedBank, resolveBank };
+export { isNamedBank, isSampleBank, resolveBank };

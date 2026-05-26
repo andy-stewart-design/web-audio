@@ -7,7 +7,7 @@ import GainEffect from "./effects/gain";
 import Instrument from "./instruments/instrument";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
-import { isNamedBank, resolveBank } from "./utils/sample-utils";
+import { isNamedBank, isSampleBank, resolveBank } from "./utils/sample-utils";
 import type { BankSchema, FilterType } from "@web-audio/schema";
 import type {
   CycleInput,
@@ -54,18 +54,38 @@ class Drome {
   loadSamples(input: string | LoadSamplesInput): this | Promise<this> {
     if (typeof input === "string") {
       return fetch(input)
-        .then((res) => res.json())
-        .then((json: LoadSamplesInput) => this.loadSamples(json));
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(
+              `Failed to load sample manifest from ${input}: HTTP ${res.status}`,
+            );
+          }
+          return res.json();
+        })
+        .then((json: unknown) =>
+          this.loadSamples(this._validateLoadSamplesInput(json)),
+        );
     }
 
-    if (isNamedBank(input)) {
-      this._banks[input.name] = { samples: input.samples };
+    const validatedInput = this._validateLoadSamplesInput(input);
+    if (isNamedBank(validatedInput)) {
+      this._banks[validatedInput.name] = { samples: validatedInput.samples };
     } else {
       this._banks.user ??= { samples: {} };
-      Object.assign(this._banks.user.samples, input);
+      Object.assign(this._banks.user.samples, validatedInput);
     }
 
     return this;
+  }
+
+  private _validateLoadSamplesInput(input: unknown): LoadSamplesInput {
+    if (isNamedBank(input) || isSampleBank(input)) {
+      return input;
+    }
+
+    throw new Error(
+      "Invalid sample manifest: expected { [sampleName]: string[] } or { name: string; samples: { [sampleName]: string[] } }",
+    );
   }
 
   rand() {
