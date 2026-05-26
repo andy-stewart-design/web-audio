@@ -531,18 +531,18 @@ if (variationStr !== undefined) sampler.variation(parseInt(variationStr, 10));
 
 **Acceptance criteria:**
 
-- [ ] `d.sample("bd").variation(1).getSchema()` → `variation` ParameterSchema has value `1`
-- [ ] `d.sample("bd", 1).getSchema()` → same result as above
-- [ ] `d.sample("bd:1").getSchema()` → same result as above
-- [ ] `d.sample("bd").variation([0, 1, 2]).getSchema()` → `variation` is a cycling StaticSchema
-- [ ] `d.sample("bd").variation(d.rand().int().range(0, 2)).getSchema()` → `variation` is a RandomSchema
-- [ ] Default variation is `0`
+- [x] `d.sample("bd").variation(1).getSchema()` → `variation` ParameterSchema has value `1`
+- [x] `d.sample("bd", 1).getSchema()` → same result as above
+- [x] `d.sample("bd:1").getSchema()` → same result as above
+- [x] `d.sample("bd").variation([0, 1, 2]).getSchema()` → `variation` is a cycling StaticSchema
+- [x] `d.sample("bd").variation(d.rand().int().range(0, 2)).getSchema()` → `variation` is a RandomSchema
+- [x] Default variation is `0`
 
 **Testing:**
 
-- [ ] All three variation syntax forms produce identical schema output
-- [ ] Cycling variation schema resolves correctly
-- [ ] Random variation schema is a `RandomSchema`
+- [x] All three variation syntax forms produce identical schema output
+- [x] Cycling variation schema resolves correctly
+- [x] Random variation schema is a `RandomSchema`
 
 ---
 
@@ -562,9 +562,9 @@ loadSamples(input: Record<string, string[]>) {
 
 **Acceptance criteria:**
 
-- [ ] `d.loadSamples({ kick: ["url.wav"] }).getSchema().banks["user"].samples.kick` equals `["url.wav"]`
-- [ ] Multiple calls to flat `loadSamples` merge into the `"user"` bank
-- [ ] `d.sample("kick").bank("user")` uses the registered sample
+- [x] `d.loadSamples({ kick: ["url.wav"] }).getSchema().banks["user"].samples.kick` equals `["url.wav"]`
+- [x] Multiple calls to flat `loadSamples` merge into the `"user"` bank
+- [x] `d.sample("kick").bank("user")` uses the registered sample
 
 ---
 
@@ -590,9 +590,9 @@ loadSamples(input: Record<string, string[]> | { name: string; samples: Record<st
 
 **Acceptance criteria:**
 
-- [ ] `d.loadSamples({ name: "mykit", samples: { kick: ["url.wav"] } }).getSchema().customBanks["mykit"]` is present
-- [ ] Named bank does not pollute `"user"` bank
-- [ ] `d.sample("kick").bank("mykit")` resolves to the registered sample
+- [x] `d.loadSamples({ name: "mykit", samples: { kick: ["url.wav"] } }).getSchema().customBanks["mykit"]` is present
+- [x] Named bank does not pollute `"user"` bank
+- [x] `d.sample("kick").bank("mykit")` resolves to the registered sample
 
 ---
 
@@ -617,14 +617,14 @@ The fetch is awaited in fluid before the schema is emitted. The resolved data is
 
 **Acceptance criteria:**
 
-- [ ] `await d.loadSamples("https://example.com/samples.json")` fetches and inlines the bank
-- [ ] The fetched JSON must match the named bank or flat format schema
-- [ ] Engine schema contains the fully resolved `customBanks` entry (no URL reference)
+- [x] `await d.loadSamples("https://example.com/samples.json")` fetches and inlines the bank
+- [x] The fetched JSON must match the named bank or flat format schema
+- [x] Engine schema contains the fully resolved `customBanks` entry (no URL reference)
 
 **Testing:**
 
-- [ ] Unit (mock fetch): `loadSamples("https://...")` calls fetch and processes the result as if it were an inline object
-- [ ] Unit: schema after async load matches schema from equivalent inline call
+- [x] Unit (mock fetch): `loadSamples("https://...")` calls fetch and processes the result as if it were an inline object
+- [x] Unit: schema after async load matches schema from equivalent inline call
 
 ---
 
@@ -648,9 +648,9 @@ The engine receives `banks` from the `DromeSchema` via its constructor — same 
 
 **Acceptance criteria:**
 
-- [ ] URL is read from `banks[bank].samples[sample][variationIndex]`
-- [ ] Falls back to index 0 if the requested variation index is out of range
-- [ ] Engine contains no special-case logic for built-in vs. custom banks
+- [x] URL is read from `banks[bank].samples[sample][variationIndex]`
+- [x] Falls back to index 0 if the requested variation index is out of range
+- [x] Engine contains no special-case logic for built-in vs. custom banks
 
 ---
 
@@ -676,15 +676,15 @@ In `scheduleBar`, resolve the variation index per step, pick the correct buffer,
 
 **Acceptance criteria:**
 
-- [ ] Each distinct variation index fetches and caches its own buffer
-- [ ] Variation 0 is pre-loaded on `load()`; others are loaded on demand
-- [ ] An unloaded variation causes a silent skip (same behaviour as unready sampler)
-- [ ] Cycling variations (`[0, 1, 2]`) each play their respective buffer
+- [x] Each distinct variation index fetches and caches its own buffer
+- [x] Variation 0 is pre-loaded on `load()`; others are loaded on demand
+- [x] An unloaded variation causes a silent skip (same behaviour as unready sampler)
+- [x] Cycling variations (`[0, 1, 2]`) each play their respective buffer
 
 **Testing:**
 
-- [ ] Unit: cycling variation `[0, 1, 2]` results in three `_loadVariation` calls
-- [ ] Unit: second access to variation 0 does not re-fetch
+- [x] Unit: cycling variation `[0, 1, 2]` results in three `_loadVariation` calls
+- [x] Unit: second access to variation 0 does not re-fetch
 
 ---
 

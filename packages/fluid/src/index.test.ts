@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import Drome from "./index";
 
 describe("Drome", () => {
@@ -293,6 +293,60 @@ describe("Drome", () => {
       expect(schema.banks).toHaveProperty("tr909");
     });
 
+    it("variation(1) sets the variation parameter", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").variation(1).getSchema();
+
+      expect(inst.variation.type).toBe("static");
+      if (inst.variation.type === "static") {
+        expect(inst.variation.cycle[0][0].value).toBe(1);
+      }
+    });
+
+    it("all three variation syntax forms produce identical schema output", () => {
+      const d = new Drome();
+      const explicit = d.sample("bd").variation(1).getSchema().variation;
+      const secondArg = d.sample("bd", 1).getSchema().variation;
+      const shorthand = d.sample("bd:1").getSchema().variation;
+
+      expect(secondArg).toEqual(explicit);
+      expect(shorthand).toEqual(explicit);
+    });
+
+    it("variation cycles static values", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").variation([0, 1, 2]).getSchema();
+
+      expect(inst.variation.type).toBe("static");
+      if (inst.variation.type === "static") {
+        expect(inst.variation.cycle[0].map((s) => s.value)).toEqual([0, 1, 2]);
+      }
+    });
+
+    it("variation accepts random cycles", () => {
+      const d = new Drome();
+      const inst = d
+        .sample("bd")
+        .variation(d.rand().int().range(0, 2))
+        .getSchema();
+
+      expect(inst.variation.type).toBe("random");
+      if (inst.variation.type === "random") {
+        expect(inst.variation.dataType).toBe("integer");
+        expect(inst.variation.range).toEqual({ min: 0, max: 2 });
+      }
+    });
+
+    it("defaults variation to 0", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").getSchema();
+
+      expect(inst.variation.type).toBe("static");
+      if (inst.variation.type === "static") {
+        expect(inst.variation.cycle[0][0].value).toBe(0);
+      }
+    });
+
     it("notes with root and scale produce float playback rates", () => {
       const d = new Drome();
       d.sample("bd").root("A4").notes([0, 3, 7]).push();
@@ -377,6 +431,202 @@ describe("Drome", () => {
       expect(instruments).toHaveLength(2);
       expect(instruments[0].type).toBe("synthesizer");
       expect(instruments[1].type).toBe("sampler");
+    });
+  });
+
+  describe("loadSamples", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("registers flat samples into the user bank", () => {
+      const d = new Drome();
+      d.loadSamples({ kick: ["url.wav"] });
+
+      expect(d.getSchema().banks.user.samples.kick).toEqual(["url.wav"]);
+    });
+
+    it("merges multiple flat loadSamples calls into the user bank", () => {
+      const d = new Drome();
+      d.loadSamples({ kick: ["kick.wav"] }).loadSamples({
+        snare: ["snare.wav"],
+      });
+
+      expect(d.getSchema().banks.user.samples).toEqual({
+        kick: ["kick.wav"],
+        snare: ["snare.wav"],
+      });
+    });
+
+    it("lets samplers reference registered user samples", () => {
+      const d = new Drome();
+      d.loadSamples({ kick: ["url.wav"] });
+      d.sample("kick").bank("user").push();
+
+      const schema = d.getSchema();
+      expect(schema.instruments[0].type).toBe("sampler");
+      expect(schema.banks.user.samples.kick).toEqual(["url.wav"]);
+    });
+
+    it("registers named banks without polluting the user bank", () => {
+      const d = new Drome();
+      d.loadSamples({ name: "mykit", samples: { kick: ["url.wav"] } });
+
+      const schema = d.getSchema();
+      expect(schema.banks.mykit.samples.kick).toEqual(["url.wav"]);
+      expect(schema.banks.user).toBeUndefined();
+    });
+
+    it("custom named banks take precedence over built-in banks", () => {
+      const d = new Drome();
+      d.loadSamples({ name: "tr909", samples: { bd: ["custom.wav"] } });
+      d.sample("bd").bank("tr909").push();
+
+      expect(d.getSchema().banks.tr909.samples.bd).toEqual(["custom.wav"]);
+    });
+
+    it("fetches and registers external JSON manifests", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          name: "remote",
+          samples: { kick: ["remote.wav"] },
+        }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const d = new Drome();
+      await d.loadSamples("https://example.com/samples.json");
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://example.com/samples.json",
+      );
+      expect(d.getSchema().banks.remote.samples.kick).toEqual(["remote.wav"]);
+    });
+
+    it("external JSON produces the same schema as equivalent inline data", async () => {
+      const manifest = { kick: ["remote.wav"] };
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: vi.fn().mockResolvedValue(manifest),
+        }),
+      );
+
+      const remote = new Drome();
+      await remote.loadSamples("https://example.com/samples.json");
+
+      const inline = new Drome();
+      inline.loadSamples(manifest);
+
+      expect(remote.getSchema()).toEqual(inline.getSchema());
+    });
+
+    it("throws when an external sample manifest response is not ok", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 404,
+          json: vi.fn(),
+        }),
+      );
+
+      const d = new Drome();
+
+      await expect(
+        d.loadSamples("https://example.com/missing-samples.json"),
+      ).rejects.toThrow(
+        "Failed to load sample manifest from https://example.com/missing-samples.json: HTTP 404",
+      );
+    });
+
+    it("throws when an external sample manifest has an invalid shape", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: vi.fn().mockResolvedValue({ kick: [123] }),
+        }),
+      );
+
+      const d = new Drome();
+
+      await expect(
+        d.loadSamples("https://example.com/samples.json"),
+      ).rejects.toThrow(
+        "Invalid sample manifest: expected { [sampleName]: string[] } or { name: string; samples: { [sampleName]: string[] } }",
+      );
+    });
+
+    it("throws when inline sample input has an invalid shape", () => {
+      const d = new Drome();
+
+      expect(() => d.loadSamples({ kick: [123] } as unknown as never)).toThrow(
+        "Invalid sample manifest: expected { [sampleName]: string[] } or { name: string; samples: { [sampleName]: string[] } }",
+      );
+    });
+  });
+
+  describe("PR 2 integration round-trip", () => {
+    it("flat loadSamples + user-bank sampler round-trips in one chain", () => {
+      const d = new Drome();
+      d.loadSamples({ kick: ["url.wav"] })
+        .sample("kick")
+        .bank("user")
+        .push();
+
+      const schema = d.getSchema();
+      const inst = schema.instruments[0];
+
+      expect(schema.banks.user.samples.kick).toEqual(["url.wav"]);
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.bank).toBe("user");
+        expect(inst.sample).toBe("kick");
+      }
+    });
+
+    it("named custom bank round-trips with a sampler reference", () => {
+      const d = new Drome();
+      d.loadSamples({ name: "mykit", samples: { kick: ["url.wav"] } });
+      d.sample("kick").bank("mykit").push();
+
+      const schema = d.getSchema();
+      const inst = schema.instruments[0];
+
+      expect(schema.banks.mykit.samples.kick).toEqual(["url.wav"]);
+      expect(schema.banks.user).toBeUndefined();
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.bank).toBe("mykit");
+        expect(inst.sample).toBe("kick");
+      }
+    });
+
+    it("variation cycling round-trips as a StaticSchema", () => {
+      const d = new Drome();
+      d.sample("bd").variation([0, 1, 2]).push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.variation.type).toBe("static");
+        if (inst.variation.type === "static") {
+          expect(inst.variation.cycle[0].map((step) => step.value)).toEqual([
+            0, 1, 2,
+          ]);
+        }
+      }
+    });
+
+    it("custom bank with same name as a built-in bank takes precedence", () => {
+      const d = new Drome();
+      d.loadSamples({ name: "tr909", samples: { bd: ["custom.wav"] } });
+      d.sample("bd").bank("tr909").push();
+
+      expect(d.getSchema().banks.tr909.samples.bd).toEqual(["custom.wav"]);
     });
   });
 

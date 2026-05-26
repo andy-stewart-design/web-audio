@@ -92,6 +92,21 @@ function staticParam(value: number): StaticSchema {
   };
 }
 
+function staticCycle(values: number[]): StaticSchema {
+  return {
+    type: "static",
+    polyphonic: false,
+    cycle: [
+      values.map((value, stepIndex) => ({
+        value,
+        offset: stepIndex / values.length,
+        duration: 1 / values.length,
+        stepIndex,
+      })),
+    ],
+  };
+}
+
 function staticPattern(
   value: number,
   offset = 0,
@@ -272,6 +287,93 @@ describe("Sampler", () => {
     expect(cache.resolved.get(url)).toBe(buffer);
   });
 
+  it("load() resolves the URL for the selected variation index", async () => {
+    const urls = [
+      "https://example.com/bd-0.wav",
+      "https://example.com/bd-1.wav",
+    ];
+    const buffer = makeBuffer(1);
+    ctx.decodedBuffers.push(buffer);
+    globalThis.fetch = vi.fn(async () => ({
+      arrayBuffer: async () => new ArrayBuffer(8),
+    })) as unknown as typeof fetch;
+
+    const banks = makeBanks(urls[0]);
+    banks.kit.samples.bd = urls;
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ variation: staticParam(1) }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(urls[1]);
+    expect(cache.resolved.get(urls[1])).toBe(buffer);
+  });
+
+  it("load() falls back to variation 0 when the requested variation is out of range", async () => {
+    const urls = ["https://example.com/bd-0.wav"];
+    const buffer = makeBuffer(1);
+    ctx.decodedBuffers.push(buffer);
+    globalThis.fetch = vi.fn(async () => ({
+      arrayBuffer: async () => new ArrayBuffer(8),
+    })) as unknown as typeof fetch;
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ variation: staticParam(99) }),
+        banks: makeBanks(urls[0]),
+        cache,
+      },
+    );
+
+    await sampler.load();
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(urls[0]);
+    expect(cache.resolved.get(urls[0])).toBe(buffer);
+  });
+
+  it("load() preloads all statically known variation indices", async () => {
+    const urls = [
+      "https://example.com/bd-0.wav",
+      "https://example.com/bd-1.wav",
+      "https://example.com/bd-2.wav",
+      "https://example.com/bd-3.wav",
+    ];
+    const buffers = urls.map((_, i) => makeBuffer(1 + i / 10));
+    ctx.decodedBuffers.push(...buffers);
+    globalThis.fetch = vi.fn(async () => ({
+      arrayBuffer: async () => new ArrayBuffer(8),
+    })) as unknown as typeof fetch;
+    const banks = makeBanks(urls[0]);
+    banks.kit.samples.bd = urls;
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ variation: staticCycle([0, 1, 2, 3]) }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(4);
+    urls.forEach((url, i) => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(url);
+      expect(cache.resolved.get(url)).toBe(buffers[i]);
+    });
+  });
+
   it("load() warns on fetch failure and leaves the sampler unready", async () => {
     globalThis.fetch = vi.fn(async () => {
       throw new Error("network failed");
@@ -442,6 +544,84 @@ describe("Sampler", () => {
 
     loadingSampler.scheduleBar(1, 12);
     expect(createdSources[1].buffer).toBe(target);
+  });
+
+  it("scheduleBar() uses preloaded static variations without first-bar skips", async () => {
+    const urls = [
+      "https://example.com/bd-0.wav",
+      "https://example.com/bd-1.wav",
+      "https://example.com/bd-2.wav",
+    ];
+    const buffers = [makeBuffer(1), makeBuffer(1.1), makeBuffer(1.2)];
+    ctx.decodedBuffers.push(...buffers);
+    globalThis.fetch = vi.fn(async () => ({
+      arrayBuffer: async () => new ArrayBuffer(8),
+    })) as unknown as typeof fetch;
+    const banks = makeBanks(urls[0]);
+    banks.kit.samples.bd = urls;
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticCycle([1, 1, 1]),
+          variation: staticCycle([0, 1, 2]),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(3);
+    expect(createdSources.map((s) => s.buffer)).toEqual(buffers);
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("not yet loaded"),
+    );
+  });
+
+  it("does not re-fetch a variation that has already been loaded", async () => {
+    const urls = [
+      "https://example.com/bd-0.wav",
+      "https://example.com/bd-1.wav",
+    ];
+    const buffers = [makeBuffer(1), makeBuffer(1.1)];
+    cache.resolved.set(urls[0], buffers[0]);
+    ctx.decodedBuffers.push(buffers[1]);
+    globalThis.fetch = vi.fn(async () => ({
+      arrayBuffer: async () => new ArrayBuffer(8),
+    })) as unknown as typeof fetch;
+    const banks = makeBanks(urls[0]);
+    banks.kit.samples.bd = urls;
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticCycle([1, 1]),
+          variation: staticCycle([1, 1]),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+    sampler.scheduleBar(1, 12);
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(createdSources).toHaveLength(4);
+    expect(createdSources.map((s) => s.buffer)).toEqual([
+      buffers[1],
+      buffers[1],
+      buffers[1],
+      buffers[1],
+    ]);
   });
 
   it("scheduleBar() creates a buffer source with the resolved playbackRate, detune, loop flag, and timing", async () => {

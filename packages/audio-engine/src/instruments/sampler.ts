@@ -6,11 +6,8 @@ import type {
 } from "@web-audio/schema";
 import Instrument from "./instrument";
 import { SAMPLE_BASE_GAIN } from "@/constants";
-
-interface SampleCache {
-  resolved: Map<string, AudioBuffer>;
-  promises: Map<string, Promise<AudioBuffer | null>>;
-}
+import { preloadVariationIndices } from "@/utils/preload-variations";
+import SampleBufferStore, { type SampleCache } from "./sample-buffer-store";
 
 interface SamplerOptions {
   schema: SamplerSchema;
@@ -23,10 +20,7 @@ interface SamplerOptions {
 
 class Sampler extends Instrument {
   private _schema: SamplerSchema;
-  private _banks: Record<string, BankSchema>;
-  private _cache: SampleCache;
-  private _buffer: AudioBuffer | null = null;
-  private _fallbackBuffer: AudioBuffer | null;
+  private _bufferStore: SampleBufferStore;
 
   constructor(
     ctx: AudioContext,
@@ -42,62 +36,36 @@ class Sampler extends Instrument {
   ) {
     super(ctx, clock, SAMPLE_BASE_GAIN);
     this._schema = schema;
-    this._banks = banks;
-    this._cache = cache;
-    this._fallbackBuffer = fallbackBuffer;
+    this._bufferStore = new SampleBufferStore({
+      ctx,
+      banks,
+      cache,
+      bank: schema.bank,
+      sample: schema.sample,
+      initialVariationIndex: this._initialVariationIndex,
+      fallbackBuffer,
+    });
     this._initLfos(schema, startingBar, barStartTime);
   }
 
-  isReady(): boolean {
-    return this._playbackBuffer !== null;
+  isReady() {
+    return this._bufferStore.hasInitialBuffer();
   }
 
-  fallbackBufferFor(schema: SamplerSchema): AudioBuffer | null {
-    if (this._schema.bank !== schema.bank) return null;
-    if (this._schema.sample !== schema.sample) return null;
-    return this._playbackBuffer;
+  fallbackBufferFor(schema: SamplerSchema) {
+    return this._bufferStore.fallbackBufferFor(schema.bank, schema.sample);
   }
 
-  private get _playbackBuffer(): AudioBuffer | null {
-    return this._buffer ?? this._fallbackBuffer;
+  private get _initialVariationIndex() {
+    return this._resolveVariationIndex(0, 0);
   }
 
   async load(): Promise<void> {
-    const url = this._resolveUrl();
-    if (!url) return;
-
-    // Synchronous hit — buffer already decoded, set _buffer before any yield
-    const resolved = this._cache.resolved.get(url);
-    if (resolved) {
-      this._buffer = resolved;
-      return;
-    }
-
-    let promise = this._cache.promises.get(url);
-    if (!promise) {
-      promise = fetch(url)
-        .then((r) => r.arrayBuffer())
-        .then((b) => this._ctx.decodeAudioData(b))
-        .catch(() => {
-          console.warn(
-            `[Sampler] Failed to load "${this._schema.bank}/${this._schema.sample}" from ${url}`,
-          );
-          this._cache.promises.delete(url);
-          return null;
-        });
-      this._cache.promises.set(url, promise);
-    }
-
-    const buffer = await promise;
-    if (buffer) {
-      this._cache.resolved.set(url, buffer);
-      this._buffer = buffer;
-    }
+    await this._bufferStore.preload(preloadVariationIndices(this._schema));
   }
 
-  scheduleBar(barIndex: number, barStartTime: number): void {
-    const buffer = this._playbackBuffer;
-    if (!buffer) {
+  scheduleBar(barIndex: number, barStartTime: number) {
+    if (!this._bufferStore.hasInitialBuffer()) {
       console.warn(
         `[Sampler] "${this._schema.bank}/${this._schema.sample}" not yet loaded — skipping bar ${barIndex}`,
       );
@@ -106,80 +74,100 @@ class Sampler extends Instrument {
 
     this._updateLfoParams(barIndex, barStartTime);
 
+    switch (this._schema.notes.type) {
+      case "fit":
+        this._scheduleFitBar(barIndex, barStartTime);
+        return;
+      case "random":
+        this._scheduleRandomBar(barIndex, barStartTime);
+        return;
+      default:
+        this._scheduleSequenceBar(barIndex, barStartTime);
+        return;
+    }
+  }
+
+  private _scheduleFitBar(barIndex: number, barStartTime: number) {
     const notes = this._schema.notes;
+    if (notes.type !== "fit") return;
 
-    if (notes.type === "fit") {
-      // Only trigger at the start of each N-bar window
-      if (barIndex % notes.bars !== 0) return;
+    // Only trigger at the start of each N-bar window
+    if (barIndex % notes.bars !== 0) return;
 
-      const barDuration = this._clock.barDuration;
-      const playbackRate = buffer.duration / (notes.bars * barDuration);
+    const variationIndex = this._resolveVariationIndex(barIndex, 0);
+    const buffer = this._bufferStore.getPlaybackBuffer(
+      variationIndex,
+      barIndex,
+    );
+    if (!buffer) return;
 
-      const source = new AudioBufferSourceNode(this._ctx, {
-        buffer,
-        playbackRate,
-        loop: this._schema.loop,
-      });
-      const gain = new GainNode(this._ctx);
-      const fitDuration = notes.bars * barDuration;
+    const barDuration = this._clock.barDuration;
+    const playbackRate = buffer.duration / (notes.bars * barDuration);
+    const fitDuration = notes.bars * barDuration;
 
-      this._scheduleParamEnvelope(
-        gain.gain,
-        this._schema.gain,
-        barIndex,
-        0,
-        fitDuration,
-        barStartTime + fitDuration,
-      );
+    const source = new AudioBufferSourceNode(this._ctx, {
+      buffer,
+      playbackRate,
+      loop: this._schema.loop,
+    });
 
-      const effectNodes = this._schema.effects.map((effect) =>
-        this._buildEffectNode(
-          effect,
-          barIndex,
-          0,
-          barStartTime,
-          fitDuration,
-          barStartTime + fitDuration,
-        ),
-      );
-
-      source.connect(gain);
-      const chain: AudioNode[] = [gain, ...effectNodes];
-      chain.reduce((src, dst) => {
-        src.connect(dst);
-        return dst;
-      });
-      chain[chain.length - 1].connect(this._outputNode);
-
-      source.start(barStartTime);
-      source.stop(barStartTime + fitDuration);
-
-      this._track(source, chain, barStartTime);
-      return;
-    }
-
-    if (notes.type === "random") {
-      const mask = notes.cycle.cycle[barIndex % notes.cycle.cycle.length];
-      mask.forEach((step, stepIndex) => {
-        if (step.value === 0) return;
-        const rate = this._resolve(notes, barIndex, stepIndex);
-        this._scheduleNote(
-          buffer,
-          { ...step, value: rate },
-          barStartTime,
-          barIndex,
-        );
-      });
-      return;
-    }
-
-    const notesBar = notes.cycle[barIndex % notes.cycle.length];
-    notesBar.forEach((note) => {
-      this._scheduleNote(buffer, note, barStartTime, barIndex);
+    this._scheduleVoice({
+      source,
+      gainEnvelope: this._schema.gain,
+      effects: this._schema.effects,
+      barIndex,
+      stepIndex: 0,
+      startTime: barStartTime,
+      noteDuration: fitDuration,
+      endTime: barStartTime + fitDuration,
+      stopTime: barStartTime + fitDuration,
     });
   }
 
-  private _scheduleNote(
+  private _scheduleRandomBar(barIndex: number, barStartTime: number) {
+    const notes = this._schema.notes;
+    if (notes.type !== "random") return;
+
+    // TODO: Update schema to make this notes.mask.cycle
+    const mask = notes.cycle.cycle[barIndex % notes.cycle.cycle.length];
+    mask.forEach((step, stepIndex) => {
+      if (step.value === 0) return;
+      const rate = this._resolve(notes, barIndex, stepIndex);
+      const variationIndex = this._resolveVariationIndex(barIndex, stepIndex);
+      const buffer = this._bufferStore.getPlaybackBuffer(
+        variationIndex,
+        barIndex,
+      );
+      if (!buffer) return;
+      this._scheduleSampleNote(
+        buffer,
+        { ...step, value: rate },
+        barStartTime,
+        barIndex,
+      );
+    });
+  }
+
+  private _scheduleSequenceBar(barIndex: number, barStartTime: number) {
+    const notes = this._schema.notes;
+    if (notes.type !== "static") return;
+
+    const notesBar = notes.cycle[barIndex % notes.cycle.length];
+    notesBar.forEach((note) => {
+      const variationIndex = this._resolveVariationIndex(
+        barIndex,
+        note.stepIndex,
+      );
+      const buffer = this._bufferStore.getPlaybackBuffer(
+        variationIndex,
+        barIndex,
+      );
+      if (!buffer) return;
+      this._scheduleSampleNote(buffer, note, barStartTime, barIndex);
+    });
+  }
+
+  private _scheduleSampleNote(
     buffer: AudioBuffer,
     note: StaticSchemaValue,
     barStartTime: number,
@@ -207,76 +195,25 @@ class Sampler extends Instrument {
       detune: detune.value,
       loop: this._schema.loop,
     });
-    const gain = new GainNode(this._ctx);
 
-    const releaseDur = this._scheduleParamEnvelope(
-      gain.gain,
-      this._schema.gain,
+    this._scheduleVoice({
+      source,
+      detuneParam: source.detune,
+      detune,
+      gainEnvelope: this._schema.gain,
+      effects: this._schema.effects,
       barIndex,
-      note.stepIndex,
+      stepIndex: note.stepIndex,
+      startTime,
       noteDuration,
       endTime,
-    );
-
-    if (detune.type === "envelope") {
-      this._scheduleParamEnvelope(
-        source.detune,
-        detune.schema,
-        barIndex,
-        note.stepIndex,
-        noteDuration,
-        endTime,
-      );
-    } else if (detune.type === "lfo") {
-      const lfoNode = this._lfoNodes.get(detune.schema.id);
-      if (lfoNode) lfoNode.connect(source.detune);
-    }
-
-    const effectNodes = this._schema.effects.map((effect) =>
-      this._buildEffectNode(
-        effect,
-        barIndex,
-        note.stepIndex,
-        startTime,
-        noteDuration,
-        endTime,
-      ),
-    );
-
-    source.connect(gain);
-    const chain: AudioNode[] = [gain, ...effectNodes];
-    chain.reduce((src, dst) => {
-      src.connect(dst);
-      return dst;
     });
-    chain[chain.length - 1].connect(this._outputNode);
-
-    source.start(startTime);
-    source.stop(endTime + releaseDur + 0.05);
-
-    this._track(source, chain, startTime);
   }
 
-  private _resolveUrl(): string | null {
-    const { bank, sample, variation } = this._schema;
-    const bankSchema = this._banks[bank];
-
-    if (!bankSchema) {
-      console.warn(`[Sampler] Bank "${bank}" not found in schema`);
-      return null;
-    }
-
-    const variations = bankSchema.samples[sample];
-    if (!variations?.length) {
-      console.warn(`[Sampler] Sample "${sample}" not found in bank "${bank}"`);
-      return null;
-    }
-
-    const variationIndex = Math.min(
-      Math.round(this._resolve(variation, 0, 0)),
-      variations.length - 1,
+  private _resolveVariationIndex(barIndex: number, stepIndex: number): number {
+    return Math.round(
+      this._resolve(this._schema.variation, barIndex, stepIndex),
     );
-    return variations[variationIndex];
   }
 }
 

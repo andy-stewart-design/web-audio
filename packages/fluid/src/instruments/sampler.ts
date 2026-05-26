@@ -34,6 +34,12 @@ class Sampler extends Instrument {
     this._variation = new Parameter(0);
   }
 
+  // METHOD ALIASES
+  var(...input: CycleInput) {
+    return this.variation(...input);
+  }
+
+  // INSTANCE METHODS
   bank(name: string) {
     this._bank = name;
     return this;

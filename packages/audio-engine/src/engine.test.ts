@@ -3,7 +3,7 @@ import type { DromeSchema } from "@web-audio/schema";
 
 // Mock Synthesizer so tests don't need Web Audio APIs.
 // Must use a regular function (not arrow) so it's usable as a constructor.
-vi.mock("./synthesizer", () => {
+vi.mock("./instruments/synthesizer", () => {
   function MockSynthesizer(this: Record<string, unknown>) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
@@ -16,7 +16,7 @@ vi.mock("./synthesizer", () => {
   return { default: vi.fn(MockSynthesizer) };
 });
 
-vi.mock("./sampler", () => {
+vi.mock("./instruments/sampler", () => {
   function MockSampler(
     this: Record<string, unknown>,
     _ctx: unknown,
@@ -45,6 +45,7 @@ import MockSampler from "./instruments/sampler";
 // Stub AudioContext with audioWorklet.addModule for worklet registration
 const fakeCtx = {
   audioWorklet: { addModule: () => Promise.resolve() },
+  decodeAudioData: vi.fn(async () => ({ duration: 1 }) as AudioBuffer),
 } as unknown as AudioContext;
 
 type EventCallback = (m: { beat: number; bar: number }, time: number) => void;
@@ -340,6 +341,46 @@ describe("AudioEngine", () => {
       // After destroy, bar events must not call scheduleBar
       clock.emit("bar");
       expect(instances()[0].scheduleBar).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("prepare()", () => {
+    it("preloads all statically known sampler variations before playback", async () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSamplerSchema();
+      const sampler = schema.instruments[0];
+      if (sampler.type !== "sampler") expect.unreachable();
+      sampler.variation = {
+        type: "static",
+        polyphonic: false,
+        cycle: [
+          [
+            { value: 0, offset: 0, duration: 0.25, stepIndex: 0 },
+            { value: 1, offset: 0.25, duration: 0.25, stepIndex: 1 },
+            { value: 2, offset: 0.5, duration: 0.25, stepIndex: 2 },
+            { value: 3, offset: 0.75, duration: 0.25, stepIndex: 3 },
+          ],
+        ],
+      };
+      schema.banks.kit.samples.bd = [
+        "https://example.com/bd-0.wav",
+        "https://example.com/bd-1.wav",
+        "https://example.com/bd-2.wav",
+        "https://example.com/bd-3.wav",
+      ];
+      const fetchMock = vi.fn(async () => ({
+        arrayBuffer: async () => new ArrayBuffer(8),
+      }));
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+      engine.update(schema);
+      await engine.prepare();
+
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+      schema.banks.kit.samples.bd.forEach((url) => {
+        expect(fetchMock).toHaveBeenCalledWith(url);
+      });
     });
   });
 

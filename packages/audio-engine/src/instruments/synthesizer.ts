@@ -25,29 +25,42 @@ class Synthesizer extends Instrument {
 
   scheduleBar(barIndex: number, barStartTime: number): void {
     this._updateLfoParams(barIndex, barStartTime);
-    const notes = this._schema.notes;
 
-    if (notes.type === "random") {
-      const mask = notes.cycle.cycle[barIndex % notes.cycle.cycle.length];
-      mask.forEach((step, stepIndex) => {
-        if (step.value === 0) return;
-        const midiNote = this._resolve(notes, barIndex, stepIndex);
-        this._scheduleNote(
-          { ...step, value: midiNote },
-          barStartTime,
-          barIndex,
-        );
-      });
+    if (this._schema.notes.type === "random") {
+      this._scheduleRandomBar(barIndex, barStartTime);
       return;
     }
 
-    const notesBar = notes.cycle[barIndex % notes.cycle.length];
-    notesBar.forEach((note) => {
-      this._scheduleNote(note, barStartTime, barIndex);
+    this._scheduleSequenceBar(barIndex, barStartTime);
+  }
+
+  private _scheduleRandomBar(barIndex: number, barStartTime: number): void {
+    const notes = this._schema.notes;
+    if (notes.type !== "random") return;
+
+    const mask = notes.cycle.cycle[barIndex % notes.cycle.cycle.length];
+    mask.forEach((step, stepIndex) => {
+      if (step.value === 0) return;
+      const midiNote = this._resolve(notes, barIndex, stepIndex);
+      this._scheduleSynthNote(
+        { ...step, value: midiNote },
+        barStartTime,
+        barIndex,
+      );
     });
   }
 
-  private _scheduleNote(
+  private _scheduleSequenceBar(barIndex: number, barStartTime: number): void {
+    const notes = this._schema.notes;
+    if (notes.type !== "static") return;
+
+    const notesBar = notes.cycle[barIndex % notes.cycle.length];
+    notesBar.forEach((note) => {
+      this._scheduleSynthNote(note, barStartTime, barIndex);
+    });
+  }
+
+  private _scheduleSynthNote(
     note: StaticSchemaValue,
     barStartTime: number,
     barIndex: number,
@@ -68,53 +81,19 @@ class Synthesizer extends Instrument {
       frequency: midiToFrequency(note.value),
       detune: detune.value,
     });
-    const gain = new GainNode(this._ctx);
 
-    const releaseDur = this._scheduleParamEnvelope(
-      gain.gain,
-      this._schema.gain,
+    this._scheduleVoice({
+      source: osc,
+      detuneParam: osc.detune,
+      detune,
+      gainEnvelope: this._schema.gain,
+      effects: this._schema.effects,
       barIndex,
-      note.stepIndex,
+      stepIndex: note.stepIndex,
+      startTime,
       noteDuration,
       endTime,
-    );
-
-    if (detune.type === "envelope") {
-      this._scheduleParamEnvelope(
-        osc.detune,
-        detune.schema,
-        barIndex,
-        note.stepIndex,
-        noteDuration,
-        endTime,
-      );
-    } else if (detune.type === "lfo") {
-      const lfoNode = this._lfoNodes.get(detune.schema.id);
-      if (lfoNode) lfoNode.connect(osc.detune);
-    }
-
-    const effectNodes = this._schema.effects.map((effect) =>
-      this._buildEffectNode(
-        effect,
-        barIndex,
-        note.stepIndex,
-        startTime,
-        noteDuration,
-        endTime,
-      ),
-    );
-
-    osc.connect(gain);
-    const chain: AudioNode[] = [gain, ...effectNodes];
-    chain.reduce((src, dst) => {
-      src.connect(dst);
-      return dst;
     });
-    chain[chain.length - 1].connect(this._outputNode);
-    osc.start(startTime);
-    osc.stop(endTime + releaseDur + 0.05);
-
-    this._track(osc, chain, startTime);
   }
 }
 

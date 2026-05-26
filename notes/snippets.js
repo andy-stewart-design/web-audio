@@ -42,6 +42,18 @@ d.synth("saw")
   .fx(d.lpf(1200))
   .push();
 
+d.synth("saw")
+  .root("c4")
+  .scale("min")
+  .notes([0, 2, 4, 0], [0, 0, 0, 0])
+  .detune(d.lfo(0, [0, 400, 0, -400]).wave("saw").norm())
+  .adsr(0, 1, 0.333, 1)
+  .fx(
+    d.lpf(d.env(200, 1600).adsr(0.25, 0.5, 0.25, 0.5)),
+    d.lpf(d.lfo(200, 2400).wave("saw").speed(0.5).norm()),
+  )
+  .push();
+
 // ------------------------------------------------
 // Sample Tests
 // ------------------------------------------------
@@ -52,4 +64,29 @@ d.sample("sd").bank("tr909").hex(0x5).push();
 d.sample("cp", 1).bank("tr808").hex(0x1).push();
 d.sample("oh", 3).bank("tr909").hex(0x55).gain(0.375).clip(false).push();
 
+// Fit sample to bar
 d.sample("breaks").bank("loops").fit(2).push();
+
+// Sample loading, named
+d.loadSamples({
+  name: "dmx",
+  samples: {
+    bd: [
+      "https://raw.githubusercontent.com/ritchse/tidal-drum-machines/main/machines/OberheimDMX/oberheimdmx-bd/Bassdrum-01.wav",
+    ],
+  },
+});
+
+d.sample("bd").bank("dmx").hex(0xf).push();
+
+// Sample loading, unnamed
+d.loadSamples({
+  bd: [
+    "https://raw.githubusercontent.com/ritchse/tidal-drum-machines/main/machines/OberheimDMX/oberheimdmx-bd/Bassdrum-01.wav",
+  ],
+});
+
+d.sample("bd").bank("user").hex(0xf).push();
+
+// Multiple Variations
+d.sample("bd").var([0, 1, 2, 3]).bank("tr909").hex(0xf).push();

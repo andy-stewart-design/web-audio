@@ -17,6 +17,20 @@ import type {
   ResolvedEnvelopeSchema,
 } from "@/types";
 
+interface ScheduleVoiceParams {
+  source: AudioScheduledSourceNode;
+  detuneParam?: AudioParam;
+  detune?: ResolvedDetune;
+  gainEnvelope: EnvelopeSchema;
+  effects: EffectSchema[];
+  barIndex: number;
+  stepIndex: number;
+  startTime: number;
+  noteDuration: number;
+  endTime: number;
+  stopTime?: number;
+}
+
 abstract class Instrument {
   protected _ctx: AudioContext;
   protected _clock: AudioClock;
@@ -287,6 +301,73 @@ abstract class Instrument {
         return node;
       }
     }
+  }
+
+  protected _scheduleVoice({
+    source,
+    detuneParam,
+    detune,
+    gainEnvelope,
+    effects,
+    barIndex,
+    stepIndex,
+    startTime,
+    noteDuration,
+    endTime,
+    stopTime,
+  }: ScheduleVoiceParams) {
+    const gain = new GainNode(this._ctx);
+
+    const releaseDur = this._scheduleParamEnvelope(
+      gain.gain,
+      gainEnvelope,
+      barIndex,
+      stepIndex,
+      noteDuration,
+      endTime,
+    );
+
+    if (detuneParam && detune) {
+      if (detune.type === "envelope") {
+        this._scheduleParamEnvelope(
+          detuneParam,
+          detune.schema,
+          barIndex,
+          stepIndex,
+          noteDuration,
+          endTime,
+        );
+      } else if (detune.type === "lfo") {
+        const lfoNode = this._lfoNodes.get(detune.schema.id);
+        if (lfoNode) lfoNode.connect(detuneParam);
+      }
+    }
+
+    const effectNodes = effects.map((effect) =>
+      this._buildEffectNode(
+        effect,
+        barIndex,
+        stepIndex,
+        startTime,
+        noteDuration,
+        endTime,
+      ),
+    );
+
+    source.connect(gain);
+
+    const chain: AudioNode[] = [gain, ...effectNodes];
+    chain.reduce((src, dst) => {
+      src.connect(dst);
+      return dst;
+    });
+
+    chain[chain.length - 1].connect(this._outputNode);
+
+    source.start(startTime);
+    source.stop(stopTime ?? endTime + releaseDur + 0.05);
+
+    this._track(source, chain, startTime);
   }
 
   protected _track(
