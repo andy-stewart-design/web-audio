@@ -48,15 +48,15 @@ class Sampler extends Instrument {
     this._initLfos(schema, startingBar, barStartTime);
   }
 
-  isReady(): boolean {
+  isReady() {
     return this._bufferStore.hasInitialBuffer();
   }
 
-  fallbackBufferFor(schema: SamplerSchema): AudioBuffer | null {
+  fallbackBufferFor(schema: SamplerSchema) {
     return this._bufferStore.fallbackBufferFor(schema.bank, schema.sample);
   }
 
-  private get _initialVariationIndex(): number {
+  private get _initialVariationIndex() {
     return this._resolveVariationIndex(0, 0);
   }
 
@@ -64,7 +64,7 @@ class Sampler extends Instrument {
     await this._bufferStore.preload(preloadVariationIndices(this._schema));
   }
 
-  scheduleBar(barIndex: number, barStartTime: number): void {
+  scheduleBar(barIndex: number, barStartTime: number) {
     if (!this._bufferStore.hasInitialBuffer()) {
       console.warn(
         `[Sampler] "${this._schema.bank}/${this._schema.sample}" not yet loaded — skipping bar ${barIndex}`,
@@ -87,7 +87,7 @@ class Sampler extends Instrument {
     }
   }
 
-  private _scheduleFitBar(barIndex: number, barStartTime: number): void {
+  private _scheduleFitBar(barIndex: number, barStartTime: number) {
     const notes = this._schema.notes;
     if (notes.type !== "fit") return;
 
@@ -124,7 +124,7 @@ class Sampler extends Instrument {
     });
   }
 
-  private _scheduleRandomBar(barIndex: number, barStartTime: number): void {
+  private _scheduleRandomBar(barIndex: number, barStartTime: number) {
     const notes = this._schema.notes;
     if (notes.type !== "random") return;
 
@@ -148,7 +148,7 @@ class Sampler extends Instrument {
     });
   }
 
-  private _scheduleSequenceBar(barIndex: number, barStartTime: number): void {
+  private _scheduleSequenceBar(barIndex: number, barStartTime: number) {
     const notes = this._schema.notes;
     if (notes.type !== "static") return;
 
