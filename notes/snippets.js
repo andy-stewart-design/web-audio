@@ -90,32 +90,3 @@ d.sample("bd").bank("user").hex(0xf).push();
 
 // Multiple Variations
 d.sample("bd").var([0, 1, 2, 3]).bank("tr909").hex(0xf).push();
-
-// TO DEBUG
-
-d.synth("saw")
-  .root("c4")
-  .scale("min")
-  .notes([0, 0, 0, 0])
-  .detune(d.env(0, 400).adsr(1, 0, 0, 0)) // This works, frequency decreases over duration of note
-  .adsr(0, 1, 0.333, 1)
-  .fx(d.lpf(800))
-  .push();
-
-d.synth("saw")
-  .root("c4")
-  .scale("min")
-  .notes([0, 0, 0, 0])
-  .detune(d.env(0, 400).adsr(0, 1, 0, 0)) // This doesn't, frequency sustains at envelope max
-  .adsr(0, 1, 0.333, 1)
-  .fx(d.lpf(800))
-  .push();
-
-d.synth("saw")
-  .root("c4")
-  .scale("min")
-  .notes([0, 0, 0, 0])
-  .detune(d.env(0, 400).adsr(0.01, 1, 0, 0)) // This does, frequency increases over duration of note
-  .adsr(0, 1, 0.333, 1)
-  .fx(d.lpf(800))
-  .push();
