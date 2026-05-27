@@ -2,17 +2,17 @@
 
 ## Timing & Rhythm
 
-| Term                    | Definition                                                                                                                       | Aliases to avoid               |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| **AudioClock**          | The scheduler that emits beat and bar events against the Web Audio `AudioContext` timeline                                       | Timer, sequencer clock         |
-| **BPM**                 | Beats per minute; the tempo of the clock                                                                                         | Tempo (as a variable name)     |
-| **Beat**                | The smallest unit of musical time; at 120 BPM a beat lasts half a second. Parallel to **Step** in sequencing, but not equivalent | Tick, step (in timing context) |
-| **Bar**                 | A group of beats (4 by default); the anchor between timing and sequencing — each bar, every instrument advances by one pattern   | Measure, loop                  |
-| **Metronome**           | A snapshot of the current `{ beat, bar }` position passed to every clock callback                                                | Position, cursor               |
-| **Bar start time**      | The `AudioContext` timestamp at which a bar begins; used as the scheduling anchor for all notes in that bar                      | Offset time                    |
-| **Bar duration**        | The wall-clock length of one bar in seconds (`beatDuration × beatsPerBar`)                                                       | Loop length                    |
-| **Lookahead**           | The polling interval (ms) at which the clock scheduler runs                                                                      | Tick rate                      |
-| **Schedule-ahead time** | How far into the future (seconds) the clock pre-schedules audio events                                                           | Buffer window                  |
+| Term                       | Definition                                                                                                                       | Aliases to avoid               |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **Audio Clock**            | The scheduler that emits beat and bar events against the Web Audio `AudioContext` timeline                                       | Timer, sequencer clock         |
+| **Beats per Minute (BPM)** | Beats per minute; the tempo of the clock                                                                                         | Tempo (as a variable name)     |
+| **Beat**                   | The smallest unit of musical time; at 120 BPM a beat lasts half a second. Parallel to **Step** in sequencing, but not equivalent | Tick, step (in timing context) |
+| **Bar**                    | A group of beats (4 by default); the anchor between timing and sequencing — each bar, every instrument advances by one pattern   | Measure, loop                  |
+| **Metronome**              | A snapshot of the current `{ beat, bar }` position passed to every clock callback                                                | Position, cursor               |
+| **Bar start time**         | The `AudioContext` timestamp at which a bar begins; used as the scheduling anchor for all notes in that bar                      | Offset time                    |
+| **Bar duration**           | The wall-clock length of one bar in seconds (`beatDuration × beatsPerBar`)                                                       | Loop length                    |
+| **Lookahead**              | The polling interval (ms) at which the clock scheduler runs                                                                      | Tick rate                      |
+| **Schedule-ahead time**    | How far into the future (seconds) the clock pre-schedules audio events                                                           | Buffer window                  |
 
 ## Sequencing
 
@@ -25,7 +25,7 @@ Drome's sequencing model has three levels: **steps**, **patterns**, and **cycles
 | **Offset**      | A step's fractional start time within a bar (0–1, where 1 = one full bar)                                                                                                                       | Time, position                                |
 | **Pattern**     | A sequence of steps that plays over exactly one bar; the fundamental sequencing unit                                                                                                            | Bar (as sequencing unit), loop                |
 | **Cycle**       | The full, repeating loop of an instrument's patterns; N patterns = N bars before repetition                                                                                                     | Loop, sequence (as a type)                    |
-| **Note**        | A single pitched value within a step. In a synthesizer, expressed as a MIDI integer; in a sampler, expressed as a float (0.0–1.0) representing playback position                                | Pitch, value                                  |
+| **Note**        | A single pitched value within a step. In a synthesizer, expressed as a MIDI integer; in a sampler, expressed as a float representing playback rate.                                             | Pitch, value                                  |
 | **Chord**       | Two or more notes played simultaneously within a single step                                                                                                                                    | Poly note, multi-note                         |
 | **Mask**        | The binary grid derived from rhythm modifiers; `1` = active step, `0` = silent                                                                                                                  | Gate, trigger grid                            |
 | **Modifier**    | A rhythm function (`.euclid()`, `.xox()`, `.hex()`, etc.) applied to a cycle to gate which steps fire                                                                                           | Pattern (in modifier context), grid           |
@@ -106,7 +106,7 @@ Drome's sequencing model has three levels: **steps**, **patterns**, and **cycles
 
 ## Relationships
 
-- A **Drome** owns one or more **Instruments** and produces a **DromeSchema**.
+- A **Drome Instance** owns one or more **Instruments** and produces a **DromeSchema**.
 - A **Synthesizer** is a concrete **Instrument** containing an **Oscillator** shaped by a gain **Envelope**, a detune **Parameter**, and zero or more **Effects**.
 - A **Cycle** contains one or more **Patterns**; each **Pattern** spans exactly one **Bar** and contains one or more **Steps**.
 - A **Step** is to a **Pattern** what a **Beat** is to a **Bar** — parallel timing units, but not equivalent: a 3-step pattern in a 4-beat bar gives each step a duration of 1.33 beats.

@@ -50,7 +50,7 @@ The full, repeating loop of an instrument's patterns. A cycle is one bar long if
 
 ### Note
 
-A single pitched value within a step. In a synthesizer, notes are expressed as MIDI values — numerical representations of pitches or frequencies. In a sampler, notes control the playback start position of the sample (a float between 0.0 and 1.0).
+A single pitched value within a step. In a synthesizer, notes are expressed as MIDI values — numerical representations of pitches or frequencies. In a sampler, notes control the playback rate of the sample, which we can use to modify the perceived pitch of the sample.
 
 ### Chord
 
