@@ -4,7 +4,7 @@
 
 | Term                       | Definition                                                                                                                       | Aliases to avoid               |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| **Audio Clock**            | The scheduler that emits beat and bar events against the Web Audio `AudioContext` timeline                                       | Timer, sequencer clock         |
+| **Clock**                  | The scheduler that emits beat and bar events against the Web Audio `AudioContext` timeline                                       | Timer, sequencer               |
 | **Beats per Minute (BPM)** | Beats per minute; the tempo of the clock                                                                                         | Tempo (as a variable name)     |
 | **Beat**                   | The smallest unit of musical time; at 120 BPM a beat lasts half a second. Parallel to **Step** in sequencing, but not equivalent | Tick, step (in timing context) |
 | **Bar**                    | A group of beats (4 by default); the anchor between timing and sequencing — each bar, every instrument advances by one pattern   | Measure, loop                  |
