@@ -191,22 +191,9 @@ A step's fractional start time within a bar, normalized from 0 to 1 (where 1 = o
 
 - **User facing**: No
 
-### Note
-
-A single pitched value within a step. In a synthesizer, notes are MIDI note numbers; in a sampler, notes control playback rate, which enables pitching a sample up or down.
-
-- **Aliases to avoid**: Pitch
-- **User facing**: Yes
-
 ### Playback Rate
 
 The speed at which an audio buffer plays back. In a sampler, note values are used to set playback rate.
-
-- **User facing**: Yes
-
-### Chord
-
-Two or more notes played simultaneously within a single step.
 
 - **User facing**: Yes
 
@@ -260,6 +247,13 @@ A cycle whose values are generated deterministically from a seed rather than sto
 
 - **User facing**: No
 
+### Quantization
+
+The rounding grid applied to generated cycle values.
+
+- **Aliases to avoid**: Snap
+- **User facing**: Yes
+
 ### Ribbon
 
 A RandomCycle's seed configuration, optionally segmented into looping sub-sequences.
@@ -271,6 +265,54 @@ A RandomCycle's seed configuration, optionally segmented into looping sub-sequen
 One named range within a ribbon: `{ seed, len }`.
 
 - **User facing**: No
+
+---
+
+## Pitch & Harmony
+
+### Root
+
+The base pitch used to resolve scale degrees into MIDI notes.
+
+- **User facing**: Yes
+
+### Scale
+
+A pitch collection defined by semitone intervals within an octave, used to map scale degrees into MIDI notes.
+
+- **User facing**: Yes
+
+### Scale degree
+
+A numeric position in a scale; degrees wrap across octaves and resolve to semitone offsets from the root.
+
+- **Aliases to avoid**: Note, MIDI note
+- **User facing**: Yes
+
+### Semitone
+
+The smallest pitch step in the MIDI/chromatic system; one octave contains 12 semitones.
+
+- **User facing**: Yes
+
+### Octave
+
+A 12-semitone pitch span where note names repeat at double or half frequency.
+
+- **User facing**: Yes
+
+### Note
+
+A single pitched value within a step. In a synthesizer, notes are MIDI note numbers; in a sampler, notes control playback rate, which enables pitching a sample up or down.
+
+- **Aliases to avoid**: Pitch
+- **User facing**: Yes
+
+### Chord
+
+Two or more notes played simultaneously within a single step.
+
+- **User facing**: Yes
 
 ---
 
@@ -311,9 +353,28 @@ A concrete instrument that plays back pre-recorded audio buffers; notes control 
 - **Aliases to avoid**: Sample player, Audio buffer references
 - **User facing**: Yes
 
+### Fit
+
+A sampler note mode where the sample is adjusted to span a fixed number of bars.
+
+- **User facing**: Yes
+
+### Sampler duration mode
+
+Controls whether a sampler note is cut to its scheduled step duration (`clip`) or allowed to play until the sample ends (`one-shot`).
+
+- **User facing**: Yes
+
+### Sample loop mode
+
+Controls whether sampler playback wraps within the sample instead of stopping at the sample boundary.
+
+- **Aliases to avoid**: Loop, Cycle
+- **User facing**: Yes
+
 ### Sample
 
-The Drome-level term for an audio asset, Which is identified by a bank, a name, and a variation.
+The Drome-level term for an audio asset, which is identified by a bank, a name, and a variation.
 
 - **User facing**: Yes
 
@@ -428,4 +489,11 @@ Controls how ADSR stages map onto note duration: `bleed` (default) or `clip`.
 
 A slow oscillator used as a modulation source rather than a sound source; cycles continuously at sub-audio rate to create vibrato, tremolo, or filter sweeps.
 
+- **User facing**: Yes
+
+### LFO phase
+
+The starting position of an LFO cycle, expressed as a phase offset.
+
+- **Aliases to avoid**: Offset, when discussing the concept rather than the method name
 - **User facing**: Yes
