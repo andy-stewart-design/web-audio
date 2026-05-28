@@ -4,6 +4,108 @@ Drome is a live coding language and platform for making and distributing music i
 
 ---
 
+## Foundation
+
+### Schema
+
+A plain, serialisable snapshot of a fully resolved configuration, passed from Fluid to Engine.
+
+- **User facing**: No
+
+### DromeSchema
+
+The top-level schema containing all instrument schemas and banks.
+
+- **User facing**: No
+
+### Fluid
+
+The authoring layer — a builder API that constructs schemas via a fluent interface and resolves all defaults.
+
+- **Aliases to avoid**: DSL, Config layer
+- **User facing**: No
+
+### Engine
+
+The playback layer — consumes schemas and schedules Web Audio nodes; never applies defaults.
+
+- **Aliases to avoid**: Runtime, Audio layer
+- **User facing**: No
+
+### Resolver
+
+An engine-side object that generates concrete values from a `RandomSchema` for a given bar and step index.
+
+- **User facing**: No
+
+---
+
+## Lifecycle
+
+Note: Evaluate and Push are Fluid-side concepts; Queue, Prebar, Prebeat, Commit, Retiring, Done, and Stop are Engine-side lifecycle concepts/events.
+
+### Evaluate
+
+The act of running code in Drome's live environment. This creates or replaces the current schema.
+
+- **User facing**: Yes
+
+### Push
+
+Marks an instrument to be included in the next commit at the next bar boundary.
+
+- **User facing**: Yes
+
+### Queue
+
+The set of pushed instruments waiting to be committed.
+
+- **User facing**: No
+
+### Commit
+
+The moment when the pending schema becomes live at a bar boundary.
+
+- **User facing**: Yes
+
+### Prebar
+
+The clock event fired immediately before a bar begins. The engine uses it to commit the pending schema and swap instruments in sync.
+
+- **User facing**: No
+
+### Prebeat
+
+The clock event fired immediately before a beat boundary. The engine can use this as a scheduling hook for beat-aligned work.
+
+- **User facing**: No
+
+### Stop
+
+The clock event fired when playback stops; used to cancel future notes.
+
+- **User facing**: No
+
+### Pending
+
+The most recent schema update waiting for the next `prebar`.
+
+- **User facing**: No
+
+### Retiring
+
+The state of old players after a hot swap, while they finish scheduled audio and release tails.
+
+- **User facing**: No
+
+### Done
+
+The signal that a player has finished retiring and can be removed.
+
+- **User facing**: No
+
+---
+
 ## Timing & Rhythm
 
 ### Clock
@@ -237,5 +339,93 @@ The in-memory decoded audio data used to play a sample. Can be derived from an a
 ### Detune
 
 A pitch offset applied to an oscillator or audio buffer playback.
+
+- **User facing**: Yes
+
+---
+
+## Effects
+
+Effects are signal processors applied serially to the audio chain after the oscillator.
+
+### Gain
+
+Controls the output volume of an instrument; unity is `1`, silence is `0`.
+
+- **User facing**: Yes
+
+### Pan
+
+Positions the sound in the stereo field; `-1` is hard left, `0` center, `1` hard right.
+
+- **User facing**: Yes
+- **Status**: planned
+
+### Filter
+
+A biquad filter effect attenuating frequencies above or below a cutoff; parameterised by `frequency`, `Q`, `detune`, and `gain`.
+
+- **Aliases to avoid**: EQ, Biquad
+- **User facing**: Yes
+
+### Delay
+
+An echo effect that plays back a copy of the signal after a set time; `feedback` controls repeat decay.
+
+- **User facing**: Yes
+- **Status**: planned
+
+### Reverb
+
+Simulates acoustic space reflections; can be algorithmic or convolution-based (impulse response).
+
+- **User facing**: Yes
+- **Status**: planned
+
+### Distortion
+
+Adds harmonic saturation by clipping or reshaping the waveform.
+
+- **User facing**: Yes
+- **Status**: planned
+
+### Bitcrusher
+
+Degrades audio by reducing bit depth and sample rate, producing lo-fi digital crunch.
+
+- **User facing**: Yes
+- **Status**: planned
+
+---
+
+## Automations
+
+### Parameter
+
+A single automatable value backed by a `ValueCycle` or `RandomCycle`.
+
+- **User facing**: No
+
+### Envelope
+
+An ADSR automation curve applied to a parameter over the duration of a note.
+
+- **User facing**: Yes
+
+### Attack, Decay, Sustain, Release (ADSR)
+
+The four phases of an envelope.
+
+- **User facing**: Yes
+
+### Envelope mode
+
+Controls how ADSR stages map onto note duration: `bleed` (default) or `clip`.
+
+- **User facing**: No
+
+### Low Frequency Oscillator (LFO)
+
+A slow oscillator used as a modulation source rather than a sound source; cycles continuously at sub-audio rate to create vibrato, tremolo, or filter sweeps.
 
 - **User facing**: Yes
