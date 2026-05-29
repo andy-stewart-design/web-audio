@@ -289,15 +289,15 @@ A numeric position in a scale; degrees wrap across octaves and resolve to semito
 - **Aliases to avoid**: Note, MIDI note
 - **User facing**: Yes
 
-### Semitone
-
-The smallest pitch step in the MIDI/chromatic system; one octave contains 12 semitones.
-
-- **User facing**: Yes
-
 ### Octave
 
 A 12-semitone pitch span where note names repeat at double or half frequency.
+
+- **User facing**: Yes
+
+### Semitone
+
+The smallest pitch step in the MIDI/chromatic system; one octave contains 12 semitones.
 
 - **User facing**: Yes
 
