@@ -177,7 +177,7 @@ function makeSchema(overrides: Partial<SamplerSchema> = {}): SamplerSchema {
     gain: envelope(),
     effects: [],
     loop: false,
-    durationMode: "clip",
+    clipMode: "clipped",
     ...overrides,
   };
 }
@@ -684,7 +684,7 @@ describe("Sampler", () => {
       ctx as unknown as AudioContext,
       clock as never,
       {
-        schema: makeSchema({ notes, durationMode: "one-shot" }),
+        schema: makeSchema({ notes, clipMode: "one-shot" }),
         banks: makeBanks(url),
         cache,
       },

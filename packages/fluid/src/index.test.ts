@@ -286,7 +286,7 @@ describe("Drome", () => {
         expect(inst.bank).toBe("tr909");
         expect(inst.sample).toBe("bd");
         expect(inst.loop).toBe(false);
-        expect(inst.durationMode).toBe("clip");
+        expect(inst.clipMode).toBe("clipped");
         expect(inst.variation.type).toBe("static");
         expect(inst.notes).not.toHaveProperty("type", "fit");
       }
@@ -376,36 +376,36 @@ describe("Drome", () => {
       }
     });
 
-    it("clip(false) sets sampler duration mode to one-shot", () => {
+    it("clip(false) sets sampler clip mode to one-shot", () => {
       const d = new Drome();
       d.sample("oh").clip(false).push();
       const inst = d.getSchema().instruments[0];
 
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
-        expect(inst.durationMode).toBe("one-shot");
+        expect(inst.clipMode).toBe("one-shot");
       }
     });
 
-    it("clip() sets sampler duration mode to clip", () => {
+    it("clip() sets sampler clip mode to clipped", () => {
       const d = new Drome();
       d.sample("oh").clip(false).clip().push();
       const inst = d.getSchema().instruments[0];
 
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
-        expect(inst.durationMode).toBe("clip");
+        expect(inst.clipMode).toBe("clipped");
       }
     });
 
-    it("clip(true) sets sampler duration mode to clip", () => {
+    it("clip(true) sets sampler clip mode to clipped", () => {
       const d = new Drome();
       d.sample("oh").clip(false).clip(true).push();
       const inst = d.getSchema().instruments[0];
 
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
-        expect(inst.durationMode).toBe("clip");
+        expect(inst.clipMode).toBe("clipped");
       }
     });
 

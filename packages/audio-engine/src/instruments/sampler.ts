@@ -178,7 +178,7 @@ class Sampler extends Instrument {
     const noteDuration = note.duration * barDuration;
     const sampleDuration = buffer.duration / note.value;
     const duration =
-      this._schema.durationMode === "one-shot" && !this._schema.loop
+      this._schema.clipMode === "one-shot" && !this._schema.loop
         ? sampleDuration
         : noteDuration;
     const endTime = startTime + duration;
