@@ -65,7 +65,7 @@ Playback rate controls the speed and perceived pitch of a sample. A value of 1 i
 
 ### Quantization
 
-QQuantization snaps values to a defined grid. In Drome, that grid is dynamic: it adapts to the number of steps in the current pattern. A four-step pattern divides the bar into 4 positions; a seven-step pattern divides it into 7. Drome uses this step grid to place and resolve values musically within the pattern.
+Quantization snaps values to a defined grid. In Drome, that grid is dynamic: it adapts to the number of steps in the current pattern. A four-step pattern divides the bar into 4 positions; a seven-step pattern divides it into 7. Drome uses this step grid to place and resolve values musically within the pattern.
 
 ## Pitch & Harmony
 
@@ -221,6 +221,7 @@ Range sets the minimum and maximum values that random generation can produce. It
 - Structure: Each definition starts with "<Term> is..." or similar active structure. Avoids jargon where possible but keeps specific API-relevant terminology (like "Audio Nodes", "Pattern", etc.).
 - Consistency: Short, punchy sentences. No excessive filler words ("especially important", "in practice"). Connects back to other sections when relevant (e.g., linking Gain to volume levels or instruments).
 
-### Code Updates
+### Notes
 
-- Should we rename durationMode to clipMode in the code?
+- Code update: should we rename durationMode to clipMode in the code?
+- We will in the near future be adding a Supersaw waveform/worklet option for synths, as well as the following effects: Pan (left/right positioning), Delay (echo with feedback), Reverb (algorithmic/convolution space), and Distortion (harmonic saturation), Bitcrusher

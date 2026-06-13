@@ -2,498 +2,210 @@
 
 Drome is a live coding language and platform for making and distributing music in the browser
 
----
+# Glossary
 
-## Foundation
-
-### Schema
-
-A plain, serialisable snapshot of a fully resolved configuration, passed from Fluid to Engine.
-
-- **User facing**: No
-
-### DromeSchema
-
-The top-level schema containing all instrument schemas and banks.
-
-- **User facing**: No
-
-### Fluid
-
-The authoring layer — a builder API that constructs schemas via a fluent interface and resolves all defaults.
-
-- **Aliases to avoid**: DSL, Config layer
-- **User facing**: No
-
-### Engine
-
-The playback layer — consumes schemas and schedules Web Audio nodes; never applies defaults.
-
-- **Aliases to avoid**: Runtime, Audio layer
-- **User facing**: No
-
-### Resolver
-
-An engine-side object that generates concrete values from a `RandomSchema` for a given bar and step index.
-
-- **User facing**: No
-
----
+This glossary defines core concepts behind Drome's live-coding model, focusing on evaluation, timing, sequencing, and sound design. It explains how the system works as a whole, serving as a high-level overview before diving into API documentation.
 
 ## Lifecycle
 
-Note: Evaluate and Push are Fluid-side concepts; Queue, Prebar, Prebeat, Commit, Retiring, Done, and Stop are Engine-side lifecycle concepts/events.
-
-### Evaluate
-
-The act of running code in Drome's live environment. This creates or replaces the current schema.
-
-- **User facing**: Yes
+Drome organizes sound production into three phases: pushing, evaluation, and committing. First you define instruments for playback, then build the configuration, and finally commit changes to the timeline.
 
 ### Push
 
-Marks an instrument to be included in the next commit at the next bar boundary.
+To push an instrument is to mark it as ready playback. While you can define a sound without pushing it, calling `.push()` ensures that instrument is included in the next update. In practice, this is usually the final method of your instrument chain: it signals Drome to include the instrument in the upcoming commit.
 
-- **User facing**: Yes
+### Evaluate
 
-### Queue
-
-The set of pushed instruments waiting to be committed.
-
-- **User facing**: No
+Evaluation prepares your code for playback. When you submit code, Drome processes your instructions and constructs the audio graph that will soon become audible in time with the clock. While you can evaluate code at any moment, changes only take effect when the clock hits the next bar.
 
 ### Commit
 
-The moment when the pending schema becomes live at a bar boundary.
-
-- **User facing**: Yes
-
-### Prebar
-
-The clock event fired immediately before a bar begins. The engine uses it to commit the pending schema and swap instruments in sync.
-
-- **User facing**: No
-
-### Prebeat
-
-The clock event fired immediately before a beat boundary. The engine can use this as a scheduling hook for beat-aligned work.
-
-- **User facing**: No
-
-### Stop
-
-The clock event fired when playback stops; used to cancel future notes.
-
-- **User facing**: No
-
-### Pending
-
-The most recent schema update waiting for the next `prebar`.
-
-- **User facing**: No
-
-### Retiring
-
-The state of old instruments after a hot swap, while they finish scheduled audio and release tails.
-
-- **User facing**: No
-
-### Done
-
-The signal that an instrument has finished retiring and can be removed.
-
-- **User facing**: No
-
----
+The Commit phase converts an evaluated graph into actual Audio Nodes. This is the point at which the logic of your code comes to life as sound. This happens automatically at bar boundaries, ensuring edits land exactly on the beat without interrupting playback.
 
 ## Timing & Rhythm
 
-### Clock
+Rhythm defines the structure of a composition. A clock drives tempo, while a grid of beats and bars allows you to precisely place a musical idea in time.
 
-The scheduler that emits beat and bar events against the Web Audio AudioContext timeline.
+### Beats per minute
 
-- **Aliases to avoid**: Timer
-- **User facing**: No
-
-### Beats per minute (BPM)
-
-The tempo of the clock. Higher values play faster. Defaults to 120 BPM.
-
-- **Aliases to avoid**: Tempo (as a variable name)
-- **User facing**: Yes
+Beats per minute (BPM) sets the tempo of performance. Higher values speed up the clock; lower values slow it down. Drome defaults to 120 BPM.
 
 ### Beat
 
-The smallest unit of musical time; at 120 BPM a beat lasts half a second. Parallel to `Step` in sequencing, but not equivalent.
-
-- **Aliases to avoid**: Tick, Step (in timing context)
-- **User facing**: Yes
+A beat is the basic pulse of musical time. At 120 BPM, one beat lasts half a second. While beats divide the global clock, steps divide an individual pattern.
 
 ### Bar
 
-A group of beats (4 by default); the anchor between timing and sequencing — each bar, every instrument advances by one pattern.
-
-- **Aliases to avoid**: Measure
-- **User facing**: Yes
+A bar is a group of beats that defines a standard musical segment. In Drome, a bar has four beats by default. It serves as the container for a pattern: each pattern lasts exactly one bar, and live-coded changes commit at these boundaries.
 
 ### Metronome
 
-A snapshot of the current `{ beat, bar }` position passed to every clock callback.
-
-- **User facing**: Yes
-
-### Bar start time
-
-The `AudioContext` timestamp at which a bar begins; used as the scheduling anchor for all notes in that bar.
-
-- **User facing**: No
-
-### Bar duration
-
-The wall-clock length of one bar in seconds (`beatDuration × beatsPerBar`).
-
-- **User facing**: No
-
-### Lookahead
-
-The polling interval (milliseconds) used to keep the JavaScript scheduler aligned with the AudioContext timeline.
-
-- **User facing**: No
-
-### Schedule-ahead time
-
-How far into the future (seconds) the clock pre-schedules audio events; this is the scheduling horizon.
-
-- **User facing**: No
-
----
+The metronome tracks Drome’s current position in musical time as a beat and bar count. It provides the reference point for any sound or event that must stay synchronized with the clock.
 
 ## Sequencing
 
-Drome's sequencing model has three levels: steps, patterns, and cycles. Each level has a direct counterpart in the timing model — a step is to a pattern what a beat is to a bar. They are parallel concepts, not equivalent ones.
+Sequencing maps your musical ideas onto the clock’s grid. It determines how content repeats and evolves across multiple bars, ensuring every change lands with precision.
 
 ### Step
 
-A single subdivision of a pattern, carrying a `value`, `offset`, `duration`, and `stepIndex`. A step can hold one note, one chord, or silence. Steps divide a pattern evenly — a 3-step pattern in a 4-beat bar means each step lasts 1.33 beats.
-
-- **Aliases to avoid**: Tick, Beat (in sequencing context)
-- **User facing**: Yes
-
-### Step index
-
-The zero-based position of a step within its pattern; used to look up per-step parameter values.
-
-- **User facing**: No
-
-### Step Offset
-
-A step's fractional start time within a bar, normalized from 0 to 1 (where 1 = one full bar).
-
-- **User facing**: No
-
-### Playback Rate
-
-The speed at which an audio buffer plays back. In a sampler, note values are used to set playback rate.
-
-- **User facing**: Yes
+A step is a subdivision of a pattern that holds one value. While beats divide time globally, steps define where values sit inside the pattern's duration. A step can contain parameter values, notes, chords, or silence.
 
 ### Pattern
 
-A sequence of steps that plays over exactly one bar. It is the fundamental sequencing unit.
-
-- **Aliases to avoid**: Loop
-- **User facing**: Yes
-
-### Pattern Modifier
-
-A rhythm function (`.euclid()`, `.xox()`, `.hex()`, etc.) applied to a cycle to gate which steps fire.
-
-- **User facing**: No
-
-### Pattern Mask
-
-The binary grid derived from rhythm modifiers; `1` = active step, `0` = silent.
-
-- **User facing**: No
+Pattern defines an instrument or effects' behavior for one bar. It consists of steps and maps to the clock’s grid. By default, a single pattern repeats every bar, but multiple patterns can be sequenced to create complex loops.
 
 ### Cycle
 
-The full, repeating loop of an instrument's patterns. Each pattern spans one bar, so N patterns = N bars before the cycle repeats.
+A cycle is the full repeating sequence of patterns for an instrument. Since each pattern lasts one bar, a cycle’s length depends on how many patterns it contains. A one-pattern cycle loops every bar; a four-pattern cycle takes four bars to complete before repeating.
 
-- **Aliases to avoid**: Loop
-- **User facing**: Yes
+### Playback rate
 
-### ValueCycle
-
-A cycle of plain numbers (integers or floats). Used for MIDI note values and parameter values, including LFO frequency, gain amplitude, and envelope attack duration.
-
-- **User facing**: No
-
-### ChordCycle
-
-A cycle of nullable number arrays where each step may hold multiple simultaneous MIDI note values.
-
-- **User facing**: No
-
-### BinaryCycle
-
-A cycle of `0`/`1` values used as a rhythmic mask.
-
-- **User facing**: No
-
-### RandomCycle
-
-A cycle whose values are generated deterministically from a seed rather than stored explicitly.
-
-- **User facing**: No
+Playback rate controls the speed and perceived pitch of a sample. A value of 1 is normal; higher values increase both speed and pitch, while lower values decrease them. In Drome, samplers map note values to playback rates, allowing the same sample to function as different pitches within a pattern.
 
 ### Quantization
 
-The rounding grid applied to generated cycle values.
-
-- **Aliases to avoid**: Snap
-- **User facing**: Yes
-
-### Ribbon
-
-A RandomCycle's seed configuration, optionally segmented into looping sub-sequences.
-
-- **User facing**: No
-
-### Ribbon segment
-
-One named range within a ribbon: `{ seed, len }`.
-
-- **User facing**: No
-
----
+Quantization snaps values to a defined grid. In Drome, that grid is dynamic: it adapts to the number of steps in the current pattern. A four-step pattern divides the bar into 4 positions; a seven-step pattern divides it into 7. Drome uses this step grid to place and resolve values musically within the pattern.
 
 ## Pitch & Harmony
 
+Harmony shapes how pitches relate within a composition. Scales establish a palette of allowed notes, while roots anchor these relationships in a specific key, ensuring a piece of music remains coherent.
+
 ### Root
 
-The base pitch used to resolve scale degrees into MIDI notes.
-
-- **User facing**: Yes
+The root is the base pitch used to resolve scale degrees into actual notes. Changing the root transposes every note in your pattern while keeping the intervals between them the same.
 
 ### Scale
 
-A pitch collection defined by semitone intervals within an octave, used to map scale degrees into MIDI notes.
-
-- **User facing**: Yes
+A scale is an ordered set of pitch intervals that constrains the spectrum of available notes for a composition. It allows you to write patterns as relative positions rather than absolute frequencies.
 
 ### Scale degree
 
-A numeric position in a scale; degrees wrap across octaves and resolve to semitone offsets from the root.
-
-- **Aliases to avoid**: Note, MIDI note
-- **User facing**: Yes
+A scale degree is a relative position within a scale rather than an absolute pitch. It determines the note based on its distance from the current root, wrapping into octaves as needed to keep your melody inside a singular harmonic framework.
 
 ### Octave
 
-A 12-semitone pitch span where note names repeat at double or half frequency.
-
-- **User facing**: Yes
+An octave is a span of 12 semitones where note names repeat at double or half the frequency. Moving up or down an octave shifts pitch while preserving the note's identity.
 
 ### Semitone
 
-The smallest pitch step in the MIDI/chromatic system; one octave contains 12 semitones.
-
-- **User facing**: Yes
+A semitone is the smallest unit of pitch distance in a chromatic system, dividing an octave into 12 steps. It serves as the basis for scales and detuning adjustments.
 
 ### Note
 
-A single pitched value within a step. In a synthesizer, notes are MIDI note numbers; in a sampler, notes control playback rate, which enables pitching a sample up or down.
-
-- **Aliases to avoid**: Pitch
-- **User facing**: Yes
+A note is a single value assigned to a pattern step. In synthesizers, they represent pitch; in samplers, they control playback rate and perceived speed, which can be used to pitch a sample up and down. It serves as the core unit for melody and rhythm.
 
 ### Chord
 
-Two or more notes played simultaneously within a single step.
-
-- **User facing**: Yes
-
----
+A chord is a group of two or more notes scheduled within a single pattern step to play simultaneously. They function as one musical event, defining the harmony at that moment.
 
 ## Instruments
 
-### Instrument
-
-An abstract sound source that owns a note cycle and schedules audio per bar.
-
-- **Aliases to avoid**: Track, Voice, Player
-- **User facing**: No
+Drome offers two ways to generate sound: synthesis from oscillators or playback of recorded samples. Each instrument manages its own signal chain, responding to parameters, envelopes, or randomization.
 
 ### Synthesizer
 
-A concrete instrument that generates audio by shaping an oscillator with envelopes and effects.
-
-- **Aliases to avoid**: Synth
-- **User facing**: Yes
+A synthesizer generates sound electronically from an oscillator and shapes it using gain, envelopes, effects, and modulation. It is used for pitched material such as basslines, melodies, drones, and chords.
 
 ### Oscillator
 
-The raw sound generator inside a synthesizer; produces a continuous waveform at a given frequency.
-
-- **Aliases to avoid**: Synth (when the oscillator specifically is meant)
-- **User facing**: No
+An oscillator generates the base signal for a synthesizer’s sound. It produces a periodic waveform at a specific frequency, defining pitch and timbre before effects or modulation are applied.
 
 ### Waveform
 
-The shape of an oscillator's output: `sine`, `square`, `sawtooth`, `triangle`, or `supersaw`.
-
-- **Aliases to avoid**: Wave type, Oscillator type
-- **User facing**: Yes
+A waveform describes the shape of a synthesizer’s oscillator that defines its tone. Drome supports sine (smooth and pure), triangle (soft harmonic), square (bright hollow), and sawtooth (buzzy) waveforms.
 
 ### Sampler
 
-A concrete instrument that plays back pre-recorded audio buffers; notes control playback rate.
-
-- **Aliases to avoid**: Sample player, Audio buffer references
-- **User facing**: Yes
-
-### Fit
-
-A sampler note mode where the sample is adjusted to span a fixed number of bars.
-
-- **User facing**: Yes
-
-### Sampler duration mode
-
-Controls whether a sampler note is cut to its scheduled step duration (`clip`) or allowed to play until the sample ends (`one-shot`).
-
-- **User facing**: Yes
-
-### Sample loop mode
-
-Controls whether sampler playback wraps within the sample instead of stopping at the sample boundary.
-
-- **Aliases to avoid**: Loop, Cycle
-- **User facing**: Yes
+Sampler is an instrument that plays recorded audio instead of generating sound internally. It maps note values to audio files and schedules playback within pattern steps. Ideal for drums, loops, impacts, and textures.
 
 ### Sample
 
-The Drome-level term for an audio asset, which is identified by a bank, a name, and a variation.
+A sample is a recorded audio asset identified by its bank, name, and variation index. When a sampler schedules a note, it reads the corresponding sample from the bank to determine what sound should play.
 
-- **User facing**: Yes
+### Sample bank
 
-### Sample Bank
+A sample bank is a named collection of recorded sounds. It groups categories of sounds, like drum machines or synth presets, using short identifiers so you can reference files by a concise name instead of a full path or URL. Drome includes a collection of built-in banks, such as `tr808` and `tr909`, and also supports loading custom, user-generated banks.
 
-A named collection of audio samples (e.g. `tr808`), accessible by short names (`bd`, `sd`, `hh`).
+### Sample name
 
-- **Aliases to avoid**: Sample library, Kit
-- **User facing**: Yes
+A sample name identifies a logical group of audio files within a bank, such as all kick drum samples (`bd`) or snare hits (`sd`). It serves as the base identifier for playback before a specific variation is selected.
 
-### Sample Variation
+### Sample variation
 
-The numeric index used to select among alternate recordings of the same sample name within a bank.
+A sample variation is a zero-based integer, or a sequence of integers, used to select an audio file from a given sample name and bank. It allows you to trigger one or multiple alternate recordings of the same sound without altering its harmonic role.
 
-- **User facing**: Yes
+### Fit
 
-### Audio Buffer
+Fit is a sampler mode where playback duration is adjusted to span a fixed number of bars. This allows loops to stay in sync with the musical timeline, regardless of sample length or BPM changes.
 
-The in-memory decoded audio data used to play a sample. Can be derived from an audio file or created from raw data (e.g. white noise).
+### Clip mode
 
-- **User facing**: No
+Clip mode controls whether a sample stops at its scheduled step boundary or plays until it finishes naturally (i.e. until the audio file ends).
+
+### Loop mode
+
+Loop mode determines whether a sample wraps around internally or stops once it reaches the end of its duration. The mode affects the playback behavior of an individual sample, distinct from the instrument cycle that repeats patterns over bars.
 
 ### Detune
 
-A pitch offset applied to an oscillator or audio buffer playback.
-
-- **User facing**: Yes
-
----
+Detune is a pitch offset applied to an oscillator or sample playback that enables tone manipulation independent of note values.
 
 ## Effects
 
-Effects are signal processors applied serially to the audio chain after the oscillator.
+Effects are chained onto instruments and process audio after the sound source is created, shaping tone and texture in real time.
 
 ### Gain
 
-Controls the output volume of an instrument; unity is `1`, silence is `0`.
-
-- **User facing**: Yes
-
-### Pan
-
-Positions the sound in the stereo field; `-1` is hard left, `0` center, `1` hard right.
-
-- **User facing**: Yes
-- **Status**: planned
+A gain effect controls volume by adjusting signal amplitude. A value of 1 maintains original level; 0 is silence; 2 doubles the original level. Used to shape overall loudness within an instrument or effect chain.
 
 ### Filter
 
-A biquad filter effect attenuating frequencies above or below a cutoff; parameterised by `frequency`, `Q`, `detune`, and `gain`.
+A filter effect shapes a sound’s frequency spectrum by reducing or emphasizing certain ranges. Common types include low-pass, high-pass, and band-pass. Changing the cutoff adds motion or texture without altering pitch.
 
-- **Aliases to avoid**: EQ, Biquad
-- **User facing**: Yes
+## Automation
 
-### Delay
-
-An echo effect that plays back a copy of the signal after a set time; `feedback` controls repeat decay.
-
-- **User facing**: Yes
-- **Status**: planned
-
-### Reverb
-
-Simulates acoustic space reflections; can be algorithmic or convolution-based (impulse response).
-
-- **User facing**: Yes
-- **Status**: planned
-
-### Distortion
-
-Adds harmonic saturation by clipping or reshaping the waveform.
-
-- **User facing**: Yes
-- **Status**: planned
-
-### Bitcrusher
-
-Degrades audio by reducing bit depth and sample rate, producing lo-fi digital crunch.
-
-- **User facing**: Yes
-- **Status**: planned
-
----
-
-## Automations
+Automation changes parameter values over time instead of fixing them to static settings, enabling dynamic sound shaping beyond the initial pattern structure.
 
 ### Parameter
 
-A single automatable value backed by a `ValueCycle` or `RandomCycle`.
-
-- **User facing**: No
+Parameter is a value used to control an aspect of an instrument or effect’s sound, such as gain, frequency, or pitch. It can be set to a fixed value or pattern of values, or automated to change over time.
 
 ### Envelope
 
-An ADSR automation curve applied to a parameter over the duration of a note.
+Envelope shapes a parameter over a period of time defined by the pattern's step duration. It controls how a sound swells, holds, and fades.
 
-- **User facing**: Yes
+### Attack, Decay, Sustain, Release
 
-### Attack, Decay, Sustain, Release (ADSR)
+Attack, Decay, Sustain, and Release are the four stages that control the contour of an envelope. An envelope begins with an attack rising to its peak, decaying to a sustain level, holding for the step's duration, and fading out on release.
 
-The four phases of an envelope.
+### Low Frequency Oscillator
 
-- **User facing**: Yes
-
-### Envelope mode
-
-Controls how ADSR stages map onto note duration: `bleed` (default) or `clip`.
-
-- **User facing**: No
-
-### Low Frequency Oscillator (LFO)
-
-A slow oscillator used as a modulation source rather than a sound source; cycles continuously at sub-audio rate to create vibrato, tremolo, or filter sweeps.
-
-- **User facing**: Yes
+A low frequency oscillator, or LFO, is an oscillator used for modulation rather than direct sound generation. Because it runs slowly, it can create repeating changes like vibrato, tremolo, or filter sweeps. In Drome, LFOs are modulation sources that control parameters over time.
 
 ### LFO phase
 
-The starting position of an LFO cycle, expressed as a phase offset.
+LFO Phase sets the starting point on the LFO’s waveform within a bar, aligning modulation timing relative to the musical clock.
 
-- **Aliases to avoid**: Offset, when discussing the concept rather than the method name
-- **User facing**: Yes
+## Randomness
+
+Drome uses controlled randomness to generate values that behave musically, ensuring that results are reproducible yet unpredictable.
+
+### Random values
+
+Random values are generated rather than explicitly defined step by step. They behave deterministically, ensuring that your musical choices remain reproducible across evaluations while still providing unexpected variation in notes, rhythms, or modulation.
+
+### Seed
+
+A seed is a starting point for random generation. Using the same seed produces identical results across evaluations, making randomness repeatable and reproducible. This allows you to explore various generations and return to patterns that best suit your composition.
+
+### Ribbon
+
+A ribbon is a way of organizing seeded random material into structured, repeating segments. Instead of an endless stream, you create sections that loop over time.
+
+### Ribbon segment
+
+Ribbon Segment is one section of a ribbon. Each segment has its own seed and can have its own length. Segments allow you to build larger random compositions from smaller, repeatable sets of random values.
+
+### Range
+
+Range sets the minimum and maximum values that random generation can produce. It keeps pitch within a useful register or modulation inside a musically sensible area.
