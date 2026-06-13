@@ -224,5 +224,4 @@ Range sets the minimum and maximum values that random generation can produce. It
 
 ### Notes
 
-- [x] Renamed `durationMode` to `clipMode` throughout the codebase
 - We will in the near future be adding a Supersaw waveform/worklet option for synths, as well as the following effects: Pan (left/right positioning), Delay (echo with feedback), Reverb (algorithmic/convolution space), and Distortion (harmonic saturation), Bitcrusher

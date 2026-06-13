@@ -68,7 +68,7 @@ interface SynthesizerSchema extends InstrumentSchema {
   notes: ParameterSchema;
 }
 
-type SamplerDurationMode = "clip" | "one-shot";
+type clipMode = "clipped" | "one-shot";
 
 interface SamplerSchema extends InstrumentSchema {
   type: "sampler";

@@ -47,7 +47,7 @@ d.synth("saw")
   .scale("min")
   .notes([0, 2, 4, 0], [0, 0, 0, 0])
   .detune(d.lfo(0, [0, 400, 0, -400]).wave("saw").norm())
-  .adsr(0, 1, 0.333, 1)
+  .adsr(0.05, 1, 0.333, 1)
   .fx(
     d.lpf(d.env(200, 1600).adsr(0.25, 0.5, 0.25, 0.5)),
     d.lpf(d.lfo(200, 2400).wave("saw").speed(0.5).norm()),
