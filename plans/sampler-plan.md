@@ -15,6 +15,10 @@ The audio system currently has a single instrument type — `Synthesizer` — wh
 - `chop(slices, sequence)` IS resolved in fluid to normalized 0–1 `{ start, end }` pairs. `start()` / `end()` constrain the window that chop operates within; fluid absorbs this composition before emitting the schema.
 - Sprite offsets use **normalized 0–1** values (engine multiplies by `buffer.duration` at playback time).
 
+**Implementation notes:**
+
+- After Phase 3, we changed `_players` to `_instruments` in line with our work on the CONTEXT/Glossary
+
 ---
 
 ## PR 1: Core Sampler

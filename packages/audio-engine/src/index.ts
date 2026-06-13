@@ -9,9 +9,9 @@ import { preloadVariationIndices } from "./utils/preload-variations";
 class AudioEngine {
   private _ctx: AudioContext;
   private _clock: AudioClock;
-  private _players: (Synthesizer | Sampler)[] = [];
-  // Holds retired players until all their scheduled audio (including envelope
-  // release tails) has finished. Each player removes itself via whenDone().
+  private _instruments: (Synthesizer | Sampler)[] = [];
+  // Holds retired instruments until all their scheduled audio (including envelope
+  // release tails) has finished. Each instrument removes itself via whenDone().
   private _retiring: Set<Synthesizer | Sampler> = new Set();
   // Last-write-wins: if update() is called multiple times before the next
   // prebar fires, only the most recent schema is committed. Earlier schemas
@@ -20,7 +20,7 @@ class AudioEngine {
   private _pending: DromeSchema | null = null;
   private _unsub: Set<() => void>;
   // Two-level cache: resolved for synchronous access in _commit(), promises
-  // for deduplicating concurrent fetches across players and commits.
+  // for deduplicating concurrent fetches across instruments and commits.
   private _cache = {
     resolved: new Map<string, AudioBuffer>(),
     promises: new Map<string, Promise<AudioBuffer | null>>(),
@@ -36,10 +36,10 @@ class AudioEngine {
     this._unsub = new Set([
       clock.on("prebar", ({ bar }, time) => this._commit(bar, time)),
       clock.on("bar", ({ bar }, time) => {
-        this._players.forEach((p) => p.scheduleBar(bar, time));
+        this._instruments.forEach((inst) => inst.scheduleBar(bar, time));
       }),
       clock.on("stop", () => {
-        this._players.forEach((p) => p.cancelFutureNotes());
+        this._instruments.forEach((inst) => inst.cancelFutureNotes());
       }),
     ]);
   }
@@ -49,7 +49,7 @@ class AudioEngine {
   }
 
   // Pre-loads all sampler buffers into the cache before the clock starts.
-  // Does NOT create players — player creation (with LFO init) happens in
+  // Does NOT create instruments — instrument creation (with LFO init) happens in
   // _commit() where startingBar and barStartTime are known.
   async prepare(): Promise<void> {
     if (!this._pending) return;
@@ -93,17 +93,17 @@ class AudioEngine {
       this._clock.bpm(this._pending.bpm);
     }
 
-    // Retire current players — each removes itself from _retiring when done
-    for (const player of this._players) {
-      this._retiring.add(player);
-      player.done.then(() => this._retiring.delete(player));
+    // Retire current instruments — each removes itself from _retiring when done
+    for (const inst of this._instruments) {
+      this._retiring.add(inst);
+      inst.done.then(() => this._retiring.delete(inst));
     }
 
-    // Create players with correct startingBar/barStartTime for LFO phase init
+    // Create instruments with correct startingBar/barStartTime for LFO phase init
     const banks = this._pending.banks;
-    this._players = this._pending.instruments.map((schema, index) => {
+    this._instruments = this._pending.instruments.map((schema, index) => {
       if (schema.type === "sampler") {
-        const player = new Sampler(this._ctx, this._clock, {
+        const inst = new Sampler(this._ctx, this._clock, {
           schema,
           banks,
           cache: this._cache,
@@ -114,8 +114,8 @@ class AudioEngine {
         // load() hits _cache.resolved synchronously if prepare() ran — no yield.
         // If the requested sample is still loading, the sampler keeps using the
         // previous matching buffer until the new one is decoded.
-        player.load();
-        return player;
+        inst.load();
+        return inst;
       }
       return new Synthesizer(this._ctx, this._clock, {
         schema,
@@ -131,13 +131,13 @@ class AudioEngine {
     schema: SamplerSchema,
     index: number,
   ): AudioBuffer | null {
-    const previous = this._players[index];
+    const previous = this._instruments[index];
     if (!(previous instanceof Sampler)) return null;
     return previous.fallbackBufferFor(schema);
   }
 
   // Resolves a sampler URL. Duplicated from Sampler._resolveUrl to avoid
-  // creating player instances during prepare().
+  // creating instrument instances during prepare()
   private _resolveUrl(
     schema: SamplerSchema,
     banks: Record<string, BankSchema>,
@@ -152,7 +152,7 @@ class AudioEngine {
 
   destroy(): void {
     this._unsub.forEach((fn) => fn());
-    this._players = [];
+    this._instruments = [];
     this._retiring.clear();
     this._pending = null;
   }

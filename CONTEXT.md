@@ -94,13 +94,13 @@ The most recent schema update waiting for the next `prebar`.
 
 ### Retiring
 
-The state of old players after a hot swap, while they finish scheduled audio and release tails.
+The state of old instruments after a hot swap, while they finish scheduled audio and release tails.
 
 - **User facing**: No
 
 ### Done
 
-The signal that a player has finished retiring and can be removed.
+The signal that an instrument has finished retiring and can be removed.
 
 - **User facing**: No
 
