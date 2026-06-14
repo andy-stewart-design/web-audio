@@ -4,7 +4,7 @@
 
 type Waveform = "sine" | "square" | "sawtooth" | "triangle";
 
-type EnvelopeMode = "bleed" | "clip";
+type EnvelopeMode = "bleed" | "bounded";
 
 type ClipMode = "clipped" | "one-shot";
 

@@ -127,4 +127,4 @@ The in-memory decoded audio data used to play a sample. Can be derived from an a
 
 ### Envelope mode
 
-Controls how ADSR stages map onto note duration: `bleed` (default) or `clip`.
+Controls how ADSR stages map onto note duration: `bleed` (default) or `bounded`.

@@ -233,10 +233,10 @@ describe("Instrument._computeTimings", () => {
     expect(result.releaseDur).toBeCloseTo(1.0 * 2);
   });
 
-  it("clip mode — normalizes a+d+r together when they exceed 1", () => {
+  it("bounded mode — normalizes a+d+r together when they exceed 1", () => {
     // a=0.5, d=0.5, r=0.5 → adrSum=1.5 → each becomes 1/3
     const result = makeInstrument().computeTimings(
-      makeEnvelope(0.5, 0.5, 0.5, 0.5, "clip"),
+      makeEnvelope(0.5, 0.5, 0.5, 0.5, "bounded"),
       0,
       0,
       3,

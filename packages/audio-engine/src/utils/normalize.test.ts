@@ -98,7 +98,7 @@ describe("normalizeADSR", () => {
     });
   });
 
-  describe("clip mode", () => {
+  describe("bounded mode", () => {
     it("passes through A, D, and R unchanged when their sum is already <= 1", () => {
       const result = normalizeADSR({
         a: 0.2,
@@ -107,7 +107,7 @@ describe("normalizeADSR", () => {
         r: 0.1,
         min: 0,
         max: 1,
-        mode: "clip",
+        mode: "bounded",
       });
       expect(result.a).toBe(0.2);
       expect(result.d).toBe(0.1);
@@ -122,7 +122,7 @@ describe("normalizeADSR", () => {
         r: 0.4,
         min: 0,
         max: 1,
-        mode: "clip",
+        mode: "bounded",
       });
       expect(result.a + result.d + result.r).toBeCloseTo(1);
     });
@@ -135,7 +135,7 @@ describe("normalizeADSR", () => {
         r: 0.4,
         min: 0,
         max: 1,
-        mode: "clip",
+        mode: "bounded",
       });
       expect(result.a / result.r).toBeCloseTo(0.5 / 0.4);
       expect(result.a / result.d).toBeCloseTo(0.5 / 0.3);
@@ -149,7 +149,7 @@ describe("normalizeADSR", () => {
         r: 0.4,
         min: 0,
         max: 1,
-        mode: "clip",
+        mode: "bounded",
       });
       expect(result.s).toBe(0.8);
     });
@@ -172,7 +172,7 @@ describe("normalizeADSR", () => {
       expect(result.r).toBe(0);
     });
 
-    it("handles all zeros in clip mode without dividing by zero", () => {
+    it("handles all zeros in bounded mode without dividing by zero", () => {
       const result = normalizeADSR({
         a: 0,
         d: 0,
@@ -180,7 +180,7 @@ describe("normalizeADSR", () => {
         r: 0,
         min: 0,
         max: 1,
-        mode: "clip",
+        mode: "bounded",
       });
       expect(result.a).toBe(0);
       expect(result.d).toBe(0);
@@ -201,7 +201,7 @@ describe("normalizeADSR", () => {
       expect(result.d).toBeCloseTo(0);
     });
 
-    it("handles a single dominant value in clip mode", () => {
+    it("handles a single dominant value in bounded mode", () => {
       const result = normalizeADSR({
         a: 3,
         d: 0,
@@ -209,7 +209,7 @@ describe("normalizeADSR", () => {
         r: 0,
         min: 0,
         max: 1,
-        mode: "clip",
+        mode: "bounded",
       });
       expect(result.a).toBeCloseTo(1);
       expect(result.d).toBeCloseTo(0);

@@ -154,8 +154,8 @@ describe("Envelope", () => {
       expect(new Envelope().getSchema().mode).toBe("bleed");
     });
 
-    it("sets clip mode", () => {
-      expect(new Envelope().mode("clip").getSchema().mode).toBe("clip");
+    it("sets bounded mode", () => {
+      expect(new Envelope().mode("bounded").getSchema().mode).toBe("bounded");
     });
   });
 
@@ -167,7 +167,7 @@ describe("Envelope", () => {
       expect(env.d(0.1)).toBe(env);
       expect(env.s(0.8)).toBe(env);
       expect(env.r(0.1)).toBe(env);
-      expect(env.mode("clip")).toBe(env);
+      expect(env.mode("bounded")).toBe(env);
     });
   });
 });
