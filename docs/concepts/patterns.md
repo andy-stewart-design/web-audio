@@ -3,8 +3,6 @@ title: Patterns
 description: How Drome organizes notes, steps, bars, and cycles
 ---
 
-# Patterns
-
 Patterns are how you tell an instrument what to play over time. In Drome, a **pattern** is a sequence of **steps** that plays over exactly one **bar**. Each step can contain a note, a chord, or silence, and the steps are spread evenly across the bar.
 
 Drome does not use a separate pattern language. Patterns are written with JavaScript values: numbers, arrays, nested arrays, and a few helper methods for building rhythms.

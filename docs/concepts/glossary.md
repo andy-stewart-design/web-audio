@@ -3,8 +3,6 @@ title: Glossary
 description: A friendly overview of Drome’s core concepts
 ---
 
-# Glossary
-
 This glossary defines core concepts behind Drome's live-coding model, focusing on evaluation, timing, sequencing, and sound design. It explains how the system works as a whole, serving as a high-level overview before diving into API documentation.
 
 ## Lifecycle
