@@ -45,12 +45,12 @@ d.synth("saw")
 d.synth("saw")
   .root("c4")
   .scale("min")
-  .notes([0, 2, 4, 0], [0, 0, 0, 0])
+  .notes([0, 4, 2, 0, 5, 4, 2, 0], [0, 0, 0, 0, 0, 0, 0, 0])
   .detune(d.lfo(0, [0, 400, 0, -400]).wave("saw").norm())
-  .adsr(0.05, 1, 0.333, 1)
+  .adsr(0.1, 1, 0.333, 0.5)
   .fx(
     d.lpf(d.env(200, 1600).adsr(0.25, 0.5, 0.25, 0.5)),
-    d.lpf(d.lfo(200, 2400).wave("saw").speed(0.5).norm()),
+    d.lpf(d.lfo(800, 3200).wave("saw").speed(0.5).norm()),
   )
   .push();
 
@@ -90,3 +90,28 @@ d.sample("bd").bank("user").hex(0xf).push();
 
 // Multiple Variations
 d.sample("bd").var([0, 1, 2, 3]).bank("tr909").hex(0xf).push();
+
+// Plane noodling
+const r = "c";
+const s = "min";
+
+d.synth("saw")
+  .root(r + 4)
+  .scale(s)
+  .notes([0, 4, 2, 0, 5, 4, 2, 0], [0, 0, 0, 0, 0, 0, 0, 0])
+  .detune(d.lfo(0, [0, 400, 0, -400]).wave("saw").norm())
+  .adsr(0.05, 1, 0.333, 0.5)
+  .fx(
+    d.lpf(d.env(200, 1600).adsr(0.25, 0.5, 0.25, 0.5)),
+    d.lpf(d.lfo(800, 3200).wave("saw").speed(0.5).norm()),
+  )
+  .push();
+
+d.synth("saw")
+  .root(r + 2)
+  .scale(s)
+  .notes(0, 2, 3, -2)
+  .stretch(4, 8)
+  .adsr(0, 0.5, 0.75, 0.5)
+  .fx(d.lpf(d.env(100, 400).adsr(0.25, 0.5, 0.125, 0.5)))
+  .push();
