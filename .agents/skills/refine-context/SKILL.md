@@ -1,10 +1,10 @@
 ---
 name: refine-context
-description: Extract a DDD-style ubiquitous language glossary from the current conversation, flagging ambiguities and proposing canonical terms. Saves to CONTEXT.md. Use when user wants to define domain terms, build a glossary, harden terminology, create a ubiquitous language, or mentions "domain model" or "DDD".
+description: Extract a DDD-style glossary from the current conversation, flagging ambiguities and proposing canonical terms. Saves to CONTEXT.md. Use when user wants to define domain terms, build a glossary, harden terminology, create a ubiquitous language, or mentions "domain model" or "DDD".
 disable-model-invocation: true
 ---
 
-# Ubiquitous Language
+# Refine Context
 
 Extract and formalize domain terminology from the current conversation into a consistent glossary, saved to a local file. If this is invoked at the beginning of the session, scan the codebase and propose updates.
 
