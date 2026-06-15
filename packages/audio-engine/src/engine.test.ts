@@ -68,7 +68,7 @@ class FakeClock {
 }
 
 // Minimal schema fixture — Synthesizer is mocked so instruments don't need to
-// be valid; only the array length matters for player creation.
+// be valid; only the array length matters for instrument creation.
 function makeSchema(instrumentCount = 1): DromeSchema {
   return {
     instruments: Array.from({ length: instrumentCount }, () => ({}) as never),
@@ -130,7 +130,7 @@ function makeSamplerSchema(): DromeSchema {
         },
         effects: [],
         loop: false,
-        durationMode: "clip",
+        clipMode: "clipped",
       },
     ],
     banks: {
@@ -235,7 +235,7 @@ describe("AudioEngine", () => {
 
       engine.update(makeSchema(1)); // pending = schema1
       engine.update(makeSchema(1)); // pending = schema2 (schema1 discarded)
-      clock.emit("prebar"); // commits schema2 only → 1 player created
+      clock.emit("prebar"); // commits schema2 only → 1 instrument created
 
       expect(instances()).toHaveLength(1);
 
@@ -243,7 +243,7 @@ describe("AudioEngine", () => {
       expect(instances()[0].scheduleBar).toHaveBeenCalledOnce();
     });
 
-    it("multi-instrument schema creates one player per instrument", () => {
+    it("multi-instrument schema creates one instrument per instrument", () => {
       const clock = new FakeClock();
       clock.paused = false;
       const engine = new AudioEngine(fakeCtx, clock as never);
@@ -258,7 +258,7 @@ describe("AudioEngine", () => {
   });
 
   describe("prebar → bar hot-swap window", () => {
-    it("players exist after prebar but have no scheduled audio until bar fires", () => {
+    it("instruments exist after prebar but have no scheduled audio until bar fires", () => {
       const clock = new FakeClock();
       clock.paused = false;
       const engine = new AudioEngine(fakeCtx, clock as never);
@@ -284,36 +284,36 @@ describe("AudioEngine", () => {
   });
 
   describe("retirement", () => {
-    it("retires old players on hot-swap and removes them when done resolves", async () => {
+    it("retires old instruments on hot-swap and removes them when done resolves", async () => {
       const clock = new FakeClock();
       clock.paused = false;
       const engine = new AudioEngine(fakeCtx, clock as never);
 
       engine.update(makeSchema(1));
-      clock.emit("prebar"); // player[0] created
+      clock.emit("prebar"); // instrument[0] created
 
       engine.update(makeSchema(1));
-      clock.emit("prebar"); // player[0] retired, player[1] created
+      clock.emit("prebar"); // instrument[0] retired, instrument[1] created
 
-      // player[1] should not be retired yet
-      const [p0, p1] = instances();
+      // i1 should not be retired yet
+      const [i0, i1] = instances();
 
-      // Resolving p0.done should not throw (removes it from _retiring)
-      p0._resolveDone();
+      // Resolving i0.done should not throw (removes it from _retiring)
+      i0._resolveDone();
       await Promise.resolve();
 
-      // p1 is the active player — its done should not have been resolved
-      let p1Resolved = false;
-      p1.done.then(() => {
-        p1Resolved = true;
+      // inst is the active instrument — its done should not have been resolved
+      let i1Resolved = false;
+      i1.done.then(() => {
+        i1Resolved = true;
       });
       await Promise.resolve();
-      expect(p1Resolved).toBe(false);
+      expect(i1Resolved).toBe(false);
     });
   });
 
   describe("stop event", () => {
-    it("cancels future notes on all active players", () => {
+    it("cancels future notes on all active instruments", () => {
       const clock = new FakeClock();
       clock.paused = false;
       const engine = new AudioEngine(fakeCtx, clock as never);

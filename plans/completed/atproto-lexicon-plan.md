@@ -1,5 +1,7 @@
 # Plan: AT Protocol Lexicon Integration
 
+> ⚠️ **Superseded.** This was the original Tap/SQLite/Railway architecture. It was superseded first by [`atproto-direct-feed-plan.md`](atproto-direct-feed-plan.md) (direct PDS reads) and then by [`serverless-db-plan.md`](../serverless-db-plan.md) (Neon/Postgres + Vercel), which is the current source of truth. This file is retained for historical reference.
+
 ## Overview
 
 Implement a custom AT Protocol lexicon (`live.drome.*`) for publishing and discovering live-coded music sketches. The web app already has OAuth working. This plan is AT-Protocol-first — integrate with the network before building local IndexedDB persistence, then layer local storage on top.

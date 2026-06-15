@@ -24,10 +24,11 @@ Users experience Drome in a browser-based REPL. They type expressions like `d.sy
     live-coding.md               ← philosophy, why Drome exists
     patterns.md                  ← how to think about cycles/patterns conceptually
     clock.md                     ← how the clock drives everything (concepts only, no API ref)
-    glossary.md                  ← drawn from LEXICON.md + UBIQUITOUS_LANGUAGE.md
+    glossary.md                  ← drawn from CONTEXT.md, but richer, more conversational, and more explanatory
   guides/
-    synthesizers.md              ← waveforms, oscillator behavior, inline method ref
     instruments.md               ← shared instrument methods (notes, euclid, hex, etc.), inline method ref
+    synthesizers.md              ← waveforms, oscillator behavior, inline method ref
+    samplers.md                  ← samples, banks, variations, fit, clip/one-shot, looping, inline method ref
     effects.md                   ← filters (lp/hp/bp), envelope modulation, inline method ref
     patterns-in-practice.md      ← euclid, hex, xox, sequence — practical usage with examples
     randomness.md                ← rand(), RandomCycle, nondeterminism
@@ -39,20 +40,20 @@ Method references are inline on the relevant guide pages (no separate reference 
 
 Generate pages in this order (each page is a separate AI-assisted pass):
 
-1. **Glossary** — terminology underpins everything else; source from LEXICON.md + UBIQUITOUS_LANGUAGE.md
+1. **Glossary** — terminology underpins everything else; source from CONTEXT.md
 2. **Concepts** — live-coding, patterns, clock
-3. **Guides** — synthesizers, instruments, effects, patterns-in-practice, randomness
+3. **Guides** — instruments, synthesizers, samplers, effects, patterns-in-practice, randomness
 4. **Getting started** — written last, once the full picture is clear
 
 Per-page context to provide:
 
-- Relevant source files (e.g. `instrument.ts`, `synthesizer.ts` for the instruments guide)
-- `LEXICON.md` and `UBIQUITOUS_LANGUAGE.md` for terminology
+- Relevant source files (e.g. `instrument.ts` for the instruments guide, `synthesizer.ts` for the synthesizers guide, `sampler.ts` and bank definitions for the samplers guide)
+- `CONTEXT.md` for terminology
 - This plan for structural context
 
 ## Ongoing Maintenance
 
-A custom Claude Code skill (`/doc-audit`) reads the current source and docs and outputs a prioritized checklist:
+A custom agent skill (`/doc-audit`) reads the current source and docs and outputs a prioritized checklist:
 
 - **Hard gaps** — API surface in source with no doc coverage, or documented items that no longer exist
 - **Soft gaps** — incomplete coverage (missing examples, undocumented parameters, referenced concepts not explained)

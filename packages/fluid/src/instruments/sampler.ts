@@ -2,8 +2,8 @@ import SampleNotes from "@/patterns/sample-notes";
 import Parameter from "@/patterns/parameter";
 import type { CycleInput } from "@/types";
 import type {
+  ClipMode,
   FitSchema,
-  SamplerDurationMode,
   SamplerSchema,
 } from "@web-audio/schema";
 import { DEFAULT_BANK } from "@/banks";
@@ -21,7 +21,7 @@ class Sampler extends Instrument {
   private _variation: Parameter;
   private _fit: FitSchema | null = null;
   private _loop = false;
-  private _durationMode: SamplerDurationMode = "clip";
+  private _clipMode: ClipMode = "clipped";
 
   constructor(
     sample: string,
@@ -66,7 +66,7 @@ class Sampler extends Instrument {
   }
 
   clip(enabled = true) {
-    this._durationMode = enabled ? "clip" : "one-shot";
+    this._clipMode = enabled ? "clipped" : "one-shot";
     return this;
   }
 
@@ -81,7 +81,7 @@ class Sampler extends Instrument {
       gain: this._gain.getSchema(),
       effects: this._effects.map((e) => e.getSchema()),
       loop: this._loop,
-      durationMode: this._durationMode,
+      clipMode: this._clipMode,
     };
   }
 }

@@ -25,7 +25,7 @@ interface EnvelopeSchema {
   d: ParameterSchema;
   s: ParameterSchema;
   r: ParameterSchema;
-  mode: "bleed" | "clip";
+  mode: "bleed" | "bounded";
 }
 ```
 
@@ -76,11 +76,11 @@ Replace the existing stub. The `Envelope` class:
 - Constructor: `(min?: number, ...max: CycleInput)` — defaults min=0, max=1
 - Stores `_min: number` and `_max: Parameter` (reuses existing `Parameter` class)
 - ADSR fields: `_a`, `_d`, `_s`, `_r` — each a `Parameter` instance, defaults: A=0.01, D=0, S=1, R=0.01
-- `_mode`: `"bleed" | "clip"`, default `"bleed"`
+- `_mode`: `"bleed" | "bounded"`, default `"bleed"`
 - Chainable setters:
   - `.adsr(a, d, s, r)` — each arg is `number | number[]`. Creates new `Parameter` for each.
   - `.a(...input)`, `.d(...)`, `.s(...)`, `.r(...)` — individual setters, same input signature as `Parameter` constructor
-  - `.mode(m: "bleed" | "clip")`
+  - `.mode(m: "bleed" | "bounded")`
 - `.getSchema(): EnvelopeSchema` — calls `.getSchema()` on each internal `Parameter` to produce the full `EnvelopeSchema`
 
 **Acceptance criteria:**
@@ -88,7 +88,7 @@ Replace the existing stub. The `Envelope` class:
 - `new Envelope().getSchema()` returns a valid `EnvelopeSchema` with all defaults
 - `new Envelope(0, 0.75).adsr(0.5, 0.25, 0.1, 0.1).getSchema()` returns correct schema
 - Individual setters override `.adsr()` (last write wins)
-- `.mode("clip")` is reflected in schema
+- `.mode("bounded")` is reflected in schema
 
 **Testing:** Unit tests in `packages/fluid/src/automations/envelope.test.ts`:
 
@@ -96,7 +96,7 @@ Replace the existing stub. The `Envelope` class:
 - Custom min/max
 - `.adsr()` sets all four
 - Individual `.a()`, `.d()`, `.s()`, `.r()` override
-- `.mode("clip")`
+- `.mode("bounded")`
 - Cycle/array inputs on max and ADSR params
 - RandomCycle input on max
 
@@ -216,21 +216,21 @@ function normalizeADSR(
   d: number,
   s: number,
   r: number,
-  mode: "bleed" | "clip",
+  mode: "bleed" | "bounded",
 ): NormalizedADSR;
 ```
 
 Rules:
 
 - **Bleed mode:** A + D normalized to sum ≤ 1 (proportional scaling). R is a separate proportion, capped at ≤ 1.
-- **Clip mode:** A + D + R normalized to sum ≤ 1 (proportional scaling).
+- **Bounded mode:** A + D + R normalized to sum ≤ 1 (proportional scaling).
 - S is a sustain level (0–1), not a duration — passed through unchanged.
 
 **Acceptance criteria:**
 
 - Bleed: `normalizeADSR(0.6, 0.6, 0.8, 0.5, "bleed")` → A=0.5, D=0.5, S=0.8, R=0.5
 - Bleed: `normalizeADSR(0.3, 0.2, 0.8, 0.5, "bleed")` → unchanged (A+D already ≤ 1)
-- Clip: `normalizeADSR(0.5, 0.3, 0.8, 0.4, "clip")` → A+D+R scaled to sum to 1
+- Bounded: `normalizeADSR(0.5, 0.3, 0.8, 0.4, "bounded")` → A+D+R scaled to sum to 1
 - S passed through unchanged in all cases
 
 **Testing:** `packages/audio-engine/src/utils/normalize.test.ts`:
@@ -238,8 +238,8 @@ Rules:
 - Bleed: A+D already ≤ 1 (no change)
 - Bleed: A+D > 1 (proportional scaling)
 - Bleed: R > 1 (capped to 1)
-- Clip: A+D+R already ≤ 1 (no change)
-- Clip: A+D+R > 1 (proportional scaling)
+- Bounded: A+D+R already ≤ 1 (no change)
+- Bounded: A+D+R > 1 (proportional scaling)
 - Edge cases: all zeros, single value dominates
 
 ---
@@ -296,7 +296,7 @@ Replace the hardcoded gain ramp with envelope-driven scheduling:
 3. Apply `BASE_GAIN = 0.25` multiplier to all gain values (engine-level concern, prevents clipping)
 4. Compute absolute durations: `Math.max(a * noteDuration, 0.005)` for attack, decay, release — 5ms minimum prevents popping
 5. Schedule `GainNode` automation: min → max (attack) → sustain level (decay) → hold → min (release)
-6. Bleed mode: oscillator stop time extends past note end to cover release tail; clip mode: stop time is at note end
+6. Bleed mode: oscillator stop time extends past note end to cover release tail; bounded mode: stop time is at note end
 
 **Acceptance criteria:**
 
