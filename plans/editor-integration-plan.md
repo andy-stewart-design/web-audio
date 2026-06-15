@@ -208,11 +208,6 @@ Automated:
 
 - [x] `pnpm --filter web check`
 
-Manual:
-
-- [ ] Render the component in the REPL route and confirm the initial sketch code appears.
-- [ ] Type in the editor and confirm dependent UI, such as the Publish button disabled state, reacts to the new value.
-
 ---
 
 ## Phase 5 — Replace the REPL textarea
@@ -256,6 +251,7 @@ Automated:
 Manual:
 
 - [ ] Open `/repl` with no loaded sketch and confirm `d.synth("triangle").push()` appears.
+- [ ] Type in the editor and confirm dependent UI, such as the Publish button disabled state, reacts to the new value.
 - [ ] Edit the code, click Run, and confirm the edited code is evaluated.
 - [ ] Edit the code, press `Cmd/Ctrl+Enter`, and confirm the edited code is evaluated.
 - [ ] Publish a sketch and confirm the submitted code matches the editor contents.
