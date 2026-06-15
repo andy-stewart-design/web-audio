@@ -8,7 +8,7 @@ The audio system currently has a single instrument type — `Synthesizer` — wh
 
 - A "note" for the sampler is a **playback rate** (float), not a frequency. The `Sampler` fluid class uses a `SamplerNotes` helper that converts MIDI pitch + root to a playback rate multiplier at schema build time (`2^((note - root) / 12)`). Root does not appear in the schema.
 - Sample loading is **JIT** — the engine waits for all required samples to be loaded before the clock starts. If a sample is added mid-playback, the instrument is silently skipped until its sample is ready (console warning emitted on each miss).
-- Sample playback defaults to **clipped** note-duration behavior for backwards compatibility. Fluid exposes `.clip()`, `.clip(true)`, and `.clip(false)`; disabling clip emits `durationMode: "one-shot"`, allowing non-looping samples to play through their natural buffer duration.
+- Sample playback defaults to **clipped** note-duration behavior for backwards compatibility. Fluid exposes `.clip()`, `.clip(true)`, and `.clip(false)`; disabling clip emits `clipMode: "one-shot"`, allowing non-looping samples to play through their natural buffer duration.
 - Built-in sample banks are hosted on a **self-hosted CDN**. Bank manifests are defined as TypeScript constants in `packages/fluid/src/data/banks.ts` with full CDN URLs. Fluid inlines them into `DromeSchema.banks` at schema-build time — the engine reads URLs from the schema and has no CDN awareness.
 - The reserved bank name `"user"` is the destination for `loadSamples({ name: ... })` calls using the flat (no-name) format.
 - `fit(bars)` cannot be resolved in fluid (requires sample duration from the loaded buffer), so it is a first-class `FitSchema` value in the schema — the only exception to the fluid-smart principle.
@@ -68,7 +68,7 @@ interface SynthesizerSchema extends InstrumentSchema {
   notes: ParameterSchema;
 }
 
-type SamplerDurationMode = "clip" | "one-shot";
+type clipMode = "clipped" | "one-shot";
 
 interface SamplerSchema extends InstrumentSchema {
   type: "sampler";
@@ -77,7 +77,7 @@ interface SamplerSchema extends InstrumentSchema {
   variation: ParameterSchema;
   notes: ParameterSchema | FitSchema;
   loop: boolean;
-  durationMode: SamplerDurationMode;
+  clipMode: ClipMode;
 }
 ```
 
@@ -89,7 +89,7 @@ interface SamplerSchema extends InstrumentSchema {
 - [x] `SamplerSchema` extends `InstrumentSchema` and is exported
 - [x] `SynthesizerSchema` extends `InstrumentSchema`
 - [x] `notes` accepts both `ParameterSchema` and `FitSchema`
-- [x] `durationMode` accepts `"clip" | "one-shot"`
+- [x] `clipMode` accepts `"clipped" | "one-shot"`
 - [x] Package type-checks cleanly
 
 **Testing:**
@@ -284,7 +284,7 @@ If a bank name is not found in either source, fluid logs a warning and omits it 
 - [x] `.fit(2)` sets `notes` to `{ type: "fit", bars: 2 }` in the schema
 - [x] Calling `.notes([0])` after `.fit(2)` uses the note ParameterSchema (fit is cleared)
 - [x] `.loop(true)` sets `loop: true` in the schema
-- [x] `.clip()`, `.clip(true)`, and `.clip(false)` set `durationMode` appropriately
+- [x] `.clip()`, `.clip(true)`, and `.clip(false)` set `clipMode` appropriately
 - [x] `.gain()`, `.fx()`, `.root()`, `.scale()` all work identically to `Synthesizer`
 - [x] `_host` and `push()` live in `Instrument` base — not duplicated in subclasses
 - [x] `Instrument` is abstract with `abstract getSchema()`
@@ -297,7 +297,7 @@ If a bank name is not found in either source, fluid logs a warning and omits it 
 - [x] `d.sample("loop").fit(2).notes([0]).getSchema()` → `notes` is a `ParameterSchema` (not FitSchema)
 - [x] `d.sample("bd").root("A4").notes([0]).getSchema()` → `notes` has value `1.0`
 - [x] `d.sample("bd").root("A4").notes([12]).getSchema()` → `notes` has value `2.0`
-- [x] `d.sample("oh").clip(false).getSchema()` → `durationMode: "one-shot"`
+- [x] `d.sample("oh").clip(false).getSchema()` → `clipMode: "one-shot"`
 
 ---
 
@@ -465,7 +465,7 @@ node.stop(stopTime);
 - [x] `d.sample("bd").getSchema()` — valid `SamplerSchema` in `instruments[]`
 - [x] `d.sample("bd").bank("tr808").root("A4").notes([0, 3, 7]).getSchema()` — notes field is a ParameterSchema with float rates
 - [x] `d.sample("loop").fit(2).loop(true).getSchema()` — `notes` is `FitSchema`, `loop: true`
-- [x] `d.sample("oh").clip(false).getSchema()` — `durationMode: "one-shot"`
+- [x] `d.sample("oh").clip(false).getSchema()` — `clipMode: "one-shot"`
 - [x] `d.sample("bd").gain(d.env(0, 1)).fx(d.lpf(800)).getSchema()` — gain and effects present
 - [x] Mixed schema: synth + sampler both in `instruments[]`
 

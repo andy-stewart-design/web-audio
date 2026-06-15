@@ -141,7 +141,7 @@ Filter envelopes use `_scheduleParamEnvelope(param, envelope, barIndex, stepInde
 - If envelope: call `_scheduleParamEnvelope` on the target AudioParam
 - If parameter: resolve to a static number via `_resolve`, set value once at note start
 
-Normalization (bleed/clip modes) applies identically to filter envelopes — the ADSR shape is always relative to note duration regardless of target param.
+Normalization (bleed/bounded modes) applies identically to filter envelopes — the ADSR shape is always relative to note duration regardless of target param.
 
 Engine clamps computed A and R to a minimum of 5ms absolute to prevent artifacts.
 

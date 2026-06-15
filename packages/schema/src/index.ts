@@ -4,9 +4,9 @@
 
 type Waveform = "sine" | "square" | "sawtooth" | "triangle";
 
-type EnvelopeMode = "bleed" | "clip";
+type EnvelopeMode = "bleed" | "bounded";
 
-type SamplerDurationMode = "clip" | "one-shot";
+type ClipMode = "clipped" | "one-shot";
 
 type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
 
@@ -128,7 +128,7 @@ interface SamplerSchema extends InstrumentSchema {
   variation: ParameterSchema;
   notes: ParameterSchema | FitSchema;
   loop: boolean;
-  durationMode: SamplerDurationMode;
+  clipMode: ClipMode;
 }
 
 // ---------------------------------------------------
@@ -144,6 +144,7 @@ interface DromeSchema {
 export type {
   BankDefinition,
   BankSchema,
+  ClipMode,
   DromeSchema,
   EffectSchema,
   EnvelopeMode,
@@ -156,7 +157,6 @@ export type {
   LfoSchema,
   ParameterSchema,
   RandomSchema,
-  SamplerDurationMode,
   SamplerSchema,
   StaticSchema,
   StaticSchemaValue,

@@ -139,7 +139,10 @@ Fit is a sampler mode where playback duration is adjusted to span a fixed number
 
 ### Clip mode
 
-Clip mode controls whether a sample stops at its scheduled step boundary or plays until it finishes naturally (i.e. until the audio file ends).
+Clip mode (`clipMode`) controls whether a sample stops at its scheduled step boundary or plays through to completion.
+
+- **`"clipped"`**: The sample stops exactly when its step in the pattern ends, regardless of the actual audio duration.
+- **`"one-shot"`**: The sample plays to its natural duration and stops there (non-looping).
 
 ### Loop mode
 
@@ -221,5 +224,4 @@ Range sets the minimum and maximum values that random generation can produce. It
 
 ### Notes
 
-- Code update: should we rename durationMode to clipMode in the code?
 - We will in the near future be adding a Supersaw waveform/worklet option for synths, as well as the following effects: Pan (left/right positioning), Delay (echo with feedback), Reverb (algorithmic/convolution space), and Distortion (harmonic saturation), Bitcrusher

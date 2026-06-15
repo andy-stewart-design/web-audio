@@ -21,7 +21,7 @@ d.synth("triangle").gain([0.75, 1.25], [0.25, 0.5]).push();
 const env = d
   .env(0, 0.75) // min and max (defaults: 0, 1). Max accepts cycle syntax.
   .adsr(0.5, 0.25, 0.1, 0.1) // set all four. Each arg: number or single-bar cycle.
-  .mode("bleed"); // "bleed" (default) or "clip"
+  .mode("bleed"); // "bleed" (default) or "bounded"
 
 d.synth("triangle").gain(env).push();
 ```
@@ -64,7 +64,7 @@ interface EnvelopeSchema {
   d: ParameterSchema;
   s: ParameterSchema;
   r: ParameterSchema;
-  mode: "bleed" | "clip";
+  mode: "bleed" | "bounded";
 }
 
 // Updated — already exists in @web-audio/schema
@@ -105,7 +105,7 @@ interface SynthesizerSchema {
 ### Normalization (done in the fluid layer)
 
 - **Bleed mode:** A + D normalized to sum ≤ 1 (fit within note). R is a separate proportion of note duration, applied after the note ends.
-- **Clip mode:** A + D + R all normalized to sum ≤ 1 (fit within note).
+- **Bounded mode:** A + D + R all normalized to sum ≤ 1 (fit within note).
 - Normalization uses straight proportional scaling (divide each by their sum).
 
 ### Engine safety

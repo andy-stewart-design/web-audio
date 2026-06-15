@@ -130,7 +130,7 @@ function makeSamplerSchema(): DromeSchema {
         },
         effects: [],
         loop: false,
-        durationMode: "clip",
+        clipMode: "clipped",
       },
     ],
     banks: {
