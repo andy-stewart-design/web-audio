@@ -11,6 +11,9 @@ export const theme = EditorView.theme(
     "&.cm-focused": {
       outline: "none",
     },
+    ".cm-scroller": {
+      overflow: "auto",
+    },
     ".cm-content": {
       fontFamily: "var(--cm-editor-font-family, monospace)",
       caretColor: "transparent",

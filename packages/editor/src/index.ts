@@ -18,7 +18,14 @@ import { insertLineAbove } from "./utils";
 const DEFAULT_DOC =
   "// JavaScript support without colors\nfunction init() {\n  const message = 'Hello World';\n  console.log(message);\n}";
 
-const startState = (doc?: string) =>
+interface CreateCodeMirrorOptions {
+  parent: HTMLElement;
+  doc?: string;
+  onChange?: (doc: string) => void;
+  onRun?: (doc: string) => void;
+}
+
+const startState = ({ doc, onChange, onRun }: CreateCodeMirrorOptions) =>
   EditorState.create({
     doc: doc ?? DEFAULT_DOC,
     extensions: [
@@ -34,7 +41,19 @@ const startState = (doc?: string) =>
       theme,
       EditorState.allowMultipleSelections.of(true),
       EditorView.clickAddsSelectionRange.of((event) => event.altKey),
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) {
+          onChange?.(update.state.doc.toString());
+        }
+      }),
       keymap.of([
+        {
+          key: "Mod-Enter",
+          run(view) {
+            onRun?.(view.state.doc.toString());
+            return true;
+          },
+        },
         { key: "Mod-Shift-Enter", run: insertLineAbove },
         ...closeBracketsKeymap,
         ...defaultKeymap,
@@ -43,8 +62,9 @@ const startState = (doc?: string) =>
     ],
   });
 
-function createCodeMirror(parent: HTMLElement, doc?: string) {
-  return new EditorView({ state: startState(doc), parent });
+function createCodeMirror(options: CreateCodeMirrorOptions) {
+  return new EditorView({ state: startState(options), parent: options.parent });
 }
 
 export { createCodeMirror };
+export type { CreateCodeMirrorOptions };

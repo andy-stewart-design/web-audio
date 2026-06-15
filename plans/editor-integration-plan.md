@@ -113,20 +113,20 @@ Add or keep theme support for a fixed-height editor:
 
 ### Acceptance criteria
 
-- [ ] `createCodeMirror({ parent, doc })` initializes the editor with the provided document.
-- [ ] `onChange` receives the full document string after edits.
-- [ ] `Mod-Enter` calls `onRun` with the current document.
-- [ ] `Mod-Shift-Enter` still inserts a line above.
-- [ ] `createCodeMirror` returns an `EditorView`.
-- [ ] Callers can destroy the editor by calling `view.destroy()`.
+- [x] `createCodeMirror({ parent, doc })` initializes the editor with the provided document.
+- [x] `onChange` receives the full document string after edits.
+- [x] `Mod-Enter` calls `onRun` with the current document.
+- [x] `Mod-Shift-Enter` still inserts a line above.
+- [x] `createCodeMirror` returns an `EditorView`.
+- [x] Callers can destroy the editor by calling `view.destroy()`.
 
 ### Verification
 
 Automated:
 
-- [ ] `pnpm --filter @web-audio/editor check`
-- [ ] `pnpm --filter @web-audio/editor test:ci`
-- [ ] `pnpm --filter @web-audio/editor build`
+- [x] `pnpm --filter @web-audio/editor check`
+- [x] `pnpm --filter @web-audio/editor test:ci`
+- [x] `pnpm --filter @web-audio/editor build`
 
 Manual or browser-level smoke test if unit testing CodeMirror DOM behavior is too costly:
 
