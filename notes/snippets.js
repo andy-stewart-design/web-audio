@@ -115,3 +115,30 @@ d.synth("saw")
   .adsr(0, 0.5, 0.75, 0.5)
   .fx(d.lpf(d.env(100, 400).adsr(0.25, 0.5, 0.125, 0.5)))
   .push();
+
+// from `drome` project (this should eventually work)
+d.bpm(127);
+
+d.sample("breaks")
+  .bank("loops")
+  .fit(2)
+  .chop(8, d.rand.int().rib([20, 13], 1).range(0, 7).steps(4).euclid(4, 8, 1))
+  .gain(2)
+  .fx(d.hpf(600))
+  .push();
+
+d.sample("bd:3").hex(0xf).push();
+
+d.sample("oh")
+  .hex(0x55)
+  .gain(0.375)
+  // .fx(d.pan(-1))
+  .push();
+
+d.sample("hh")
+  .hex(0xff)
+  .gain(d.rand.rib(0, 4).range(0.125, 0.5).steps(8))
+  // .fx(d.pan(1))
+  .push();
+
+d.sample("rim").euclid(5, 8, 1).gain(0.5).push();
