@@ -156,15 +156,15 @@ and the failure is understood.
 
 ### Acceptance criteria
 
-- [ ] `apps/web` depends on `@web-audio/editor` using `workspace:*`.
-- [ ] `pnpm-lock.yaml` is updated consistently.
-- [ ] No duplicate or external `@web-audio/editor` dependency is introduced.
+- [x] `apps/web` depends on `@web-audio/editor` using `workspace:*`.
+- [x] `pnpm-lock.yaml` is updated consistently.
+- [x] No duplicate or external `@web-audio/editor` dependency is introduced.
 
 ### Verification
 
 Automated:
 
-- [ ] `pnpm --filter web check`
+- [x] `pnpm --filter web check`
 
 ---
 

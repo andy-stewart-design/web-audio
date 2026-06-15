@@ -227,6 +227,9 @@ importers:
       '@web-audio/context':
         specifier: workspace:*
         version: link:../../packages/context
+      '@web-audio/editor':
+        specifier: workspace:*
+        version: link:../../packages/editor
       '@web-audio/fluid':
         specifier: workspace:*
         version: link:../../packages/fluid
