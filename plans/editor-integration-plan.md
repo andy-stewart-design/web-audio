@@ -196,17 +196,17 @@ Suggested public component shape:
 
 ### Acceptance criteria
 
-- [ ] Component initializes CodeMirror with the bound `value`.
-- [ ] Editing updates the bound `value`.
-- [ ] `onRun` receives the latest editor content.
-- [ ] Component destroys the editor on unmount.
-- [ ] No editor creation occurs during SSR.
+- [x] Component initializes CodeMirror with the bound `value`.
+- [x] Editing updates the bound `value`.
+- [x] `onRun` receives the latest editor content.
+- [x] Component destroys the editor on unmount.
+- [x] No editor creation occurs during SSR.
 
 ### Verification
 
 Automated:
 
-- [ ] `pnpm --filter web check`
+- [x] `pnpm --filter web check`
 
 Manual:
 
