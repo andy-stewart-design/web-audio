@@ -1,0 +1,10 @@
+{
+  "extends": "@repo/typescript-config/library.json",
+  "compilerOptions": {
+    "lib": ["es2023", "DOM"],
+    "types": ["node"],
+    "noUnusedLocals": true,
+    "esModuleInterop": true
+  },
+  "include": ["src"]
+}

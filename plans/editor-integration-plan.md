@@ -57,20 +57,20 @@ Existing REPL semantics should remain unchanged:
 
 ### Acceptance criteria
 
-- [ ] `packages/editor` exists and is included automatically by `pnpm-workspace.yaml`.
-- [ ] Package name is `@web-audio/editor`.
-- [ ] Package exports `createCodeMirror` from `src/index.ts`.
-- [ ] No references to `@drome/editor` remain in the imported package.
-- [ ] The typo `utiils.ts` is fixed.
-- [ ] Package scripts are consistent with other packages in this repo.
+- [x] `packages/editor` exists and is included automatically by `pnpm-workspace.yaml`.
+- [x] Package name is `@web-audio/editor`.
+- [x] Package exports `createCodeMirror` from `src/index.ts`.
+- [x] No references to `@drome/editor` remain in the imported package.
+- [x] The typo `utiils.ts` is fixed.
+- [x] Package scripts are consistent with other packages in this repo.
 
 ### Verification
 
 Automated:
 
-- [ ] `pnpm --filter @web-audio/editor check`
-- [ ] `pnpm --filter @web-audio/editor build`
-- [ ] `pnpm --filter @web-audio/editor test:ci`
+- [x] `pnpm --filter @web-audio/editor check`
+- [x] `pnpm --filter @web-audio/editor build`
+- [x] `pnpm --filter @web-audio/editor test:ci`
 
 ---
 
