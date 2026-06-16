@@ -94,12 +94,13 @@ d.sample("bd").var([0, 1, 2, 3]).bank("tr909").hex(0xf).push();
 // Plane noodling
 const r = "c";
 const s = "min";
+const b = 400;
 
 d.synth("saw")
   .root(r + 4)
   .scale(s)
   .notes([0, 4, 2, 0, 5, 4, 2, 0], [0, 0, 0, 0, 0, 0, 0, 0])
-  .detune(d.lfo(0, [0, 400, 0, -400]).wave("saw").norm())
+  .detune(d.lfo(0, [0, b, 0, -b]).wave("saw").norm())
   .adsr(0.05, 1, 0.333, 0.5)
   .fx(
     d.lpf(d.env(200, 1600).adsr(0.25, 0.5, 0.25, 0.5)),
@@ -111,6 +112,7 @@ d.synth("saw")
   .root(r + 2)
   .scale(s)
   .notes(0, 2, 3, -2)
+  .gain(1.5)
   .stretch(4, 8)
   .adsr(0, 0.5, 0.75, 0.5)
   .fx(d.lpf(d.env(100, 400).adsr(0.25, 0.5, 0.125, 0.5)))

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
+	import CodeEditor from '@/components/code-editor/index.svelte';
 	import type { PageData, ActionData } from './$types';
 	import { audio } from '$lib/client/audio.svelte';
 
@@ -48,13 +49,6 @@
 		audio.stop();
 	}
 
-	function handleKeyDown(e: KeyboardEvent) {
-		if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-			e.preventDefault();
-			evaluate(code);
-		}
-	}
-
 	function openPublishDialog() {
 		publishedUri = null;
 		dialogEl?.showModal();
@@ -76,8 +70,9 @@
 		</button>
 	</div>
 
-	<textarea bind:value={code} onkeydown={handleKeyDown} spellcheck={false} class="editor"
-	></textarea>
+	<div class="editor">
+		<CodeEditor bind:value={code} onRun={evaluate} />
+	</div>
 
 	<div class="log">
 		{#if logs.length === 0}
@@ -185,16 +180,19 @@
 	}
 
 	.editor {
-		width: 100%;
+		--cm-editor-block-size: 100%;
+		--cm-editor-font-family: monospace;
+		--cm-editor-font-size: 0.9375rem;
+		--cm-editor-color-background: var(--ui-color-bg-secondary);
+		--cm-editor-color-foreground: var(--ui-color-fg-primary);
+		--cm-cursor-color: var(--ui-color-fg-primary);
+		--cm-gutter-border-color: var(--ui-color-border-subtle);
+
 		height: 180px;
-		padding: 0.625rem;
-		font-family: monospace;
-		font-size: 0.9375rem;
 		background: var(--ui-color-bg-secondary);
-		color: var(--ui-color-fg-primary);
 		border: 1px solid var(--ui-color-border-subtle);
 		border-radius: 4px;
-		resize: vertical;
+		overflow: clip;
 	}
 
 	.log {

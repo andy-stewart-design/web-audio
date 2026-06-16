@@ -234,28 +234,29 @@ into Phase 6 so the editor integration and screen-filling layout are independent
 
 ### Acceptance criteria
 
-- [ ] The REPL no longer renders a `<textarea>` for code editing.
-- [ ] The Run button evaluates the current editor contents.
-- [ ] `Cmd/Ctrl+Enter` inside CodeMirror evaluates the current editor contents.
-- [ ] Stop behavior is unchanged.
-- [ ] Publish uses the current editor contents.
-- [ ] Publish disabled state still follows `!code.trim()`.
-- [ ] Loaded sketch data still seeds the editor.
+- [x] The REPL no longer renders a `<textarea>` for code editing.
+- [x] The Run button evaluates the current editor contents.
+- [x] `Cmd/Ctrl+Enter` inside CodeMirror evaluates the current editor contents.
+- [x] Stop behavior is unchanged.
+- [x] Publish uses the current editor contents.
+- [x] Publish disabled state still follows `!code.trim()`.
+- [x] Loaded sketch data still seeds the editor.
 
 ### Verification
 
 Automated:
 
-- [ ] `pnpm --filter web check`
+- [x] `pnpm --filter web check`
 
 Manual:
 
-- [ ] Open `/repl` with no loaded sketch and confirm `d.synth("triangle").push()` appears.
-- [ ] Type in the editor and confirm dependent UI, such as the Publish button disabled state, reacts to the new value.
-- [ ] Edit the code, click Run, and confirm the edited code is evaluated.
-- [ ] Edit the code, press `Cmd/Ctrl+Enter`, and confirm the edited code is evaluated.
-- [ ] Publish a sketch and confirm the submitted code matches the editor contents.
-- [ ] Load an existing sketch and confirm its code appears in the editor.
+- [x] Open `/repl` with no loaded sketch and confirm `d.synth("triangle").push()` appears.
+- [x] Type in the editor and confirm dependent UI, such as the Publish button disabled state, reacts to the new value.
+- [x] Edit the code, click Run, and confirm the edited code is evaluated.
+- [x] Edit the code, press `Cmd/Ctrl+Enter`, and confirm the edited code is evaluated.
+- [x] Publish a sketch and confirm the submitted code matches the editor contents.
+- [x] Load an existing sketch and confirm its code appears in the editor.
+- [x] Paste a long sketch and confirm the editor scrolls internally instead of overflowing its container.
 
 ---
 

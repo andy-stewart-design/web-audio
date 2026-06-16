@@ -13,6 +13,7 @@ export const theme = EditorView.theme(
     },
     ".cm-scroller": {
       overflow: "auto",
+      overscrollBehavior: "contain",
     },
     ".cm-content": {
       fontFamily: "var(--cm-editor-font-family, monospace)",
