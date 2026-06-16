@@ -8,6 +8,8 @@
 
 <style>
 	main {
-		padding: 2rem 1rem;
+		height: calc(100dvh - var(--ui-header-block-size));
+		min-height: 0;
+		overflow: hidden;
 	}
 </style>

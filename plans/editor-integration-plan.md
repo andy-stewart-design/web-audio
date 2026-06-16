@@ -264,6 +264,7 @@ Manual:
 
 **Files:**
 
+- `apps/web/src/routes/repl/+layout.svelte`
 - `apps/web/src/routes/repl/+page.svelte`
 - `apps/web/src/components/code-editor/index.svelte` if wrapper sizing needs adjustment
 
@@ -291,20 +292,20 @@ Implementation notes:
 
 ### Acceptance criteria
 
-- [ ] REPL layout has a header/toolbar row above a two-column editor/sidebar body.
-- [ ] CodeMirror occupies the main column and fills the available body height.
-- [ ] The log appears in the sidebar, not below the editor.
-- [ ] The old `max-width: 720px` centered editor layout is removed for the REPL surface.
-- [ ] The sidebar remains visible at desktop widths.
-- [ ] Editor and sidebar can scroll independently when content overflows.
-- [ ] Run, Stop, Publish, and publish dialog behavior are unchanged.
+- [x] REPL layout has a header/toolbar row above a two-column editor/sidebar body.
+- [x] CodeMirror occupies the main column and fills the available body height.
+- [x] The log appears in the sidebar, not below the editor.
+- [x] The old `max-width: 720px` centered editor layout is removed for the REPL surface.
+- [x] The sidebar remains visible at desktop widths.
+- [x] Editor and sidebar can scroll independently when content overflows.
+- [x] Run, Stop, Publish, and publish dialog behavior are unchanged.
 
 ### Verification
 
 Automated:
 
-- [ ] `pnpm --filter web check`
-- [ ] `pnpm --filter web lint`
+- [x] `pnpm --filter web check`
+- [x] `pnpm --filter web lint`
 
 Manual:
 

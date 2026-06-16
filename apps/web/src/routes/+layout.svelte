@@ -23,7 +23,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: flex-end;
-		padding: 0.75rem 1rem;
+		block-size: var(--ui-header-block-size);
+		padding-inline: 1rem;
 		border-bottom: 1px solid var(--ui-color-border-subtle);
 	}
 

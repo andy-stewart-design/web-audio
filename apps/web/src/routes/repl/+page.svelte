@@ -56,32 +56,41 @@
 </script>
 
 <div class="repl">
-	<div class="toolbar">
-		<button onclick={() => evaluate(code)}>Run</button>
-		<button onclick={stop} disabled={!isRunning}>Stop</button>
-		<span class="hint">⌘↵</span>
-		<button
-			class="publish-btn"
-			onclick={openPublishDialog}
-			disabled={!data.session.did || !code.trim()}
-			title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
-		>
-			Publish
-		</button>
-	</div>
+	<div class="body">
+		<div class="col-left">
+			<div class="toolbar">
+				<button onclick={() => evaluate(code)}>Run</button>
+				<button onclick={stop} disabled={!isRunning}>Stop</button>
+				<span class="hint">⌘↵</span>
+				<button
+					class="publish-btn"
+					onclick={openPublishDialog}
+					disabled={!data.session.did || !code.trim()}
+					title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
+				>
+					Publish
+				</button>
+			</div>
 
-	<div class="editor">
-		<CodeEditor bind:value={code} onRun={evaluate} />
-	</div>
+			<div class="editor">
+				<CodeEditor bind:value={code} onRun={evaluate} />
+			</div>
+		</div>
 
-	<div class="log">
-		{#if logs.length === 0}
-			<span class="empty">no output</span>
-		{:else}
-			{#each logs as entry (entry.id)}
-				<div class={entry.type}>{entry.text}</div>
-			{/each}
-		{/if}
+		<aside class="sidebar" aria-label="REPL sidebar">
+			<section class="panel" aria-label="Output log">
+				<h2>Log</h2>
+				<div class="log">
+					{#if logs.length === 0}
+						<span class="empty">no output</span>
+					{:else}
+						{#each logs as entry (entry.id)}
+							<div class={entry.type}>{entry.text}</div>
+						{/each}
+					{/if}
+				</div>
+			</section>
+		</aside>
 	</div>
 </div>
 
@@ -149,17 +158,19 @@
 
 <style>
 	.repl {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-		max-width: 720px;
-		margin: auto;
+		display: grid;
+		/*grid-template-rows: auto minmax(0, 1fr);*/
+		height: 100%;
+		min-height: 0;
 	}
 
 	.toolbar {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+		block-size: var(--ui-header-block-size);
+		padding-inline: 1rem;
+		border-bottom: 1px solid var(--ui-color-border-subtle);
 
 		button {
 			padding: 0.375rem 1rem;
@@ -179,32 +190,61 @@
 		margin-right: auto;
 	}
 
+	.body {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 360px);
+		min-height: 0;
+	}
+
+	.col-left {
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+	}
+
 	.editor {
 		--cm-editor-block-size: 100%;
 		--cm-editor-font-family: monospace;
 		--cm-editor-font-size: 0.9375rem;
-		--cm-editor-color-background: var(--ui-color-bg-secondary);
+		--cm-editor-color-background: var(--ui-color-bg-primary);
 		--cm-editor-color-foreground: var(--ui-color-fg-primary);
 		--cm-cursor-color: var(--ui-color-fg-primary);
 		--cm-gutter-border-color: var(--ui-color-border-subtle);
+		--cm-scrollbar-color: var(--ui-color-fg-tertiary);
 
-		height: 180px;
-		background: var(--ui-color-bg-secondary);
-		border: 1px solid var(--ui-color-border-subtle);
-		border-radius: 4px;
+		min-width: 0;
+		min-height: 0;
 		overflow: clip;
+		block-size: calc(100dvh - var(--ui-header-block-size) * 2);
+		background: var(--ui-color-bg-primary);
+	}
+
+	.sidebar {
+		min-height: 0;
+		overflow: hidden;
+		background: var(--ui-color-bg-secondary);
+		border-left: 1px solid var(--ui-color-border-subtle);
+	}
+
+	.panel {
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		height: 100%;
+		min-height: 0;
+
+		h2 {
+			padding: 0.75rem 1rem;
+			font-size: 0.875rem;
+			font-weight: 600;
+			border-bottom: 1px solid var(--ui-color-border-subtle);
+		}
 	}
 
 	.log {
-		padding: 0.625rem;
-		background: var(--ui-color-bg-secondary);
-		border: 1px solid var(--ui-color-border-subtle);
-		border-radius: 4px;
+		min-height: 0;
+		padding: 0.75rem 1rem;
+		overflow-y: auto;
 		font-family: monospace;
 		font-size: 0.9375rem;
-		min-height: 80px;
-		max-height: 200px;
-		overflow-y: auto;
 	}
 
 	.empty {

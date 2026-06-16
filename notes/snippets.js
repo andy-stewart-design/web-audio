@@ -92,12 +92,13 @@ d.sample("bd").bank("user").hex(0xf).push();
 d.sample("bd").var([0, 1, 2, 3]).bank("tr909").hex(0xf).push();
 
 // Plane noodling
-const r = "c";
+const r = "a";
+const o = 3;
 const s = "min";
 const b = 400;
 
 d.synth("saw")
-  .root(r + 4)
+  .root(r + o)
   .scale(s)
   .notes([0, 4, 2, 0, 5, 4, 2, 0], [0, 0, 0, 0, 0, 0, 0, 0])
   .detune(d.lfo(0, [0, b, 0, -b]).wave("saw").norm())
@@ -108,14 +109,14 @@ d.synth("saw")
   )
   .push();
 
-d.synth("saw")
-  .root(r + 2)
+d.synth("sq")
+  .root(r + (o - 2))
   .scale(s)
   .notes(0, 2, 3, -2)
-  .gain(1.5)
+  .gain(1.25)
   .stretch(4, 8)
   .adsr(0, 0.5, 0.75, 0.5)
-  .fx(d.lpf(d.env(100, 400).adsr(0.25, 0.5, 0.125, 0.5)))
+  .fx(d.lpf(d.env(200, 600).adsr(0.25, 0.25, 0.25, 0.1)))
   .push();
 
 // from `drome` project (this should eventually work)

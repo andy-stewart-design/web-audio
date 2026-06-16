@@ -14,6 +14,8 @@ export const theme = EditorView.theme(
     ".cm-scroller": {
       overflow: "auto",
       overscrollBehavior: "contain",
+      scrollbarWidth: "thin",
+      scrollbarColor: "var(--cm-scrollbar-color, gray) transparent",
     },
     ".cm-content": {
       fontFamily: "var(--cm-editor-font-family, monospace)",
