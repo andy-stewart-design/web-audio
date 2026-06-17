@@ -159,9 +159,23 @@
 <style>
 	.repl {
 		display: grid;
-		/*grid-template-rows: auto minmax(0, 1fr);*/
 		height: 100%;
 		min-height: 0;
+		overflow: clip;
+	}
+
+	.body {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 360px);
+		min-height: 0;
+		overflow: clip;
+	}
+
+	.col-left {
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		height: 100%;
+		overflow: hidden;
 	}
 
 	.toolbar {
@@ -190,17 +204,6 @@
 		margin-right: auto;
 	}
 
-	.body {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 360px);
-		min-height: 0;
-	}
-
-	.col-left {
-		display: grid;
-		grid-template-rows: auto minmax(0, 1fr);
-	}
-
 	.editor {
 		--cm-editor-block-size: 100%;
 		--cm-editor-font-family: monospace;
@@ -216,6 +219,7 @@
 		overflow: clip;
 		block-size: calc(100dvh - var(--ui-header-block-size) * 2);
 		background: var(--ui-color-bg-primary);
+		height: 100%;
 	}
 
 	.sidebar {

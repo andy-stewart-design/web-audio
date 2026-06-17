@@ -309,12 +309,12 @@ Automated:
 
 Manual:
 
-- [ ] Open `/repl` on a desktop-sized viewport and confirm the layout is `[header]` above
+- [x] Open `/repl` on a desktop-sized viewport and confirm the layout is `[header]` above
       `[editor][sidebar]`.
-- [ ] Confirm the editor fills most of the screen horizontally and vertically.
-- [ ] Produce several log entries and confirm they appear in the sidebar.
-- [ ] Paste a long sketch and confirm the editor scrolls internally.
-- [ ] Produce enough logs to overflow the sidebar and confirm the sidebar/log scroll behavior is acceptable.
+- [x] Confirm the editor fills most of the screen horizontally and vertically.
+- [x] Produce several log entries and confirm they appear in the sidebar.
+- [x] Paste a long sketch and confirm the editor scrolls internally.
+- [x] Produce enough logs to overflow the sidebar and confirm the sidebar/log scroll behavior is acceptable.
 
 ---
 
