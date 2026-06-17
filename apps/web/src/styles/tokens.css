@@ -7,4 +7,6 @@
 	--ui-color-fg-tertiary: light-dark(#888, #777);
 
 	--ui-color-border-subtle: light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.1));
+
+	--ui-header-block-size: 4rem;
 }

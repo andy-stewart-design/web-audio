@@ -54,6 +54,7 @@
 		"@web-audio/audio-engine": "workspace:*",
 		"@web-audio/clock": "workspace:*",
 		"@web-audio/context": "workspace:*",
+		"@web-audio/editor": "workspace:*",
 		"@web-audio/fluid": "workspace:*",
 		"@web-audio/schema": "workspace:*"
 	}
