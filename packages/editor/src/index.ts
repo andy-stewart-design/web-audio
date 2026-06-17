@@ -23,9 +23,10 @@ interface CreateCodeMirrorOptions {
   doc?: string;
   onChange?: (doc: string) => void;
   onRun?: (doc: string) => void;
+  onStop?: () => void;
 }
 
-const startState = ({ doc, onChange, onRun }: CreateCodeMirrorOptions) =>
+const startState = ({ doc, onChange, onRun, onStop }: CreateCodeMirrorOptions) =>
   EditorState.create({
     doc: doc ?? DEFAULT_DOC,
     extensions: [
@@ -46,6 +47,22 @@ const startState = ({ doc, onChange, onRun }: CreateCodeMirrorOptions) =>
           onChange?.(update.state.doc.toString());
         }
       }),
+      // Use a DOM keydown handler for Option+/ instead of CodeMirror's
+      // keymap.of because macOS turns Option+/ into the "÷" glyph. Matching
+      // the physical Slash key via KeyboardEvent.code lets us prevent text
+      // insertion before CodeMirror treats it as normal input.
+      EditorView.domEventHandlers({
+        keydown(event) {
+          if (event.altKey && event.code === "Slash") {
+            event.preventDefault();
+            onStop?.();
+            return true;
+          }
+          return false;
+        },
+      }),
+      // Use CodeMirror keymaps for editor commands that are represented
+      // consistently across platforms and do not produce text input.
       keymap.of([
         {
           key: "Alt-Enter",

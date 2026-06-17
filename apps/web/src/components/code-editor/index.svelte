@@ -4,10 +4,12 @@
 
 	let {
 		value = $bindable(''),
-		onRun
+		onRun,
+		onStop
 	}: {
 		value: string;
 		onRun?: (value: string) => void;
+		onStop?: () => void;
 	} = $props();
 
 	let host = $state<HTMLElement>();
@@ -22,7 +24,8 @@
 			onChange: (nextValue) => {
 				value = nextValue;
 			},
-			onRun
+			onRun,
+			onStop
 		});
 
 		return () => {

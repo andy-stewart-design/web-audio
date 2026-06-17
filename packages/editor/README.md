@@ -17,6 +17,10 @@ const view = createCodeMirror({
   onRun(doc) {
     console.log("run", doc);
   },
+  // Alt/Option+/ inside the editor calls this callback.
+  onStop() {
+    console.log("stop");
+  },
 });
 
 view.destroy();

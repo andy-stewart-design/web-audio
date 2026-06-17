@@ -61,7 +61,6 @@
 			<div class="toolbar">
 				<button onclick={() => evaluate(code)}>Run</button>
 				<button onclick={stop} disabled={!isRunning}>Stop</button>
-				<span class="hint">⌥↵</span>
 				<button
 					class="publish-btn"
 					onclick={openPublishDialog}
@@ -73,7 +72,7 @@
 			</div>
 
 			<div class="editor">
-				<CodeEditor bind:value={code} onRun={evaluate} />
+				<CodeEditor bind:value={code} onRun={evaluate} onStop={stop} />
 			</div>
 		</div>
 
@@ -198,10 +197,8 @@
 		}
 	}
 
-	.hint {
-		font-size: 0.875rem;
-		color: var(--ui-color-fg-tertiary);
-		margin-right: auto;
+	.publish-btn {
+		margin-left: auto;
 	}
 
 	.editor {
