@@ -48,7 +48,7 @@ const startState = ({ doc, onChange, onRun }: CreateCodeMirrorOptions) =>
       }),
       keymap.of([
         {
-          key: "Mod-Enter",
+          key: "Alt-Enter",
           run(view) {
             onRun?.(view.state.doc.toString());
             return true;

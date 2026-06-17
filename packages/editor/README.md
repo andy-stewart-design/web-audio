@@ -13,6 +13,7 @@ const view = createCodeMirror({
   onChange(doc) {
     console.log(doc);
   },
+  // Alt/Option+Enter inside the editor calls this callback.
   onRun(doc) {
     console.log("run", doc);
   },

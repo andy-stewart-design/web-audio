@@ -61,7 +61,7 @@
 			<div class="toolbar">
 				<button onclick={() => evaluate(code)}>Run</button>
 				<button onclick={stop} disabled={!isRunning}>Stop</button>
-				<span class="hint">⌘↵</span>
+				<span class="hint">⌥↵</span>
 				<button
 					class="publish-btn"
 					onclick={openPublishDialog}

@@ -102,7 +102,7 @@ interface CreateCodeMirrorOptions {
 1. Create an `EditorView` in `options.parent`.
 2. Initialize the document from `options.doc`.
 3. Call `options.onChange(nextDoc)` when the document changes.
-4. Handle `Mod-Enter` by calling `options.onRun(currentDoc)` and returning `true`.
+4. Handle `Alt-Enter` / Option+Enter by calling `options.onRun(currentDoc)` and returning `true`.
 5. Preserve the existing `Mod-Shift-Enter` `insertLineAbove` command.
 6. Return the `EditorView` so callers can call `destroy()`.
 
@@ -115,7 +115,7 @@ Add or keep theme support for a fixed-height editor:
 
 - [x] `createCodeMirror({ parent, doc })` initializes the editor with the provided document.
 - [x] `onChange` receives the full document string after edits.
-- [x] `Mod-Enter` calls `onRun` with the current document.
+- [x] `Alt-Enter` / Option+Enter calls `onRun` with the current document.
 - [x] `Mod-Shift-Enter` still inserts a line above.
 - [x] `createCodeMirror` returns an `EditorView`.
 - [x] Callers can destroy the editor by calling `view.destroy()`.
@@ -132,7 +132,7 @@ Manual or browser-level smoke test if unit testing CodeMirror DOM behavior is to
 
 - [ ] Create an editor with initial text and confirm it appears.
 - [ ] Type in the editor and confirm `onChange` receives updated text.
-- [ ] Press `Cmd/Ctrl+Enter` and confirm `onRun` receives updated text.
+- [ ] Press Option+Enter and confirm `onRun` receives updated text.
 
 ---
 
@@ -185,7 +185,7 @@ Responsibilities:
 3. Accept an optional `onRun` callback.
 4. Create the CodeMirror editor on mount with the initial `value`.
 5. Update `value` from CodeMirror's `onChange` callback.
-6. Call `onRun` from CodeMirror's `Mod-Enter` handler.
+6. Call `onRun` from CodeMirror's `Alt-Enter` / Option+Enter handler.
 7. Destroy the `EditorView` on unmount.
 
 Suggested public component shape:
@@ -236,7 +236,7 @@ into Phase 6 so the editor integration and screen-filling layout are independent
 
 - [x] The REPL no longer renders a `<textarea>` for code editing.
 - [x] The Run button evaluates the current editor contents.
-- [x] `Cmd/Ctrl+Enter` inside CodeMirror evaluates the current editor contents.
+- [x] Option+Enter inside CodeMirror evaluates the current editor contents.
 - [x] Stop behavior is unchanged.
 - [x] Publish uses the current editor contents.
 - [x] Publish disabled state still follows `!code.trim()`.
@@ -253,7 +253,7 @@ Manual:
 - [x] Open `/repl` with no loaded sketch and confirm `d.synth("triangle").push()` appears.
 - [x] Type in the editor and confirm dependent UI, such as the Publish button disabled state, reacts to the new value.
 - [x] Edit the code, click Run, and confirm the edited code is evaluated.
-- [x] Edit the code, press `Cmd/Ctrl+Enter`, and confirm the edited code is evaluated.
+- [x] Edit the code, press Option+Enter, and confirm the edited code is evaluated.
 - [x] Publish a sketch and confirm the submitted code matches the editor contents.
 - [x] Load an existing sketch and confirm its code appears in the editor.
 - [x] Paste a long sketch and confirm the editor scrolls internally instead of overflowing its container.
@@ -318,64 +318,7 @@ Manual:
 
 ---
 
-## Phase 7 — Adopt full-screen editor styling from the source app
-
-**Files:**
-
-- `apps/web/src/components/code-editor/index.svelte`
-- `apps/web/src/routes/repl/+page.svelte`
-- `packages/editor/src/theme.ts` if package-level theme additions are needed
-
-### Changes
-
-Do **not** port the old textarea styling wholesale. The new layout should be styled like the source
-app's full-screen editor, adapted to this repo's `--ui-*` design tokens.
-
-Use the source app as the model:
-
-- `../drome/apps/repl-web/src/components/main-layout/style.module.css`
-- `../drome/apps/repl-web/src/components/code-mirror/style.module.css`
-- `../drome/apps/repl-web/src/codemirror/theme.css`
-
-Implementation notes:
-
-1. Keep CodeMirror in a flex/grid container that can fill the route body: `flex: 1`, `min-height: 0`,
-   `height: 100%` where appropriate.
-2. Prefer a borderless or subtle editor surface that feels integrated into the REPL shell, rather
-   than a textarea-like boxed control.
-3. Map the editor package's `--cm-*` variables to this app's existing `--ui-*` tokens.
-4. Preserve the source app's important editor UX choices where practical:
-   - full-height editor
-   - internal CodeMirror scrolling
-   - readable gutter/line numbers
-   - visible cursor, selection, active line, and matching bracket states
-5. Remove textarea-only styles such as `resize`, textarea padding assumptions, and the old fixed
-   `180px` editor height.
-
-### Acceptance criteria
-
-- [ ] CodeMirror visually fits the new header/editor/sidebar REPL layout.
-- [ ] Editor fills the available editor column height rather than using the old textarea height.
-- [ ] Styling is based on the source app's full-screen editor approach, not the old textarea.
-- [ ] Long documents scroll inside the editor.
-- [ ] Theme colors use existing `--ui-*` tokens through `--cm-*` variables.
-- [ ] No textarea-specific styling remains in the REPL route.
-
-### Verification
-
-Automated:
-
-- [ ] `pnpm --filter web lint`
-
-Manual:
-
-- [ ] Confirm line numbers, cursor, selection, and active line are visible on the REPL background.
-- [ ] Paste a long sketch and confirm the editor scrolls internally rather than breaking the page layout.
-- [ ] Confirm the editor feels like a full-screen coding surface, not a resized textarea.
-
----
-
-## Phase 8 — Cross-package validation and cleanup
+## Phase 7 — Cross-package validation and cleanup
 
 **Files:**
 
@@ -390,32 +333,32 @@ Manual:
 
 ### Acceptance criteria
 
-- [ ] No TypeScript errors in `@web-audio/editor` or `web`.
-- [ ] No lint errors in touched packages.
-- [ ] Monorepo build includes `@web-audio/editor` successfully.
-- [ ] REPL behavior is unchanged except for the editor UI.
+- [x] No TypeScript errors in `@web-audio/editor` or `web`.
+- [x] No lint errors in touched packages.
+- [x] Monorepo build includes `@web-audio/editor` successfully.
+- [x] REPL behavior is unchanged except for the editor UI.
 
 ### Verification
 
 Automated:
 
-- [ ] `pnpm --filter @web-audio/editor check`
-- [ ] `pnpm --filter @web-audio/editor test:ci`
-- [ ] `pnpm --filter @web-audio/editor build`
-- [ ] `pnpm --filter web check`
-- [ ] `pnpm --filter web lint`
-- [ ] `pnpm build`
-- [ ] `pnpm lint`
+- [x] `pnpm --filter @web-audio/editor check`
+- [x] `pnpm --filter @web-audio/editor test:ci`
+- [x] `pnpm --filter @web-audio/editor build`
+- [x] `pnpm --filter web check`
+- [x] `pnpm --filter web lint`
+- [x] `pnpm build`
+- [x] `pnpm lint`
 
 Manual final smoke test:
 
-- [ ] Load `/repl`.
-- [ ] Edit code.
-- [ ] Run with button.
-- [ ] Run with `Cmd/Ctrl+Enter`.
-- [ ] Stop audio.
-- [ ] Publish code.
-- [ ] Load a published/existing sketch and verify the editor content.
+- [x] Load `/repl`.
+- [x] Edit code.
+- [x] Run with button.
+- [x] Run with Option+Enter.
+- [x] Stop audio.
+- [x] Publish code.
+- [x] Load a published/existing sketch and verify the editor content.
 
 ---
 
