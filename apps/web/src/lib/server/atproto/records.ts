@@ -30,14 +30,18 @@ type WithStringUris<T> = T extends AtUriString
 
 export type PublishInput = WithStringUris<Omit<SketchRecord, '$type' | 'createdAt'>>;
 
-async function getLexClient(sessionDid: string): Promise<Client> {
-	const oauthClient = await getOAuthClient();
+async function getLexClient(sessionDid: string, origin?: string): Promise<Client> {
+	const oauthClient = await getOAuthClient(origin);
 	const session = await oauthClient.restore(sessionDid);
 	return new Client(session);
 }
 
-export async function publishSketch(sessionDid: string, input: PublishInput): Promise<StrongRef> {
-	const client = await getLexClient(sessionDid);
+export async function publishSketch(
+	sessionDid: string,
+	input: PublishInput,
+	origin?: string
+): Promise<StrongRef> {
+	const client = await getLexClient(sessionDid, origin);
 	const rkey = TID.nextStr();
 	return client.create(
 		sketchMain,
@@ -52,8 +56,12 @@ export async function publishSketch(sessionDid: string, input: PublishInput): Pr
 	);
 }
 
-export async function likeSketch(sessionDid: string, subject: StrongRef): Promise<StrongRef> {
-	const client = await getLexClient(sessionDid);
+export async function likeSketch(
+	sessionDid: string,
+	subject: StrongRef,
+	origin?: string
+): Promise<StrongRef> {
+	const client = await getLexClient(sessionDid, origin);
 	const rkey = TID.nextStr();
 	return client.create(
 		likeMain,
@@ -65,8 +73,12 @@ export async function likeSketch(sessionDid: string, subject: StrongRef): Promis
 	);
 }
 
-export async function repostSketch(sessionDid: string, subject: StrongRef): Promise<StrongRef> {
-	const client = await getLexClient(sessionDid);
+export async function repostSketch(
+	sessionDid: string,
+	subject: StrongRef,
+	origin?: string
+): Promise<StrongRef> {
+	const client = await getLexClient(sessionDid, origin);
 	const rkey = TID.nextStr();
 	return client.create(
 		repostMain,
@@ -78,8 +90,12 @@ export async function repostSketch(sessionDid: string, subject: StrongRef): Prom
 	);
 }
 
-export async function followUser(sessionDid: string, subjectDid: string): Promise<StrongRef> {
-	const client = await getLexClient(sessionDid);
+export async function followUser(
+	sessionDid: string,
+	subjectDid: string,
+	origin?: string
+): Promise<StrongRef> {
+	const client = await getLexClient(sessionDid, origin);
 	const rkey = TID.nextStr();
 	return client.create(
 		followMain,
@@ -88,12 +104,20 @@ export async function followUser(sessionDid: string, subjectDid: string): Promis
 	);
 }
 
-export async function unfollowUser(sessionDid: string, followUri: string): Promise<void> {
-	return deleteRecord(sessionDid, followUri);
+export async function unfollowUser(
+	sessionDid: string,
+	followUri: string,
+	origin?: string
+): Promise<void> {
+	return deleteRecord(sessionDid, followUri, origin);
 }
 
-export async function bookmarkSketch(sessionDid: string, subject: StrongRef): Promise<StrongRef> {
-	const client = await getLexClient(sessionDid);
+export async function bookmarkSketch(
+	sessionDid: string,
+	subject: StrongRef,
+	origin?: string
+): Promise<StrongRef> {
+	const client = await getLexClient(sessionDid, origin);
 	const rkey = TID.nextStr();
 	return client.create(
 		bookmarkMain,
@@ -106,12 +130,16 @@ export async function bookmarkSketch(sessionDid: string, subject: StrongRef): Pr
 	);
 }
 
-export async function unbookmarkSketch(sessionDid: string, bookmarkUri: string): Promise<void> {
-	return deleteRecord(sessionDid, bookmarkUri);
+export async function unbookmarkSketch(
+	sessionDid: string,
+	bookmarkUri: string,
+	origin?: string
+): Promise<void> {
+	return deleteRecord(sessionDid, bookmarkUri, origin);
 }
 
-export async function deleteRecord(sessionDid: string, uri: string): Promise<void> {
-	const client = await getLexClient(sessionDid);
+export async function deleteRecord(sessionDid: string, uri: string, origin?: string): Promise<void> {
+	const client = await getLexClient(sessionDid, origin);
 	// Parse AT URI: at://did/collection/rkey
 	const parts = uri.replace('at://', '').split('/');
 	await client.deleteRecord(parts[1] as NsidString, parts[2]);

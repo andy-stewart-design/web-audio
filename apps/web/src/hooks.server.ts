@@ -3,7 +3,7 @@ import { getAccount } from '$lib/server/db/queries';
 import type { Handle } from '@sveltejs/kit';
 
 export const handle: Handle = async ({ event, resolve }) => {
-	const session = await getSession(event.cookies);
+	const session = await getSession(event.cookies, event.url.origin);
 	const account = session ? await getAccount(session.did) : null;
 
 	if (session && account) {

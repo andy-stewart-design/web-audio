@@ -45,7 +45,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 };
 
 export const actions: Actions = {
-	follow: async ({ params, locals }) => {
+	follow: async ({ params, locals, url }) => {
 		if (!locals.session.did) return fail(401, { error: 'Not logged in' });
 
 		let did: string;
@@ -56,7 +56,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const result = await followUser(locals.session.did, did);
+			const result = await followUser(locals.session.did, did, url.origin);
 			return { followUri: result.uri };
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Failed to follow';
@@ -64,7 +64,7 @@ export const actions: Actions = {
 		}
 	},
 
-	unfollow: async ({ request, locals }) => {
+	unfollow: async ({ request, locals, url }) => {
 		if (!locals.session.did) return fail(401, { error: 'Not logged in' });
 
 		const data = await request.formData();
@@ -72,7 +72,7 @@ export const actions: Actions = {
 		if (typeof followUri !== 'string') return fail(400, { error: 'Missing followUri' });
 
 		try {
-			await unfollowUser(locals.session.did, followUri);
+			await unfollowUser(locals.session.did, followUri, url.origin);
 			return {};
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Failed to unfollow';
