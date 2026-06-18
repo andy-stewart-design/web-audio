@@ -9,7 +9,7 @@ The first pass focuses on the package scaffold and CSS build pipeline only. The 
 **Key design decisions:**
 
 - Use a CSS-first package, not a JSON/design-token generator pipeline.
-- Use Lightning CSS to bundle `@import`s and compile newer CSS syntax for target browsers.
+- Use Lightning CSS to bundle `@import`s and compile newer CSS syntax when appropriate.
 - Keep public CSS entrypoints separate. Do not compile everything into one universal file.
 - Start with two public outputs:
   - `tokens.css`
@@ -31,7 +31,6 @@ Create the new workspace package and prove that it can compile separate CSS entr
 
 - `packages/tokens/package.json`
 - `packages/tokens/README.md`
-- `packages/tokens/browserslist`
 - `packages/tokens/src/reset.css`
 - `packages/tokens/src/tokens/index.css`
 
@@ -61,21 +60,11 @@ Initial `package.json` shape:
 }
 ```
 
-Add a conservative `browserslist` file:
-
-```txt
-last 2 Chrome versions
-last 2 Firefox versions
-last 2 Safari versions
-last 2 Edge versions
-```
-
 **Acceptance criteria:**
 
-- [ ] `packages/tokens/package.json` exists with `@web-audio/tokens` package name
-- [ ] Package exports `./tokens.css` and `./reset.css`
-- [ ] Package has `build`, `check`, `lint`, and `format` scripts
-- [ ] Package has a browser target for Lightning CSS
+- [x] `packages/tokens/package.json` exists with `@web-audio/tokens` package name
+- [x] Package exports `./tokens.css` and `./reset.css`
+- [x] Package has `build`, `check`, `lint`, and `format` scripts
 
 ---
 
@@ -94,9 +83,9 @@ pnpm --filter @web-audio/tokens add -D lightningcss-cli
 
 **Acceptance criteria:**
 
-- [ ] `lightningcss-cli` is listed in `packages/tokens/package.json` dev dependencies
-- [ ] Lockfile is updated
-- [ ] `pnpm --filter @web-audio/tokens exec lightningcss --version` works
+- [x] `lightningcss-cli` is listed in `packages/tokens/package.json` dev dependencies
+- [x] Lockfile is updated
+- [x] `pnpm --filter @web-audio/tokens exec lightningcss --version` works
 
 ---
 
@@ -129,10 +118,10 @@ Example `src/reset.css`:
 
 **Acceptance criteria:**
 
-- [ ] `src/tokens/index.css` exists
-- [ ] `src/reset.css` exists
-- [ ] `pnpm --filter @web-audio/tokens build` creates `dist/tokens.css`
-- [ ] `pnpm --filter @web-audio/tokens build` creates `dist/reset.css`
+- [x] `src/tokens/index.css` exists
+- [x] `src/reset.css` exists
+- [x] `pnpm --filter @web-audio/tokens build` creates `dist/tokens.css`
+- [x] `pnpm --filter @web-audio/tokens build` creates `dist/reset.css`
 
 ---
 

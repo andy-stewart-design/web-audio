@@ -1,0 +1,3 @@
+:where(html) {
+  --ui-token-package-loaded: true;
+}
