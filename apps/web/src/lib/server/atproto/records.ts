@@ -138,7 +138,11 @@ export async function unbookmarkSketch(
 	return deleteRecord(sessionDid, bookmarkUri, origin);
 }
 
-export async function deleteRecord(sessionDid: string, uri: string, origin?: string): Promise<void> {
+export async function deleteRecord(
+	sessionDid: string,
+	uri: string,
+	origin?: string
+): Promise<void> {
 	const client = await getLexClient(sessionDid, origin);
 	// Parse AT URI: at://did/collection/rkey
 	const parts = uri.replace('at://', '').split('/');
