@@ -121,8 +121,8 @@
 	.card {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
-		background: var(--ui-color-bg-secondary);
-		border: 1px solid var(--ui-color-border-subtle);
+		background: var(--color-bg-secondary);
+		border: 1px solid var(--color-border-subtle);
 		border-radius: 6px;
 	}
 
@@ -146,7 +146,7 @@
 	}
 
 	.date {
-		color: var(--ui-color-fg-tertiary);
+		color: var(--color-fg-tertiary);
 	}
 
 	.tags {
@@ -184,13 +184,13 @@
 			color: inherit;
 
 			&:hover {
-				color: var(--ui-color-fg-secondary);
+				color: var(--color-fg-secondary);
 			}
 		}
 
 		.description {
 			font-size: 0.875rem;
-			color: var(--ui-color-fg-tertiary);
+			color: var(--color-fg-tertiary);
 			display: -webkit-box;
 			-webkit-line-clamp: 2;
 			line-clamp: 2;
@@ -211,7 +211,7 @@
 			align-items: center;
 			gap: 1rem;
 			padding-block-start: 1rem;
-			border-block-start: 1px solid var(--ui-color-border-subtle);
+			border-block-start: 1px solid var(--color-border-subtle);
 		}
 	}
 
@@ -228,7 +228,7 @@
 			block-size: 1.75rem;
 			inline-size: 1.75rem;
 			border-radius: 100vmax;
-			background: var(--ui-color-bg-primary);
+			background: var(--color-bg-primary);
 			margin-inline-end: 0.125rem;
 
 			img {
@@ -240,11 +240,11 @@
 		}
 
 		.handle {
-			color: var(--ui-color-fg-tertiary);
+			color: var(--color-fg-tertiary);
 		}
 
 		&:hover {
-			color: var(--ui-color-fg-secondary);
+			color: var(--color-fg-secondary);
 		}
 	}
 

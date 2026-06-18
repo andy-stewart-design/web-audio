@@ -319,8 +319,8 @@ pnpm --filter web add @web-audio/tokens@workspace:*
 
 **Acceptance criteria:**
 
-- [ ] `apps/web/package.json` includes `@web-audio/tokens` in dependencies
-- [ ] Lockfile is updated
+- [x] `apps/web/package.json` includes `@web-audio/tokens` in dependencies
+- [x] Lockfile is updated
 
 ---
 
@@ -352,10 +352,10 @@ Update the app's `html` styles to use shared color tokens while keeping app-owne
 
 **Acceptance criteria:**
 
-- [ ] Web global stylesheet imports reset CSS from `@web-audio/tokens`
-- [ ] Web global stylesheet imports token CSS from `@web-audio/tokens`
-- [ ] App-specific global rules still live in `apps/web/src/styles/global.css`
-- [ ] `font-family` uses `--font-sans`
+- [x] Web global stylesheet imports reset CSS from `@web-audio/tokens`
+- [x] Web global stylesheet imports token CSS from `@web-audio/tokens`
+- [x] App-specific global rules still live in `apps/web/src/styles/global.css`
+- [x] `font-family` uses `--font-sans`
 
 ---
 
@@ -370,11 +370,14 @@ Search for imports of the local app token file. Remove or replace them with pack
 
 If nothing imports `apps/web/src/styles/tokens.css` after migration, delete it.
 
+Also update existing app CSS references from the old `--ui-color-*` names to the shared package `--color-*` names.
+
 **Acceptance criteria:**
 
-- [ ] No remaining imports of `apps/web/src/styles/tokens.css`
-- [ ] Local token file is removed if unused
-- [ ] Web app still receives all existing `--ui-*` variables from package CSS
+- [x] No remaining imports of `apps/web/src/styles/tokens.css`
+- [x] Local token file is removed if unused
+- [x] No remaining references to old `--ui-color-*` variables
+- [x] Web app receives shared `--color-*`, `--space-*`, `--font-*`, and `--radius-*` variables from package CSS
 
 ---
 

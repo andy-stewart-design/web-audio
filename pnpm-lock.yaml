@@ -239,6 +239,9 @@ importers:
       '@web-audio/schema':
         specifier: workspace:*
         version: link:../../packages/schema
+      '@web-audio/tokens':
+        specifier: workspace:*
+        version: link:../../packages/tokens
     devDependencies:
       '@eslint/compat':
         specifier: ^2.1.0

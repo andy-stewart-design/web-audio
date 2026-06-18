@@ -101,7 +101,7 @@
 		height: 4rem;
 		border-radius: 100vmax;
 		overflow: hidden;
-		background: var(--ui-color-bg-secondary);
+		background: var(--color-bg-secondary);
 
 		img {
 			display: block;
@@ -126,12 +126,12 @@
 	.display-name {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: var(--ui-color-fg-primary);
+		color: var(--color-fg-primary);
 	}
 
 	.handle {
 		font-size: 0.875rem;
-		color: var(--ui-color-fg-tertiary);
+		color: var(--color-fg-tertiary);
 	}
 
 	.follow-btn {
@@ -140,12 +140,12 @@
 		font-weight: 500;
 		border-radius: 100vmax;
 		border: none;
-		background: var(--ui-color-fg-primary);
-		color: var(--ui-color-bg-primary);
+		background: var(--color-fg-primary);
+		color: var(--color-bg-primary);
 		cursor: pointer;
 
 		&.following {
-			background: var(--ui-color-fg-tertiary);
+			background: var(--color-fg-tertiary);
 		}
 
 		&:hover {
@@ -162,7 +162,7 @@
 	}
 
 	.empty {
-		color: var(--ui-color-fg-tertiary);
+		color: var(--color-fg-tertiary);
 		font-size: 0.875rem;
 	}
 </style>

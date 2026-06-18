@@ -75,7 +75,7 @@
 	}
 
 	.empty {
-		color: var(--ui-color-fg-tertiary);
+		color: var(--color-fg-tertiary);
 		font-size: 0.9375rem;
 		text-align: center;
 	}

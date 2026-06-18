@@ -1,20 +1,25 @@
+@import '@web-audio/tokens/reset.css';
+@import '@web-audio/tokens/tokens.css';
+
 /* -------------------------------------------- */
 /* Global Styles ------------------------------ */
 /* -------------------------------------------- */
 
 :where(html) {
-	font-family: system-ui, sans-serif;
+	--ui-header-block-size: var(--space-16);
+
+	font-family: var(--font-sans);
 	color-scheme: light dark;
-	background: var(--ui-color-bg-primary);
-	color: var(--ui-color-fg-primary);
+	background: var(--color-bg-primary);
+	color: var(--color-fg-primary);
 }
 
 a {
-	color: var(--ui-color-fg-primary);
+	color: var(--color-fg-primary);
 	user-select: none;
 
 	&:visited {
-		color: var(--ui-color-fg-primary);
+		color: var(--color-fg-primary);
 	}
 }
 
