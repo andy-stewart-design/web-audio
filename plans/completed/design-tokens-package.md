@@ -397,11 +397,11 @@ pnpm --filter @web-audio/tokens lint
 
 **Acceptance criteria:**
 
-- [ ] Tokens package build succeeds
-- [ ] Tokens package check succeeds
-- [ ] Tokens package lint succeeds
-- [ ] `packages/tokens/dist/tokens.css` exists
-- [ ] `packages/tokens/dist/reset.css` exists
+- [x] Tokens package build succeeds
+- [x] Tokens package check succeeds
+- [x] Tokens package lint succeeds
+- [x] `packages/tokens/dist/tokens.css` exists
+- [x] `packages/tokens/dist/reset.css` exists
 
 ---
 
@@ -417,11 +417,11 @@ pnpm --filter web build
 
 **Acceptance criteria:**
 
-- [ ] Web check succeeds
-- [ ] Web lint succeeds
-- [ ] Web build succeeds
-- [ ] Vite/Svelte can resolve `@web-audio/tokens/reset.css`
-- [ ] Vite/Svelte can resolve `@web-audio/tokens/tokens.css`
+- [x] Web check succeeds
+- [x] Web lint succeeds
+- [x] Web build succeeds
+- [x] Vite/Svelte can resolve `@web-audio/tokens/reset.css`
+- [x] Vite/Svelte can resolve `@web-audio/tokens/tokens.css`
 
 ---
 
@@ -437,10 +437,10 @@ pnpm build
 
 **Acceptance criteria:**
 
-- [ ] Repo check succeeds
-- [ ] Repo lint succeeds
-- [ ] Repo build succeeds
-- [ ] Tokens package participates correctly in the workspace build
+- [x] Repo check succeeds
+- [x] Repo lint succeeds
+- [x] Repo build succeeds
+- [x] Tokens package participates correctly in the workspace build
 
 ---
 
