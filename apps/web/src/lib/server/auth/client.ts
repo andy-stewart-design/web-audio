@@ -1,3 +1,4 @@
+import { requestLocalLock } from '@atproto/oauth-client';
 import { NodeOAuthClient, buildAtprotoLoopbackClientMetadata } from '@atproto/oauth-client-node';
 import type { NodeSavedSession, NodeSavedState } from '@atproto/oauth-client-node';
 import { eq } from 'drizzle-orm';
@@ -69,7 +70,8 @@ export async function getOAuthClient(origin?: string): Promise<NodeOAuthClient> 
 				dpop_bound_access_tokens: true
 			},
 			stateStore,
-			sessionStore
+			sessionStore,
+			requestLock: requestLocalLock
 		});
 	} else {
 		client = new NodeOAuthClient({
@@ -78,7 +80,8 @@ export async function getOAuthClient(origin?: string): Promise<NodeOAuthClient> 
 				redirect_uris: [`${publicUrl ?? 'http://127.0.0.1:3000'}/oauth/callback`]
 			}),
 			stateStore,
-			sessionStore
+			sessionStore,
+			requestLock: requestLocalLock
 		});
 	}
 

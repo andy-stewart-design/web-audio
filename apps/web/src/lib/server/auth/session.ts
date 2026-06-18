@@ -1,12 +1,12 @@
 import type { Cookies } from '@sveltejs/kit';
 import { getOAuthClient } from './client';
 
-export async function getSession(cookies: Cookies) {
+export async function getSession(cookies: Cookies, origin?: string) {
 	const did = getDid(cookies);
 	if (!did) return null;
 
 	try {
-		const client = await getOAuthClient();
+		const client = await getOAuthClient(origin);
 		return await client.restore(did);
 	} catch (e) {
 		console.error('Failed to restore OAuth session:', e);

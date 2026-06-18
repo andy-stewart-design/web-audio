@@ -26,7 +26,12 @@ interface CreateCodeMirrorOptions {
   onStop?: () => void;
 }
 
-const startState = ({ doc, onChange, onRun, onStop }: CreateCodeMirrorOptions) =>
+const startState = ({
+  doc,
+  onChange,
+  onRun,
+  onStop,
+}: CreateCodeMirrorOptions) =>
   EditorState.create({
     doc: doc ?? DEFAULT_DOC,
     extensions: [

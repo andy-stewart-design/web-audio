@@ -47,6 +47,7 @@
 	"dependencies": {
 		"@atproto/common-web": "^0.4.21",
 		"@atproto/lex": "^0.0.25",
+		"@atproto/oauth-client": "0.6.1",
 		"@atproto/oauth-client-node": "^0.3.17",
 		"@floating-ui/dom": "^1.7.6",
 		"@neondatabase/serverless": "^1.1.0",

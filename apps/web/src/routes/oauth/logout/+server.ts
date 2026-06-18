@@ -2,12 +2,12 @@ import { json } from '@sveltejs/kit';
 import { getOAuthClient } from '$lib/server/auth/client';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ cookies }) => {
+export const POST: RequestHandler = async ({ cookies, url }) => {
 	const did = cookies.get('did');
 
 	try {
 		if (did) {
-			const client = await getOAuthClient();
+			const client = await getOAuthClient(url.origin);
 			await client.revoke(did);
 		}
 	} catch (e) {

@@ -1,11 +1,7 @@
 import SampleNotes from "@/patterns/sample-notes";
 import Parameter from "@/patterns/parameter";
 import type { CycleInput } from "@/types";
-import type {
-  ClipMode,
-  FitSchema,
-  SamplerSchema,
-} from "@web-audio/schema";
+import type { ClipMode, FitSchema, SamplerSchema } from "@web-audio/schema";
 import { DEFAULT_BANK } from "@/banks";
 import Instrument from "./instrument";
 import type Drome from "@/index";

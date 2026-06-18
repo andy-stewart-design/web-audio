@@ -18,7 +18,7 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-	publish: async ({ request, locals }) => {
+	publish: async ({ request, locals, url }) => {
 		if (!locals.session.did) {
 			return fail(401, { error: 'You must be logged in to publish.' });
 		}
@@ -48,14 +48,18 @@ export const actions: Actions = {
 				: undefined;
 
 		try {
-			const result = await publishSketch(locals.session.did, {
-				title: title.trim(),
-				code,
-				description: (typeof description === 'string' && description.trim()) || undefined,
-				tags,
-				previousVersion: (typeof prevVersion === 'string' && prevVersion.trim()) || undefined,
-				rootVersion: (typeof rootVersion === 'string' && rootVersion.trim()) || undefined
-			});
+			const result = await publishSketch(
+				locals.session.did,
+				{
+					title: title.trim(),
+					code,
+					description: (typeof description === 'string' && description.trim()) || undefined,
+					tags,
+					previousVersion: (typeof prevVersion === 'string' && prevVersion.trim()) || undefined,
+					rootVersion: (typeof rootVersion === 'string' && rootVersion.trim()) || undefined
+				},
+				url.origin
+			);
 
 			await db
 				.insert(sketches)
