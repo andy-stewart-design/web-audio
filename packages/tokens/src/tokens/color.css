@@ -1,0 +1,10 @@
+:where(html) {
+  --color-bg-primary: light-dark(#fff, #000);
+  --color-bg-secondary: light-dark(#efefef, #111);
+
+  --color-fg-primary: light-dark(#000, #fff);
+  --color-fg-secondary: light-dark(#444, #ccc);
+  --color-fg-tertiary: light-dark(#888, #777);
+
+  --color-border-subtle: light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.1));
+}

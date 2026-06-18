@@ -152,10 +152,10 @@ Update `src/tokens/index.css` to compose them:
 
 **Acceptance criteria:**
 
-- [ ] Token source files are split by concern
-- [ ] `src/tokens/index.css` imports all token source files
-- [ ] `pnpm --filter @web-audio/tokens build` bundles imports into `dist/tokens.css`
-- [ ] `dist/tokens.css` does not contain unresolved local `@import "./..."` rules
+- [x] Token source files are split by concern
+- [x] `src/tokens/index.css` imports all token source files
+- [x] `pnpm --filter @web-audio/tokens build` bundles imports into `dist/tokens.css`
+- [x] `dist/tokens.css` does not contain unresolved local `@import "./..."` rules
 
 ---
 
@@ -173,14 +173,14 @@ Current tokens to move:
 
 ```css
 :where(html) {
-  --ui-color-bg-primary: light-dark(#fff, #000);
-  --ui-color-bg-secondary: light-dark(#efefef, #111);
+  --color-bg-primary: light-dark(#fff, #000);
+  --color-bg-secondary: light-dark(#efefef, #111);
 
-  --ui-color-fg-primary: light-dark(#000, #fff);
-  --ui-color-fg-secondary: light-dark(#444, #ccc);
-  --ui-color-fg-tertiary: light-dark(#888, #777);
+  --color-fg-primary: light-dark(#000, #fff);
+  --color-fg-secondary: light-dark(#444, #ccc);
+  --color-fg-tertiary: light-dark(#888, #777);
 
-  --ui-color-border-subtle: light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.1));
+  --color-border-subtle: light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.1));
 
   --ui-header-block-size: 4rem;
 }
@@ -188,14 +188,14 @@ Current tokens to move:
 
 Suggested split:
 
-- color variables go in `color.css`
+- color variables go in `color.css` and use the simplified `--color-*` namespace
 - `--ui-header-block-size` goes in `spacing.css`
 
 **Acceptance criteria:**
 
-- [ ] Existing `--ui-color-*` variables are present in `packages/tokens/src/tokens/color.css`
-- [ ] Existing `--ui-header-block-size` is present in `packages/tokens/src/tokens/spacing.css`
-- [ ] `dist/tokens.css` contains the moved variables after build
+- [x] Existing color values are present in `packages/tokens/src/tokens/color.css` as `--color-*` variables
+- [x] Existing `--ui-header-block-size` is present in `packages/tokens/src/tokens/spacing.css`
+- [x] `dist/tokens.css` contains the moved variables after build
 
 ---
 
