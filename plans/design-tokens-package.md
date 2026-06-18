@@ -181,28 +181,28 @@ Current tokens to move:
   --color-fg-tertiary: light-dark(#888, #777);
 
   --color-border-subtle: light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.1));
-
-  --ui-header-block-size: 4rem;
 }
 ```
 
 Suggested split:
 
 - color variables go in `color.css` and use the simplified `--color-*` namespace
-- `--ui-header-block-size` goes in `spacing.css`
+- app-specific `--ui-*` variables do not move into the tokens package
+- `--ui-header-block-size` should remain app-owned and can later be defined in the web app as `var(--space-16)`
 
 **Acceptance criteria:**
 
 - [x] Existing color values are present in `packages/tokens/src/tokens/color.css` as `--color-*` variables
-- [x] Existing `--ui-header-block-size` is present in `packages/tokens/src/tokens/spacing.css`
-- [x] `dist/tokens.css` contains the moved variables after build
+- [x] App-specific `--ui-header-block-size` is not part of the tokens package
+- [x] `dist/tokens.css` contains the moved color variables after build
 
 ---
 
-### Step 2.3 — Add initial typography and radius tokens
+### Step 2.3 — Add initial typography, spacing, and radius tokens
 
 **Files:**
 
+- `packages/tokens/src/tokens/spacing.css`
 - `packages/tokens/src/tokens/typography.css`
 - `packages/tokens/src/tokens/radius.css`
 
@@ -215,8 +215,26 @@ Suggested typography tokens:
   --font-sans: system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  --ui-font-family-body: var(--font-sans);
-  --ui-font-family-mono: var(--font-mono);
+  --font-size-base: 1rem;
+  --line-height-base: 1.5;
+}
+```
+
+Suggested spacing tokens:
+
+```css
+:where(html) {
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
 }
 ```
 
@@ -224,17 +242,21 @@ Suggested radius tokens:
 
 ```css
 :where(html) {
+  --radius-none: 0;
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 100vmax;
 }
 ```
 
 **Acceptance criteria:**
 
-- [ ] `--ui-font-family-body` is available in `dist/tokens.css`
-- [ ] `--ui-font-family-mono` is available in `dist/tokens.css`
-- [ ] Radius tokens are available in `dist/tokens.css`
+- [x] Font stack tokens are available in `dist/tokens.css`
+- [x] Base font size and line-height tokens are available in `dist/tokens.css`
+- [x] Spacing tokens are available in `dist/tokens.css`
+- [x] Radius tokens are available in `dist/tokens.css`
 
 ---
 
@@ -271,10 +293,10 @@ Do not move app-specific global rules yet, such as:
 
 **Acceptance criteria:**
 
-- [ ] Reusable reset rules are in `packages/tokens/src/reset.css`
-- [ ] App-specific global rules remain in `apps/web/src/styles/global.css`
-- [ ] `pnpm --filter @web-audio/tokens build` creates `dist/reset.css`
-- [ ] `dist/reset.css` contains the reset rules
+- [x] Reusable reset rules are in `packages/tokens/src/reset.css`
+- [x] App-specific global rules remain in `apps/web/src/styles/global.css`
+- [x] `pnpm --filter @web-audio/tokens build` creates `dist/reset.css`
+- [x] `dist/reset.css` contains the reset rules
 
 ---
 
@@ -317,14 +339,14 @@ Add package CSS imports at the top of the global stylesheet:
 
 Keep app-specific global styles below the imports.
 
-Update the app's `html` font family to use the shared token:
+Update the app's `html` styles to use shared color tokens while keeping app-owned font choices simple:
 
 ```css
 :where(html) {
-  font-family: var(--ui-font-family-body);
+  font-family: var(--font-sans);
   color-scheme: light dark;
-  background: var(--ui-color-bg-primary);
-  color: var(--ui-color-fg-primary);
+  background: var(--color-bg-primary);
+  color: var(--color-fg-primary);
 }
 ```
 
@@ -333,7 +355,7 @@ Update the app's `html` font family to use the shared token:
 - [ ] Web global stylesheet imports reset CSS from `@web-audio/tokens`
 - [ ] Web global stylesheet imports token CSS from `@web-audio/tokens`
 - [ ] App-specific global rules still live in `apps/web/src/styles/global.css`
-- [ ] `font-family` uses `--ui-font-family-body`
+- [ ] `font-family` uses `--font-sans`
 
 ---
 
