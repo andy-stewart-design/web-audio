@@ -1,0 +1,38 @@
+:where(html) {
+  --cm-editor-color-foreground: var(--color-fg-primary, inherit);
+  --cm-editor-color-background: var(--color-bg-primary, transparent);
+  --cm-editor-font-family: var(--font-mono, monospace);
+  --cm-editor-font-size: var(--font-sm, 0.875rem);
+  --cm-editor-block-size: auto;
+
+  --cm-scrollbar-color: var(--color-fg-tertiary, gray);
+
+  --cm-cursor-color: var(--color-fg-primary, currentColor);
+  --cm-cursor-width: 1.5px;
+
+  --cm-selection-color-background: light-dark(
+    rgb(0 0 0 / 0.15),
+    rgb(255 255 255 / 0.2)
+  );
+
+  --cm-gutter-color-foreground: var(--color-fg-tertiary, inherit);
+  --cm-gutter-color-background: var(--color-bg-primary, transparent);
+  --cm-gutter-font-size: var(--cm-editor-font-size);
+  --cm-gutter-border-width: 1px;
+  --cm-gutter-border-color: var(--color-border-subtle, rgb(255 255 255 / 0.25));
+
+  --cm-line-color-background: transparent;
+  --cm-line-inline-size: auto;
+
+  --cm-active-line-blurred-color-background: transparent;
+  --cm-active-line-color-background: light-dark(
+    rgb(0 0 0 / 0.04),
+    rgb(255 255 255 / 0.1)
+  );
+  --cm-active-gutter-color-background: var(--cm-active-line-color-background);
+
+  --cm-matching-bracket-color-background: light-dark(
+    rgb(0 0 0 / 0.12),
+    rgb(255 255 255 / 0.16)
+  );
+}

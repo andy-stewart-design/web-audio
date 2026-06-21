@@ -202,15 +202,6 @@
 	}
 
 	.editor {
-		--cm-editor-block-size: 100%;
-		--cm-editor-font-family: monospace;
-		--cm-editor-font-size: 0.9375rem;
-		--cm-editor-color-background: var(--color-bg-primary);
-		--cm-editor-color-foreground: var(--color-fg-primary);
-		--cm-cursor-color: var(--color-fg-primary);
-		--cm-gutter-border-color: var(--color-border-subtle);
-		--cm-scrollbar-color: var(--color-fg-tertiary);
-
 		min-width: 0;
 		min-height: 0;
 		overflow: clip;

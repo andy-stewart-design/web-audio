@@ -39,6 +39,8 @@
 
 <style>
 	.editor {
+		--cm-editor-block-size: 100%;
+
 		height: 100%;
 	}
 </style>

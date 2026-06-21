@@ -215,7 +215,7 @@ Suggested typography tokens:
   --font-sans: system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  --font-size-base: 1rem;
+  --font-base: 1rem;
   --line-height-base: 1.5;
 }
 ```

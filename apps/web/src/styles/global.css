@@ -1,5 +1,6 @@
 @import '@web-audio/tokens/reset.css';
 @import '@web-audio/tokens/tokens.css';
+@import '@web-audio/editor/defaults.css';
 
 /* -------------------------------------------- */
 /* Global Styles ------------------------------ */
