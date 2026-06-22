@@ -1,7 +1,6 @@
 <script lang="ts">
 	import LoginButton from '@/components/login-button/index.svelte';
 	import favicon from '@/lib/assets/favicon.svg';
-	import '@/styles/tokens.css';
 	import '@/styles/global.css';
 
 	let { children, data } = $props();
@@ -25,7 +24,7 @@
 		justify-content: flex-end;
 		block-size: var(--ui-header-block-size);
 		padding-inline: 1rem;
-		border-bottom: 1px solid var(--ui-color-border-subtle);
+		border-bottom: 1px solid var(--color-border-subtle);
 	}
 
 	.header-right {

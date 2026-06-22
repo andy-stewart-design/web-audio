@@ -57,6 +57,7 @@
 		"@web-audio/context": "workspace:*",
 		"@web-audio/editor": "workspace:*",
 		"@web-audio/fluid": "workspace:*",
-		"@web-audio/schema": "workspace:*"
+		"@web-audio/schema": "workspace:*",
+		"@web-audio/tokens": "workspace:*"
 	}
 }

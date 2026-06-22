@@ -157,7 +157,7 @@
 		font-size: 0.875rem;
 
 		time {
-			color: var(--ui-color-fg-tertiary);
+			color: var(--color-fg-tertiary);
 		}
 	}
 
@@ -192,7 +192,7 @@
 
 		.remixed-from {
 			font-size: 0.875rem;
-			color: var(--ui-color-fg-tertiary);
+			color: var(--color-fg-tertiary);
 
 			a {
 				color: inherit;
@@ -202,7 +202,7 @@
 
 		.description {
 			font-size: 0.9375rem;
-			color: var(--ui-color-fg-secondary);
+			color: var(--color-fg-secondary);
 		}
 	}
 
@@ -231,7 +231,7 @@
 			block-size: 1.75rem;
 			inline-size: 1.75rem;
 			border-radius: 100vmax;
-			background: var(--ui-color-bg-secondary);
+			background: var(--color-bg-secondary);
 			margin-inline-end: 0.125rem;
 
 			img {
@@ -243,13 +243,13 @@
 		}
 
 		.handle {
-			color: var(--ui-color-fg-tertiary);
+			color: var(--color-fg-tertiary);
 		}
 	}
 
 	.code {
-		background: var(--ui-color-bg-secondary);
-		border: 1px solid var(--ui-color-border-subtle);
+		background: var(--color-bg-secondary);
+		border: 1px solid var(--color-border-subtle);
 		border-radius: 6px;
 		padding: 1rem;
 		overflow-x: auto;

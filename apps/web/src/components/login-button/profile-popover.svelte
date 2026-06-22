@@ -106,7 +106,7 @@
 		margin: 0;
 		border: none;
 		border-radius: 0.5rem;
-		background: light-dark(var(--ui-color-bg-primary), var(--ui-color-bg-secondary));
+		background: light-dark(var(--color-bg-primary), var(--color-bg-secondary));
 		outline: 1px solid rgb(255 255 255 / 0.2);
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 		font-size: 0.875rem;
@@ -128,7 +128,7 @@
 		}
 
 		.handle {
-			color: var(--ui-color-fg-tertiary);
+			color: var(--color-fg-tertiary);
 			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
@@ -150,7 +150,7 @@
 			cursor: pointer;
 
 			&:hover {
-				color: var(--ui-color-fg-secondary);
+				color: var(--color-fg-secondary);
 			}
 		}
 	}

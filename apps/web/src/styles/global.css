@@ -1,78 +1,26 @@
-/* ---------------------------------------- */
-/* CSS RESET ------------------------------ */
-/* ---------------------------------------- */
-
-/* 1. Use a more-intuitive box-sizing model */
-*,
-*::before,
-*::after {
-	box-sizing: border-box;
-}
-
-/* 2. Remove default margin */
-*:not(dialog) {
-	margin: 0;
-}
-
-/* 3. Enable keyword animations */
-@media (prefers-reduced-motion: no-preference) {
-	:where(html) {
-		interpolate-size: allow-keywords;
-	}
-}
-
-:where(body) {
-	line-height: 1.5; /* 4. Increase line-height */
-	-webkit-font-smoothing: antialiased; /* 5. Improve text rendering */
-}
-
-/* 6. Improve media defaults */
-:where(img, picture, video, canvas, svg) {
-	display: block;
-	max-width: 100%;
-}
-
-/* 7. Inherit fonts for form controls */
-:where(input, button, textarea, select) {
-	font: inherit;
-}
-
-/* 8. Avoid text overflows */
-:where(p, h1, h2, h3, h4, h5, h6) {
-	overflow-wrap: break-word;
-}
-
-/* 9. Improve line wrapping */
-:where(p) {
-	text-wrap: pretty;
-}
-:where(h1, h2, h3, h4, h5, h6) {
-	text-wrap: balance;
-	line-height: 1.2;
-}
-
-/* 10. Create a root stacking context */
-:where(main) {
-	isolation: isolate;
-}
+@import '@web-audio/tokens/reset.css';
+@import '@web-audio/tokens/tokens.css';
+@import '@web-audio/editor/defaults.css';
 
 /* -------------------------------------------- */
 /* Global Styles ------------------------------ */
 /* -------------------------------------------- */
 
 :where(html) {
-	font-family: system-ui, sans-serif;
+	--ui-header-block-size: var(--space-16);
+
+	font-family: var(--font-sans);
 	color-scheme: light dark;
-	background: var(--ui-color-bg-primary);
-	color: var(--ui-color-fg-primary);
+	background: var(--color-bg-primary);
+	color: var(--color-fg-primary);
 }
 
 a {
-	color: var(--ui-color-fg-primary);
+	color: var(--color-fg-primary);
 	user-select: none;
 
 	&:visited {
-		color: var(--ui-color-fg-primary);
+		color: var(--color-fg-primary);
 	}
 }
 

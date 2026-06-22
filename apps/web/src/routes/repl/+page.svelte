@@ -183,7 +183,7 @@
 		gap: 0.5rem;
 		block-size: var(--ui-header-block-size);
 		padding-inline: 1rem;
-		border-bottom: 1px solid var(--ui-color-border-subtle);
+		border-bottom: 1px solid var(--color-border-subtle);
 
 		button {
 			padding: 0.375rem 1rem;
@@ -191,8 +191,8 @@
 			font-weight: 500;
 			border-radius: 100vmax;
 			border: none;
-			background: var(--ui-color-fg-primary);
-			color: var(--ui-color-bg-primary);
+			background: var(--color-fg-primary);
+			color: var(--color-bg-primary);
 			cursor: pointer;
 		}
 	}
@@ -202,28 +202,19 @@
 	}
 
 	.editor {
-		--cm-editor-block-size: 100%;
-		--cm-editor-font-family: monospace;
-		--cm-editor-font-size: 0.9375rem;
-		--cm-editor-color-background: var(--ui-color-bg-primary);
-		--cm-editor-color-foreground: var(--ui-color-fg-primary);
-		--cm-cursor-color: var(--ui-color-fg-primary);
-		--cm-gutter-border-color: var(--ui-color-border-subtle);
-		--cm-scrollbar-color: var(--ui-color-fg-tertiary);
-
 		min-width: 0;
 		min-height: 0;
 		overflow: clip;
 		block-size: calc(100dvh - var(--ui-header-block-size) * 2);
-		background: var(--ui-color-bg-primary);
+		background: var(--color-bg-primary);
 		height: 100%;
 	}
 
 	.sidebar {
 		min-height: 0;
 		overflow: hidden;
-		background: var(--ui-color-bg-secondary);
-		border-left: 1px solid var(--ui-color-border-subtle);
+		background: var(--color-bg-secondary);
+		border-left: 1px solid var(--color-border-subtle);
 	}
 
 	.panel {
@@ -236,7 +227,7 @@
 			padding: 0.75rem 1rem;
 			font-size: 0.875rem;
 			font-weight: 600;
-			border-bottom: 1px solid var(--ui-color-border-subtle);
+			border-bottom: 1px solid var(--color-border-subtle);
 		}
 	}
 
@@ -249,7 +240,7 @@
 	}
 
 	.empty {
-		color: var(--ui-color-fg-tertiary);
+		color: var(--color-fg-tertiary);
 	}
 
 	.output {
@@ -264,10 +255,10 @@
 	.publish-dialog {
 		width: min(480px, 90vw);
 		padding: 1.5rem;
-		background: var(--ui-color-bg-secondary);
-		border: 1px solid var(--ui-color-border-subtle);
+		background: var(--color-bg-secondary);
+		border: 1px solid var(--color-border-subtle);
 		border-radius: 8px;
-		color: var(--ui-color-fg-primary);
+		color: var(--color-fg-primary);
 
 		&::backdrop {
 			background: rgb(0 0 0 / 0.5);
@@ -300,9 +291,9 @@
 		input,
 		textarea {
 			padding: 0.375rem 0.5rem;
-			background: var(--ui-color-bg-primary);
-			color: var(--ui-color-fg-primary);
-			border: 1px solid var(--ui-color-border-subtle);
+			background: var(--color-bg-primary);
+			color: var(--color-fg-primary);
+			border: 1px solid var(--color-border-subtle);
 			border-radius: 4px;
 			font-family: monospace;
 			font-size: 0.875rem;
@@ -312,7 +303,7 @@
 
 	.hint-small {
 		font-size: 0.75rem;
-		color: var(--ui-color-fg-tertiary);
+		color: var(--color-fg-tertiary);
 	}
 
 	.form-error {

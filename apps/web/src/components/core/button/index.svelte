@@ -28,7 +28,7 @@
 		padding: 0 0.75rem 1px;
 		font-size: 0.8rem;
 		font-weight: 500;
-		border: 1px solid var(--ui-color-border-subtle);
+		border: 1px solid var(--color-border-subtle);
 		border-radius: 3px;
 		text-decoration: none;
 		cursor: pointer;
@@ -36,7 +36,7 @@
 		color: inherit;
 
 		&:hover {
-			color: var(--ui-color-fg-secondary);
+			color: var(--color-fg-secondary);
 		}
 
 		&.active {

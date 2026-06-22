@@ -1,0 +1,33 @@
+{
+  "name": "@web-audio/tokens",
+  "type": "module",
+  "version": "0.0.0",
+  "exports": {
+    "./tokens.css": {
+      "development": "./src/tokens/index.css",
+      "production": "./dist/tokens.css",
+      "default": "./dist/tokens.css"
+    },
+    "./reset.css": {
+      "development": "./src/reset.css",
+      "production": "./dist/reset.css",
+      "default": "./dist/reset.css"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "pnpm build:tokens && pnpm build:reset",
+    "build:tokens": "lightningcss src/tokens/index.css -o dist/tokens.css --bundle",
+    "build:reset": "lightningcss src/reset.css -o dist/reset.css --bundle",
+    "check": "pnpm build",
+    "lint": "prettier --check .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "lightningcss-cli": "^1.32.0"
+  }
+}
