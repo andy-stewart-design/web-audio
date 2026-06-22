@@ -8,7 +8,7 @@
 
 	let { sketch }: { sketch: SketchCard } = $props();
 
-	const isThisPlaying = $derived(audio.currentUri === sketch.uri && audio.isRunning);
+	const isThisPlaying = $derived(audio.loadedSketch?.uri === sketch.uri && audio.isRunning);
 	const rkey = $derived(sketch.uri.split('/').at(-1));
 
 	async function handleBookmark() {
@@ -48,7 +48,7 @@
 			return;
 		}
 		try {
-			await audio.play(sketch.code, sketch.uri);
+			await audio.play(sketch);
 		} catch {
 			// error is set on audio.lastError; nothing more to do here
 		}

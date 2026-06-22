@@ -31,7 +31,7 @@
 		return { did, rkey };
 	}
 
-	const isPlaying = $derived(audio.currentUri === atUri && audio.isRunning);
+	const isPlaying = $derived(audio.loadedSketch?.uri === atUri && audio.isRunning);
 
 	async function handlePlay() {
 		if (isPlaying) {
@@ -39,7 +39,11 @@
 			return;
 		}
 		try {
-			await audio.play(data.sketch.code, atUri);
+			await audio.play({
+				uri: atUri,
+				title: data.sketch.title,
+				code: data.sketch.code
+			});
 		} catch {
 			// error is set on audio.lastError
 		}

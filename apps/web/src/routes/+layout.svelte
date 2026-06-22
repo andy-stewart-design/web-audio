@@ -11,6 +11,17 @@
 	const isRunning = $derived(audio.isRunning);
 	const isRepl = $derived(page.url.pathname === '/repl');
 	const controls = $derived(isRepl ? replControls.controls : null);
+	const loadedSketch = $derived(audio.loadedSketch);
+	const canPlay = $derived(isRepl ? Boolean(controls) : Boolean(loadedSketch));
+
+	async function handlePlay() {
+		try {
+			if (isRepl && controls) await audio.play(controls.getSketch());
+			else await audio.play();
+		} catch {
+			// error is set on audio.lastError; nothing more to do here
+		}
+	}
 </script>
 
 <svelte:head>
@@ -20,10 +31,10 @@
 <header>
 	<div class="header-main">
 		<div class="transport-controls">
-			<button onclick={() => controls?.run()} disabled={!controls}>Run</button>
-			<button onclick={() => controls?.stop() ?? audio.stop()} disabled={!isRunning}>Stop</button>
-			{#if controls?.title}
-				<span class="track-title">{controls.title}</span>
+			<button onclick={handlePlay} disabled={!canPlay}>{isRepl ? 'Run' : 'Play'}</button>
+			<button onclick={() => audio.stop()} disabled={!isRunning}>Stop</button>
+			{#if loadedSketch?.title}
+				<span class="track-title">{loadedSketch.title}</span>
 			{/if}
 		</div>
 

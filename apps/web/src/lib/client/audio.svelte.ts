@@ -5,9 +5,15 @@ import type { DromeSchema } from '@web-audio/schema';
 
 type PendingEval = { resolve: (schema: DromeSchema) => void; reject: (err: Error) => void };
 
+export type LoadedSketch = {
+	uri: string | null;
+	title: string;
+	code: string;
+};
+
 class AudioPlayer {
 	isRunning = $state(false);
-	currentUri = $state<string | null>(null);
+	loadedSketch = $state<LoadedSketch | null>(null);
 	lastError = $state<string | null>(null);
 
 	private audioCtx: ManagedAudioContext | null = null;
@@ -58,7 +64,7 @@ class AudioPlayer {
 		});
 	}
 
-	async play(code: string, uri?: string): Promise<void> {
+	private async playCode(code: string): Promise<void> {
 		this.lastError = null;
 		try {
 			const schema = await this.evalCode(code);
@@ -70,17 +76,31 @@ class AudioPlayer {
 				await this.getClock().start();
 				this.isRunning = true;
 			}
-			this.currentUri = uri ?? null;
 		} catch (err) {
 			this.lastError = (err as Error).message;
 			throw err;
 		}
 	}
 
+	load(sketch: LoadedSketch): void {
+		this.loadedSketch = sketch;
+	}
+
+	clear(): void {
+		this.stop();
+		this.loadedSketch = null;
+		this.lastError = null;
+	}
+
+	async play(sketch?: LoadedSketch): Promise<void> {
+		if (sketch) this.load(sketch);
+		if (!this.loadedSketch) return;
+		await this.playCode(this.loadedSketch.code);
+	}
+
 	stop(): void {
 		this.clock?.stop();
 		this.isRunning = false;
-		this.currentUri = null;
 	}
 }
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import CodeEditor from '@/components/code-editor/index.svelte';
 	import type { PageData, ActionData } from './$types';
@@ -36,9 +36,24 @@
 		logs = [{ id: crypto.randomUUID(), text, type }, ...logs];
 	}
 
+	function getPlayerTitle() {
+		return publishTitle.trim() || initial?.title || '';
+	}
+
+	function getCurrentSketch() {
+		return {
+			uri: initial?.uri ?? null,
+			title: getPlayerTitle(),
+			code
+		};
+	}
+
 	async function evaluate(input: string) {
 		try {
-			await audio.play(input);
+			await audio.play({
+				...getCurrentSketch(),
+				code: input
+			});
 			addLog('✓', 'output');
 		} catch (err) {
 			addLog(`✗ ${(err as Error).message}`, 'error');
@@ -49,18 +64,29 @@
 		audio.stop();
 	}
 
-	function openPublishDialog() {
-		publishedUri = null;
-		dialogEl?.showModal();
-	}
+	onMount(() => {
+		if (!initial) {
+			audio.clear();
+			return;
+		}
+
+		if (audio.loadedSketch?.uri !== initial.uri) {
+			audio.load({
+				uri: initial.uri,
+				title: initial.title,
+				code: initial.code
+			});
+		}
+	});
 
 	$effect(() =>
 		replControls.register({
-			title: publishTitle,
 			canPublish: Boolean(data.session.did && code.trim()),
-			run: () => void evaluate(code),
-			stop,
-			publish: openPublishDialog
+			getSketch: getCurrentSketch,
+			publish: () => {
+				publishedUri = null;
+				dialogEl?.showModal();
+			}
 		})
 	);
 </script>
