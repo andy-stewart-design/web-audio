@@ -42,7 +42,7 @@
 			<button
 				class="publish-btn"
 				onclick={controls.publish}
-				disabled={!controls.canPublish}
+				disabled={!controls.canPublish()}
 				title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
 			>
 				Publish

@@ -14,41 +14,40 @@
 
 	// Read initial sketch data once — untrack prevents Svelte from warning about
 	// one-time reads of reactive `data` inside $state() initializers.
-	const initial = untrack(() => data.loadedSketch);
+	const initialSketch = untrack(() => data.loadedSketch);
 
 	// REPL state — seeded from ?load= param if present
-	let code = $state(initial?.code ?? DEFAULT_CODE);
+	let code = $state(initialSketch?.code ?? DEFAULT_CODE);
 	let logs = $state<LogEntry[]>([]);
 
-	// Publish dialog state
-	let dialogEl = $state<HTMLDialogElement | undefined>();
-	let publishTitle = $state(initial?.title ?? '');
-	let publishDescription = $state(initial?.description ?? '');
-	let publishTags = $state(initial?.tags?.join(', ') ?? '');
-	let publishing = $state(false);
-	let publishedUri = $state<string | null>(null);
+	let publish = $state({
+		dialogEl: undefined as HTMLDialogElement | undefined,
+		title: initialSketch?.title ?? '',
+		description: initialSketch?.description ?? '',
+		tags: initialSketch?.tags?.join(', ') ?? '',
+		isSubmitting: false,
+		publishedUri: null as string | null
+	});
 
 	// Version chain — seeded from loaded sketch if it's a fork/republish
-	let rootVersionUri = $state<string | null>(initial?.rootVersion ?? initial?.uri ?? null);
-	let previousVersionUri = $state<string | null>(initial?.uri ?? null);
+	let version = $state({
+		rootUri: initialSketch?.rootVersion ?? initialSketch?.uri ?? null,
+		previousUri: initialSketch?.uri ?? null
+	});
 
 	function addLog(text: string, type: LogEntry['type']) {
 		logs = [{ id: crypto.randomUUID(), text, type }, ...logs];
 	}
 
-	function getPlayerTitle() {
-		return publishTitle.trim() || initial?.title || '';
-	}
-
 	function getCurrentSketch() {
 		return {
-			uri: initial?.uri ?? null,
-			title: getPlayerTitle(),
+			uri: initialSketch?.uri ?? null,
+			title: publish.title.trim() || initialSketch?.title || '',
 			code
 		};
 	}
 
-	async function evaluate(input: string) {
+	async function runCode(input: string) {
 		try {
 			await audio.play({
 				...getCurrentSketch(),
@@ -64,38 +63,39 @@
 		audio.stop();
 	}
 
-	onMount(() => {
-		if (!initial) {
-			audio.clear();
-			return;
-		}
+	function canPublish() {
+		return Boolean(data.session.did && code.trim());
+	}
 
-		if (audio.loadedSketch?.uri !== initial.uri) {
+	function openPublishDialog() {
+		publish.publishedUri = null;
+		publish.dialogEl?.showModal();
+	}
+
+	onMount(() => {
+		if (!initialSketch) {
+			audio.clear();
+		} else if (audio.loadedSketch?.uri !== initialSketch.uri) {
 			audio.load({
-				uri: initial.uri,
-				title: initial.title,
-				code: initial.code
+				uri: initialSketch.uri,
+				title: initialSketch.title,
+				code: initialSketch.code
 			});
 		}
-	});
 
-	$effect(() =>
-		replControls.register({
-			canPublish: Boolean(data.session.did && code.trim()),
+		return replControls.register({
+			canPublish,
 			getSketch: getCurrentSketch,
-			publish: () => {
-				publishedUri = null;
-				dialogEl?.showModal();
-			}
-		})
-	);
+			publish: openPublishDialog
+		});
+	});
 </script>
 
 <div class="repl">
 	<div class="body">
 		<div class="col-left">
 			<div class="editor">
-				<CodeEditor bind:value={code} onRun={evaluate} onStop={stop} />
+				<CodeEditor bind:value={code} onRun={runCode} onStop={stop} />
 			</div>
 		</div>
 
@@ -116,13 +116,13 @@
 	</div>
 </div>
 
-<dialog bind:this={dialogEl} class="publish-dialog">
-	{#if publishedUri}
+<dialog bind:this={publish.dialogEl} class="publish-dialog">
+	{#if publish.publishedUri}
 		<h2>Published!</h2>
 		<p>Your sketch is live on the network.</p>
-		<code class="uri">{publishedUri}</code>
+		<code class="uri">{publish.publishedUri}</code>
 		<div class="dialog-actions">
-			<button onclick={() => dialogEl?.close()}>close</button>
+			<button onclick={() => publish.dialogEl?.close()}>close</button>
 		</div>
 	{:else}
 		<h2>Publish sketch</h2>
@@ -131,16 +131,16 @@
 			action="?/publish"
 			use:enhance={({ formData }) => {
 				formData.set('code', code);
-				if (previousVersionUri) formData.set('previousVersion', previousVersionUri);
-				if (rootVersionUri) formData.set('rootVersion', rootVersionUri);
-				publishing = true;
+				if (version.previousUri) formData.set('previousVersion', version.previousUri);
+				if (version.rootUri) formData.set('rootVersion', version.rootUri);
+				publish.isSubmitting = true;
 				return async ({ result, update }) => {
-					publishing = false;
+					publish.isSubmitting = false;
 					if (result.type === 'success' && result.data?.uri) {
 						const newUri = result.data.uri as string;
-						rootVersionUri = rootVersionUri ?? newUri;
-						previousVersionUri = newUri;
-						publishedUri = newUri;
+						version.rootUri = version.rootUri ?? newUri;
+						version.previousUri = newUri;
+						publish.publishedUri = newUri;
 					} else {
 						await update();
 					}
@@ -151,17 +151,17 @@
 				<div class="label-row">
 					Title <span class="hint-small">Required</span>
 				</div>
-				<input name="title" bind:value={publishTitle} required autocomplete="off" />
+				<input name="title" bind:value={publish.title} required autocomplete="off" />
 			</label>
 			<label>
 				Description
-				<textarea name="description" bind:value={publishDescription} rows={3}></textarea>
+				<textarea name="description" bind:value={publish.description} rows={3}></textarea>
 			</label>
 			<label>
 				<div class="label-row">
 					Tags <span class="hint-small">Comma-separated</span>
 				</div>
-				<input name="tags" bind:value={publishTags} placeholder="ambient, generative, …" />
+				<input name="tags" bind:value={publish.tags} placeholder="ambient, generative, …" />
 			</label>
 
 			{#if form?.error}
@@ -169,9 +169,9 @@
 			{/if}
 
 			<div class="dialog-actions">
-				<button type="button" onclick={() => dialogEl?.close()}>cancel</button>
-				<button type="submit" disabled={publishing}>
-					{publishing ? 'publishing…' : 'publish'}
+				<button type="button" onclick={() => publish.dialogEl?.close()}>cancel</button>
+				<button type="submit" disabled={publish.isSubmitting}>
+					{publish.isSubmitting ? 'publishing…' : 'publish'}
 				</button>
 			</div>
 		</form>

@@ -1,7 +1,7 @@
 import type { LoadedSketch } from './audio.svelte';
 
 type ReplControls = {
-	canPublish: boolean;
+	canPublish: () => boolean;
 	getSketch: () => LoadedSketch;
 	publish: () => void;
 };
