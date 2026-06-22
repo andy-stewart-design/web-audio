@@ -4,6 +4,7 @@
 	import CodeEditor from '@/components/code-editor/index.svelte';
 	import type { PageData, ActionData } from './$types';
 	import { audio } from '$lib/client/audio.svelte';
+	import { replControls } from '$lib/client/repl-controls.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -17,7 +18,6 @@
 
 	// REPL state — seeded from ?load= param if present
 	let code = $state(initial?.code ?? DEFAULT_CODE);
-	const isRunning = $derived(audio.isRunning);
 	let logs = $state<LogEntry[]>([]);
 
 	// Publish dialog state
@@ -53,24 +53,21 @@
 		publishedUri = null;
 		dialogEl?.showModal();
 	}
+
+	$effect(() =>
+		replControls.register({
+			title: publishTitle,
+			canPublish: Boolean(data.session.did && code.trim()),
+			run: () => void evaluate(code),
+			stop,
+			publish: openPublishDialog
+		})
+	);
 </script>
 
 <div class="repl">
 	<div class="body">
 		<div class="col-left">
-			<div class="toolbar">
-				<button onclick={() => evaluate(code)}>Run</button>
-				<button onclick={stop} disabled={!isRunning}>Stop</button>
-				<button
-					class="publish-btn"
-					onclick={openPublishDialog}
-					disabled={!data.session.did || !code.trim()}
-					title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
-				>
-					Publish
-				</button>
-			</div>
-
 			<div class="editor">
 				<CodeEditor bind:value={code} onRun={evaluate} onStop={stop} />
 			</div>
@@ -172,40 +169,15 @@
 
 	.col-left {
 		display: grid;
-		grid-template-rows: auto minmax(0, 1fr);
 		height: 100%;
 		overflow: hidden;
-	}
-
-	.toolbar {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		block-size: var(--ui-header-block-size);
-		padding-inline: 1rem;
-		border-bottom: 1px solid var(--color-border-subtle);
-
-		button {
-			padding: 0.375rem 1rem;
-			font-size: 0.875rem;
-			font-weight: 500;
-			border-radius: 100vmax;
-			border: none;
-			background: var(--color-fg-primary);
-			color: var(--color-bg-primary);
-			cursor: pointer;
-		}
-	}
-
-	.publish-btn {
-		margin-left: auto;
 	}
 
 	.editor {
 		min-width: 0;
 		min-height: 0;
 		overflow: clip;
-		block-size: calc(100dvh - var(--ui-header-block-size) * 2);
+		block-size: calc(100dvh - var(--ui-header-block-size));
 		background: var(--color-bg-primary);
 		height: 100%;
 	}
