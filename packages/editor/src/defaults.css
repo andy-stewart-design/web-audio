@@ -4,6 +4,8 @@
   --cm-editor-font-family: var(--font-mono, monospace);
   --cm-editor-font-size: var(--font-sm, 0.875rem);
   --cm-editor-block-size: auto;
+  --cm-editor-padding-block-start: 0.5lh;
+  --cm-editor-padding-block-end: 10lh;
 
   --cm-scrollbar-color: var(--color-fg-tertiary, gray);
 
@@ -11,28 +13,33 @@
   --cm-cursor-width: 1.5px;
 
   --cm-selection-color-background: light-dark(
-    rgb(0 0 0 / 0.15),
-    rgb(255 255 255 / 0.2)
+    var(--color-neutral-200),
+    var(--color-neutral-800)
   );
 
   --cm-gutter-color-foreground: var(--color-fg-tertiary, inherit);
   --cm-gutter-color-background: var(--color-bg-primary, transparent);
   --cm-gutter-font-size: var(--cm-editor-font-size);
   --cm-gutter-border-width: 1px;
-  --cm-gutter-border-color: var(--color-border-subtle, rgb(255 255 255 / 0.25));
+  --cm-gutter-border-color: var(
+    --color-border-subtle,
+    light-dark(oklch(92% 0.006 274), oklch(24% 0.008 264))
+  );
 
   --cm-line-color-background: transparent;
   --cm-line-inline-size: auto;
 
-  --cm-active-line-blurred-color-background: transparent;
+  --cm-active-line-color-background-blurred: transparent;
   --cm-active-line-color-background: light-dark(
-    rgb(0 0 0 / 0.04),
-    rgb(255 255 255 / 0.1)
+    oklch(var(--color-black-lch, 100% 0 285) / 0.0375),
+    oklch(var(--color-white-lch, 0% 0 285) / 0.0875)
   );
   --cm-active-gutter-color-background: var(--cm-active-line-color-background);
+  --cm-active-gutter-border-color: var(--color-fg-tertiary);
 
+  --cm-matching-bracket-color-background: transparent;
   --cm-matching-bracket-color-background: light-dark(
-    rgb(0 0 0 / 0.12),
-    rgb(255 255 255 / 0.16)
+    var(--color-neutral-300),
+    var(--color-neutral-600)
   );
 }

@@ -3,12 +3,21 @@
   "type": "module",
   "version": "0.0.0",
   "exports": {
-    "./tokens.css": "./dist/tokens.css",
-    "./reset.css": "./dist/reset.css",
+    "./tokens.css": {
+      "development": "./src/tokens/index.css",
+      "production": "./dist/tokens.css",
+      "default": "./dist/tokens.css"
+    },
+    "./reset.css": {
+      "development": "./src/reset.css",
+      "production": "./dist/reset.css",
+      "default": "./dist/reset.css"
+    },
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "scripts": {
     "build": "pnpm build:tokens && pnpm build:reset",

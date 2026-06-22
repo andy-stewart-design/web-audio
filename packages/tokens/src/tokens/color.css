@@ -1,10 +1,45 @@
 :where(html) {
-  --color-bg-primary: light-dark(#fff, #000);
-  --color-bg-secondary: light-dark(#efefef, #111);
+  /* PRIMITIVE -------------------------------------------------- */
+  --color-white-lch: 100% 0 285;
+  --color-white: oklch(var(--color-white-lch));
+  --color-black-lch: 0% 0 285;
+  --color-black: oklch(var(--color-black-lch));
 
-  --color-fg-primary: light-dark(#000, #fff);
-  --color-fg-secondary: light-dark(#444, #ccc);
-  --color-fg-tertiary: light-dark(#888, #777);
+  --color-neutral-50: oklch(97.5% 0.006 274);
+  --color-neutral-100: oklch(92% 0.006 274);
+  --color-neutral-200: oklch(76% 0.01 258);
+  --color-neutral-300: oklch(68.2% 0.013 259);
+  --color-neutral-400: oklch(60.5% 0.015 258);
+  --color-neutral-500: oklch(52.5% 0.016 258);
+  --color-neutral-600: oklch(44% 0.017 258);
+  --color-neutral-700: oklch(36.5% 0.014 256);
+  --color-neutral-800: oklch(30% 0.011 254);
+  --color-neutral-850: oklch(24% 0.008 264);
+  --color-neutral-900: oklch(17% 0.008 264);
+  --color-neutral-950: oklch(12% 0.005 285);
 
-  --color-border-subtle: light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.1));
+  /* SEMANTIC -------------------------------------------------- */
+  --color-bg-primary: light-dark(var(--color-white), var(--color-neutral-950));
+  --color-bg-secondary: light-dark(
+    var(--color-neutral-50),
+    var(--color-neutral-900)
+  );
+
+  --color-fg-primary: light-dark(
+    var(--color-neutral-950),
+    var(--color-neutral-100)
+  );
+  --color-fg-secondary: light-dark(
+    var(--color-neutral-700),
+    var(--color-neutral-300)
+  );
+  --color-fg-tertiary: light-dark(
+    var(--color-neutral-400),
+    var(--color-neutral-500)
+  );
+
+  --color-border-subtle: light-dark(
+    var(--color-neutral-100),
+    var(--color-neutral-850)
+  );
 }
