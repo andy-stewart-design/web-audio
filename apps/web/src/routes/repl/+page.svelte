@@ -4,7 +4,7 @@
 	import CodeEditor from '@/components/code-editor/index.svelte';
 	import type { PageData, ActionData } from './$types';
 	import { audio } from '$lib/client/audio.svelte';
-	import { replControls } from '$lib/client/repl-controls.svelte';
+	import { globalControls } from '$lib/client/global-controls.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -39,23 +39,16 @@
 		logs = [{ id: crypto.randomUUID(), text, type }, ...logs];
 	}
 
-	function getCurrentSketch() {
-		return {
-			uri: initialSketch?.uri ?? null,
-			title: publish.title.trim() || initialSketch?.title || '',
-			code
-		};
-	}
-
-	async function runCode(input: string) {
+	async function runCode(input: string = code) {
 		try {
 			await audio.play({
-				...getCurrentSketch(),
+				uri: initialSketch?.uri ?? null,
+				title: publish.title.trim() || initialSketch?.title || '',
 				code: input
 			});
-			addLog('✓', 'output');
+			addLog('✓ Code evaluated', 'output');
 		} catch (err) {
-			addLog(`✗ ${(err as Error).message}`, 'error');
+			addLog(`× ${(err as Error).message}`, 'error');
 		}
 	}
 
@@ -84,9 +77,10 @@
 			});
 		}
 
-		return replControls.register({
+		return globalControls.register({
+			play: () => runCode(),
+			canPlay: () => Boolean(code.trim()),
 			canPublish,
-			getSketch: getCurrentSketch,
 			publish: openPublishDialog
 		});
 	});
@@ -212,7 +206,7 @@
 	.sidebar {
 		min-height: 0;
 		overflow: hidden;
-		background: var(--color-bg-secondary);
+
 		border-left: 1px solid var(--color-border-subtle);
 	}
 
@@ -235,7 +229,8 @@
 		padding: 0.75rem 1rem;
 		overflow-y: auto;
 		font-family: monospace;
-		font-size: 0.9375rem;
+		font-size: var(--font-xs);
+		background: var(--color-bg-secondary);
 	}
 
 	.empty {

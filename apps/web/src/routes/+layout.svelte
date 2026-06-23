@@ -6,17 +6,14 @@
 	import IconRepeat from '@/components/icons/icon-repeat.svelte';
 	import IconStop from '@/components/icons/icon-stop.svelte';
 	import favicon from '@/lib/assets/favicon.svg';
-	import { audio } from '@/lib/client/audio.svelte';
-	import { replControls } from '$lib/client/repl-controls.svelte';
+	import { globalControls } from '@/lib/client/global-controls.svelte';
 	import '@/styles/global.css';
 
 	let { children, data } = $props();
 
-	const isRunning = $derived(audio.isRunning);
 	const isRepl = $derived(page.url.pathname === '/repl');
-	const controls = $derived(isRepl ? replControls.controls : null);
-	const loadedSketch = $derived(audio.loadedSketch);
-	const canPlay = $derived(isRepl ? Boolean(controls) : Boolean(loadedSketch));
+	const isRunning = $derived(globalControls.isRunning);
+	const canPlay = $derived(globalControls.canPlay);
 	const playLabel = $derived(
 		isRepl ? (isRunning ? 'Restart sketch' : 'Run sketch') : 'Play sketch'
 	);
@@ -24,8 +21,7 @@
 
 	async function handlePlay() {
 		try {
-			if (isRepl && controls) await audio.play(controls.getSketch());
-			else await audio.play();
+			await globalControls.play();
 		} catch {
 			// error is set on audio.lastError; nothing more to do here
 		}
@@ -47,23 +43,23 @@
 				{/if}
 			</button>
 			<button
-				onclick={() => audio.stop()}
-				disabled={!isRunning}
+				onclick={() => globalControls.stop()}
+				disabled={!globalControls.canStop}
 				aria-label="Stop sketch"
 				title="Stop sketch"
 			>
 				<IconStop size={20} fill="currentColor" />
 			</button>
-			{#if loadedSketch?.title}
-				<span class="track-title">{loadedSketch.title}</span>
+			{#if globalControls.title}
+				<span class="track-title">{globalControls.title}</span>
 			{/if}
 		</div>
 
-		{#if controls}
+		{#if globalControls.showPublish}
 			<button
 				class="publish-btn"
-				onclick={controls.publish}
-				disabled={!controls.canPublish()}
+				onclick={() => globalControls.publish()}
+				disabled={!globalControls.canPublish}
 				aria-label={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
 				title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
 			>
