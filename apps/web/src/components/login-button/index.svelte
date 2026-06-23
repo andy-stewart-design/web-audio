@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import IconUser24 from '@/components/icons/icon-user-24.svelte';
+	import IconUser from '@/components/icons/icon-user.svelte';
 	import LoginDialog from './login-dialog.svelte';
 	import ProfilePopover from './profile-popover.svelte';
 	import { getOAuthURL, type ButtonProps } from './utils';
@@ -55,7 +55,7 @@
 			class="avatar"
 		/>
 	{:else}
-		<IconUser24 />
+		<IconUser fill="currentColor" />
 	{/if}
 </button>
 

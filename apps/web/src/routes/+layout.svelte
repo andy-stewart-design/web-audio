@@ -1,8 +1,12 @@
 <script lang="ts">
-	import LoginButton from '@/components/login-button/index.svelte';
 	import { page } from '$app/state';
+	import LoginButton from '@/components/login-button/index.svelte';
+	import IconPlay from '@/components/icons/icon-play.svelte';
+	import IconPublish from '@/components/icons/icon-publish.svelte';
+	import IconRepeat from '@/components/icons/icon-repeat.svelte';
+	import IconStop from '@/components/icons/icon-stop.svelte';
 	import favicon from '@/lib/assets/favicon.svg';
-	import { audio } from '$lib/client/audio.svelte';
+	import { audio } from '@/lib/client/audio.svelte';
 	import { replControls } from '$lib/client/repl-controls.svelte';
 	import '@/styles/global.css';
 
@@ -13,6 +17,10 @@
 	const controls = $derived(isRepl ? replControls.controls : null);
 	const loadedSketch = $derived(audio.loadedSketch);
 	const canPlay = $derived(isRepl ? Boolean(controls) : Boolean(loadedSketch));
+	const playLabel = $derived(
+		isRepl ? (isRunning ? 'Restart sketch' : 'Run sketch') : 'Play sketch'
+	);
+	const showRepeatIcon = $derived(isRepl && isRunning);
 
 	async function handlePlay() {
 		try {
@@ -31,8 +39,21 @@
 <header>
 	<div class="header-main">
 		<div class="transport-controls">
-			<button onclick={handlePlay} disabled={!canPlay}>{isRepl ? 'Run' : 'Play'}</button>
-			<button onclick={() => audio.stop()} disabled={!isRunning}>Stop</button>
+			<button onclick={handlePlay} disabled={!canPlay} aria-label={playLabel} title={playLabel}>
+				{#if showRepeatIcon}
+					<IconRepeat size={20} />
+				{:else}
+					<IconPlay size={20} fill="currentColor" />
+				{/if}
+			</button>
+			<button
+				onclick={() => audio.stop()}
+				disabled={!isRunning}
+				aria-label="Stop sketch"
+				title="Stop sketch"
+			>
+				<IconStop size={20} fill="currentColor" />
+			</button>
 			{#if loadedSketch?.title}
 				<span class="track-title">{loadedSketch.title}</span>
 			{/if}
@@ -43,9 +64,10 @@
 				class="publish-btn"
 				onclick={controls.publish}
 				disabled={!controls.canPublish()}
+				aria-label={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
 				title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
 			>
-				Publish
+				<IconPublish size={20} />
 			</button>
 		{/if}
 	</div>
@@ -78,7 +100,7 @@
 	.header-right {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 0.25rem;
 	}
 
 	.header-right {
@@ -87,18 +109,20 @@
 	}
 
 	button {
-		padding: 0.375rem 1rem;
+		display: flex;
+		padding: 0.5rem;
 		font-size: 0.875rem;
 		font-weight: 500;
 		border-radius: 100vmax;
 		border: none;
-		background: var(--color-fg-primary);
-		color: var(--color-bg-primary);
+		background: none;
+		/*color: var(--color-bg-primary);*/
 		cursor: pointer;
 
 		&:disabled {
 			cursor: default;
 			opacity: 0.5;
+			color: var(--color-fg-tertiary);
 		}
 	}
 
