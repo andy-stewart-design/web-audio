@@ -83,8 +83,8 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		width: 2.5rem;
-		height: 2.5rem;
+		block-size: 2.25rem;
+		inline-size: 2.25rem;
 		background: var(--color-bg-secondary);
 		padding: 0;
 		border: none;

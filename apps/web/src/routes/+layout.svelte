@@ -106,13 +106,16 @@
 
 	button {
 		display: flex;
-		padding: 0.5rem;
+		justify-content: center;
+		align-items: center;
+		block-size: 2.25rem;
+		inline-size: 2.25rem;
+		padding: 0;
 		font-size: 0.875rem;
 		font-weight: 500;
 		border-radius: 100vmax;
 		border: none;
 		background: none;
-		/*color: var(--color-bg-primary);*/
 		cursor: pointer;
 
 		&:disabled {
