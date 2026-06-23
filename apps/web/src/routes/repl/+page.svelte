@@ -76,6 +76,7 @@
 		if (!initialSketch) {
 			audio.clear();
 		} else if (audio.loadedSketch?.uri !== initialSketch.uri) {
+			audio.stop();
 			audio.load({
 				uri: initialSketch.uri,
 				title: initialSketch.title,
