@@ -37,7 +37,7 @@ export type SketchCard = {
 	createdAt: string;
 };
 
-export type SketchRecord = {
+export type SketchDetail = {
 	uri: string;
 	cid: string;
 	title: string;
@@ -185,7 +185,7 @@ export async function listSketches(did: string, limit = 50): Promise<SketchCard[
 /**
  * Fetch a single live.drome.sketch record by AT URI.
  */
-export async function getSketch(atUri: string): Promise<SketchRecord> {
+export async function getSketch(atUri: string): Promise<SketchDetail> {
 	const [, did, collection, rkey] =
 		atUri.replace('at://', '').match(/^([^/]+)\/([^/]+)\/(.+)$/) ?? [];
 	if (!did) throw new Error(`Invalid AT URI: ${atUri}`);
