@@ -1,16 +1,14 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { audioPlayer, sketchWorkspace } from '@/lib/globals';
+	import { audio, sketchWorkspace } from '@/lib/globals';
 	import IconBookmark from '@/components/icons/icon-bookmark.svelte';
 	import type { SketchCard } from '@/lib/server/atproto/reads';
 	import Button from '@/components/core/button/index.svelte';
 
 	let { sketch }: { sketch: SketchCard } = $props();
 
-	const isThisPlaying = $derived(
-		sketchWorkspace.loaded?.uri === sketch.uri && audioPlayer.isRunning
-	);
+	const isThisPlaying = $derived(sketchWorkspace.loaded?.uri === sketch.uri && audio.isRunning);
 	const rkey = $derived(sketch.uri.split('/').at(-1));
 
 	async function handleBookmark() {
@@ -46,11 +44,11 @@
 
 	async function handlePlay() {
 		if (isThisPlaying) {
-			audioPlayer.stop();
+			audio.stop();
 			return;
 		}
 		sketchWorkspace.load(sketch);
-		await audioPlayer.play(sketch.code);
+		await audio.play(sketch.code);
 	}
 </script>
 

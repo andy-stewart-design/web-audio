@@ -97,4 +97,4 @@ class AudioPlayer {
 	}
 }
 
-export const audioPlayer = new AudioPlayer();
+export const audio = new AudioPlayer();

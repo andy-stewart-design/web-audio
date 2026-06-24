@@ -3,7 +3,7 @@
 	import { enhance } from '$app/forms';
 	import CodeEditor from '@/components/code-editor/index.svelte';
 	import type { PageData, ActionData } from './$types';
-	import { audioPlayer, sketchPersistence, sketchWorkspace } from '$lib/globals';
+	import { audio, sketchPersistence, sketchWorkspace } from '$lib/globals';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -25,7 +25,7 @@
 		const loaded = sketchWorkspace.commitDraft();
 
 		if (loaded) {
-			const entry = await audioPlayer.play(loaded.code);
+			const entry = await audio.play(loaded.code);
 			sketchWorkspace.addLog(entry);
 		}
 	}
@@ -41,7 +41,7 @@
 
 	onMount(() => {
 		const shouldStop = !initialSketch || previousLoadedUri !== initialSketch.uri;
-		if (shouldStop) audioPlayer.stop();
+		if (shouldStop) audio.stop();
 
 		const unregisterPublish = sketchPersistence.register({
 			canPublish,
@@ -60,7 +60,7 @@
 		<div class="col-left">
 			<div class="editor">
 				{#if draft}
-					<CodeEditor bind:value={draft.code} onRun={runDraft} onStop={() => audioPlayer.stop()} />
+					<CodeEditor bind:value={draft.code} onRun={runDraft} onStop={() => audio.stop()} />
 				{/if}
 			</div>
 		</div>

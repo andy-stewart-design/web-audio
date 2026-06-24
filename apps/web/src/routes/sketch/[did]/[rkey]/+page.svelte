@@ -4,20 +4,20 @@
 	import type { PageData } from './$types';
 	import IconBookmark from '@/components/icons/icon-bookmark.svelte';
 	import Button from '@/components/core/button/index.svelte';
-	import { audioPlayer, sketchWorkspace } from '@/lib/globals';
+	import { audio, sketchWorkspace } from '@/lib/globals';
 
 	let { data }: { data: PageData } = $props();
 
-	const isPlaying = $derived(sketchWorkspace.loaded?.uri === data.atUri && audioPlayer.isRunning);
+	const isPlaying = $derived(sketchWorkspace.loaded?.uri === data.atUri && audio.isRunning);
 
 	async function handlePlay() {
 		if (isPlaying) {
-			audioPlayer.stop();
+			audio.stop();
 			return;
 		}
 		const loadedSketch = { uri: data.atUri, title: data.sketch.title, code: data.sketch.code };
 		sketchWorkspace.load(loadedSketch);
-		await audioPlayer.play(loadedSketch.code);
+		await audio.play(loadedSketch.code);
 	}
 
 	async function handleBookmark() {

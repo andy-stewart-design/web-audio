@@ -6,13 +6,13 @@
 	import IconRepeat from '@/components/icons/icon-repeat.svelte';
 	import IconStop from '@/components/icons/icon-stop.svelte';
 	import favicon from '@/lib/assets/favicon.svg';
-	import { audioPlayer, sketchPersistence, sketchWorkspace } from '@/lib/globals';
+	import { audio, sketchPersistence, sketchWorkspace } from '@/lib/globals';
 	import '@/styles/global.css';
 
 	let { children, data } = $props();
 
 	const isRepl = $derived(page.url.pathname === '/repl');
-	const isRunning = $derived(audioPlayer.isRunning);
+	const isRunning = $derived(audio.isRunning);
 	const canPlay = $derived(Boolean(sketchWorkspace.draft?.code.trim() || sketchWorkspace.loaded));
 	const playLabel = $derived(
 		isRepl ? (isRunning ? 'Restart sketch' : 'Run sketch') : 'Play sketch'
@@ -24,10 +24,10 @@
 			const loaded = sketchWorkspace.commitDraft();
 			if (!loaded) return;
 
-			const log = await audioPlayer.play(loaded.code);
+			const log = await audio.play(loaded.code);
 			sketchWorkspace.addLog(log);
 		} else if (sketchWorkspace.loaded) {
-			await audioPlayer.play(sketchWorkspace.loaded.code);
+			await audio.play(sketchWorkspace.loaded.code);
 		}
 	}
 </script>
@@ -47,8 +47,8 @@
 				{/if}
 			</button>
 			<button
-				onclick={() => audioPlayer.stop()}
-				disabled={!audioPlayer.isRunning}
+				onclick={() => audio.stop()}
+				disabled={!audio.isRunning}
 				aria-label="Stop sketch"
 				title="Stop sketch"
 			>
