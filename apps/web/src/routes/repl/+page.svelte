@@ -42,10 +42,15 @@
 		const shouldStop = !initialSketch || sketchWorkspace.loaded?.uri !== initialSketch.uri;
 		if (shouldStop) audioPlayer.stop();
 
-		return sketchPersistence.register({
+		const unregisterPublish = sketchPersistence.register({
 			canPublish,
 			publish: openPublishDialog
 		});
+
+		return () => {
+			unregisterPublish();
+			sketchWorkspace.clearDraft();
+		};
 	});
 </script>
 

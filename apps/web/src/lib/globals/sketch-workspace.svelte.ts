@@ -81,6 +81,10 @@ class SketchWorkspace {
 		return this.loaded;
 	}
 
+	clearDraft() {
+		this.draft = null;
+	}
+
 	addLog(entry: LogEntry) {
 		this.logs = [entry, ...this.logs];
 	}
