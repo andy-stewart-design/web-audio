@@ -3,17 +3,17 @@
 	import { enhance } from '$app/forms';
 	import CodeEditor from '@/components/code-editor/index.svelte';
 	import type { PageData, ActionData } from './$types';
-	import { audio, persistence, sketchWorkspace } from '$lib/globals';
+	import { audio, persistence, workspace } from '$lib/globals';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	// Read initial sketch data once — untrack prevents Svelte from warning about
 	// one-time reads of reactive `data` while initializing global draft state.
 	const initialSketch = untrack(() => data.loadedSketch);
-	const previousLoadedUri = sketchWorkspace.loaded?.uri;
-	sketchWorkspace.openDraft(initialSketch ?? undefined);
+	const previousLoadedUri = workspace.loaded?.uri;
+	workspace.openDraft(initialSketch ?? undefined);
 
-	const draft = $derived(sketchWorkspace.draft);
+	const draft = $derived(workspace.draft);
 
 	let publish = $state({
 		dialogEl: undefined as HTMLDialogElement | undefined,
@@ -22,16 +22,16 @@
 	});
 
 	async function runDraft() {
-		const loaded = sketchWorkspace.commitDraft();
+		const loaded = workspace.commitDraft();
 
 		if (loaded) {
 			const entry = await audio.play(loaded.code);
-			sketchWorkspace.addLog(entry);
+			workspace.addLog(entry);
 		}
 	}
 
 	function canPublish() {
-		return Boolean(data.session.did && sketchWorkspace.draft?.code.trim());
+		return Boolean(data.session.did && workspace.draft?.code.trim());
 	}
 
 	function openPublishDialog() {
@@ -50,7 +50,7 @@
 
 		return () => {
 			unregisterPublish();
-			sketchWorkspace.clearDraft();
+			workspace.clearDraft();
 		};
 	});
 </script>
@@ -69,10 +69,10 @@
 			<section class="panel" aria-label="Output log">
 				<h2>Log</h2>
 				<div class="log">
-					{#if sketchWorkspace.logs.length === 0}
+					{#if workspace.logs.length === 0}
 						<span class="empty">no output</span>
 					{:else}
-						{#each sketchWorkspace.logs as entry (entry.id)}
+						{#each workspace.logs as entry (entry.id)}
 							<div class={entry.type}>{entry.type === 'output' ? '✓' : '×'} {entry.message}</div>
 						{/each}
 					{/if}

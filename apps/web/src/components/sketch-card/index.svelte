@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { audio, sketchWorkspace } from '@/lib/globals';
+	import { audio, workspace } from '@/lib/globals';
 	import IconBookmark from '@/components/icons/icon-bookmark.svelte';
 	import type { SketchCard } from '@/lib/server/atproto/reads';
 	import Button from '@/components/core/button/index.svelte';
 
 	let { sketch }: { sketch: SketchCard } = $props();
 
-	const isThisPlaying = $derived(sketchWorkspace.loaded?.uri === sketch.uri && audio.isRunning);
+	const isThisPlaying = $derived(workspace.loaded?.uri === sketch.uri && audio.isRunning);
 	const rkey = $derived(sketch.uri.split('/').at(-1));
 
 	async function handleBookmark() {
@@ -47,7 +47,7 @@
 			audio.stop();
 			return;
 		}
-		sketchWorkspace.load(sketch);
+		workspace.load(sketch);
 		await audio.play(sketch.code);
 	}
 </script>

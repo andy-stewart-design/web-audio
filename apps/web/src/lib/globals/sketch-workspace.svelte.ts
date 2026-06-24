@@ -94,4 +94,4 @@ class SketchWorkspace {
 	}
 }
 
-export const sketchWorkspace = new SketchWorkspace();
+export const workspace = new SketchWorkspace();

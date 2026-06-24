@@ -4,11 +4,11 @@
 	import type { PageData } from './$types';
 	import IconBookmark from '@/components/icons/icon-bookmark.svelte';
 	import Button from '@/components/core/button/index.svelte';
-	import { audio, sketchWorkspace } from '@/lib/globals';
+	import { audio, workspace } from '@/lib/globals';
 
 	let { data }: { data: PageData } = $props();
 
-	const isPlaying = $derived(sketchWorkspace.loaded?.uri === data.atUri && audio.isRunning);
+	const isPlaying = $derived(workspace.loaded?.uri === data.atUri && audio.isRunning);
 
 	async function handlePlay() {
 		if (isPlaying) {
@@ -16,7 +16,7 @@
 			return;
 		}
 		const loadedSketch = { uri: data.atUri, title: data.sketch.title, code: data.sketch.code };
-		sketchWorkspace.load(loadedSketch);
+		workspace.load(loadedSketch);
 		await audio.play(loadedSketch.code);
 	}
 

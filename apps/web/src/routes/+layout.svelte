@@ -6,28 +6,28 @@
 	import IconRepeat from '@/components/icons/icon-repeat.svelte';
 	import IconStop from '@/components/icons/icon-stop.svelte';
 	import favicon from '@/lib/assets/favicon.svg';
-	import { audio, persistence, sketchWorkspace } from '@/lib/globals';
+	import { audio, persistence, workspace } from '@/lib/globals';
 	import '@/styles/global.css';
 
 	let { children, data } = $props();
 
 	const isRepl = $derived(page.url.pathname === '/repl');
 	const isRunning = $derived(audio.isRunning);
-	const canPlay = $derived(Boolean(sketchWorkspace.draft?.code.trim() || sketchWorkspace.loaded));
+	const canPlay = $derived(Boolean(workspace.draft?.code.trim() || workspace.loaded));
 	const playLabel = $derived(
 		isRepl ? (isRunning ? 'Restart sketch' : 'Run sketch') : 'Play sketch'
 	);
 	const showRepeatIcon = $derived(isRepl && isRunning);
 
 	async function handlePlay() {
-		if (isRepl && sketchWorkspace.draft) {
-			const loaded = sketchWorkspace.commitDraft();
+		if (isRepl && workspace.draft) {
+			const loaded = workspace.commitDraft();
 			if (!loaded) return;
 
 			const log = await audio.play(loaded.code);
-			sketchWorkspace.addLog(log);
-		} else if (sketchWorkspace.loaded) {
-			await audio.play(sketchWorkspace.loaded.code);
+			workspace.addLog(log);
+		} else if (workspace.loaded) {
+			await audio.play(workspace.loaded.code);
 		}
 	}
 </script>
@@ -54,8 +54,8 @@
 			>
 				<IconStop size={20} fill="currentColor" />
 			</button>
-			{#if sketchWorkspace.loaded?.title}
-				<span class="track-title">{sketchWorkspace.loaded.title}</span>
+			{#if workspace.loaded?.title}
+				<span class="track-title">{workspace.loaded.title}</span>
 			{/if}
 		</div>
 
