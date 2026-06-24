@@ -1,10 +1,8 @@
 import { audio } from './audio.svelte';
 
-export type AudioPlayer = typeof audio;
-
 type ControlOverrides = {
-	play?: (player: AudioPlayer) => Promise<void> | void;
-	stop?: (player: AudioPlayer) => void;
+	play?: () => Promise<void> | void;
+	stop?: () => void;
 	publish?: () => void;
 	canPlay?: () => boolean;
 	canPublish?: () => boolean;
@@ -44,17 +42,9 @@ class GlobalControls {
 		return Boolean(this.overrides?.publish);
 	}
 
-	get player() {
-		return audio;
-	}
-
-	withPlayer<T>(callback: (player: AudioPlayer) => T) {
-		return callback(audio);
-	}
-
 	async play() {
 		if (this.overrides?.play) {
-			await this.overrides.play(audio);
+			await this.overrides.play();
 			return;
 		}
 
@@ -63,7 +53,7 @@ class GlobalControls {
 
 	stop() {
 		if (this.overrides?.stop) {
-			this.overrides.stop(audio);
+			this.overrides.stop();
 			return;
 		}
 
