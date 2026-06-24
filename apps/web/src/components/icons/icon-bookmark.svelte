@@ -19,7 +19,7 @@
 	{...props}
 >
 	<path
-		d="M 9 3 L 15 3 Q 18 3 18 6 L 18 21 L 12 15 L 6 21 L 6 6 Q 6 3 9 3 Z"
+		d="M19 21V6C19 4.5 17.5 3 16 3L8 3C6.5 3 5 4.5 5 6V21L12 16L19 21Z"
 		vector-effect="non-scaling-stroke"
 	/>
 </svg>
