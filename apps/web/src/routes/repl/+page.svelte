@@ -10,6 +10,7 @@
 	// Read initial sketch data once — untrack prevents Svelte from warning about
 	// one-time reads of reactive `data` while initializing global draft state.
 	const initialSketch = untrack(() => data.loadedSketch);
+	const previousLoadedUri = sketchWorkspace.loaded?.uri;
 	sketchWorkspace.openDraft(initialSketch ?? undefined);
 
 	const draft = $derived(sketchWorkspace.draft);
@@ -39,7 +40,7 @@
 	}
 
 	onMount(() => {
-		const shouldStop = !initialSketch || sketchWorkspace.loaded?.uri !== initialSketch.uri;
+		const shouldStop = !initialSketch || previousLoadedUri !== initialSketch.uri;
 		if (shouldStop) audioPlayer.stop();
 
 		const unregisterPublish = sketchPersistence.register({
