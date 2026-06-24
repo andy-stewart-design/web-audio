@@ -4,7 +4,7 @@
 	import type { PageData } from './$types';
 	import IconBookmark from '@/components/icons/icon-bookmark.svelte';
 	import Button from '@/components/core/button/index.svelte';
-	import { audio } from '@/lib/client/audio.svelte';
+	import { audioPlayer, sketchWorkspace } from '@/lib/globals';
 
 	let { data }: { data: PageData } = $props();
 
@@ -31,22 +31,20 @@
 		return { did, rkey };
 	}
 
-	const isPlaying = $derived(audio.loadedSketch?.uri === atUri && audio.isRunning);
+	const isPlaying = $derived(sketchWorkspace.loaded?.uri === atUri && audioPlayer.isRunning);
 
 	async function handlePlay() {
 		if (isPlaying) {
-			audio.stop();
+			audioPlayer.stop();
 			return;
 		}
-		try {
-			await audio.play({
-				uri: atUri,
-				title: data.sketch.title,
-				code: data.sketch.code
-			});
-		} catch {
-			// error is set on audio.lastError
-		}
+		const loadedSketch = {
+			uri: atUri,
+			title: data.sketch.title,
+			code: data.sketch.code
+		};
+		sketchWorkspace.load(loadedSketch);
+		await audioPlayer.play(loadedSketch.code);
 	}
 
 	async function handleBookmark() {

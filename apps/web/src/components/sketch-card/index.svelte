@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { audio } from '@/lib/client/audio.svelte';
+	import { audioPlayer, sketchWorkspace } from '@/lib/globals';
 	import IconBookmark from '@/components/icons/icon-bookmark.svelte';
 	import type { SketchCard } from '@/lib/server/atproto/reads';
 	import Button from '@/components/core/button/index.svelte';
 
 	let { sketch }: { sketch: SketchCard } = $props();
 
-	const isThisPlaying = $derived(audio.loadedSketch?.uri === sketch.uri && audio.isRunning);
+	const isThisPlaying = $derived(
+		sketchWorkspace.loaded?.uri === sketch.uri && audioPlayer.isRunning
+	);
 	const rkey = $derived(sketch.uri.split('/').at(-1));
 
 	async function handleBookmark() {
@@ -44,14 +46,11 @@
 
 	async function handlePlay() {
 		if (isThisPlaying) {
-			audio.stop();
+			audioPlayer.stop();
 			return;
 		}
-		try {
-			await audio.play(sketch);
-		} catch {
-			// error is set on audio.lastError; nothing more to do here
-		}
+		sketchWorkspace.load(sketch);
+		await audioPlayer.play(sketch.code);
 	}
 </script>
 
