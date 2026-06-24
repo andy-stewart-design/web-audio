@@ -27,11 +27,37 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	}
 
 	// Parent sketch title for "Remixed from" display
-	let remixedFrom: { uri: string; title: string } | null = null;
+	let remixedFrom: { uri: string; title: string; href: string } | null = null;
 	if (sketch.previousVersion) {
 		const parent = await getSketch(sketch.previousVersion).catch(() => null);
-		if (parent) remixedFrom = { uri: sketch.previousVersion, title: parent.title };
+		const match = sketch.previousVersion.replace('at://', '').match(/^([^/]+)\/([^/]+)\/(.+)$/);
+		if (parent && match) {
+			const [, did, , rkey] = match;
+			remixedFrom = {
+				uri: sketch.previousVersion,
+				title: parent.title,
+				href: `/sketch/${did}/${rkey}`
+			};
+		}
 	}
 
-	return { sketch, profile, bookmarkUri, remixedFrom };
+	const formattedDate = new Intl.DateTimeFormat('en', {
+		month: 'long',
+		day: 'numeric',
+		year: 'numeric'
+	}).format(new Date(sketch.createdAt));
+
+	const authorPrimaryLabel = profile.displayName ? profile.displayName : `@${profile.handle}`;
+	const authorSecondaryLabel = profile.displayName ? `@${profile.handle}` : undefined;
+
+	return {
+		sketch,
+		profile,
+		bookmarkUri,
+		remixedFrom,
+		atUri,
+		formattedDate,
+		authorPrimaryLabel,
+		authorSecondaryLabel
+	};
 };

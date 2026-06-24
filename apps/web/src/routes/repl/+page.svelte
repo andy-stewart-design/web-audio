@@ -21,7 +21,12 @@
 	});
 
 	async function runDraft() {
-		await sketchWorkspace.runDraft();
+		const loaded = sketchWorkspace.commitDraft();
+
+		if (loaded) {
+			const entry = await audioPlayer.play(loaded.code);
+			sketchWorkspace.addLog(entry);
+		}
 	}
 
 	function canPublish() {

@@ -20,12 +20,13 @@
 	const showRepeatIcon = $derived(isRepl && isRunning);
 
 	async function handlePlay() {
-		if (sketchWorkspace.draft) {
-			await sketchWorkspace.runDraft();
-			return;
-		}
+		if (isRepl && sketchWorkspace.draft) {
+			const loaded = sketchWorkspace.commitDraft();
+			if (!loaded) return;
 
-		if (sketchWorkspace.loaded) {
+			const log = await audioPlayer.play(loaded.code);
+			sketchWorkspace.addLog(log);
+		} else if (sketchWorkspace.loaded) {
 			await audioPlayer.play(sketchWorkspace.loaded.code);
 		}
 	}
@@ -58,7 +59,7 @@
 			{/if}
 		</div>
 
-		{#if sketchPersistence.showPublish}
+		{#if isRepl && sketchPersistence.showPublish}
 			<button
 				class="publish-btn"
 				onclick={() => sketchPersistence.publish()}

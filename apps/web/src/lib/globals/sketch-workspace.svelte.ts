@@ -1,4 +1,4 @@
-import { audioPlayer, type LogEntry } from './audio-player.svelte';
+import type { LogEntry } from './audio-player.svelte';
 
 const DEFAULT_CODE = `d.synth("triangle").push()`;
 
@@ -79,14 +79,6 @@ class SketchWorkspace {
 			code: this.draft.code
 		};
 		return this.loaded;
-	}
-
-	async runDraft() {
-		const loaded = this.commitDraft();
-		if (!loaded) return null;
-		const entry = await audioPlayer.play(loaded.code);
-		this.addLog(entry);
-		return entry;
 	}
 
 	addLog(entry: LogEntry) {

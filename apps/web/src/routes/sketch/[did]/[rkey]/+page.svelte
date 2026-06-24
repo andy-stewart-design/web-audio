@@ -8,57 +8,30 @@
 
 	let { data }: { data: PageData } = $props();
 
-	const bookmarkUri = $derived(data.bookmarkUri);
-
-	const atUri = `at://${page.params.did}/live.drome.sketch/${page.params.rkey}`;
-
-	const formattedDate = $derived(
-		new Intl.DateTimeFormat('en', { month: 'long', day: 'numeric', year: 'numeric' }).format(
-			new Date(data.sketch.createdAt)
-		)
-	);
-
-	const authorPrimaryLabel = $derived(
-		data.profile.displayName ? data.profile.displayName : `@${data.profile.handle}`
-	);
-
-	const authorSecondaryLabel = $derived(
-		data.profile.displayName ? `@${data.profile.handle}` : undefined
-	);
-
-	function remixedFromRkey(uri: string) {
-		const [, did, , rkey] = uri.replace('at://', '').match(/^([^/]+)\/([^/]+)\/(.+)$/) ?? [];
-		return { did, rkey };
-	}
-
-	const isPlaying = $derived(sketchWorkspace.loaded?.uri === atUri && audioPlayer.isRunning);
+	const isPlaying = $derived(sketchWorkspace.loaded?.uri === data.atUri && audioPlayer.isRunning);
 
 	async function handlePlay() {
 		if (isPlaying) {
 			audioPlayer.stop();
 			return;
 		}
-		const loadedSketch = {
-			uri: atUri,
-			title: data.sketch.title,
-			code: data.sketch.code
-		};
+		const loadedSketch = { uri: data.atUri, title: data.sketch.title, code: data.sketch.code };
 		sketchWorkspace.load(loadedSketch);
 		await audioPlayer.play(loadedSketch.code);
 	}
 
 	async function handleBookmark() {
-		if (bookmarkUri) {
+		if (data.bookmarkUri) {
 			await fetch('/api/bookmark', {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ bookmarkUri })
+				body: JSON.stringify({ bookmarkUri: data.bookmarkUri })
 			});
 		} else {
 			await fetch('/api/bookmark', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ subjectUri: atUri, subjectCid: data.sketch.cid })
+				body: JSON.stringify({ subjectUri: data.atUri, subjectCid: data.sketch.cid })
 			});
 		}
 		await invalidateAll();
@@ -76,20 +49,20 @@
 				</ul>
 			{/if}
 
-			<time datetime={data.sketch.createdAt}>{formattedDate}</time>
+			<time datetime={data.sketch.createdAt}>{data.formattedDate}</time>
 		</div>
 
 		{#if page.data.session?.did}
 			<button
 				class="bookmark"
-				class:active={!!bookmarkUri}
-				aria-label={bookmarkUri ? 'Remove bookmark' : 'Bookmark'}
+				class:active={!!data.bookmarkUri}
+				aria-label={data.bookmarkUri ? 'Remove bookmark' : 'Bookmark'}
 				onclick={handleBookmark}
 			>
 				<IconBookmark
 					size={24}
-					fill={bookmarkUri ? 'currentColor' : undefined}
-					opacity={bookmarkUri ? 1 : 0.5}
+					fill={data.bookmarkUri ? 'currentColor' : undefined}
+					opacity={data.bookmarkUri ? 1 : 0.5}
 				/>
 			</button>
 		{/if}
@@ -99,9 +72,8 @@
 		<h1 class="title">{data.sketch.title}</h1>
 
 		{#if data.remixedFrom}
-			{@const { did, rkey } = remixedFromRkey(data.remixedFrom.uri)}
 			<p class="remixed-from">
-				Remixed from <a href="/sketch/{did}/{rkey}">{data.remixedFrom.title}</a>
+				Remixed from <a href={data.remixedFrom.href}>{data.remixedFrom.title}</a>
 			</p>
 		{/if}
 
@@ -114,12 +86,12 @@
 		<a href="/profile/{data.profile.did}" class="author">
 			{#if data.profile.avatar}
 				<span class="avatar">
-					<img src={data.profile.avatar} alt={authorPrimaryLabel} />
+					<img src={data.profile.avatar} alt={data.authorPrimaryLabel} />
 				</span>
 			{/if}
-			{authorPrimaryLabel}
-			{#if authorSecondaryLabel}
-				<span class="handle">{authorSecondaryLabel}</span>
+			{data.authorPrimaryLabel}
+			{#if data.authorSecondaryLabel}
+				<span class="handle">{data.authorSecondaryLabel}</span>
 			{/if}
 		</a>
 
@@ -127,7 +99,7 @@
 			<Button active={isPlaying} onclick={handlePlay}>
 				{isPlaying ? 'Stop' : 'Play'}
 			</Button>
-			<Button href="/repl?load={encodeURIComponent(atUri)}">Remix</Button>
+			<Button href="/repl?load={encodeURIComponent(data.atUri)}">Remix</Button>
 		</div>
 	</footer>
 
