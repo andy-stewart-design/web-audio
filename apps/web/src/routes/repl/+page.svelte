@@ -3,7 +3,7 @@
 	import { enhance } from '$app/forms';
 	import CodeEditor from '@/components/code-editor/index.svelte';
 	import type { PageData, ActionData } from './$types';
-	import { audio, sketchPersistence, sketchWorkspace } from '$lib/globals';
+	import { audio, persistence, sketchWorkspace } from '$lib/globals';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -43,7 +43,7 @@
 		const shouldStop = !initialSketch || previousLoadedUri !== initialSketch.uri;
 		if (shouldStop) audio.stop();
 
-		const unregisterPublish = sketchPersistence.register({
+		const unregisterPublish = persistence.register({
 			canPublish,
 			publish: openPublishDialog
 		});

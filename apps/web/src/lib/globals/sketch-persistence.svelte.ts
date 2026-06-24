@@ -26,4 +26,4 @@ class SketchPersistence {
 	}
 }
 
-export const sketchPersistence = new SketchPersistence();
+export const persistence = new SketchPersistence();

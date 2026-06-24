@@ -6,7 +6,7 @@
 	import IconRepeat from '@/components/icons/icon-repeat.svelte';
 	import IconStop from '@/components/icons/icon-stop.svelte';
 	import favicon from '@/lib/assets/favicon.svg';
-	import { audio, sketchPersistence, sketchWorkspace } from '@/lib/globals';
+	import { audio, persistence, sketchWorkspace } from '@/lib/globals';
 	import '@/styles/global.css';
 
 	let { children, data } = $props();
@@ -59,11 +59,11 @@
 			{/if}
 		</div>
 
-		{#if isRepl && sketchPersistence.showPublish}
+		{#if isRepl && persistence.showPublish}
 			<button
 				class="publish-btn"
-				onclick={() => sketchPersistence.publish()}
-				disabled={!sketchPersistence.canPublish}
+				onclick={() => persistence.publish()}
+				disabled={!persistence.canPublish}
 				aria-label={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
 				title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
 			>
