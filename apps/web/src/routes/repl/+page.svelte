@@ -3,61 +3,29 @@
 	import { enhance } from '$app/forms';
 	import CodeEditor from '@/components/code-editor/index.svelte';
 	import type { PageData, ActionData } from './$types';
-	import { audio } from '$lib/client/audio.svelte';
-	import { globalControls } from '$lib/client/global-controls.svelte';
+	import { audioPlayer, sketchPersistence, sketchWorkspace } from '$lib/globals';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	const DEFAULT_CODE = `d.synth("triangle").push()`;
-
-	type LogEntry = { id: string; text: string; type: 'output' | 'error' };
-
 	// Read initial sketch data once — untrack prevents Svelte from warning about
-	// one-time reads of reactive `data` inside $state() initializers.
+	// one-time reads of reactive `data` while initializing global draft state.
 	const initialSketch = untrack(() => data.loadedSketch);
+	sketchWorkspace.openDraft(initialSketch ?? undefined);
 
-	// REPL state — seeded from ?load= param if present
-	let code = $state(initialSketch?.code ?? DEFAULT_CODE);
-	let logs = $state<LogEntry[]>([]);
+	const draft = $derived(sketchWorkspace.draft);
 
 	let publish = $state({
 		dialogEl: undefined as HTMLDialogElement | undefined,
-		title: initialSketch?.title ?? '',
-		description: initialSketch?.description ?? '',
-		tags: initialSketch?.tags?.join(', ') ?? '',
 		isSubmitting: false,
 		publishedUri: null as string | null
 	});
 
-	// Version chain — seeded from loaded sketch if it's a fork/republish
-	let version = $state({
-		rootUri: initialSketch?.rootVersion ?? initialSketch?.uri ?? null,
-		previousUri: initialSketch?.uri ?? null
-	});
-
-	function addLog(text: string, type: LogEntry['type']) {
-		logs = [{ id: crypto.randomUUID(), text, type }, ...logs];
-	}
-
-	async function runCode(input: string = code) {
-		try {
-			await audio.play({
-				uri: initialSketch?.uri ?? null,
-				title: publish.title.trim() || initialSketch?.title || '',
-				code: input
-			});
-			addLog('✓ Code evaluated', 'output');
-		} catch (err) {
-			addLog(`× ${(err as Error).message}`, 'error');
-		}
-	}
-
-	function stop() {
-		audio.stop();
+	async function runDraft() {
+		await sketchWorkspace.runDraft();
 	}
 
 	function canPublish() {
-		return Boolean(data.session.did && code.trim());
+		return Boolean(data.session.did && sketchWorkspace.draft?.code.trim());
 	}
 
 	function openPublishDialog() {
@@ -66,20 +34,10 @@
 	}
 
 	onMount(() => {
-		if (!initialSketch) {
-			audio.clear();
-		} else if (audio.loadedSketch?.uri !== initialSketch.uri) {
-			audio.stop();
-			audio.load({
-				uri: initialSketch.uri,
-				title: initialSketch.title,
-				code: initialSketch.code
-			});
-		}
+		const shouldStop = !initialSketch || sketchWorkspace.loaded?.uri !== initialSketch.uri;
+		if (shouldStop) audioPlayer.stop();
 
-		return globalControls.register({
-			play: () => runCode(),
-			canPlay: () => Boolean(code.trim()),
+		return sketchPersistence.register({
 			canPublish,
 			publish: openPublishDialog
 		});
@@ -90,7 +48,9 @@
 	<div class="body">
 		<div class="col-left">
 			<div class="editor">
-				<CodeEditor bind:value={code} onRun={runCode} onStop={stop} />
+				{#if draft}
+					<CodeEditor bind:value={draft.code} onRun={runDraft} onStop={() => audioPlayer.stop()} />
+				{/if}
 			</div>
 		</div>
 
@@ -98,11 +58,11 @@
 			<section class="panel" aria-label="Output log">
 				<h2>Log</h2>
 				<div class="log">
-					{#if logs.length === 0}
+					{#if sketchWorkspace.logs.length === 0}
 						<span class="empty">no output</span>
 					{:else}
-						{#each logs as entry (entry.id)}
-							<div class={entry.type}>{entry.text}</div>
+						{#each sketchWorkspace.logs as entry (entry.id)}
+							<div class={entry.type}>{entry.type === 'output' ? '✓' : '×'} {entry.message}</div>
 						{/each}
 					{/if}
 				</div>
@@ -119,22 +79,22 @@
 		<div class="dialog-actions">
 			<button onclick={() => publish.dialogEl?.close()}>close</button>
 		</div>
-	{:else}
+	{:else if draft}
 		<h2>Publish sketch</h2>
 		<form
 			method="POST"
 			action="?/publish"
 			use:enhance={({ formData }) => {
-				formData.set('code', code);
-				if (version.previousUri) formData.set('previousVersion', version.previousUri);
-				if (version.rootUri) formData.set('rootVersion', version.rootUri);
+				formData.set('code', draft.code);
+				if (draft.previousVersion) formData.set('previousVersion', draft.previousVersion);
+				if (draft.rootVersion) formData.set('rootVersion', draft.rootVersion);
 				publish.isSubmitting = true;
 				return async ({ result, update }) => {
 					publish.isSubmitting = false;
 					if (result.type === 'success' && result.data?.uri) {
 						const newUri = result.data.uri as string;
-						version.rootUri = version.rootUri ?? newUri;
-						version.previousUri = newUri;
+						draft.rootVersion = draft.rootVersion ?? newUri;
+						draft.previousVersion = newUri;
 						publish.publishedUri = newUri;
 					} else {
 						await update();
@@ -146,17 +106,17 @@
 				<div class="label-row">
 					Title <span class="hint-small">Required</span>
 				</div>
-				<input name="title" bind:value={publish.title} required autocomplete="off" />
+				<input name="title" bind:value={draft.title} required autocomplete="off" />
 			</label>
 			<label>
 				Description
-				<textarea name="description" bind:value={publish.description} rows={3}></textarea>
+				<textarea name="description" bind:value={draft.description} rows={3}></textarea>
 			</label>
 			<label>
 				<div class="label-row">
 					Tags <span class="hint-small">Comma-separated</span>
 				</div>
-				<input name="tags" bind:value={publish.tags} placeholder="ambient, generative, …" />
+				<input name="tags" bind:value={draft.tags} placeholder="ambient, generative, …" />
 			</label>
 
 			{#if form?.error}
