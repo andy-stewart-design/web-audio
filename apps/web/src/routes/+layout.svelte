@@ -6,24 +6,27 @@
 	import IconRepeat from '@/components/icons/icon-repeat.svelte';
 	import IconStop from '@/components/icons/icon-stop.svelte';
 	import favicon from '@/lib/assets/favicon.svg';
-	import { globalControls } from '@/lib/client/global-controls.svelte';
+	import { audioPlayer, sketchPersistence, sketchWorkspace } from '@/lib/globals';
 	import '@/styles/global.css';
 
 	let { children, data } = $props();
 
 	const isRepl = $derived(page.url.pathname === '/repl');
-	const isRunning = $derived(globalControls.isRunning);
-	const canPlay = $derived(globalControls.canPlay);
+	const isRunning = $derived(audioPlayer.isRunning);
+	const canPlay = $derived(Boolean(sketchWorkspace.draft?.code.trim() || sketchWorkspace.loaded));
 	const playLabel = $derived(
 		isRepl ? (isRunning ? 'Restart sketch' : 'Run sketch') : 'Play sketch'
 	);
 	const showRepeatIcon = $derived(isRepl && isRunning);
 
 	async function handlePlay() {
-		try {
-			await globalControls.play();
-		} catch {
-			// error is set on audio.lastError; nothing more to do here
+		if (sketchWorkspace.draft) {
+			await sketchWorkspace.runDraft();
+			return;
+		}
+
+		if (sketchWorkspace.loaded) {
+			await audioPlayer.play(sketchWorkspace.loaded.code);
 		}
 	}
 </script>
@@ -43,23 +46,23 @@
 				{/if}
 			</button>
 			<button
-				onclick={() => globalControls.stop()}
-				disabled={!globalControls.canStop}
+				onclick={() => audioPlayer.stop()}
+				disabled={!audioPlayer.isRunning}
 				aria-label="Stop sketch"
 				title="Stop sketch"
 			>
 				<IconStop size={20} fill="currentColor" />
 			</button>
-			{#if globalControls.title}
-				<span class="track-title">{globalControls.title}</span>
+			{#if sketchWorkspace.loaded?.title}
+				<span class="track-title">{sketchWorkspace.loaded.title}</span>
 			{/if}
 		</div>
 
-		{#if globalControls.showPublish}
+		{#if sketchPersistence.showPublish}
 			<button
 				class="publish-btn"
-				onclick={() => globalControls.publish()}
-				disabled={!globalControls.canPublish}
+				onclick={() => sketchPersistence.publish()}
+				disabled={!sketchPersistence.canPublish}
 				aria-label={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
 				title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
 			>
