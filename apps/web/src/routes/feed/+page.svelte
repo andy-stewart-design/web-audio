@@ -1,11 +1,11 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import SketchCard from '@/components/sketch-card/index.svelte';
-	import type { SketchCard as SketchCardType } from '@/lib/types/sketch';
+	import type { SketchCard as SketchCardModel } from '@/lib/types/sketch';
 
 	let { data }: { data: PageData } = $props();
 
-	let extraSketches = $state<SketchCardType[]>([]);
+	let extraSketches = $state<SketchCardModel[]>([]);
 	let loadedCursor = $state<string | null>(null);
 	let loadedHasMore = $state<boolean | null>(null);
 	let loading = $state(false);
@@ -19,7 +19,7 @@
 		loadedHasMore = null;
 	});
 
-	const allSketches = $derived([...(data.sketches as SketchCardType[]), ...extraSketches]);
+	const allSketches = $derived([...(data.sketches as SketchCardModel[]), ...extraSketches]);
 	const hasMore = $derived(loadedHasMore ?? data.hasMore);
 	const nextCursor = $derived(loadedCursor ?? data.nextCursor);
 

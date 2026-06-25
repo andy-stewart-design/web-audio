@@ -43,6 +43,20 @@ export function toAuthorSketchCard(input: {
 	} satisfies SketchCard;
 }
 
+export function toAuthorSketchCards(input: {
+	sketches: Sketch[];
+	profile: Profile;
+	bookmarkMap: Map<string, string>;
+}) {
+	return input.sketches.map((sketch) =>
+		toAuthorSketchCard({
+			sketch,
+			profile: input.profile,
+			bookmarkUri: input.bookmarkMap.get(sketch.uri) ?? null
+		})
+	);
+}
+
 export function toSketchInsert(sketch: Sketch) {
 	return {
 		uri: sketch.uri,

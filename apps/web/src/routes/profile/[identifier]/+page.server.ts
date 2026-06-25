@@ -9,6 +9,7 @@ import {
 	getBookmarks
 } from '$lib/server/atproto/reads';
 import { followUser, unfollowUser } from '$lib/server/atproto/records';
+import { toAuthorSketchCards } from '$lib/server/sketch-mappers';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	let did: string;
@@ -38,13 +39,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	return {
 		profile,
-		sketches: sketches.map((s) => ({
-			...s,
-			authorHandle: profile.handle,
-			authorDisplayName: profile.displayName,
-			authorAvatar: profile.avatar,
-			bookmarkUri: bookmarkMap.get(s.uri) ?? null
-		})),
+		sketches: toAuthorSketchCards({ sketches, profile, bookmarkMap }),
 		isOwnProfile: locals.session.did === did,
 		followUri
 	};
