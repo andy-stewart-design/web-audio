@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import SketchCard from '@/components/sketch-card/index.svelte';
-	import type { SketchCard as SketchCardType } from '@/lib/server/atproto/reads';
+	import type { SketchCard as SketchCardType } from '@/lib/types/sketch';
 
 	let { data }: { data: PageData } = $props();
 

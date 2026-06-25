@@ -1,7 +1,8 @@
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 import { db } from '.';
 import { account, bookmarks, sketches } from './schema';
-import type { SketchCard } from '$lib/server/atproto/reads';
+import { toSketchCard } from '$lib/server/sketch-mappers';
+import type { SketchCard } from '$lib/types/sketch';
 
 const PAGE_SIZE = 50;
 
@@ -37,14 +38,7 @@ export async function queryFeed(
 	const nextCursor = hasMore ? page[page.length - 1].sketch.createdAt.toISOString() : null;
 
 	return {
-		sketches: page.map((r) => ({
-			...r.sketch,
-			authorAvatar: r.author?.avatar,
-			authorDisplayName: r.author?.displayName,
-			authorHandle: r.author?.handle ?? r.sketch.authorDid,
-			bookmarkUri: r.bookmarkUri,
-			createdAt: r.sketch.createdAt.toISOString()
-		})),
+		sketches: page.map(toSketchCard),
 		hasMore,
 		nextCursor
 	};

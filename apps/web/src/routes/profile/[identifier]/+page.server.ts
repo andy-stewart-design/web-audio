@@ -38,7 +38,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	return {
 		profile,
-		sketches: sketches.map((s) => ({ ...s, bookmarkUri: bookmarkMap.get(s.uri) ?? null })),
+		sketches: sketches.map((s) => ({
+			...s,
+			authorHandle: profile.handle,
+			authorDisplayName: profile.displayName,
+			authorAvatar: profile.avatar,
+			bookmarkUri: bookmarkMap.get(s.uri) ?? null
+		})),
 		isOwnProfile: locals.session.did === did,
 		followUri
 	};

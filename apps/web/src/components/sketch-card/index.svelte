@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { audio, workspace } from '@/lib/globals';
 	import IconBookmark from '@/components/icons/icon-bookmark.svelte';
-	import type { SketchCard } from '@/lib/server/atproto/reads';
+	import type { SketchCard } from '@/lib/types/sketch';
 	import Button from '@/components/core/button/index.svelte';
 
 	let { sketch }: { sketch: SketchCard } = $props();
