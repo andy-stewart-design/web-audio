@@ -1,24 +1,10 @@
 import { $parse, $safeParse } from '$lib/lexicons/live/drome/sketch';
+import type { Profile } from '$lib/types/profile';
 import type { Sketch } from '$lib/types/sketch';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type FollowRecord = {
-	uri: string;
-	subject: string; // DID of the followed user
-};
-
-export type BookmarkRecord = {
-	uri: string;
-	subject: string; // AT URI of the bookmarked sketch
-};
-
-export type Profile = {
-	did: string;
-	handle: string;
-	displayName: string | null;
-	avatar: string | null;
-};
+type SubjectRecord = { uri: string; subject: string };
 
 // ── Identity resolution ───────────────────────────────────────────────────────
 
@@ -101,7 +87,7 @@ export async function getFollows(did: string) {
 
 	const data = await res.json();
 	const seen = new Set<string>();
-	const follows: FollowRecord[] = [];
+	const follows: SubjectRecord[] = [];
 
 	for (const r of data.records ?? []) {
 		const subject = r.value.subject as string;
@@ -200,7 +186,7 @@ export async function getBookmarks(did: string) {
 
 	const data = await res.json();
 	const seen = new Set<string>();
-	const bookmarks: BookmarkRecord[] = [];
+	const bookmarks: SubjectRecord[] = [];
 
 	for (const r of data.records ?? []) {
 		const subject = r.value.subject as string;

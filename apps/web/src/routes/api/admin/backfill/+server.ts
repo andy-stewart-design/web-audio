@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getFollows, listSketches, resolveDidToPds } from '$lib/server/atproto/reads';
 import { db } from '$lib/server/db';
 import { sketches, bookmarks } from '$lib/server/db/schema';
+import { toSketchInsert } from '$lib/server/sketch-mappers';
 import { env } from '$env/dynamic/private';
 
 export const POST: RequestHandler = async ({ locals }) => {
@@ -15,28 +16,15 @@ export const POST: RequestHandler = async ({ locals }) => {
 	// ── Backfill sketches ──────────────────────────────────────────────────────
 
 	const sketchResults = await Promise.allSettled(dids.map((did) => listSketches(did, 100)));
-	const cards = sketchResults.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+	const remoteSketches = sketchResults.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
 
 	let sketchCount = 0;
-	if (cards.length > 0) {
+	if (remoteSketches.length > 0) {
 		const result = await db
 			.insert(sketches)
-			.values(
-				cards.map((s) => ({
-					uri: s.uri,
-					cid: s.cid,
-					authorDid: s.authorDid,
-					title: s.title,
-					code: s.code,
-					description: s.description ?? null,
-					tags: s.tags ?? null,
-					previousVersion: null,
-					rootVersion: null,
-					createdAt: new Date(s.createdAt)
-				}))
-			)
+			.values(remoteSketches.map(toSketchInsert))
 			.onConflictDoNothing();
-		sketchCount = result.rowCount ?? cards.length;
+		sketchCount = result.rowCount ?? remoteSketches.length;
 	}
 
 	// ── Backfill bookmarks ─────────────────────────────────────────────────────

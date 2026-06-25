@@ -1,14 +1,13 @@
-import type { Profile } from '$lib/server/atproto/reads';
-import { account, sketches } from '$lib/server/db/schema';
+import { sketches } from '$lib/server/db/schema';
+import type { Profile } from '$lib/types/profile';
 import type { Sketch, SketchCard } from '$lib/types/sketch';
 
-export type DbSketch = typeof sketches.$inferSelect;
-export type NewDbSketch = typeof sketches.$inferInsert;
-export type DbAccount = typeof account.$inferSelect;
+type DbSketch = typeof sketches.$inferSelect;
+type NewDbSketch = typeof sketches.$inferInsert;
 
 export function toSketchCard(row: {
 	sketch: DbSketch;
-	author: DbAccount | null;
+	author: Profile | null;
 	bookmarkUri: string | null;
 }) {
 	return {
