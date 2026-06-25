@@ -9,7 +9,6 @@
 	let { sketch }: { sketch: SketchCard } = $props();
 
 	const isThisPlaying = $derived(workspace.loaded?.uri === sketch.uri && audio.isRunning);
-	const rkey = $derived(sketch.uri.split('/').at(-1));
 
 	async function handleBookmark() {
 		if (sketch.bookmarkUri) {
@@ -27,20 +26,6 @@
 		}
 		await invalidateAll();
 	}
-
-	const formattedDate = $derived(
-		new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(
-			new Date(sketch.createdAt)
-		)
-	);
-
-	const authorPrimaryLabel = $derived(
-		sketch.authorDisplayName ? sketch.authorDisplayName : `@${sketch.authorHandle}`
-	);
-
-	const authorSecondaryLabel = $derived(
-		sketch.authorDisplayName ? `@${sketch.authorHandle}` : undefined
-	);
 
 	async function handlePlay() {
 		if (isThisPlaying) {
@@ -63,7 +48,7 @@
 				</ul>
 			{/if}
 
-			<time datetime={sketch.createdAt} class="date">{formattedDate}</time>
+			<time datetime={sketch.createdAt} class="date">{sketch.formattedDate}</time>
 		</div>
 
 		{#if page.data.session.did}
@@ -83,7 +68,7 @@
 	</header>
 
 	<div class="main">
-		<a href="/sketch/{sketch.authorDid}/{rkey}" class="title">{sketch.title}</a>
+		<a href={sketch.href} class="title">{sketch.title}</a>
 
 		{#if sketch.description}
 			<p class="description">{sketch.description}</p>
@@ -95,12 +80,12 @@
 			<a href="/profile/{sketch.authorDid}" class="author">
 				{#if sketch.authorAvatar}
 					<span class="avatar">
-						<img src={sketch.authorAvatar} alt={authorPrimaryLabel} />
+						<img src={sketch.authorAvatar} alt={sketch.authorPrimaryLabel} />
 					</span>
 				{/if}
-				{authorPrimaryLabel}
-				{#if authorSecondaryLabel}
-					<span class="handle">{authorSecondaryLabel}</span>
+				{sketch.authorPrimaryLabel}
+				{#if sketch.authorSecondaryLabel}
+					<span class="handle">{sketch.authorSecondaryLabel}</span>
 				{/if}
 			</a>
 
@@ -108,7 +93,7 @@
 				<Button active={isThisPlaying} onclick={handlePlay}>
 					{isThisPlaying ? 'Stop' : 'Play'}
 				</Button>
-				<Button href="/repl?load={encodeURIComponent(sketch.uri)}">Remix</Button>
+				<Button href={sketch.remixHref}>Remix</Button>
 			</div>
 		</div>
 	</footer>

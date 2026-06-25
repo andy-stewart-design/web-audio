@@ -8,14 +8,14 @@
 
 	let { data }: { data: PageData } = $props();
 
-	const isPlaying = $derived(workspace.loaded?.uri === data.atUri && audio.isRunning);
+	const isPlaying = $derived(workspace.loaded?.uri === data.sketch.uri && audio.isRunning);
 
 	async function handlePlay() {
 		if (isPlaying) {
 			audio.stop();
 			return;
 		}
-		const loadedSketch = { uri: data.atUri, title: data.sketch.title, code: data.sketch.code };
+		const loadedSketch = { uri: data.sketch.uri, title: data.sketch.title, code: data.sketch.code };
 		workspace.load(loadedSketch);
 		await audio.play(loadedSketch.code);
 	}
@@ -31,7 +31,7 @@
 			await fetch('/api/bookmark', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ subjectUri: data.atUri, subjectCid: data.sketch.cid })
+				body: JSON.stringify({ subjectUri: data.sketch.uri, subjectCid: data.sketch.cid })
 			});
 		}
 		await invalidateAll();
@@ -99,7 +99,7 @@
 			<Button active={isPlaying} onclick={handlePlay}>
 				{isPlaying ? 'Stop' : 'Play'}
 			</Button>
-			<Button href="/repl?load={encodeURIComponent(data.atUri)}">Remix</Button>
+			<Button href="/repl?load={encodeURIComponent(data.sketch.uri)}">Remix</Button>
 		</div>
 	</footer>
 

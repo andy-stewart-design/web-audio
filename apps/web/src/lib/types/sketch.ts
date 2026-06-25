@@ -16,6 +16,11 @@ export type SketchCard = Sketch & {
 	authorDisplayName: string | null;
 	authorAvatar: string | null;
 	bookmarkUri: string | null;
+	href: string;
+	remixHref: string;
+	formattedDate: string;
+	authorPrimaryLabel: string;
+	authorSecondaryLabel: string | null;
 };
 
 export type PlayableSketch = {

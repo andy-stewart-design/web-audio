@@ -5,17 +5,45 @@ import type { Sketch, SketchCard } from '$lib/types/sketch';
 type DbSketch = typeof sketches.$inferSelect;
 type NewDbSketch = typeof sketches.$inferInsert;
 
+type SketchCardDisplayInput = {
+	uri: string;
+	authorDid: string;
+	authorHandle: string;
+	authorDisplayName: string | null;
+	createdAt: string;
+};
+
+function getSketchCardDisplay(input: SketchCardDisplayInput) {
+	const rkey = input.uri.split('/').at(-1);
+
+	return {
+		href: `/sketch/${input.authorDid}/${rkey}`,
+		remixHref: `/repl?load=${encodeURIComponent(input.uri)}`,
+		formattedDate: new Intl.DateTimeFormat('en', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		}).format(new Date(input.createdAt)),
+		authorPrimaryLabel: input.authorDisplayName ?? `@${input.authorHandle}`,
+		authorSecondaryLabel: input.authorDisplayName ? `@${input.authorHandle}` : null
+	};
+}
+
 export function toSketchCard(row: {
 	sketch: DbSketch;
 	author: Profile | null;
 	bookmarkUri: string | null;
 }) {
+	const authorHandle = row.author?.handle ?? row.sketch.authorDid;
+	const authorDisplayName = row.author?.displayName ?? null;
+	const createdAt = row.sketch.createdAt.toISOString();
+
 	return {
 		uri: row.sketch.uri,
 		cid: row.sketch.cid,
 		authorDid: row.sketch.authorDid,
-		authorHandle: row.author?.handle ?? row.sketch.authorDid,
-		authorDisplayName: row.author?.displayName ?? null,
+		authorHandle,
+		authorDisplayName,
 		authorAvatar: row.author?.avatar ?? null,
 		title: row.sketch.title,
 		code: row.sketch.code,
@@ -24,7 +52,14 @@ export function toSketchCard(row: {
 		previousVersion: row.sketch.previousVersion ?? null,
 		rootVersion: row.sketch.rootVersion ?? null,
 		bookmarkUri: row.bookmarkUri,
-		createdAt: row.sketch.createdAt.toISOString()
+		createdAt,
+		...getSketchCardDisplay({
+			uri: row.sketch.uri,
+			authorDid: row.sketch.authorDid,
+			authorHandle,
+			authorDisplayName,
+			createdAt
+		})
 	} satisfies SketchCard;
 }
 
@@ -38,7 +73,14 @@ export function toAuthorSketchCard(input: {
 		authorHandle: input.profile.handle,
 		authorDisplayName: input.profile.displayName,
 		authorAvatar: input.profile.avatar,
-		bookmarkUri: input.bookmarkUri
+		bookmarkUri: input.bookmarkUri,
+		...getSketchCardDisplay({
+			uri: input.sketch.uri,
+			authorDid: input.sketch.authorDid,
+			authorHandle: input.profile.handle,
+			authorDisplayName: input.profile.displayName,
+			createdAt: input.sketch.createdAt
+		})
 	} satisfies SketchCard;
 }
 
