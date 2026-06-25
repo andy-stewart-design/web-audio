@@ -1,9 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getSketch, getProfile } from '$lib/server/atproto/reads';
-import { db } from '$lib/server/db';
-import { bookmarks } from '$lib/server/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { getBookmarkUri } from '$lib/server/bookmarks';
 
 function getSketchHref(uri: string) {
 	const match = uri.replace('at://', '').match(/^([^/]+)\/([^/]+)\/(.+)$/);
@@ -38,16 +36,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	if (!sketch || !profile) error(404, 'Sketch not found');
 
-	// Bookmark state from DB
-	let bookmarkUri: string | null = null;
-	if (locals.session.did) {
-		const row = await db
-			.select({ uri: bookmarks.uri })
-			.from(bookmarks)
-			.where(and(eq(bookmarks.subjectUri, sketch.uri), eq(bookmarks.authorDid, locals.session.did)))
-			.limit(1);
-		bookmarkUri = row[0]?.uri ?? null;
-	}
+	const bookmarkUri = locals.session.did
+		? await getBookmarkUri(locals.session.did, sketch.uri)
+		: null;
 
 	// Parent sketch title for "Remixed from" display
 	let remixedFrom: { uri: string; title: string; href: string } | null = null;
