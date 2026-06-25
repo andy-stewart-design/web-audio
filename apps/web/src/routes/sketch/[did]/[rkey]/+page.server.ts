@@ -10,7 +10,7 @@ function getSketchHref(uri: string) {
 	return `/sketch/${did}/${rkey}`;
 }
 
-function getSketchDetailDisplay(input: {
+function getSketchPageDisplay(input: {
 	createdAt: string;
 	authorHandle: string;
 	authorDisplayName: string | null;
@@ -60,7 +60,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		profile,
 		bookmarkUri,
 		remixedFrom,
-		...getSketchDetailDisplay({
+		...getSketchPageDisplay({
 			createdAt: sketch.createdAt,
 			authorHandle: profile.handle,
 			authorDisplayName: profile.displayName
