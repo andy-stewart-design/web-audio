@@ -1,36 +1,14 @@
 import type { LogEntry } from './audio-player.svelte';
+import type { DraftSketch, DraftSketchSource, PlayableSketch } from '$lib/types/sketch';
 
 const DEFAULT_CODE = `d.synth("triangle").push()`;
 
-export type LoadedSketch = {
-	uri: string | null;
-	title: string;
-	code: string;
-};
-
-export type DraftSketch = {
-	uri: string | null;
-	title: string;
-	code: string;
-	description: string;
-	tags: string;
-	rootVersion: string | null;
-	previousVersion: string | null;
-};
-
-type DraftSource = LoadedSketch & {
-	description?: string | null;
-	tags?: string[] | null;
-	rootVersion?: string | null;
-	previousVersion?: string | null;
-};
-
 class SketchWorkspace {
-	loaded = $state<LoadedSketch | null>(null);
+	loaded = $state<PlayableSketch | null>(null);
 	draft = $state<DraftSketch | null>(null);
 	logs = $state<LogEntry[]>([]);
 
-	load(sketch: LoadedSketch) {
+	load(sketch: PlayableSketch) {
 		this.loaded = sketch;
 	}
 
@@ -38,7 +16,7 @@ class SketchWorkspace {
 		this.loaded = null;
 	}
 
-	openDraft(sketch?: DraftSource) {
+	openDraft(sketch?: DraftSketchSource) {
 		if (!sketch) {
 			this.draft = {
 				uri: null,

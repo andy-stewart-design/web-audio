@@ -1,40 +1,21 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
-	import { page } from '$app/state';
 	import type { PageData } from './$types';
-	import IconBookmark from '@/components/icons/icon-bookmark.svelte';
+	import BookmarkButton from '@/components/bookmark-button/index.svelte';
 	import Button from '@/components/core/button/index.svelte';
 	import { audio, workspace } from '@/lib/globals';
 
 	let { data }: { data: PageData } = $props();
 
-	const isPlaying = $derived(workspace.loaded?.uri === data.atUri && audio.isRunning);
+	const isPlaying = $derived(workspace.loaded?.uri === data.sketch.uri && audio.isRunning);
 
 	async function handlePlay() {
 		if (isPlaying) {
 			audio.stop();
 			return;
 		}
-		const loadedSketch = { uri: data.atUri, title: data.sketch.title, code: data.sketch.code };
+		const loadedSketch = { uri: data.sketch.uri, title: data.sketch.title, code: data.sketch.code };
 		workspace.load(loadedSketch);
 		await audio.play(loadedSketch.code);
-	}
-
-	async function handleBookmark() {
-		if (data.bookmarkUri) {
-			await fetch('/api/bookmark', {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ bookmarkUri: data.bookmarkUri })
-			});
-		} else {
-			await fetch('/api/bookmark', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ subjectUri: data.atUri, subjectCid: data.sketch.cid })
-			});
-		}
-		await invalidateAll();
 	}
 </script>
 
@@ -52,20 +33,12 @@
 			<time datetime={data.sketch.createdAt}>{data.formattedDate}</time>
 		</div>
 
-		{#if page.data.session?.did}
-			<button
-				class="bookmark"
-				class:active={!!data.bookmarkUri}
-				aria-label={data.bookmarkUri ? 'Remove bookmark' : 'Bookmark'}
-				onclick={handleBookmark}
-			>
-				<IconBookmark
-					size={24}
-					fill={data.bookmarkUri ? 'currentColor' : undefined}
-					opacity={data.bookmarkUri ? 1 : 0.5}
-				/>
-			</button>
-		{/if}
+		<BookmarkButton
+			subjectUri={data.sketch.uri}
+			subjectCid={data.sketch.cid}
+			bookmarkUri={data.bookmarkUri}
+			size="sm"
+		/>
 	</header>
 
 	<div class="main">
@@ -99,7 +72,7 @@
 			<Button active={isPlaying} onclick={handlePlay}>
 				{isPlaying ? 'Stop' : 'Play'}
 			</Button>
-			<Button href="/repl?load={encodeURIComponent(data.atUri)}">Remix</Button>
+			<Button href="/repl?load={encodeURIComponent(data.sketch.uri)}">Remix</Button>
 		</div>
 	</footer>
 
@@ -141,17 +114,6 @@
 		gap: 0.375rem;
 		list-style: none;
 		padding: 0;
-	}
-
-	.bookmark {
-		display: inline-flex;
-		justify-content: center;
-		place-items: center;
-		block-size: 2.5rem;
-		inline-size: 2.5rem;
-		background: none;
-		border: none;
-		cursor: pointer;
 	}
 
 	.main {
