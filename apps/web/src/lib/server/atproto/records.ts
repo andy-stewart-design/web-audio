@@ -7,7 +7,10 @@ import {
 } from '@atproto/lex';
 import { TID } from '@atproto/common-web';
 import { getOAuthClient } from '$lib/server/auth/client';
-import { main as sketchMain, type Main as SketchRecord } from '$lib/lexicons/live/drome/sketch';
+import {
+	main as sketchMain,
+	type Main as SketchLexiconRecord
+} from '$lib/lexicons/live/drome/sketch';
 import { main as likeMain } from '$lib/lexicons/live/drome/like';
 import { main as repostMain } from '$lib/lexicons/live/drome/repost';
 import { main as followMain } from '$lib/lexicons/live/drome/follow';
@@ -28,7 +31,7 @@ type WithStringUris<T> = T extends AtUriString
 			? { [K in keyof T]: WithStringUris<T[K]> }
 			: T;
 
-export type PublishInput = WithStringUris<Omit<SketchRecord, '$type' | 'createdAt'>>;
+export type PublishInput = WithStringUris<Omit<SketchLexiconRecord, '$type' | 'createdAt'>>;
 
 async function getLexClient(sessionDid: string, origin?: string): Promise<Client> {
 	const oauthClient = await getOAuthClient(origin);

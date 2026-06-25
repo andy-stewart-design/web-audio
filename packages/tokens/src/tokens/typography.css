@@ -2,7 +2,8 @@
   --font-sans: system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  --font-xs: 0.75rem;
+  --font-2xs: 0.75rem;
+  --font-xs: 0.8125rem;
   --font-sm: 0.875rem;
   --font-base: 1rem;
 

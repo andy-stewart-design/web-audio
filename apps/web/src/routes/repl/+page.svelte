@@ -1,78 +1,67 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import CodeEditor from '@/components/code-editor/index.svelte';
 	import type { PageData, ActionData } from './$types';
-	import { audio } from '$lib/client/audio.svelte';
+	import { audio, persistence, workspace } from '$lib/globals';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	const DEFAULT_CODE = `d.synth("triangle").push()`;
-
-	type LogEntry = { id: string; text: string; type: 'output' | 'error' };
-
 	// Read initial sketch data once — untrack prevents Svelte from warning about
-	// one-time reads of reactive `data` inside $state() initializers.
-	const initial = untrack(() => data.loadedSketch);
+	// one-time reads of reactive `data` while initializing global draft state.
+	const initialSketch = untrack(() => data.loadedSketch);
+	const previousLoadedUri = workspace.loaded?.uri;
+	workspace.openDraft(initialSketch ?? undefined);
 
-	// REPL state — seeded from ?load= param if present
-	let code = $state(initial?.code ?? DEFAULT_CODE);
-	const isRunning = $derived(audio.isRunning);
-	let logs = $state<LogEntry[]>([]);
+	const draft = $derived(workspace.draft);
 
-	// Publish dialog state
-	let dialogEl = $state<HTMLDialogElement | undefined>();
-	let publishTitle = $state(initial?.title ?? '');
-	let publishDescription = $state(initial?.description ?? '');
-	let publishTags = $state(initial?.tags?.join(', ') ?? '');
-	let publishing = $state(false);
-	let publishedUri = $state<string | null>(null);
+	let publish = $state({
+		dialogEl: undefined as HTMLDialogElement | undefined,
+		isSubmitting: false,
+		publishedUri: null as string | null
+	});
 
-	// Version chain — seeded from loaded sketch if it's a fork/republish
-	let rootVersionUri = $state<string | null>(initial?.rootVersion ?? initial?.uri ?? null);
-	let previousVersionUri = $state<string | null>(initial?.uri ?? null);
+	async function runDraft() {
+		const loaded = workspace.commitDraft();
 
-	function addLog(text: string, type: LogEntry['type']) {
-		logs = [{ id: crypto.randomUUID(), text, type }, ...logs];
-	}
-
-	async function evaluate(input: string) {
-		try {
-			await audio.play(input);
-			addLog('✓', 'output');
-		} catch (err) {
-			addLog(`✗ ${(err as Error).message}`, 'error');
+		if (loaded) {
+			const entry = await audio.play(loaded.code);
+			workspace.addLog(entry);
 		}
 	}
 
-	function stop() {
-		audio.stop();
+	function canPublish() {
+		return Boolean(data.session.did && workspace.draft?.code.trim());
 	}
 
 	function openPublishDialog() {
-		publishedUri = null;
-		dialogEl?.showModal();
+		publish.publishedUri = null;
+		publish.dialogEl?.showModal();
 	}
+
+	onMount(() => {
+		const shouldStop = !initialSketch || previousLoadedUri !== initialSketch.uri;
+		if (shouldStop) audio.stop();
+
+		const unregisterPublish = persistence.register({
+			canPublish,
+			publish: openPublishDialog
+		});
+
+		return () => {
+			unregisterPublish();
+			workspace.clearDraft();
+		};
+	});
 </script>
 
 <div class="repl">
 	<div class="body">
 		<div class="col-left">
-			<div class="toolbar">
-				<button onclick={() => evaluate(code)}>Run</button>
-				<button onclick={stop} disabled={!isRunning}>Stop</button>
-				<button
-					class="publish-btn"
-					onclick={openPublishDialog}
-					disabled={!data.session.did || !code.trim()}
-					title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
-				>
-					Publish
-				</button>
-			</div>
-
 			<div class="editor">
-				<CodeEditor bind:value={code} onRun={evaluate} onStop={stop} />
+				{#if draft}
+					<CodeEditor bind:value={draft.code} onRun={runDraft} onStop={() => audio.stop()} />
+				{/if}
 			</div>
 		</div>
 
@@ -80,11 +69,11 @@
 			<section class="panel" aria-label="Output log">
 				<h2>Log</h2>
 				<div class="log">
-					{#if logs.length === 0}
+					{#if workspace.logs.length === 0}
 						<span class="empty">no output</span>
 					{:else}
-						{#each logs as entry (entry.id)}
-							<div class={entry.type}>{entry.text}</div>
+						{#each workspace.logs as entry (entry.id)}
+							<div class={entry.type}>{entry.type === 'output' ? '✓' : '×'} {entry.message}</div>
 						{/each}
 					{/if}
 				</div>
@@ -93,31 +82,31 @@
 	</div>
 </div>
 
-<dialog bind:this={dialogEl} class="publish-dialog">
-	{#if publishedUri}
+<dialog bind:this={publish.dialogEl} class="publish-dialog">
+	{#if publish.publishedUri}
 		<h2>Published!</h2>
 		<p>Your sketch is live on the network.</p>
-		<code class="uri">{publishedUri}</code>
+		<code class="uri">{publish.publishedUri}</code>
 		<div class="dialog-actions">
-			<button onclick={() => dialogEl?.close()}>close</button>
+			<button onclick={() => publish.dialogEl?.close()}>close</button>
 		</div>
-	{:else}
+	{:else if draft}
 		<h2>Publish sketch</h2>
 		<form
 			method="POST"
 			action="?/publish"
 			use:enhance={({ formData }) => {
-				formData.set('code', code);
-				if (previousVersionUri) formData.set('previousVersion', previousVersionUri);
-				if (rootVersionUri) formData.set('rootVersion', rootVersionUri);
-				publishing = true;
+				formData.set('code', draft.code);
+				if (draft.previousVersion) formData.set('previousVersion', draft.previousVersion);
+				if (draft.rootVersion) formData.set('rootVersion', draft.rootVersion);
+				publish.isSubmitting = true;
 				return async ({ result, update }) => {
-					publishing = false;
+					publish.isSubmitting = false;
 					if (result.type === 'success' && result.data?.uri) {
 						const newUri = result.data.uri as string;
-						rootVersionUri = rootVersionUri ?? newUri;
-						previousVersionUri = newUri;
-						publishedUri = newUri;
+						draft.rootVersion = draft.rootVersion ?? newUri;
+						draft.previousVersion = newUri;
+						publish.publishedUri = newUri;
 					} else {
 						await update();
 					}
@@ -128,17 +117,17 @@
 				<div class="label-row">
 					Title <span class="hint-small">Required</span>
 				</div>
-				<input name="title" bind:value={publishTitle} required autocomplete="off" />
+				<input name="title" bind:value={draft.title} required autocomplete="off" />
 			</label>
 			<label>
 				Description
-				<textarea name="description" bind:value={publishDescription} rows={3}></textarea>
+				<textarea name="description" bind:value={draft.description} rows={3}></textarea>
 			</label>
 			<label>
 				<div class="label-row">
 					Tags <span class="hint-small">Comma-separated</span>
 				</div>
-				<input name="tags" bind:value={publishTags} placeholder="ambient, generative, …" />
+				<input name="tags" bind:value={draft.tags} placeholder="ambient, generative, …" />
 			</label>
 
 			{#if form?.error}
@@ -146,9 +135,9 @@
 			{/if}
 
 			<div class="dialog-actions">
-				<button type="button" onclick={() => dialogEl?.close()}>cancel</button>
-				<button type="submit" disabled={publishing}>
-					{publishing ? 'publishing…' : 'publish'}
+				<button type="button" onclick={() => publish.dialogEl?.close()}>cancel</button>
+				<button type="submit" disabled={publish.isSubmitting}>
+					{publish.isSubmitting ? 'publishing…' : 'publish'}
 				</button>
 			</div>
 		</form>
@@ -172,40 +161,15 @@
 
 	.col-left {
 		display: grid;
-		grid-template-rows: auto minmax(0, 1fr);
 		height: 100%;
 		overflow: hidden;
-	}
-
-	.toolbar {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		block-size: var(--ui-header-block-size);
-		padding-inline: 1rem;
-		border-bottom: 1px solid var(--color-border-subtle);
-
-		button {
-			padding: 0.375rem 1rem;
-			font-size: 0.875rem;
-			font-weight: 500;
-			border-radius: 100vmax;
-			border: none;
-			background: var(--color-fg-primary);
-			color: var(--color-bg-primary);
-			cursor: pointer;
-		}
-	}
-
-	.publish-btn {
-		margin-left: auto;
 	}
 
 	.editor {
 		min-width: 0;
 		min-height: 0;
 		overflow: clip;
-		block-size: calc(100dvh - var(--ui-header-block-size) * 2);
+		block-size: calc(100dvh - var(--ui-header-block-size));
 		background: var(--color-bg-primary);
 		height: 100%;
 	}
@@ -213,7 +177,7 @@
 	.sidebar {
 		min-height: 0;
 		overflow: hidden;
-		background: var(--color-bg-secondary);
+
 		border-left: 1px solid var(--color-border-subtle);
 	}
 
@@ -236,7 +200,8 @@
 		padding: 0.75rem 1rem;
 		overflow-y: auto;
 		font-family: monospace;
-		font-size: 0.9375rem;
+		font-size: var(--font-xs);
+		background: var(--color-bg-secondary);
 	}
 
 	.empty {

@@ -5,9 +5,14 @@ import type { DromeSchema } from '@web-audio/schema';
 
 type PendingEval = { resolve: (schema: DromeSchema) => void; reject: (err: Error) => void };
 
+export type LogEntry = {
+	id: string;
+	type: 'output' | 'error';
+	message: string;
+};
+
 class AudioPlayer {
 	isRunning = $state(false);
-	currentUri = $state<string | null>(null);
 	lastError = $state<string | null>(null);
 
 	private audioCtx: ManagedAudioContext | null = null;
@@ -58,7 +63,7 @@ class AudioPlayer {
 		});
 	}
 
-	async play(code: string, uri?: string): Promise<void> {
+	async play(code: string): Promise<LogEntry> {
 		this.lastError = null;
 		try {
 			const schema = await this.evalCode(code);
@@ -70,17 +75,25 @@ class AudioPlayer {
 				await this.getClock().start();
 				this.isRunning = true;
 			}
-			this.currentUri = uri ?? null;
+			return {
+				id: crypto.randomUUID(),
+				type: 'output',
+				message: 'Code evaluated'
+			};
 		} catch (err) {
-			this.lastError = (err as Error).message;
-			throw err;
+			const message = err instanceof Error ? err.message : 'Unknown playback error';
+			this.lastError = message;
+			return {
+				id: crypto.randomUUID(),
+				type: 'error',
+				message
+			};
 		}
 	}
 
 	stop(): void {
 		this.clock?.stop();
 		this.isRunning = false;
-		this.currentUri = null;
 	}
 }
 

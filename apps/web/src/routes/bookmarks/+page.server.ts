@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { sketches, bookmarks, account } from '$lib/server/db/schema';
+import { toSketchCard } from '$lib/server/sketch-mappers';
 import { desc, eq } from 'drizzle-orm';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -17,13 +18,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.limit(50);
 
 	return {
-		sketches: rows.map((r) => ({
-			...r.sketch,
-			authorAvatar: r.author?.avatar,
-			authorDisplayName: r.author?.displayName,
-			authorHandle: r.author?.handle ?? r.sketch.authorDid,
-			bookmarkUri: r.bookmarkUri,
-			createdAt: r.sketch.createdAt.toISOString()
-		}))
+		sketches: rows.map(toSketchCard)
 	};
 };

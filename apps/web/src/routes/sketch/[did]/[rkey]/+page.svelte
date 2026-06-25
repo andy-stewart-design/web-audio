@@ -1,65 +1,21 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
-	import { page } from '$app/state';
 	import type { PageData } from './$types';
-	import IconBookmark from '@/components/icons/icon-bookmark.svelte';
+	import BookmarkButton from '@/components/bookmark-button/index.svelte';
 	import Button from '@/components/core/button/index.svelte';
-	import { audio } from '@/lib/client/audio.svelte';
+	import { audio, workspace } from '@/lib/globals';
 
 	let { data }: { data: PageData } = $props();
 
-	const bookmarkUri = $derived(data.bookmarkUri);
-
-	const atUri = `at://${page.params.did}/live.drome.sketch/${page.params.rkey}`;
-
-	const formattedDate = $derived(
-		new Intl.DateTimeFormat('en', { month: 'long', day: 'numeric', year: 'numeric' }).format(
-			new Date(data.sketch.createdAt)
-		)
-	);
-
-	const authorPrimaryLabel = $derived(
-		data.profile.displayName ? data.profile.displayName : `@${data.profile.handle}`
-	);
-
-	const authorSecondaryLabel = $derived(
-		data.profile.displayName ? `@${data.profile.handle}` : undefined
-	);
-
-	function remixedFromRkey(uri: string) {
-		const [, did, , rkey] = uri.replace('at://', '').match(/^([^/]+)\/([^/]+)\/(.+)$/) ?? [];
-		return { did, rkey };
-	}
-
-	const isPlaying = $derived(audio.currentUri === atUri && audio.isRunning);
+	const isPlaying = $derived(workspace.loaded?.uri === data.sketch.uri && audio.isRunning);
 
 	async function handlePlay() {
 		if (isPlaying) {
 			audio.stop();
 			return;
 		}
-		try {
-			await audio.play(data.sketch.code, atUri);
-		} catch {
-			// error is set on audio.lastError
-		}
-	}
-
-	async function handleBookmark() {
-		if (bookmarkUri) {
-			await fetch('/api/bookmark', {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ bookmarkUri })
-			});
-		} else {
-			await fetch('/api/bookmark', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ subjectUri: atUri, subjectCid: data.sketch.cid })
-			});
-		}
-		await invalidateAll();
+		const loadedSketch = { uri: data.sketch.uri, title: data.sketch.title, code: data.sketch.code };
+		workspace.load(loadedSketch);
+		await audio.play(loadedSketch.code);
 	}
 </script>
 
@@ -74,32 +30,23 @@
 				</ul>
 			{/if}
 
-			<time datetime={data.sketch.createdAt}>{formattedDate}</time>
+			<time datetime={data.sketch.createdAt}>{data.formattedDate}</time>
 		</div>
 
-		{#if page.data.session?.did}
-			<button
-				class="bookmark"
-				class:active={!!bookmarkUri}
-				aria-label={bookmarkUri ? 'Remove bookmark' : 'Bookmark'}
-				onclick={handleBookmark}
-			>
-				<IconBookmark
-					size={24}
-					fill={bookmarkUri ? 'currentColor' : undefined}
-					opacity={bookmarkUri ? 1 : 0.5}
-				/>
-			</button>
-		{/if}
+		<BookmarkButton
+			subjectUri={data.sketch.uri}
+			subjectCid={data.sketch.cid}
+			bookmarkUri={data.bookmarkUri}
+			size="sm"
+		/>
 	</header>
 
 	<div class="main">
 		<h1 class="title">{data.sketch.title}</h1>
 
 		{#if data.remixedFrom}
-			{@const { did, rkey } = remixedFromRkey(data.remixedFrom.uri)}
 			<p class="remixed-from">
-				Remixed from <a href="/sketch/{did}/{rkey}">{data.remixedFrom.title}</a>
+				Remixed from <a href={data.remixedFrom.href}>{data.remixedFrom.title}</a>
 			</p>
 		{/if}
 
@@ -112,12 +59,12 @@
 		<a href="/profile/{data.profile.did}" class="author">
 			{#if data.profile.avatar}
 				<span class="avatar">
-					<img src={data.profile.avatar} alt={authorPrimaryLabel} />
+					<img src={data.profile.avatar} alt={data.authorPrimaryLabel} />
 				</span>
 			{/if}
-			{authorPrimaryLabel}
-			{#if authorSecondaryLabel}
-				<span class="handle">{authorSecondaryLabel}</span>
+			{data.authorPrimaryLabel}
+			{#if data.authorSecondaryLabel}
+				<span class="handle">{data.authorSecondaryLabel}</span>
 			{/if}
 		</a>
 
@@ -125,7 +72,7 @@
 			<Button active={isPlaying} onclick={handlePlay}>
 				{isPlaying ? 'Stop' : 'Play'}
 			</Button>
-			<Button href="/repl?load={encodeURIComponent(atUri)}">Remix</Button>
+			<Button href="/repl?load={encodeURIComponent(data.sketch.uri)}">Remix</Button>
 		</div>
 	</footer>
 
@@ -167,17 +114,6 @@
 		gap: 0.375rem;
 		list-style: none;
 		padding: 0;
-	}
-
-	.bookmark {
-		display: inline-flex;
-		justify-content: center;
-		place-items: center;
-		block-size: 2.5rem;
-		inline-size: 2.5rem;
-		background: none;
-		border: none;
-		cursor: pointer;
 	}
 
 	.main {
