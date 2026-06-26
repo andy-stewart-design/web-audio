@@ -6,6 +6,7 @@ import type AudioClock from "@web-audio/clock";
 
 interface SynthesizerOptions {
   schema: SynthesizerSchema;
+  destination?: AudioNode;
   startingBar?: number;
   barStartTime?: number;
 }
@@ -16,9 +17,9 @@ class Synthesizer extends Instrument {
   constructor(
     ctx: AudioContext,
     clock: AudioClock,
-    { schema, startingBar = 0, barStartTime }: SynthesizerOptions,
+    { schema, destination, startingBar = 0, barStartTime }: SynthesizerOptions,
   ) {
-    super(ctx, clock);
+    super(ctx, clock, destination ?? ctx.destination);
     this._schema = schema;
     this._initLfos(schema, startingBar, barStartTime);
   }

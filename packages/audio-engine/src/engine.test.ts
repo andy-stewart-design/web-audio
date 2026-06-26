@@ -42,10 +42,22 @@ import AudioEngine from "./index";
 import MockSynthesizer from "./instruments/synthesizer";
 import MockSampler from "./instruments/sampler";
 
+class FakeAudioNode {
+  readonly connect = vi.fn();
+  readonly disconnect = vi.fn();
+}
+
+class FakeGainNode extends FakeAudioNode {
+  gain = { value: 1 };
+}
+
 // Stub AudioContext with audioWorklet.addModule for worklet registration
 const fakeCtx = {
   audioWorklet: { addModule: () => Promise.resolve() },
   decodeAudioData: vi.fn(async () => ({ duration: 1 }) as AudioBuffer),
+  destination: new FakeAudioNode(),
+  createAnalyser: vi.fn(() => new FakeAudioNode()),
+  createGain: vi.fn(() => new FakeGainNode()),
 } as unknown as AudioContext;
 
 type EventCallback = (m: { beat: number; bar: number }, time: number) => void;

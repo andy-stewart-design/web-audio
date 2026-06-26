@@ -11,6 +11,7 @@ import SampleBufferStore, { type SampleCache } from "./sample-buffer-store";
 
 interface SamplerOptions {
   schema: SamplerSchema;
+  destination?: AudioNode;
   banks: Record<string, BankSchema>;
   cache: SampleCache;
   startingBar?: number;
@@ -27,6 +28,7 @@ class Sampler extends Instrument {
     clock: AudioClock,
     {
       schema,
+      destination,
       banks,
       cache,
       startingBar = 0,
@@ -34,7 +36,7 @@ class Sampler extends Instrument {
       fallbackBuffer = null,
     }: SamplerOptions,
   ) {
-    super(ctx, clock, SAMPLE_BASE_GAIN);
+    super(ctx, clock, destination ?? ctx.destination, SAMPLE_BASE_GAIN);
     this._schema = schema;
     this._bufferStore = new SampleBufferStore({
       ctx,

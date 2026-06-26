@@ -42,12 +42,17 @@ abstract class Instrument {
   private _doneResolve: (() => void) | null = null;
   readonly done: Promise<void>;
 
-  constructor(ctx: AudioContext, clock: AudioClock, baseGain?: number) {
+  constructor(
+    ctx: AudioContext,
+    clock: AudioClock,
+    destination?: AudioNode,
+    baseGain?: number,
+  ) {
     this._ctx = ctx;
     this._clock = clock;
     this._outputNode = ctx.createGain();
     this._outputNode.gain.value = baseGain ?? SYNTH_BASE_GAIN;
-    this._outputNode.connect(ctx.destination);
+    this._outputNode.connect(destination ?? ctx.destination);
     this.done = new Promise<void>((resolve) => {
       this._doneResolve = resolve;
     });
