@@ -4,7 +4,7 @@ type PublishControls = {
 };
 
 class SketchPersistence {
-	private controls = $state<PublishControls | null>(null);
+	private controls = $state.raw<PublishControls | null>(null);
 
 	register(controls: PublishControls) {
 		this.controls = controls;
