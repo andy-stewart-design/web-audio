@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { enhance } from '$app/forms';
+	import AudioVisualizer from '@/components/audio-visualizer/index.svelte';
 	import CodeEditor from '@/components/code-editor/index.svelte';
 	import type { PageData, ActionData } from './$types';
 	import { audio, persistence, workspace } from '$lib/globals';
@@ -66,6 +67,8 @@
 		</div>
 
 		<aside class="sidebar" aria-label="REPL sidebar">
+			<AudioVisualizer />
+
 			<section class="panel" aria-label="Output log">
 				<h2>Log</h2>
 				<div class="log">
@@ -175,6 +178,8 @@
 	}
 
 	.sidebar {
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
 		min-height: 0;
 		overflow: hidden;
 

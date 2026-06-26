@@ -4,9 +4,15 @@ import type { DromeSchema } from "@web-audio/schema";
 // Mock Synthesizer so tests don't need Web Audio APIs.
 // Must use a regular function (not arrow) so it's usable as a constructor.
 vi.mock("./instruments/synthesizer", () => {
-  function MockSynthesizer(this: Record<string, unknown>) {
+  function MockSynthesizer(
+    this: Record<string, unknown>,
+    _ctx: unknown,
+    _clock: unknown,
+    opts: { destination?: unknown },
+  ) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
+    this._destination = opts.destination;
     let resolve: () => void;
     this.done = new Promise<void>((r) => {
       resolve = r;
@@ -21,10 +27,11 @@ vi.mock("./instruments/sampler", () => {
     this: Record<string, unknown>,
     _ctx: unknown,
     _clock: unknown,
-    opts: { cache: { resolved: Map<string, unknown> } },
+    opts: { cache: { resolved: Map<string, unknown> }; destination?: unknown },
   ) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
+    this._destination = opts.destination;
     this.isReady = vi.fn(() => true);
     this.load = vi.fn();
     this.fallbackBufferFor = vi.fn(() => null);
@@ -42,10 +49,26 @@ import AudioEngine from "./index";
 import MockSynthesizer from "./instruments/synthesizer";
 import MockSampler from "./instruments/sampler";
 
+class FakeAudioNode {
+  readonly connect = vi.fn();
+  readonly disconnect = vi.fn();
+}
+
+class FakeGainNode extends FakeAudioNode {
+  gain = { value: 1 };
+}
+
+const createAnalyserMock = vi.fn(() => new FakeAudioNode());
+const createGainMock = vi.fn(() => new FakeGainNode());
+const destinationNode = new FakeAudioNode();
+
 // Stub AudioContext with audioWorklet.addModule for worklet registration
 const fakeCtx = {
   audioWorklet: { addModule: () => Promise.resolve() },
   decodeAudioData: vi.fn(async () => ({ duration: 1 }) as AudioBuffer),
+  destination: destinationNode,
+  createAnalyser: createAnalyserMock,
+  createGain: createGainMock,
 } as unknown as AudioContext;
 
 type EventCallback = (m: { beat: number; bar: number }, time: number) => void;
@@ -144,6 +167,7 @@ function instances() {
     scheduleBar: ReturnType<typeof vi.fn>;
     cancelFutureNotes: ReturnType<typeof vi.fn>;
     done: Promise<void>;
+    _destination: unknown;
     _resolveDone: () => void;
   }>;
 }
@@ -157,6 +181,7 @@ function samplerInstances() {
     fallbackBufferFor: ReturnType<typeof vi.fn>;
     _cache: { resolved: Map<string, unknown> };
     done: Promise<void>;
+    _destination: unknown;
     _resolveDone: () => void;
   }>;
 }
@@ -166,6 +191,43 @@ beforeEach(() => {
 });
 
 describe("AudioEngine", () => {
+  describe("output graph", () => {
+    it("creates a master output and analyser for final mixed output", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const master = createGainMock.mock.results[0]?.value;
+      const analyser = createAnalyserMock.mock.results[0]?.value;
+
+      expect(engine.getAnalyser()).toBe(analyser);
+      expect(master.connect).toHaveBeenCalledWith(destinationNode);
+      expect(master.connect).toHaveBeenCalledWith(analyser);
+    });
+
+    it("passes the master output to synthesizers instead of ctx.destination", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const master = createGainMock.mock.results[0]?.value;
+
+      engine.update(makeSchema());
+      clock.emit("prebar");
+
+      expect(instances()[0]._destination).toBe(master);
+      expect(instances()[0]._destination).not.toBe(destinationNode);
+    });
+
+    it("passes the master output to samplers instead of ctx.destination", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const master = createGainMock.mock.results[0]?.value;
+
+      engine.update(makeSamplerSchema());
+      clock.emit("prebar");
+
+      expect(samplerInstances()[0]._destination).toBe(master);
+      expect(samplerInstances()[0]._destination).not.toBe(destinationNode);
+    });
+  });
+
   describe("update() always defers to prebar", () => {
     it("does not commit until prebar fires, even when paused", () => {
       const clock = new FakeClock();
@@ -341,6 +403,18 @@ describe("AudioEngine", () => {
       // After destroy, bar events must not call scheduleBar
       clock.emit("bar");
       expect(instances()[0].scheduleBar).not.toHaveBeenCalled();
+    });
+
+    it("disconnects the master output and analyser", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const master = createGainMock.mock.results[0]?.value;
+      const analyser = createAnalyserMock.mock.results[0]?.value;
+
+      engine.destroy();
+
+      expect(master.disconnect).toHaveBeenCalledOnce();
+      expect(analyser.disconnect).toHaveBeenCalledOnce();
     });
   });
 

@@ -9,6 +9,8 @@ import { preloadVariationIndices } from "./utils/preload-variations";
 class AudioEngine {
   private _ctx: AudioContext;
   private _clock: AudioClock;
+  private _master: GainNode;
+  private _analyser: AnalyserNode;
   private _instruments: (Synthesizer | Sampler)[] = [];
   // Holds retired instruments until all their scheduled audio (including envelope
   // release tails) has finished. Each instrument removes itself via whenDone().
@@ -30,6 +32,10 @@ class AudioEngine {
   constructor(ctx: AudioContext, clock: AudioClock) {
     this._ctx = ctx;
     this._clock = clock;
+    this._master = ctx.createGain();
+    this._analyser = ctx.createAnalyser();
+    this._master.connect(ctx.destination);
+    this._master.connect(this._analyser);
 
     this.ready = registerWorklets(this._ctx, [lfoProcessorSource]);
 
@@ -105,6 +111,7 @@ class AudioEngine {
       if (schema.type === "sampler") {
         const inst = new Sampler(this._ctx, this._clock, {
           schema,
+          destination: this._master,
           banks,
           cache: this._cache,
           startingBar: upcomingBar,
@@ -119,6 +126,7 @@ class AudioEngine {
       }
       return new Synthesizer(this._ctx, this._clock, {
         schema,
+        destination: this._master,
         startingBar: upcomingBar,
         barStartTime,
       });
@@ -150,11 +158,17 @@ class AudioEngine {
     return variations[variationIndex] ?? variations[0];
   }
 
+  getAnalyser(): AnalyserNode {
+    return this._analyser;
+  }
+
   destroy(): void {
     this._unsub.forEach((fn) => fn());
     this._instruments = [];
     this._retiring.clear();
     this._pending = null;
+    this._master.disconnect();
+    this._analyser.disconnect();
   }
 }
 
