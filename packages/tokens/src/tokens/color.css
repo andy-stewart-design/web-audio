@@ -5,18 +5,18 @@
   --color-black-lch: 0% 0 285;
   --color-black: oklch(var(--color-black-lch));
 
-  --color-neutral-50: oklch(97.5% 0.006 274);
-  --color-neutral-100: oklch(92% 0.006 274);
-  --color-neutral-200: oklch(76% 0.01 258);
-  --color-neutral-300: oklch(68.2% 0.013 259);
-  --color-neutral-400: oklch(60.5% 0.015 258);
-  --color-neutral-500: oklch(52.5% 0.016 258);
-  --color-neutral-600: oklch(44% 0.017 258);
-  --color-neutral-700: oklch(36.5% 0.014 256);
-  --color-neutral-800: oklch(30% 0.011 254);
-  --color-neutral-850: oklch(24% 0.008 264);
-  --color-neutral-900: oklch(17% 0.008 264);
-  --color-neutral-950: oklch(12% 0.005 285);
+  --color-neutral-50: oklch(0.975 0.006 274);
+  --color-neutral-100: oklch(0.92 0.006 274);
+  --color-neutral-200: oklch(0.76 0.01 258);
+  --color-neutral-300: oklch(0.682 0.013 259);
+  --color-neutral-400: oklch(0.605 0.015 258);
+  --color-neutral-500: oklch(0.525 0.016 258);
+  --color-neutral-600: oklch(0.44 0.017 258);
+  --color-neutral-700: oklch(0.365 0.014 256);
+  --color-neutral-800: oklch(0.3 0.011 254);
+  --color-neutral-850: oklch(0.24 0.008 264);
+  --color-neutral-900: oklch(0.17 0.008 264);
+  --color-neutral-950: oklch(0.12 0.005 285);
 
   /* SEMANTIC -------------------------------------------------- */
   --color-bg-primary: light-dark(var(--color-white), var(--color-neutral-950));

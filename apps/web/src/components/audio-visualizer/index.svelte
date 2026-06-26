@@ -15,7 +15,11 @@
 		visualizer = new Visualizer({
 			analyser,
 			canvas,
-			type: 'curve'
+			type: 'curve',
+			colors: {
+				foreground: [0.92, 0.006, 274],
+				background: [0.12, 0.005, 285]
+			}
 		});
 	}
 
@@ -39,17 +43,15 @@
 
 <style>
 	.visualizer {
-		/*padding: 0.75rem 1rem;*/
 		border-bottom: 1px solid var(--color-border-subtle);
-		background: var(--color-bg-secondary);
+		background: var(--color-bg-primary);
 	}
 
 	canvas {
 		display: block;
 		inline-size: 100%;
-		block-size: 10rem;
-		/*border: 1px solid var(--color-border-subtle);*/
+		aspect-ratio: 3 / 2;
 		border-radius: 6px;
-		background: #08090d;
+		background: var(--color-bg-primary);
 	}
 </style>
