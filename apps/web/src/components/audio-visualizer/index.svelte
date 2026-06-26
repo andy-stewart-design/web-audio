@@ -39,7 +39,7 @@
 
 <style>
 	.visualizer {
-		padding: 0.75rem 1rem;
+		/*padding: 0.75rem 1rem;*/
 		border-bottom: 1px solid var(--color-border-subtle);
 		background: var(--color-bg-secondary);
 	}
@@ -48,7 +48,7 @@
 		display: block;
 		inline-size: 100%;
 		block-size: 10rem;
-		border: 1px solid var(--color-border-subtle);
+		/*border: 1px solid var(--color-border-subtle);*/
 		border-radius: 6px;
 		background: #08090d;
 	}
