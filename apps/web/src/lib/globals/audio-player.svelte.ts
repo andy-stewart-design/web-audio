@@ -38,6 +38,10 @@ class AudioPlayer {
 		return this.engine;
 	}
 
+	getAnalyser(): AnalyserNode | null {
+		return this.engine?.getAnalyser() ?? null;
+	}
+
 	private getWorker(): Worker {
 		if (!this.worker) {
 			this.worker = new Worker(new URL('./eval.worker.ts', import.meta.url), { type: 'module' });
