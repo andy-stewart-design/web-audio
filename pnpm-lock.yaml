@@ -242,6 +242,9 @@ importers:
       '@web-audio/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
+      '@web-audio/visualizer':
+        specifier: workspace:*
+        version: link:../../packages/visualizer
     devDependencies:
       '@eslint/compat':
         specifier: ^2.1.0
