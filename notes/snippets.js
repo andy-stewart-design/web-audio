@@ -88,6 +88,39 @@ d.loadSamples({
 
 d.sample("bd").bank("user").hex(0xf).push();
 
+// Multi-sampling
+
+// d.loadSamples({
+//   name: "acoustic",
+//   samples: {
+//     piano: ["https://www.files.com/file-01.wav"],
+//   },
+// });
+//
+// d.sample("piano").bank("acoustic").root("A3").scale("min").notes([0,2,4,6]).push();
+// d.sample("piano").bank("acoustic").notes(45).push(); // playback rate = 1 (THIS DOES NOT WORK)
+
+d.loadSamples({
+  name: "acoustic",
+  samples: {
+    piano: {
+      a2: [
+        "https://www.files.com/file-01.wav",
+        "https://www.files.com/file-02.wav",
+      ],
+      a3: [
+        "https://www.files.com/file-03.wav",
+        "https://www.files.com/file-04.wav",
+      ],
+    },
+  },
+});
+
+d.sample("piano", 0).bank("acoustic").notes(45).push(); // should play "https://www.files.com/file-01.wav"
+d.sample("piano", 1).bank("acoustic").notes(45).push(); // should play "https://www.files.com/file-02.wav"
+d.sample("piano", 0).bank("acoustic").notes(57).push(); // should play "https://www.files.com/file-03.wav"
+d.sample("piano", 1).bank("acoustic").notes(57).push(); // should play "https://www.files.com/file-04.wav"
+
 // Multiple Variations
 d.sample("bd").var([0, 1, 2, 3]).bank("tr909").hex(0xf).push();
 
@@ -160,3 +193,54 @@ d.sample("hh")
   .push();
 
 d.sample("rim").euclid(5, 8, 1).gain(0.5).push();
+
+const ex1A = {
+  banks: {
+    acoustic: {
+      piano: {
+        a2: {
+          root: 45,
+          variations: ["file-01.wav", "file-02.wav"],
+        },
+        a3: {
+          root: 57,
+          variations: ["file-03.wav", "file-04.wav"],
+        },
+      },
+    },
+  },
+};
+
+const ex2A = {
+  banks: {
+    user: {
+      bd: {
+        0: {
+          root: 0,
+          variations: ["bd.wav"],
+        },
+      },
+    },
+  },
+};
+
+const ex1B = {
+  banks: {
+    acoustic: {
+      piano: {
+        45: ["file-01.wav", "file-02.wav"],
+        57: ["file-03.wav", "file-04.wav"],
+      },
+    },
+  },
+};
+
+const ex2B = {
+  banks: {
+    user: {
+      bd: {
+        0: ["bd.wav"],
+      },
+    },
+  },
+};
