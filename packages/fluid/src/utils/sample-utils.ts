@@ -100,17 +100,13 @@ function resolveBank(def: BankDefinition): BankSchema {
   return { samples: normalizeSimpleSamples(def.samples, def.basePath) };
 }
 
-function normalizeLoadSamplesInput(input: LoadSamplesInput): BankSchema {
+function normalizeSampleBank(input: unknown): BankSchema {
   if (isNamedBank(input)) {
     return { samples: normalizeSimpleSamples(input.samples) };
   }
 
-  if (isNamed(input)) {
-    const bank: Record<string, unknown> = { ...input };
-    delete bank.name;
-    return normalizeLoadSamplesInput(bank as LoadSamplesInput);
-  }
-
+  // Named sprite/multisample inputs are structurally identical to their unnamed
+  // variants plus an extra `name` field, so the same guards handle both.
   if (isPitchedSpriteSampleBank(input)) {
     return { samples: normalizePitchedSpriteSamples(input) };
   }
@@ -232,22 +228,6 @@ function isMultiSampleBank(obj: unknown): obj is MultiSampleBank {
   );
 }
 
-// -----------------------------------------------------------------------------
-// Local input union
-// -----------------------------------------------------------------------------
-// Re-declared here to include named generic variants without exporting utility
-// implementation details from the public fluid types surface.
-
-type LoadSamplesInput =
-  | SampleBank
-  | NamedSampleBank
-  | SpriteSampleBank
-  | (SpriteSampleBank & { name: string })
-  | PitchedSpriteSampleBank
-  | (PitchedSpriteSampleBank & { name: string })
-  | MultiSampleBank
-  | (MultiSampleBank & { name: string });
-
 export {
   invalidManifestMessage,
   isMultiSampleBank,
@@ -256,6 +236,6 @@ export {
   isPitchedSpriteSampleBank,
   isSampleBank,
   isSpriteSampleBank,
-  normalizeLoadSamplesInput,
+  normalizeSampleBank,
   resolveBank,
 };

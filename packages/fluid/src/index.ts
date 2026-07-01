@@ -9,7 +9,7 @@ import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import {
   isNamed,
-  normalizeLoadSamplesInput,
+  normalizeSampleBank,
   resolveBank,
 } from "./utils/sample-utils";
 import type { BankSchema, FilterType } from "@web-audio/schema";
@@ -59,26 +59,22 @@ class Drome {
           }
           return res.json();
         })
-        .then((json: unknown) =>
-          this.loadSamples(this._validateLoadSamplesInput(json)),
-        );
+        .then((json: unknown) => this._loadSamples(json));
     }
 
-    const validatedInput = this._validateLoadSamplesInput(input);
-    const normalized = normalizeLoadSamplesInput(validatedInput);
-    if (isNamed(validatedInput)) {
-      this._banks[validatedInput.name] = normalized;
+    return this._loadSamples(input);
+  }
+
+  private _loadSamples(input: unknown) {
+    const normalized = normalizeSampleBank(input);
+    if (isNamed(input)) {
+      this._banks[input.name] = normalized;
     } else {
       this._banks.user ??= { samples: {} };
       Object.assign(this._banks.user.samples, normalized.samples);
     }
 
     return this;
-  }
-
-  private _validateLoadSamplesInput(input: unknown): LoadSamplesInput {
-    normalizeLoadSamplesInput(input as LoadSamplesInput);
-    return input as LoadSamplesInput;
   }
 
   rand() {
