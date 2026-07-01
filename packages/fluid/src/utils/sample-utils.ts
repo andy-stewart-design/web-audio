@@ -12,6 +12,13 @@ import { noteStringToMidi } from "./note-string-to-midi";
 const invalidManifestMessage =
   "Invalid sample manifest: expected a sample bank, named sample bank, multisample bank, or sprite bank";
 
+// -----------------------------------------------------------------------------
+// Normalization
+// -----------------------------------------------------------------------------
+// User-facing loadSamples() shapes are intentionally flexible. Everything in
+// this section converts those shapes into the single normalized BankSchema shape
+// consumed by schema/engine code.
+
 function normalizeFileVariations(paths: string[], basePath = "") {
   return paths.map((path) => ({
     type: "file" as const,
@@ -30,6 +37,8 @@ function normalizeSimpleSamples(
   return normalized;
 }
 
+// Multisample authoring uses pitch names like "a2" and "c#4". Normalized bank
+// schemas use stringified MIDI numbers like "45" so runtime lookup is simple.
 function pitchKeyToMidi(key: string) {
   if (!/^[A-Ga-g][#b]?-?\d+$/.test(key)) {
     throw new Error(`Invalid sample pitch key "${key}"`);
@@ -85,6 +94,8 @@ function normalizePitchedSpriteSamples(input: PitchedSpriteSampleBank) {
   return normalized;
 }
 
+// Built-in bank files still use the original BankDefinition authoring shape:
+// basePath + relative file paths. Resolve them into normalized file entries.
 function resolveBank(def: BankDefinition): BankSchema {
   return { samples: normalizeSimpleSamples(def.samples, def.basePath) };
 }
@@ -95,7 +106,8 @@ function normalizeLoadSamplesInput(input: LoadSamplesInput): BankSchema {
   }
 
   if (isNamed(input)) {
-    const { name: _name, ...bank } = input;
+    const bank: Record<string, unknown> = { ...input };
+    delete bank.name;
     return normalizeLoadSamplesInput(bank as LoadSamplesInput);
   }
 
@@ -118,6 +130,12 @@ function normalizeLoadSamplesInput(input: LoadSamplesInput): BankSchema {
   throw new Error(invalidManifestMessage);
 }
 
+// -----------------------------------------------------------------------------
+// Type guards
+// -----------------------------------------------------------------------------
+// These validate the supported loadSamples() authoring shapes. They are kept
+// composable so named variants can reuse the same guards as unnamed variants.
+
 function isNamed(obj: unknown): obj is { name: string } {
   return (
     !!obj &&
@@ -133,6 +151,9 @@ function isStringArray(value: unknown): value is string[] {
   );
 }
 
+// A sprite region is a normalized [start, end] tuple. Bare regions are not valid
+// sample leaves; sprite leaves must be arrays of regions so they mirror file
+// variation arrays.
 function isSpriteRegion(value: unknown): value is [number, number] {
   return (
     Array.isArray(value) &&
@@ -210,6 +231,12 @@ function isMultiSampleBank(obj: unknown): obj is MultiSampleBank {
       Object.values(value as Record<string, unknown>).every(isStringArray),
   );
 }
+
+// -----------------------------------------------------------------------------
+// Local input union
+// -----------------------------------------------------------------------------
+// Re-declared here to include named generic variants without exporting utility
+// implementation details from the public fluid types surface.
 
 type LoadSamplesInput =
   | SampleBank
