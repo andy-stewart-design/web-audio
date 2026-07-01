@@ -54,8 +54,26 @@ interface BankDefinition {
   samples: Record<string, string[]>;
 }
 
+interface FileSampleVariationSchema {
+  type: "file";
+  src: string;
+}
+
+interface SpriteSampleVariationSchema {
+  type: "sprite";
+  src: string;
+  start: number;
+  end: number;
+}
+
+type SampleVariationSchema =
+  | FileSampleVariationSchema
+  | SpriteSampleVariationSchema;
+
+type NormalizedSampleSchema = Record<string, SampleVariationSchema[]>;
+
 interface BankSchema {
-  samples: Record<string, string[]>;
+  samples: Record<string, NormalizedSampleSchema>;
 }
 
 // ---------------------------------------------------
@@ -127,6 +145,7 @@ interface SamplerSchema extends InstrumentSchema {
   sample: string;
   variation: ParameterSchema;
   notes: ParameterSchema | FitSchema;
+  sourceKeys: number[];
   loop: boolean;
   clipMode: ClipMode;
 }
@@ -149,15 +168,19 @@ export type {
   EffectSchema,
   EnvelopeMode,
   EnvelopeSchema,
+  FileSampleVariationSchema,
   FilterSchema,
   FilterType,
   FitSchema,
   GainEffectSchema,
   InstrumentSchema,
   LfoSchema,
+  NormalizedSampleSchema,
   ParameterSchema,
   RandomSchema,
   SamplerSchema,
+  SampleVariationSchema,
+  SpriteSampleVariationSchema,
   StaticSchema,
   StaticSchemaValue,
   SynthesizerSchema,

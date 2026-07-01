@@ -68,14 +68,14 @@ interface BankSchema {
 
 **Acceptance criteria:**
 
-- [ ] New sample variation types are exported from `@web-audio/schema`
-- [ ] `BankSchema.samples` accepts normalized sample definitions
-- [ ] Existing simple sample banks can be represented as `{ "0": [{ type: "file", src }] }`
-- [ ] Package type-checks cleanly
+- [x] New sample variation types are exported from `@web-audio/schema`
+- [x] `BankSchema.samples` accepts normalized sample definitions
+- [x] Existing simple sample banks can be represented as `{ "0": [{ type: "file", src }] }`
+- [x] Package type-checks cleanly
 
 **Testing:**
 
-- [ ] Type-level: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] Type-level: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 ---
 
@@ -102,13 +102,13 @@ interface SamplerSchema extends InstrumentSchema {
 
 **Acceptance criteria:**
 
-- [ ] `SamplerSchema.sourceKeys` is required and typed as `number[]`
-- [ ] `notes` and `variation` remain separate schema fields
-- [ ] Package type-checks cleanly
+- [x] `SamplerSchema.sourceKeys` is required and typed as `number[]`
+- [x] `notes` and `variation` remain separate schema fields
+- [x] Package type-checks cleanly
 
 **Testing:**
 
-- [ ] Type-level: `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] Type-level: `pnpm --filter @web-audio/schema exec tsc --noEmit`
 
 ---
 
