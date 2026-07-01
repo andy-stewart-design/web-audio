@@ -73,6 +73,7 @@ class Sampler extends Instrument {
       sample: this._sample,
       variation: this._variation.getSchema(),
       notes: this._fit ?? this._cycle.getSchema(),
+      sourceKeys: [0],
       detune: this._detune.getSchema(),
       gain: this._gain.getSchema(),
       effects: this._effects.map((e) => e.getSchema()),

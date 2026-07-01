@@ -7,17 +7,14 @@ import GainEffect from "./effects/gain";
 import Instrument from "./instruments/instrument";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
-import { isNamedBank, isSampleBank, resolveBank } from "./utils/sample-utils";
+import {
+  isNamed,
+  normalizeLoadSamplesInput,
+  resolveBank,
+} from "./utils/sample-utils";
 import type { BankSchema, FilterType } from "@web-audio/schema";
-import type {
-  CycleInput,
-  DromeSchema,
-  NamedSampleBank,
-  SampleBank,
-} from "./types";
+import type { CycleInput, DromeSchema, LoadSamplesInput } from "./types";
 import type { WaveformAlias } from "./utils/waveform";
-
-type LoadSamplesInput = SampleBank | NamedSampleBank;
 
 class Drome {
   private _instruments: Set<Instrument>;
@@ -68,24 +65,20 @@ class Drome {
     }
 
     const validatedInput = this._validateLoadSamplesInput(input);
-    if (isNamedBank(validatedInput)) {
-      this._banks[validatedInput.name] = { samples: validatedInput.samples };
+    const normalized = normalizeLoadSamplesInput(validatedInput);
+    if (isNamed(validatedInput)) {
+      this._banks[validatedInput.name] = normalized;
     } else {
       this._banks.user ??= { samples: {} };
-      Object.assign(this._banks.user.samples, validatedInput);
+      Object.assign(this._banks.user.samples, normalized.samples);
     }
 
     return this;
   }
 
   private _validateLoadSamplesInput(input: unknown): LoadSamplesInput {
-    if (isNamedBank(input) || isSampleBank(input)) {
-      return input;
-    }
-
-    throw new Error(
-      "Invalid sample manifest: expected { [sampleName]: string[] } or { name: string; samples: { [sampleName]: string[] } }",
-    );
+    normalizeLoadSamplesInput(input as LoadSamplesInput);
+    return input as LoadSamplesInput;
   }
 
   rand() {

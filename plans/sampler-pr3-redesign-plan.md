@@ -144,16 +144,16 @@ Built-in banks should normalize the same way after basePath URL resolution.
 
 **Acceptance criteria:**
 
-- [ ] Flat `loadSamples({ bd: ["bd.wav"] })` emits `banks.user.samples.bd["0"][0]`
-- [ ] Built-in bank samples normalize to source key `"0"`
-- [ ] Resolved built-in URLs are stored as `{ type: "file", src: fullUrl }`
-- [ ] Existing simple sampler schema round-trips still work, except for expected normalized bank shape changes
+- [x] Flat `loadSamples({ bd: ["bd.wav"] })` emits `banks.user.samples.bd["0"][0]`
+- [x] Built-in bank samples normalize to source key `"0"`
+- [x] Resolved built-in URLs are stored as `{ type: "file", src: fullUrl }`
+- [x] Existing simple sampler schema round-trips still work, except for expected normalized bank shape changes
 
 **Testing:** `packages/fluid/src/index.test.ts`
 
-- [ ] Unit: flat user bank normalizes to `"0"` file entries
-- [ ] Unit: built-in tr909 bank normalizes to `"0"` file entries
-- [ ] Unit: custom bank with same name as built-in still takes precedence
+- [x] Unit: flat user bank normalizes to `"0"` file entries
+- [x] Unit: built-in tr909 bank normalizes to `"0"` file entries
+- [x] Unit: custom bank with same name as built-in still takes precedence
 
 ---
 
@@ -192,17 +192,17 @@ piano: {
 
 **Acceptance criteria:**
 
-- [ ] Pitch keys like `a2` and `a3` normalize to numeric string keys
-- [ ] Variations are preserved in order
-- [ ] Named multisample bank does not pollute `user`
-- [ ] Invalid pitch keys throw a useful error
+- [x] Pitch keys like `a2` and `a3` normalize to numeric string keys
+- [x] Variations are preserved in order
+- [x] Named multisample bank does not pollute `user`
+- [x] Invalid pitch keys throw a useful error
 
 **Testing:** `packages/fluid/src/index.test.ts`
 
-- [ ] Unit: `a2` normalizes to `"45"`
-- [ ] Unit: `a3` normalizes to `"57"`
-- [ ] Unit: per-key variations preserve ordering
-- [ ] Unit: invalid pitch key throws
+- [x] Unit: `a2` normalizes to `"45"`
+- [x] Unit: `a3` normalizes to `"57"`
+- [x] Unit: per-key variations preserve ordering
+- [x] Unit: invalid pitch key throws
 
 ---
 
@@ -244,18 +244,18 @@ bd: {
 
 **Acceptance criteria:**
 
-- [ ] Named sprite banks normalize to sprite entries
-- [ ] Unnamed sprite banks register into `user`
-- [ ] Single-region `[[start, end]]` leaves normalize to one variation
-- [ ] Sprite entries include `src`, `start`, and `end`
-- [ ] Start/end values must be valid normalized offsets with `0 <= start < end <= 1`
+- [x] Named sprite banks normalize to sprite entries
+- [x] Unnamed sprite banks register into `user`
+- [x] Single-region `[[start, end]]` leaves normalize to one variation
+- [x] Sprite entries include `src`, `start`, and `end`
+- [x] Start/end values must be valid normalized offsets with `0 <= start < end <= 1`
 
 **Testing:** `packages/fluid/src/index.test.ts`
 
-- [ ] Unit: named sprite kit normalizes correctly
-- [ ] Unit: unnamed sprite kit normalizes into `user`
-- [ ] Unit: bare `[start, end]` leaf is rejected
-- [ ] Unit: invalid region bounds throw
+- [x] Unit: named sprite kit normalizes correctly
+- [x] Unit: unnamed sprite kit normalizes into `user`
+- [x] Unit: bare `[start, end]` leaf is rejected
+- [x] Unit: invalid region bounds throw
 
 ---
 
@@ -292,17 +292,17 @@ d.loadSamples({
 
 **Acceptance criteria:**
 
-- [ ] Sprite variation arrays normalize to multiple sprite entries
-- [ ] Pitched sprite keys normalize to numeric string keys
-- [ ] Pitched sprite variation arrays preserve order
-- [ ] Single-region and multi-region leaves are both represented as arrays of regions
+- [x] Sprite variation arrays normalize to multiple sprite entries
+- [x] Pitched sprite keys normalize to numeric string keys
+- [x] Pitched sprite variation arrays preserve order
+- [x] Single-region and multi-region leaves are both represented as arrays of regions
 
 **Testing:** `packages/fluid/src/index.test.ts`
 
-- [ ] Unit: `bd: [[0, 0.1], [0.2, 0.3]]` creates two variations
-- [ ] Unit: pitched sprite `a2`/`a3` normalizes to `"45"`/`"57"`
-- [ ] Unit: `[[0, 0.1]]` creates one variation
-- [ ] Unit: single-region and multi-region sprite leaves normalize correctly
+- [x] Unit: `bd: [[0, 0.1], [0.2, 0.3]]` creates two variations
+- [x] Unit: pitched sprite `a2`/`a3` normalizes to `"45"`/`"57"`
+- [x] Unit: `[[0, 0.1]]` creates one variation
+- [x] Unit: single-region and multi-region sprite leaves normalize correctly
 
 ---
 
@@ -353,20 +353,20 @@ function isMultiSampleBank(obj: unknown): obj is MultiSampleBank;
 
 **Acceptance criteria:**
 
-- [ ] All supported `loadSamples()` shapes are typed
-- [ ] Bare string file leaves are rejected for simple and multisample banks
-- [ ] Bare sprite region leaves like `[0, 0.1]` are rejected; sprite leaves must be `[[0, 0.1]]`
-- [ ] Named variants are detected with `isNamed()` instead of duplicate named guards
-- [ ] Invalid shapes throw the existing invalid manifest error or a clearer shape-specific error
+- [x] All supported `loadSamples()` shapes are typed
+- [x] Bare string file leaves are rejected for simple and multisample banks
+- [x] Bare sprite region leaves like `[0, 0.1]` are rejected; sprite leaves must be `[[0, 0.1]]`
+- [x] Named variants are detected with `isNamed()` instead of duplicate named guards
+- [x] Invalid shapes throw the existing invalid manifest error or a clearer shape-specific error
 
 **Testing:** `packages/fluid/src/utils/sample-utils.test.ts`, `packages/fluid/src/index.test.ts`
 
-- [ ] Unit: valid flat/named simple bank guards
-- [ ] Unit: valid flat/named sprite bank guards
-- [ ] Unit: valid flat/named pitched sprite bank guards
-- [ ] Unit: valid flat/named multisample bank guards
-- [ ] Unit: `a2: "file.wav"` is rejected
-- [ ] Unit: `bd: [0, 0.1]` is rejected for sprite banks
+- [x] Unit: valid flat/named simple bank guards
+- [x] Unit: valid flat/named sprite bank guards
+- [x] Unit: valid flat/named pitched sprite bank guards
+- [x] Unit: valid flat/named multisample bank guards
+- [x] Unit: `a2: "file.wav"` is rejected
+- [x] Unit: `bd: [0, 0.1]` is rejected for sprite banks
 
 ---
 

@@ -25,6 +25,24 @@ type NoteValue = `${NoteName}${number}`;
 
 type SampleBank = Record<string, string[]>;
 type NamedSampleBank = { name: string; samples: SampleBank };
+type SpriteRegion = [number, number];
+type SpriteLeaf = SpriteRegion[];
+type Named<T> = T & { name: string };
+type SpriteBank<S> = { sprite: string; samples: S };
+type SpriteSampleBank = SpriteBank<Record<string, SpriteLeaf>>;
+type PitchedSpriteSampleBank = SpriteBank<
+  Record<string, Record<string, SpriteLeaf>>
+>;
+type MultiSampleBank = { samples: Record<string, Record<string, string[]>> };
+type LoadSamplesInput =
+  | SampleBank
+  | NamedSampleBank
+  | SpriteSampleBank
+  | Named<SpriteSampleBank>
+  | PitchedSpriteSampleBank
+  | Named<PitchedSpriteSampleBank>
+  | MultiSampleBank
+  | Named<MultiSampleBank>;
 
 export type {
   ADSR,
@@ -34,4 +52,12 @@ export type {
   NoteValue,
   SampleBank,
   NamedSampleBank,
+  SpriteRegion,
+  SpriteLeaf,
+  Named,
+  SpriteBank,
+  SpriteSampleBank,
+  PitchedSpriteSampleBank,
+  MultiSampleBank,
+  LoadSamplesInput,
 };
