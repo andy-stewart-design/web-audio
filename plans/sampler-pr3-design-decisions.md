@@ -39,7 +39,7 @@ These decisions were reached through a structured design review of `sampler-pr3-
 
 **Gap:** The plan says `Drome.getSchema()` needs two passes — first resolve banks, then build sampler schemas with `sourceKeys`. It doesn't specify how `Sampler.getSchema()` gets bank access.
 
-**Decision:** No two-pass architecture needed. `Sampler` already holds `this._host` (a `Drome` reference). `Drome` exposes a private `_resolveBank(name)` helper. `Sampler.getSchema()` calls it directly to derive `sourceKeys`. `Drome.getSchema()` stays a single pass.
+**Decision:** No two-pass architecture needed. `Sampler` already holds `this._host` (a `Drome` reference). `Drome` exposes an internal `_resolveBank(name)` helper. It should not be TypeScript `private`, because `Sampler.getSchema()` calls it directly to derive `sourceKeys`. `Drome.getSchema()` stays a single pass.
 
 **Actions:**
 
@@ -103,17 +103,17 @@ These decisions were reached through a structured design review of `sampler-pr3-
 
 ---
 
-## 6. `_resolveUrl` duplication eliminated via shared utility
+## 6. Sample entry resolution duplication eliminated via shared utility
 
-**Gap:** `_resolveUrl` is duplicated in `SampleBufferStore` (runtime scheduling) and `AudioEngine` (prepare-time URL collection). PR3 makes both more complex — both need to handle source keys as a second dimension.
+**Gap:** URL/source resolution is duplicated in `SampleBufferStore` (runtime scheduling) and `AudioEngine` (prepare-time URL collection). PR3 makes both more complex — both need to handle source keys as a second dimension, and runtime scheduling needs sprite metadata in addition to URLs.
 
-**Decision:** Extract a shared pure utility function `resolveSampleUrl`. Both consumers call it. `AudioEngine._resolveUrl` is deleted entirely.
+**Decision:** Extract a shared pure utility function `resolveSampleEntry`. Both consumers call it. A small `resolveSampleUrl` helper can derive `entry.src` for prepare-time preload code. `AudioEngine._resolveUrl` is deleted entirely.
 
 **Actions:**
 
-- Create `packages/audio-engine/src/utils/resolve-sample-url.ts`:
+- Create `packages/audio-engine/src/utils/resolve-sample-entry.ts`:
   ```ts
-  function resolveSampleUrl({
+  function resolveSampleEntry({
     banks,
     bank,
     sample,
@@ -125,16 +125,19 @@ These decisions were reached through a structured design review of `sampler-pr3-
     sample: string;
     sourceKey: number;
     variationIndex: number;
-  }): string | null {
+  }): SampleVariationSchema | null {
     const variations = banks[bank]?.samples[sample]?.[String(sourceKey)];
-    const entry = variations?.[variationIndex] ?? variations?.[0];
-    return entry?.src ?? null;
+    return variations?.[variationIndex] ?? variations?.[0] ?? null;
+  }
+
+  function resolveSampleUrl(args: Parameters<typeof resolveSampleEntry>[0]) {
+    return resolveSampleEntry(args)?.src ?? null;
   }
   ```
-- Delete `AudioEngine._resolveUrl`. Replace all call sites with `resolveSampleUrl(...)`.
-- Update `SampleBufferStore._resolveUrl` to call `resolveSampleUrl` with `this._banks`, `this._bank`, `this._sample`, and the provided `sourceKey`/`variationIndex`.
-- Widen `SampleBufferStore._buffers` from `Map<number, AudioBuffer>` to `Map<string, AudioBuffer>`, keyed by `"${sourceKey}:${variationIndex}"`.
-- Add unit tests for `resolveSampleUrl`: correct URL returned, fallback to variation `0` when index out of range, `null` returned for missing bank/sample/key.
+- Delete `AudioEngine._resolveUrl`. Replace prepare-time call sites with `resolveSampleUrl(...)`.
+- Update runtime scheduling / `SampleBufferStore` to call `resolveSampleEntry(...)` so sprite metadata is available.
+- Widen `SampleBufferStore._buffers` from `Map<number, AudioBuffer>` to `Map<string, AudioBuffer>`, keyed by `"${sourceKey}:${variationIndex}"` where needed.
+- Add unit tests for `resolveSampleEntry`: correct file entry returned, correct sprite entry returned, fallback to variation `0` when index out of range, `null` returned for missing bank/sample/key.
 
 ---
 
@@ -149,12 +152,12 @@ These decisions were reached through a structured design review of `sampler-pr3-
 - Add to `packages/fluid/src/types.ts`:
   ```ts
   type SpriteRegion = [number, number];
-  type SpriteLeaf = SpriteRegion | SpriteRegion[];
+  type SpriteLeaf = SpriteRegion[];
 
   type SpriteBank<S> = { sprite: string; samples: S };
   type SpriteSampleBank = SpriteBank<Record<string, SpriteLeaf>>;
   type PitchedSpriteSampleBank = SpriteBank<Record<string, Record<string, SpriteLeaf>>>;
-  type MultiSampleBank = { samples: Record<string, Record<string, string | string[]>> };
+  type MultiSampleBank = { samples: Record<string, Record<string, string[]>> };
 
   type Named<T> = T & { name: string };
 
@@ -187,7 +190,7 @@ These decisions were reached through a structured design review of `sampler-pr3-
   // etc.
   ```
 
-- Add unit tests for each type guard with valid and invalid inputs.
+- Add unit tests for each type guard with valid and invalid inputs, including rejection tests for `a2: "file.wav"` and sprite leaves like `bd: [0, 0.1]`.
 
 ---
 

@@ -59,26 +59,26 @@ d.loadSamples({
 });
 ```
 
-Pitch keys such as `a2` and `a3` are authoring conveniences. Fluid resolves them to normalized numeric keys.
+Pitch keys such as `a2` and `a3` are authoring conveniences. Fluid resolves them to normalized numeric keys. Multisample leaves must be `string[]`; bare string leaves like `a2: "file.wav"` are intentionally invalid.
 
 ### Sprite bank
 
-Sprite banks lift the shared source file to a top-level `sprite` field. Sample leaves are normalized `[start, end]` offsets from `0` to `1`.
+Sprite banks lift the shared source file to a top-level `sprite` field. Sample leaves are arrays of normalized `[start, end]` regions from `0` to `1`. This mirrors file samples: file leaves are arrays of URL variations, and sprite leaves are arrays of region variations.
 
 ```ts
 d.loadSamples({
   name: "op1",
   sprite: "kit.wav",
   samples: {
-    bd: [0.0, 0.08],
-    sd: [0.1, 0.18],
-    ch: [0.2, 0.24],
-    oh: [0.25, 0.4],
+    bd: [[0.0, 0.08]],
+    sd: [[0.1, 0.18]],
+    ch: [[0.2, 0.24]],
+    oh: [[0.25, 0.4]],
   },
 });
 ```
 
-Sprite regions can also have variations by using an array of regions:
+Sprite regions can have variations by adding more regions to the array:
 
 ```ts
 d.loadSamples({
@@ -106,7 +106,7 @@ d.sample("bd").bank("op1").variation([0, 1]).push();
 
 ### Pitched sprite bank
 
-The same sprite format can represent pitched multisampled instruments. In that case, the sample contains pitch keys whose leaves are sprite regions or sprite-region variations.
+The same sprite format can represent pitched multisampled instruments. In that case, the sample contains pitch keys whose leaves are arrays of sprite regions.
 
 ```ts
 d.loadSamples({
@@ -114,9 +114,9 @@ d.loadSamples({
   sprite: "piano-sprite.wav",
   samples: {
     piano: {
-      a2: [0.0, 0.16],
-      a3: [0.2, 0.36],
-      a4: [0.4, 0.56],
+      a2: [[0.0, 0.16]],
+      a3: [[0.2, 0.36]],
+      a4: [[0.4, 0.56]],
     },
   },
 });
@@ -379,10 +379,9 @@ Fluid should:
 5. Preserve `variation` as its own `ParameterSchema`.
 6. Emit sorted numeric `sourceKeys` for each sampler from the normalized bank sample.
 
-This likely requires `Drome.getSchema()` to build schemas in two passes:
+Implementation should avoid a broad two-pass schema refactor. `Drome` should expose an internal `_resolveBank(name)` helper that normalizes user/custom banks first and built-in banks second. `Sampler.getSchema()` can call this helper through its existing host reference to derive `sourceKeys`.
 
-1. resolve banks
-2. build instrument schemas with access to resolved banks so samplers can emit `sourceKeys`
+When a bank or sample is missing, fluid should emit a loud warning and fall back to `sourceKeys: [0]` so schema generation remains resilient. The engine may still warn and skip at schedule time if the source entry cannot be resolved.
 
 ## Engine responsibilities
 
@@ -398,6 +397,10 @@ The engine should:
 8. For `type: "file"`, start normally.
 9. For `type: "sprite"`, start at `start * buffer.duration` and stop after `(end - start) * buffer.duration / playbackRate` or equivalent Web Audio scheduling.
 10. Apply gain, effects, detune, loop, and clip mode as before.
+
+Entry resolution should be centralized in a shared pure utility, e.g. `resolveSampleEntry(...)`, so prepare-time preloading and runtime scheduling cannot drift. A URL-only helper can be derived from it for preload collection, but runtime scheduling needs full file/sprite metadata.
+
+`prepare()` should preload the cartesian product of `sourceKeys × preloadVariationIndices(schema)`. This ensures all runtime-selectable source keys are ready, including random-note cases. URL-level deduplication should ensure shared sprite files are fetched once.
 
 The engine should not:
 
@@ -475,6 +478,13 @@ Rationale:
 
 None currently.
 
+## Implementation notes
+
+- `SampleNotes.getSchema()` should return MIDI target values directly; remove playback-rate remapping from fluid.
+- `Drome._resolveBank(name)` should be internal/non-private so `Sampler.getSchema()` can derive `sourceKeys` without a two-pass schema build.
+- `fit()` validation should happen in `Sampler.getSchema()`, where `_fit`, bank, sample, and resolved `sourceKeys` are all available.
+- Missing banks/samples should warn during schema generation and use `sourceKeys: [0]` as a fallback.
+
 ## Acceptance criteria
 
 - Simple existing built-in banks still work after normalization.
@@ -483,8 +493,8 @@ None currently.
 - `d.sample("piano", 0).bank("acoustic").root("A2").notes(0)` emits notes that resolve to `45`, variation `0`, and `sourceKeys` including `45`.
 - `d.sample("piano", 1).bank("acoustic").root("A2").notes(0)` emits notes that resolve to `45`, variation `1`, and `sourceKeys` including `45`.
 - `d.sample("piano").bank("acoustic").root("A3").notes(12)` emits notes that resolve one octave above A3 and `sourceKeys` for nearest-key engine selection.
-- Sprite authoring supports shared `sprite` source files with `[start, end]` leaves.
-- Sprite authoring supports variations via arrays of `[start, end]` regions.
+- Sprite authoring supports shared `sprite` source files with `[start, end][]` leaves.
+- Sprite authoring supports variations by adding multiple `[start, end]` regions to the leaf array.
 - Sprite sample definitions normalize to entries containing both `src` and normalized offsets.
 - Random notes and random variation remain independently representable because `notes` and `variation` stay separate in `SamplerSchema`.
 - Engine tests demonstrate that engine resolves notes and variation independently, selects the nearest `sourceKeys` entry, computes playback rate, and consumes normalized file/sprite entries.

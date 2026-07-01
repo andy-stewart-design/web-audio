@@ -11,6 +11,7 @@ The original PR3 plan widened `BankSchema.samples` directly to support simple sa
 - shared-source audio sprites
 - independent `notes` and `variation` parameters
 - `sourceKeys` on `SamplerSchema`
+- sampler note values as MIDI target values, not precomputed playback rates
 - bounded engine-side source-key selection and playback-rate calculation
 
 **Key design decisions:**
@@ -20,7 +21,7 @@ The original PR3 plan widened `BankSchema.samples` directly to support simple sa
 - Normalized sample keys are stringified source/root pitches: `"0"`, `"45"`, `"57"`, etc.
 - `SamplerSchema.notes` and `SamplerSchema.variation` remain separate so static/cycling/random behavior composes naturally.
 - `SamplerSchema.sourceKeys` lists available normalized source pitches as sorted numbers.
-- `notes` now carries target note values, not precomputed playback rates.
+- `notes` now carries target MIDI note values, not precomputed playback rates. This is a breaking schema/behavior change from PR1 sampler internals.
 - The engine resolves `notes` and `variation`, selects the nearest source key, computes playback rate, then schedules the selected file/sprite entry.
 - Default sampler root changes from A4/69 to `0`.
 - `fit()` is valid only for source key `[0]` samples/sprites and throws for pitched multisamples.
@@ -216,8 +217,8 @@ d.loadSamples({
   name: "op1",
   sprite: "kit.wav",
   samples: {
-    bd: [0.0, 0.08],
-    sd: [0.1, 0.18],
+    bd: [[0.0, 0.08]],
+    sd: [[0.1, 0.18]],
   },
 });
 ```
@@ -228,7 +229,7 @@ Without `name`, register into `"user"`:
 d.loadSamples({
   sprite: "kit.wav",
   samples: {
-    bd: [0.0, 0.08],
+    bd: [[0.0, 0.08]],
   },
 });
 ```
@@ -245,7 +246,7 @@ bd: {
 
 - [ ] Named sprite banks normalize to sprite entries
 - [ ] Unnamed sprite banks register into `user`
-- [ ] Single `[start, end]` leaves normalize to one variation
+- [ ] Single-region `[[start, end]]` leaves normalize to one variation
 - [ ] Sprite entries include `src`, `start`, and `end`
 - [ ] Start/end values must be valid normalized offsets with `0 <= start < end <= 1`
 
@@ -253,6 +254,7 @@ bd: {
 
 - [ ] Unit: named sprite kit normalizes correctly
 - [ ] Unit: unnamed sprite kit normalizes into `user`
+- [ ] Unit: bare `[start, end]` leaf is rejected
 - [ ] Unit: invalid region bounds throw
 
 ---
@@ -278,7 +280,7 @@ d.loadSamples({
   sprite: "piano-sprite.wav",
   samples: {
     piano: {
-      a2: [0.0, 0.16],
+      a2: [[0.0, 0.16]],
       a3: [
         [0.2, 0.36],
         [0.37, 0.52],
@@ -293,13 +295,78 @@ d.loadSamples({
 - [ ] Sprite variation arrays normalize to multiple sprite entries
 - [ ] Pitched sprite keys normalize to numeric string keys
 - [ ] Pitched sprite variation arrays preserve order
-- [ ] Mixed single-region and multi-region leaves are valid
+- [ ] Single-region and multi-region leaves are both represented as arrays of regions
 
 **Testing:** `packages/fluid/src/index.test.ts`
 
 - [ ] Unit: `bd: [[0, 0.1], [0.2, 0.3]]` creates two variations
 - [ ] Unit: pitched sprite `a2`/`a3` normalizes to `"45"`/`"57"`
-- [ ] Unit: mixed single and multi-region sprite leaves normalize correctly
+- [ ] Unit: `[[0, 0.1]]` creates one variation
+- [ ] Unit: single-region and multi-region sprite leaves normalize correctly
+
+---
+
+### Step 2.5 — Add `loadSamples()` authoring types and guards
+
+**Files:** `packages/fluid/src/types.ts`, `packages/fluid/src/utils/sample-utils.ts`, `packages/fluid/src/index.ts`
+
+Add explicit authoring types without allowing bare string sample shorthand.
+
+```ts
+type SpriteRegion = [number, number];
+type SpriteLeaf = SpriteRegion[];
+
+type Named<T> = T & { name: string };
+type SpriteBank<S> = { sprite: string; samples: S };
+
+type SpriteSampleBank = SpriteBank<Record<string, SpriteLeaf>>;
+type PitchedSpriteSampleBank = SpriteBank<
+  Record<string, Record<string, SpriteLeaf>>
+>;
+type MultiSampleBank = {
+  samples: Record<string, Record<string, string[]>>;
+};
+
+type LoadSamplesInput =
+  | SampleBank
+  | NamedSampleBank
+  | SpriteSampleBank
+  | Named<SpriteSampleBank>
+  | PitchedSpriteSampleBank
+  | Named<PitchedSpriteSampleBank>
+  | MultiSampleBank
+  | Named<MultiSampleBank>;
+```
+
+`a2: "file.wav"` is intentionally invalid; multisample leaves must be `string[]`.
+
+Use composable guards:
+
+```ts
+function isNamed(obj: unknown): obj is { name: string };
+function isSpriteSampleBank(obj: unknown): obj is SpriteSampleBank;
+function isPitchedSpriteSampleBank(
+  obj: unknown,
+): obj is PitchedSpriteSampleBank;
+function isMultiSampleBank(obj: unknown): obj is MultiSampleBank;
+```
+
+**Acceptance criteria:**
+
+- [ ] All supported `loadSamples()` shapes are typed
+- [ ] Bare string file leaves are rejected for simple and multisample banks
+- [ ] Bare sprite region leaves like `[0, 0.1]` are rejected; sprite leaves must be `[[0, 0.1]]`
+- [ ] Named variants are detected with `isNamed()` instead of duplicate named guards
+- [ ] Invalid shapes throw the existing invalid manifest error or a clearer shape-specific error
+
+**Testing:** `packages/fluid/src/utils/sample-utils.test.ts`, `packages/fluid/src/index.test.ts`
+
+- [ ] Unit: valid flat/named simple bank guards
+- [ ] Unit: valid flat/named sprite bank guards
+- [ ] Unit: valid flat/named pitched sprite bank guards
+- [ ] Unit: valid flat/named multisample bank guards
+- [ ] Unit: `a2: "file.wav"` is rejected
+- [ ] Unit: `bd: [0, 0.1]` is rejected for sprite banks
 
 ---
 
@@ -307,13 +374,19 @@ d.loadSamples({
 
 Update sampler note semantics and emit `sourceKeys`.
 
-### Step 3.1 — Change `SampleNotes` default root to `0`
+### Step 3.1 — Change `SampleNotes` to emit MIDI target values
 
 **Files:** `packages/fluid/src/patterns/sample-notes.ts`, `packages/fluid/src/patterns/sample-notes.test.ts`
 
-Change default sampler root from A4/69 to `0`.
+Change default sampler root from A4/69 to `0` and remove playback-rate remapping from `SampleNotes`.
 
-Important: after this redesign, sampler `notes` should emit target note values, not playback rates. Playback rate will be computed by the engine using `sourceKeys`.
+Important: after this redesign, sampler `notes` emits target MIDI note values, not playback rates. Playback rate will always be computed by the engine after source-key selection.
+
+Implementation actions:
+
+- Remove `_remapToPlaybackRate` from `SampleNotes`.
+- Make `SampleNotes.getSchema()` return MIDI note values directly, matching `MidiNotes.getSchema()` semantics.
+- Change `DEFAULT_ROOT` from `69` to `0` and call `super.root(0)` in the constructor.
 
 **Acceptance criteria:**
 
@@ -321,6 +394,7 @@ Important: after this redesign, sampler `notes` should emit target note values, 
 - [ ] `.root("A3").notes(0)` resolves to value `57`
 - [ ] `.root("A3").notes(12)` resolves to value `69`
 - [ ] Scale behavior remains aligned with `MidiNotes`
+- [ ] No `SampleNotes` test asserts playback-rate values like `1.0` or `2.0`; tests assert MIDI target values instead
 
 **Testing:** `packages/fluid/src/patterns/sample-notes.test.ts`
 
@@ -335,22 +409,32 @@ Important: after this redesign, sampler `notes` should emit target note values, 
 
 **Files:** `packages/fluid/src/index.ts`, `packages/fluid/src/instruments/sampler.ts`
 
-`Drome.getSchema()` should resolve banks first, then build sampler schemas with access to normalized bank definitions.
+Avoid a broad two-pass schema refactor by letting `Sampler.getSchema()` derive `sourceKeys` through its existing host reference.
 
-For each sampler:
+Add an internal Drome method:
 
-- look up `banks[bank].samples[sample]`
+```ts
+_resolveBank(name: string): BankSchema | null
+```
+
+This method should check user/custom banks first, then built-in banks, normalize the result, and return `null` if no bank is found. It should not be TypeScript `private`, because `Sampler` needs to call it via `this._host`.
+
+For each sampler, `Sampler.getSchema()` should:
+
+- call `this._host?._resolveBank(this._bank)`
+- look up `bank.samples[this._sample]`
 - derive sorted numeric `sourceKeys` from its object keys
 - include `sourceKeys` in `SamplerSchema`
 
-Unknown banks/samples should warn and default to `sourceKeys: [0]` so schema generation remains resilient.
+Unknown banks/samples should warn loudly and default to `sourceKeys: [0]` so schema generation remains resilient.
 
 **Acceptance criteria:**
 
 - [ ] Simple samples emit `sourceKeys: [0]`
 - [ ] Multisample piano emits `sourceKeys: [45, 57]`
 - [ ] Pitched sprite piano emits `sourceKeys: [45, 57]`
-- [ ] Unknown sample warns and emits fallback `sourceKeys: [0]`
+- [ ] Unknown bank warns and emits fallback `sourceKeys: [0]`
+- [ ] Known bank with unknown sample warns and emits fallback `sourceKeys: [0]`
 - [ ] `Drome.getSchema()` remains deterministic
 
 **Testing:** `packages/fluid/src/index.test.ts`
@@ -358,7 +442,8 @@ Unknown banks/samples should warn and default to `sourceKeys: [0]` so schema gen
 - [ ] Unit: simple user sample emits `sourceKeys: [0]`
 - [ ] Unit: multisample emits sorted `sourceKeys`
 - [ ] Unit: pitched sprite emits sorted `sourceKeys`
-- [ ] Unit: unknown sample warning
+- [ ] Unit: unknown bank warning
+- [ ] Unit: known bank with unknown sample warning
 
 ---
 
@@ -387,14 +472,14 @@ Ensure `SamplerSchema` still contains separate `notes` and `variation` fields.
 
 **Files:** `packages/fluid/src/instruments/sampler.ts`, `packages/fluid/src/index.ts`
 
-`fit()` is valid only for samples whose `sourceKeys` are exactly `[0]`.
+`fit()` is valid only for samples whose `sourceKeys` are exactly `[0]`. Validate in `Sampler.getSchema()`, not in `.fit()`, because the relevant bank may not be registered until after `.fit()` is called.
 
 **Acceptance criteria:**
 
 - [ ] `fit()` works for simple file samples with source key `[0]`
 - [ ] `fit()` works for sprite samples with source key `[0]`
 - [ ] `fit()` throws for pitched multisamples with source keys like `[45, 57]`
-- [ ] Error message explains that `fit()` is only valid for unpitched/loop-style samples
+- [ ] Error message explains that `fit()` is only valid for unpitched/loop-style samples and includes the bank/sample plus actual `sourceKeys`
 
 **Testing:** `packages/fluid/src/index.test.ts`
 
@@ -408,7 +493,63 @@ Ensure `SamplerSchema` still contains separate `notes` and `variation` fields.
 
 Update engine sampler playback to consume normalized banks and `sourceKeys`.
 
-### Step 4.1 — Resolve normalized file entries
+### Step 4.1 — Add shared sample entry resolution utilities
+
+**Files:** `packages/audio-engine/src/utils/resolve-sample-entry.ts`, `packages/audio-engine/src/sampler.ts`, `packages/audio-engine/src/index.ts`
+
+Extract normalized sample entry resolution into a shared pure utility so prepare-time preloading and runtime scheduling cannot drift.
+
+```ts
+function resolveSampleEntry({
+  banks,
+  bank,
+  sample,
+  sourceKey,
+  variationIndex,
+}: {
+  banks: Record<string, BankSchema>;
+  bank: string;
+  sample: string;
+  sourceKey: number;
+  variationIndex: number;
+}): SampleVariationSchema | null {
+  const variations = banks[bank]?.samples[sample]?.[String(sourceKey)];
+  return variations?.[variationIndex] ?? variations?.[0] ?? null;
+}
+
+function resolveSampleUrl(args: Parameters<typeof resolveSampleEntry>[0]) {
+  return resolveSampleEntry(args)?.src ?? null;
+}
+```
+
+Delete any duplicated `AudioEngine._resolveUrl` logic. Runtime buffer lookup should use the entry resolver, not a URL-only resolver, because sprite scheduling needs `type`, `start`, and `end` metadata.
+
+`SampleBufferStore` should key cached buffers by source key + variation index where needed:
+
+```ts
+`${sourceKey}:${variationIndex}`
+```
+
+The shared buffer cache should still deduplicate by `entry.src` so multiple sprite regions from the same file fetch once.
+
+**Acceptance criteria:**
+
+- [ ] `resolveSampleEntry()` returns file entries
+- [ ] `resolveSampleEntry()` returns sprite entries with metadata
+- [ ] Out-of-range variations fall back to variation `0`
+- [ ] Missing bank/sample/key returns `null`
+- [ ] Prepare-time and runtime code both use the shared resolver
+
+**Testing:** `packages/audio-engine/src/utils/resolve-sample-entry.test.ts`
+
+- [ ] Unit: file entry resolved correctly
+- [ ] Unit: sprite entry resolved correctly
+- [ ] Unit: variation fallback
+- [ ] Unit: missing bank/sample/key returns `null`
+
+---
+
+### Step 4.2 — Resolve normalized file entries
 
 **Files:** `packages/audio-engine/src/sampler.ts`
 
@@ -438,7 +579,7 @@ Replace old URL resolution with normalized entry resolution:
 
 ---
 
-### Step 4.2 — Preserve random notes and random variation at runtime
+### Step 4.3 — Preserve random notes and random variation at runtime
 
 **Files:** `packages/audio-engine/src/sampler.ts`
 
@@ -459,7 +600,39 @@ Use existing parameter/random resolution machinery for both `notes` and `variati
 
 ---
 
-### Step 4.3 — Schedule normalized sprite entries
+### Step 4.4 — Preload source key × variation combinations in `prepare()`
+
+**Files:** `packages/audio-engine/src/index.ts`, `packages/audio-engine/src/utils/resolve-sample-entry.ts`
+
+`AudioEngine.prepare()` must preload every source key that could be selected at runtime. This is especially important for random notes, where the selected source key is not known until scheduling.
+
+For each sampler schema, preload the cartesian product:
+
+```ts
+schema.sourceKeys × preloadVariationIndices(schema)
+```
+
+Use `resolveSampleUrl()` for each pair and add URLs to a `Set<string>` so shared files, including sprite files referenced by many source keys/regions, are fetched once.
+
+`preloadVariationIndices()` should continue to operate only on the `variation` parameter schema.
+
+**Acceptance criteria:**
+
+- [ ] Prepare preloads all source keys for each sampler
+- [ ] Prepare preloads all statically discoverable variation indices for each source key
+- [ ] Shared sprite files are deduplicated by URL
+- [ ] Random notes do not cause missed buffers for nonzero source keys
+- [ ] `preloadVariationIndices()` does not need source-key awareness
+
+**Testing:** `packages/audio-engine/src/index.test.ts`
+
+- [ ] Unit: 3 source keys × 2 variations performs up to 6 URL resolutions
+- [ ] Unit: duplicate URLs are fetched once
+- [ ] Unit: random notes with multiple `sourceKeys` preload all source keys
+
+---
+
+### Step 4.5 — Schedule normalized sprite entries
 
 **Files:** `packages/audio-engine/src/sampler.ts`
 
@@ -488,7 +661,7 @@ For `type: "sprite"` entries:
 
 ---
 
-### Step 4.4 — Update `fit()` scheduling for normalized entries
+### Step 4.6 — Update `fit()` scheduling for normalized entries
 
 **Files:** `packages/audio-engine/src/sampler.ts`
 
