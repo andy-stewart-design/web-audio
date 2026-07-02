@@ -390,18 +390,18 @@ Implementation actions:
 
 **Acceptance criteria:**
 
-- [ ] Default sampler note `0` resolves to value `0`
-- [ ] `.root("A3").notes(0)` resolves to value `57`
-- [ ] `.root("A3").notes(12)` resolves to value `69`
-- [ ] Scale behavior remains aligned with `MidiNotes`
-- [ ] No `SampleNotes` test asserts playback-rate values like `1.0` or `2.0`; tests assert MIDI target values instead
+- [x] Default sampler note `0` resolves to value `0`
+- [x] `.root("A3").notes(0)` resolves to value `57`
+- [x] `.root("A3").notes(12)` resolves to value `69`
+- [x] Scale behavior remains aligned with `MidiNotes`
+- [x] No `SampleNotes` test asserts playback-rate values like `1.0` or `2.0`; tests assert MIDI target values instead
 
 **Testing:** `packages/fluid/src/patterns/sample-notes.test.ts`
 
-- [ ] Unit: default `notes(0)` emits `0`
-- [ ] Unit: root A3 + note 0 emits `57`
-- [ ] Unit: root A3 + note 12 emits `69`
-- [ ] Unit: random + scale emits target note value map, not playback rates
+- [x] Unit: default `notes(0)` emits `0`
+- [x] Unit: root A3 + note 0 emits `57`
+- [x] Unit: root A3 + note 12 emits `69`
+- [x] Unit: random + scale emits target note value map, not playback rates
 
 ---
 

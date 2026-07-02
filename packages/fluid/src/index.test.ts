@@ -349,20 +349,14 @@ describe("Drome", () => {
       }
     });
 
-    it("notes with root and scale produce float playback rates", () => {
+    it("notes with root and scale produce MIDI target values", () => {
       const d = new Drome();
       d.sample("bd").root("A4").notes([0, 3, 7]).push();
       const inst = d.getSchema().instruments[0];
 
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler" && inst.notes.type === "static") {
-        const rates = inst.notes.cycle[0].map((s) => s.value);
-        // MIDI 69 (A4) root: semitone 0 → rate 1.0
-        expect(rates[0]).toBeCloseTo(1.0);
-        // semitone 3 → 2^(3/12) ≈ 1.189
-        expect(rates[1]).toBeCloseTo(Math.pow(2, 3 / 12));
-        // semitone 7 → 2^(7/12) ≈ 1.498
-        expect(rates[2]).toBeCloseTo(Math.pow(2, 7 / 12));
+        expect(inst.notes.cycle[0].map((s) => s.value)).toEqual([69, 72, 76]);
       }
     });
 
