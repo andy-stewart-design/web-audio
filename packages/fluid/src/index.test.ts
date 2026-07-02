@@ -534,6 +534,49 @@ describe("Drome", () => {
         expect(inst).not.toHaveProperty("playback");
       }
     });
+
+    it("fit() succeeds for simple samples with sourceKeys [0]", () => {
+      const d = new Drome();
+      d.loadSamples({ loop: ["loop.wav"] });
+      d.sample("loop").bank("user").fit(2).push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([0]);
+        expect(inst.notes).toEqual({ type: "fit", bars: 2 });
+      }
+    });
+
+    it("fit() succeeds for sprite samples with sourceKeys [0]", () => {
+      const d = new Drome();
+      d.loadSamples({
+        name: "loops",
+        sprite: "loops.wav",
+        samples: { break: [[0, 0.5]] },
+      });
+      d.sample("break").bank("loops").fit(2).push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([0]);
+        expect(inst.notes).toEqual({ type: "fit", bars: 2 });
+      }
+    });
+
+    it("fit() throws for pitched multisamples", () => {
+      const d = new Drome();
+      d.loadSamples({
+        name: "acoustic",
+        samples: { piano: { a2: ["a2.wav"], a3: ["a3.wav"] } },
+      });
+      d.sample("piano").bank("acoustic").fit(2).push();
+
+      expect(() => d.getSchema()).toThrow(
+        '[Sampler] fit() is only valid for unpitched samples (sourceKeys: [0]). "acoustic/piano" has sourceKeys: [45, 57].',
+      );
+    });
   });
 
   describe("loadSamples", () => {

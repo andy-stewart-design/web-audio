@@ -93,6 +93,13 @@ class Sampler extends Instrument {
   getSchema(): SamplerSchema {
     const sourceKeys = this._getSourceKeys();
 
+    if (this._fit && !(sourceKeys.length === 1 && sourceKeys[0] === 0)) {
+      throw new Error(
+        `[Sampler] fit() is only valid for unpitched samples (sourceKeys: [0]). ` +
+          `"${this._bank}/${this._sample}" has sourceKeys: [${sourceKeys.join(", ")}].`,
+      );
+    }
+
     return {
       type: "sampler",
       bank: this._bank,

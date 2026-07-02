@@ -476,16 +476,16 @@ Ensure `SamplerSchema` still contains separate `notes` and `variation` fields.
 
 **Acceptance criteria:**
 
-- [ ] `fit()` works for simple file samples with source key `[0]`
-- [ ] `fit()` works for sprite samples with source key `[0]`
-- [ ] `fit()` throws for pitched multisamples with source keys like `[45, 57]`
-- [ ] Error message explains that `fit()` is only valid for unpitched/loop-style samples and includes the bank/sample plus actual `sourceKeys`
+- [x] `fit()` works for simple file samples with source key `[0]`
+- [x] `fit()` works for sprite samples with source key `[0]`
+- [x] `fit()` throws for pitched multisamples with source keys like `[45, 57]`
+- [x] Error message explains that `fit()` is only valid for unpitched/loop-style samples and includes the bank/sample plus actual `sourceKeys`
 
 **Testing:** `packages/fluid/src/index.test.ts`
 
-- [ ] Unit: simple sample + `fit(2)` succeeds
-- [ ] Unit: sprite region + `fit(2)` succeeds
-- [ ] Unit: multisampled piano + `fit(2)` throws
+- [x] Unit: simple sample + `fit(2)` succeeds
+- [x] Unit: sprite region + `fit(2)` succeeds
+- [x] Unit: multisampled piano + `fit(2)` throws
 
 ---
 
