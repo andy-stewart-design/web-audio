@@ -638,7 +638,7 @@ describe("Sampler", () => {
     ]);
   });
 
-  it("scheduleBar() creates a buffer source with the resolved playbackRate, detune, loop flag, and timing", async () => {
+  it("scheduleBar() creates a buffer source with computed playbackRate, detune, loop flag, and timing", async () => {
     const url = "https://example.com/bd.wav";
     const buffer = makeBuffer(2);
     cache.resolved.set(url, buffer);
@@ -664,7 +664,7 @@ describe("Sampler", () => {
     const endTime = startTime + noteDuration;
     const releaseDur = 0.0025;
 
-    expect(source.playbackRate.value).toBe(2);
+    expect(source.playbackRate.value).toBeCloseTo(Math.pow(2, 2 / 12));
     expect(source.detune.value).toBe(123);
     expect(source.loop).toBe(true);
     expect(source.start).toHaveBeenCalledWith(startTime);
@@ -708,7 +708,7 @@ describe("Sampler", () => {
     sampler.scheduleBar(0, 10);
 
     const startTime = 10 + 0.25 * clock.barDuration;
-    const sampleDuration = 3 / 2;
+    const sampleDuration = 3 / Math.pow(2, 2 / 12);
     const endTime = startTime + sampleDuration;
     const releaseDur = 0.0025;
     const source = createdSources[0];
@@ -742,8 +742,9 @@ describe("Sampler", () => {
 
     expect(createdSources).toHaveLength(1);
     expect(createdSources[0].start).toHaveBeenCalledWith(8);
-    expect([0.5, 1.5]).toContain(createdSources[0].playbackRate.value);
-  });
+    expect([Math.pow(2, 0.5 / 12), Math.pow(2, 1.5 / 12)]).toContain(
+      createdSources[0].playbackRate.value,
+    );  });
 
   it("scheduleBar() schedules all notes in a multi-step bar", async () => {
     const url = "https://example.com/bd.wav";
@@ -773,10 +774,82 @@ describe("Sampler", () => {
     sampler.scheduleBar(0, 4);
 
     expect(createdSources).toHaveLength(2);
-    expect(createdSources[0].playbackRate.value).toBe(1);
+    expect(createdSources[0].playbackRate.value).toBeCloseTo(Math.pow(2, 1 / 12));
     expect(createdSources[0].start).toHaveBeenCalledWith(4);
-    expect(createdSources[1].playbackRate.value).toBe(2);
-    expect(createdSources[1].start).toHaveBeenCalledWith(5);
+    expect(createdSources[1].playbackRate.value).toBeCloseTo(Math.pow(2, 2 / 12));    expect(createdSources[1].start).toHaveBeenCalledWith(5);
+  });
+
+  it("selects the nearest source key and computes playbackRate", async () => {
+    const urls = ["https://example.com/a2.wav", "https://example.com/a3.wav"];
+    const buffers = [makeBuffer(1), makeBuffer(1.1)];
+    cache.resolved.set(urls[0], buffers[0]);
+    cache.resolved.set(urls[1], buffers[1]);
+    const banks = {
+      kit: {
+        samples: {
+          piano: {
+            "45": [{ type: "file" as const, src: urls[0] }],
+            "57": [{ type: "file" as const, src: urls[1] }],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sample: "piano",
+          sourceKeys: [45, 57],
+          notes: staticPattern(60),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(buffers[1]);
+    expect(createdSources[0].playbackRate.value).toBeCloseTo(
+      Math.pow(2, 3 / 12),
+    );
+  });
+
+  it("falls back to variation 0 when selected variation is out of range", async () => {
+    const url = "https://example.com/a2.wav";
+    const buffer = makeBuffer(1);
+    cache.resolved.set(url, buffer);
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sourceKeys: [45],
+          notes: staticPattern(45),
+          variation: staticParam(99),
+        }),
+        banks: {
+          kit: {
+            samples: {
+              bd: { "45": [{ type: "file" as const, src: url }] },
+            },
+          },
+        },
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(buffer);
+    expect(createdSources[0].playbackRate.value).toBe(1);
   });
 
   it("scheduleBar() builds and wires an effect chain", async () => {

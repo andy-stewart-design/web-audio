@@ -45,6 +45,7 @@ class Sampler extends Instrument {
       bank: schema.bank,
       sample: schema.sample,
       initialVariationIndex: this._initialVariationIndex,
+      initialSourceKey: this._schema.sourceKeys[0] ?? 0,
       fallbackBuffer,
     });
     this._initLfos(schema, startingBar, barStartTime);
@@ -63,7 +64,10 @@ class Sampler extends Instrument {
   }
 
   async load(): Promise<void> {
-    await this._bufferStore.preload(preloadVariationIndices(this._schema));
+    await this._bufferStore.preload(
+      preloadVariationIndices(this._schema),
+      this._schema.sourceKeys,
+    );
   }
 
   scheduleBar(barIndex: number, barStartTime: number) {
@@ -134,16 +138,19 @@ class Sampler extends Instrument {
     const mask = notes.cycle.cycle[barIndex % notes.cycle.cycle.length];
     mask.forEach((step, stepIndex) => {
       if (step.value === 0) return;
-      const rate = this._resolve(notes, barIndex, stepIndex);
+      const noteValue = this._resolve(notes, barIndex, stepIndex);
+      const sourceKey = this._nearestSourceKey(noteValue);
+      const playbackRate = this._playbackRate(noteValue, sourceKey);
       const variationIndex = this._resolveVariationIndex(barIndex, stepIndex);
       const buffer = this._bufferStore.getPlaybackBuffer(
         variationIndex,
         barIndex,
+        sourceKey,
       );
       if (!buffer) return;
       this._scheduleSampleNote(
         buffer,
-        { ...step, value: rate },
+        { ...step, value: playbackRate },
         barStartTime,
         barIndex,
       );
@@ -156,6 +163,8 @@ class Sampler extends Instrument {
 
     const notesBar = notes.cycle[barIndex % notes.cycle.length];
     notesBar.forEach((note) => {
+      const sourceKey = this._nearestSourceKey(note.value);
+      const playbackRate = this._playbackRate(note.value, sourceKey);
       const variationIndex = this._resolveVariationIndex(
         barIndex,
         note.stepIndex,
@@ -163,9 +172,15 @@ class Sampler extends Instrument {
       const buffer = this._bufferStore.getPlaybackBuffer(
         variationIndex,
         barIndex,
+        sourceKey,
       );
       if (!buffer) return;
-      this._scheduleSampleNote(buffer, note, barStartTime, barIndex);
+      this._scheduleSampleNote(
+        buffer,
+        { ...note, value: playbackRate },
+        barStartTime,
+        barIndex,
+      );
     });
   }
 
@@ -210,6 +225,16 @@ class Sampler extends Instrument {
       noteDuration,
       endTime,
     });
+  }
+
+  private _nearestSourceKey(note: number) {
+    return this._schema.sourceKeys.reduce((nearest, key) =>
+      Math.abs(key - note) < Math.abs(nearest - note) ? key : nearest,
+    );
+  }
+
+  private _playbackRate(note: number, sourceKey: number) {
+    return Math.pow(2, (note - sourceKey) / 12);
   }
 
   private _resolveVariationIndex(barIndex: number, stepIndex: number): number {

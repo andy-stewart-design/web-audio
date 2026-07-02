@@ -564,18 +564,18 @@ Replace old URL resolution with normalized entry resolution:
 
 **Acceptance criteria:**
 
-- [ ] Simple sample note `0`, source key `0` plays at playbackRate `1`
-- [ ] Pitched sample note `57`, source key `57` plays at playbackRate `1`
-- [ ] Pitched sample note `60`, source key `57` plays at `2 ** (3 / 12)`
-- [ ] Out-of-range variation falls back to variation `0`
-- [ ] Missing bank/sample/key logs warning and skips
+- [x] Simple sample note `0`, source key `0` plays at playbackRate `1`
+- [x] Pitched sample note `57`, source key `57` plays at playbackRate `1`
+- [x] Pitched sample note `60`, source key `57` plays at `2 ** (3 / 12)`
+- [x] Out-of-range variation falls back to variation `0`
+- [x] Missing bank/sample/key logs warning and skips
 
 **Testing:** `packages/audio-engine/src/sampler.test.ts`
 
-- [ ] Unit: nearest source key selection
-- [ ] Unit: playback rate calculation
-- [ ] Unit: variation fallback
-- [ ] Unit: normalized file URL fetch/cache path
+- [x] Unit: nearest source key selection
+- [x] Unit: playback rate calculation
+- [x] Unit: variation fallback
+- [x] Unit: normalized file URL fetch/cache path
 
 ---
 
