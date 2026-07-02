@@ -1172,6 +1172,75 @@ describe("Sampler", () => {
     expect(source.stop).toHaveBeenCalledWith(14);
   });
 
+  it("fit() uses sprite region duration instead of full buffer duration", async () => {
+    const url = "https://example.com/loop-sprite.wav";
+    cache.resolved.set(url, makeBuffer(4));
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [
+              { type: "sprite" as const, src: url, start: 0.25, end: 0.75 },
+            ],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ notes: { type: "fit", bars: 2 } }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 12);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].playbackRate.value).toBeCloseTo(0.5);
+    expect(createdSources[0].start).toHaveBeenCalledWith(12, 1);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(16);
+  });
+
+  it("fit() selects the requested variation", async () => {
+    const urls = ["https://example.com/loop-0.wav", "https://example.com/loop-1.wav"];
+    const buffers = [makeBuffer(2), makeBuffer(4)];
+    urls.forEach((url, i) => cache.resolved.set(url, buffers[i]));
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": urls.map((src) => ({ type: "file" as const, src })),
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: { type: "fit", bars: 1 },
+          variation: staticParam(1),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 12);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(buffers[1]);
+    expect(createdSources[0].playbackRate.value).toBeCloseTo(2);
+  });
+
   it("fit() only triggers at the start of each N-bar window", async () => {
     const url = "https://example.com/loop.wav";
     cache.resolved.set(url, makeBuffer(2));

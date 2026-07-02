@@ -675,16 +675,16 @@ For `FitSchema`:
 
 **Acceptance criteria:**
 
-- [ ] `fit(2)` on file sample stretches full buffer to 2 bars
-- [ ] `fit(2)` on sprite region stretches only the sprite region to 2 bars
-- [ ] Variation selection still works for `fit()`
-- [ ] Engine does not attempt nearest-key pitch selection for `fit()`
+- [x] `fit(2)` on file sample stretches full buffer to 2 bars
+- [x] `fit(2)` on sprite region stretches only the sprite region to 2 bars
+- [x] Variation selection still works for `fit()`
+- [x] Engine does not attempt nearest-key pitch selection for `fit()`
 
 **Testing:** `packages/audio-engine/src/sampler.test.ts`
 
-- [ ] Unit: file `fit(1)` preserves existing behavior
-- [ ] Unit: sprite `fit(2)` uses region duration, not full buffer duration
-- [ ] Unit: variation index selects correct file/sprite entry for fit
+- [x] Unit: file `fit(1)` preserves existing behavior
+- [x] Unit: sprite `fit(2)` uses region duration, not full buffer duration
+- [x] Unit: variation index selects correct file/sprite entry for fit
 
 ---
 

@@ -17,8 +17,7 @@ import type {
   ResolvedEnvelopeSchema,
 } from "@/types";
 
-interface ScheduleVoiceParams {
-  source: AudioScheduledSourceNode;
+interface BaseScheduleVoiceParams {
   detuneParam?: AudioParam;
   detune?: ResolvedDetune;
   gainEnvelope: EnvelopeSchema;
@@ -29,8 +28,13 @@ interface ScheduleVoiceParams {
   noteDuration: number;
   endTime: number;
   stopTime?: number;
-  offset?: number;
 }
+
+type ScheduleVoiceParams = BaseScheduleVoiceParams &
+  (
+    | { source: AudioBufferSourceNode; offset: number }
+    | { source: AudioScheduledSourceNode; offset?: undefined }
+  );
 
 abstract class Instrument {
   protected _ctx: AudioContext;
@@ -309,20 +313,20 @@ abstract class Instrument {
     }
   }
 
-  protected _scheduleVoice({
-    source,
-    detuneParam,
-    detune,
-    gainEnvelope,
-    effects,
-    barIndex,
-    stepIndex,
-    startTime,
-    noteDuration,
-    endTime,
-    stopTime,
-    offset,
-  }: ScheduleVoiceParams) {
+  protected _scheduleVoice(params: ScheduleVoiceParams) {
+    const {
+      source,
+      detuneParam,
+      detune,
+      gainEnvelope,
+      effects,
+      barIndex,
+      stepIndex,
+      startTime,
+      noteDuration,
+      endTime,
+      stopTime,
+    } = params;
     const gain = new GainNode(this._ctx);
 
     const releaseDur = this._scheduleParamEnvelope(
@@ -371,8 +375,8 @@ abstract class Instrument {
 
     chain[chain.length - 1].connect(this._outputNode);
 
-    if (source instanceof AudioBufferSourceNode && offset !== undefined) {
-      source.start(startTime, offset);
+    if (params.offset !== undefined) {
+      params.source.start(startTime, params.offset);
     } else {
       source.start(startTime);
     }

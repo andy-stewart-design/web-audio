@@ -102,14 +102,20 @@ class Sampler extends Instrument {
     if (barIndex % notes.bars !== 0) return;
 
     const variationIndex = this._resolveVariationIndex(barIndex, 0);
-    const buffer = this._bufferStore.getPlaybackBuffer(
+    const playbackSource = this._bufferStore.getPlaybackSource(
       variationIndex,
       barIndex,
+      0,
     );
-    if (!buffer) return;
+    if (!playbackSource) return;
+    const { buffer, entry } = playbackSource;
 
     const barDuration = this._clock.barDuration;
-    const playbackRate = buffer.duration / (notes.bars * barDuration);
+    const sourceDuration =
+      entry.type === "sprite"
+        ? (entry.end - entry.start) * buffer.duration
+        : buffer.duration;
+    const playbackRate = sourceDuration / (notes.bars * barDuration);
     const fitDuration = notes.bars * barDuration;
 
     const source = new AudioBufferSourceNode(this._ctx, {
@@ -128,6 +134,7 @@ class Sampler extends Instrument {
       noteDuration: fitDuration,
       endTime: barStartTime + fitDuration,
       stopTime: barStartTime + fitDuration,
+      offset: entry.type === "sprite" ? entry.start * buffer.duration : undefined,
     });
   }
 
