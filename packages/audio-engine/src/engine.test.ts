@@ -465,6 +465,92 @@ describe("AudioEngine", () => {
         expect(fetchMock).toHaveBeenCalledWith(entry.src);
       });
     });
+
+    it("preloads every source key × variation combination", async () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSamplerSchema();
+      const sampler = schema.instruments[0];
+      if (sampler.type !== "sampler") expect.unreachable();
+      sampler.sourceKeys = [45, 57, 69];
+      sampler.variation = {
+        type: "static",
+        polyphonic: false,
+        cycle: [
+          [
+            { value: 0, offset: 0, duration: 0.5, stepIndex: 0 },
+            { value: 1, offset: 0.5, duration: 0.5, stepIndex: 1 },
+          ],
+        ],
+      };
+      schema.banks.kit.samples.bd = {
+        "45": [
+          { type: "file", src: "https://example.com/45-0.wav" },
+          { type: "file", src: "https://example.com/45-1.wav" },
+        ],
+        "57": [
+          { type: "file", src: "https://example.com/57-0.wav" },
+          { type: "file", src: "https://example.com/57-1.wav" },
+        ],
+        "69": [
+          { type: "file", src: "https://example.com/69-0.wav" },
+          { type: "file", src: "https://example.com/69-1.wav" },
+        ],
+      };
+      const fetchMock = vi.fn(async () => ({
+        arrayBuffer: async () => new ArrayBuffer(8),
+      }));
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+      engine.update(schema);
+      await engine.prepare();
+
+      expect(fetchMock).toHaveBeenCalledTimes(6);
+      for (const sourceKey of sampler.sourceKeys) {
+        for (const variationIndex of [0, 1]) {
+          expect(fetchMock).toHaveBeenCalledWith(
+            `https://example.com/${sourceKey}-${variationIndex}.wav`,
+          );
+        }
+      }
+    });
+
+    it("deduplicates duplicate URLs while preloading source keys", async () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSamplerSchema();
+      const sampler = schema.instruments[0];
+      if (sampler.type !== "sampler") expect.unreachable();
+      sampler.sourceKeys = [45, 57];
+      schema.banks.kit.samples.bd = {
+        "45": [
+          {
+            type: "sprite",
+            src: "https://example.com/kit.wav",
+            start: 0,
+            end: 0.1,
+          },
+        ],
+        "57": [
+          {
+            type: "sprite",
+            src: "https://example.com/kit.wav",
+            start: 0.2,
+            end: 0.3,
+          },
+        ],
+      };
+      const fetchMock = vi.fn(async () => ({
+        arrayBuffer: async () => new ArrayBuffer(8),
+      }));
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+      engine.update(schema);
+      await engine.prepare();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledWith("https://example.com/kit.wav");
+    });
   });
 
   describe("sampler buffer cache", () => {

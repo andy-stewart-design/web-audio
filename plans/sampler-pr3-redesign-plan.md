@@ -618,17 +618,17 @@ Use `resolveSampleUrl()` for each pair and add URLs to a `Set<string>` so shared
 
 **Acceptance criteria:**
 
-- [ ] Prepare preloads all source keys for each sampler
-- [ ] Prepare preloads all statically discoverable variation indices for each source key
-- [ ] Shared sprite files are deduplicated by URL
-- [ ] Random notes do not cause missed buffers for nonzero source keys
-- [ ] `preloadVariationIndices()` does not need source-key awareness
+- [x] Prepare preloads all source keys for each sampler
+- [x] Prepare preloads all statically discoverable variation indices for each source key
+- [x] Shared sprite files are deduplicated by URL
+- [x] Random notes do not cause missed buffers for nonzero source keys
+- [x] `preloadVariationIndices()` does not need source-key awareness
 
 **Testing:** `packages/audio-engine/src/index.test.ts`
 
-- [ ] Unit: 3 source keys × 2 variations performs up to 6 URL resolutions
-- [ ] Unit: duplicate URLs are fetched once
-- [ ] Unit: random notes with multiple `sourceKeys` preload all source keys
+- [x] Unit: 3 source keys × 2 variations performs up to 6 URL resolutions
+- [x] Unit: duplicate URLs are fetched once
+- [x] Unit: random notes with multiple `sourceKeys` preload all source keys
 
 ---
 

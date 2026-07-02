@@ -65,9 +65,11 @@ class AudioEngine {
     const urls = new Set<string>();
     for (const schema of instruments) {
       if (schema.type !== "sampler") continue;
-      for (const variationIndex of preloadVariationIndices(schema)) {
-        const url = this._resolveUrl(schema, banks, variationIndex);
-        if (url) urls.add(url);
+      for (const sourceKey of schema.sourceKeys) {
+        for (const variationIndex of preloadVariationIndices(schema)) {
+          const url = this._resolveUrl(schema, banks, sourceKey, variationIndex);
+          if (url) urls.add(url);
+        }
       }
     }
 
@@ -148,13 +150,14 @@ class AudioEngine {
   private _resolveUrl(
     schema: SamplerSchema,
     banks: Record<string, BankSchema>,
+    sourceKey: number,
     variationIndex: number,
   ): string | null {
     return resolveSampleUrl({
       banks,
       bank: schema.bank,
       sample: schema.sample,
-      sourceKey: 0,
+      sourceKey,
       variationIndex,
     });
   }
