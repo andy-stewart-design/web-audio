@@ -114,6 +114,12 @@ class Drome {
     this._instruments.add(inst);
   }
 
+  _resolveBank(name: string): BankSchema | null {
+    if (this._banks[name]) return this._banks[name];
+    if (BUILT_IN_BANKS[name]) return resolveBank(BUILT_IN_BANKS[name]);
+    return null;
+  }
+
   getSchema(): DromeSchema {
     const instruments = Array.from(this._instruments).map((i) => i.getSchema());
     const banks: Record<string, BankSchema> = { ...this._banks };
@@ -121,11 +127,8 @@ class Drome {
     for (const instrument of instruments) {
       if (instrument.type === "sampler") {
         const { bank: bankName } = instrument;
-        if (!banks[bankName] && BUILT_IN_BANKS[bankName]) {
-          banks[bankName] = resolveBank(BUILT_IN_BANKS[bankName]);
-        } else if (!banks[bankName]) {
-          console.warn(`[Sampler] Unknown bank "${bankName}" — skipping`);
-        }
+        const resolvedBank = this._resolveBank(bankName);
+        if (!banks[bankName] && resolvedBank) banks[bankName] = resolvedBank;
       }
     }
 

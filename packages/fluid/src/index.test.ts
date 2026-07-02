@@ -428,6 +428,80 @@ describe("Drome", () => {
       expect(instruments[0].type).toBe("synthesizer");
       expect(instruments[1].type).toBe("sampler");
     });
+
+    it("simple samples emit sourceKeys: [0]", () => {
+      const d = new Drome();
+      d.loadSamples({ kick: ["kick.wav"] });
+      d.sample("kick").bank("user").push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([0]);
+      }
+    });
+
+    it("multisamples emit sorted sourceKeys", () => {
+      const d = new Drome();
+      d.loadSamples({
+        name: "acoustic",
+        samples: { piano: { a3: ["a3.wav"], a2: ["a2.wav"] } },
+      });
+      d.sample("piano").bank("acoustic").push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([45, 57]);
+      }
+    });
+
+    it("pitched sprites emit sorted sourceKeys", () => {
+      const d = new Drome();
+      d.loadSamples({
+        name: "acoustic",
+        sprite: "piano.wav",
+        samples: { piano: { a3: [[0.2, 0.3]], a2: [[0, 0.1]] } },
+      });
+      d.sample("piano").bank("acoustic").push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([45, 57]);
+      }
+    });
+
+    it("unknown banks warn and emit fallback sourceKeys", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const d = new Drome();
+      d.sample("kick").bank("missing").push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('Bank "missing" not found'),
+      );
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([0]);
+      }
+    });
+
+    it("unknown samples warn and emit fallback sourceKeys", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const d = new Drome();
+      d.loadSamples({ kick: ["kick.wav"] });
+      d.sample("snare").bank("user").push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('Sample "snare" not found in bank "user"'),
+      );
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([0]);
+      }
+    });
   });
 
   describe("loadSamples", () => {

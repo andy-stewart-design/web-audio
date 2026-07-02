@@ -430,20 +430,20 @@ Unknown banks/samples should warn loudly and default to `sourceKeys: [0]` so sch
 
 **Acceptance criteria:**
 
-- [ ] Simple samples emit `sourceKeys: [0]`
-- [ ] Multisample piano emits `sourceKeys: [45, 57]`
-- [ ] Pitched sprite piano emits `sourceKeys: [45, 57]`
-- [ ] Unknown bank warns and emits fallback `sourceKeys: [0]`
-- [ ] Known bank with unknown sample warns and emits fallback `sourceKeys: [0]`
-- [ ] `Drome.getSchema()` remains deterministic
+- [x] Simple samples emit `sourceKeys: [0]`
+- [x] Multisample piano emits `sourceKeys: [45, 57]`
+- [x] Pitched sprite piano emits `sourceKeys: [45, 57]`
+- [x] Unknown bank warns and emits fallback `sourceKeys: [0]`
+- [x] Known bank with unknown sample warns and emits fallback `sourceKeys: [0]`
+- [x] `Drome.getSchema()` remains deterministic
 
 **Testing:** `packages/fluid/src/index.test.ts`
 
-- [ ] Unit: simple user sample emits `sourceKeys: [0]`
-- [ ] Unit: multisample emits sorted `sourceKeys`
-- [ ] Unit: pitched sprite emits sorted `sourceKeys`
-- [ ] Unit: unknown bank warning
-- [ ] Unit: known bank with unknown sample warning
+- [x] Unit: simple user sample emits `sourceKeys: [0]`
+- [x] Unit: multisample emits sorted `sourceKeys`
+- [x] Unit: pitched sprite emits sorted `sourceKeys`
+- [x] Unit: unknown bank warning
+- [x] Unit: known bank with unknown sample warning
 
 ---
 
