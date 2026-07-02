@@ -116,6 +116,7 @@ function makeSamplerSchema(): DromeSchema {
           polyphonic: false,
           cycle: [[{ value: 1, offset: 0, duration: 1, stepIndex: 0 }]],
         },
+        sourceKeys: [0],
         detune: {
           type: "static",
           polyphonic: false,
@@ -157,7 +158,13 @@ function makeSamplerSchema(): DromeSchema {
       },
     ],
     banks: {
-      kit: { samples: { bd: ["https://example.com/bd.wav"] } },
+      kit: {
+        samples: {
+          bd: {
+            "0": [{ type: "file", src: "https://example.com/bd.wav" }],
+          },
+        },
+      },
     },
   };
 }
@@ -437,12 +444,14 @@ describe("AudioEngine", () => {
           ],
         ],
       };
-      schema.banks.kit.samples.bd = [
-        "https://example.com/bd-0.wav",
-        "https://example.com/bd-1.wav",
-        "https://example.com/bd-2.wav",
-        "https://example.com/bd-3.wav",
-      ];
+      schema.banks.kit.samples.bd = {
+        "0": [
+          { type: "file", src: "https://example.com/bd-0.wav" },
+          { type: "file", src: "https://example.com/bd-1.wav" },
+          { type: "file", src: "https://example.com/bd-2.wav" },
+          { type: "file", src: "https://example.com/bd-3.wav" },
+        ],
+      };
       const fetchMock = vi.fn(async () => ({
         arrayBuffer: async () => new ArrayBuffer(8),
       }));
@@ -452,8 +461,8 @@ describe("AudioEngine", () => {
       await engine.prepare();
 
       expect(fetchMock).toHaveBeenCalledTimes(4);
-      schema.banks.kit.samples.bd.forEach((url) => {
-        expect(fetchMock).toHaveBeenCalledWith(url);
+      schema.banks.kit.samples.bd["0"].forEach((entry) => {
+        expect(fetchMock).toHaveBeenCalledWith(entry.src);
       });
     });
   });

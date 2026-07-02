@@ -1,4 +1,5 @@
 import type { BankSchema } from "@web-audio/schema";
+import { resolveSampleEntry } from "@/utils/resolve-sample-entry";
 
 interface SampleCache {
   resolved: Map<string, AudioBuffer>;
@@ -120,22 +121,25 @@ class SampleBufferStore {
   }
 
   private _resolveUrl(variationIndex: number): string | null {
-    const bankSchema = this._banks[this._bank];
+    const entry = resolveSampleEntry({
+      banks: this._banks,
+      bank: this._bank,
+      sample: this._sample,
+      sourceKey: 0,
+      variationIndex,
+    });
 
-    if (!bankSchema) {
+    if (entry) return entry.src;
+
+    if (!this._banks[this._bank]) {
       console.warn(`[Sampler] Bank "${this._bank}" not found in schema`);
-      return null;
-    }
-
-    const variations = bankSchema.samples[this._sample];
-    if (!variations?.length) {
+    } else if (!this._banks[this._bank].samples[this._sample]) {
       console.warn(
         `[Sampler] Sample "${this._sample}" not found in bank "${this._bank}"`,
       );
-      return null;
     }
 
-    return variations[variationIndex] ?? variations[0];
+    return null;
   }
 }
 

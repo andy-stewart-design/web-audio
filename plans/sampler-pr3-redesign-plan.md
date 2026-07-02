@@ -534,18 +534,18 @@ The shared buffer cache should still deduplicate by `entry.src` so multiple spri
 
 **Acceptance criteria:**
 
-- [ ] `resolveSampleEntry()` returns file entries
-- [ ] `resolveSampleEntry()` returns sprite entries with metadata
-- [ ] Out-of-range variations fall back to variation `0`
-- [ ] Missing bank/sample/key returns `null`
-- [ ] Prepare-time and runtime code both use the shared resolver
+- [x] `resolveSampleEntry()` returns file entries
+- [x] `resolveSampleEntry()` returns sprite entries with metadata
+- [x] Out-of-range variations fall back to variation `0`
+- [x] Missing bank/sample/key returns `null`
+- [x] Prepare-time and runtime code both use the shared resolver
 
 **Testing:** `packages/audio-engine/src/utils/resolve-sample-entry.test.ts`
 
-- [ ] Unit: file entry resolved correctly
-- [ ] Unit: sprite entry resolved correctly
-- [ ] Unit: variation fallback
-- [ ] Unit: missing bank/sample/key returns `null`
+- [x] Unit: file entry resolved correctly
+- [x] Unit: sprite entry resolved correctly
+- [x] Unit: variation fallback
+- [x] Unit: missing bank/sample/key returns `null`
 
 ---
 

@@ -12,8 +12,8 @@ function makeBanks(
   return {
     kit: {
       samples: {
-        bd: [url],
-      },
+        bd: { "0": [{ type: "file", src: url }] },
+      }
     },
   };
 }

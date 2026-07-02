@@ -173,6 +173,7 @@ function makeSchema(overrides: Partial<SamplerSchema> = {}): SamplerSchema {
     sample: "bd",
     variation: staticParam(0),
     notes: staticPattern(1),
+    sourceKeys: [0],
     detune: staticParam(0),
     gain: envelope(),
     effects: [],
@@ -188,8 +189,8 @@ function makeBanks(
   return {
     kit: {
       samples: {
-        bd: [url],
-      },
+        bd: { "0": [{ type: "file", src: url }] },
+      }
     },
   };
 }
@@ -299,7 +300,9 @@ describe("Sampler", () => {
     })) as unknown as typeof fetch;
 
     const banks = makeBanks(urls[0]);
-    banks.kit.samples.bd = urls;
+    banks.kit.samples.bd = {
+      "0": urls.map((src) => ({ type: "file" as const, src })),
+    };
     const sampler = new Sampler(
       ctx as unknown as AudioContext,
       clock as never,
@@ -353,7 +356,9 @@ describe("Sampler", () => {
       arrayBuffer: async () => new ArrayBuffer(8),
     })) as unknown as typeof fetch;
     const banks = makeBanks(urls[0]);
-    banks.kit.samples.bd = urls;
+    banks.kit.samples.bd = {
+      "0": urls.map((src) => ({ type: "file" as const, src })),
+    };
 
     const sampler = new Sampler(
       ctx as unknown as AudioContext,
@@ -520,7 +525,12 @@ describe("Sampler", () => {
     const banks = {
       kit: {
         samples: {
-          bd: ["https://example.com/old.wav", "https://example.com/new.wav"],
+          bd: {
+            "0": [
+              { type: "file" as const, src: "https://example.com/old.wav" },
+              { type: "file" as const, src: "https://example.com/new.wav" },
+            ],
+          },
         },
       },
     };
@@ -558,7 +568,9 @@ describe("Sampler", () => {
       arrayBuffer: async () => new ArrayBuffer(8),
     })) as unknown as typeof fetch;
     const banks = makeBanks(urls[0]);
-    banks.kit.samples.bd = urls;
+    banks.kit.samples.bd = {
+      "0": urls.map((src) => ({ type: "file" as const, src })),
+    };
 
     const sampler = new Sampler(
       ctx as unknown as AudioContext,
@@ -595,7 +607,9 @@ describe("Sampler", () => {
       arrayBuffer: async () => new ArrayBuffer(8),
     })) as unknown as typeof fetch;
     const banks = makeBanks(urls[0]);
-    banks.kit.samples.bd = urls;
+    banks.kit.samples.bd = {
+      "0": urls.map((src) => ({ type: "file" as const, src })),
+    };
 
     const sampler = new Sampler(
       ctx as unknown as AudioContext,
