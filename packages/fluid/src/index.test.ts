@@ -502,6 +502,38 @@ describe("Drome", () => {
         expect(inst.sourceKeys).toEqual([0]);
       }
     });
+
+    it("static notes and random variation remain independent", () => {
+      const d = new Drome();
+      d.sample("bd")
+        .notes([0, 2, 4])
+        .variation(d.rand().int().range(0, 2))
+        .push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.notes.type).toBe("static");
+        expect(inst.variation.type).toBe("random");
+        expect(inst).not.toHaveProperty("playback");
+      }
+    });
+
+    it("random notes and static variation remain independent", () => {
+      const d = new Drome();
+      d.sample("bd")
+        .notes(d.rand().int().range(0, 12))
+        .variation([0, 1])
+        .push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.notes.type).toBe("random");
+        expect(inst.variation.type).toBe("static");
+        expect(inst).not.toHaveProperty("playback");
+      }
+    });
   });
 
   describe("loadSamples", () => {

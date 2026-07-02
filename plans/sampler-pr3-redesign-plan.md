@@ -455,16 +455,16 @@ Ensure `SamplerSchema` still contains separate `notes` and `variation` fields.
 
 **Acceptance criteria:**
 
-- [ ] Static/cycling notes emit as `ParameterSchema`
-- [ ] Random notes emit as `RandomSchema`
-- [ ] Static/cycling variation emits independently
-- [ ] Random variation emits independently
-- [ ] No resolved `playback` object is emitted
+- [x] Static/cycling notes emit as `ParameterSchema`
+- [x] Random notes emit as `RandomSchema`
+- [x] Static/cycling variation emits independently
+- [x] Random variation emits independently
+- [x] No resolved `playback` object is emitted
 
 **Testing:** `packages/fluid/src/index.test.ts`
 
-- [ ] Unit: `.notes([0, 2, 4]).variation(d.rand().int().range(0, 2))` emits static notes + random variation
-- [ ] Unit: `.notes(d.rand().int().range(0, 12)).variation([0, 1])` emits random notes + static variation
+- [x] Unit: `.notes([0, 2, 4]).variation(d.rand().int().range(0, 2))` emits static notes + random variation
+- [x] Unit: `.notes(d.rand().int().range(0, 12)).variation([0, 1])` emits random notes + static variation
 
 ---
 
