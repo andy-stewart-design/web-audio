@@ -587,16 +587,16 @@ Use existing parameter/random resolution machinery for both `notes` and `variati
 
 **Acceptance criteria:**
 
-- [ ] Random notes resolve per step/bar using existing random semantics
-- [ ] Random variation resolves independently from notes
-- [ ] Random notes affect nearest-key selection and playback rate
-- [ ] Random variation affects selected variation entry only
+- [x] Random notes resolve per step/bar using existing random semantics
+- [x] Random variation resolves independently from notes
+- [x] Random notes affect nearest-key selection and playback rate
+- [x] Random variation affects selected variation entry only
 
 **Testing:** `packages/audio-engine/src/sampler.test.ts`
 
-- [ ] Unit: random note value changes selected source key/playback rate
-- [ ] Unit: random variation changes selected variation entry
-- [ ] Unit: random notes + random variation compose without schema changes
+- [x] Unit: random note value changes selected source key/playback rate
+- [x] Unit: random variation changes selected variation entry
+- [x] Unit: random notes + random variation compose without schema changes
 
 ---
 

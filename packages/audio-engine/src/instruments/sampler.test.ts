@@ -133,7 +133,7 @@ function envelope(max = 1, r = 0): EnvelopeSchema {
   };
 }
 
-function randomNotes(): RandomSchema {
+function randomSchema(valueMap: number[]): RandomSchema {
   return {
     type: "random",
     dataType: "float",
@@ -141,7 +141,7 @@ function randomNotes(): RandomSchema {
     quantValue: undefined,
     range: undefined,
     algorithm: "xor",
-    valueMap: [0.5, 1.5],
+    valueMap,
     cycle: {
       type: "static",
       polyphonic: false,
@@ -153,6 +153,10 @@ function randomNotes(): RandomSchema {
       ],
     },
   };
+}
+
+function randomNotes(): RandomSchema {
+  return randomSchema([0.5, 1.5]);
 }
 
 function lowpassEffect(frequency = 800): FilterSchema {
@@ -777,6 +781,131 @@ describe("Sampler", () => {
     expect(createdSources[0].playbackRate.value).toBeCloseTo(Math.pow(2, 1 / 12));
     expect(createdSources[0].start).toHaveBeenCalledWith(4);
     expect(createdSources[1].playbackRate.value).toBeCloseTo(Math.pow(2, 2 / 12));    expect(createdSources[1].start).toHaveBeenCalledWith(5);
+  });
+
+  it("random notes affect nearest source key selection and playbackRate", async () => {
+    const urls = ["https://example.com/root.wav", "https://example.com/octave.wav"];
+    const buffers = [makeBuffer(1), makeBuffer(1.1)];
+    cache.resolved.set(urls[0], buffers[0]);
+    cache.resolved.set(urls[1], buffers[1]);
+    const banks = {
+      kit: {
+        samples: {
+          piano: {
+            "0": [{ type: "file" as const, src: urls[0] }],
+            "12": [{ type: "file" as const, src: urls[1] }],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sample: "piano",
+          sourceKeys: [0, 12],
+          notes: randomSchema([0, 14]),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    if (createdSources[0].buffer === buffers[0]) {
+      expect(createdSources[0].playbackRate.value).toBe(1);
+    } else {
+      expect(createdSources[0].buffer).toBe(buffers[1]);
+      expect(createdSources[0].playbackRate.value).toBeCloseTo(
+        Math.pow(2, 2 / 12),
+      );
+    }
+  });
+
+  it("random variation affects selected variation entry independently", async () => {
+    const urls = ["https://example.com/bd-0.wav", "https://example.com/bd-1.wav"];
+    const buffers = [makeBuffer(1), makeBuffer(1.1)];
+    cache.resolved.set(urls[0], buffers[0]);
+    cache.resolved.set(urls[1], buffers[1]);
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": urls.map((src) => ({ type: "file" as const, src })),
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticPattern(0),
+          variation: randomSchema([0, 1]),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(buffers).toContain(createdSources[0].buffer);
+    expect(createdSources[0].playbackRate.value).toBe(1);
+  });
+
+  it("random notes and random variation compose without schema changes", async () => {
+    const urls = [
+      "https://example.com/root-0.wav",
+      "https://example.com/root-1.wav",
+      "https://example.com/octave-0.wav",
+      "https://example.com/octave-1.wav",
+    ];
+    const buffers = urls.map((_, i) => makeBuffer(1 + i / 10));
+    urls.forEach((url, i) => cache.resolved.set(url, buffers[i]));
+    const banks = {
+      kit: {
+        samples: {
+          piano: {
+            "0": urls.slice(0, 2).map((src) => ({ type: "file" as const, src })),
+            "12": urls.slice(2).map((src) => ({ type: "file" as const, src })),
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sample: "piano",
+          sourceKeys: [0, 12],
+          notes: randomSchema([0, 14]),
+          variation: randomSchema([0, 1]),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(buffers).toContain(createdSources[0].buffer);
+    expect([1, Math.pow(2, 2 / 12)]).toContain(
+      createdSources[0].playbackRate.value,
+    );
   });
 
   it("selects the nearest source key and computes playbackRate", async () => {
