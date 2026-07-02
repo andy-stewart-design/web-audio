@@ -29,6 +29,7 @@ interface ScheduleVoiceParams {
   noteDuration: number;
   endTime: number;
   stopTime?: number;
+  offset?: number;
 }
 
 abstract class Instrument {
@@ -320,6 +321,7 @@ abstract class Instrument {
     noteDuration,
     endTime,
     stopTime,
+    offset,
   }: ScheduleVoiceParams) {
     const gain = new GainNode(this._ctx);
 
@@ -369,7 +371,11 @@ abstract class Instrument {
 
     chain[chain.length - 1].connect(this._outputNode);
 
-    source.start(startTime);
+    if (source instanceof AudioBufferSourceNode && offset !== undefined) {
+      source.start(startTime, offset);
+    } else {
+      source.start(startTime);
+    }
     source.stop(stopTime ?? endTime + releaseDur + 0.05);
 
     this._track(source, chain, startTime);
@@ -394,7 +400,7 @@ abstract class Instrument {
     };
   }
 
-  private _getResolver(schema: RandomSchema): RandomResolver {
+  private _getResolver(schema: RandomSchema) {
     let resolver = this._resolvers.get(schema);
     if (!resolver) {
       resolver = new RandomResolver(schema);

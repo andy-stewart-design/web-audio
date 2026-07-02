@@ -646,18 +646,18 @@ For `type: "sprite"` entries:
 
 **Acceptance criteria:**
 
-- [ ] Sprite source file is fetched once and reused across regions
-- [ ] `node.start()` uses the correct offset in seconds
-- [ ] Sprite stop time accounts for region duration and playback rate
-- [ ] Clip mode still clips to note duration when applicable
-- [ ] Sprite variations select different regions from the same source file
+- [x] Sprite source file is fetched once and reused across regions
+- [x] `node.start()` uses the correct offset in seconds
+- [x] Sprite stop time accounts for region duration and playback rate
+- [x] Clip mode still clips to note duration when applicable
+- [x] Sprite variations select different regions from the same source file
 
 **Testing:** `packages/audio-engine/src/sampler.test.ts`
 
-- [ ] Unit: region `[0.0, 0.25]` on 4s buffer starts at 0s and lasts 1s at rate 1
-- [ ] Unit: region `[0.5, 0.75]` on 4s buffer starts at 2s and lasts 1s at rate 1
-- [ ] Unit: playbackRate `2` halves sprite playback duration
-- [ ] Unit: two sprite regions with same `src` share one fetch
+- [x] Unit: region `[0.0, 0.25]` on 4s buffer starts at 0s and lasts 1s at rate 1
+- [x] Unit: region `[0.5, 0.75]` on 4s buffer starts at 2s and lasts 1s at rate 1
+- [x] Unit: playbackRate `2` halves sprite playback duration
+- [x] Unit: two sprite regions with same `src` share one fetch
 
 ---
 

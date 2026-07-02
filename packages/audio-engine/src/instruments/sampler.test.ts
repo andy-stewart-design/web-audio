@@ -948,6 +948,141 @@ describe("Sampler", () => {
     );
   });
 
+  it("schedules sprite entries with offset and region duration", async () => {
+    const url = "https://example.com/kit.wav";
+    const buffer = makeBuffer(4);
+    cache.resolved.set(url, buffer);
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [
+              { type: "sprite" as const, src: url, start: 0.5, end: 0.75 },
+            ],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ notes: staticPattern(0, 0, 1) }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(4, 2);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(5.0025 + 0.05);
+  });
+
+  it("accounts for playbackRate when scheduling sprite duration", async () => {
+    const url = "https://example.com/kit.wav";
+    cache.resolved.set(url, makeBuffer(4));
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [
+              { type: "sprite" as const, src: url, start: 0, end: 0.5 },
+            ],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ notes: staticPattern(12, 0, 1) }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources[0].playbackRate.value).toBe(2);
+    expect(createdSources[0].start).toHaveBeenCalledWith(4, 0);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(5.0025 + 0.05);
+  });
+
+  it("sprite variations sharing the same src fetch once", async () => {
+    const url = "https://example.com/kit.wav";
+    ctx.decodedBuffers.push(makeBuffer(4));
+    globalThis.fetch = vi.fn(async () => ({
+      arrayBuffer: async () => new ArrayBuffer(8),
+    })) as unknown as typeof fetch;
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [
+              { type: "sprite" as const, src: url, start: 0, end: 0.25 },
+              { type: "sprite" as const, src: url, start: 0.5, end: 0.75 },
+            ],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ variation: staticCycle([0, 1]) }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(globalThis.fetch).toHaveBeenCalledWith(url);
+  });
+
+  it("sprite variations select different regions from the same file", async () => {
+    const url = "https://example.com/kit.wav";
+    cache.resolved.set(url, makeBuffer(4));
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [
+              { type: "sprite" as const, src: url, start: 0, end: 0.25 },
+              { type: "sprite" as const, src: url, start: 0.5, end: 0.75 },
+            ],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ variation: staticParam(1) }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(4, 2);
+  });
+
   it("falls back to variation 0 when selected variation is out of range", async () => {
     const url = "https://example.com/a2.wav";
     const buffer = makeBuffer(1);

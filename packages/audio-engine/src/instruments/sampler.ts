@@ -2,6 +2,7 @@ import type AudioClock from "@web-audio/clock";
 import type {
   BankSchema,
   SamplerSchema,
+  SampleVariationSchema,
   StaticSchemaValue,
 } from "@web-audio/schema";
 import Instrument from "./instrument";
@@ -142,14 +143,14 @@ class Sampler extends Instrument {
       const sourceKey = this._nearestSourceKey(noteValue);
       const playbackRate = this._playbackRate(noteValue, sourceKey);
       const variationIndex = this._resolveVariationIndex(barIndex, stepIndex);
-      const buffer = this._bufferStore.getPlaybackBuffer(
+      const playbackSource = this._bufferStore.getPlaybackSource(
         variationIndex,
         barIndex,
         sourceKey,
       );
-      if (!buffer) return;
+      if (!playbackSource) return;
       this._scheduleSampleNote(
-        buffer,
+        playbackSource,
         { ...step, value: playbackRate },
         barStartTime,
         barIndex,
@@ -169,14 +170,14 @@ class Sampler extends Instrument {
         barIndex,
         note.stepIndex,
       );
-      const buffer = this._bufferStore.getPlaybackBuffer(
+      const playbackSource = this._bufferStore.getPlaybackSource(
         variationIndex,
         barIndex,
         sourceKey,
       );
-      if (!buffer) return;
+      if (!playbackSource) return;
       this._scheduleSampleNote(
-        buffer,
+        playbackSource,
         { ...note, value: playbackRate },
         barStartTime,
         barIndex,
@@ -185,19 +186,27 @@ class Sampler extends Instrument {
   }
 
   private _scheduleSampleNote(
-    buffer: AudioBuffer,
+    playbackSource: { buffer: AudioBuffer; entry: SampleVariationSchema },
     note: StaticSchemaValue,
     barStartTime: number,
     barIndex: number,
   ) {
+    const { buffer, entry } = playbackSource;
     const barDuration = this._clock.barDuration;
     const startTime = barStartTime + note.offset * barDuration;
     const noteDuration = note.duration * barDuration;
-    const sampleDuration = buffer.duration / note.value;
+    const offset =
+      entry.type === "sprite" ? entry.start * buffer.duration : undefined;
+    const sourceDuration =
+      entry.type === "sprite"
+        ? ((entry.end - entry.start) * buffer.duration) / note.value
+        : buffer.duration / note.value;
     const duration =
       this._schema.clipMode === "one-shot" && !this._schema.loop
-        ? sampleDuration
-        : noteDuration;
+        ? sourceDuration
+        : entry.type === "sprite"
+          ? Math.min(noteDuration, sourceDuration)
+          : noteDuration;
     const endTime = startTime + duration;
 
     const detune = this._resolveDetune(
@@ -224,6 +233,7 @@ class Sampler extends Instrument {
       startTime,
       noteDuration,
       endTime,
+      offset,
     });
   }
 

@@ -1,5 +1,5 @@
-import type { BankSchema } from "@web-audio/schema";
 import { resolveSampleEntry } from "@/utils/resolve-sample-entry";
+import type { BankSchema } from "@web-audio/schema";
 
 interface SampleCache {
   resolved: Map<string, AudioBuffer>;
@@ -48,7 +48,7 @@ class SampleBufferStore {
     this._fallbackBuffer = fallbackBuffer;
   }
 
-  async preload(variationIndices: number[], sourceKeys = [0]): Promise<void> {
+  async preload(variationIndices: number[], sourceKeys = [0]) {
     await Promise.all(
       sourceKeys.flatMap((sourceKey) =>
         variationIndices.map((index) => this._loadVariation(sourceKey, index)),
@@ -56,11 +56,14 @@ class SampleBufferStore {
     );
   }
 
-  getPlaybackBuffer(
-    variationIndex: number,
-    barIndex: number,
-    sourceKey = 0,
-  ): AudioBuffer | null {
+  getPlaybackSource(variationIndex: number, barIndex: number, sourceKey = 0) {
+    const entry = this._resolveEntry(sourceKey, variationIndex);
+    const buffer = this.getPlaybackBuffer(variationIndex, barIndex, sourceKey);
+    if (!entry || !buffer) return null;
+    return { buffer, entry };
+  }
+
+  getPlaybackBuffer(variationIndex: number, barIndex: number, sourceKey = 0) {
     const cacheKey = this._cacheKey(sourceKey, variationIndex);
     const buffer = this._buffers.get(cacheKey);
     if (buffer) return buffer;
@@ -79,20 +82,19 @@ class SampleBufferStore {
     return null;
   }
 
-  getInitialPlaybackBuffer(): AudioBuffer | null {
+  getInitialPlaybackBuffer() {
     return (
       this._buffers.get(
         this._cacheKey(this._initialSourceKey, this._initialVariationIndex),
-      ) ??
-      this._fallbackBuffer
+      ) ?? this._fallbackBuffer
     );
   }
 
-  hasInitialBuffer(): boolean {
+  hasInitialBuffer() {
     return this.getInitialPlaybackBuffer() !== null;
   }
 
-  fallbackBufferFor(bank: string, sample: string): AudioBuffer | null {
+  fallbackBufferFor(bank: string, sample: string) {
     if (this._bank !== bank) return null;
     if (this._sample !== sample) return null;
     return this.getInitialPlaybackBuffer();
@@ -102,10 +104,7 @@ class SampleBufferStore {
     return `${sourceKey}:${variationIndex}`;
   }
 
-  private async _loadVariation(
-    sourceKey: number,
-    variationIndex: number,
-  ): Promise<void> {
+  private async _loadVariation(sourceKey: number, variationIndex: number) {
     const cacheKey = this._cacheKey(sourceKey, variationIndex);
     if (this._buffers.has(cacheKey)) return;
 
@@ -140,15 +139,18 @@ class SampleBufferStore {
     }
   }
 
-  private _resolveUrl(sourceKey: number, variationIndex: number): string | null {
-    const entry = resolveSampleEntry({
+  private _resolveEntry(sourceKey: number, variationIndex: number) {
+    return resolveSampleEntry({
       banks: this._banks,
       bank: this._bank,
       sample: this._sample,
       sourceKey,
       variationIndex,
     });
+  }
 
+  private _resolveUrl(sourceKey: number, variationIndex: number) {
+    const entry = this._resolveEntry(sourceKey, variationIndex);
     if (entry) return entry.src;
 
     if (!this._banks[this._bank]) {
