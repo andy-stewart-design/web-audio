@@ -67,6 +67,7 @@ class Drome {
 
   private _loadSamples(input: unknown) {
     const normalized = normalizeSampleBank(input);
+
     if (isNamed(input)) {
       this._banks[input.name] = normalized;
     } else {
