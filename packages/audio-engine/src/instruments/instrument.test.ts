@@ -64,10 +64,13 @@ class TestInstrument extends Instrument {
   ) {
     return this._computeTimings(
       envSchema,
-      barIndex,
-      stepIndex,
-      noteDuration,
-      endTime,
+      {
+        barIndex,
+        stepIndex,
+        startTime: endTime - noteDuration,
+        noteDuration,
+        endTime,
+      },
       scale,
     );
   }
