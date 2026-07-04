@@ -8,7 +8,7 @@ import Instrument from "./instruments/instrument";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import {
-  isNamed,
+  isBanked,
   normalizeSampleBank,
   resolveBank,
 } from "./utils/sample-utils";
@@ -68,8 +68,8 @@ class Drome {
   private _loadSamples(input: unknown) {
     const normalized = normalizeSampleBank(input);
 
-    if (isNamed(input)) {
-      this._banks[input.name] = normalized;
+    if (isBanked(input)) {
+      this._banks[input.bank] = normalized;
     } else {
       this._banks.user ??= { samples: {} };
       Object.assign(this._banks.user.samples, normalized.samples);

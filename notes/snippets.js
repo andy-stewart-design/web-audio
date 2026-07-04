@@ -69,7 +69,7 @@ d.sample("breaks").bank("loops").fit(2).push();
 
 // Sample loading, named
 d.loadSamples({
-  name: "dmx",
+  bank: "dmx",
   samples: {
     bd: [
       "https://raw.githubusercontent.com/ritchse/tidal-drum-machines/main/machines/OberheimDMX/oberheimdmx-bd/Bassdrum-01.wav",
@@ -91,59 +91,14 @@ d.sample("bd").bank("user").hex(0xf).push();
 // Multi-sampling
 
 d.loadSamples({
-  name: "acoustic",
+  bank: "acoustic",
+  baseUrl:
+    "https://res.cloudinary.com/andystewartdesign/video/upload/samples/piano/",
   samples: {
     piano: {
-      a2: [
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783094689/samples/piano/045_A2v03.m4a",
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783092900/samples/piano/045_A2v08.m4a",
-      ],
-      a3: [
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783094688/samples/piano/057_A3v03.m4a",
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783092900/samples/piano/057_A3v08.m4a",
-      ],
-      a4: [
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783094688/samples/piano/069_A4v03.m4a",
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783092898/samples/piano/069_A4v08.m4a",
-      ],
-    },
-  },
-});
-
-d.loadSamples({
-  name: "acoustic",
-  samples: {
-    harp: {
-      d1: [
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/1d1.m4a",
-      ],
-      a1: [
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/2a1.m4a",
-      ],
-      d2: [
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/3d2.m4a",
-      ],
-      a2: [
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/4a2.m4a",
-      ],
-      d3: [
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/5d3.m4a",
-      ],
-      a3: [
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/6a3.m4a",
-      ],
-      d4: [
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/7d4.m4a",
-      ],
-      a4: [
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/8a4.m4a",
-      ],
-      d5: [
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/9d5.m4a",
-      ],
-      a5: [
-        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/10a5.m4a",
-      ],
+      a2: ["045_A2v03.m4a", "045_A2v08.m4a"],
+      a3: ["057_A3v03.m4a", "057_A3v08.m4a"],
+      a4: ["069_A4v03.m4a", "069_A4v08.m4a"],
     },
   },
 });
@@ -166,9 +121,28 @@ d.sample("piano", 1).bank("acoustic").notes(57).push(); // should play "https://
 // Audio Sprite
 
 d.loadSamples({
-  name: "acoustic",
-  sprite:
-    "https://res.cloudinary.com/andystewartdesign/video/upload/v1783118607/samples/harp-sprite.m4a",
+  bank: "acoustic",
+  baseUrl:
+    "https://res.cloudinary.com/andystewartdesign/video/upload/samples/harp/",
+  samples: {
+    harp: {
+      d1: ["1d1.m4a"],
+      a1: ["2a1.m4a"],
+      d2: ["3d2.m4a"],
+      a2: ["4a2.m4a"],
+      d3: ["5d3.m4a"],
+      a3: ["6a3.m4a"],
+      d4: ["7d4.m4a"],
+      a4: ["8a4.m4a"],
+      d5: ["9d5.m4a"],
+      a5: ["10a5.m4a"],
+    },
+  },
+});
+
+d.loadSamples({
+  bank: "acoustic",
+  src: "https://res.cloudinary.com/andystewartdesign/video/upload/samples/harp-sprite.m4a",
   samples: {
     harp: {
       a1: [[0.0, 0.354784043]],
@@ -189,28 +163,27 @@ d.sample("harp")
   .push();
 
 d.loadSamples({
-  name: "effects",
-  sprite:
-    "https://res.cloudinary.com/andystewartdesign/video/upload/v1783131795/samples/farts.mp3",
+  bank: "effects",
+  src: "https://res.cloudinary.com/andystewartdesign/video/upload/samples/farts.mp3",
   samples: {
     fart: [
       [0.0, 0.027893],
-      [0.066667, 0.039578],
-      [0.133333, 0.040576],
-      [0.2, 0.044444],
-      [0.266667, 0.007243],
-      [0.311111, 0.044444],
-      [0.377778, 0.017077],
-      [0.422222, 0.012223],
-      [0.466667, 0.007166],
-      [0.511111, 0.019576],
-      [0.555556, 0.04906],
-      [0.644444, 0.040345],
-      [0.711111, 0.05581],
-      [0.8, 0.034582],
-      [0.866667, 0.00661],
-      [0.911111, 0.011265],
-      [0.955556, 0.008741],
+      [0.066667, 0.106245],
+      [0.133333, 0.173909],
+      [0.2, 0.244444],
+      [0.266667, 0.27391],
+      [0.311111, 0.355555],
+      [0.377778, 0.394855],
+      [0.422222, 0.434445],
+      [0.466667, 0.473833],
+      [0.511111, 0.530687],
+      [0.555556, 0.604616],
+      [0.644444, 0.684789],
+      [0.711111, 0.766921],
+      [0.8, 0.834582],
+      [0.866667, 0.873277],
+      [0.911111, 0.922376],
+      [0.955556, 0.964297],
     ],
   },
 });

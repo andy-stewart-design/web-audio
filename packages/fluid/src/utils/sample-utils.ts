@@ -1,6 +1,6 @@
 import type {
   MultiSampleBank,
-  NamedSampleBank,
+  BankedSampleBank,
   PitchedSpriteSampleBank,
   SampleBank,
   SpriteLeaf,
@@ -10,7 +10,7 @@ import type { BankDefinition, BankSchema } from "@web-audio/schema";
 import { noteStringToMidi } from "./note-string-to-midi";
 
 const invalidManifestMessage =
-  "Invalid sample manifest: expected a sample bank, named sample bank, multisample bank, or sprite bank";
+  "Invalid sample manifest: expected a sample bank, banked sample bank, multisample bank, or sprite bank";
 
 // -----------------------------------------------------------------------------
 // Normalization
@@ -19,10 +19,16 @@ const invalidManifestMessage =
 // this section converts those shapes into the single normalized BankSchema shape
 // consumed by schema/engine code.
 
-function _normalizeFileVariations(paths: string[], basePath = "") {
+function _resolveSrc(src: string, baseUrl = "") {
+  if (!baseUrl) return src;
+  if (/^(https?:|data:|blob:)/.test(src)) return src;
+  return `${baseUrl.replace(/\/+$/, "")}/${src.replace(/^\/+/, "")}`;
+}
+
+function _normalizeFileVariations(paths: string[], baseUrl = "") {
   return paths.map((path) => ({
     type: "file" as const,
-    src: basePath + path,
+    src: _resolveSrc(path, baseUrl),
   }));
 }
 
@@ -50,14 +56,17 @@ function _pitchKeyToMidi(key: string) {
   return midi;
 }
 
-function _normalizeMultiSamples(samples: MultiSampleBank["samples"]) {
+function _normalizeMultiSamples(
+  samples: MultiSampleBank["samples"],
+  baseUrl = "",
+) {
   const normalized: BankSchema["samples"] = {};
 
   for (const [sampleName, keyedSamples] of Object.entries(samples)) {
     normalized[sampleName] = {};
     for (const [key, paths] of Object.entries(keyedSamples)) {
       normalized[sampleName][String(_pitchKeyToMidi(key))] =
-        _normalizeFileVariations(paths);
+        _normalizeFileVariations(paths, baseUrl);
     }
   }
 
@@ -73,7 +82,9 @@ function _normalizeSpriteSamples(input: SpriteSampleBank) {
   const normalized: BankSchema["samples"] = {};
 
   for (const [sampleName, leaf] of Object.entries(input.samples)) {
-    normalized[sampleName] = { "0": _normalizeSpriteLeaf(input.sprite, leaf) };
+    normalized[sampleName] = {
+      "0": _normalizeSpriteLeaf(_resolveSrc(input.src, input.baseUrl), leaf),
+    };
   }
 
   return normalized;
@@ -86,7 +97,7 @@ function _normalizePitchedSpriteSamples(input: PitchedSpriteSampleBank) {
     normalized[sampleName] = {};
     for (const [key, leaf] of Object.entries(keyedRegions)) {
       normalized[sampleName][String(_pitchKeyToMidi(key))] =
-        _normalizeSpriteLeaf(input.sprite, leaf);
+        _normalizeSpriteLeaf(_resolveSrc(input.src, input.baseUrl), leaf);
     }
   }
 
@@ -100,12 +111,12 @@ function resolveBank(def: BankDefinition): BankSchema {
 }
 
 function normalizeSampleBank(input: unknown): BankSchema {
-  if (isNamedBank(input)) {
-    return { samples: _normalizeSimpleSamples(input.samples) };
+  if (isBankedBank(input)) {
+    return { samples: _normalizeSimpleSamples(input.samples, input.baseUrl) };
   }
 
-  // Named sprite/multisample inputs are structurally identical to their unnamed
-  // variants plus an extra `name` field, so the same guards handle both.
+  // Banked sprite/multisample inputs are structurally identical to their
+  // unnamed variants plus an extra `bank` field, so the same guards handle both.
   if (isPitchedSpriteSampleBank(input)) {
     return { samples: _normalizePitchedSpriteSamples(input) };
   }
@@ -115,7 +126,7 @@ function normalizeSampleBank(input: unknown): BankSchema {
   }
 
   if (isMultiSampleBank(input)) {
-    return { samples: _normalizeMultiSamples(input.samples) };
+    return { samples: _normalizeMultiSamples(input.samples, input.baseUrl) };
   }
 
   if (isSampleBank(input)) {
@@ -158,18 +169,24 @@ function _isSpriteLeaf(value: unknown): value is SpriteLeaf {
   );
 }
 
-function _hasSprite(obj: unknown): obj is { sprite: string; samples: unknown } {
+function _hasSprite(
+  obj: unknown,
+): obj is { src: string; samples: unknown; baseUrl?: string } {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
   const record = obj as Record<string, unknown>;
-  return typeof record.sprite === "string" && !!record.samples;
+  return (
+    typeof record.src === "string" &&
+    !!record.samples &&
+    (record.baseUrl === undefined || typeof record.baseUrl === "string")
+  );
 }
 
-function isNamed(obj: unknown): obj is { name: string } {
+function isBanked(obj: unknown): obj is { bank: string } {
   return (
     !!obj &&
     typeof obj === "object" &&
     !Array.isArray(obj) &&
-    typeof (obj as Record<string, unknown>).name === "string"
+    typeof (obj as Record<string, unknown>).bank === "string"
   );
 }
 
@@ -179,8 +196,8 @@ function isSampleBank(obj: unknown): obj is SampleBank {
   return Object.values(obj as Record<string, unknown>).every(_isStringArray);
 }
 
-function isNamedBank(obj: unknown): obj is NamedSampleBank {
-  if (!isNamed(obj)) return false;
+function isBankedBank(obj: unknown): obj is BankedSampleBank {
+  if (!isBanked(obj)) return false;
   return isSampleBank((obj as Record<string, unknown>).samples);
 }
 
@@ -230,8 +247,8 @@ function isMultiSampleBank(obj: unknown): obj is MultiSampleBank {
 export {
   invalidManifestMessage,
   isMultiSampleBank,
-  isNamed,
-  isNamedBank,
+  isBanked,
+  isBankedBank,
   isPitchedSpriteSampleBank,
   isSampleBank,
   isSpriteSampleBank,
