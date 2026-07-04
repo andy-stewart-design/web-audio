@@ -66,13 +66,47 @@ class Sampler extends Instrument {
     return this;
   }
 
+  private _getSourceKeys() {
+    const bank = this._host?._resolveBank(this._bank);
+    if (!bank) {
+      console.warn(
+        `[Sampler] Bank "${this._bank}" not found — did you forget to call loadSamples()? ` +
+          "Defaulting to sourceKeys: [0]. This sampler will not produce audio.",
+      );
+      return [0];
+    }
+
+    const sample = bank.samples[this._sample];
+    if (!sample) {
+      console.warn(
+        `[Sampler] Sample "${this._sample}" not found in bank "${this._bank}". ` +
+          "Defaulting to sourceKeys: [0]. This sampler will not produce audio.",
+      );
+      return [0];
+    }
+
+    return Object.keys(sample)
+      .map(Number)
+      .sort((a, b) => a - b);
+  }
+
   getSchema(): SamplerSchema {
+    const sourceKeys = this._getSourceKeys();
+
+    if (this._fit && !(sourceKeys.length === 1 && sourceKeys[0] === 0)) {
+      throw new Error(
+        `[Sampler] fit() is only valid for unpitched samples (sourceKeys: [0]). ` +
+          `"${this._bank}/${this._sample}" has sourceKeys: [${sourceKeys.join(", ")}].`,
+      );
+    }
+
     return {
       type: "sampler",
       bank: this._bank,
       sample: this._sample,
       variation: this._variation.getSchema(),
       notes: this._fit ?? this._cycle.getSchema(),
+      sourceKeys,
       detune: this._detune.getSchema(),
       gain: this._gain.getSchema(),
       effects: this._effects.map((e) => e.getSchema()),

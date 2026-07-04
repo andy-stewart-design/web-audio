@@ -69,7 +69,7 @@ d.sample("breaks").bank("loops").fit(2).push();
 
 // Sample loading, named
 d.loadSamples({
-  name: "dmx",
+  bank: "dmx",
   samples: {
     bd: [
       "https://raw.githubusercontent.com/ritchse/tidal-drum-machines/main/machines/OberheimDMX/oberheimdmx-bd/Bassdrum-01.wav",
@@ -87,6 +87,109 @@ d.loadSamples({
 });
 
 d.sample("bd").bank("user").hex(0xf).push();
+
+// Multi-sampling
+
+d.loadSamples({
+  bank: "acoustic",
+  baseUrl:
+    "https://res.cloudinary.com/andystewartdesign/video/upload/samples/piano/",
+  samples: {
+    piano: {
+      a2: ["045_A2v03.m4a", "045_A2v08.m4a"],
+      a3: ["057_A3v03.m4a", "057_A3v08.m4a"],
+      a4: ["069_A4v03.m4a", "069_A4v08.m4a"],
+    },
+  },
+});
+
+d.sample("piano")
+  // .var([1,0])
+  .var(d.rand().int().range(0, 2).steps(8))
+  .bank("acoustic")
+  .root("a2")
+  .scale("min")
+  .adsr(0, 0, 1, 1)
+  .notes([0, 2, 4, 6, 7, 9, 11, 13])
+  .push();
+
+d.sample("piano", 0).bank("acoustic").notes(45).push(); // should play "https://www.files.com/file-01.wav"
+d.sample("piano", 1).bank("acoustic").notes(45).push(); // should play "https://www.files.com/file-02.wav"
+d.sample("piano", 0).bank("acoustic").notes(57).push(); // should play "https://www.files.com/file-03.wav"
+d.sample("piano", 1).bank("acoustic").notes(57).push(); // should play "https://www.files.com/file-04.wav"
+
+// Audio Sprite
+
+d.loadSamples({
+  bank: "acoustic",
+  baseUrl:
+    "https://res.cloudinary.com/andystewartdesign/video/upload/samples/harp/",
+  samples: {
+    harp: {
+      d1: ["1d1.m4a"],
+      a1: ["2a1.m4a"],
+      d2: ["3d2.m4a"],
+      a2: ["4a2.m4a"],
+      d3: ["5d3.m4a"],
+      a3: ["6a3.m4a"],
+      d4: ["7d4.m4a"],
+      a4: ["8a4.m4a"],
+      d5: ["9d5.m4a"],
+      a5: ["10a5.m4a"],
+    },
+  },
+});
+
+d.loadSamples({
+  bank: "acoustic",
+  src: "https://res.cloudinary.com/andystewartdesign/video/upload/samples/harp-sprite.m4a",
+  samples: {
+    harp: {
+      a1: [[0.0, 0.354784043]],
+      a2: [[0.354784043, 0.605698024]],
+      a3: [[0.605698024, 0.847024012]],
+      a4: [[0.847024012, 0.964624389]],
+      a5: [[0.964624389, 1.0]],
+    },
+  },
+});
+
+d.sample("harp")
+  .bank("acoustic")
+  .root("a2")
+  .scale("min")
+  .adsr(0, 0, 1, 1)
+  .notes([0, 2, 4, 6, 7, 9, 11, 13])
+  .push();
+
+d.loadSamples({
+  bank: "effects",
+  src: "https://res.cloudinary.com/andystewartdesign/video/upload/samples/farts.mp3",
+  samples: {
+    fart: [
+      [0.0, 0.027893],
+      [0.066667, 0.106245],
+      [0.133333, 0.173909],
+      [0.2, 0.244444],
+      [0.266667, 0.27391],
+      [0.311111, 0.355555],
+      [0.377778, 0.394855],
+      [0.422222, 0.434445],
+      [0.466667, 0.473833],
+      [0.511111, 0.530687],
+      [0.555556, 0.604616],
+      [0.644444, 0.684789],
+      [0.711111, 0.766921],
+      [0.8, 0.834582],
+      [0.866667, 0.873277],
+      [0.911111, 0.922376],
+      [0.955556, 0.964297],
+    ],
+  },
+});
+
+d.sample("fart", 2).bank("effects").notes(0, null).gain(1.25).push();
+d.sample("bd").hex(0xf).push();
 
 // Multiple Variations
 d.sample("bd").var([0, 1, 2, 3]).bank("tr909").hex(0xf).push();
@@ -160,3 +263,54 @@ d.sample("hh")
   .push();
 
 d.sample("rim").euclid(5, 8, 1).gain(0.5).push();
+
+const ex1A = {
+  banks: {
+    acoustic: {
+      piano: {
+        a2: {
+          root: 45,
+          variations: ["file-01.wav", "file-02.wav"],
+        },
+        a3: {
+          root: 57,
+          variations: ["file-03.wav", "file-04.wav"],
+        },
+      },
+    },
+  },
+};
+
+const ex2A = {
+  banks: {
+    user: {
+      bd: {
+        0: {
+          root: 0,
+          variations: ["bd.wav"],
+        },
+      },
+    },
+  },
+};
+
+const ex1B = {
+  banks: {
+    acoustic: {
+      piano: {
+        45: ["file-01.wav", "file-02.wav"],
+        57: ["file-03.wav", "file-04.wav"],
+      },
+    },
+  },
+};
+
+const ex2B = {
+  banks: {
+    user: {
+      bd: {
+        0: ["bd.wav"],
+      },
+    },
+  },
+};

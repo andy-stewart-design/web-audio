@@ -7,17 +7,14 @@ import GainEffect from "./effects/gain";
 import Instrument from "./instruments/instrument";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
-import { isNamedBank, isSampleBank, resolveBank } from "./utils/sample-utils";
+import {
+  isBanked,
+  normalizeSampleBank,
+  resolveBank,
+} from "./utils/sample-utils";
 import type { BankSchema, FilterType } from "@web-audio/schema";
-import type {
-  CycleInput,
-  DromeSchema,
-  NamedSampleBank,
-  SampleBank,
-} from "./types";
+import type { CycleInput, DromeSchema, LoadSamplesInput } from "./types";
 import type { WaveformAlias } from "./utils/waveform";
-
-type LoadSamplesInput = SampleBank | NamedSampleBank;
 
 class Drome {
   private _instruments: Set<Instrument>;
@@ -62,30 +59,23 @@ class Drome {
           }
           return res.json();
         })
-        .then((json: unknown) =>
-          this.loadSamples(this._validateLoadSamplesInput(json)),
-        );
+        .then((json: unknown) => this._loadSamples(json));
     }
 
-    const validatedInput = this._validateLoadSamplesInput(input);
-    if (isNamedBank(validatedInput)) {
-      this._banks[validatedInput.name] = { samples: validatedInput.samples };
+    return this._loadSamples(input);
+  }
+
+  private _loadSamples(input: unknown) {
+    const normalized = normalizeSampleBank(input);
+
+    if (isBanked(input)) {
+      this._banks[input.bank] = normalized;
     } else {
       this._banks.user ??= { samples: {} };
-      Object.assign(this._banks.user.samples, validatedInput);
+      Object.assign(this._banks.user.samples, normalized.samples);
     }
 
     return this;
-  }
-
-  private _validateLoadSamplesInput(input: unknown): LoadSamplesInput {
-    if (isNamedBank(input) || isSampleBank(input)) {
-      return input;
-    }
-
-    throw new Error(
-      "Invalid sample manifest: expected { [sampleName]: string[] } or { name: string; samples: { [sampleName]: string[] } }",
-    );
   }
 
   rand() {
@@ -124,6 +114,12 @@ class Drome {
     this._instruments.add(inst);
   }
 
+  _resolveBank(name: string): BankSchema | null {
+    if (this._banks[name]) return this._banks[name];
+    if (BUILT_IN_BANKS[name]) return resolveBank(BUILT_IN_BANKS[name]);
+    return null;
+  }
+
   getSchema(): DromeSchema {
     const instruments = Array.from(this._instruments).map((i) => i.getSchema());
     const banks: Record<string, BankSchema> = { ...this._banks };
@@ -131,11 +127,8 @@ class Drome {
     for (const instrument of instruments) {
       if (instrument.type === "sampler") {
         const { bank: bankName } = instrument;
-        if (!banks[bankName] && BUILT_IN_BANKS[bankName]) {
-          banks[bankName] = resolveBank(BUILT_IN_BANKS[bankName]);
-        } else if (!banks[bankName]) {
-          console.warn(`[Sampler] Unknown bank "${bankName}" — skipping`);
-        }
+        const resolvedBank = this._resolveBank(bankName);
+        if (!banks[bankName] && resolvedBank) banks[bankName] = resolvedBank;
       }
     }
 

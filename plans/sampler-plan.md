@@ -696,16 +696,16 @@ In `scheduleBar`, resolve the variation index per step, pick the correct buffer,
 
 #### Step 4.1 — Schema round-trip tests
 
-- [ ] `d.loadSamples({ kick: ["url.wav"] }).sample("kick").bank("user").getSchema()` — `banks.user.samples.kick` present
-- [ ] Named bank round-trip
-- [ ] Variation cycling: `d.sample("bd").variation([0, 1, 2]).getSchema().variation` is a StaticSchema
-- [ ] Custom bank with same name as a built-in bank takes precedence in `DromeSchema.banks`
+- [x] `d.loadSamples({ kick: ["url.wav"] }).sample("kick").bank("user").getSchema()` — `banks.user.samples.kick` present
+- [x] Named bank round-trip
+- [x] Variation cycling: `d.sample("bd").variation([0, 1, 2]).getSchema().variation` is a StaticSchema
+- [x] Custom bank with same name as a built-in bank takes precedence in `DromeSchema.banks`
 
 #### Step 4.2 — Manual verification
 
-- [ ] `d.loadSamples({ kick: ["url.wav"] }); d.sample("kick").bank("user").push()` — custom sample plays
-- [ ] `d.sample("bd:0").bank("tr808").push()` and `d.sample("bd:1").bank("tr808").push()` — audibly different variations
-- [ ] External JSON manifest loads and plays correctly
+- [x] `d.loadSamples({ kick: ["url.wav"] }); d.sample("kick").bank("user").push()` — custom sample plays
+- [x] `d.sample("bd:0").bank("tr808").push()` and `d.sample("bd:1").bank("tr808").push()` — audibly different variations
+- [x] External JSON manifest loads and plays correctly
 
 ---
 

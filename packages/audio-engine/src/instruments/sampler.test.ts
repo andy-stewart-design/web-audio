@@ -133,7 +133,7 @@ function envelope(max = 1, r = 0): EnvelopeSchema {
   };
 }
 
-function randomNotes(): RandomSchema {
+function randomSchema(valueMap: number[]): RandomSchema {
   return {
     type: "random",
     dataType: "float",
@@ -141,7 +141,7 @@ function randomNotes(): RandomSchema {
     quantValue: undefined,
     range: undefined,
     algorithm: "xor",
-    valueMap: [0.5, 1.5],
+    valueMap,
     cycle: {
       type: "static",
       polyphonic: false,
@@ -153,6 +153,10 @@ function randomNotes(): RandomSchema {
       ],
     },
   };
+}
+
+function randomNotes(): RandomSchema {
+  return randomSchema([0.5, 1.5]);
 }
 
 function lowpassEffect(frequency = 800): FilterSchema {
@@ -173,6 +177,7 @@ function makeSchema(overrides: Partial<SamplerSchema> = {}): SamplerSchema {
     sample: "bd",
     variation: staticParam(0),
     notes: staticPattern(1),
+    sourceKeys: [0],
     detune: staticParam(0),
     gain: envelope(),
     effects: [],
@@ -188,7 +193,7 @@ function makeBanks(
   return {
     kit: {
       samples: {
-        bd: [url],
+        bd: { "0": [{ type: "file", src: url }] },
       },
     },
   };
@@ -299,7 +304,9 @@ describe("Sampler", () => {
     })) as unknown as typeof fetch;
 
     const banks = makeBanks(urls[0]);
-    banks.kit.samples.bd = urls;
+    banks.kit.samples.bd = {
+      "0": urls.map((src) => ({ type: "file" as const, src })),
+    };
     const sampler = new Sampler(
       ctx as unknown as AudioContext,
       clock as never,
@@ -353,7 +360,9 @@ describe("Sampler", () => {
       arrayBuffer: async () => new ArrayBuffer(8),
     })) as unknown as typeof fetch;
     const banks = makeBanks(urls[0]);
-    banks.kit.samples.bd = urls;
+    banks.kit.samples.bd = {
+      "0": urls.map((src) => ({ type: "file" as const, src })),
+    };
 
     const sampler = new Sampler(
       ctx as unknown as AudioContext,
@@ -520,7 +529,12 @@ describe("Sampler", () => {
     const banks = {
       kit: {
         samples: {
-          bd: ["https://example.com/old.wav", "https://example.com/new.wav"],
+          bd: {
+            "0": [
+              { type: "file" as const, src: "https://example.com/old.wav" },
+              { type: "file" as const, src: "https://example.com/new.wav" },
+            ],
+          },
         },
       },
     };
@@ -558,7 +572,9 @@ describe("Sampler", () => {
       arrayBuffer: async () => new ArrayBuffer(8),
     })) as unknown as typeof fetch;
     const banks = makeBanks(urls[0]);
-    banks.kit.samples.bd = urls;
+    banks.kit.samples.bd = {
+      "0": urls.map((src) => ({ type: "file" as const, src })),
+    };
 
     const sampler = new Sampler(
       ctx as unknown as AudioContext,
@@ -595,7 +611,9 @@ describe("Sampler", () => {
       arrayBuffer: async () => new ArrayBuffer(8),
     })) as unknown as typeof fetch;
     const banks = makeBanks(urls[0]);
-    banks.kit.samples.bd = urls;
+    banks.kit.samples.bd = {
+      "0": urls.map((src) => ({ type: "file" as const, src })),
+    };
 
     const sampler = new Sampler(
       ctx as unknown as AudioContext,
@@ -624,7 +642,7 @@ describe("Sampler", () => {
     ]);
   });
 
-  it("scheduleBar() creates a buffer source with the resolved playbackRate, detune, loop flag, and timing", async () => {
+  it("scheduleBar() creates a buffer source with computed playbackRate, detune, loop flag, and timing", async () => {
     const url = "https://example.com/bd.wav";
     const buffer = makeBuffer(2);
     cache.resolved.set(url, buffer);
@@ -650,7 +668,7 @@ describe("Sampler", () => {
     const endTime = startTime + noteDuration;
     const releaseDur = 0.0025;
 
-    expect(source.playbackRate.value).toBe(2);
+    expect(source.playbackRate.value).toBeCloseTo(Math.pow(2, 2 / 12));
     expect(source.detune.value).toBe(123);
     expect(source.loop).toBe(true);
     expect(source.start).toHaveBeenCalledWith(startTime);
@@ -694,7 +712,7 @@ describe("Sampler", () => {
     sampler.scheduleBar(0, 10);
 
     const startTime = 10 + 0.25 * clock.barDuration;
-    const sampleDuration = 3 / 2;
+    const sampleDuration = 3 / Math.pow(2, 2 / 12);
     const endTime = startTime + sampleDuration;
     const releaseDur = 0.0025;
     const source = createdSources[0];
@@ -728,7 +746,9 @@ describe("Sampler", () => {
 
     expect(createdSources).toHaveLength(1);
     expect(createdSources[0].start).toHaveBeenCalledWith(8);
-    expect([0.5, 1.5]).toContain(createdSources[0].playbackRate.value);
+    expect([Math.pow(2, 0.5 / 12), Math.pow(2, 1.5 / 12)]).toContain(
+      createdSources[0].playbackRate.value,
+    );
   });
 
   it("scheduleBar() schedules all notes in a multi-step bar", async () => {
@@ -759,10 +779,393 @@ describe("Sampler", () => {
     sampler.scheduleBar(0, 4);
 
     expect(createdSources).toHaveLength(2);
-    expect(createdSources[0].playbackRate.value).toBe(1);
+    expect(createdSources[0].playbackRate.value).toBeCloseTo(
+      Math.pow(2, 1 / 12),
+    );
     expect(createdSources[0].start).toHaveBeenCalledWith(4);
-    expect(createdSources[1].playbackRate.value).toBe(2);
+    expect(createdSources[1].playbackRate.value).toBeCloseTo(
+      Math.pow(2, 2 / 12),
+    );
     expect(createdSources[1].start).toHaveBeenCalledWith(5);
+  });
+
+  it("random notes affect nearest source key selection and playbackRate", async () => {
+    const urls = [
+      "https://example.com/root.wav",
+      "https://example.com/octave.wav",
+    ];
+    const buffers = [makeBuffer(1), makeBuffer(1.1)];
+    cache.resolved.set(urls[0], buffers[0]);
+    cache.resolved.set(urls[1], buffers[1]);
+    const banks = {
+      kit: {
+        samples: {
+          piano: {
+            "0": [{ type: "file" as const, src: urls[0] }],
+            "12": [{ type: "file" as const, src: urls[1] }],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sample: "piano",
+          sourceKeys: [0, 12],
+          notes: randomSchema([0, 14]),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    if (createdSources[0].buffer === buffers[0]) {
+      expect(createdSources[0].playbackRate.value).toBe(1);
+    } else {
+      expect(createdSources[0].buffer).toBe(buffers[1]);
+      expect(createdSources[0].playbackRate.value).toBeCloseTo(
+        Math.pow(2, 2 / 12),
+      );
+    }
+  });
+
+  it("random variation affects selected variation entry independently", async () => {
+    const urls = [
+      "https://example.com/bd-0.wav",
+      "https://example.com/bd-1.wav",
+    ];
+    const buffers = [makeBuffer(1), makeBuffer(1.1)];
+    cache.resolved.set(urls[0], buffers[0]);
+    cache.resolved.set(urls[1], buffers[1]);
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": urls.map((src) => ({ type: "file" as const, src })),
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticPattern(0),
+          variation: randomSchema([0, 1]),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(buffers).toContain(createdSources[0].buffer);
+    expect(createdSources[0].playbackRate.value).toBe(1);
+  });
+
+  it("random notes and random variation compose without schema changes", async () => {
+    const urls = [
+      "https://example.com/root-0.wav",
+      "https://example.com/root-1.wav",
+      "https://example.com/octave-0.wav",
+      "https://example.com/octave-1.wav",
+    ];
+    const buffers = urls.map((_, i) => makeBuffer(1 + i / 10));
+    urls.forEach((url, i) => cache.resolved.set(url, buffers[i]));
+    const banks = {
+      kit: {
+        samples: {
+          piano: {
+            "0": urls
+              .slice(0, 2)
+              .map((src) => ({ type: "file" as const, src })),
+            "12": urls.slice(2).map((src) => ({ type: "file" as const, src })),
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sample: "piano",
+          sourceKeys: [0, 12],
+          notes: randomSchema([0, 14]),
+          variation: randomSchema([0, 1]),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(buffers).toContain(createdSources[0].buffer);
+    expect([1, Math.pow(2, 2 / 12)]).toContain(
+      createdSources[0].playbackRate.value,
+    );
+  });
+
+  it("selects the nearest source key and computes playbackRate", async () => {
+    const urls = ["https://example.com/a2.wav", "https://example.com/a3.wav"];
+    const buffers = [makeBuffer(1), makeBuffer(1.1)];
+    cache.resolved.set(urls[0], buffers[0]);
+    cache.resolved.set(urls[1], buffers[1]);
+    const banks = {
+      kit: {
+        samples: {
+          piano: {
+            "45": [{ type: "file" as const, src: urls[0] }],
+            "57": [{ type: "file" as const, src: urls[1] }],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sample: "piano",
+          sourceKeys: [45, 57],
+          notes: staticPattern(60),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(buffers[1]);
+    expect(createdSources[0].playbackRate.value).toBeCloseTo(
+      Math.pow(2, 3 / 12),
+    );
+  });
+
+  it("selects nearest pitched sprite region and computes playbackRate", async () => {
+    const url = "https://example.com/piano-sprite.wav";
+    const buffer = makeBuffer(4);
+    cache.resolved.set(url, buffer);
+    const banks = {
+      kit: {
+        samples: {
+          piano: {
+            "45": [{ type: "sprite" as const, src: url, start: 0, end: 0.25 }],
+            "57": [
+              { type: "sprite" as const, src: url, start: 0.5, end: 0.75 },
+            ],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sample: "piano",
+          sourceKeys: [45, 57],
+          notes: staticPattern(60),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(buffer);
+    expect(createdSources[0].playbackRate.value).toBeCloseTo(
+      Math.pow(2, 3 / 12),
+    );
+    expect(createdSources[0].start).toHaveBeenCalledWith(4, 2);
+  });
+
+  it("schedules sprite entries with offset and region duration", async () => {
+    const url = "https://example.com/kit.wav";
+    const buffer = makeBuffer(4);
+    cache.resolved.set(url, buffer);
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [{ type: "sprite" as const, src: url, start: 0.5, end: 0.75 }],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ notes: staticPattern(0, 0, 1) }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(4, 2);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(5.0025 + 0.05);
+  });
+
+  it("accounts for playbackRate when scheduling sprite duration", async () => {
+    const url = "https://example.com/kit.wav";
+    cache.resolved.set(url, makeBuffer(4));
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [{ type: "sprite" as const, src: url, start: 0, end: 0.5 }],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ notes: staticPattern(12, 0, 1) }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources[0].playbackRate.value).toBe(2);
+    expect(createdSources[0].start).toHaveBeenCalledWith(4, 0);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(5.0025 + 0.05);
+  });
+
+  it("sprite variations sharing the same src fetch once", async () => {
+    const url = "https://example.com/kit.wav";
+    ctx.decodedBuffers.push(makeBuffer(4));
+    globalThis.fetch = vi.fn(async () => ({
+      arrayBuffer: async () => new ArrayBuffer(8),
+    })) as unknown as typeof fetch;
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [
+              { type: "sprite" as const, src: url, start: 0, end: 0.25 },
+              { type: "sprite" as const, src: url, start: 0.5, end: 0.75 },
+            ],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ variation: staticCycle([0, 1]) }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(globalThis.fetch).toHaveBeenCalledWith(url);
+  });
+
+  it("sprite variations select different regions from the same file", async () => {
+    const url = "https://example.com/kit.wav";
+    cache.resolved.set(url, makeBuffer(4));
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [
+              { type: "sprite" as const, src: url, start: 0, end: 0.25 },
+              { type: "sprite" as const, src: url, start: 0.5, end: 0.75 },
+            ],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ variation: staticParam(1) }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(4, 2);
+  });
+
+  it("falls back to variation 0 when selected variation is out of range", async () => {
+    const url = "https://example.com/a2.wav";
+    const buffer = makeBuffer(1);
+    cache.resolved.set(url, buffer);
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sourceKeys: [45],
+          notes: staticPattern(45),
+          variation: staticParam(99),
+        }),
+        banks: {
+          kit: {
+            samples: {
+              bd: { "45": [{ type: "file" as const, src: url }] },
+            },
+          },
+        },
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(buffer);
+    expect(createdSources[0].playbackRate.value).toBe(1);
   });
 
   it("scheduleBar() builds and wires an effect chain", async () => {
@@ -819,6 +1222,78 @@ describe("Sampler", () => {
     expect(source.playbackRate.value).toBeCloseTo(0.5);
     expect(source.start).toHaveBeenCalledWith(12);
     expect(source.stop).toHaveBeenCalledWith(14);
+  });
+
+  it("fit() uses sprite region duration instead of full buffer duration", async () => {
+    const url = "https://example.com/loop-sprite.wav";
+    cache.resolved.set(url, makeBuffer(4));
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [
+              { type: "sprite" as const, src: url, start: 0.25, end: 0.75 },
+            ],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ notes: { type: "fit", bars: 2 } }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 12);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].playbackRate.value).toBeCloseTo(0.5);
+    expect(createdSources[0].start).toHaveBeenCalledWith(12, 1);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(16);
+  });
+
+  it("fit() selects the requested variation", async () => {
+    const urls = [
+      "https://example.com/loop-0.wav",
+      "https://example.com/loop-1.wav",
+    ];
+    const buffers = [makeBuffer(2), makeBuffer(4)];
+    urls.forEach((url, i) => cache.resolved.set(url, buffers[i]));
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": urls.map((src) => ({ type: "file" as const, src })),
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: { type: "fit", bars: 1 },
+          variation: staticParam(1),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 12);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(buffers[1]);
+    expect(createdSources[0].playbackRate.value).toBeCloseTo(2);
   });
 
   it("fit() only triggers at the start of each N-bar window", async () => {

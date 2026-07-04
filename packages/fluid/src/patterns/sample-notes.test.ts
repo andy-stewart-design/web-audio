@@ -2,79 +2,62 @@ import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
 import SampleNotes from "./sample-notes";
 
-function rate(midi: number, root: number) {
-  return Math.pow(2, (midi - root) / 12);
-}
-
 describe("SampleNotes — static schema", () => {
-  it("root A4 (69), note A4 → rate 1.0", () => {
+  it("defaults root to 0, note 0 → value 0", () => {
     const n = new SampleNotes([0]);
-    n.root("A4");
     const schema = n.getSchema();
     expect(schema.type).toBe("static");
     if (schema.type !== "static") return;
-    expect(schema.cycle[0][0].value).toBeCloseTo(1.0);
+    expect(schema.cycle[0][0].value).toBe(0);
   });
 
-  it("root A4, note A5 → rate 2.0", () => {
+  it("root A3, note 0 → MIDI value 57", () => {
     const n = new SampleNotes([0]);
-    n.root("A4").notes([12]);
+    n.root("A3");
     const schema = n.getSchema();
     expect(schema.type).toBe("static");
     if (schema.type !== "static") return;
-    expect(schema.cycle[0][0].value).toBeCloseTo(2.0);
+    expect(schema.cycle[0][0].value).toBe(57);
   });
 
-  it("root A4, note A3 → rate 0.5", () => {
+  it("root A3, note 12 → MIDI value 69", () => {
     const n = new SampleNotes([0]);
-    n.root("A4").notes([-12]);
+    n.root("A3").notes([12]);
     const schema = n.getSchema();
     expect(schema.type).toBe("static");
     if (schema.type !== "static") return;
-    expect(schema.cycle[0][0].value).toBeCloseTo(0.5);
+    expect(schema.cycle[0][0].value).toBe(69);
   });
 
-  it("no root set — defaults to A4, note 69 → rate 1.0", () => {
+  it("root A3 with minor scale resolves degrees to MIDI values", () => {
     const n = new SampleNotes([0]);
+    n.root("A3").scale("min").notes([0, 2, 4, 6]);
     const schema = n.getSchema();
     expect(schema.type).toBe("static");
     if (schema.type !== "static") return;
-    expect(schema.cycle[0][0].value).toBeCloseTo(1.0);
+    expect(schema.cycle[0].map((step) => step.value)).toEqual([57, 60, 64, 67]);
   });
 });
 
 describe("SampleNotes — random schema with valueMap (scale mode)", () => {
-  it("remaps valueMap entries from MIDI to playback rates", () => {
+  it("emits target MIDI valueMap entries, not playback rates", () => {
     const n = new SampleNotes([0]);
     n.root("C4").scale("maj").notes(new RandomCycle());
     const schema = n.getSchema();
     expect(schema.type).toBe("random");
     if (schema.type !== "random") return;
-    expect(schema.valueMap).toBeDefined();
-    if (!schema.valueMap) return;
-
-    // C major from C4 (60): [60, 62, 64, 65, 67, 69, 71]
-    const root = 60;
-    expect(schema.valueMap[0]).toBeCloseTo(rate(60, root)); // C4 → 1.0
-    expect(schema.valueMap[2]).toBeCloseTo(rate(64, root)); // E4
-    expect(schema.valueMap[4]).toBeCloseTo(rate(67, root)); // G4
+    expect(schema.valueMap).toEqual([60, 62, 64, 65, 67, 69, 71]);
   });
 });
 
 describe("SampleNotes — random schema without valueMap", () => {
-  it("builds a valueMap from the range and clears range", () => {
+  it("preserves random range for engine-time note resolution", () => {
     const n = new SampleNotes([0]);
-    n.root("A4").notes(new RandomCycle().range(69, 81));
+    n.notes(new RandomCycle().range(45, 57));
     const schema = n.getSchema();
     expect(schema.type).toBe("random");
     if (schema.type !== "random") return;
-    expect(schema.valueMap).toBeDefined();
-    expect(schema.range).toBeUndefined();
-    if (!schema.valueMap) return;
-    // 69 → rate 1.0, 81 → rate 2.0
-    expect(schema.valueMap[0]).toBeCloseTo(rate(69, 69));
-    expect(schema.valueMap[schema.valueMap.length - 1]).toBeCloseTo(
-      rate(80, 69),
-    );
+    expect(schema.valueMap).toBeUndefined();
+    expect(schema.range).toEqual({ min: 45, max: 57 });
   });
 });

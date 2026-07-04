@@ -5,6 +5,7 @@ import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import { registerWorklets } from "./utils/register-worklets";
 import { preloadVariationIndices } from "./utils/preload-variations";
+import { resolveSampleUrl } from "./utils/resolve-sample-entry";
 
 class AudioEngine {
   private _ctx: AudioContext;
@@ -64,9 +65,11 @@ class AudioEngine {
     const urls = new Set<string>();
     for (const schema of instruments) {
       if (schema.type !== "sampler") continue;
-      for (const variationIndex of preloadVariationIndices(schema)) {
-        const url = this._resolveUrl(schema, banks, variationIndex);
-        if (url) urls.add(url);
+      for (const sourceKey of schema.sourceKeys) {
+        for (const varIndex of preloadVariationIndices(schema)) {
+          const url = this._resolveUrl(schema, banks, sourceKey, varIndex);
+          if (url) urls.add(url);
+        }
       }
     }
 
@@ -144,18 +147,19 @@ class AudioEngine {
     return previous.fallbackBufferFor(schema);
   }
 
-  // Resolves a sampler URL. Duplicated from Sampler._resolveUrl to avoid
-  // creating instrument instances during prepare()
   private _resolveUrl(
     schema: SamplerSchema,
     banks: Record<string, BankSchema>,
+    sourceKey: number,
     variationIndex: number,
   ): string | null {
-    const bank = banks[schema.bank];
-    if (!bank) return null;
-    const variations = bank.samples[schema.sample];
-    if (!variations?.length) return null;
-    return variations[variationIndex] ?? variations[0];
+    return resolveSampleUrl({
+      banks,
+      bank: schema.bank,
+      sample: schema.sample,
+      sourceKey,
+      variationIndex,
+    });
   }
 
   getAnalyser(): AnalyserNode {

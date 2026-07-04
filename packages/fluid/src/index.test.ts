@@ -285,12 +285,15 @@ describe("Drome", () => {
       if (inst.type === "sampler") {
         expect(inst.bank).toBe("tr909");
         expect(inst.sample).toBe("bd");
+        expect(inst.sourceKeys).toEqual([0]);
         expect(inst.loop).toBe(false);
         expect(inst.clipMode).toBe("clipped");
         expect(inst.variation.type).toBe("static");
         expect(inst.notes).not.toHaveProperty("type", "fit");
       }
       expect(schema.banks).toHaveProperty("tr909");
+      expect(schema.banks.tr909.samples.bd["0"][0].type).toBe("file");
+      expect(schema.banks.tr909.samples.bd["0"][0].src).toMatch(/^https?:\/\//);
     });
 
     it("variation(1) sets the variation parameter", () => {
@@ -347,20 +350,14 @@ describe("Drome", () => {
       }
     });
 
-    it("notes with root and scale produce float playback rates", () => {
+    it("notes with root and scale produce MIDI target values", () => {
       const d = new Drome();
       d.sample("bd").root("A4").notes([0, 3, 7]).push();
       const inst = d.getSchema().instruments[0];
 
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler" && inst.notes.type === "static") {
-        const rates = inst.notes.cycle[0].map((s) => s.value);
-        // MIDI 69 (A4) root: semitone 0 → rate 1.0
-        expect(rates[0]).toBeCloseTo(1.0);
-        // semitone 3 → 2^(3/12) ≈ 1.189
-        expect(rates[1]).toBeCloseTo(Math.pow(2, 3 / 12));
-        // semitone 7 → 2^(7/12) ≈ 1.498
-        expect(rates[2]).toBeCloseTo(Math.pow(2, 7 / 12));
+        expect(inst.notes.cycle[0].map((s) => s.value)).toEqual([69, 72, 76]);
       }
     });
 
@@ -432,6 +429,155 @@ describe("Drome", () => {
       expect(instruments[0].type).toBe("synthesizer");
       expect(instruments[1].type).toBe("sampler");
     });
+
+    it("simple samples emit sourceKeys: [0]", () => {
+      const d = new Drome();
+      d.loadSamples({ kick: ["kick.wav"] });
+      d.sample("kick").bank("user").push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([0]);
+      }
+    });
+
+    it("multisamples emit sorted sourceKeys", () => {
+      const d = new Drome();
+      d.loadSamples({
+        bank: "acoustic",
+        samples: { piano: { a3: ["a3.wav"], a2: ["a2.wav"] } },
+      });
+      d.sample("piano").bank("acoustic").push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([45, 57]);
+      }
+    });
+
+    it("pitched sprites emit sorted sourceKeys", () => {
+      const d = new Drome();
+      d.loadSamples({
+        bank: "acoustic",
+        src: "piano.wav",
+        samples: { piano: { a3: [[0.2, 0.3]], a2: [[0, 0.1]] } },
+      });
+      d.sample("piano").bank("acoustic").push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([45, 57]);
+      }
+    });
+
+    it("unknown banks warn and emit fallback sourceKeys", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const d = new Drome();
+      d.sample("kick").bank("missing").push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('Bank "missing" not found'),
+      );
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([0]);
+      }
+    });
+
+    it("unknown samples warn and emit fallback sourceKeys", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const d = new Drome();
+      d.loadSamples({ kick: ["kick.wav"] });
+      d.sample("snare").bank("user").push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('Sample "snare" not found in bank "user"'),
+      );
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([0]);
+      }
+    });
+
+    it("static notes and random variation remain independent", () => {
+      const d = new Drome();
+      d.sample("bd")
+        .notes([0, 2, 4])
+        .variation(d.rand().int().range(0, 2))
+        .push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.notes.type).toBe("static");
+        expect(inst.variation.type).toBe("random");
+        expect(inst).not.toHaveProperty("playback");
+      }
+    });
+
+    it("random notes and static variation remain independent", () => {
+      const d = new Drome();
+      d.sample("bd")
+        .notes(d.rand().int().range(0, 12))
+        .variation([0, 1])
+        .push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.notes.type).toBe("random");
+        expect(inst.variation.type).toBe("static");
+        expect(inst).not.toHaveProperty("playback");
+      }
+    });
+
+    it("fit() succeeds for simple samples with sourceKeys [0]", () => {
+      const d = new Drome();
+      d.loadSamples({ loop: ["loop.wav"] });
+      d.sample("loop").bank("user").fit(2).push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([0]);
+        expect(inst.notes).toEqual({ type: "fit", bars: 2 });
+      }
+    });
+
+    it("fit() succeeds for sprite samples with sourceKeys [0]", () => {
+      const d = new Drome();
+      d.loadSamples({
+        bank: "loops",
+        src: "loops.wav",
+        samples: { break: [[0, 0.5]] },
+      });
+      d.sample("break").bank("loops").fit(2).push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([0]);
+        expect(inst.notes).toEqual({ type: "fit", bars: 2 });
+      }
+    });
+
+    it("fit() throws for pitched multisamples", () => {
+      const d = new Drome();
+      d.loadSamples({
+        bank: "acoustic",
+        samples: { piano: { a2: ["a2.wav"], a3: ["a3.wav"] } },
+      });
+      d.sample("piano").bank("acoustic").fit(2).push();
+
+      expect(() => d.getSchema()).toThrow(
+        '[Sampler] fit() is only valid for unpitched samples (sourceKeys: [0]). "acoustic/piano" has sourceKeys: [45, 57].',
+      );
+    });
   });
 
   describe("loadSamples", () => {
@@ -443,7 +589,9 @@ describe("Drome", () => {
       const d = new Drome();
       d.loadSamples({ kick: ["url.wav"] });
 
-      expect(d.getSchema().banks.user.samples.kick).toEqual(["url.wav"]);
+      expect(d.getSchema().banks.user.samples.kick).toEqual({
+        "0": [{ type: "file", src: "url.wav" }],
+      });
     });
 
     it("merges multiple flat loadSamples calls into the user bank", () => {
@@ -453,8 +601,8 @@ describe("Drome", () => {
       });
 
       expect(d.getSchema().banks.user.samples).toEqual({
-        kick: ["kick.wav"],
-        snare: ["snare.wav"],
+        kick: { "0": [{ type: "file", src: "kick.wav" }] },
+        snare: { "0": [{ type: "file", src: "snare.wav" }] },
       });
     });
 
@@ -465,31 +613,37 @@ describe("Drome", () => {
 
       const schema = d.getSchema();
       expect(schema.instruments[0].type).toBe("sampler");
-      expect(schema.banks.user.samples.kick).toEqual(["url.wav"]);
+      expect(schema.banks.user.samples.kick).toEqual({
+        "0": [{ type: "file", src: "url.wav" }],
+      });
     });
 
     it("registers named banks without polluting the user bank", () => {
       const d = new Drome();
-      d.loadSamples({ name: "mykit", samples: { kick: ["url.wav"] } });
+      d.loadSamples({ bank: "mykit", samples: { kick: ["url.wav"] } });
 
       const schema = d.getSchema();
-      expect(schema.banks.mykit.samples.kick).toEqual(["url.wav"]);
+      expect(schema.banks.mykit.samples.kick).toEqual({
+        "0": [{ type: "file", src: "url.wav" }],
+      });
       expect(schema.banks.user).toBeUndefined();
     });
 
     it("custom named banks take precedence over built-in banks", () => {
       const d = new Drome();
-      d.loadSamples({ name: "tr909", samples: { bd: ["custom.wav"] } });
+      d.loadSamples({ bank: "tr909", samples: { bd: ["custom.wav"] } });
       d.sample("bd").bank("tr909").push();
 
-      expect(d.getSchema().banks.tr909.samples.bd).toEqual(["custom.wav"]);
+      expect(d.getSchema().banks.tr909.samples.bd).toEqual({
+        "0": [{ type: "file", src: "custom.wav" }],
+      });
     });
 
     it("fetches and registers external JSON manifests", async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: vi.fn().mockResolvedValue({
-          name: "remote",
+          bank: "remote",
           samples: { kick: ["remote.wav"] },
         }),
       });
@@ -501,7 +655,9 @@ describe("Drome", () => {
       expect(fetchMock).toHaveBeenCalledWith(
         "https://example.com/samples.json",
       );
-      expect(d.getSchema().banks.remote.samples.kick).toEqual(["remote.wav"]);
+      expect(d.getSchema().banks.remote.samples.kick).toEqual({
+        "0": [{ type: "file", src: "remote.wav" }],
+      });
     });
 
     it("external JSON produces the same schema as equivalent inline data", async () => {
@@ -556,7 +712,7 @@ describe("Drome", () => {
       await expect(
         d.loadSamples("https://example.com/samples.json"),
       ).rejects.toThrow(
-        "Invalid sample manifest: expected { [sampleName]: string[] } or { name: string; samples: { [sampleName]: string[] } }",
+        "Invalid sample manifest: expected a sample bank, banked sample bank, multisample bank, or sprite bank",
       );
     });
 
@@ -564,7 +720,189 @@ describe("Drome", () => {
       const d = new Drome();
 
       expect(() => d.loadSamples({ kick: [123] } as unknown as never)).toThrow(
-        "Invalid sample manifest: expected { [sampleName]: string[] } or { name: string; samples: { [sampleName]: string[] } }",
+        "Invalid sample manifest: expected a sample bank, banked sample bank, multisample bank, or sprite bank",
+      );
+    });
+
+    it("applies baseUrl to registered sample files", () => {
+      const d = new Drome();
+      d.loadSamples({
+        bank: "acoustic",
+        baseUrl: "https://example.com/piano/",
+        samples: { piano: { a2: ["a2.wav"] } },
+      });
+
+      expect(d.getSchema().banks.acoustic.samples.piano["45"]).toEqual([
+        { type: "file", src: "https://example.com/piano/a2.wav" },
+      ]);
+    });
+
+    it("applies baseUrl to registered sprite src", () => {
+      const d = new Drome();
+      d.loadSamples({
+        bank: "op1",
+        baseUrl: "https://example.com/sprites/",
+        src: "kit.wav",
+        samples: { bd: [[0, 0.08]] },
+      });
+
+      expect(d.getSchema().banks.op1.samples.bd["0"]).toEqual([
+        {
+          type: "sprite",
+          src: "https://example.com/sprites/kit.wav",
+          start: 0,
+          end: 0.08,
+        },
+      ]);
+    });
+
+    it("normalizes multisample pitch keys to numeric source keys", () => {
+      const d = new Drome();
+      d.loadSamples({
+        bank: "acoustic",
+        samples: {
+          piano: {
+            a2: ["file-01.wav", "file-02.wav"],
+            a3: ["file-03.wav"],
+          },
+        },
+      });
+
+      expect(d.getSchema().banks.acoustic.samples.piano).toEqual({
+        "45": [
+          { type: "file", src: "file-01.wav" },
+          { type: "file", src: "file-02.wav" },
+        ],
+        "57": [{ type: "file", src: "file-03.wav" }],
+      });
+      expect(d.getSchema().banks.user).toBeUndefined();
+    });
+
+    it("throws when a multisample pitch key is invalid", () => {
+      const d = new Drome();
+
+      expect(() =>
+        d.loadSamples({
+          bank: "acoustic",
+          samples: { piano: { nope: ["file.wav"] } },
+        }),
+      ).toThrow('Invalid sample pitch key "nope"');
+    });
+
+    it("normalizes named sprite banks", () => {
+      const d = new Drome();
+      d.loadSamples({
+        bank: "op1",
+        src: "kit.wav",
+        samples: {
+          bd: [[0, 0.08]],
+          sd: [[0.1, 0.18]],
+        },
+      });
+
+      expect(d.getSchema().banks.op1.samples).toEqual({
+        bd: {
+          "0": [{ type: "sprite", src: "kit.wav", start: 0, end: 0.08 }],
+        },
+        sd: {
+          "0": [{ type: "sprite", src: "kit.wav", start: 0.1, end: 0.18 }],
+        },
+      });
+    });
+
+    it("normalizes unnamed sprite banks into user", () => {
+      const d = new Drome();
+      d.loadSamples({
+        src: "kit.wav",
+        samples: { bd: [[0, 0.08]] },
+      });
+
+      expect(d.getSchema().banks.user.samples.bd).toEqual({
+        "0": [{ type: "sprite", src: "kit.wav", start: 0, end: 0.08 }],
+      });
+    });
+
+    it("normalizes sprite variations", () => {
+      const d = new Drome();
+      d.loadSamples({
+        bank: "op1",
+        src: "kit.wav",
+        samples: {
+          bd: [
+            [0, 0.08],
+            [0.42, 0.5],
+          ],
+        },
+      });
+
+      expect(d.getSchema().banks.op1.samples.bd["0"]).toEqual([
+        { type: "sprite", src: "kit.wav", start: 0, end: 0.08 },
+        { type: "sprite", src: "kit.wav", start: 0.42, end: 0.5 },
+      ]);
+    });
+
+    it("normalizes pitched sprite banks", () => {
+      const d = new Drome();
+      d.loadSamples({
+        bank: "acoustic",
+        src: "piano-sprite.wav",
+        samples: {
+          piano: {
+            a2: [[0, 0.16]],
+            a3: [
+              [0.2, 0.36],
+              [0.37, 0.52],
+            ],
+          },
+        },
+      });
+
+      expect(d.getSchema().banks.acoustic.samples.piano).toEqual({
+        "45": [
+          { type: "sprite", src: "piano-sprite.wav", start: 0, end: 0.16 },
+        ],
+        "57": [
+          {
+            type: "sprite",
+            src: "piano-sprite.wav",
+            start: 0.2,
+            end: 0.36,
+          },
+          {
+            type: "sprite",
+            src: "piano-sprite.wav",
+            start: 0.37,
+            end: 0.52,
+          },
+        ],
+      });
+    });
+
+    it("throws when a sprite region is not wrapped in a variations array", () => {
+      const d = new Drome();
+
+      expect(() =>
+        d.loadSamples({
+          bank: "op1",
+          src: "kit.wav",
+          samples: { bd: [0, 0.08] },
+        } as unknown as never),
+      ).toThrow(
+        "Invalid sample manifest: expected a sample bank, banked sample bank, multisample bank, or sprite bank",
+      );
+    });
+
+    it("throws when sprite region bounds are invalid", () => {
+      const d = new Drome();
+
+      expect(() =>
+        d.loadSamples({
+          bank: "op1",
+          src: "kit.wav",
+          samples: { bd: [[0.8, 0.2]] },
+        }),
+      ).toThrow(
+        "Invalid sample manifest: expected a sample bank, banked sample bank, multisample bank, or sprite bank",
       );
     });
   });
@@ -580,7 +918,9 @@ describe("Drome", () => {
       const schema = d.getSchema();
       const inst = schema.instruments[0];
 
-      expect(schema.banks.user.samples.kick).toEqual(["url.wav"]);
+      expect(schema.banks.user.samples.kick).toEqual({
+        "0": [{ type: "file", src: "url.wav" }],
+      });
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
         expect(inst.bank).toBe("user");
@@ -590,13 +930,15 @@ describe("Drome", () => {
 
     it("named custom bank round-trips with a sampler reference", () => {
       const d = new Drome();
-      d.loadSamples({ name: "mykit", samples: { kick: ["url.wav"] } });
+      d.loadSamples({ bank: "mykit", samples: { kick: ["url.wav"] } });
       d.sample("kick").bank("mykit").push();
 
       const schema = d.getSchema();
       const inst = schema.instruments[0];
 
-      expect(schema.banks.mykit.samples.kick).toEqual(["url.wav"]);
+      expect(schema.banks.mykit.samples.kick).toEqual({
+        "0": [{ type: "file", src: "url.wav" }],
+      });
       expect(schema.banks.user).toBeUndefined();
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
@@ -623,10 +965,12 @@ describe("Drome", () => {
 
     it("custom bank with same name as a built-in bank takes precedence", () => {
       const d = new Drome();
-      d.loadSamples({ name: "tr909", samples: { bd: ["custom.wav"] } });
+      d.loadSamples({ bank: "tr909", samples: { bd: ["custom.wav"] } });
       d.sample("bd").bank("tr909").push();
 
-      expect(d.getSchema().banks.tr909.samples.bd).toEqual(["custom.wav"]);
+      expect(d.getSchema().banks.tr909.samples.bd).toEqual({
+        "0": [{ type: "file", src: "custom.wav" }],
+      });
     });
   });
 

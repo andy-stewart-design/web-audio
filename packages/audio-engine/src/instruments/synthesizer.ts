@@ -68,8 +68,8 @@ class Synthesizer extends Instrument {
   ): void {
     const barDuration = this._clock.barDuration;
     const startTime = barStartTime + note.offset * barDuration;
-    const noteDuration = note.duration * barDuration;
-    const endTime = startTime + noteDuration;
+    const duration = note.duration * barDuration;
+    const endTime = startTime + duration;
 
     const detune = this._resolveDetune(
       this._schema.detune,
@@ -85,15 +85,19 @@ class Synthesizer extends Instrument {
 
     this._scheduleVoice({
       source: osc,
-      detuneParam: osc.detune,
-      detune,
+      detune: {
+        param: osc.detune,
+        resolved: detune,
+      },
       gainEnvelope: this._schema.gain,
       effects: this._schema.effects,
-      barIndex,
-      stepIndex: note.stepIndex,
-      startTime,
-      noteDuration,
-      endTime,
+      note: {
+        barIndex,
+        stepIndex: note.stepIndex,
+        startTime,
+        duration,
+        endTime,
+      },
     });
   }
 }
