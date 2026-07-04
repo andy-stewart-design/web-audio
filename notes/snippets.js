@@ -90,36 +90,133 @@ d.sample("bd").bank("user").hex(0xf).push();
 
 // Multi-sampling
 
-// d.loadSamples({
-//   name: "acoustic",
-//   samples: {
-//     piano: ["https://www.files.com/file-01.wav"],
-//   },
-// });
-//
-// d.sample("piano").bank("acoustic").root("A3").scale("min").notes([0,2,4,6]).push();
-// d.sample("piano").bank("acoustic").notes(45).push(); // playback rate = 1 (THIS DOES NOT WORK)
-
 d.loadSamples({
   name: "acoustic",
   samples: {
     piano: {
       a2: [
-        "https://www.files.com/file-01.wav",
-        "https://www.files.com/file-02.wav",
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783094689/samples/piano/045_A2v03.m4a",
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783092900/samples/piano/045_A2v08.m4a",
       ],
       a3: [
-        "https://www.files.com/file-03.wav",
-        "https://www.files.com/file-04.wav",
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783094688/samples/piano/057_A3v03.m4a",
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783092900/samples/piano/057_A3v08.m4a",
+      ],
+      a4: [
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783094688/samples/piano/069_A4v03.m4a",
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783092898/samples/piano/069_A4v08.m4a",
       ],
     },
   },
 });
 
+d.loadSamples({
+  name: "acoustic",
+  samples: {
+    harp: {
+      d1: [
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/1d1.m4a",
+      ],
+      a1: [
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/2a1.m4a",
+      ],
+      d2: [
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/3d2.m4a",
+      ],
+      a2: [
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/4a2.m4a",
+      ],
+      d3: [
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/5d3.m4a",
+      ],
+      a3: [
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/6a3.m4a",
+      ],
+      d4: [
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/7d4.m4a",
+      ],
+      a4: [
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/8a4.m4a",
+      ],
+      d5: [
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/9d5.m4a",
+      ],
+      a5: [
+        "https://res.cloudinary.com/andystewartdesign/video/upload/v1783122165/samples/harp/10a5.m4a",
+      ],
+    },
+  },
+});
+
+d.sample("piano")
+  // .var([1,0])
+  .var(d.rand().int().range(0, 2).steps(8))
+  .bank("acoustic")
+  .root("a2")
+  .scale("min")
+  .adsr(0, 0, 1, 1)
+  .notes([0, 2, 4, 6, 7, 9, 11, 13])
+  .push();
+
 d.sample("piano", 0).bank("acoustic").notes(45).push(); // should play "https://www.files.com/file-01.wav"
 d.sample("piano", 1).bank("acoustic").notes(45).push(); // should play "https://www.files.com/file-02.wav"
 d.sample("piano", 0).bank("acoustic").notes(57).push(); // should play "https://www.files.com/file-03.wav"
 d.sample("piano", 1).bank("acoustic").notes(57).push(); // should play "https://www.files.com/file-04.wav"
+
+// Audio Sprite
+
+d.loadSamples({
+  name: "acoustic",
+  sprite:
+    "https://res.cloudinary.com/andystewartdesign/video/upload/v1783118607/samples/harp-sprite.m4a",
+  samples: {
+    harp: {
+      a1: [[0.0, 0.354784043]],
+      a2: [[0.354784043, 0.605698024]],
+      a3: [[0.605698024, 0.847024012]],
+      a4: [[0.847024012, 0.964624389]],
+      a5: [[0.964624389, 1.0]],
+    },
+  },
+});
+
+d.sample("harp")
+  .bank("acoustic")
+  .root("a2")
+  .scale("min")
+  .adsr(0, 0, 1, 1)
+  .notes([0, 2, 4, 6, 7, 9, 11, 13])
+  .push();
+
+d.loadSamples({
+  name: "effects",
+  sprite:
+    "https://res.cloudinary.com/andystewartdesign/video/upload/v1783131795/samples/farts.mp3",
+  samples: {
+    fart: [
+      [0.0, 0.027893],
+      [0.066667, 0.039578],
+      [0.133333, 0.040576],
+      [0.2, 0.044444],
+      [0.266667, 0.007243],
+      [0.311111, 0.044444],
+      [0.377778, 0.017077],
+      [0.422222, 0.012223],
+      [0.466667, 0.007166],
+      [0.511111, 0.019576],
+      [0.555556, 0.04906],
+      [0.644444, 0.040345],
+      [0.711111, 0.05581],
+      [0.8, 0.034582],
+      [0.866667, 0.00661],
+      [0.911111, 0.011265],
+      [0.955556, 0.008741],
+    ],
+  },
+});
+
+d.sample("fart", 2).bank("effects").notes(0, null).gain(1.25).push();
+d.sample("bd").hex(0xf).push();
 
 // Multiple Variations
 d.sample("bd").var([0, 1, 2, 3]).bank("tr909").hex(0xf).push();

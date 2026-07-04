@@ -527,7 +527,7 @@ Delete any duplicated `AudioEngine._resolveUrl` logic. Runtime buffer lookup sho
 `SampleBufferStore` should key cached buffers by source key + variation index where needed:
 
 ```ts
-`${sourceKey}:${variationIndex}`
+`${sourceKey}:${variationIndex}`;
 ```
 
 The shared buffer cache should still deduplicate by `entry.src` so multiple sprite regions from the same file fetch once.
@@ -728,14 +728,14 @@ Using the sequencer app or web app:
 
 **Scenarios:**
 
-- [ ] `d.sample("bd").bank("tr909").hex(0xf).push()` plays naturally at rate `1`
-- [ ] Flat user sample: `d.loadSamples({ kick: ["url.wav"] }); d.sample("kick").bank("user").push()` plays
-- [ ] Multisampled piano: A2/A3 variations select expected source files
-- [ ] Single pitched sample: `.root("A3").scale("min").notes([0,2,4,6])` plays a pitched arpeggio
-- [ ] Sprite drum kit: `d.sample("bd").bank("op1")` and `d.sample("sd").bank("op1")` play distinct regions from one file
-- [ ] Sprite variations: `d.sample("bd").bank("op1").variation([0,1])` alternates regions
-- [ ] Pitched sprite piano plays chromatically from regions in one shared file
-- [ ] `fit(2)` stretches a file loop and a sprite loop region correctly
+- [x] `d.sample("bd").bank("tr909").hex(0xf).push()` plays naturally at rate `1`
+- [x] Flat user sample: `d.loadSamples({ kick: ["url.wav"] }); d.sample("kick").bank("user").push()` plays
+- [x] Multisampled piano: A2/A3 variations select expected source files
+- [x] Single pitched sample: `.root("A3").scale("min").notes([0,2,4,6])` plays a pitched arpeggio
+- [x] Sprite drum kit: `d.sample("bd").bank("op1")` and `d.sample("sd").bank("op1")` play distinct regions from one file
+- [x] Sprite variations: `d.sample("bd").bank("op1").variation([0,1])` alternates regions
+- [x] Pitched sprite piano plays chromatically from regions in one shared file
+- [x] `fit(2)` stretches a file loop and a sprite loop region correctly
 
 ---
 
