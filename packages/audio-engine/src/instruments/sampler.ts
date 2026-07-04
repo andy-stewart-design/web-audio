@@ -136,7 +136,8 @@ class Sampler extends Instrument {
         endTime: barStartTime + fitDuration,
       },
       stopTime: barStartTime + fitDuration,
-      offset: entry.type === "sprite" ? entry.start * buffer.duration : undefined,
+      offset:
+        entry.type === "sprite" ? entry.start * buffer.duration : undefined,
     });
   }
 

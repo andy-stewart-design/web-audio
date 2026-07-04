@@ -1,7 +1,4 @@
-import type {
-  BankSchema,
-  SampleVariationSchema,
-} from "@web-audio/schema";
+import type { BankSchema, SampleVariationSchema } from "@web-audio/schema";
 
 interface ResolveSampleEntryOptions {
   banks: Record<string, BankSchema>;

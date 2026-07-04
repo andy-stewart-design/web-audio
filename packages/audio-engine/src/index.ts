@@ -66,8 +66,8 @@ class AudioEngine {
     for (const schema of instruments) {
       if (schema.type !== "sampler") continue;
       for (const sourceKey of schema.sourceKeys) {
-        for (const variationIndex of preloadVariationIndices(schema)) {
-          const url = this._resolveUrl(schema, banks, sourceKey, variationIndex);
+        for (const varIndex of preloadVariationIndices(schema)) {
+          const url = this._resolveUrl(schema, banks, sourceKey, varIndex);
           if (url) urls.add(url);
         }
       }
