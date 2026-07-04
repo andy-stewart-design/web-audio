@@ -285,6 +285,7 @@ describe("Drome", () => {
       if (inst.type === "sampler") {
         expect(inst.bank).toBe("tr909");
         expect(inst.sample).toBe("bd");
+        expect(inst.sourceKeys).toEqual([0]);
         expect(inst.loop).toBe(false);
         expect(inst.clipMode).toBe("clipped");
         expect(inst.variation.type).toBe("static");

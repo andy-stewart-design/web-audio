@@ -194,7 +194,7 @@ function makeBanks(
     kit: {
       samples: {
         bd: { "0": [{ type: "file", src: url }] },
-      }
+      },
     },
   };
 }
@@ -748,7 +748,8 @@ describe("Sampler", () => {
     expect(createdSources[0].start).toHaveBeenCalledWith(8);
     expect([Math.pow(2, 0.5 / 12), Math.pow(2, 1.5 / 12)]).toContain(
       createdSources[0].playbackRate.value,
-    );  });
+    );
+  });
 
   it("scheduleBar() schedules all notes in a multi-step bar", async () => {
     const url = "https://example.com/bd.wav";
@@ -778,13 +779,21 @@ describe("Sampler", () => {
     sampler.scheduleBar(0, 4);
 
     expect(createdSources).toHaveLength(2);
-    expect(createdSources[0].playbackRate.value).toBeCloseTo(Math.pow(2, 1 / 12));
+    expect(createdSources[0].playbackRate.value).toBeCloseTo(
+      Math.pow(2, 1 / 12),
+    );
     expect(createdSources[0].start).toHaveBeenCalledWith(4);
-    expect(createdSources[1].playbackRate.value).toBeCloseTo(Math.pow(2, 2 / 12));    expect(createdSources[1].start).toHaveBeenCalledWith(5);
+    expect(createdSources[1].playbackRate.value).toBeCloseTo(
+      Math.pow(2, 2 / 12),
+    );
+    expect(createdSources[1].start).toHaveBeenCalledWith(5);
   });
 
   it("random notes affect nearest source key selection and playbackRate", async () => {
-    const urls = ["https://example.com/root.wav", "https://example.com/octave.wav"];
+    const urls = [
+      "https://example.com/root.wav",
+      "https://example.com/octave.wav",
+    ];
     const buffers = [makeBuffer(1), makeBuffer(1.1)];
     cache.resolved.set(urls[0], buffers[0]);
     cache.resolved.set(urls[1], buffers[1]);
@@ -828,7 +837,10 @@ describe("Sampler", () => {
   });
 
   it("random variation affects selected variation entry independently", async () => {
-    const urls = ["https://example.com/bd-0.wav", "https://example.com/bd-1.wav"];
+    const urls = [
+      "https://example.com/bd-0.wav",
+      "https://example.com/bd-1.wav",
+    ];
     const buffers = [makeBuffer(1), makeBuffer(1.1)];
     cache.resolved.set(urls[0], buffers[0]);
     cache.resolved.set(urls[1], buffers[1]);
@@ -876,7 +888,9 @@ describe("Sampler", () => {
       kit: {
         samples: {
           piano: {
-            "0": urls.slice(0, 2).map((src) => ({ type: "file" as const, src })),
+            "0": urls
+              .slice(0, 2)
+              .map((src) => ({ type: "file" as const, src })),
             "12": urls.slice(2).map((src) => ({ type: "file" as const, src })),
           },
         },
@@ -948,6 +962,48 @@ describe("Sampler", () => {
     );
   });
 
+  it("selects nearest pitched sprite region and computes playbackRate", async () => {
+    const url = "https://example.com/piano-sprite.wav";
+    const buffer = makeBuffer(4);
+    cache.resolved.set(url, buffer);
+    const banks = {
+      kit: {
+        samples: {
+          piano: {
+            "45": [{ type: "sprite" as const, src: url, start: 0, end: 0.25 }],
+            "57": [
+              { type: "sprite" as const, src: url, start: 0.5, end: 0.75 },
+            ],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sample: "piano",
+          sourceKeys: [45, 57],
+          notes: staticPattern(60),
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(buffer);
+    expect(createdSources[0].playbackRate.value).toBeCloseTo(
+      Math.pow(2, 3 / 12),
+    );
+    expect(createdSources[0].start).toHaveBeenCalledWith(4, 2);
+  });
+
   it("schedules sprite entries with offset and region duration", async () => {
     const url = "https://example.com/kit.wav";
     const buffer = makeBuffer(4);
@@ -956,9 +1012,7 @@ describe("Sampler", () => {
       kit: {
         samples: {
           bd: {
-            "0": [
-              { type: "sprite" as const, src: url, start: 0.5, end: 0.75 },
-            ],
+            "0": [{ type: "sprite" as const, src: url, start: 0.5, end: 0.75 }],
           },
         },
       },
@@ -989,9 +1043,7 @@ describe("Sampler", () => {
       kit: {
         samples: {
           bd: {
-            "0": [
-              { type: "sprite" as const, src: url, start: 0, end: 0.5 },
-            ],
+            "0": [{ type: "sprite" as const, src: url, start: 0, end: 0.5 }],
           },
         },
       },
@@ -1207,7 +1259,10 @@ describe("Sampler", () => {
   });
 
   it("fit() selects the requested variation", async () => {
-    const urls = ["https://example.com/loop-0.wav", "https://example.com/loop-1.wav"];
+    const urls = [
+      "https://example.com/loop-0.wav",
+      "https://example.com/loop-1.wav",
+    ];
     const buffers = [makeBuffer(2), makeBuffer(4)];
     urls.forEach((url, i) => cache.resolved.set(url, buffers[i]));
     const banks = {

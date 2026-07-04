@@ -13,7 +13,7 @@ function makeBanks(
     kit: {
       samples: {
         bd: { "0": [{ type: "file", src: url }] },
-      }
+      },
     },
   };
 }

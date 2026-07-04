@@ -698,12 +698,12 @@ End-to-end validation across schema, fluid, and engine.
 
 **Acceptance criteria:**
 
-- [ ] Simple built-in sampler schema includes normalized bank entries and `sourceKeys: [0]`
-- [ ] Flat user sample round-trips to normalized bank schema
-- [ ] Named multisample bank round-trips with numeric keys and `sourceKeys`
-- [ ] Sprite kit round-trips with shared `sprite` source normalized into entries
-- [ ] Pitched sprite bank round-trips with numeric source keys
-- [ ] Random notes and random variation remain separate fields
+- [x] Simple built-in sampler schema includes normalized bank entries and `sourceKeys: [0]`
+- [x] Flat user sample round-trips to normalized bank schema
+- [x] Banked multisample bank round-trips with numeric keys and `sourceKeys`
+- [x] Sprite kit round-trips with shared `src` source normalized into entries
+- [x] Pitched sprite bank round-trips with numeric source keys
+- [x] Random notes and random variation remain separate fields
 
 ---
 
@@ -713,12 +713,12 @@ End-to-end validation across schema, fluid, and engine.
 
 **Acceptance criteria:**
 
-- [ ] Normalized simple sample produces same playback as pre-redesign simple sampler
-- [ ] Multisample nearest-key selection produces correct URL and playback rate
-- [ ] Sprite kit selects correct source region and caches shared file
-- [ ] Pitched sprite selects nearest pitch region and computes playback rate
-- [ ] Random notes and random variation are resolved independently
-- [ ] `fit()` works for file and sprite source key `0`
+- [x] Normalized simple sample produces same playback as pre-redesign simple sampler
+- [x] Multisample nearest-key selection produces correct URL and playback rate
+- [x] Sprite kit selects correct source region and caches shared file
+- [x] Pitched sprite selects nearest pitch region and computes playback rate
+- [x] Random notes and random variation are resolved independently
+- [x] `fit()` works for file and sprite source key `0`
 
 ---
 
