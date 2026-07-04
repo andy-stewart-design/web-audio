@@ -23,13 +23,16 @@ interface NoteScheduleContext {
   barIndex: number;
   stepIndex: number;
   startTime: number;
-  noteDuration: number;
+  duration: number;
   endTime: number;
 }
 
-interface BaseScheduleVoiceParams extends NoteScheduleContext {
-  detuneParam?: AudioParam;
-  detune?: ResolvedDetune;
+interface BaseScheduleVoiceParams {
+  note: NoteScheduleContext;
+  detune?: {
+    param: AudioParam;
+    resolved: ResolvedDetune;
+  };
   gainEnvelope: EnvelopeSchema;
   effects: EffectSchema[];
   stopTime?: number;
@@ -214,7 +217,7 @@ abstract class Instrument {
     scale = 1,
   ) {
     const resolved = this._resolveEnvelope(schema, note);
-    return computeEnvelope(resolved, note.noteDuration, note.endTime, scale);
+    return computeEnvelope(resolved, note.duration, note.endTime, scale);
   }
 
   protected _scheduleParamEnvelope(
@@ -278,34 +281,26 @@ abstract class Instrument {
   }
 
   protected _scheduleVoice(params: ScheduleVoiceParams) {
-    const { source, detuneParam, detune } = params;
+    const { source, note, detune, gainEnvelope, effects } = params;
 
     const gain = new GainNode(this._ctx);
 
-    const note: NoteScheduleContext = {
-      barIndex: params.barIndex,
-      stepIndex: params.stepIndex,
-      startTime: params.startTime,
-      noteDuration: params.noteDuration,
-      endTime: params.endTime,
-    };
-
     const releaseDur = this._scheduleParamEnvelope(
       gain.gain,
-      params.gainEnvelope,
+      gainEnvelope,
       note,
     );
 
-    if (detuneParam && detune) {
-      if (detune.type === "envelope") {
-        this._scheduleParamEnvelope(detuneParam, detune.schema, note);
-      } else if (detune.type === "lfo") {
-        const lfoNode = this._lfoNodes.get(detune.schema.id);
-        if (lfoNode) lfoNode.connect(detuneParam);
+    if (detune) {
+      if (detune.resolved.type === "envelope") {
+        this._scheduleParamEnvelope(detune.param, detune.resolved.schema, note);
+      } else if (detune.resolved.type === "lfo") {
+        const lfoNode = this._lfoNodes.get(detune.resolved.schema.id);
+        if (lfoNode) lfoNode.connect(detune.param);
       }
     }
 
-    const effectNodes = params.effects.map((effect) =>
+    const effectNodes = effects.map((effect) =>
       this._buildEffectNode(effect, note),
     );
 

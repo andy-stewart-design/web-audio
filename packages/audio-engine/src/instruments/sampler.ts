@@ -128,11 +128,13 @@ class Sampler extends Instrument {
       source,
       gainEnvelope: this._schema.gain,
       effects: this._schema.effects,
-      barIndex,
-      stepIndex: 0,
-      startTime: barStartTime,
-      noteDuration: fitDuration,
-      endTime: barStartTime + fitDuration,
+      note: {
+        barIndex,
+        stepIndex: 0,
+        startTime: barStartTime,
+        duration: fitDuration,
+        endTime: barStartTime + fitDuration,
+      },
       stopTime: barStartTime + fitDuration,
       offset: entry.type === "sprite" ? entry.start * buffer.duration : undefined,
     });
@@ -201,7 +203,7 @@ class Sampler extends Instrument {
     const { buffer, entry } = playbackSource;
     const barDuration = this._clock.barDuration;
     const startTime = barStartTime + note.offset * barDuration;
-    const noteDuration = note.duration * barDuration;
+    const scheduledDuration = note.duration * barDuration;
     const offset =
       entry.type === "sprite" ? entry.start * buffer.duration : undefined;
     const sourceDuration =
@@ -212,8 +214,8 @@ class Sampler extends Instrument {
       this._schema.clipMode === "one-shot" && !this._schema.loop
         ? sourceDuration
         : entry.type === "sprite"
-          ? Math.min(noteDuration, sourceDuration)
-          : noteDuration;
+          ? Math.min(scheduledDuration, sourceDuration)
+          : scheduledDuration;
     const endTime = startTime + duration;
 
     const detune = this._resolveDetune(
@@ -231,15 +233,19 @@ class Sampler extends Instrument {
 
     this._scheduleVoice({
       source,
-      detuneParam: source.detune,
-      detune,
+      detune: {
+        param: source.detune,
+        resolved: detune,
+      },
       gainEnvelope: this._schema.gain,
       effects: this._schema.effects,
-      barIndex,
-      stepIndex: note.stepIndex,
-      startTime,
-      noteDuration,
-      endTime,
+      note: {
+        barIndex,
+        stepIndex: note.stepIndex,
+        startTime,
+        duration,
+        endTime,
+      },
       offset,
     });
   }

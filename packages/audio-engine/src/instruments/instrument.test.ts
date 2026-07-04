@@ -68,7 +68,7 @@ class TestInstrument extends Instrument {
         barIndex,
         stepIndex,
         startTime: endTime - noteDuration,
-        noteDuration,
+        duration: noteDuration,
         endTime,
       },
       scale,
