@@ -82,9 +82,6 @@ class Sampler extends Instrument {
     this._updateLfoParams(barIndex, barStartTime);
 
     switch (this._schema.notes.type) {
-      case "fit":
-        this._scheduleFitBar(barIndex, barStartTime);
-        return;
       case "random":
         this._scheduleRandomBar(barIndex, barStartTime);
         return;
@@ -92,53 +89,6 @@ class Sampler extends Instrument {
         this._scheduleSequenceBar(barIndex, barStartTime);
         return;
     }
-  }
-
-  private _scheduleFitBar(barIndex: number, barStartTime: number) {
-    const notes = this._schema.notes;
-    if (notes.type !== "fit") return;
-
-    // Only trigger at the start of each N-bar window
-    if (barIndex % notes.bars !== 0) return;
-
-    const variationIndex = this._resolveVariationIndex(barIndex, 0);
-    const playbackSource = this._bufferStore.getPlaybackSource(
-      variationIndex,
-      barIndex,
-      0,
-    );
-    if (!playbackSource) return;
-    const { buffer, entry } = playbackSource;
-
-    const barDuration = this._clock.barDuration;
-    const sourceDuration =
-      entry.type === "sprite"
-        ? (entry.end - entry.start) * buffer.duration
-        : buffer.duration;
-    const playbackRate = sourceDuration / (notes.bars * barDuration);
-    const fitDuration = notes.bars * barDuration;
-
-    const source = new AudioBufferSourceNode(this._ctx, {
-      buffer,
-      playbackRate,
-      loop: this._schema.loop,
-    });
-
-    this._scheduleVoice({
-      source,
-      gainEnvelope: this._schema.gain,
-      effects: this._schema.effects,
-      note: {
-        barIndex,
-        stepIndex: 0,
-        startTime: barStartTime,
-        duration: fitDuration,
-        endTime: barStartTime + fitDuration,
-      },
-      stopTime: barStartTime + fitDuration,
-      offset:
-        entry.type === "sprite" ? entry.start * buffer.duration : undefined,
-    });
   }
 
   private _scheduleRandomBar(barIndex: number, barStartTime: number) {
@@ -151,7 +101,7 @@ class Sampler extends Instrument {
       if (step.value === 0) return;
       const noteValue = this._resolve(notes, barIndex, stepIndex);
       const sourceKey = this._nearestSourceKey(noteValue);
-      const playbackRate = this._playbackRate(noteValue, sourceKey);
+      const pitchRate = this._pitchRate(noteValue, sourceKey);
       const variationIndex = this._resolveVariationIndex(barIndex, stepIndex);
       const playbackSource = this._bufferStore.getPlaybackSource(
         variationIndex,
@@ -161,7 +111,7 @@ class Sampler extends Instrument {
       if (!playbackSource) return;
       this._scheduleSampleNote(
         playbackSource,
-        { ...step, value: playbackRate },
+        { ...step, value: pitchRate },
         barStartTime,
         barIndex,
       );
@@ -175,7 +125,7 @@ class Sampler extends Instrument {
     const notesBar = notes.cycle[barIndex % notes.cycle.length];
     notesBar.forEach((note) => {
       const sourceKey = this._nearestSourceKey(note.value);
-      const playbackRate = this._playbackRate(note.value, sourceKey);
+      const pitchRate = this._pitchRate(note.value, sourceKey);
       const variationIndex = this._resolveVariationIndex(
         barIndex,
         note.stepIndex,
@@ -188,7 +138,7 @@ class Sampler extends Instrument {
       if (!playbackSource) return;
       this._scheduleSampleNote(
         playbackSource,
-        { ...note, value: playbackRate },
+        { ...note, value: pitchRate },
         barStartTime,
         barIndex,
       );
@@ -207,16 +157,14 @@ class Sampler extends Instrument {
     const scheduledDuration = note.duration * barDuration;
     const offset =
       entry.type === "sprite" ? entry.start * buffer.duration : undefined;
-    const sourceDuration =
-      entry.type === "sprite"
-        ? ((entry.end - entry.start) * buffer.duration) / note.value
-        : buffer.duration / note.value;
+    const entrySourceDuration = this._entrySourceDuration(buffer, entry);
+    const fitRate = this._fitRate(entrySourceDuration);
+    const playbackRate = note.value * fitRate;
+    const playbackDuration = entrySourceDuration / playbackRate;
     const duration =
       this._schema.clipMode === "one-shot" && !this._schema.loop
-        ? sourceDuration
-        : entry.type === "sprite"
-          ? Math.min(scheduledDuration, sourceDuration)
-          : scheduledDuration;
+        ? playbackDuration
+        : Math.min(scheduledDuration, playbackDuration);
     const endTime = startTime + duration;
 
     const detune = this._resolveDetune(
@@ -227,7 +175,7 @@ class Sampler extends Instrument {
 
     const source = new AudioBufferSourceNode(this._ctx, {
       buffer,
-      playbackRate: note.value,
+      playbackRate,
       detune: detune.value,
       loop: this._schema.loop,
     });
@@ -257,8 +205,22 @@ class Sampler extends Instrument {
     );
   }
 
-  private _playbackRate(note: number, sourceKey: number) {
+  private _pitchRate(note: number, sourceKey: number) {
     return Math.pow(2, (note - sourceKey) / 12);
+  }
+
+  private _fitRate(sourceDuration: number) {
+    if (!this._schema.fit) return 1;
+    return sourceDuration / (this._schema.fit.bars * this._clock.barDuration);
+  }
+
+  private _entrySourceDuration(
+    buffer: AudioBuffer,
+    entry: SampleVariationSchema,
+  ) {
+    return entry.type === "sprite"
+      ? (entry.end - entry.start) * buffer.duration
+      : buffer.duration;
   }
 
   private _resolveVariationIndex(barIndex: number, stepIndex: number): number {

@@ -177,6 +177,8 @@ function makeSchema(overrides: Partial<SamplerSchema> = {}): SamplerSchema {
     sample: "bd",
     variation: staticParam(0),
     notes: staticPattern(1),
+    fit: null,
+    region: null,
     sourceKeys: [0],
     detune: staticParam(0),
     gain: envelope(),
@@ -1207,7 +1209,8 @@ describe("Sampler", () => {
       {
         schema: makeSchema({
           sample: "bd",
-          notes: { type: "fit", bars: 1 },
+          notes: staticPattern(0),
+          fit: { type: "fit", bars: 1 },
         }),
         banks: makeBanks(url),
         cache,
@@ -1221,7 +1224,7 @@ describe("Sampler", () => {
     const source = createdSources[0];
     expect(source.playbackRate.value).toBeCloseTo(0.5);
     expect(source.start).toHaveBeenCalledWith(12);
-    expect(source.stop).toHaveBeenCalledWith(14);
+    expect(source.stop).toHaveBeenCalledWith(14.0525);
   });
 
   it("fit() uses sprite region duration instead of full buffer duration", async () => {
@@ -1243,7 +1246,7 @@ describe("Sampler", () => {
       ctx as unknown as AudioContext,
       clock as never,
       {
-        schema: makeSchema({ notes: { type: "fit", bars: 2 } }),
+        schema: makeSchema({ notes: staticPattern(0), fit: { type: "fit", bars: 2 } }),
         banks,
         cache,
       },
@@ -1255,7 +1258,7 @@ describe("Sampler", () => {
     expect(createdSources).toHaveLength(1);
     expect(createdSources[0].playbackRate.value).toBeCloseTo(0.5);
     expect(createdSources[0].start).toHaveBeenCalledWith(12, 1);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(16);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(14.0525);
   });
 
   it("fit() selects the requested variation", async () => {
@@ -1280,7 +1283,8 @@ describe("Sampler", () => {
       clock as never,
       {
         schema: makeSchema({
-          notes: { type: "fit", bars: 1 },
+          notes: staticPattern(0),
+          fit: { type: "fit", bars: 1 },
           variation: staticParam(1),
         }),
         banks,
@@ -1296,7 +1300,7 @@ describe("Sampler", () => {
     expect(createdSources[0].playbackRate.value).toBeCloseTo(2);
   });
 
-  it("fit() only triggers at the start of each N-bar window", async () => {
+  it("fit() is applied through normal note scheduling on every triggered bar", async () => {
     const url = "https://example.com/loop.wav";
     cache.resolved.set(url, makeBuffer(2));
 
@@ -1304,7 +1308,10 @@ describe("Sampler", () => {
       ctx as unknown as AudioContext,
       clock as never,
       {
-        schema: makeSchema({ notes: { type: "fit", bars: 2 } }),
+        schema: makeSchema({
+          notes: staticPattern(0),
+          fit: { type: "fit", bars: 2 },
+        }),
         banks: makeBanks(url),
         cache,
       },
@@ -1312,12 +1319,12 @@ describe("Sampler", () => {
 
     await sampler.load();
     sampler.scheduleBar(1, 10);
-    expect(createdSources).toHaveLength(0);
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10);
 
     sampler.scheduleBar(2, 14);
-    expect(createdSources).toHaveLength(1);
-    expect(createdSources[0].start).toHaveBeenCalledWith(14);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(18);
+    expect(createdSources).toHaveLength(2);
+    expect(createdSources[1].start).toHaveBeenCalledWith(14);
   });
 
   it("done resolves after the scheduled source ends", async () => {

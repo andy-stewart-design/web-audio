@@ -73,11 +73,11 @@ type RegionSchema = StaticRegionSchema | ChopRegionSchema;
 
 **Acceptance criteria:**
 
-- [ ] Region schema types are exported from `@web-audio/schema`.
-- [ ] `SamplerSchema.notes` is always `ParameterSchema`.
-- [ ] `SamplerSchema.fit` is `FitSchema | null`.
-- [ ] `SamplerSchema.region` is `RegionSchema | null`.
-- [ ] Schema package type-checks.
+- [x] Region schema types are exported from `@web-audio/schema`.
+- [x] `SamplerSchema.notes` is always `ParameterSchema`.
+- [x] `SamplerSchema.fit` is `FitSchema | null`.
+- [x] `SamplerSchema.region` is `RegionSchema | null`.
+- [x] Schema package type-checks.
 
 ### Step 1.2 — Fluid emits independent fit
 
@@ -91,10 +91,10 @@ type RegionSchema = StaticRegionSchema | ChopRegionSchema;
 
 **Acceptance criteria:**
 
-- [ ] `.fit(2).getSchema()` emits `fit: { type: "fit", bars: 2 }` and `notes` as a `ParameterSchema`.
-- [ ] `.fit(2).notes([0, 12])` emits both explicit notes and `fit`.
-- [ ] `.notes()` does not clear `fit`.
-- [ ] `.fit(1.5)`, `.fit(0)`, and `.fit(-1)` throw.
+- [x] `.fit(2).getSchema()` emits `fit: { type: "fit", bars: 2 }` and `notes` as a `ParameterSchema`.
+- [x] `.fit(2).notes([0, 12])` emits both explicit notes and `fit`.
+- [x] `.notes()` does not clear `fit`.
+- [x] `.fit(1.5)`, `.fit(0)`, and `.fit(-1)` throw.
 
 ### Step 1.3 — Engine applies fitRate in normal note scheduling
 
@@ -108,15 +108,15 @@ type RegionSchema = StaticRegionSchema | ChopRegionSchema;
 
 **Acceptance criteria:**
 
-- [ ] Engine no longer branches on `notes.type === "fit"`.
-- [ ] `fitRate` composes with pitch rate.
-- [ ] Existing non-fit sampler tests still pass after schema updates.
+- [x] Engine no longer branches on `notes.type === "fit"`.
+- [x] `fitRate` composes with pitch rate.
+- [x] Existing non-fit sampler tests still pass after schema updates.
 
 ### Automated testing
 
-- [ ] `pnpm --filter @web-audio/schema exec tsc --noEmit`
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ### Manual verification
 
@@ -129,9 +129,9 @@ d.sample("loop").bank("user").fit(1).notes(0).push();
 
 Verify:
 
-- [ ] Audio plays through normal sampler scheduling.
-- [ ] Changing `.notes(12)` audibly changes pitch while fit still affects timing/rate.
-- [ ] No warning about unsupported pitched/fit source keys appears.
+- [x] Audio plays through normal sampler scheduling.
+- [x] Changing `.notes(12)` audibly changes pitch while fit still affects timing/rate.
+- [x] No warning about unsupported pitched/fit source keys appears.
 
 ---
 
