@@ -173,11 +173,11 @@ Validation:
 
 **Acceptance criteria:**
 
-- [ ] `.start(0.25)` emits start `0.25`, end `1`.
-- [ ] `.end(0.75)` emits start `0`, end `0.75`.
-- [ ] `.start([0, 0.25])` emits cycling start schema.
-- [ ] `.start(0.75).end(0.25)` throws.
-- [ ] Invalid numeric bounds throw.
+- [x] `.start(0.25)` emits start `0.25`, end `1`.
+- [x] `.end(0.75)` emits start `0`, end `0.75`.
+- [x] `.start([0, 0.25])` emits cycling start schema.
+- [x] `.start(0.75).end(0.25)` throws.
+- [x] Invalid numeric bounds throw.
 
 ### Step 2.2 — Engine schedules static file regions
 
@@ -191,17 +191,17 @@ Validation:
 
 **Acceptance criteria:**
 
-- [ ] `.start(0.5).end(1)` on a 2s file starts at offset `1s`.
-- [ ] Region source duration controls one-shot length.
-- [ ] Clipped mode releases at `min(noteDuration, regionDuration / playbackRate)`.
-- [ ] Invalid resolved dynamic window skips and warns.
+- [x] `.start(0.5).end(1)` on a 2s file starts at offset `1s`.
+- [x] Region source duration controls one-shot length.
+- [x] Clipped mode releases at `min(noteDuration, regionDuration / playbackRate)`.
+- [x] Invalid resolved dynamic window skips and warns.
 
 ### Automated testing
 
-- [ ] Fluid schema tests for `.start()` / `.end()`.
-- [ ] Engine tests for file offset/duration/release timing.
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] Fluid schema tests for `.start()` / `.end()`.
+- [x] Engine tests for file offset/duration/release timing.
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ### Manual verification
 
@@ -212,10 +212,10 @@ d.sample("loop").bank("user").start(0.5).clip(false).push();
 
 Verify:
 
-- [ ] Playback starts halfway through the file.
-- [ ] `.end(0.75)` audibly stops earlier.
-- [ ] `.clip(false)` lets the selected region play out.
-- [ ] Default notes are unchanged by standalone `.start()` / `.end()`.
+- [x] Playback starts halfway through the file.
+- [x] `.end(0.75)` audibly stops earlier.
+- [x] `.clip(false)` lets the selected region play out.
+- [x] Default notes are unchanged by standalone `.start()` / `.end()`.
 
 ---
 

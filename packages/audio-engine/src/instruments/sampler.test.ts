@@ -695,6 +695,93 @@ describe("Sampler", () => {
     );
   });
 
+  it("static file regions schedule offset and selected duration", async () => {
+    const url = "https://example.com/loop.wav";
+    cache.resolved.set(url, makeBuffer(2));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticPattern(0, 0, 1),
+          region: {
+            type: "static",
+            start: staticParam(0.5),
+            end: staticParam(1),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 1);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(11.0025 + 0.05);
+  });
+
+  it("one-shot static file regions play the selected source duration", async () => {
+    const url = "https://example.com/loop.wav";
+    cache.resolved.set(url, makeBuffer(4));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticPattern(0, 0, 0.25),
+          clipMode: "one-shot",
+          region: {
+            type: "static",
+            start: staticParam(0.25),
+            end: staticParam(0.75),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 1);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(12.0025 + 0.05);
+  });
+
+  it("invalid resolved dynamic regions skip and warn", async () => {
+    const url = "https://example.com/loop.wav";
+    cache.resolved.set(url, makeBuffer(2));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          region: {
+            type: "static",
+            start: staticParam(0.75),
+            end: staticParam(0.25),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(0);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[Sampler] Skipping note with invalid region window start=0.75, end=0.25.",
+    );
+  });
+
   it("scheduleBar() lets one-shot samples play through their full duration", async () => {
     const url = "https://example.com/oh.wav";
     cache.resolved.set(url, makeBuffer(3));
@@ -1102,6 +1189,173 @@ describe("Sampler", () => {
 
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     expect(globalThis.fetch).toHaveBeenCalledWith(url);
+  });
+
+  it("static regions compose with sprite entry windows", async () => {
+    const url = "https://example.com/kit.wav";
+    cache.resolved.set(url, makeBuffer(4));
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [{ type: "sprite" as const, src: url, start: 0.25, end: 0.5 }],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticPattern(0),
+          region: {
+            type: "static",
+            start: staticParam(0.5),
+            end: staticParam(1),
+          },
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(4, 1.5);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(4.5025 + 0.05);
+  });
+
+  it("resolves variation before applying static regions", async () => {
+    const url = "https://example.com/kit.wav";
+    cache.resolved.set(url, makeBuffer(4));
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [
+              { type: "sprite" as const, src: url, start: 0, end: 0.25 },
+              { type: "sprite" as const, src: url, start: 0.5, end: 0.75 },
+            ],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          variation: staticParam(1),
+          region: {
+            type: "static",
+            start: staticParam(0.5),
+            end: staticParam(1),
+          },
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(4, 2.5);
+  });
+
+  it("resolves source key before applying static regions to pitched sprites", async () => {
+    const url = "https://example.com/piano-sprite.wav";
+    const buffer = makeBuffer(4);
+    cache.resolved.set(url, buffer);
+    const banks = {
+      kit: {
+        samples: {
+          piano: {
+            "45": [{ type: "sprite" as const, src: url, start: 0, end: 0.25 }],
+            "57": [
+              { type: "sprite" as const, src: url, start: 0.5, end: 0.75 },
+            ],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sample: "piano",
+          sourceKeys: [45, 57],
+          notes: staticPattern(60),
+          region: {
+            type: "static",
+            start: staticParam(0.5),
+            end: staticParam(1),
+          },
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(buffer);
+    expect(createdSources[0].playbackRate.value).toBeCloseTo(
+      Math.pow(2, 3 / 12),
+    );
+    expect(createdSources[0].start).toHaveBeenCalledWith(4, 2.5);
+  });
+
+  it("resolves source key before applying static regions to multisamples", async () => {
+    const urls = ["https://example.com/a2.wav", "https://example.com/a3.wav"];
+    const buffers = [makeBuffer(2), makeBuffer(4)];
+    urls.forEach((url, i) => cache.resolved.set(url, buffers[i]));
+    const banks = {
+      kit: {
+        samples: {
+          piano: {
+            "45": [{ type: "file" as const, src: urls[0] }],
+            "57": [{ type: "file" as const, src: urls[1] }],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sample: "piano",
+          sourceKeys: [45, 57],
+          notes: staticPattern(60),
+          region: {
+            type: "static",
+            start: staticParam(0.25),
+            end: staticParam(0.75),
+          },
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 4);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(buffers[1]);
+    expect(createdSources[0].start).toHaveBeenCalledWith(4, 1);
   });
 
   it("sprite variations select different regions from the same file", async () => {

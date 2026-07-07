@@ -155,12 +155,17 @@ class Sampler extends Instrument {
     const barDuration = this._clock.barDuration;
     const startTime = barStartTime + note.offset * barDuration;
     const scheduledDuration = note.duration * barDuration;
-    const offset =
-      entry.type === "sprite" ? entry.start * buffer.duration : undefined;
-    const entrySourceDuration = this._entrySourceDuration(buffer, entry);
-    const fitRate = this._fitRate(entrySourceDuration);
+    const sourceWindow = this._resolveSourceWindow(
+      buffer,
+      entry,
+      barIndex,
+      note.stepIndex,
+    );
+    if (!sourceWindow) return;
+
+    const fitRate = this._fitRate(sourceWindow.duration);
     const playbackRate = note.value * fitRate;
-    const playbackDuration = entrySourceDuration / playbackRate;
+    const playbackDuration = sourceWindow.duration / playbackRate;
     const duration =
       this._schema.clipMode === "one-shot" && !this._schema.loop
         ? playbackDuration
@@ -195,7 +200,7 @@ class Sampler extends Instrument {
         duration,
         endTime,
       },
-      offset,
+      offset: sourceWindow.offset,
     });
   }
 
@@ -214,13 +219,45 @@ class Sampler extends Instrument {
     return sourceDuration / (this._schema.fit.bars * this._clock.barDuration);
   }
 
-  private _entrySourceDuration(
+  private _resolveSourceWindow(
     buffer: AudioBuffer,
     entry: SampleVariationSchema,
+    barIndex: number,
+    stepIndex: number,
   ) {
-    return entry.type === "sprite"
-      ? (entry.end - entry.start) * buffer.duration
-      : buffer.duration;
+    const entryStart = entry.type === "sprite" ? entry.start : 0;
+    const entryEnd = entry.type === "sprite" ? entry.end : 1;
+    const entryDuration = entryEnd - entryStart;
+
+    let regionStart = 0;
+    let regionEnd = 1;
+    if (this._schema.region?.type === "static") {
+      const clamp = (value: number) => Math.min(1, Math.max(0, value));
+      regionStart = clamp(
+        this._resolve(this._schema.region.start, barIndex, stepIndex),
+      );
+      regionEnd = clamp(
+        this._resolve(this._schema.region.end, barIndex, stepIndex),
+      );
+    }
+
+    if (regionEnd <= regionStart) {
+      console.warn(
+        `[Sampler] Skipping note with invalid region window start=${regionStart}, end=${regionEnd}.`,
+      );
+      return null;
+    }
+
+    const normalizedStart = entryStart + regionStart * entryDuration;
+    const normalizedEnd = entryStart + regionEnd * entryDuration;
+
+    return {
+      offset:
+        entry.type === "file" && !this._schema.region
+          ? undefined
+          : normalizedStart * buffer.duration,
+      duration: (normalizedEnd - normalizedStart) * buffer.duration,
+    };
   }
 
   private _resolveVariationIndex(barIndex: number, stepIndex: number): number {
