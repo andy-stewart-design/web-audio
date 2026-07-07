@@ -540,6 +540,83 @@ describe("Drome", () => {
       }
     });
 
+    it("start(0.25) emits static region with end defaulting to 1", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").start(0.25).getSchema();
+
+      expect(inst.region?.type).toBe("static");
+      if (inst.region?.type === "static") {
+        expect(inst.region.start.type).toBe("static");
+        expect(inst.region.end.type).toBe("static");
+        if (inst.region.start.type === "static") {
+          expect(inst.region.start.cycle[0][0].value).toBe(0.25);
+        }
+        if (inst.region.end.type === "static") {
+          expect(inst.region.end.cycle[0][0].value).toBe(1);
+        }
+      }
+    });
+
+    it("end(0.75) emits static region with start defaulting to 0", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").end(0.75).getSchema();
+
+      expect(inst.region?.type).toBe("static");
+      if (inst.region?.type === "static") {
+        expect(inst.region.start.type).toBe("static");
+        expect(inst.region.end.type).toBe("static");
+        if (inst.region.start.type === "static") {
+          expect(inst.region.start.cycle[0][0].value).toBe(0);
+        }
+        if (inst.region.end.type === "static") {
+          expect(inst.region.end.cycle[0][0].value).toBe(0.75);
+        }
+      }
+    });
+
+    it("start() accepts cycling values", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").start([0, 0.25]).getSchema();
+
+      expect(inst.region?.type).toBe("static");
+      if (inst.region?.type === "static") {
+        expect(inst.region.start.type).toBe("static");
+        if (inst.region.start.type === "static") {
+          expect(inst.region.start.cycle[0].map((step) => step.value)).toEqual([
+            0, 0.25,
+          ]);
+        }
+      }
+    });
+
+    it("start/end scalar bounds must be ordered", () => {
+      const d = new Drome();
+      expect(() => d.sample("bd").start(0.75).end(0.25).getSchema()).toThrow(
+        "[Sampler] start() must be less than end().",
+      );
+    });
+
+    it("start/end numeric values must be in [0, 1]", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").start(-0.1).getSchema()).toThrow(
+        "[Sampler] start() values must be finite numbers in [0, 1].",
+      );
+      expect(() => d.sample("bd").end(1.1).getSchema()).toThrow(
+        "[Sampler] end() values must be finite numbers in [0, 1].",
+      );
+    });
+
+    it("start/end random ranges outside [0, 1] warn", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const d = new Drome();
+      d.sample("bd").start(d.rand().range(-0.5, 0.5)).getSchema();
+
+      expect(warn).toHaveBeenCalledWith(
+        "[Sampler] start() random range is outside [0, 1]; resolved values will be clamped by the engine.",
+      );
+    });
+
     it("fit() succeeds for simple samples with sourceKeys [0]", () => {
       const d = new Drome();
       d.loadSamples({ loop: ["loop.wav"] });
