@@ -236,15 +236,15 @@ absoluteEnd = entry.start + region.end * (entry.end - entry.start);
 
 **Acceptance criteria:**
 
-- [ ] Sprite `[0.25, 0.5]` plus `.start(0.5).end(1)` plays decoded-buffer window `[0.375, 0.5]`.
-- [ ] Source-key and variation resolution happen before region mapping.
-- [ ] Region mapping works for pitched sprites and multisamples.
+- [x] Sprite `[0.25, 0.5]` plus `.start(0.5).end(1)` plays decoded-buffer window `[0.375, 0.5]`.
+- [x] Source-key and variation resolution happen before region mapping.
+- [x] Region mapping works for pitched sprites and multisamples.
 
 ### Automated testing
 
-- [ ] Engine test for sprite entry + static region offset.
-- [ ] Engine test for pitched sprite/multisample selected entry + region.
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] Engine test for sprite entry + static region offset.
+- [x] Engine test for pitched sprite/multisample selected entry + region.
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ### Manual verification
 
@@ -256,8 +256,8 @@ d.sample("fart", 2).bank("effects").start(0.5).clip(false).push();
 
 Verify:
 
-- [ ] Playback starts halfway through the selected sprite variation, not halfway through the whole sprite file.
-- [ ] Switching variations still applies `.start()` relative to the selected variation.
+- [x] Playback starts halfway through the selected sprite variation, not halfway through the whole sprite file.
+- [x] Switching variations still applies `.start()` relative to the selected variation.
 - [ ] Pitched sprite samples still choose the expected source key before trimming.
 
 ---
