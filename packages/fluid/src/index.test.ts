@@ -290,6 +290,8 @@ describe("Drome", () => {
         expect(inst.clipMode).toBe("clipped");
         expect(inst.variation.type).toBe("static");
         expect(inst.notes).not.toHaveProperty("type", "fit");
+        expect(inst.fit).toBeNull();
+        expect(inst.region).toBeNull();
       }
       expect(schema.banks).toHaveProperty("tr909");
       expect(schema.banks.tr909.samples.bd["0"][0].type).toBe("file");
@@ -368,7 +370,9 @@ describe("Drome", () => {
 
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
-        expect(inst.notes).toEqual({ type: "fit", bars: 2 });
+        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+        expect(inst.notes.type).toBe("static");
+        expect(inst.region).toBeNull();
         expect(inst.loop).toBe(true);
       }
     });
@@ -545,7 +549,8 @@ describe("Drome", () => {
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
         expect(inst.sourceKeys).toEqual([0]);
-        expect(inst.notes).toEqual({ type: "fit", bars: 2 });
+        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+        expect(inst.notes.type).toBe("static");
       }
     });
 
@@ -562,21 +567,48 @@ describe("Drome", () => {
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
         expect(inst.sourceKeys).toEqual([0]);
-        expect(inst.notes).toEqual({ type: "fit", bars: 2 });
+        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+        expect(inst.notes.type).toBe("static");
       }
     });
 
-    it("fit() throws for pitched multisamples", () => {
+    it("fit() succeeds for pitched multisamples", () => {
       const d = new Drome();
       d.loadSamples({
         bank: "acoustic",
         samples: { piano: { a2: ["a2.wav"], a3: ["a3.wav"] } },
       });
       d.sample("piano").bank("acoustic").fit(2).push();
+      const inst = d.getSchema().instruments[0];
 
-      expect(() => d.getSchema()).toThrow(
-        '[Sampler] fit() is only valid for unpitched samples (sourceKeys: [0]). "acoustic/piano" has sourceKeys: [45, 57].',
-      );
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([45, 57]);
+        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+      }
+    });
+
+    it("notes() does not clear fit", () => {
+      const d = new Drome();
+      d.sample("bd").fit(2).notes([0, 12]).push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+        expect(inst.notes.type).toBe("static");
+        if (inst.notes.type === "static") {
+          expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+        }
+      }
+    });
+
+    it("fit() requires a positive integer", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").fit(1.5)).toThrow("[Sampler] fit() bars must be a positive integer.");
+      expect(() => d.sample("bd").fit(0)).toThrow("[Sampler] fit() bars must be a positive integer.");
+      expect(() => d.sample("bd").fit(-1)).toThrow("[Sampler] fit() bars must be a positive integer.");
     });
   });
 

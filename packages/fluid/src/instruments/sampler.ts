@@ -47,12 +47,15 @@ class Sampler extends Instrument {
   }
 
   fit(bars: number) {
+    if (!Number.isInteger(bars) || bars <= 0) {
+      throw new Error("[Sampler] fit() bars must be a positive integer.");
+    }
+
     this._fit = { type: "fit", bars };
     return this;
   }
 
   notes(...input: Parameters<Instrument["notes"]>) {
-    this._fit = null;
     return super.notes(...input);
   }
 
@@ -93,19 +96,14 @@ class Sampler extends Instrument {
   getSchema(): SamplerSchema {
     const sourceKeys = this._getSourceKeys();
 
-    if (this._fit && !(sourceKeys.length === 1 && sourceKeys[0] === 0)) {
-      throw new Error(
-        `[Sampler] fit() is only valid for unpitched samples (sourceKeys: [0]). ` +
-          `"${this._bank}/${this._sample}" has sourceKeys: [${sourceKeys.join(", ")}].`,
-      );
-    }
-
     return {
       type: "sampler",
       bank: this._bank,
       sample: this._sample,
       variation: this._variation.getSchema(),
-      notes: this._fit ?? this._cycle.getSchema(),
+      notes: this._cycle.getSchema(),
+      fit: this._fit,
+      region: null,
       sourceKeys,
       detune: this._detune.getSchema(),
       gain: this._gain.getSchema(),
