@@ -72,6 +72,25 @@ type SampleVariationSchema =
 
 type NormalizedSampleSchema = Record<string, SampleVariationSchema[]>;
 
+interface StaticRegionSchema {
+  type: "static";
+  start: ParameterSchema;
+  end: ParameterSchema;
+}
+
+interface ChopSliceSchema {
+  start: number;
+  end: number;
+}
+
+interface ChopRegionSchema {
+  type: "chop";
+  slices: ChopSliceSchema[];
+  sequence: ParameterSchema;
+}
+
+type RegionSchema = StaticRegionSchema | ChopRegionSchema;
+
 interface BankSchema {
   samples: Record<string, NormalizedSampleSchema>;
 }
@@ -144,7 +163,9 @@ interface SamplerSchema extends InstrumentSchema {
   bank: string;
   sample: string;
   variation: ParameterSchema;
-  notes: ParameterSchema | FitSchema;
+  notes: ParameterSchema;
+  fit: FitSchema | null;
+  region: RegionSchema | null;
   sourceKeys: number[];
   loop: boolean;
   clipMode: ClipMode;
@@ -163,6 +184,8 @@ interface DromeSchema {
 export type {
   BankDefinition,
   BankSchema,
+  ChopRegionSchema,
+  ChopSliceSchema,
   ClipMode,
   DromeSchema,
   EffectSchema,
@@ -178,9 +201,11 @@ export type {
   NormalizedSampleSchema,
   ParameterSchema,
   RandomSchema,
+  RegionSchema,
   SamplerSchema,
   SampleVariationSchema,
   SpriteSampleVariationSchema,
+  StaticRegionSchema,
   StaticSchema,
   StaticSchemaValue,
   SynthesizerSchema,
