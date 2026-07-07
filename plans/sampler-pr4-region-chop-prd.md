@@ -155,7 +155,7 @@ explicit notes > chop default notes > fit default notes > normal default notes
 
 Rules:
 
-- `.fit(2).push()` emits one default note spanning 2 bars.
+- `.fit(2).push()` emits default notes/regions that segment the selected source across 2 bars.
 - `.chop(8).push()` emits 8 default notes over 1 bar.
 - `.fit(2).chop(8).push()` emits 8 default notes over 2 bars.
 - `.fit(2).chop(8).notes(...)` uses explicit user notes; generated defaults are ignored.
@@ -182,24 +182,63 @@ Standalone `.start()` / `.end()` do not affect default note generation.
 
 Fluid synthesizes default notes in `Sampler.getSchema()` or equivalent schema-building code, not in the engine. The sampler must track whether `.notes()` was explicitly called, for example with an internal `_explicitNotes` flag. Explicit notes always win.
 
-Generated fit/chop notes may span multiple bars. They should be encoded as a multi-bar `StaticSchema.cycle` so they do not retrigger incorrectly on intermediate bars.
+Generated fit/chop notes may span multiple bars. They should be encoded as a multi-bar `StaticSchema.cycle` so they do not compress into one bar or retrigger incorrectly.
 
 Generated default fit/chop note values should use the lowest available `sourceKey` for the sampler when source keys are known. For unpitched samples this remains `0`; for pitched samples like `[45, 57, 69]`, the generated default note value is `45`. This prevents `.fit(2)` on a pitched multisample from defaulting to target note `0` and producing an extreme pitch/rate shift. Explicit `.notes()` always overrides this default.
 
-For `.fit(2)` with no explicit notes and `sourceKeys: [0]`:
+For `.fit(2)` with no explicit notes or chop, Fluid generates natural 2-bar segmentation of the selected source window:
+
+```txt
+bar 0: trigger source 0.0–0.5
+bar 1: trigger source 0.5–1.0
+```
+
+For `.fit(3)` with no explicit notes or chop:
+
+```txt
+bar 0: trigger source 0.0–0.333...
+bar 1: trigger source 0.333...–0.666...
+bar 2: trigger source 0.666...–1.0
+```
+
+This is semantically equivalent to a natural multi-bar chop sequence like `.fit(2).chop(2, 0, 1)`, not `.fit(2).chop(2, [0, 1])`. In this API, `[0, 1]` is a two-step pattern inside one bar, while `0, 1` represents two bar patterns.
+
+A valid generated note shape for `.fit(2)` with `sourceKeys: [0]` is:
 
 ```ts
 {
   type: "static",
   polyphonic: false,
   cycle: [
-    [{ value: 0, offset: 0, duration: 2, stepIndex: 0 }],
-    [],
+    [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+    [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
   ],
 }
 ```
 
-For `.fit(2).chop(8)` with no explicit notes, Fluid emits a 2-bar cycle with 8 evenly distributed triggers across the 2-bar span. A valid shape is 4 notes in bar 0 and 4 notes in bar 1, each with `duration: 0.25` in its local bar. Equivalent multi-bar layouts are acceptable as long as trigger timing and duration are identical.
+Because notes only encode trigger timing and pitch, Fluid must also emit an implicit generated chop region for default `.fit(bars)` playback when no explicit region/chop is present. For `.fit(2)`, the generated region is equivalent to:
+
+```ts
+{
+  type: "chop",
+  slices: [
+    { start: 0, end: 0.5 },
+    { start: 0.5, end: 1 },
+  ],
+  sequence: {
+    type: "static",
+    polyphonic: false,
+    cycle: [
+      [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+      [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
+    ],
+  },
+}
+```
+
+The generated notes provide the triggers; the generated chop sequence selects source window `[0, 0.5]` on bar 0 and `[0.5, 1]` on bar 1. This keeps the serialized schema self-contained; the engine must not infer implicit fit segmentation from note shape alone.
+
+For `.fit(2).chop(8)` with no explicit notes, the user-authored chop region is used instead of the implicit fit-only region. Fluid emits a 2-bar note cycle with 8 evenly distributed triggers across the 2-bar span. A valid shape is 4 notes in bar 0 and 4 notes in bar 1, each with `duration: 0.25` in its local bar. Equivalent multi-bar layouts are acceptable as long as trigger timing and duration are identical.
 
 For `.chop(8, d.rand().int().range(0, 7))`, Fluid must make the random sequence resolve over 8 steps unless the user explicitly supplied a step count. Conceptually, Fluid injects the default step count into the random sequence mask. For `.steps(4)`, the explicit 4-step mask is preserved.
 
@@ -242,6 +281,8 @@ For chop composition, Fluid must require:
 ```txt
 0 <= start < end <= 1
 ```
+
+`fit(bars)` also validates in Fluid: `bars` must be a positive integer. Fractional, zero, negative, or non-finite values throw because default fit segmentation is bar-indexed.
 
 Validation should happen during Fluid schema generation so all chaining orders are caught, including `.chop(4).start([0, 0.5])`. Fluid may also throw earlier from `.chop()` when it can detect invalid existing start/end state. Dynamic start/end inputs are invalid with chop even if they happen to contain one repeated value, because Fluid needs a scalar static window for deterministic slice precomputation.
 
@@ -349,7 +390,8 @@ region    = source-window/chop intent
 - `.start().end().chop()` precomputes slices inside the static window.
 - `.start()` / `.end()` dynamic inputs are rejected when composed with `.chop()`.
 - `fit` no longer replaces `notes`.
-- `.fit(2)` with no explicit notes emits a multi-bar default note schema spanning 2 bars without retriggering on bar 1.
+- `.fit(2)` validates `bars` as a positive integer.
+- `.fit(2)` with no explicit notes/chop emits a multi-bar default note schema plus an implicit generated chop region: bar 0 plays `[0, 0.5]`, bar 1 plays `[0.5, 1]`.
 - `.chop(8)` with no explicit notes emits default notes over 1 bar.
 - `.fit(2).chop(8)` with no explicit notes emits default notes over 2 bars.
 - Explicit `.notes()` overrides generated fit/chop defaults.
