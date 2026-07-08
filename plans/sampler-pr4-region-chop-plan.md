@@ -296,10 +296,10 @@ region: {
 
 **Acceptance criteria:**
 
-- [ ] `.chop(4)` emits 4 natural slices and sequence `[0,1,2,3]`.
-- [ ] `.chop(4, [0,2,1,3])` emits natural slices and authored sequence.
-- [ ] `.chop(0)`, `.chop(-1)`, `.chop(1.5)` throw.
-- [ ] Static sequence values outside `[0, sliceCount - 1]` warn but are preserved.
+- [x] `.chop(4)` emits 4 natural slices and sequence `[0,1,2,3]`.
+- [x] `.chop(4, [0,2,1,3])` emits natural slices and authored sequence.
+- [x] `.chop(0)`, `.chop(-1)`, `.chop(1.5)` throw.
+- [x] Static sequence values outside `[0, sliceCount - 1]` warn but are preserved.
 
 ### Step 4.2 — Engine schedules chop slices
 
@@ -313,10 +313,10 @@ region: {
 
 **Acceptance criteria:**
 
-- [ ] `.chop(4, [0,2,1,3])` schedules slices in authored order.
-- [ ] Index `-1` wraps to last slice.
-- [ ] Index `4` with 4 slices wraps to `0`.
-- [ ] File slices schedule correct offsets and durations.
+- [x] `.chop(4, [0,2,1,3])` schedules slices in authored order.
+- [x] Index `-1` wraps to last slice.
+- [x] Index `4` with 4 slices wraps to `0`.
+- [x] File slices schedule correct offsets and durations.
 
 ### Step 4.3 — Fluid default notes for chop
 
@@ -327,16 +327,16 @@ If no explicit notes were provided:
 
 **Acceptance criteria:**
 
-- [ ] Default notes use sequence step count when available.
-- [ ] Default notes use `sliceCount` when no explicit sequence is provided.
-- [ ] Explicit `.notes()` overrides generated chop notes.
+- [x] Default notes use sequence step count when available.
+- [x] Default notes use `sliceCount` when no explicit sequence is provided.
+- [x] Explicit `.notes()` overrides generated chop notes.
 
 ### Automated testing
 
-- [ ] Fluid tests for chop schema/default notes/warnings.
-- [ ] Engine tests for slice selection/wrapping/scheduling.
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] Fluid tests for chop schema/default notes/warnings.
+- [x] Engine tests for slice selection/wrapping/scheduling.
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ### Manual verification
 
@@ -347,9 +347,9 @@ d.sample("break").bank("user").chop(4, [0, 2, 1, 3]).push();
 
 Verify:
 
-- [ ] Four slices play in the reordered sequence.
-- [ ] `.chop(4)` plays slices in natural order.
-- [ ] Out-of-range static indices wrap audibly and warn.
+- [x] Four slices play in the reordered sequence.
+- [x] `.chop(4)` plays slices in natural order.
+- [x] Out-of-range static indices wrap audibly and warn.
 
 ---
 
