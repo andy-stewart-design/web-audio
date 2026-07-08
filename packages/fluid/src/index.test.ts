@@ -617,6 +617,75 @@ describe("Drome", () => {
       );
     });
 
+    it("chop(4) emits natural slices and default sequence", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").chop(4).getSchema();
+
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.slices).toEqual([
+          { start: 0, end: 0.25 },
+          { start: 0.25, end: 0.5 },
+          { start: 0.5, end: 0.75 },
+          { start: 0.75, end: 1 },
+        ]);
+        expect(inst.region.sequence.type).toBe("static");
+        if (inst.region.sequence.type === "static") {
+          expect(inst.region.sequence.cycle[0].map((step) => step.value)).toEqual([
+            0, 1, 2, 3,
+          ]);
+        }
+      }
+    });
+
+    it("chop(4, [0, 2, 1, 3]) preserves authored sequence", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").chop(4, [0, 2, 1, 3]).getSchema();
+
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.sequence.type).toBe("static");
+        if (inst.region.sequence.type === "static") {
+          expect(inst.region.sequence.cycle[0].map((step) => step.value)).toEqual([
+            0, 2, 1, 3,
+          ]);
+        }
+      }
+    });
+
+    it("chop() requires a positive integer slice count", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").chop(0)).toThrow(
+        "[Sampler] chop() sliceCount must be a positive integer.",
+      );
+      expect(() => d.sample("bd").chop(-1)).toThrow(
+        "[Sampler] chop() sliceCount must be a positive integer.",
+      );
+      expect(() => d.sample("bd").chop(1.5)).toThrow(
+        "[Sampler] chop() sliceCount must be a positive integer.",
+      );
+    });
+
+    it("chop() warns for static out-of-range sequence values and preserves them", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const d = new Drome();
+      const inst = d.sample("bd").chop(4, [-1, 4]).getSchema();
+
+      expect(warn).toHaveBeenCalledWith(
+        "[Sampler] chop() sequence index -1 is outside [0, 3] and will wrap in the engine.",
+      );
+      expect(warn).toHaveBeenCalledWith(
+        "[Sampler] chop() sequence index 4 is outside [0, 3] and will wrap in the engine.",
+      );
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop" && inst.region.sequence.type === "static") {
+        expect(inst.region.sequence.cycle[0].map((step) => step.value)).toEqual([
+          -1, 4,
+        ]);
+      }
+    });
+
     it("fit() succeeds for simple samples with sourceKeys [0]", () => {
       const d = new Drome();
       d.loadSamples({ loop: ["loop.wav"] });

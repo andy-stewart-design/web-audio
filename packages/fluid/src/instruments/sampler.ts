@@ -24,6 +24,9 @@ class Sampler extends Instrument {
   private _fit: FitSchema | null = null;
   private _regionStart: Parameter | null = null;
   private _regionEnd: Parameter | null = null;
+  private _chop:
+    | { sliceCount: number; sequence: Parameter | null }
+    | null = null;
   private _loop = false;
   private _clipMode: ClipMode = "clipped";
 
@@ -77,6 +80,18 @@ class Sampler extends Instrument {
     return this;
   }
 
+  chop(sliceCount: number, ...sequence: CycleInput) {
+    if (!Number.isInteger(sliceCount) || sliceCount <= 0) {
+      throw new Error("[Sampler] chop() sliceCount must be a positive integer.");
+    }
+
+    this._chop = {
+      sliceCount,
+      sequence: sequence.length > 0 ? new Parameter(...sequence) : null,
+    };
+    return this;
+  }
+
   loop(enabled = true) {
     this._loop = enabled;
     return this;
@@ -88,6 +103,24 @@ class Sampler extends Instrument {
   }
 
   private _getRegion(): RegionSchema | null {
+    if (this._chop) {
+      const { sliceCount } = this._chop;
+      const sequence = this._chop.sequence ?? new Parameter(
+        Array.from({ length: sliceCount }, (_, i) => i),
+      );
+      const sequenceSchema = sequence.getSchema();
+      this._warnOutOfRangeChopIndices(sliceCount, sequenceSchema);
+
+      return {
+        type: "chop",
+        slices: Array.from({ length: sliceCount }, (_, i) => ({
+          start: i / sliceCount,
+          end: (i + 1) / sliceCount,
+        })),
+        sequence: sequenceSchema,
+      };
+    }
+
     if (!this._regionStart && !this._regionEnd) return null;
 
     const start = this._regionStart ?? new Parameter(0);
@@ -104,6 +137,23 @@ class Sampler extends Instrument {
       start: startSchema,
       end: endSchema,
     };
+  }
+
+  private _warnOutOfRangeChopIndices(
+    sliceCount: number,
+    schema: ParameterSchema,
+  ) {
+    if (schema.type !== "static") return;
+
+    for (const bar of schema.cycle) {
+      for (const step of bar) {
+        if (step.value < 0 || step.value > sliceCount - 1) {
+          console.warn(
+            `[Sampler] chop() sequence index ${step.value} is outside [0, ${sliceCount - 1}] and will wrap in the engine.`,
+          );
+        }
+      }
+    }
   }
 
   private _validateRegionParam(name: "start" | "end", schema: ParameterSchema) {

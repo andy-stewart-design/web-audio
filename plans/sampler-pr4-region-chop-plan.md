@@ -258,7 +258,7 @@ Verify:
 
 - [x] Playback starts halfway through the selected sprite variation, not halfway through the whole sprite file.
 - [x] Switching variations still applies `.start()` relative to the selected variation.
-- [ ] Pitched sprite samples still choose the expected source key before trimming.
+- [x] Pitched sprite samples still choose the expected source key before trimming.
 
 ---
 
