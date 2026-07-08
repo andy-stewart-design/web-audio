@@ -24,9 +24,8 @@ class Sampler extends Instrument {
   private _fit: FitSchema | null = null;
   private _regionStart: Parameter | null = null;
   private _regionEnd: Parameter | null = null;
-  private _chop:
-    | { sliceCount: number; sequence: Parameter | null }
-    | null = null;
+  private _chop: { sliceCount: number; sequence: Parameter | null } | null =
+    null;
   private _explicitNotes = false;
   private _loop = false;
   private _clipMode: ClipMode = "clipped";
@@ -84,7 +83,9 @@ class Sampler extends Instrument {
 
   chop(sliceCount: number, ...sequence: CycleInput) {
     if (!Number.isInteger(sliceCount) || sliceCount <= 0) {
-      throw new Error("[Sampler] chop() sliceCount must be a positive integer.");
+      throw new Error(
+        "[Sampler] chop() sliceCount must be a positive integer.",
+      );
     }
 
     this._chop = {
@@ -105,11 +106,30 @@ class Sampler extends Instrument {
   }
 
   private _getRegion(): RegionSchema | null {
+    const generatedFit = this._getGeneratedFit();
+    if (generatedFit) {
+      const { bars } = generatedFit;
+      return {
+        type: "chop",
+        slices: Array.from({ length: bars }, (_, i) => ({
+          start: i / bars,
+          end: (i + 1) / bars,
+        })),
+        sequence: {
+          type: "static",
+          polyphonic: false,
+          cycle: Array.from({ length: bars }, (_, i) => [
+            { value: i, offset: 0, duration: 1, stepIndex: 0 },
+          ]),
+        },
+      };
+    }
+
     if (this._chop) {
       const { sliceCount } = this._chop;
-      const sequence = this._chop.sequence ?? new Parameter(
-        Array.from({ length: sliceCount }, (_, i) => i),
-      );
+      const sequence =
+        this._chop.sequence ??
+        new Parameter(Array.from({ length: sliceCount }, (_, i) => i));
       const sequenceSchema = sequence.getSchema();
       this._warnOutOfRangeChopIndices(sliceCount, sequenceSchema);
 
@@ -160,10 +180,7 @@ class Sampler extends Instrument {
 
   private _validateRegionParam(name: "start" | "end", schema: ParameterSchema) {
     if (schema.type === "random") {
-      if (
-        schema.range &&
-        (schema.range.min < 0 || schema.range.max > 1)
-      ) {
+      if (schema.range && (schema.range.min < 0 || schema.range.max > 1)) {
         console.warn(
           `[Sampler] ${name}() random range is outside [0, 1]; resolved values will be clamped by the engine.`,
         );
@@ -174,16 +191,15 @@ class Sampler extends Instrument {
     for (const bar of schema.cycle) {
       for (const step of bar) {
         if (!Number.isFinite(step.value) || step.value < 0 || step.value > 1) {
-          throw new Error(`[Sampler] ${name}() values must be finite numbers in [0, 1].`);
+          throw new Error(
+            `[Sampler] ${name}() values must be finite numbers in [0, 1].`,
+          );
         }
       }
     }
   }
 
-  private _validateRegionBounds(
-    start: ParameterSchema,
-    end: ParameterSchema,
-  ) {
+  private _validateRegionBounds(start: ParameterSchema, end: ParameterSchema) {
     if (start.type !== "static" || end.type !== "static") return;
     if (start.cycle.length !== 1 || end.cycle.length !== 1) return;
     if (start.cycle[0].length !== 1 || end.cycle[0].length !== 1) return;
@@ -200,21 +216,43 @@ class Sampler extends Instrument {
         : this._chop.sliceCount;
       const noteValue = sourceKeys[0] ?? 0;
 
-      return {
-        type: "static",
-        polyphonic: false,
-        cycle: [
-          Array.from({ length: noteCount }, (_, stepIndex) => ({
-            value: noteValue,
-            offset: stepIndex / noteCount,
-            duration: 1 / noteCount,
-            stepIndex,
-          })),
-        ],
-      };
+      return this._getDefaultNotes(noteValue, noteCount, 1);
+    }
+
+    const generatedFit = this._getGeneratedFit();
+    if (generatedFit) {
+      return this._getDefaultNotes(
+        sourceKeys[0] ?? 0,
+        generatedFit.bars,
+        generatedFit.bars,
+      );
     }
 
     return this._cycle.getSchema();
+  }
+
+  private _getDefaultNotes(noteValue: number, noteCount: number, bars: number) {
+    return {
+      type: "static",
+      polyphonic: false,
+      cycle: Array.from({ length: bars }, () =>
+        Array.from({ length: noteCount / bars }, (_, localStepIndex) => {
+          return {
+            value: noteValue,
+            offset: localStepIndex / (noteCount / bars),
+            duration: 1 / (noteCount / bars),
+            stepIndex: localStepIndex,
+          };
+        }),
+      ),
+    } satisfies ParameterSchema;
+  }
+
+  private _getGeneratedFit() {
+    const hasRegion = this._regionStart || this._regionEnd;
+    const unfit = this._explicitNotes || this._chop || hasRegion;
+    if (unfit) return null;
+    return this._fit;
   }
 
   private _getSequenceStepCount(schema: ParameterSchema) {

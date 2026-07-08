@@ -372,7 +372,7 @@ describe("Drome", () => {
       if (inst.type === "sampler") {
         expect(inst.fit).toEqual({ type: "fit", bars: 2 });
         expect(inst.notes.type).toBe("static");
-        expect(inst.region).toBeNull();
+        expect(inst.region?.type).toBe("chop");
         expect(inst.loop).toBe(true);
       }
     });
@@ -724,6 +724,85 @@ describe("Drome", () => {
           -1, 4,
         ]);
       }
+    });
+
+    it("fit(2) without explicit notes or region emits generated notes and chop region", () => {
+      const d = new Drome();
+      d.loadSamples({ loop: ["loop.wav"] });
+      const inst = d.sample("loop").bank("user").fit(2).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toEqual([
+          [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+          [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+        ]);
+      }
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.slices).toEqual([
+          { start: 0, end: 0.5 },
+          { start: 0.5, end: 1 },
+        ]);
+        expect(inst.region.sequence.type).toBe("static");
+        if (inst.region.sequence.type === "static") {
+          expect(inst.region.sequence.cycle).toEqual([
+            [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+            [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
+          ]);
+        }
+      }
+    });
+
+    it("fit(3) without explicit notes or region emits thirds across three bars", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(3).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toHaveLength(3);
+      }
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.slices).toEqual([
+          { start: 0, end: 1 / 3 },
+          { start: 1 / 3, end: 2 / 3 },
+          { start: 2 / 3, end: 1 },
+        ]);
+      }
+    });
+
+    it("fit() generated default notes use the lowest source key", () => {
+      const d = new Drome();
+      d.loadSamples({
+        bank: "acoustic",
+        samples: { piano: { a2: ["a2.wav"], a3: ["a3.wav"] } },
+      });
+      const inst = d.sample("piano").bank("acoustic").fit(2).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0][0].value).toBe(45);
+        expect(inst.notes.cycle[1][0].value).toBe(45);
+      }
+    });
+
+    it("explicit notes suppress fit default notes and implicit fit region", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).notes([0, 12]).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+      }
+      expect(inst.region).toBeNull();
+    });
+
+    it("explicit region suppresses implicit fit region", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).start(0.25).getSchema();
+
+      expect(inst.region?.type).toBe("static");
     });
 
     it("fit() succeeds for simple samples with sourceKeys [0]", () => {
