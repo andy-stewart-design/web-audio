@@ -726,6 +726,70 @@ describe("Drome", () => {
       }
     });
 
+    it("fit(2).chop(8) emits 8 generated notes over 2 bars", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).chop(8).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toHaveLength(2);
+        expect(inst.notes.cycle[0]).toHaveLength(4);
+        expect(inst.notes.cycle[1]).toHaveLength(4);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+          0, 0.25, 0.5, 0.75,
+        ]);
+        expect(inst.notes.cycle[1].map((step) => step.offset)).toEqual([
+          0, 0.25, 0.5, 0.75,
+        ]);
+        expect(inst.notes.cycle.flat().map((step) => step.stepIndex)).toEqual([
+          0, 1, 2, 3, 4, 5, 6, 7,
+        ]);
+      }
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.slices).toHaveLength(8);
+      }
+    });
+
+    it("fit(2).chop(8, [0, 2, 1, 3]) emits 4 generated notes over 2 bars", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).chop(8, [0, 2, 1, 3]).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toHaveLength(2);
+        expect(inst.notes.cycle[0]).toHaveLength(2);
+        expect(inst.notes.cycle[1]).toHaveLength(2);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([0, 0.5]);
+        expect(inst.notes.cycle[1].map((step) => step.offset)).toEqual([0, 0.5]);
+        expect(inst.notes.cycle.flat().map((step) => step.stepIndex)).toEqual([
+          0, 1, 2, 3,
+        ]);
+      }
+    });
+
+    it("explicit notes override generated fit/chop notes", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).chop(8).notes([0, 12]).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+      }
+      expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+      expect(inst.region?.type).toBe("chop");
+    });
+
+    it("explicit chop suppresses implicit fit-only chop region", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).chop(8).getSchema();
+
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.slices).toHaveLength(8);
+      }
+    });
+
     it("fit(2) without explicit notes or region emits generated notes and chop region", () => {
       const d = new Drome();
       d.loadSamples({ loop: ["loop.wav"] });

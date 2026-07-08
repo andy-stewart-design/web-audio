@@ -7,6 +7,7 @@ import type {
   ParameterSchema,
   RegionSchema,
   SamplerSchema,
+  StaticSchemaValue,
 } from "@web-audio/schema";
 import { DEFAULT_BANK } from "@/banks";
 import Instrument from "./instrument";
@@ -216,7 +217,9 @@ class Sampler extends Instrument {
         : this._chop.sliceCount;
       const noteValue = sourceKeys[0] ?? 0;
 
-      return this._getDefaultNotes(noteValue, noteCount, 1);
+      return this._getDefaultNotes(noteValue, noteCount, this._fit?.bars ?? 1, {
+        globalStepIndex: true,
+      });
     }
 
     const generatedFit = this._getGeneratedFit();
@@ -231,20 +234,31 @@ class Sampler extends Instrument {
     return this._cycle.getSchema();
   }
 
-  private _getDefaultNotes(noteValue: number, noteCount: number, bars: number) {
+  private _getDefaultNotes(
+    noteValue: number,
+    noteCount: number,
+    bars: number,
+    { globalStepIndex = false } = {},
+  ) {
+    const cycle: StaticSchemaValue[][] = Array.from({ length: bars }, () => []);
+    const duration = bars / noteCount;
+
+    for (let stepIndex = 0; stepIndex < noteCount; stepIndex++) {
+      const absoluteOffset = stepIndex * duration;
+      const barIndex = Math.min(bars - 1, Math.floor(absoluteOffset));
+      const localStepIndex = cycle[barIndex].length;
+      cycle[barIndex].push({
+        value: noteValue,
+        offset: absoluteOffset - barIndex,
+        duration,
+        stepIndex: globalStepIndex ? stepIndex : localStepIndex,
+      });
+    }
+
     return {
       type: "static",
       polyphonic: false,
-      cycle: Array.from({ length: bars }, () =>
-        Array.from({ length: noteCount / bars }, (_, localStepIndex) => {
-          return {
-            value: noteValue,
-            offset: localStepIndex / (noteCount / bars),
-            duration: 1 / (noteCount / bars),
-            stepIndex: localStepIndex,
-          };
-        }),
-      ),
+      cycle,
     } satisfies ParameterSchema;
   }
 
