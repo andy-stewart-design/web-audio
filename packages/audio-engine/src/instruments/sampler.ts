@@ -239,6 +239,15 @@ class Sampler extends Instrument {
       regionEnd = clamp(
         this._resolve(this._schema.region.end, barIndex, stepIndex),
       );
+    } else if (this._schema.region?.type === "chop") {
+      const { slices, sequence } = this._schema.region;
+      if (slices.length === 0) return null;
+
+      const rawIndex = Math.trunc(this._resolve(sequence, barIndex, stepIndex));
+      const sliceIndex = ((rawIndex % slices.length) + slices.length) % slices.length;
+      const slice = slices[sliceIndex];
+      regionStart = slice.start;
+      regionEnd = slice.end;
     }
 
     if (regionEnd <= regionStart) {

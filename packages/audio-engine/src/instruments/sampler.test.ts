@@ -753,6 +753,76 @@ describe("Sampler", () => {
     expect(createdSources[0].stop).toHaveBeenCalledWith(12.0025 + 0.05);
   });
 
+  it("chop regions schedule selected file slices", async () => {
+    const url = "https://example.com/break.wav";
+    cache.resolved.set(url, makeBuffer(4));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticCycle([0, 0, 0, 0]),
+          region: {
+            type: "chop",
+            slices: [
+              { start: 0, end: 0.25 },
+              { start: 0.25, end: 0.5 },
+              { start: 0.5, end: 0.75 },
+              { start: 0.75, end: 1 },
+            ],
+            sequence: staticCycle([0, 2, 1, 3]),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(4);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 0);
+    expect(createdSources[1].start).toHaveBeenCalledWith(10.5, 2);
+    expect(createdSources[2].start).toHaveBeenCalledWith(11, 1);
+    expect(createdSources[3].start).toHaveBeenCalledWith(11.5, 3);
+  });
+
+  it("chop indices wrap modulo slice count", async () => {
+    const url = "https://example.com/break.wav";
+    cache.resolved.set(url, makeBuffer(4));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticCycle([0, 0]),
+          region: {
+            type: "chop",
+            slices: [
+              { start: 0, end: 0.25 },
+              { start: 0.25, end: 0.5 },
+              { start: 0.5, end: 0.75 },
+              { start: 0.75, end: 1 },
+            ],
+            sequence: staticCycle([-1, 4]),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(2);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 3);
+    expect(createdSources[1].start).toHaveBeenCalledWith(11, 0);
+  });
+
   it("invalid resolved dynamic regions skip and warn", async () => {
     const url = "https://example.com/loop.wav";
     cache.resolved.set(url, makeBuffer(2));
