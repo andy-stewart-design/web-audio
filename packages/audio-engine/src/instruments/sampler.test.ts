@@ -1624,6 +1624,58 @@ describe("Sampler", () => {
     expect(createdSources[0].playbackRate.value).toBeCloseTo(2);
   });
 
+  it("fit-only generated chop regions use full source duration for fit rate", async () => {
+    const url = "https://example.com/loop.wav";
+    cache.resolved.set(url, makeBuffer(4));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          fit: { type: "fit", bars: 2 },
+          notes: {
+            type: "static",
+            polyphonic: false,
+            cycle: [
+              [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+              [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+            ],
+          },
+          region: {
+            type: "chop",
+            slices: [
+              { start: 0, end: 0.5 },
+              { start: 0.5, end: 1 },
+            ],
+            sequence: {
+              type: "static",
+              polyphonic: false,
+              cycle: [
+                [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+                [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
+              ],
+            },
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+    sampler.scheduleBar(1, 12);
+
+    expect(createdSources).toHaveLength(2);
+    expect(createdSources[0].playbackRate.value).toBe(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 0);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(12.0025 + 0.05);
+    expect(createdSources[1].playbackRate.value).toBe(1);
+    expect(createdSources[1].start).toHaveBeenCalledWith(12, 2);
+    expect(createdSources[1].stop).toHaveBeenCalledWith(14.0025 + 0.05);
+  });
+
   it("fit() is applied through normal note scheduling on every triggered bar", async () => {
     const url = "https://example.com/loop.wav";
     cache.resolved.set(url, makeBuffer(2));

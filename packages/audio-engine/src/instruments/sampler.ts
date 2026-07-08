@@ -163,7 +163,7 @@ class Sampler extends Instrument {
     );
     if (!sourceWindow) return;
 
-    const fitRate = this._fitRate(sourceWindow.duration);
+    const fitRate = this._fitRate(sourceWindow.fitDuration);
     const playbackRate = note.value * fitRate;
     const playbackDuration = sourceWindow.duration / playbackRate;
     const duration =
@@ -260,12 +260,18 @@ class Sampler extends Instrument {
     const normalizedStart = entryStart + regionStart * entryDuration;
     const normalizedEnd = entryStart + regionEnd * entryDuration;
 
+    const entrySourceDuration = entryDuration * buffer.duration;
+
     return {
       offset:
         entry.type === "file" && !this._schema.region
           ? undefined
           : normalizedStart * buffer.duration,
       duration: (normalizedEnd - normalizedStart) * buffer.duration,
+      fitDuration:
+        this._schema.region?.type === "chop"
+          ? entrySourceDuration
+          : (normalizedEnd - normalizedStart) * buffer.duration,
     };
   }
 

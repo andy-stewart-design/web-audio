@@ -383,10 +383,10 @@ bar 2 → source [0.666..., 1]
 
 **Acceptance criteria:**
 
-- [ ] `.fit(2)` emits a 2-bar notes cycle.
-- [ ] `.fit(2)` emits an implicit chop region with two slices and a 2-bar sequence.
-- [ ] `.fit(3)` emits three slices over three bars.
-- [ ] For `sourceKeys: [45, 57]`, generated note value is `45`.
+- [x] `.fit(2)` emits a 2-bar notes cycle.
+- [x] `.fit(2)` emits an implicit chop region with two slices and a 2-bar sequence.
+- [x] `.fit(3)` emits three slices over three bars.
+- [x] For `sourceKeys: [45, 57]`, generated note value is `45`.
 
 ### Step 5.2 — Engine uses generated region normally
 
@@ -394,16 +394,16 @@ No engine inference from note shape is allowed. The engine should simply schedul
 
 **Acceptance criteria:**
 
-- [ ] Engine does not special-case implicit fit segmentation.
-- [ ] `.fit(2)` schedules first half on bar 0, second half on bar 1 through ordinary chop scheduling.
-- [ ] `fitRate` is computed from the full selected source window.
+- [x] Engine does not special-case implicit fit segmentation.
+- [x] `.fit(2)` schedules first half on bar 0, second half on bar 1 through ordinary chop scheduling.
+- [x] `fitRate` is computed from the full selected source window.
 
 ### Automated testing
 
-- [ ] Fluid tests for generated notes and implicit chop region.
-- [ ] Engine integration test for `.fit(2)` schema scheduling.
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] Fluid tests for generated notes and implicit chop region.
+- [x] Engine integration test for `.fit(2)` schema scheduling.
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ### Manual verification
 
@@ -415,10 +415,10 @@ d.sample("loop").bank("user").fit(3).push();
 
 Verify:
 
-- [ ] `fit(2)` plays the first half on bar 0 and second half on bar 1.
-- [ ] `fit(3)` plays thirds across three bars.
-- [ ] No intermediate bar retriggers the first segment incorrectly.
-- [ ] Pitched multisample `.fit(2)` without explicit notes plays at the lowest source key, not target note `0`.
+- [x] `fit(2)` plays the first half on bar 0 and second half on bar 1.
+- [x] `fit(3)` plays thirds across three bars.
+- [x] No intermediate bar retriggers the first segment incorrectly.
+- [x] Pitched multisample `.fit(2)` without explicit notes plays at the lowest source key, not target note `0`.
 
 ---
 
