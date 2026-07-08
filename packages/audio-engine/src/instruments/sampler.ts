@@ -169,7 +169,9 @@ class Sampler extends Instrument {
     const duration =
       this._schema.clipMode === "one-shot" && !this._schema.loop
         ? playbackDuration
-        : Math.min(scheduledDuration, playbackDuration);
+        : sourceWindow.isFittedChop
+          ? scheduledDuration
+          : Math.min(scheduledDuration, playbackDuration);
     const endTime = startTime + duration;
 
     const detune = this._resolveDetune(
@@ -272,6 +274,7 @@ class Sampler extends Instrument {
         this._schema.region?.type === "chop"
           ? entrySourceDuration
           : (normalizedEnd - normalizedStart) * buffer.duration,
+      isFittedChop: this._schema.region?.type === "chop" && !!this._schema.fit,
     };
   }
 

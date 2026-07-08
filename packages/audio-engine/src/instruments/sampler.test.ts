@@ -1624,6 +1624,116 @@ describe("Sampler", () => {
     expect(createdSources[0].playbackRate.value).toBeCloseTo(2);
   });
 
+  it("fit + chop sustains selected slices for authored pattern note durations", async () => {
+    const url = "https://example.com/break.wav";
+    cache.resolved.set(url, makeBuffer(8));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          fit: { type: "fit", bars: 2 },
+          notes: {
+            type: "static",
+            polyphonic: false,
+            cycle: [
+              [
+                { value: 0, offset: 0, duration: 0.5, stepIndex: 0 },
+                { value: 0, offset: 0.5, duration: 0.5, stepIndex: 1 },
+              ],
+            ],
+          },
+          region: {
+            type: "chop",
+            slices: [
+              { start: 0, end: 0.125 },
+              { start: 0.125, end: 0.25 },
+              { start: 0.25, end: 0.375 },
+              { start: 0.375, end: 0.5 },
+              { start: 0.5, end: 0.625 },
+              { start: 0.625, end: 0.75 },
+              { start: 0.75, end: 0.875 },
+              { start: 0.875, end: 1 },
+            ],
+            sequence: staticCycle([0, 1]),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(2);
+    expect(createdSources[0].playbackRate.value).toBe(2);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 0);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(11.0025 + 0.05);
+    expect(createdSources[1].playbackRate.value).toBe(2);
+    expect(createdSources[1].start).toHaveBeenCalledWith(11, 1);
+    expect(createdSources[1].stop).toHaveBeenCalledWith(12.0025 + 0.05);
+  });
+
+  it("fit + chop schedules quarter-note authored pattern slices", async () => {
+    const url = "https://example.com/break.wav";
+    cache.resolved.set(url, makeBuffer(8));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          fit: { type: "fit", bars: 2 },
+          notes: {
+            type: "static",
+            polyphonic: false,
+            cycle: [
+              [
+                { value: 0, offset: 0, duration: 0.5, stepIndex: 0 },
+                { value: 0, offset: 0.5, duration: 0.5, stepIndex: 1 },
+              ],
+              [
+                { value: 0, offset: 0, duration: 0.5, stepIndex: 2 },
+                { value: 0, offset: 0.5, duration: 0.5, stepIndex: 3 },
+              ],
+            ],
+          },
+          region: {
+            type: "chop",
+            slices: [
+              { start: 0, end: 0.25 },
+              { start: 0.25, end: 0.5 },
+              { start: 0.5, end: 0.75 },
+              { start: 0.75, end: 1 },
+            ],
+            sequence: staticCycle([0, 1, 2, 3]),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+    sampler.scheduleBar(1, 12);
+
+    expect(createdSources).toHaveLength(4);
+    expect(createdSources.map((source) => source.playbackRate.value)).toEqual([
+      2, 2, 2, 2,
+    ]);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 0);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(11.0025 + 0.05);
+    expect(createdSources[1].start).toHaveBeenCalledWith(11, 2);
+    expect(createdSources[1].stop).toHaveBeenCalledWith(12.0025 + 0.05);
+    expect(createdSources[2].start).toHaveBeenCalledWith(12, 4);
+    expect(createdSources[2].stop).toHaveBeenCalledWith(13.0025 + 0.05);
+    expect(createdSources[3].start).toHaveBeenCalledWith(13, 6);
+    expect(createdSources[3].stop).toHaveBeenCalledWith(14.0025 + 0.05);
+  });
+
   it("fit-only generated chop regions use full source duration for fit rate", async () => {
     const url = "https://example.com/loop.wav";
     cache.resolved.set(url, makeBuffer(4));

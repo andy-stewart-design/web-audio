@@ -433,36 +433,40 @@ Tracer bullet: a fitted breakbeat can be chopped across the fit span.
 When explicit chop is present:
 
 - Use the user-authored chop region, not the implicit fit-only chop region.
-- If no explicit notes are provided, generate notes over `fit.bars` bars.
-- Default note count comes from sequence step count when available, otherwise `sliceCount`.
+- If no chop sequence is provided, generate natural notes over `fit.bars` bars from `sliceCount`.
+- If a static/cycling chop sequence is authored, preserve its normal pattern shape; `fit` must not stretch the authored sequence across the fit span.
+- If explicit `.notes()` is also provided, keep chop sequence timing as the trigger pattern and map/cycle note pitch values onto those triggers.
 
 **Acceptance criteria:**
 
-- [ ] `.fit(2).chop(8)` emits 8 notes over 2 bars.
-- [ ] `.fit(2).chop(8, [0,2,1,3])` emits 4 notes over 2 bars.
-- [ ] Explicit `.notes()` overrides generated fit/chop notes.
-- [ ] Explicit chop suppresses implicit fit-only chop region.
+- [x] `.fit(2).chop(8)` emits 8 notes over 2 bars.
+- [x] `.fit(2).chop(8, [0, 2, 1, 3])` preserves one-bar four-step pattern timing.
+- [x] `.fit(2).chop(8, [0, 2], [1, 3])` preserves authored two-bar pattern timing.
+- [x] `.fit(2).chop(8, [0, 3, 5, 1]).notes([0])` uses chop timing and repeats pitch `0` across all triggers.
+- [x] `.fit(2).chop(8, [0, 3, 5, 1]).notes([0, 12])` uses chop timing and cycles pitch values across triggers.
+- [x] Explicit chop suppresses implicit fit-only chop region.
 
 ### Step 6.2 — Engine global fitRate for chopped playback
 
 **Files:** `packages/audio-engine/src/instruments/sampler.ts`
 
 - For chop, compute `fitRate` from the full selected source window before slicing.
-- Each slice uses the same global `fitRate`.
-- Slice duration is `sliceSourceDuration / (fitRate * pitchRate)`.
+- Each slice uses the same global `fitRate`; note duration does not change playback speed.
+- For fitted chopped playback in clipped mode, sustain/envelope duration follows the note pattern duration rather than being truncated to the individual slice duration.
 
 **Acceptance criteria:**
 
-- [ ] `.fit(2).chop(8)` uses global fitRate, not per-slice fitRate.
-- [ ] Equal slices line up across the generated fit span when pitchRate is 1.
-- [ ] Explicit notes can create gaps/overlaps without engine correction.
+- [x] `.fit(2).chop(8)` uses global fitRate, not per-slice fitRate.
+- [x] Equal slices line up across the generated fit span when pitchRate is 1.
+- [x] `.fit(2).chop(8, [0, 1])` uses the same playback rate as other fitted 8-chop patterns but sustains each trigger for the authored half-bar note duration.
+- [x] `.fit(2).chop(8, [0, 1, 2, 3])` uses the same playback rate and sustains each trigger for the authored quarter-bar note duration.
 
 ### Automated testing
 
-- [ ] Fluid tests for default note counts/spans.
-- [ ] Engine tests for global fitRate with chop.
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] Fluid tests for default note counts/spans, authored sequence timing, and notes-as-pitch-over-chop-timing.
+- [x] Engine tests for global fitRate with chop and pattern-duration sustain.
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ### Manual verification
 
@@ -473,9 +477,11 @@ d.sample("break").bank("user").fit(2).chop(8, [0, 2, 1, 3]).push();
 
 Verify:
 
-- [ ] `fit(2).chop(8)` plays 8 slices across 2 bars.
-- [ ] Reordered static sequence changes the audible slice order.
-- [ ] The break timing feels fitted to the 2-bar span.
+- [x] `fit(2).chop(8)` plays 8 slices across 2 bars.
+- [x] Reordered static sequence changes the audible slice order.
+- [x] Authored chop sequence patterns keep normal pattern timing semantics, e.g. `[0, 1]` gives two half-bar triggers and `[0, 1, 2, 3]` gives four quarter-bar triggers.
+- [x] Explicit `.notes()` supplies pitch values over chop timing without collapsing the chop trigger pattern.
+- [x] The break timing feels fitted to the requested span while playback rate remains controlled by `fit`.
 
 ---
 

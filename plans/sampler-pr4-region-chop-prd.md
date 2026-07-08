@@ -423,3 +423,20 @@ region    = source-window/chop intent
 - `d.sample("break").fit(2).chop(8).notes([0, 12]).push()` pitches triggered slices while preserving fit-rate composition.
 - Sprite kit samples can be trimmed and chopped relative to their sprite regions.
 - Pitched sprite samples can be chopped and still select nearest source keys correctly.
+
+## Follow-up questions
+
+- Should note pattern modifiers such as `.stretch()`, `.slow()`, `.fast()`, `.reverse()`, `.euclid()`, `.sequence()`, `.xox()`, and `.hex()` affect generated chop trigger patterns, the chop sequence, or both? Example to revisit:
+
+  ```ts
+  d.sample("breaks")
+    .bank("loops")
+    .fit(2)
+    .chop(8, [0, 0, 1, 3])
+    .stretch(0, 4)
+    .push();
+  ```
+
+  The design decision is whether these modifiers should count as explicit note intent, transform generated note defaults, transform `region.sequence`, or apply to both timing and slice selection.
+
+- Related follow-up: consider a general `.legato()` pattern modifier for synths and samplers. For synths, `.legato()` would extend each note duration until the next trigger, e.g. `d.synth("tri").notes(45).euclid(3, 8).legato().push()`. For samplers, especially `fit + chop`, decide whether `.legato()` only changes note/envelope duration or also implies fitting each selected chop slice to its legato note duration. This could address cases like wanting `d.sample("breaks").fit(2).chop(8, [0, 0, 1, 3])` to play four longer slice slots instead of four short 1/8-source slices with gaps.

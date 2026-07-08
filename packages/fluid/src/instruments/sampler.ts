@@ -7,6 +7,7 @@ import type {
   ParameterSchema,
   RegionSchema,
   SamplerSchema,
+  StaticSchema,
   StaticSchemaValue,
 } from "@web-audio/schema";
 import { DEFAULT_BANK } from "@/banks";
@@ -211,15 +212,28 @@ class Sampler extends Instrument {
   }
 
   private _getNotes(sourceKeys: number[]): ParameterSchema {
-    if (!this._explicitNotes && this._chop) {
-      const noteCount = this._chop.sequence
-        ? this._getSequenceStepCount(this._chop.sequence.getSchema())
-        : this._chop.sliceCount;
-      const noteValue = sourceKeys[0] ?? 0;
+    if (this._chop) {
+      const sequence = this._chop.sequence?.getSchema();
+      if (this._explicitNotes && sequence) {
+        const notes = this._cycle.getSchema();
+        if (notes.type === "static" && sequence.type === "static") {
+          return this._getNotesForChopTiming(notes, sequence);
+        }
+      }
 
-      return this._getDefaultNotes(noteValue, noteCount, this._fit?.bars ?? 1, {
-        globalStepIndex: true,
-      });
+      if (!this._explicitNotes) {
+        const noteValue = sourceKeys[0] ?? 0;
+        if (sequence) {
+          return this._getDefaultNotesForSequence(noteValue, sequence);
+        }
+
+        return this._getDefaultNotes(
+          noteValue,
+          this._chop.sliceCount,
+          this._fit?.bars ?? 1,
+          { globalStepIndex: true },
+        );
+      }
     }
 
     const generatedFit = this._getGeneratedFit();
@@ -232,6 +246,45 @@ class Sampler extends Instrument {
     }
 
     return this._cycle.getSchema();
+  }
+
+  private _getNotesForChopTiming(notes: StaticSchema, sequence: StaticSchema) {
+    const noteValues = notes.cycle.flat().map((step) => step.value);
+
+    return {
+      type: "static",
+      polyphonic: notes.polyphonic,
+      cycle: sequence.cycle.map((bar) =>
+        bar.map(({ offset, duration, stepIndex }) => ({
+          value: noteValues[stepIndex % noteValues.length] ?? 0,
+          offset,
+          duration,
+          stepIndex,
+        })),
+      ),
+    } satisfies ParameterSchema;
+  }
+
+  private _getDefaultNotesForSequence(
+    noteValue: number,
+    sequence: ParameterSchema,
+  ) {
+    if (sequence.type === "random") {
+      return this._getDefaultNotes(noteValue, this._chop?.sliceCount ?? 1, 1);
+    }
+
+    return {
+      type: "static",
+      polyphonic: false,
+      cycle: sequence.cycle.map((bar) =>
+        bar.map(({ offset, duration, stepIndex }) => ({
+          value: noteValue,
+          offset,
+          duration,
+          stepIndex,
+        })),
+      ),
+    } satisfies ParameterSchema;
   }
 
   private _getDefaultNotes(
@@ -269,11 +322,6 @@ class Sampler extends Instrument {
     return this._fit;
   }
 
-  private _getSequenceStepCount(schema: ParameterSchema) {
-    if (schema.type === "random") return this._chop?.sliceCount ?? 1;
-    return schema.cycle[0]?.length ?? 1;
-  }
-
   private _getSourceKeys() {
     const bank = this._host?._resolveBank(this._bank);
     if (!bank) {
@@ -303,6 +351,22 @@ class Sampler extends Instrument {
 
     const region = this._getRegion();
     const notes = this._getNotes(sourceKeys);
+
+    console.log({
+      type: "sampler",
+      bank: this._bank,
+      sample: this._sample,
+      variation: this._variation.getSchema(),
+      notes,
+      fit: this._fit,
+      region,
+      sourceKeys,
+      detune: this._detune.getSchema(),
+      gain: this._gain.getSchema(),
+      effects: this._effects.map((e) => e.getSchema()),
+      loop: this._loop,
+      clipMode: this._clipMode,
+    });
 
     return {
       type: "sampler",
