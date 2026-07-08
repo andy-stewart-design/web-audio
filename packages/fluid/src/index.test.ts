@@ -667,6 +667,46 @@ describe("Drome", () => {
       );
     });
 
+    it("chop(8) without explicit notes emits 8 default notes over 1 bar", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").chop(8).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toHaveLength(1);
+        expect(inst.notes.cycle[0]).toHaveLength(8);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+          0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875,
+        ]);
+        expect(inst.notes.cycle[0].every((step) => step.duration === 0.125)).toBe(
+          true,
+        );
+      }
+    });
+
+    it("chop() default notes use authored sequence step count", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").chop(8, [0, 2, 1, 3]).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0]).toHaveLength(4);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+          0, 0.25, 0.5, 0.75,
+        ]);
+      }
+    });
+
+    it("explicit notes override generated chop notes", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").chop(8).notes([0, 12]).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+      }
+    });
+
     it("chop() warns for static out-of-range sequence values and preserves them", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const d = new Drome();

@@ -27,6 +27,7 @@ class Sampler extends Instrument {
   private _chop:
     | { sliceCount: number; sequence: Parameter | null }
     | null = null;
+  private _explicitNotes = false;
   private _loop = false;
   private _clipMode: ClipMode = "clipped";
 
@@ -67,6 +68,7 @@ class Sampler extends Instrument {
   }
 
   notes(...input: Parameters<Instrument["notes"]>) {
+    this._explicitNotes = true;
     return super.notes(...input);
   }
 
@@ -191,6 +193,35 @@ class Sampler extends Instrument {
     }
   }
 
+  private _getNotes(sourceKeys: number[]): ParameterSchema {
+    if (!this._explicitNotes && this._chop) {
+      const noteCount = this._chop.sequence
+        ? this._getSequenceStepCount(this._chop.sequence.getSchema())
+        : this._chop.sliceCount;
+      const noteValue = sourceKeys[0] ?? 0;
+
+      return {
+        type: "static",
+        polyphonic: false,
+        cycle: [
+          Array.from({ length: noteCount }, (_, stepIndex) => ({
+            value: noteValue,
+            offset: stepIndex / noteCount,
+            duration: 1 / noteCount,
+            stepIndex,
+          })),
+        ],
+      };
+    }
+
+    return this._cycle.getSchema();
+  }
+
+  private _getSequenceStepCount(schema: ParameterSchema) {
+    if (schema.type === "random") return this._chop?.sliceCount ?? 1;
+    return schema.cycle[0]?.length ?? 1;
+  }
+
   private _getSourceKeys() {
     const bank = this._host?._resolveBank(this._bank);
     if (!bank) {
@@ -219,13 +250,14 @@ class Sampler extends Instrument {
     const sourceKeys = this._getSourceKeys();
 
     const region = this._getRegion();
+    const notes = this._getNotes(sourceKeys);
 
     return {
       type: "sampler",
       bank: this._bank,
       sample: this._sample,
       variation: this._variation.getSchema(),
-      notes: this._cycle.getSchema(),
+      notes,
       fit: this._fit,
       region,
       sourceKeys,
