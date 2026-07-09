@@ -500,16 +500,16 @@ For random chop sequences:
 
 **Acceptance criteria:**
 
-- [ ] `.chop(8, d.rand().int().range(0, 7))` generates 8 notes and an 8-step random sequence mask.
-- [ ] `.chop(8, d.rand().int().range(0, 7).steps(4))` generates 4 notes and preserves the 4-step mask.
-- [ ] Engine resolves random slice values per generated trigger, not once per bar.
+- [x] `.chop(8, d.rand().int().range(0, 7))` generates 8 notes and an 8-step random sequence mask.
+- [x] `.chop(8, d.rand().int().range(0, 7).steps(4))` generates 4 notes and preserves the 4-step mask.
+- [x] Engine resolves random slice values per generated trigger, not once per bar.
 
 ### Automated testing
 
-- [ ] Fluid tests for random sequence mask/default note count.
-- [ ] Engine test proving different step indices can resolve different random slice indices.
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] Fluid tests for random sequence mask/default note count.
+- [x] Engine test proving different step indices can resolve different random slice indices.
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ### Manual verification
 
@@ -529,9 +529,9 @@ d.sample("break")
 
 Verify:
 
-- [ ] Random slices vary across generated triggers.
-- [ ] `.steps(4)` produces fewer random trigger positions than the 8-step default.
-- [ ] Repeated playback is deterministic for the same random seed/algorithm behavior.
+- [x] Random slices vary across generated triggers.
+- [x] `.steps(4)` produces fewer random trigger positions than the 8-step default.
+- [x] Repeated playback is deterministic for the same random seed/algorithm behavior.
 
 ---
 
@@ -732,3 +732,86 @@ Use after each phase as appropriate:
 5. `pnpm --filter @web-audio/audio-engine check`
 6. `pnpm --filter @web-audio/audio-engine lint`
 7. `pnpm --filter @web-audio/audio-engine test:ci`
+
+---
+
+## Follow-up gaps
+
+### Random explicit notes over chop timing
+
+Current implementation supports static explicit note patterns over static/cycling chop sequence timing, e.g.:
+
+```ts
+d.sample("break").chop(8, [0, 3, 5, 1]).notes([0, 12]).push();
+```
+
+The chop sequence provides trigger timing and slice selection; `.notes()` provides pitch values over those triggers.
+
+A remaining edge case is random explicit notes with chop timing:
+
+```ts
+d.sample("break")
+  .chop(8, [0, 3, 5, 1])
+  .notes(d.rand().int().range(0, 12))
+  .push();
+```
+
+Potential desired behavior: preserve the random note value generation, but reshape the random note mask/timing to match the chop sequence timing, just as static notes are mapped over chop triggers.
+
+Open design questions:
+
+- If random `.notes()` has its own explicit `.steps(n)`, should chop timing override it?
+- For random chop sequence + random notes, which random mask defines trigger timing?
+- Should this be implemented only for static/cycling chop timing first, and defer random-chop/random-note composition?
+
+For static chop timing + random notes:
+
+- take chop sequence timing:
+  ```ts
+    offsets/durations/stepIndex: 0, .25, .5, .75
+  ```
+- take random note schema:
+  ```ts
+    type: "random", range...
+  ```
+- replace/reshape its cycle mask to match chop timing
+
+So emitted notes become random, but with chop timing.
+
+That’s not too bad.
+
+Harder cases:
+
+1.  Random chop sequence + random notes
+    - both are random
+    - which mask wins?
+    - probably chop sequence mask wins because it defines trigger timing
+
+2.  Multi-bar chop timing + random notes
+    - need to copy full multi-bar chop mask into notes random mask
+
+3.  Existing random .notes().steps(n)
+    - if user explicitly set steps on notes, do we preserve note steps or override with chop timing?
+    - based on our new model, chop timing should probably win, but that’s a design decision
+
+4.  Random notes with scale mapping
+    - SampleNotes / MidiNotes may already convert random notes into valueMap/range. We’d need to preserve those fields  
+      while swapping the random mask.
+
+Implementation shape:
+
+```ts
+if (notes.type === "random" && sequence.type === "static") {
+  return {
+    ...notes,
+    cycle: sequenceAsBinaryMask(sequence),
+  };
+}
+```
+
+So the first version is simple. The complexity is deciding behavior for all combinations and documenting it.
+
+I’d estimate:
+
+- simple support for random notes over static chop timing: small
+- fully consistent random notes + random chop timing + explicit steps semantics: medium

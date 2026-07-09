@@ -810,6 +810,46 @@ describe("Drome", () => {
       expect(inst.region?.type).toBe("chop");
     });
 
+    it("random chop sequence without steps expands to slice count", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").chop(8, d.rand().int().range(0, 7)).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0]).toHaveLength(8);
+      }
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.sequence.type).toBe("random");
+        if (inst.region.sequence.type === "random") {
+          expect(inst.region.sequence.cycle.cycle[0]).toHaveLength(8);
+          expect(inst.region.sequence.cycle.cycle[0].map((step) => step.stepIndex)).toEqual([
+            0, 1, 2, 3, 4, 5, 6, 7,
+          ]);
+        }
+      }
+    });
+
+    it("random chop sequence with steps preserves explicit step count", () => {
+      const d = new Drome();
+      const inst = d
+        .sample("bd")
+        .chop(8, d.rand().int().range(0, 7).steps(4))
+        .getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0]).toHaveLength(4);
+      }
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.sequence.type).toBe("random");
+        if (inst.region.sequence.type === "random") {
+          expect(inst.region.sequence.cycle.cycle[0]).toHaveLength(4);
+        }
+      }
+    });
+
     it("single explicit note repeats over chop timing", () => {
       const d = new Drome();
       const inst = d.sample("bd").chop(8, [0, 3, 5, 1]).notes([0]).getSchema();
