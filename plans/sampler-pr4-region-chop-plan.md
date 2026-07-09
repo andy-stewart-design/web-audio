@@ -616,10 +616,10 @@ When static scalar start/end are combined with chop:
 
 **Acceptance criteria:**
 
-- [ ] `.start(0.25).end(0.75).chop(4)` emits 4 slices bounded inside `[0.25, 0.75]`.
-- [ ] `.start([0, 0.5]).chop(4)` throws.
-- [ ] `.chop(4).start([0, 0.5])` also throws during schema generation.
-- [ ] `.start(d.rand().range(0, 0.5)).chop(4)` throws.
+- [x] `.start(0.25).end(0.75).chop(4)` emits 4 slices bounded inside `[0.25, 0.75]`.
+- [x] `.start([0, 0.5]).chop(4)` throws.
+- [x] `.chop(4).start([0, 0.5])` also throws during schema generation.
+- [x] `.start(d.rand().range(0, 0.5)).chop(4)` throws.
 
 ### Step 9.2 — Engine schedules bounded slices normally
 
@@ -627,15 +627,15 @@ No new engine special case should be needed if chop slices are already bounded i
 
 **Acceptance criteria:**
 
-- [ ] Bounded slices schedule correct offsets on files.
-- [ ] Bounded slices compose correctly with sprite entry windows.
+- [x] Bounded slices schedule correct offsets on files.
+- [x] Bounded slices compose correctly with sprite entry windows.
 
 ### Automated testing
 
-- [ ] Fluid tests for bounded slice schema and validation.
-- [ ] Engine tests for bounded file/sprite chop offsets.
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] Fluid tests for bounded slice schema and validation.
+- [x] Engine tests for bounded file/sprite chop offsets.
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ### Manual verification
 

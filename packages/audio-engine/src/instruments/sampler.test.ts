@@ -789,6 +789,121 @@ describe("Sampler", () => {
     expect(createdSources[3].start).toHaveBeenCalledWith(11.5, 3);
   });
 
+  it("fit with bounded chop computes fit rate from the bounded chop window", async () => {
+    const url = "https://example.com/break.wav";
+    cache.resolved.set(url, makeBuffer(4));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          fit: { type: "fit", bars: 1 },
+          notes: staticCycle([0, 0, 0, 0]),
+          region: {
+            type: "chop",
+            slices: [
+              { start: 0.25, end: 0.375 },
+              { start: 0.375, end: 0.5 },
+              { start: 0.5, end: 0.625 },
+              { start: 0.625, end: 0.75 },
+            ],
+            sequence: staticCycle([0, 1, 2, 3]),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(4);
+    expect(createdSources.map((source) => source.playbackRate.value)).toEqual([
+      1, 1, 1, 1,
+    ]);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 1);
+    expect(createdSources[3].start).toHaveBeenCalledWith(11.5, 2.5);
+  });
+
+  it("bounded chop slices schedule correct file offsets", async () => {
+    const url = "https://example.com/break.wav";
+    cache.resolved.set(url, makeBuffer(4));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticCycle([0, 0, 0, 0]),
+          region: {
+            type: "chop",
+            slices: [
+              { start: 0.25, end: 0.375 },
+              { start: 0.375, end: 0.5 },
+              { start: 0.5, end: 0.625 },
+              { start: 0.625, end: 0.75 },
+            ],
+            sequence: staticCycle([0, 1, 2, 3]),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(4);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 1);
+    expect(createdSources[1].start).toHaveBeenCalledWith(10.5, 1.5);
+    expect(createdSources[2].start).toHaveBeenCalledWith(11, 2);
+    expect(createdSources[3].start).toHaveBeenCalledWith(11.5, 2.5);
+  });
+
+  it("bounded chop slices compose with sprite entry windows", async () => {
+    const url = "https://example.com/kit.wav";
+    cache.resolved.set(url, makeBuffer(8));
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [{ type: "sprite" as const, src: url, start: 0.25, end: 0.75 }],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticCycle([0, 0]),
+          region: {
+            type: "chop",
+            slices: [
+              { start: 0.25, end: 0.5 },
+              { start: 0.5, end: 0.75 },
+            ],
+            sequence: staticCycle([0, 1]),
+          },
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(2);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 3);
+    expect(createdSources[1].start).toHaveBeenCalledWith(11, 4);
+  });
+
   it("chop indices wrap modulo slice count", async () => {
     const url = "https://example.com/break.wav";
     cache.resolved.set(url, makeBuffer(4));

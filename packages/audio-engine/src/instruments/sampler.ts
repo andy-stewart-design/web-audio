@@ -246,7 +246,8 @@ class Sampler extends Instrument {
       if (slices.length === 0) return null;
 
       const rawIndex = Math.trunc(this._resolve(sequence, barIndex, stepIndex));
-      const sliceIndex = ((rawIndex % slices.length) + slices.length) % slices.length;
+      const sliceIndex =
+        ((rawIndex % slices.length) + slices.length) % slices.length;
       const slice = slices[sliceIndex];
       regionStart = slice.start;
       regionEnd = slice.end;
@@ -262,7 +263,10 @@ class Sampler extends Instrument {
     const normalizedStart = entryStart + regionStart * entryDuration;
     const normalizedEnd = entryStart + regionEnd * entryDuration;
 
-    const entrySourceDuration = entryDuration * buffer.duration;
+    const fitDuration =
+      this._schema.region?.type === "chop"
+        ? this._chopFitDuration(entryDuration * buffer.duration)
+        : (normalizedEnd - normalizedStart) * buffer.duration;
 
     return {
       offset:
@@ -270,12 +274,19 @@ class Sampler extends Instrument {
           ? undefined
           : normalizedStart * buffer.duration,
       duration: (normalizedEnd - normalizedStart) * buffer.duration,
-      fitDuration:
-        this._schema.region?.type === "chop"
-          ? entrySourceDuration
-          : (normalizedEnd - normalizedStart) * buffer.duration,
+      fitDuration,
       isFittedChop: this._schema.region?.type === "chop" && !!this._schema.fit,
     };
+  }
+
+  private _chopFitDuration(entrySourceDuration: number) {
+    if (this._schema.region?.type !== "chop") return entrySourceDuration;
+
+    const starts = this._schema.region.slices.map((slice) => slice.start);
+    const ends = this._schema.region.slices.map((slice) => slice.end);
+    const start = Math.min(...starts);
+    const end = Math.max(...ends);
+    return (end - start) * entrySourceDuration;
   }
 
   private _resolveVariationIndex(barIndex: number, stepIndex: number): number {
