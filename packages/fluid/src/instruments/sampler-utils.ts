@@ -174,6 +174,32 @@ function getDefaultNotes(
   } satisfies ParameterSchema;
 }
 
+function getStaticChopBounds(start: ParameterSchema, end: ParameterSchema) {
+  if (start.type !== "static" || end.type !== "static") {
+    throw new Error("[Sampler] start() and end() must be static numbers when used with chop().");
+  }
+  if (start.cycle.length !== 1 || end.cycle.length !== 1) {
+    throw new Error("[Sampler] start() and end() must be static numbers when used with chop().");
+  }
+  if (start.cycle[0].length !== 1 || end.cycle[0].length !== 1) {
+    throw new Error("[Sampler] start() and end() must be static numbers when used with chop().");
+  }
+
+  const startValue = start.cycle[0][0].value;
+  const endValue = end.cycle[0][0].value;
+  if (
+    !Number.isFinite(startValue) ||
+    !Number.isFinite(endValue) ||
+    startValue < 0 ||
+    endValue > 1 ||
+    startValue >= endValue
+  ) {
+    throw new Error("[Sampler] start() and end() must satisfy 0 <= start < end <= 1 when used with chop().");
+  }
+
+  return { start: startValue, end: endValue, duration: endValue - startValue };
+}
+
 function getRegion(
   fitSchema: FitSchema | null,
   chopState: ChopState | null,
@@ -198,27 +224,28 @@ function getRegion(
     } satisfies RegionSchema;
   }
 
+  const start = regionStart ?? new Parameter(0);
+  const end = regionEnd ?? new Parameter(1);
+  const startSchema = start.getSchema();
+  const endSchema = end.getSchema();
+
   if (chopState) {
     const { sliceCount } = chopState;
     const sequenceSchema = getChopSequenceSchema(chopState);
     warnOutOfRangeChopIndices(sliceCount, sequenceSchema);
+    const bounds = getStaticChopBounds(startSchema, endSchema);
 
     return {
       type: "chop",
       slices: Array.from({ length: sliceCount }, (_, i) => ({
-        start: i / sliceCount,
-        end: (i + 1) / sliceCount,
+        start: bounds.start + (i / sliceCount) * bounds.duration,
+        end: bounds.start + ((i + 1) / sliceCount) * bounds.duration,
       })),
       sequence: sequenceSchema,
     } satisfies RegionSchema;
   }
 
   if (!regionStart && !regionEnd) return null;
-
-  const start = regionStart ?? new Parameter(0);
-  const end = regionEnd ?? new Parameter(1);
-  const startSchema = start.getSchema();
-  const endSchema = end.getSchema();
 
   validateRegionParam("start", startSchema);
   validateRegionParam("end", endSchema);

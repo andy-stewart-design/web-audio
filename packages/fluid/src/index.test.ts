@@ -889,6 +889,45 @@ describe("Drome", () => {
       }
     });
 
+    it("start/end with chop precomputes bounded slices", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").start(0.25).end(0.75).chop(4).getSchema();
+
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.slices).toEqual([
+          { start: 0.25, end: 0.375 },
+          { start: 0.375, end: 0.5 },
+          { start: 0.5, end: 0.625 },
+          { start: 0.625, end: 0.75 },
+        ]);
+      }
+    });
+
+    it("dynamic start/end are rejected with chop regardless of chaining order", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").start([0, 0.5]).chop(4).getSchema()).toThrow(
+        "[Sampler] start() and end() must be static numbers when used with chop().",
+      );
+      expect(() => d.sample("bd").chop(4).start([0, 0.5]).getSchema()).toThrow(
+        "[Sampler] start() and end() must be static numbers when used with chop().",
+      );
+      expect(() =>
+        d.sample("bd").start(d.rand().range(0, 0.5)).chop(4).getSchema(),
+      ).toThrow(
+        "[Sampler] start() and end() must be static numbers when used with chop().",
+      );
+    });
+
+    it("invalid static start/end bounds are rejected with chop", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").start(0.75).end(0.25).chop(4).getSchema()).toThrow(
+        "[Sampler] start() and end() must satisfy 0 <= start < end <= 1 when used with chop().",
+      );
+    });
+
     it("explicit chop suppresses implicit fit-only chop region", () => {
       const d = new Drome();
       const inst = d.sample("bd").fit(2).chop(8).getSchema();
