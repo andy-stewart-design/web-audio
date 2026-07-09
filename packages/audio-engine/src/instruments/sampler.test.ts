@@ -1676,6 +1676,58 @@ describe("Sampler", () => {
     expect(createdSources[1].stop).toHaveBeenCalledWith(12.0025 + 0.05);
   });
 
+  it("explicit notes transpose fitted chopped slices without changing slice selection", async () => {
+    const url = "https://example.com/break.wav";
+    cache.resolved.set(url, makeBuffer(8));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          fit: { type: "fit", bars: 2 },
+          notes: {
+            type: "static",
+            polyphonic: false,
+            cycle: [
+              [
+                { value: 0, offset: 0, duration: 0.5, stepIndex: 0 },
+                { value: 12, offset: 0.5, duration: 0.5, stepIndex: 1 },
+              ],
+            ],
+          },
+          region: {
+            type: "chop",
+            slices: [
+              { start: 0, end: 0.125 },
+              { start: 0.125, end: 0.25 },
+              { start: 0.25, end: 0.375 },
+              { start: 0.375, end: 0.5 },
+              { start: 0.5, end: 0.625 },
+              { start: 0.625, end: 0.75 },
+              { start: 0.75, end: 0.875 },
+              { start: 0.875, end: 1 },
+            ],
+            sequence: staticCycle([0, 3]),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(2);
+    expect(createdSources[0].playbackRate.value).toBe(2);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 0);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(11.0025 + 0.05);
+    expect(createdSources[1].playbackRate.value).toBe(4);
+    expect(createdSources[1].start).toHaveBeenCalledWith(11, 3);
+    expect(createdSources[1].stop).toHaveBeenCalledWith(12.0025 + 0.05);
+  });
+
   it("fit + chop schedules quarter-note authored pattern slices", async () => {
     const url = "https://example.com/break.wav";
     cache.resolved.set(url, makeBuffer(8));

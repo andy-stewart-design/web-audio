@@ -569,29 +569,34 @@ Tracer bullet: explicit notes provide pitch intent over fitted/chopped trigger t
 
 **Acceptance criteria:**
 
-- [ ] Notes transpose fitted/chopped slices.
-- [ ] `playbackRate = pitchRate * fitRate`.
-- [ ] Changing explicit notes changes pitch/rate but not chop slice selection.
-- [ ] Chopped source-key selection still happens before region/chop mapping.
+- [x] Notes transpose fitted/chopped slices.
+- [x] `playbackRate = pitchRate * fitRate`.
+- [x] Changing explicit notes changes pitch/rate but not chop slice selection.
+- [x] Chopped source-key selection still happens before region/chop mapping.
 
 ### Automated testing
 
-- [ ] Fluid explicit-notes-over-chop-timing tests.
-- [ ] Engine playbackRate composition tests.
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] Fluid explicit-notes-over-chop-timing tests.
+- [x] Engine playbackRate composition tests.
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ### Manual verification
 
 ```ts
-d.sample("break").bank("user").fit(2).chop(8, [0, 3, 5, 1]).notes([0, 12]).push();
+d.sample("break")
+  .bank("user")
+  .fit(2)
+  .chop(8, [0, 3, 5, 1])
+  .notes([0, 12])
+  .push();
 ```
 
 Verify:
 
-- [ ] Chop sequence rhythm/slice order remains intact.
-- [ ] Alternating notes audibly pitch triggered slices.
-- [ ] Fit still affects the base playback rate.
+- [x] Chop sequence rhythm/slice order remains intact.
+- [x] Alternating notes audibly pitch triggered slices.
+- [x] Fit still affects the base playback rate.
 
 ---
 
