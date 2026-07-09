@@ -784,6 +784,23 @@ describe("Drome", () => {
       }
     });
 
+    it("fit with explicit notes preserves explicit note timing and fit", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).notes([0, 12]).getSchema();
+
+      expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+      expect(inst.region).toBeNull();
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toHaveLength(1);
+        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([0, 0.5]);
+        expect(inst.notes.cycle[0].map((step) => step.duration)).toEqual([
+          0.5, 0.5,
+        ]);
+      }
+    });
+
     it("explicit notes provide pitch values over chop timing", () => {
       const d = new Drome();
       const inst = d
@@ -852,8 +869,15 @@ describe("Drome", () => {
 
     it("single explicit note repeats over chop timing", () => {
       const d = new Drome();
-      const inst = d.sample("bd").chop(8, [0, 3, 5, 1]).notes([0]).getSchema();
+      const inst = d
+        .sample("bd")
+        .fit(2)
+        .chop(8, [0, 3, 5, 1])
+        .notes([0])
+        .getSchema();
 
+      expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+      expect(inst.region?.type).toBe("chop");
       expect(inst.notes.type).toBe("static");
       if (inst.notes.type === "static") {
         expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([

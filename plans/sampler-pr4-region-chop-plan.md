@@ -537,39 +537,46 @@ Verify:
 
 ## Phase 8: Explicit notes + fit/chop/pitch composition
 
-Tracer bullet: user-authored notes override defaults and pitch fitted/chopped slices.
+Tracer bullet: explicit notes provide pitch intent over fitted/chopped trigger timing without clearing fit or region.
 
-### Step 8.1 — Explicit note precedence
+### Step 8.1 — Explicit note pitch over chop timing
 
 **Files:** `packages/fluid/src/instruments/sampler.ts`, `packages/fluid/src/index.test.ts`
 
-- Track explicit `.notes()` calls internally.
-- Explicit notes override generated fit/chop notes.
-- Explicit notes do not clear `fit` or `region`.
+- Keep tracking explicit `.notes()` calls internally.
+- Explicit `.notes()` does not clear `fit` or `region`.
+- For non-chopped samplers, explicit notes define trigger timing and pitch.
+- For chopped samplers with an authored chop sequence, chop sequence defines trigger timing and slice selection; explicit notes define pitch values over those triggers.
+- Static explicit note values cycle across chop triggers.
+- Random explicit notes over chop timing are deferred as a follow-up gap.
 
 **Acceptance criteria:**
 
-- [ ] `.fit(2).chop(8).notes([0, 12])` emits the explicit 2-step notes schema.
-- [ ] `fit` remains present after `.notes()`.
-- [ ] `region` remains present after `.notes()`.
-- [ ] Generated defaults are not emitted when explicit notes exist.
+- [x] `.fit(2).notes([0, 12])` emits explicit note timing and preserves `fit`.
+- [x] `.fit(2).chop(8, [0, 3, 5, 1]).notes([0])` preserves `fit` and `region`, emits 4 chop-timed triggers with pitch `0`.
+- [x] `.fit(2).chop(8, [0, 3, 5, 1]).notes([0, 12])` emits chop-timed triggers with pitch values `[0, 12, 0, 12]`.
+- [x] Generated chop defaults are not emitted as separate timing when authored chop timing exists.
+- [x] Random explicit notes over chop timing are documented as deferred follow-up.
 
 ### Step 8.2 — Engine pitch × fit composition
 
 **Files:** `packages/audio-engine/src/instruments/sampler.ts`
 
-- For explicit notes, use the same `playbackRate = pitchRate * fitRate` rule.
-- Do not try to align explicit note timing to `fit.bars`.
+- For fitted/chopped playback, use `playbackRate = pitchRate * fitRate`.
+- `fitRate` remains based on the selected source window / fitted source span, not note duration.
+- Explicit note pitch values transpose chopped slices.
+- For fitted chopped playback, sustain/envelope duration follows note duration without changing playback speed.
 
 **Acceptance criteria:**
 
 - [ ] Notes transpose fitted/chopped slices.
-- [ ] Explicit notes can intentionally create gaps/overlaps.
-- [ ] Pitched multisample source-key selection still works before chop/region mapping.
+- [ ] `playbackRate = pitchRate * fitRate`.
+- [ ] Changing explicit notes changes pitch/rate but not chop slice selection.
+- [ ] Chopped source-key selection still happens before region/chop mapping.
 
 ### Automated testing
 
-- [ ] Fluid explicit-notes precedence tests.
+- [ ] Fluid explicit-notes-over-chop-timing tests.
 - [ ] Engine playbackRate composition tests.
 - [ ] `pnpm --filter @web-audio/fluid test:ci`
 - [ ] `pnpm --filter @web-audio/audio-engine test:ci`
@@ -577,13 +584,13 @@ Tracer bullet: user-authored notes override defaults and pitch fitted/chopped sl
 ### Manual verification
 
 ```ts
-d.sample("break").bank("user").fit(2).chop(8).notes([0, 12]).push();
+d.sample("break").bank("user").fit(2).chop(8, [0, 3, 5, 1]).notes([0, 12]).push();
 ```
 
 Verify:
 
-- [ ] Explicit note rhythm replaces generated 8-note default rhythm.
-- [ ] Alternating notes audibly pitch slices.
+- [ ] Chop sequence rhythm/slice order remains intact.
+- [ ] Alternating notes audibly pitch triggered slices.
 - [ ] Fit still affects the base playback rate.
 
 ---
