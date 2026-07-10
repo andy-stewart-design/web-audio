@@ -8,7 +8,8 @@
     "format": "turbo run format",
     "check": "turbo run check",
     "test": "turbo run test:ci",
-    "test:watch": "turbo run test"
+    "test:watch": "turbo run test",
+    "deploy:web": "vercel --cwd apps/web --prod"
   },
   "devDependencies": {
     "prettier": "^3.8.3",
