@@ -191,6 +191,16 @@ d.loadSamples({
 d.sample("fart", 2).bank("effects").notes(0, null).gain(1.25).push();
 d.sample("bd").hex(0xf).push();
 
+// Complex sample chopping
+d.sample("breaks")
+  .bank("loops")
+  .start(0.25)
+  .end(0.75)
+  .fit(2)
+  .chop(4, [0, 2, 1, 3])
+  .notes([0, 12])
+  .push();
+
 // Multiple Variations
 d.sample("bd").var([0, 1, 2, 3]).bank("tr909").hex(0xf).push();
 
@@ -237,80 +247,32 @@ d.sample("hh")
   .gain(k ? [0.25, 0.175] : 0)
   .push();
 
-// from `drome` project (this should eventually work)
+// from `drome` project (this ~~should eventually~~ DOES work)
 d.bpm(127);
+
+const steps = d
+  .rand()
+  .int()
+  .rib([20, 13], 1)
+  .range(0, 7)
+  .steps(4)
+  .euclid(4, 8, 1);
 
 d.sample("breaks")
   .bank("loops")
   .fit(2)
-  .chop(8, d.rand.int().rib([20, 13], 1).range(0, 7).steps(4).euclid(4, 8, 1))
-  .gain(2)
+  .chop(8, steps)
+  .gain(d.env(0, 2).adsr(0, 0.75, 0, 0))
   .fx(d.hpf(600))
   .push();
 
-d.sample("bd:3").hex(0xf).push();
+d.sample("bd", 3).hex(0xf).push();
 
-d.sample("oh")
-  .hex(0x55)
-  .gain(0.375)
-  // .fx(d.pan(-1))
-  .push();
+d.sample("oh").hex(0x55).gain(0.375).push();
 
 d.sample("hh")
   .hex(0xff)
-  .gain(d.rand.rib(0, 4).range(0.125, 0.5).steps(8))
-  // .fx(d.pan(1))
+  .gain(d.rand().rib(0, 4).range(0.125, 0.5).steps(8))
   .push();
 
 d.sample("rim").euclid(5, 8, 1).gain(0.5).push();
-
-const ex1A = {
-  banks: {
-    acoustic: {
-      piano: {
-        a2: {
-          root: 45,
-          variations: ["file-01.wav", "file-02.wav"],
-        },
-        a3: {
-          root: 57,
-          variations: ["file-03.wav", "file-04.wav"],
-        },
-      },
-    },
-  },
-};
-
-const ex2A = {
-  banks: {
-    user: {
-      bd: {
-        0: {
-          root: 0,
-          variations: ["bd.wav"],
-        },
-      },
-    },
-  },
-};
-
-const ex1B = {
-  banks: {
-    acoustic: {
-      piano: {
-        45: ["file-01.wav", "file-02.wav"],
-        57: ["file-03.wav", "file-04.wav"],
-      },
-    },
-  },
-};
-
-const ex2B = {
-  banks: {
-    user: {
-      bd: {
-        0: ["bd.wav"],
-      },
-    },
-  },
-};

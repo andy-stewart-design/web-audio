@@ -8,6 +8,15 @@ class RandomCycle2 extends BinaryCycle {
   private _range: { min: number; max: number } | undefined;
   private _quantValue: number | undefined;
   private _algorithm: "xor" | "mulberry" = "xor";
+  public rib: (
+    seed: number | number[],
+    loop?: number | number[] | undefined,
+  ) => this;
+
+  constructor() {
+    super();
+    this.rib = this.ribbon.bind(this);
+  }
 
   steps(n: number) {
     this._cycle = [Array.from({ length: n }, () => 1)];

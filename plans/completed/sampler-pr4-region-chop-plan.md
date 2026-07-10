@@ -645,9 +645,9 @@ d.sample("break").bank("user").start(0.25).end(0.75).chop(4).push();
 
 Verify:
 
-- [ ] Only the middle half of the break is chopped.
-- [ ] The four slices are distributed across that middle-half window.
-- [ ] Dynamic start/end + chop examples throw clear Fluid errors.
+- [x] Only the middle half of the break is chopped.
+- [x] The four slices are distributed across that middle-half window.
+- [x] Dynamic start/end + chop examples throw clear Fluid errors.
 
 ---
 
@@ -670,22 +670,22 @@ Add coverage for:
 
 **Acceptance criteria:**
 
-- [ ] Pitched sprite chooses nearest source key, then maps chop within that sprite region.
-- [ ] Variation selection happens before region/chop mapping.
-- [ ] Shared sprite files still fetch once.
-- [ ] Preload behavior does not need region/chop awareness.
+- [x] Pitched sprite chooses nearest source key, then maps chop within that sprite region.
+- [x] Variation selection happens before region/chop mapping.
+- [x] Shared sprite files still fetch once.
+- [x] Preload behavior does not need region/chop awareness.
 
 ### Step 10.2 — Full verification
 
 Run:
 
-- [ ] `pnpm --filter @web-audio/schema exec tsc --noEmit`
-- [ ] `pnpm --filter @web-audio/fluid check`
-- [ ] `pnpm --filter @web-audio/fluid lint`
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine check`
-- [ ] `pnpm --filter @web-audio/audio-engine lint`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] `pnpm --filter @web-audio/schema exec tsc --noEmit`
+- [x] `pnpm --filter @web-audio/fluid check`
+- [x] `pnpm --filter @web-audio/fluid lint`
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine check`
+- [x] `pnpm --filter @web-audio/audio-engine lint`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ### Manual verification
 
@@ -695,19 +695,19 @@ Run these scenarios in the app:
 d.sample("fart").bank("effects").chop(4).push();
 ```
 
-- [ ] Sprite sample chops relative to its sprite region.
+- [x] Sprite sample chops relative to its sprite region.
 
 ```ts
 d.sample("piano").bank("acoustic").notes([45, 57, 60]).chop(2).push();
 ```
 
-- [ ] Pitched multisample selects expected source keys and chops each selected entry.
+- [x] Pitched multisample selects expected source keys and chops each selected entry.
 
 ```ts
 d.sample("harp").bank("sprites").fit(2).chop(4).push();
 ```
 
-- [ ] Pitched sprite/fitted chop works without double-applying sprite offsets.
+- [x] Pitched sprite/fitted chop works without double-applying sprite offsets.
 
 ```ts
 d.sample("break")
@@ -717,7 +717,7 @@ d.sample("break")
   .push();
 ```
 
-- [ ] Random fitted chop is musically usable and varies per trigger.
+- [x] Random fitted chop is musically usable and varies per trigger.
 
 ```ts
 d.sample("break")
@@ -729,7 +729,7 @@ d.sample("break")
   .push();
 ```
 
-- [ ] Start/end, fit, chop, and sequence reordering compose as expected.
+- [x] Start/end, fit, chop, and sequence reordering compose as expected.
 
 ---
 
