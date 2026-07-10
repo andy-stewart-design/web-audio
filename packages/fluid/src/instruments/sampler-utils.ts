@@ -176,13 +176,19 @@ function getDefaultNotes(
 
 function getStaticChopBounds(start: ParameterSchema, end: ParameterSchema) {
   if (start.type !== "static" || end.type !== "static") {
-    throw new Error("[Sampler] start() and end() must be static numbers when used with chop().");
+    throw new Error(
+      "[Sampler] start() and end() must be static numbers when used with chop().",
+    );
   }
   if (start.cycle.length !== 1 || end.cycle.length !== 1) {
-    throw new Error("[Sampler] start() and end() must be static numbers when used with chop().");
+    throw new Error(
+      "[Sampler] start() and end() must be static numbers when used with chop().",
+    );
   }
   if (start.cycle[0].length !== 1 || end.cycle[0].length !== 1) {
-    throw new Error("[Sampler] start() and end() must be static numbers when used with chop().");
+    throw new Error(
+      "[Sampler] start() and end() must be static numbers when used with chop().",
+    );
   }
 
   const startValue = start.cycle[0][0].value;
@@ -194,7 +200,9 @@ function getStaticChopBounds(start: ParameterSchema, end: ParameterSchema) {
     endValue > 1 ||
     startValue >= endValue
   ) {
-    throw new Error("[Sampler] start() and end() must satisfy 0 <= start < end <= 1 when used with chop().");
+    throw new Error(
+      "[Sampler] start() and end() must satisfy 0 <= start < end <= 1 when used with chop().",
+    );
   }
 
   return { start: startValue, end: endValue, duration: endValue - startValue };

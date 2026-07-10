@@ -631,9 +631,9 @@ describe("Drome", () => {
         ]);
         expect(inst.region.sequence.type).toBe("static");
         if (inst.region.sequence.type === "static") {
-          expect(inst.region.sequence.cycle[0].map((step) => step.value)).toEqual([
-            0, 1, 2, 3,
-          ]);
+          expect(
+            inst.region.sequence.cycle[0].map((step) => step.value),
+          ).toEqual([0, 1, 2, 3]);
         }
       }
     });
@@ -646,9 +646,9 @@ describe("Drome", () => {
       if (inst.region?.type === "chop") {
         expect(inst.region.sequence.type).toBe("static");
         if (inst.region.sequence.type === "static") {
-          expect(inst.region.sequence.cycle[0].map((step) => step.value)).toEqual([
-            0, 2, 1, 3,
-          ]);
+          expect(
+            inst.region.sequence.cycle[0].map((step) => step.value),
+          ).toEqual([0, 2, 1, 3]);
         }
       }
     });
@@ -678,9 +678,9 @@ describe("Drome", () => {
         expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
           0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875,
         ]);
-        expect(inst.notes.cycle[0].every((step) => step.duration === 0.125)).toBe(
-          true,
-        );
+        expect(
+          inst.notes.cycle[0].every((step) => step.duration === 0.125),
+        ).toBe(true);
       }
     });
 
@@ -719,10 +719,13 @@ describe("Drome", () => {
         "[Sampler] chop() sequence index 4 is outside [0, 3] and will wrap in the engine.",
       );
       expect(inst.region?.type).toBe("chop");
-      if (inst.region?.type === "chop" && inst.region.sequence.type === "static") {
-        expect(inst.region.sequence.cycle[0].map((step) => step.value)).toEqual([
-          -1, 4,
-        ]);
+      if (
+        inst.region?.type === "chop" &&
+        inst.region.sequence.type === "static"
+      ) {
+        expect(inst.region.sequence.cycle[0].map((step) => step.value)).toEqual(
+          [-1, 4],
+        );
       }
     });
 
@@ -777,10 +780,18 @@ describe("Drome", () => {
         expect(inst.notes.cycle).toHaveLength(2);
         expect(inst.notes.cycle[0]).toHaveLength(2);
         expect(inst.notes.cycle[1]).toHaveLength(2);
-        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([0, 0.5]);
-        expect(inst.notes.cycle[1].map((step) => step.offset)).toEqual([0, 0.5]);
-        expect(inst.notes.cycle[0].map((step) => step.stepIndex)).toEqual([0, 1]);
-        expect(inst.notes.cycle[1].map((step) => step.stepIndex)).toEqual([0, 1]);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+          0, 0.5,
+        ]);
+        expect(inst.notes.cycle[1].map((step) => step.offset)).toEqual([
+          0, 0.5,
+        ]);
+        expect(inst.notes.cycle[0].map((step) => step.stepIndex)).toEqual([
+          0, 1,
+        ]);
+        expect(inst.notes.cycle[1].map((step) => step.stepIndex)).toEqual([
+          0, 1,
+        ]);
       }
     });
 
@@ -794,7 +805,9 @@ describe("Drome", () => {
       if (inst.notes.type === "static") {
         expect(inst.notes.cycle).toHaveLength(1);
         expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
-        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([0, 0.5]);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+          0, 0.5,
+        ]);
         expect(inst.notes.cycle[0].map((step) => step.duration)).toEqual([
           0.5, 0.5,
         ]);
@@ -829,7 +842,10 @@ describe("Drome", () => {
 
     it("random chop sequence without steps expands to slice count", () => {
       const d = new Drome();
-      const inst = d.sample("bd").chop(8, d.rand().int().range(0, 7)).getSchema();
+      const inst = d
+        .sample("bd")
+        .chop(8, d.rand().int().range(0, 7))
+        .getSchema();
 
       expect(inst.notes.type).toBe("static");
       if (inst.notes.type === "static") {
@@ -840,9 +856,9 @@ describe("Drome", () => {
         expect(inst.region.sequence.type).toBe("random");
         if (inst.region.sequence.type === "random") {
           expect(inst.region.sequence.cycle.cycle[0]).toHaveLength(8);
-          expect(inst.region.sequence.cycle.cycle[0].map((step) => step.stepIndex)).toEqual([
-            0, 1, 2, 3, 4, 5, 6, 7,
-          ]);
+          expect(
+            inst.region.sequence.cycle.cycle[0].map((step) => step.stepIndex),
+          ).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
         }
       }
     });
@@ -923,7 +939,9 @@ describe("Drome", () => {
     it("invalid static start/end bounds are rejected with chop", () => {
       const d = new Drome();
 
-      expect(() => d.sample("bd").start(0.75).end(0.25).chop(4).getSchema()).toThrow(
+      expect(() =>
+        d.sample("bd").start(0.75).end(0.25).chop(4).getSchema(),
+      ).toThrow(
         "[Sampler] start() and end() must satisfy 0 <= start < end <= 1 when used with chop().",
       );
     });
@@ -1075,7 +1093,9 @@ describe("Drome", () => {
         expect(inst.fit).toEqual({ type: "fit", bars: 2 });
         expect(inst.notes.type).toBe("static");
         if (inst.notes.type === "static") {
-          expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+          expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([
+            0, 12,
+          ]);
         }
       }
     });
@@ -1083,9 +1103,15 @@ describe("Drome", () => {
     it("fit() requires a positive integer", () => {
       const d = new Drome();
 
-      expect(() => d.sample("bd").fit(1.5)).toThrow("[Sampler] fit() bars must be a positive integer.");
-      expect(() => d.sample("bd").fit(0)).toThrow("[Sampler] fit() bars must be a positive integer.");
-      expect(() => d.sample("bd").fit(-1)).toThrow("[Sampler] fit() bars must be a positive integer.");
+      expect(() => d.sample("bd").fit(1.5)).toThrow(
+        "[Sampler] fit() bars must be a positive integer.",
+      );
+      expect(() => d.sample("bd").fit(0)).toThrow(
+        "[Sampler] fit() bars must be a positive integer.",
+      );
+      expect(() => d.sample("bd").fit(-1)).toThrow(
+        "[Sampler] fit() bars must be a positive integer.",
+      );
     });
   });
 
