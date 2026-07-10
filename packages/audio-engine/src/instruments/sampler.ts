@@ -82,9 +82,6 @@ class Sampler extends Instrument {
     this._updateLfoParams(barIndex, barStartTime);
 
     switch (this._schema.notes.type) {
-      case "fit":
-        this._scheduleFitBar(barIndex, barStartTime);
-        return;
       case "random":
         this._scheduleRandomBar(barIndex, barStartTime);
         return;
@@ -92,53 +89,6 @@ class Sampler extends Instrument {
         this._scheduleSequenceBar(barIndex, barStartTime);
         return;
     }
-  }
-
-  private _scheduleFitBar(barIndex: number, barStartTime: number) {
-    const notes = this._schema.notes;
-    if (notes.type !== "fit") return;
-
-    // Only trigger at the start of each N-bar window
-    if (barIndex % notes.bars !== 0) return;
-
-    const variationIndex = this._resolveVariationIndex(barIndex, 0);
-    const playbackSource = this._bufferStore.getPlaybackSource(
-      variationIndex,
-      barIndex,
-      0,
-    );
-    if (!playbackSource) return;
-    const { buffer, entry } = playbackSource;
-
-    const barDuration = this._clock.barDuration;
-    const sourceDuration =
-      entry.type === "sprite"
-        ? (entry.end - entry.start) * buffer.duration
-        : buffer.duration;
-    const playbackRate = sourceDuration / (notes.bars * barDuration);
-    const fitDuration = notes.bars * barDuration;
-
-    const source = new AudioBufferSourceNode(this._ctx, {
-      buffer,
-      playbackRate,
-      loop: this._schema.loop,
-    });
-
-    this._scheduleVoice({
-      source,
-      gainEnvelope: this._schema.gain,
-      effects: this._schema.effects,
-      note: {
-        barIndex,
-        stepIndex: 0,
-        startTime: barStartTime,
-        duration: fitDuration,
-        endTime: barStartTime + fitDuration,
-      },
-      stopTime: barStartTime + fitDuration,
-      offset:
-        entry.type === "sprite" ? entry.start * buffer.duration : undefined,
-    });
   }
 
   private _scheduleRandomBar(barIndex: number, barStartTime: number) {
@@ -151,7 +101,7 @@ class Sampler extends Instrument {
       if (step.value === 0) return;
       const noteValue = this._resolve(notes, barIndex, stepIndex);
       const sourceKey = this._nearestSourceKey(noteValue);
-      const playbackRate = this._playbackRate(noteValue, sourceKey);
+      const pitchRate = this._pitchRate(noteValue, sourceKey);
       const variationIndex = this._resolveVariationIndex(barIndex, stepIndex);
       const playbackSource = this._bufferStore.getPlaybackSource(
         variationIndex,
@@ -161,7 +111,7 @@ class Sampler extends Instrument {
       if (!playbackSource) return;
       this._scheduleSampleNote(
         playbackSource,
-        { ...step, value: playbackRate },
+        { ...step, value: pitchRate },
         barStartTime,
         barIndex,
       );
@@ -175,7 +125,7 @@ class Sampler extends Instrument {
     const notesBar = notes.cycle[barIndex % notes.cycle.length];
     notesBar.forEach((note) => {
       const sourceKey = this._nearestSourceKey(note.value);
-      const playbackRate = this._playbackRate(note.value, sourceKey);
+      const pitchRate = this._pitchRate(note.value, sourceKey);
       const variationIndex = this._resolveVariationIndex(
         barIndex,
         note.stepIndex,
@@ -188,7 +138,7 @@ class Sampler extends Instrument {
       if (!playbackSource) return;
       this._scheduleSampleNote(
         playbackSource,
-        { ...note, value: playbackRate },
+        { ...note, value: pitchRate },
         barStartTime,
         barIndex,
       );
@@ -205,18 +155,23 @@ class Sampler extends Instrument {
     const barDuration = this._clock.barDuration;
     const startTime = barStartTime + note.offset * barDuration;
     const scheduledDuration = note.duration * barDuration;
-    const offset =
-      entry.type === "sprite" ? entry.start * buffer.duration : undefined;
-    const sourceDuration =
-      entry.type === "sprite"
-        ? ((entry.end - entry.start) * buffer.duration) / note.value
-        : buffer.duration / note.value;
+    const sourceWindow = this._resolveSourceWindow(
+      buffer,
+      entry,
+      barIndex,
+      note.stepIndex,
+    );
+    if (!sourceWindow) return;
+
+    const fitRate = this._fitRate(sourceWindow.fitDuration);
+    const playbackRate = note.value * fitRate;
+    const playbackDuration = sourceWindow.duration / playbackRate;
     const duration =
       this._schema.clipMode === "one-shot" && !this._schema.loop
-        ? sourceDuration
-        : entry.type === "sprite"
-          ? Math.min(scheduledDuration, sourceDuration)
-          : scheduledDuration;
+        ? playbackDuration
+        : sourceWindow.isFittedChop
+          ? scheduledDuration
+          : Math.min(scheduledDuration, playbackDuration);
     const endTime = startTime + duration;
 
     const detune = this._resolveDetune(
@@ -227,7 +182,7 @@ class Sampler extends Instrument {
 
     const source = new AudioBufferSourceNode(this._ctx, {
       buffer,
-      playbackRate: note.value,
+      playbackRate,
       detune: detune.value,
       loop: this._schema.loop,
     });
@@ -247,7 +202,7 @@ class Sampler extends Instrument {
         duration,
         endTime,
       },
-      offset,
+      offset: sourceWindow.offset,
     });
   }
 
@@ -257,8 +212,81 @@ class Sampler extends Instrument {
     );
   }
 
-  private _playbackRate(note: number, sourceKey: number) {
+  private _pitchRate(note: number, sourceKey: number) {
     return Math.pow(2, (note - sourceKey) / 12);
+  }
+
+  private _fitRate(sourceDuration: number) {
+    if (!this._schema.fit) return 1;
+    return sourceDuration / (this._schema.fit.bars * this._clock.barDuration);
+  }
+
+  private _resolveSourceWindow(
+    buffer: AudioBuffer,
+    entry: SampleVariationSchema,
+    barIndex: number,
+    stepIndex: number,
+  ) {
+    const entryStart = entry.type === "sprite" ? entry.start : 0;
+    const entryEnd = entry.type === "sprite" ? entry.end : 1;
+    const entryDuration = entryEnd - entryStart;
+
+    let regionStart = 0;
+    let regionEnd = 1;
+    if (this._schema.region?.type === "static") {
+      const clamp = (value: number) => Math.min(1, Math.max(0, value));
+      regionStart = clamp(
+        this._resolve(this._schema.region.start, barIndex, stepIndex),
+      );
+      regionEnd = clamp(
+        this._resolve(this._schema.region.end, barIndex, stepIndex),
+      );
+    } else if (this._schema.region?.type === "chop") {
+      const { slices, sequence } = this._schema.region;
+      if (slices.length === 0) return null;
+
+      const rawIndex = Math.trunc(this._resolve(sequence, barIndex, stepIndex));
+      const sliceIndex =
+        ((rawIndex % slices.length) + slices.length) % slices.length;
+      const slice = slices[sliceIndex];
+      regionStart = slice.start;
+      regionEnd = slice.end;
+    }
+
+    if (regionEnd <= regionStart) {
+      console.warn(
+        `[Sampler] Skipping note with invalid region window start=${regionStart}, end=${regionEnd}.`,
+      );
+      return null;
+    }
+
+    const normalizedStart = entryStart + regionStart * entryDuration;
+    const normalizedEnd = entryStart + regionEnd * entryDuration;
+
+    const fitDuration =
+      this._schema.region?.type === "chop"
+        ? this._chopFitDuration(entryDuration * buffer.duration)
+        : (normalizedEnd - normalizedStart) * buffer.duration;
+
+    return {
+      offset:
+        entry.type === "file" && !this._schema.region
+          ? undefined
+          : normalizedStart * buffer.duration,
+      duration: (normalizedEnd - normalizedStart) * buffer.duration,
+      fitDuration,
+      isFittedChop: this._schema.region?.type === "chop" && !!this._schema.fit,
+    };
+  }
+
+  private _chopFitDuration(entrySourceDuration: number) {
+    if (this._schema.region?.type !== "chop") return entrySourceDuration;
+
+    const starts = this._schema.region.slices.map((slice) => slice.start);
+    const ends = this._schema.region.slices.map((slice) => slice.end);
+    const start = Math.min(...starts);
+    const end = Math.max(...ends);
+    return (end - start) * entrySourceDuration;
   }
 
   private _resolveVariationIndex(barIndex: number, stepIndex: number): number {

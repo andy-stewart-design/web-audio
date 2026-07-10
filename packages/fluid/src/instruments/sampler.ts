@@ -1,7 +1,21 @@
 import SampleNotes from "@/patterns/sample-notes";
 import Parameter from "@/patterns/parameter";
 import type { CycleInput } from "@/types";
-import type { ClipMode, FitSchema, SamplerSchema } from "@web-audio/schema";
+import type {
+  ClipMode,
+  FitSchema,
+  ParameterSchema,
+  SamplerSchema,
+} from "@web-audio/schema";
+import {
+  getChopSequenceSchema,
+  getDefaultNotesForSequence,
+  getDefaultNotes,
+  getNotesForChopTiming,
+  getRegion,
+  getSourceKeys,
+  type ChopState,
+} from "./sampler-utils";
 import { DEFAULT_BANK } from "@/banks";
 import Instrument from "./instrument";
 import type Drome from "@/index";
@@ -16,6 +30,10 @@ class Sampler extends Instrument {
   private _sample: string;
   private _variation: Parameter;
   private _fit: FitSchema | null = null;
+  private _regionStart: Parameter | null = null;
+  private _regionEnd: Parameter | null = null;
+  private _chop: ChopState | null = null;
+  private _explicitNotes = false;
   private _loop = false;
   private _clipMode: ClipMode = "clipped";
 
@@ -47,13 +65,41 @@ class Sampler extends Instrument {
   }
 
   fit(bars: number) {
+    if (!Number.isInteger(bars) || bars <= 0) {
+      throw new Error("[Sampler] fit() bars must be a positive integer.");
+    }
+
     this._fit = { type: "fit", bars };
     return this;
   }
 
   notes(...input: Parameters<Instrument["notes"]>) {
-    this._fit = null;
+    this._explicitNotes = true;
     return super.notes(...input);
+  }
+
+  start(...input: CycleInput) {
+    this._regionStart = new Parameter(...input);
+    return this;
+  }
+
+  end(...input: CycleInput) {
+    this._regionEnd = new Parameter(...input);
+    return this;
+  }
+
+  chop(sliceCount: number, ...sequence: CycleInput) {
+    if (!Number.isInteger(sliceCount) || sliceCount <= 0) {
+      throw new Error(
+        "[Sampler] chop() sliceCount must be a positive integer.",
+      );
+    }
+
+    this._chop = {
+      sliceCount,
+      sequence: sequence.length > 0 ? new Parameter(...sequence) : null,
+    };
+    return this;
   }
 
   loop(enabled = true) {
@@ -66,46 +112,71 @@ class Sampler extends Instrument {
     return this;
   }
 
-  private _getSourceKeys() {
-    const bank = this._host?._resolveBank(this._bank);
-    if (!bank) {
-      console.warn(
-        `[Sampler] Bank "${this._bank}" not found — did you forget to call loadSamples()? ` +
-          "Defaulting to sourceKeys: [0]. This sampler will not produce audio.",
-      );
-      return [0];
+  private _getGeneratedFit() {
+    const hasRegion = this._regionStart || this._regionEnd;
+    const unfit = this._explicitNotes || this._chop || hasRegion;
+    if (unfit) return null;
+    return this._fit;
+  }
+
+  private _getNotes(sourceKeys: number[]): ParameterSchema {
+    if (this._chop) {
+      const sequence = this._chop.sequence
+        ? getChopSequenceSchema(this._chop)
+        : null;
+      if (this._explicitNotes && sequence) {
+        const notes = this._cycle.getSchema();
+        if (notes.type === "static" && sequence.type === "static") {
+          return getNotesForChopTiming(notes, sequence);
+        }
+      }
+
+      if (!this._explicitNotes) {
+        const noteValue = sourceKeys[0] ?? 0;
+        if (sequence) {
+          return getDefaultNotesForSequence(noteValue, sequence, this._chop);
+        }
+
+        return getDefaultNotes(
+          noteValue,
+          this._chop.sliceCount,
+          this._fit?.bars ?? 1,
+          { globalStepIndex: true },
+        );
+      }
     }
 
-    const sample = bank.samples[this._sample];
-    if (!sample) {
-      console.warn(
-        `[Sampler] Sample "${this._sample}" not found in bank "${this._bank}". ` +
-          "Defaulting to sourceKeys: [0]. This sampler will not produce audio.",
+    const generatedFit = this._getGeneratedFit();
+    if (generatedFit) {
+      return getDefaultNotes(
+        sourceKeys[0] ?? 0,
+        generatedFit.bars,
+        generatedFit.bars,
       );
-      return [0];
     }
 
-    return Object.keys(sample)
-      .map(Number)
-      .sort((a, b) => a - b);
+    return this._cycle.getSchema();
   }
 
   getSchema(): SamplerSchema {
-    const sourceKeys = this._getSourceKeys();
+    const sourceKeys = getSourceKeys(this._bank, this._sample, this._host);
 
-    if (this._fit && !(sourceKeys.length === 1 && sourceKeys[0] === 0)) {
-      throw new Error(
-        `[Sampler] fit() is only valid for unpitched samples (sourceKeys: [0]). ` +
-          `"${this._bank}/${this._sample}" has sourceKeys: [${sourceKeys.join(", ")}].`,
-      );
-    }
+    const region = getRegion(
+      this._getGeneratedFit(),
+      this._chop,
+      this._regionStart,
+      this._regionEnd,
+    );
+    const notes = this._getNotes(sourceKeys);
 
     return {
       type: "sampler",
       bank: this._bank,
       sample: this._sample,
       variation: this._variation.getSchema(),
-      notes: this._fit ?? this._cycle.getSchema(),
+      notes,
+      fit: this._fit,
+      region,
       sourceKeys,
       detune: this._detune.getSchema(),
       gain: this._gain.getSchema(),

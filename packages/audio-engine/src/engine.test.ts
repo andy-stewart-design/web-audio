@@ -116,6 +116,8 @@ function makeSamplerSchema(): DromeSchema {
           polyphonic: false,
           cycle: [[{ value: 1, offset: 0, duration: 1, stepIndex: 0 }]],
         },
+        fit: null,
+        region: null,
         sourceKeys: [0],
         detune: {
           type: "static",

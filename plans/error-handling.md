@@ -1,0 +1,1 @@
+- right now, when a chopped sample sequence index is out of range, we do console.warn. I want to find a way to elevate these types of messages so that we can show them in the ui console as well.

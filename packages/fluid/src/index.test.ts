@@ -290,6 +290,8 @@ describe("Drome", () => {
         expect(inst.clipMode).toBe("clipped");
         expect(inst.variation.type).toBe("static");
         expect(inst.notes).not.toHaveProperty("type", "fit");
+        expect(inst.fit).toBeNull();
+        expect(inst.region).toBeNull();
       }
       expect(schema.banks).toHaveProperty("tr909");
       expect(schema.banks.tr909.samples.bd["0"][0].type).toBe("file");
@@ -368,7 +370,9 @@ describe("Drome", () => {
 
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
-        expect(inst.notes).toEqual({ type: "fit", bars: 2 });
+        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+        expect(inst.notes.type).toBe("static");
+        expect(inst.region?.type).toBe("chop");
         expect(inst.loop).toBe(true);
       }
     });
@@ -536,6 +540,483 @@ describe("Drome", () => {
       }
     });
 
+    it("start(0.25) emits static region with end defaulting to 1", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").start(0.25).getSchema();
+
+      expect(inst.region?.type).toBe("static");
+      if (inst.region?.type === "static") {
+        expect(inst.region.start.type).toBe("static");
+        expect(inst.region.end.type).toBe("static");
+        if (inst.region.start.type === "static") {
+          expect(inst.region.start.cycle[0][0].value).toBe(0.25);
+        }
+        if (inst.region.end.type === "static") {
+          expect(inst.region.end.cycle[0][0].value).toBe(1);
+        }
+      }
+    });
+
+    it("end(0.75) emits static region with start defaulting to 0", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").end(0.75).getSchema();
+
+      expect(inst.region?.type).toBe("static");
+      if (inst.region?.type === "static") {
+        expect(inst.region.start.type).toBe("static");
+        expect(inst.region.end.type).toBe("static");
+        if (inst.region.start.type === "static") {
+          expect(inst.region.start.cycle[0][0].value).toBe(0);
+        }
+        if (inst.region.end.type === "static") {
+          expect(inst.region.end.cycle[0][0].value).toBe(0.75);
+        }
+      }
+    });
+
+    it("start() accepts cycling values", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").start([0, 0.25]).getSchema();
+
+      expect(inst.region?.type).toBe("static");
+      if (inst.region?.type === "static") {
+        expect(inst.region.start.type).toBe("static");
+        if (inst.region.start.type === "static") {
+          expect(inst.region.start.cycle[0].map((step) => step.value)).toEqual([
+            0, 0.25,
+          ]);
+        }
+      }
+    });
+
+    it("start/end scalar bounds must be ordered", () => {
+      const d = new Drome();
+      expect(() => d.sample("bd").start(0.75).end(0.25).getSchema()).toThrow(
+        "[Sampler] start() must be less than end().",
+      );
+    });
+
+    it("start/end numeric values must be in [0, 1]", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").start(-0.1).getSchema()).toThrow(
+        "[Sampler] start() values must be finite numbers in [0, 1].",
+      );
+      expect(() => d.sample("bd").end(1.1).getSchema()).toThrow(
+        "[Sampler] end() values must be finite numbers in [0, 1].",
+      );
+    });
+
+    it("start/end random ranges outside [0, 1] warn", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const d = new Drome();
+      d.sample("bd").start(d.rand().range(-0.5, 0.5)).getSchema();
+
+      expect(warn).toHaveBeenCalledWith(
+        "[Sampler] start() random range is outside [0, 1]; resolved values will be clamped by the engine.",
+      );
+    });
+
+    it("chop(4) emits natural slices and default sequence", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").chop(4).getSchema();
+
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.slices).toEqual([
+          { start: 0, end: 0.25 },
+          { start: 0.25, end: 0.5 },
+          { start: 0.5, end: 0.75 },
+          { start: 0.75, end: 1 },
+        ]);
+        expect(inst.region.sequence.type).toBe("static");
+        if (inst.region.sequence.type === "static") {
+          expect(inst.region.sequence.cycle[0].map((step) => step.value)).toEqual([
+            0, 1, 2, 3,
+          ]);
+        }
+      }
+    });
+
+    it("chop(4, [0, 2, 1, 3]) preserves authored sequence", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").chop(4, [0, 2, 1, 3]).getSchema();
+
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.sequence.type).toBe("static");
+        if (inst.region.sequence.type === "static") {
+          expect(inst.region.sequence.cycle[0].map((step) => step.value)).toEqual([
+            0, 2, 1, 3,
+          ]);
+        }
+      }
+    });
+
+    it("chop() requires a positive integer slice count", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").chop(0)).toThrow(
+        "[Sampler] chop() sliceCount must be a positive integer.",
+      );
+      expect(() => d.sample("bd").chop(-1)).toThrow(
+        "[Sampler] chop() sliceCount must be a positive integer.",
+      );
+      expect(() => d.sample("bd").chop(1.5)).toThrow(
+        "[Sampler] chop() sliceCount must be a positive integer.",
+      );
+    });
+
+    it("chop(8) without explicit notes emits 8 default notes over 1 bar", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").chop(8).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toHaveLength(1);
+        expect(inst.notes.cycle[0]).toHaveLength(8);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+          0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875,
+        ]);
+        expect(inst.notes.cycle[0].every((step) => step.duration === 0.125)).toBe(
+          true,
+        );
+      }
+    });
+
+    it("chop() default notes use authored sequence step count", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").chop(8, [0, 2, 1, 3]).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0]).toHaveLength(4);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+          0, 0.25, 0.5, 0.75,
+        ]);
+      }
+    });
+
+    it("explicit notes override generated chop notes", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").chop(8).notes([0, 12]).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+      }
+    });
+
+    it("chop() warns for static out-of-range sequence values and preserves them", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const d = new Drome();
+      const inst = d.sample("bd").chop(4, [-1, 4]).getSchema();
+
+      expect(warn).toHaveBeenCalledWith(
+        "[Sampler] chop() sequence index -1 is outside [0, 3] and will wrap in the engine.",
+      );
+      expect(warn).toHaveBeenCalledWith(
+        "[Sampler] chop() sequence index 4 is outside [0, 3] and will wrap in the engine.",
+      );
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop" && inst.region.sequence.type === "static") {
+        expect(inst.region.sequence.cycle[0].map((step) => step.value)).toEqual([
+          -1, 4,
+        ]);
+      }
+    });
+
+    it("fit(2).chop(8) emits 8 generated notes over 2 bars", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).chop(8).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toHaveLength(2);
+        expect(inst.notes.cycle[0]).toHaveLength(4);
+        expect(inst.notes.cycle[1]).toHaveLength(4);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+          0, 0.25, 0.5, 0.75,
+        ]);
+        expect(inst.notes.cycle[1].map((step) => step.offset)).toEqual([
+          0, 0.25, 0.5, 0.75,
+        ]);
+        expect(inst.notes.cycle.flat().map((step) => step.stepIndex)).toEqual([
+          0, 1, 2, 3, 4, 5, 6, 7,
+        ]);
+      }
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.slices).toHaveLength(8);
+      }
+    });
+
+    it("fit(2).chop(8, [0, 2, 1, 3]) preserves the authored one-bar pattern", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).chop(8, [0, 2, 1, 3]).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toHaveLength(1);
+        expect(inst.notes.cycle[0]).toHaveLength(4);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+          0, 0.25, 0.5, 0.75,
+        ]);
+        expect(inst.notes.cycle[0].map((step) => step.stepIndex)).toEqual([
+          0, 1, 2, 3,
+        ]);
+      }
+    });
+
+    it("fit(2).chop(8, [0, 2], [1, 3]) preserves the authored two-bar pattern", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).chop(8, [0, 2], [1, 3]).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toHaveLength(2);
+        expect(inst.notes.cycle[0]).toHaveLength(2);
+        expect(inst.notes.cycle[1]).toHaveLength(2);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([0, 0.5]);
+        expect(inst.notes.cycle[1].map((step) => step.offset)).toEqual([0, 0.5]);
+        expect(inst.notes.cycle[0].map((step) => step.stepIndex)).toEqual([0, 1]);
+        expect(inst.notes.cycle[1].map((step) => step.stepIndex)).toEqual([0, 1]);
+      }
+    });
+
+    it("fit with explicit notes preserves explicit note timing and fit", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).notes([0, 12]).getSchema();
+
+      expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+      expect(inst.region).toBeNull();
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toHaveLength(1);
+        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([0, 0.5]);
+        expect(inst.notes.cycle[0].map((step) => step.duration)).toEqual([
+          0.5, 0.5,
+        ]);
+      }
+    });
+
+    it("explicit notes provide pitch values over chop timing", () => {
+      const d = new Drome();
+      const inst = d
+        .sample("bd")
+        .fit(2)
+        .chop(8, [0, 3, 5, 1])
+        .notes([0, 12])
+        .getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toHaveLength(1);
+        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([
+          0, 12, 0, 12,
+        ]);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+          0, 0.25, 0.5, 0.75,
+        ]);
+        expect(inst.notes.cycle[0].map((step) => step.duration)).toEqual([
+          0.25, 0.25, 0.25, 0.25,
+        ]);
+      }
+      expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+      expect(inst.region?.type).toBe("chop");
+    });
+
+    it("random chop sequence without steps expands to slice count", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").chop(8, d.rand().int().range(0, 7)).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0]).toHaveLength(8);
+      }
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.sequence.type).toBe("random");
+        if (inst.region.sequence.type === "random") {
+          expect(inst.region.sequence.cycle.cycle[0]).toHaveLength(8);
+          expect(inst.region.sequence.cycle.cycle[0].map((step) => step.stepIndex)).toEqual([
+            0, 1, 2, 3, 4, 5, 6, 7,
+          ]);
+        }
+      }
+    });
+
+    it("random chop sequence with steps preserves explicit step count", () => {
+      const d = new Drome();
+      const inst = d
+        .sample("bd")
+        .chop(8, d.rand().int().range(0, 7).steps(4))
+        .getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0]).toHaveLength(4);
+      }
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.sequence.type).toBe("random");
+        if (inst.region.sequence.type === "random") {
+          expect(inst.region.sequence.cycle.cycle[0]).toHaveLength(4);
+        }
+      }
+    });
+
+    it("single explicit note repeats over chop timing", () => {
+      const d = new Drome();
+      const inst = d
+        .sample("bd")
+        .fit(2)
+        .chop(8, [0, 3, 5, 1])
+        .notes([0])
+        .getSchema();
+
+      expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+      expect(inst.region?.type).toBe("chop");
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([
+          0, 0, 0, 0,
+        ]);
+        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+          0, 0.25, 0.5, 0.75,
+        ]);
+      }
+    });
+
+    it("start/end with chop precomputes bounded slices", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").start(0.25).end(0.75).chop(4).getSchema();
+
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.slices).toEqual([
+          { start: 0.25, end: 0.375 },
+          { start: 0.375, end: 0.5 },
+          { start: 0.5, end: 0.625 },
+          { start: 0.625, end: 0.75 },
+        ]);
+      }
+    });
+
+    it("dynamic start/end are rejected with chop regardless of chaining order", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").start([0, 0.5]).chop(4).getSchema()).toThrow(
+        "[Sampler] start() and end() must be static numbers when used with chop().",
+      );
+      expect(() => d.sample("bd").chop(4).start([0, 0.5]).getSchema()).toThrow(
+        "[Sampler] start() and end() must be static numbers when used with chop().",
+      );
+      expect(() =>
+        d.sample("bd").start(d.rand().range(0, 0.5)).chop(4).getSchema(),
+      ).toThrow(
+        "[Sampler] start() and end() must be static numbers when used with chop().",
+      );
+    });
+
+    it("invalid static start/end bounds are rejected with chop", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").start(0.75).end(0.25).chop(4).getSchema()).toThrow(
+        "[Sampler] start() and end() must satisfy 0 <= start < end <= 1 when used with chop().",
+      );
+    });
+
+    it("explicit chop suppresses implicit fit-only chop region", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).chop(8).getSchema();
+
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.slices).toHaveLength(8);
+      }
+    });
+
+    it("fit(2) without explicit notes or region emits generated notes and chop region", () => {
+      const d = new Drome();
+      d.loadSamples({ loop: ["loop.wav"] });
+      const inst = d.sample("loop").bank("user").fit(2).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toEqual([
+          [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+          [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+        ]);
+      }
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.slices).toEqual([
+          { start: 0, end: 0.5 },
+          { start: 0.5, end: 1 },
+        ]);
+        expect(inst.region.sequence.type).toBe("static");
+        if (inst.region.sequence.type === "static") {
+          expect(inst.region.sequence.cycle).toEqual([
+            [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+            [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
+          ]);
+        }
+      }
+    });
+
+    it("fit(3) without explicit notes or region emits thirds across three bars", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(3).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle).toHaveLength(3);
+      }
+      expect(inst.region?.type).toBe("chop");
+      if (inst.region?.type === "chop") {
+        expect(inst.region.slices).toEqual([
+          { start: 0, end: 1 / 3 },
+          { start: 1 / 3, end: 2 / 3 },
+          { start: 2 / 3, end: 1 },
+        ]);
+      }
+    });
+
+    it("fit() generated default notes use the lowest source key", () => {
+      const d = new Drome();
+      d.loadSamples({
+        bank: "acoustic",
+        samples: { piano: { a2: ["a2.wav"], a3: ["a3.wav"] } },
+      });
+      const inst = d.sample("piano").bank("acoustic").fit(2).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0][0].value).toBe(45);
+        expect(inst.notes.cycle[1][0].value).toBe(45);
+      }
+    });
+
+    it("explicit notes suppress fit default notes and implicit fit region", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).notes([0, 12]).getSchema();
+
+      expect(inst.notes.type).toBe("static");
+      if (inst.notes.type === "static") {
+        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+      }
+      expect(inst.region).toBeNull();
+    });
+
+    it("explicit region suppresses implicit fit region", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).start(0.25).getSchema();
+
+      expect(inst.region?.type).toBe("static");
+    });
+
     it("fit() succeeds for simple samples with sourceKeys [0]", () => {
       const d = new Drome();
       d.loadSamples({ loop: ["loop.wav"] });
@@ -545,7 +1026,8 @@ describe("Drome", () => {
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
         expect(inst.sourceKeys).toEqual([0]);
-        expect(inst.notes).toEqual({ type: "fit", bars: 2 });
+        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+        expect(inst.notes.type).toBe("static");
       }
     });
 
@@ -562,21 +1044,48 @@ describe("Drome", () => {
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
         expect(inst.sourceKeys).toEqual([0]);
-        expect(inst.notes).toEqual({ type: "fit", bars: 2 });
+        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+        expect(inst.notes.type).toBe("static");
       }
     });
 
-    it("fit() throws for pitched multisamples", () => {
+    it("fit() succeeds for pitched multisamples", () => {
       const d = new Drome();
       d.loadSamples({
         bank: "acoustic",
         samples: { piano: { a2: ["a2.wav"], a3: ["a3.wav"] } },
       });
       d.sample("piano").bank("acoustic").fit(2).push();
+      const inst = d.getSchema().instruments[0];
 
-      expect(() => d.getSchema()).toThrow(
-        '[Sampler] fit() is only valid for unpitched samples (sourceKeys: [0]). "acoustic/piano" has sourceKeys: [45, 57].',
-      );
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.sourceKeys).toEqual([45, 57]);
+        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+      }
+    });
+
+    it("notes() does not clear fit", () => {
+      const d = new Drome();
+      d.sample("bd").fit(2).notes([0, 12]).push();
+      const inst = d.getSchema().instruments[0];
+
+      expect(inst.type).toBe("sampler");
+      if (inst.type === "sampler") {
+        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+        expect(inst.notes.type).toBe("static");
+        if (inst.notes.type === "static") {
+          expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+        }
+      }
+    });
+
+    it("fit() requires a positive integer", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").fit(1.5)).toThrow("[Sampler] fit() bars must be a positive integer.");
+      expect(() => d.sample("bd").fit(0)).toThrow("[Sampler] fit() bars must be a positive integer.");
+      expect(() => d.sample("bd").fit(-1)).toThrow("[Sampler] fit() bars must be a positive integer.");
     });
   });
 
