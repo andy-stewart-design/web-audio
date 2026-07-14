@@ -19,14 +19,16 @@ MIDI note input driving AudioEngine voices, MIDI-controlled envelope values, and
 - Public MIDI channels are 1–16; MIDI status-byte encoding uses `channel - 1`.
 - A port selector string resolves as an exact, case-sensitive ID first, then an exact name.
 - Runtime `Midi` construction immediately requests access; applications control prompt timing by constructing it only after a user gesture.
-- `Midi.status` represents API access; connected input/output lists represent physical port availability.
+- `Midi.status` represents API access and terminal destruction; connected input/output lists represent physical port availability.
 - Signals deliver their current value immediately on subscription and future updates thereafter.
 - Input dispatch is centralized: one message listener per connected input port, never one DOM listener per signal.
 - CC values are normalized 0–1. Fluid supplies contextual range/default values when authors omit them; the future diagnostics system, not MIDI-local `console.warn`, will report implicit defaults.
 - CC v1 applies only to direct AudioParam slots: filter frequency/Q/detune/gain, gain-effect gain, and instrument detune.
 - MIDI output is additive, but V1 supports it on synthesizers only. `.mute()` remains general to all instruments.
-- MIDI output resolves a concrete port for each logical note-on and retains it for the paired note-off.
-- Transport stop, MIDI replacement, and engine destruction clear queued output sends and send All Notes Off. This assumes the engine owns its output port/channel.
+- MIDI output resolves an opaque concrete port handle for each logical note-on and retains it for the paired note-off.
+- Logical MIDI output events are sorted by timestamp before overlap accounting; note-off precedes note-on at equal timestamps.
+- Transport stop, MIDI replacement, and engine destruction clear queued output sends and send All Notes Off. This assumes the engine exclusively owns each configured output port’s queue.
+- A dedicated AudioEngine-internal `MidiOutputScheduler` owns rolling MIDI dispatch, concrete-port resolution, overlap accounting, and output cleanup; synths only submit logical notes to it.
 - Instrument lifecycle gains explicit `retire()` and `destroy()` hooks so real-time bindings can end immediately while audio release tails continue.
 
 ---
@@ -47,7 +49,13 @@ interface Signal<T> {
   subscribe(fn: (value: T) => void): () => void;
 }
 
-type MidiStatus = "pending" | "connected" | "denied" | "unavailable" | "error";
+type MidiStatus =
+  | "pending"
+  | "connected"
+  | "denied"
+  | "unavailable"
+  | "error"
+  | "destroyed";
 
 type MidiDevice = { id: string; name: string | null };
 
@@ -64,9 +72,9 @@ Requirements:
 - subscriptions receive the current value immediately, then later emissions;
 - unsubscription is idempotent;
 - emitted collection state is a new snapshot on each change; do not promise runtime immutability beyond the TypeScript `ReadonlySet` API unless a later shared collection abstraction is introduced;
-- `CcSignal` exposes normalized `value`, `raw`, `hasValue`, `deviceId`, and `channel`;
+- `CcSignal` initial state is `value: 0`, `raw: 0`, `hasValue: false`, `deviceId: null`, and `channel: null`; metadata identifies the latest accepted matching message after one arrives;
 - input-builder methods are immutable: `.channel(1)` returns a distinct canonical scoped signal and never mutates the unscoped signal;
-- repeated calls with the same complete selector/CC/channel key return the same signal instance.
+- cache identity is the requested selector string (or unscoped), input kind, CC number where applicable, and channel—not a currently resolved physical port.
 
 **Acceptance criteria:**
 
@@ -95,7 +103,8 @@ Requirements:
 - input disconnect removes that port’s held notes but retains prior CC values;
 - if destruction occurs before access resolves, the later resolution must not attach listeners or update a destroyed instance;
 - define `ready` destruction behavior: reject it with a destruction error if unsettled; retain its settled result otherwise;
-- post-destroy operations are no-ops and report through the future diagnostics hook/temporary documented behavior, not uncaught exceptions.
+- destruction emits `status: "destroyed"` and empty input/output snapshots while retaining subscribers long enough to observe the terminal state;
+- protocol validation still throws after destruction; valid runtime operations return their documented no-op/failure result.
 
 **Acceptance criteria:**
 
@@ -154,11 +163,28 @@ Requirements:
 
 - validate typed note/CC/velocity fields as integers 0–127 and channel as 1–16;
 - encode channel 1 as nibble 0, e.g. `0x90 | (channel - 1)`;
-- accept `Uint8Array` and readonly byte arrays for raw sends; validate bytes are integers 0–255;
-- raw send is for ordinary non-SysEx messages such as pitch bend/program change; reject SysEx (`0xf0`/`0xf7`) in V1;
-- surface browser `send()` failures predictably rather than silently swallowing them;
-- expose an internal/output-resolution mechanism so AudioEngine can resolve a selector to a concrete connected port ID at note-on;
-- expose clearing of a concrete output queue for engine lifecycle handling.
+- accept non-empty `Uint8Array` and readonly byte arrays for raw sends; validate bytes are integers 0–255;
+- raw send is for ordinary non-SysEx messages such as pitch bend/program change; reject any sequence containing SysEx bytes (`0xf0`/`0xf7`) in V1, but permit system realtime bytes such as `0xf8`;
+- do not validate complete MIDI framing for raw send; return `MidiSendResult` for valid runtime send failures rather than silently swallowing them;
+- expose an opaque engine-facing output handle and result API:
+
+  ```ts
+  interface ResolvedMidiOutput {
+    readonly id: string;
+  }
+
+  type MidiSendResult =
+    | { sent: true }
+    | { sent: false; reason: "unavailable" | "destroyed" | "send-error" };
+
+  midi.out.resolve(selector?: string): ResolvedMidiOutput | null;
+  midi.out.noteOn(output: ResolvedMidiOutput, options): MidiSendResult;
+  midi.out.noteOff(output: ResolvedMidiOutput, options): MidiSendResult;
+  midi.out.clear(output: ResolvedMidiOutput): void;
+  ```
+
+- invalid programmer input throws; unavailable/destroyed target and native `send()` failure return `MidiSendResult` failure;
+- expose clearing of a concrete output queue for engine lifecycle handling without exposing native `MIDIOutput`.
 
 **Acceptance criteria:**
 
@@ -245,7 +271,7 @@ Requirements:
 - equal range endpoints are valid constant mappings;
 - explicit defaults outside their range clamp to the nearest endpoint;
 - invalid protocol values throw rather than clamp;
-- contextual range/default values are silent and documented until the shared diagnostics system can emit authoring diagnostics once per evaluation.
+- contextual range/default values are silent and documented in V1; the shared diagnostics system can emit authoring diagnostics once per evaluation later.
 
 **Acceptance criteria:**
 
@@ -314,6 +340,7 @@ Requirements:
 - same instance is a no-op;
 - replacement/disconnection tears down current bindings and clears engine-owned queued MIDI output safely;
 - connecting after a MIDI CC schema is active binds all currently active relevant voice parameters;
+- immediate V1 behavior is defined without a diagnostics hook: invalid API input throws, unavailable/destroyed sends return `MidiSendResult` failure, and scheduled engine playback consumes failures without throwing;
 - schemas that need MIDI but have no connected instance report a structured/future diagnostic once per commit;
 - engine owns explicit registries for active voices, MIDI-controlled AudioParams, subscriptions, and scheduled MIDI-output note state.
 
@@ -380,9 +407,60 @@ Do not leave a future initialization automation event that can overwrite a CC up
 
 Tracer bullet: a clock-driven synth plays locally and sends synchronized, non-stuck MIDI notes to one external output.
 
-### Step 4.1 — Output scheduling and stable note targets
+### Step 4.1 — Isolated MIDI output scheduler
 
-**Files:** `packages/audio-engine/src/instruments/synthesizer.ts`, `packages/audio-engine/src/index.ts`, MIDI-output helpers/tests
+**Files:** `packages/audio-engine/src/midi-output-scheduler.ts`, `packages/audio-engine/src/midi-output-scheduler.test.ts`, `packages/audio-engine/src/index.ts`
+
+Create a dedicated `MidiOutputScheduler`. It is the only AudioEngine module that knows about:
+
+- the globally time-sorted logical MIDI event queue;
+- short rolling lookahead dispatch;
+- selector resolution to opaque `ResolvedMidiOutput` handles;
+- mapping logical note IDs to their concrete output handles;
+- same-pitch reference counts;
+- output queue clearing and All Notes Off;
+- scheduler timer/clock integration and output teardown.
+
+It is an output delivery buffer, not a second musical sequencer. `AudioClock` remains the single source of BPM, bar/beat timing, schema commit boundaries, note start times, and note durations.
+
+Construct the scheduler with injectable timing dependencies so its behavior is deterministic in tests:
+
+```ts
+new MidiOutputScheduler({
+  getCurrentTime: () => ctx.currentTime,
+  audioTimeToMidiTime: (time) => clock.audioTimeToMIDITime(time),
+  scheduleTimer,
+  clearTimer,
+  horizon: 0.05,
+});
+```
+
+The production factory can hide this wiring, but the module must not read global timers or `performance.now()` directly.
+
+A narrow internal API is sufficient:
+
+```ts
+scheduler.connect(midi: Midi): void;
+scheduler.disconnect(): void;
+scheduler.scheduleNote({ selector, channel, note, velocity, startTime, endTime }): void;
+scheduler.stop(): void;
+scheduler.destroy(): void;
+```
+
+The scheduler accepts AudioContext timestamps. It converts to MIDI timestamps only when events enter its short near-term dispatch horizon. This permits logical events from successive bars to be globally ordered before irreversible `MIDIOutput.send()` calls are queued.
+
+**Timing invariant:** the dispatch horizon must be shorter than AudioClock’s minimum lead time for exposing the next bar’s logical notes. Tests must cover worst-case timer delay and next-bar submission timing.
+
+**Acceptance criteria:**
+
+- [ ] Scheduler is unit-testable with fake clock/time and fake MIDI adapter, without AudioContext nodes or synth instances.
+- [ ] Scheduler owns all MIDI output queues, concrete handles, counts, and teardown state.
+- [ ] Timing/timer dependencies are injectable; tests do not require global clocks.
+- [ ] AudioEngine only owns one scheduler instance and forwards engine lifecycle calls.
+
+### Step 4.2 — Synth submits logical notes
+
+**Files:** `packages/audio-engine/src/instruments/synthesizer.ts`, synth tests
 
 For each resolved synth pattern note:
 
@@ -390,23 +468,35 @@ For each resolved synth pattern note:
 - calculate `velocity = clamp(Math.round(resolvedEnvelope.max * 127), 0, 127)`;
 - skip velocity-zero events;
 - retain the resolved original MIDI note number;
-- resolve the output selector to a concrete port at note-on and retain that port for its paired note-off;
-- convert note start/end audio times using `clock.audioTimeToMIDITime()`;
-- send note-off at the pattern note `endTime`, where local playback begins release;
+- submit `{ selector, channel, note, velocity, startTime, endTime }` to `MidiOutputScheduler`;
 - local effects, base balancing gain, and mute never alter velocity.
 
-For unscoped output, resolution starts with `midi.outputs.value[0]` at note-on. A missing target skips the event and reports once per instrument/schema through the eventual diagnostics path.
+Synthesizer does not resolve ports, schedule MIDI timestamps, manage note-off, reference-count notes, clear queues, or send All Notes Off.
 
-### Step 4.2 — Overlap and queue safety
+For unscoped output, the scheduler resolves `midi.outputs.value[0]` only when the logical note-on reaches its dispatch horizon. A missing target skips that logical note with a `MidiSendResult` failure; scheduled playback does not throw.
 
-**Files:** `packages/audio-engine/src/index.ts`, MIDI-output scheduler/tests
+### Step 4.3 — Globally ordered overlap and queue safety
 
-Track logical MIDI notes by concrete `outputId:channel:note`.
+**Files:** `packages/audio-engine/src/midi-output-scheduler.ts`, `packages/audio-engine/src/midi-output-scheduler.test.ts`
 
-- Define same-pitch overlap as retrigger-on-each-note-on with reference-counted physical note-off: every logical note-on sends a physical note-on; only the final logical note-off sends the physical note-off.
-- On transport stop, MIDI disconnect/replacement, and engine destruction, clear the concrete output’s pending send queue with `MIDIOutput.clear()`, then send channel-scoped All Notes Off (CC 123) immediately.
-- Clearing a port queue is intentionally broad and assumes engine ownership of that port; document this limitation.
-- Schema retirement follows the existing bar-boundary behavior: do not indiscriminately clear a port queue merely because an old local instrument is retiring, since it could cancel valid current-bar output. Explicit output teardown paths do clear queues.
+Whole bars can be discovered independently while notes cross bar boundaries. The scheduler therefore retains logical events until they are within a short rolling horizon, rather than immediately queuing complete-bar MIDI sends.
+
+When dispatching:
+
+- sort the single global queue across every currently submitted bar by timestamp;
+- for equal timestamps, process every note-off first, then every note-on, with stable sequence ordering within each group;
+- resolve each note-on selector to a concrete `ResolvedMidiOutput` and retain that handle under a generated logical-note ID for its matching note-off;
+- only increment concrete `outputId:channel:note` reference counts after a physical note-on succeeds; an unavailable/failed note-on makes its later logical note-off a no-op;
+- remove internal logical-note state even if physical note-off fails, so bookkeeping cannot remain wedged;
+- send a physical note-on for every successful logical onset, but send physical note-off only for the final successful logical end;
+- handle an event discovered after its target time by deliberately sending it immediately with a current MIDI timestamp, never by passing an accidentally stale timestamp;
+- track outputs with queued sends and used channels independently from active-note counts.
+
+On transport stop, MIDI disconnect/replacement, and engine destruction, clear every tracked concrete output’s pending send queue with `MIDIOutput.clear()`, then send channel-scoped All Notes Off (CC 123) on every tracked used channel. Also clear undispatched logical events, logical-note-to-output mappings, overlap counts, tracked handles/channels, and the dispatcher timer. Do not derive ports to clear solely from active-note counts.
+
+A disconnect/replacement starts a new scheduler generation: logical events submitted to the old generation are discarded and never replayed after reconnect. `stop()` clears the current generation and stops the timer; a later `scheduleNote()` lazily starts a new dispatcher. `destroy()` is terminal and ignores later scheduling.
+
+Clearing is intentionally port-wide and assumes exclusive engine ownership of the entire output port queue. Schema retirement follows the existing bar-boundary behavior: do not indiscriminately clear a port queue merely because an old local instrument is retiring, since it could cancel valid current-bar output. Explicit output teardown paths do clear queues.
 
 **Acceptance criteria:**
 
@@ -504,7 +594,11 @@ The header control should:
 - [ ] Destroy while `requestMIDIAccess()` is pending.
 - [ ] Port disconnect/reconnect with the same ID.
 - [ ] Default-output change between note-on and note-off.
-- [ ] Same output/channel/note overlap.
+- [ ] Same output/channel/note overlap, including notes supplied out of chronological order and across independently discovered bars.
+- [ ] Cross-bar note overlap where an earlier logical note-off is not physically queued before the later onset is known.
+- [ ] Worst-case timer delay still preserves the horizon/next-bar discovery invariant.
+- [ ] Failed note-on does not increment overlap counts; its note-off is a no-op.
+- [ ] Late events deliberately send immediately rather than using stale timestamps.
 - [ ] Stop with queued note-on near a bar end and queued note-off later.
 - [ ] Replace MIDI instance while voices/output sends are active.
 - [ ] CC update after voice creation but before scheduled note start.

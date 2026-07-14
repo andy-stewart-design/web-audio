@@ -45,7 +45,13 @@ await midi.ready;
 Construction immediately calls `navigator.requestMIDIAccess()`. An application controls permission-prompt timing by constructing `Midi` only from an explicit user action.
 
 ```ts
-type MidiStatus = "pending" | "connected" | "denied" | "unavailable" | "error";
+type MidiStatus =
+  | "pending"
+  | "connected"
+  | "denied"
+  | "unavailable"
+  | "error"
+  | "destroyed";
 ```
 
 - `pending`: access request has not settled.
@@ -53,6 +59,7 @@ type MidiStatus = "pending" | "connected" | "denied" | "unavailable" | "error";
 - `denied`: access failed with `NotAllowedError`.
 - `unavailable`: Web MIDI is absent.
 - `error`: another access failure occurred.
+- `destroyed`: the instance has been permanently torn down.
 
 The package is safe to import and construct outside a browser: it never reads `navigator` at module scope.
 
@@ -124,13 +131,15 @@ interface CcSignal extends Signal<number> {
 interface NoteSignal extends Signal<ReadonlySet<MidiNote>> {}
 ```
 
+- CC initial state is `value: 0`, `raw: 0`, `hasValue: false`, `deviceId: null`, and `channel: null`.
+- For merged signals, CC metadata identifies the latest accepted message source; scoped signals retain `null` metadata until their first matching message.
 - CC `value` is normalized 0–1; `raw` is 0–127.
 - Note state is keyed internally by `deviceId:channel:note`.
 - Note-on velocity 0 is note-off.
 - Repeated same-source note-on updates velocity.
 - Disconnect clears that port’s held notes but retains its last CC value.
 - Input uses one central message listener per connected port; signals are routed from that dispatcher.
-- Input builders are immutable and canonical: `.channel()` does not mutate an existing signal, and equivalent selectors return the same scoped signal instance.
+- Input builders are immutable and canonical: `.channel()` does not mutate an existing signal. Cache identity is the requested selector string (or unscoped), input kind, CC number where applicable, and channel—not a currently resolved physical port.
 
 ### Output
 
@@ -152,9 +161,28 @@ Channel 1 uses MIDI status-byte nibble 0:
 0x90 | (channel - 1);
 ```
 
-`time` is a `performance.now()` timestamp. Raw `send()` accepts `Uint8Array` or readonly byte arrays with integer 0–255 bytes. It rejects SysEx in V1; it is an escape hatch for ordinary unsupported messages such as pitch bend or program change.
+`time` is a `performance.now()` timestamp. Raw `send()` accepts non-empty `Uint8Array` or readonly byte arrays with integer 0–255 bytes. It rejects any sequence containing SysEx framing bytes `0xf0` or `0xf7` in V1. It permits ordinary raw messages, including system realtime bytes such as `0xf8`; it does not validate complete MIDI framing because it is the escape hatch.
 
-The package supports resolving a selector to a concrete output port and clearing that port’s pending output queue. AudioEngine uses this to preserve note-on/note-off target identity and safely cancel queued sends.
+The package exposes an opaque engine-facing handle rather than native `MIDIOutput`:
+
+```ts
+interface ResolvedMidiOutput {
+  readonly id: string;
+}
+
+midi.out.resolve(selector?: string): ResolvedMidiOutput | null;
+midi.out.noteOn(output: ResolvedMidiOutput, options): MidiSendResult;
+midi.out.noteOff(output: ResolvedMidiOutput, options): MidiSendResult;
+midi.out.clear(output: ResolvedMidiOutput): void;
+```
+
+```ts
+type MidiSendResult =
+  | { sent: true }
+  | { sent: false; reason: "unavailable" | "destroyed" | "send-error" };
+```
+
+Invalid programmer input still throws. Valid sends to unavailable/destroyed ports and browser `send()` failures return a failure result; AudioEngine consumes those results without destabilizing scheduled playback. `resolve()` lets AudioEngine retain a concrete target from note-on through note-off and `clear()` safely removes its queued sends.
 
 ### Destruction
 
@@ -162,7 +190,9 @@ The package supports resolving a selector to a concrete output port and clearing
 midi.destroy();
 ```
 
-Destruction detaches MIDIAccess, port, and message listeners. If access is still pending, a later resolution must do nothing. An unsettled `ready` rejects with a destruction error. Applications can create a fresh `Midi` instance to retry after denial/failure.
+Destruction detaches MIDIAccess, port, and message listeners. If access is still pending, a later resolution must do nothing. An unsettled `ready` rejects with a destruction error. Destruction emits `status: "destroyed"` and empty input/output snapshots; existing subscribers remain subscribed so they can observe that terminal state. Applications can create a fresh `Midi` instance to retry after denial/failure.
+
+Protocol validation still throws after destruction. Valid runtime operations after destruction return their documented no-op/failure result.
 
 ## Fluid and Schema V1
 
@@ -251,7 +281,7 @@ Omitted values receive contextual defaults:
 | instrument/filter detune | linear -1200–1200 cents  | 0        |
 | filter gain              | linear -24–24 dB         | 0        |
 
-Contextual values are silent and documented until the structured diagnostics system can report them in the REPL once per evaluation.
+Contextual values are silent and documented in V1. The future structured diagnostics system can report them in the REPL once per evaluation.
 
 V1 supports CC only for direct AudioParam slots: filter frequency/Q/detune/gain, gain-effect gain, and instrument detune. Primary gain and all envelope/ADSR fields are follow-up work.
 
@@ -289,9 +319,11 @@ For each logical synth note, engine:
 - resolves the output to a concrete port at note-on and keeps it for note-off;
 - sends timestamps converted by `clock.audioTimeToMIDITime()`;
 - sends note-off at pattern `endTime`;
-- reference-counts same `outputId:channel:note` overlap: every logical onset retriggers, while only the final logical end sends physical note-off.
+- creates logical note-on/off events, sorts them by event timestamp, and processes note-off before note-on at equal timestamps;
+- reference-counts same `outputId:channel:note` overlap in that event-time order: every logical onset retriggers, while only the final logical end sends physical note-off;
+- tracks concrete outputs with queued sends and used channels separately from active-note counts.
 
-On transport stop, MIDI replacement/disconnection, and engine destruction, engine clears pending sends with `MIDIOutput.clear()` and sends CC123 All Notes Off on used channels. Queue clearing is port-wide and assumes this engine owns the configured output port/channel.
+On transport stop, MIDI replacement/disconnection, and engine destruction, engine clears pending sends with `MIDIOutput.clear()` and sends CC123 All Notes Off on used channels. Queue clearing is port-wide and assumes exclusive engine ownership of the entire configured output port queue.
 
 Schema retirement does not automatically clear a port queue merely because a local instrument is retiring: current-bar events may still be valid under the engine’s bar-boundary replacement model.
 
