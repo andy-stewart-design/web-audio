@@ -1043,7 +1043,9 @@ describe("Sampler", () => {
       kit: {
         samples: {
           bd: {
-            "0": [{ type: "sprite" as const, src: url, start: 0.25, end: 0.75 }],
+            "0": [
+              { type: "sprite" as const, src: url, start: 0.25, end: 0.75 },
+            ],
           },
         },
       },
@@ -1858,7 +1860,10 @@ describe("Sampler", () => {
       ctx as unknown as AudioContext,
       clock as never,
       {
-        schema: makeSchema({ notes: staticPattern(0), fit: { type: "fit", bars: 2 } }),
+        schema: makeSchema({
+          notes: staticPattern(0),
+          fit: { type: "fit", bars: 2 },
+        }),
         banks,
         cache,
       },

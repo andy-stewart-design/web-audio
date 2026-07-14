@@ -2,536 +2,637 @@
 
 ## Context
 
-This plan implements `@web-audio/midi`, a Web MIDI API wrapper, and integrates it into the Fluid → Schema → AudioEngine pipeline. See `plans/midi-prd.md` for the full design rationale and API specification.
+This plan implements [`midi-prd.md`](midi-prd.md) as tracer-bullet vertical slices. Each phase crosses package API, schema/Fluid, AudioEngine lifecycle, tests, and manual verification where applicable.
 
-**Key design decisions:**
+V1 deliberately includes:
 
-- `@web-audio/midi` has no external dependencies and no dependency on other `@web-audio/*` packages. It is independently usable.
-- The library uses a self-implemented hybrid signal type — readable (`.value`) and subscribable (`.subscribe()`). No RxJS.
-- Initialization is lazy: `new Midi()` triggers `requestMIDIAccess()` internally. Consumers never touch the Web MIDI API.
-- All devices are merged by default. Device scoping is opt-in at the call site: `midi.in.cc("device-id", 74)`.
-- Quantization (free-form vs. beat-snapped note triggering) is AudioEngine's responsibility, not the library's. **Not implemented in this plan** — MIDI-driven synths fire free-form only. Quantization is a future addition to AudioEngine.
-- CC values are normalized `0–1` by default; `.raw` exposes `0–127`.
-- Note signals hold a `Set` of currently-pressed `{ note, velocity }` objects as `.value`.
-- MIDI-driven synths and clock-driven synths are mutually exclusive.
-- Gain ↔ velocity mapping is symmetric: `velocity / 127 = gain`, `gain * 127 = velocity`.
-- MIDI output sends note-off at end of sustain (before release). External synth owns its release.
+- a standalone `@web-audio/midi` package;
+- CC input as a real-time source for direct Web Audio parameters;
+- pattern-driven **synth** MIDI output;
+- opt-in MIDI setup in `apps/web`.
 
----
+MIDI note input driving AudioEngine voices, MIDI-controlled envelope values, and sampler MIDI output are deferred. They need separate live-voice and sampler-semantics design work.
 
-## Phase 1: `@web-audio/midi` Package + Demo App
+## Key design decisions
 
-Standalone package with no monorepo dependencies. Fully usable and testable in isolation.
-
-### Step 1.1 — Package scaffold
-
-**Files:** `packages/midi/package.json`, `packages/midi/tsconfig.json`, `packages/midi/src/index.ts`
-
-Create the package following the conventions of other built packages (`clock`, `fluid`):
-- `"type": "module"`
-- Build with `tsdown` to `dist/index.mjs`
-- Add to `pnpm-workspace.yaml` and turbo pipeline
-
-**Acceptance criteria:**
-- [ ] `pnpm --filter @web-audio/midi build` succeeds
-- [ ] `pnpm --filter @web-audio/midi exec tsc --noEmit` passes
+- `@web-audio/midi` has no external or `@web-audio/*` dependencies.
+- Public MIDI channels are 1–16; MIDI status-byte encoding uses `channel - 1`.
+- A port selector string resolves as an exact, case-sensitive ID first, then an exact name.
+- Runtime `Midi` construction immediately requests access; applications control prompt timing by constructing it only after a user gesture.
+- `Midi.status` represents API access and terminal destruction; connected input/output lists represent physical port availability.
+- Signals deliver their current value immediately on subscription and future updates thereafter.
+- Input dispatch is centralized: one message listener per connected input port, never one DOM listener per signal.
+- CC values are normalized 0–1. Fluid supplies contextual range/default values when authors omit them; the future diagnostics system, not MIDI-local `console.warn`, will report implicit defaults.
+- CC v1 applies only to direct AudioParam slots: filter frequency/Q/detune/gain, gain-effect gain, and instrument detune.
+- MIDI output is additive, but V1 supports it on synthesizers only. `.mute()` remains general to all instruments.
+- MIDI output resolves an opaque concrete port handle for each logical note-on and retains it for the paired note-off.
+- Logical MIDI output events are sorted by timestamp before overlap accounting; note-off precedes note-on at equal timestamps.
+- Transport stop, MIDI replacement, and engine destruction clear queued output sends and send All Notes Off. This assumes the engine exclusively owns each configured output port’s queue.
+- A dedicated AudioEngine-internal `MidiOutputScheduler` owns rolling MIDI dispatch, concrete-port resolution, overlap accounting, and output cleanup; synths only submit logical notes to it.
+- Instrument lifecycle gains explicit `retire()` and `destroy()` hooks so real-time bindings can end immediately while audio release tails continue.
 
 ---
 
-### Step 1.2 — Signal implementation
+## Phase 1: Standalone MIDI package
 
-**Files:** `packages/midi/src/signal.ts`
+Tracer bullet: a browser application can request MIDI access, inspect changing ports, receive CC/note state, send validated MIDI, and cleanly tear everything down without importing the rest of the monorepo.
 
-Implement the base `Signal<T>` class used throughout the library.
+### Step 1.1 — Package, signals, and public types
+
+**Files:** `packages/midi/package.json`, `packages/midi/tsconfig.json`, `packages/midi/src/index.ts`, `packages/midi/src/signal.ts`, `packages/midi/src/types.ts`
+
+Create an ESM `tsdown` library following `clock`/`fluid` conventions. `pnpm-workspace.yaml` already includes `packages/*`.
 
 ```ts
-class Signal<T> {
-  get value(): T
-  subscribe(fn: (value: T) => void): () => void
-  protected _emit(value: T): void
+interface Signal<T> {
+  readonly value: T;
+  subscribe(fn: (value: T) => void): () => void;
 }
 
-class CcSignal extends Signal<number> {
-  get value(): number   // normalized 0–1
-  get raw(): number     // 0–127
-}
+type MidiStatus =
+  | "pending"
+  | "connected"
+  | "denied"
+  | "unavailable"
+  | "error"
+  | "destroyed";
 
-class NoteSignal extends Signal<Set<{ note: number; velocity: number }>> {
-  // .value is the set of currently held notes
-}
+type MidiDevice = { id: string; name: string | null };
+
+type MidiNote = {
+  note: number;
+  velocity: number;
+  deviceId: string;
+  channel: number;
+};
 ```
 
+Requirements:
+
+- subscriptions receive the current value immediately, then later emissions;
+- unsubscription is idempotent;
+- emitted collection state is a new snapshot on each change; do not promise runtime immutability beyond the TypeScript `ReadonlySet` API unless a later shared collection abstraction is introduced;
+- `CcSignal` initial state is `value: 0`, `raw: 0`, `hasValue: false`, `deviceId: null`, and `channel: null`; metadata identifies the latest accepted matching message after one arrives;
+- input-builder methods are immutable: `.channel(1)` returns a distinct canonical scoped signal and never mutates the unscoped signal;
+- cache identity is the requested selector string (or unscoped), input kind, CC number where applicable, and channel—not a currently resolved physical port.
+
 **Acceptance criteria:**
-- [ ] `subscribe()` returns an unsubscribe function
-- [ ] All active subscribers are called on `_emit()`
-- [ ] Unsubscribed listeners are not called after unsubscribe
-- [ ] `.value` reflects the most recently emitted value
-- [ ] `CcSignal.raw` reflects the pre-normalization integer
 
-**Testing:** `packages/midi/src/signal.test.ts`
+- [ ] `pnpm --filter @web-audio/midi build` succeeds.
+- [ ] `pnpm --filter @web-audio/midi check` passes.
+- [ ] Signal subscriptions, immediate delivery, unsubscription, and canonical input-signal identity are tested.
 
----
+### Step 1.2 — Access, ports, and destruction
 
-### Step 1.3 — MIDI access and status
-
-**Files:** `packages/midi/src/midi.ts`
-
-Implement the `Midi` class shell: initialization, permission flow, and status.
+**Files:** `packages/midi/src/midi.ts`, `packages/midi/src/input.ts`, `packages/midi/src/output.ts`
 
 ```ts
-class Midi {
-  readonly ready: Promise<void>
-  readonly status: Signal<"pending" | "connected" | "denied" | "unavailable">
-  readonly inputs: Signal<MidiDevice[]>
-  readonly outputs: Signal<MidiDevice[]>
-}
-
-interface MidiDevice {
-  id: string
-  name: string
-}
+const midi = new Midi();
+await midi.ready;
+midi.destroy();
 ```
 
-- Constructor calls `navigator.requestMIDIAccess()` immediately.
-- On success: sets `status` to `"connected"`, populates `inputs` and `outputs`.
-- On denial: sets `status` to `"denied"`, rejects `ready`.
-- If Web MIDI is unavailable: sets `status` to `"unavailable"`, rejects `ready`.
-- Listens to `MIDIAccess.onstatechange` to update `inputs`/`outputs` and reconnect automatically when a device returns.
+Requirements:
+
+- no `navigator` access at module scope;
+- absent `requestMIDIAccess` sets `unavailable`, rejects `ready`, and exposes empty lists;
+- `NotAllowedError` sets `denied`; other access failures set `error` and retain the underlying error for callers/logging;
+- successful access sets `connected`, including when no physical ports are connected;
+- expose only currently connected ports in `inputs` and `outputs`;
+- `MIDIAccess.onstatechange` refreshes lists, attaches one central listener to each connected input, and detaches disconnected listeners;
+- input disconnect removes that port’s held notes but retains prior CC values;
+- if destruction occurs before access resolves, the later resolution must not attach listeners or update a destroyed instance;
+- define `ready` destruction behavior: reject it with a destruction error if unsettled; retain its settled result otherwise;
+- destruction emits `status: "destroyed"` and empty input/output snapshots while retaining subscribers long enough to observe the terminal state;
+- protocol validation still throws after destruction; valid runtime operations return their documented no-op/failure result.
 
 **Acceptance criteria:**
-- [ ] `midi.status.value` starts as `"pending"`
-- [ ] `midi.status.value` updates to `"connected"` on successful access
-- [ ] `midi.inputs.value` and `midi.outputs.value` populate after access
-- [ ] Device connect/disconnect updates `inputs`/`outputs` signals
-- [ ] Disconnected device that reconnects restores status to `"connected"`
 
-**Testing:** `packages/midi/src/midi.test.ts` (mock `navigator.requestMIDIAccess`)
+- [ ] Port lists update for connect, disconnect, and reconnect.
+- [ ] Central dispatch does not add listeners as signals are created.
+- [ ] Destroy while pending, after granted access, and after denied/error access is tested.
+- [ ] No listener is attached after destruction.
 
----
+### Step 1.3 — Input API
 
-### Step 1.4 — Input: CC
-
-**Files:** `packages/midi/src/input.ts`
-
-Implement `MidiInput` class with `cc()` method.
+**Files:** `packages/midi/src/input.ts`, `packages/midi/src/input.test.ts`
 
 ```ts
-class MidiInput {
-  cc(cc: number): CcSignal
-  cc(deviceId: string, cc: number): CcSignal
-}
-
-// CcSignal has a fluent .channel() filter
-midi.in.cc(74).channel(1)
-midi.in.cc("device-id", 74).channel(1)
+midi.in.cc(74);
+midi.in.cc("Launchkey Mini", 74).channel(1);
+midi.in.notes();
+midi.in.notes("<port-id>").channel(1);
 ```
 
-- Parses raw `Uint8Array` MIDI messages. CC messages: status byte `0xB0–0xBF` (channel 1–16).
-- Normalizes value: `signal.value = data[2] / 127`.
-- Caches signals — `cc(74)` called twice returns the same signal instance.
-- Merges all connected inputs when no device ID is specified.
-- `.channel(n)` returns a filtered view of the signal — only fires for messages on that channel.
+Selector resolution:
+
+1. exact case-sensitive ID;
+2. exact case-sensitive name;
+3. duplicate names select the first available port; future diagnostics should report ambiguity once per relevant operation.
+
+Requirements:
+
+- validate public CC numbers as 0–127 and channels as 1–16;
+- decode incoming channels as `(status & 0x0f) + 1`;
+- unscoped signals merge matching messages from connected ports/channels;
+- note state uses `deviceId:channel:note` keys;
+- note-on velocity 0 is note-off;
+- a repeated same-source note-on updates velocity and emits a new snapshot;
+- note disconnect removes all notes from that port;
+- CC disconnect preserves the most recently received state.
 
 **Acceptance criteria:**
-- [ ] `.value` is `0` before any CC message received
-- [ ] `.value` updates correctly on CC message (normalized 0–1)
-- [ ] `.raw` reflects the raw 0–127 integer
-- [ ] Subscribers are called on each CC message
-- [ ] Device-scoped `cc("id", 74)` only fires for messages from that device
-- [ ] Global `cc(74)` fires for messages from any connected device
-- [ ] `.channel(1)` filters to only messages on channel 1
-- [ ] Same CC number called twice returns the same signal instance
 
-**Testing:** `packages/midi/src/input.test.ts`
+- [ ] Device/name/channel filtering works.
+- [ ] Multiple devices holding the same pitch remain distinct in note state.
+- [ ] Note-off, velocity-zero note-on, repeated note-on, and disconnect behavior are tested.
+- [ ] Repeated builder calls and `.channel()` calls return canonical signals without mutating others.
 
----
+### Step 1.4 — Output API
 
-### Step 1.5 — Input: Notes
-
-**Files:** `packages/midi/src/input.ts`
-
-Add `note()` method to `MidiInput`.
+**Files:** `packages/midi/src/output.ts`, `packages/midi/src/output.test.ts`
 
 ```ts
-class MidiInput {
-  notes(): NoteSignal
-  notes(deviceId: string): NoteSignal
-}
-
-// NoteSignal has a fluent .channel() filter
-midi.in.notes().channel(1)
-midi.in.notes("device-id").channel(1)
+midi.out.noteOn(device, { note, velocity, channel, time? });
+midi.out.noteOff(device, { note, channel, time? });
+midi.out.cc(device, { cc, value, channel, time? });
+midi.out.send(device, data, time?);
 ```
 
-- Note-on: status byte `0x90–0x9F`, velocity > 0. Adds `{ note, velocity }` to the held set.
-- Note-off: status byte `0x80–0x8F`, or note-on with velocity 0. Removes matching note from the set.
-- `.value` is always the current set of held notes.
-- Subscribers are called on both note-on and note-off.
-- `.channel(n)` returns a filtered view — only fires for messages on that channel.
+Requirements:
+
+- validate typed note/CC/velocity fields as integers 0–127 and channel as 1–16;
+- encode channel 1 as nibble 0, e.g. `0x90 | (channel - 1)`;
+- accept non-empty `Uint8Array` and readonly byte arrays for raw sends; validate bytes are integers 0–255;
+- raw send is for ordinary non-SysEx messages such as pitch bend/program change; reject any sequence containing SysEx bytes (`0xf0`/`0xf7`) in V1, but permit system realtime bytes such as `0xf8`;
+- do not validate complete MIDI framing for raw send; return `MidiSendResult` for valid runtime send failures rather than silently swallowing them;
+- expose an opaque engine-facing output handle and result API:
+
+  ```ts
+  interface ResolvedMidiOutput {
+    readonly id: string;
+  }
+
+  type MidiSendResult =
+    | { sent: true }
+    | { sent: false; reason: "unavailable" | "destroyed" | "send-error" };
+
+  midi.out.resolve(selector?: string): ResolvedMidiOutput | null;
+  midi.out.noteOn(output: ResolvedMidiOutput, options): MidiSendResult;
+  midi.out.noteOff(output: ResolvedMidiOutput, options): MidiSendResult;
+  midi.out.clear(output: ResolvedMidiOutput): void;
+  ```
+
+- invalid programmer input throws; unavailable/destroyed target and native `send()` failure return `MidiSendResult` failure;
+- expose clearing of a concrete output queue for engine lifecycle handling without exposing native `MIDIOutput`.
 
 **Acceptance criteria:**
-- [ ] `.value` is an empty `Set` initially
-- [ ] Note-on adds to `.value`, note-off removes from `.value`
-- [ ] Note-on with velocity 0 is treated as note-off
-- [ ] Multiple simultaneous notes are tracked correctly
-- [ ] Device-scoped `notes("id")` only fires for that device
-- [ ] `.channel(1)` filters to only messages on channel 1
-- [ ] Subscribers called on both note-on and note-off
 
-**Testing:** `packages/midi/src/input.test.ts`
+- [ ] Typed message bytes, timestamps, validation, raw byte validation, and SysEx rejection are tested.
+- [ ] Channel 1 tests encode `0x90`, `0x80`, and `0xb0` correctly.
+- [ ] Resolution by ID/name and unavailable output behavior are tested.
+
+### Step 1.5 — Demo app
+
+**Files:** `apps/midi-demo/`
+
+Create a small Vite/vanilla TypeScript manual-test application.
+
+**Acceptance criteria:**
+
+- [ ] MIDI is enabled only from a user action.
+- [ ] Status and currently connected port names/IDs update reactively.
+- [ ] CC 1, 7, and 74 values/metadata are shown.
+- [ ] Source-aware held notes update correctly.
+- [ ] Test note, note-off, and CC sends work on a selected output.
+- [ ] Connect/disconnect is manually verifiable.
 
 ---
 
-### Step 1.6 — Output
+## Phase 2: Schema and Fluid surface
 
-**Files:** `packages/midi/src/output.ts`
+Tracer bullet: a sketch can describe a muted instrument, synth MIDI output, and contextually mapped MIDI CC without importing the runtime MIDI package.
 
-Implement `MidiOutput` class.
-
-```ts
-class MidiOutput {
-  noteOn(deviceId: string, options: { note: number; velocity: number; channel: number; time?: number }): void
-  noteOff(deviceId: string, options: { note: number; channel: number; time?: number }): void
-  cc(deviceId: string, options: { cc: number; value: number; channel: number; time?: number }): void
-  send(deviceId: string, data: Uint8Array, time?: number): void
-}
-```
-
-- All methods look up the device from `MIDIOutputMap` by ID and call `MIDIOutput.send()`.
-- `time` maps directly to `MIDIOutput.send()`'s timestamp parameter (`performance.now()` milliseconds).
-- Logs a console warning if the device ID is not found.
-
-**Acceptance criteria:**
-- [ ] `noteOn` sends correct MIDI bytes: `[0x90 | channel, note, velocity]`
-- [ ] `noteOff` sends correct MIDI bytes: `[0x80 | channel, note, 0]`
-- [ ] `cc` sends correct MIDI bytes: `[0xB0 | channel, cc, value]`
-- [ ] `send` passes data through directly
-- [ ] Unknown device ID logs a warning and does not throw
-
-**Testing:** `packages/midi/src/output.test.ts`
-
----
-
-### Step 1.7 — Wire `Midi` class
-
-**Files:** `packages/midi/src/midi.ts`, `packages/midi/src/index.ts`
-
-Expose `midi.in` and `midi.out` on the `Midi` class. Export everything from `src/index.ts`.
-
-```ts
-class Midi {
-  readonly in: MidiInput
-  readonly out: MidiOutput
-  readonly ready: Promise<void>
-  readonly status: Signal<"pending" | "connected" | "denied" | "unavailable">
-  readonly inputs: Signal<MidiDevice[]>
-  readonly outputs: Signal<MidiDevice[]>
-}
-```
-
-**Acceptance criteria:**
-- [ ] `midi.in` and `midi.out` are accessible after construction
-- [ ] Full public API is exported from package root
-
----
-
-### Step 1.8 — Demo app
-
-**Files:** `apps/midi-demo/` (new Vite + vanilla TS app, no framework)
-
-A minimal browser app for manual testing of the MIDI package during development. Not a production app.
-
-**Features:**
-- Displays `midi.status.value` and updates reactively
-- Lists `midi.inputs` and `midi.outputs` with device names and IDs
-- Shows last received CC value for CC 1, 7, and 74 (number + normalized)
-- Shows currently held notes (note number + velocity)
-- Buttons to send a test note-on and note-off to a selected output device
-- Button to send a test CC message to a selected output device
-
-**Acceptance criteria:**
-- [ ] `pnpm --filter midi-demo dev` starts without errors
-- [ ] Status updates correctly when MIDI permission is granted or denied
-- [ ] CC signals update in real time when a controller is moved
-- [ ] Held notes display updates on note-on and note-off
-- [ ] Output buttons send audible MIDI messages to external hardware
-
----
-
-## Phase 2: Schema Extensions
-
-Add MIDI node types to `@web-audio/schema` so Fluid and AudioEngine can describe and resolve MIDI bindings.
-
-### Step 2.1 — MIDI parameter source schema
-
-**Files:** `packages/schema/src/index.ts`
-
-```ts
-interface MidiCcSchema {
-  type: "midi-cc"
-  cc: number
-  channel?: number
-}
-```
-
-Extend `ParameterSchema` union to include `MidiCcSchema`.
-
-**Acceptance criteria:**
-- [ ] `MidiCcSchema` exported from `@web-audio/schema`
-- [ ] `ParameterSchema` union includes `MidiCcSchema`
-- [ ] Package type-checks cleanly
-
----
-
-### Step 2.2 — MIDI instrument note source schema
-
-**Files:** `packages/schema/src/index.ts`
-
-```ts
-interface MidiInSchema {
-  type: "midi-in"
-  channel?: number
-  deviceId?: string
-}
-```
-
-Extend the instrument `noteSource` field to accept `MidiInSchema`.
-
-**Acceptance criteria:**
-- [ ] `MidiInSchema` exported from `@web-audio/schema`
-- [ ] Instrument schema accepts `MidiInSchema` as a note source
-- [ ] Package type-checks cleanly
-
----
-
-### Step 2.3 — MIDI output schema
+### Step 2.1 — Schema extensions
 
 **Files:** `packages/schema/src/index.ts`
 
 ```ts
 interface MidiOutSchema {
-  type: "midi-out"
-  deviceId?: string  // omitted = AudioEngine uses first available output
-  channel: number
+  type: "midi-out";
+  device?: string;
+  channel: number;
+}
+
+interface MidiCcSchema {
+  type: "midi-cc";
+  cc: number;
+  device?: string;
+  channel?: number;
+  range: { min: number; max: number; curve: "linear" | "exponential" };
+  default: number;
 }
 ```
 
-Add `noteOutput` field to instrument schema accepting `MidiOutSchema`.
+- Add `muted: boolean` to `InstrumentSchema`.
+- Add optional `notesOut?: MidiOutSchema` to **`SynthesizerSchema` only** in V1.
+- Extend only direct AudioParam unions with `MidiCcSchema`: filter frequency/Q/detune/gain, gain-effect gain, and instrument detune.
+- Do not permit MIDI CC in primary gain envelopes, ADSR values, or envelope effect fields in V1.
 
 **Acceptance criteria:**
-- [ ] `MidiOutSchema` exported from `@web-audio/schema`
-- [ ] Instrument schema accepts `MidiOutSchema` as a note output
-- [ ] Package type-checks cleanly
 
----
+- [ ] Schema exports all MIDI types.
+- [ ] Only synthesizers accept `notesOut`.
+- [ ] Allowed direct parameter slots accept `MidiCcSchema`; envelope slots do not.
+- [ ] Schema package type-checks.
 
-## Phase 3: Fluid Integration
+### Step 2.2 — Fluid MIDI builders
 
-Extend Drome to express MIDI bindings as schema nodes. Fluid never imports `@web-audio/midi` — it only produces schema descriptions.
-
-### Step 3.1 — `d.midi.cc()` parameter source
-
-**Files:** `packages/fluid/src/drome.ts`, `packages/fluid/src/midi.ts`
+**Files:** `packages/fluid/src/midi.ts`, `packages/fluid/src/index.ts`
 
 ```ts
-// Usage
-d.synth().filter(d.lpf(d.midi.cc(74)))
-d.synth().filter(d.lpf(d.midi.cc(74).channel(1)))
-d.synth().filter(d.lpf(d.midi.cc("device-id", 74).channel(1)))
+d.midi.out();
+d.midi.out("Launchkey Mini").channel(10);
 
-// Produces schema
-{ type: "midi-cc", cc: 74, channel: 1 }
+d.midi.cc(74);
+d.midi.cc("Launchkey Mini", 74).channel(1);
+d.midi.cc(74).range(0, 1).default(0.5);
+d.midi.cc(74).default(0.5).expRange(20, 20_000);
 ```
 
-`d.midi` is a namespace on `Drome`. `d.midi.cc()` returns a fluent builder that serializes to `MidiCcSchema`. Accepted anywhere a `ParameterSchema` is accepted.
+Requirements:
+
+- output channel defaults to 1; CC listens to every channel unless scoped;
+- range/default builder calls are order-independent;
+- `range()` is linear and `expRange()` is exponential;
+- all range/default values must be finite;
+- exponential endpoints must both be positive;
+- reversed linear/exponential ranges are supported for inverted controllers;
+- equal range endpoints are valid constant mappings;
+- explicit defaults outside their range clamp to the nearest endpoint;
+- invalid protocol values throw rather than clamp;
+- contextual range/default values are silent and documented in V1; the shared diagnostics system can emit authoring diagnostics once per evaluation later.
 
 **Acceptance criteria:**
-- [ ] `d.midi.cc(74)` produces `{ type: "midi-cc", cc: 74 }` in the schema
-- [ ] `.channel(1)` adds `channel` to the schema node
-- [ ] `d.midi.cc("device-id", 74)` adds `deviceId` to the schema node
-- [ ] Result is accepted by `.filter()`, `.gain()`, `.detune()`, and other parameter slots
-- [ ] No import of `@web-audio/midi` anywhere in `@web-audio/fluid`
 
----
+- [ ] ID/name selector, channel, explicit range/default, reversed range, equal range, and invalid-value tests pass.
+- [ ] Exponential zero/negative/non-finite endpoints fail clearly.
+- [ ] Builder call ordering serializes identical schemas.
 
-### Step 3.2 — MIDI-driven synth: `d.midi.notes()` as a note source
+### Step 2.3 — Instrument methods and contextual CC serialization
 
-**Files:** `packages/fluid/src/synthesizer.ts`, `packages/fluid/src/midi.ts`
+**Files:** `packages/fluid/src/instruments/instrument.ts`, `packages/fluid/src/instruments/synthesizer.ts`, direct parameter/effect builders, `packages/fluid/src/index.test.ts`
+
+Add:
 
 ```ts
-// MIDI notes passed to .notes() — same entry point as pattern-based notes
-d.synth("sawtooth")
-  .notes(d.midi.notes().channel(1))
-  .env(d.env().adsr(0.01, 0.1, 0.8, 0.3))
-
-// Scoped to a specific device
-d.synth("sawtooth")
-  .notes(d.midi.notes("device-id").channel(1))
+d.synth().out(d.midi.out());
+d.synth().mute();
+d.sample("break").mute(false);
 ```
 
-- `d.midi.notes()` returns a fluent builder that serializes to `MidiInSchema`.
-- `.notes()` already exists on `Synthesizer` — it now accepts either a pattern or a `MidiInSchema` value. No new method needed; no special mutual-exclusion error case.
-- All other Fluid instrument methods (`.wave()` via the constructor arg, `.env()`, `.fx()`, etc.) work identically.
+- `.out()` exists only on `Synthesizer` and replaces an earlier output target.
+- `.mute(enabled = true)` exists on the base Fluid Instrument and serializes `muted` for synths and samplers.
+- Apply contextual mappings when a CC builder reaches a supported destination:
+
+| Destination              | Range                    | Default  |
+| ------------------------ | ------------------------ | -------- |
+| gain effect              | linear 0–1               | 1        |
+| filter frequency         | exponential 20–20,000 Hz | 1,000 Hz |
+| filter Q                 | linear 0–30              | 1        |
+| instrument/filter detune | linear -1200–1200 cents  | 0        |
+| filter gain              | linear -24–24 dB         | 0        |
 
 **Acceptance criteria:**
-- [ ] `getSchema()` produces `noteSource: { type: "midi-in" }` when `d.midi.notes()` is passed to `.notes()`
-- [ ] `.channel(1)` adds `channel` to the schema node
-- [ ] `d.midi.notes("device-id")` adds `deviceId` to the schema node
-- [ ] `.env()`, `.fx()`, `.gain()` work normally on MIDI-driven synths
-- [ ] No import of `@web-audio/midi` anywhere in `@web-audio/fluid`
+
+- [ ] Synth output schema defaults to channel 1 and supports device selectors.
+- [ ] Samplers do not expose `.out()` in V1.
+- [ ] Mute serializes for both synths and samplers.
+- [ ] Explicit configuration overrides contextual values.
+- [ ] Contextual CC schemas are deterministic and do not use MIDI-specific `console.warn` calls.
 
 ---
 
-### Step 3.3 — MIDI output synth: `.out(d.midi.out())`
+## Phase 3: Engine lifecycle and MIDI CC
 
-**Files:** `packages/fluid/src/synthesizer.ts`, `packages/fluid/src/midi.ts`
+Tracer bullet: active audio voices can bind/unbind CC safely, mute has a dedicated local-audio stage, and schema replacement has explicit retirement semantics.
+
+### Step 3.1 — Dependencies and engine MIDI lifecycle
+
+**Files:** `packages/audio-engine/package.json`, `apps/web/package.json`, `packages/audio-engine/src/index.ts`
+
+Add workspace dependencies with package-manager commands, not manual manifest edits:
+
+```sh
+pnpm --filter @web-audio/audio-engine add @web-audio/midi@workspace:*
+pnpm --filter web add @web-audio/midi@workspace:*
+```
+
+Add:
 
 ```ts
-// First available output device (default)
-d.synth()
+engine.connectMidi(midi: Midi): void;
+engine.disconnectMidi(): void;
+```
+
+Requirements:
+
+- same instance is a no-op;
+- replacement/disconnection tears down current bindings and clears engine-owned queued MIDI output safely;
+- connecting after a MIDI CC schema is active binds all currently active relevant voice parameters;
+- immediate V1 behavior is defined without a diagnostics hook: invalid API input throws, unavailable/destroyed sends return `MidiSendResult` failure, and scheduled engine playback consumes failures without throwing;
+- schemas that need MIDI but have no connected instance report a structured/future diagnostic once per commit;
+- engine owns explicit registries for active voices, MIDI-controlled AudioParams, subscriptions, and scheduled MIDI-output note state.
+
+**Acceptance criteria:**
+
+- [ ] Connect after active voices exist binds them.
+- [ ] Replacing/disconnecting a MIDI instance removes old subscriptions and output state.
+- [ ] Engine destroy removes every MIDI binding.
+
+### Step 3.2 — Explicit instrument lifecycle and mute stage
+
+**Files:** `packages/audio-engine/src/instruments/instrument.ts`, `packages/audio-engine/src/instruments/synthesizer.ts`, `packages/audio-engine/src/instruments/sampler.ts`
+
+Add lifecycle methods conceptually equivalent to:
+
+```ts
+retire(): void;
+cancelFutureNotes(): void;
+destroy(): void;
+```
+
+- `retire()` immediately removes real-time CC bindings but allows existing local release tails to finish.
+- `cancelFutureNotes()` retains current transport-stop semantics for local scheduled audio.
+- `destroy()` disconnects all voice nodes, mute/balancing nodes, and subscriptions.
+- Introduce a dedicated mute gain stage after the existing balancing gain:
+
+```text
+voice/effects → balancing gain → mute gain → engine master
+```
+
+`muted` is applied at schema commit; it never changes primary gain-envelope or MIDI velocity behavior.
+
+**Acceptance criteria:**
+
+- [ ] Retired instruments no longer react to CC while release tails remain audible.
+- [ ] Destroy has no remaining audio or MIDI subscriptions.
+- [ ] `.mute(false)` restores balancing behavior without needing to reconstruct its value.
+
+### Step 3.3 — CC mapping and pre-scheduled voices
+
+**Files:** `packages/audio-engine/src/instruments/instrument.ts`, relevant voice tracking/tests
+
+For a direct AudioParam controlled by `MidiCcSchema`:
+
+1. read current CC value, or use schema `default` while `hasValue` is false;
+2. map normalized value using the schema’s linear or exponential interpolation;
+3. initialize the node parameter immediately at voice creation, not at its future `note.startTime`;
+4. subscribe for updates and use `setTargetAtTime(mapped, currentTime, 0.01)`;
+5. remove that subscription when the voice ends, retires, stops, or is destroyed.
+
+Do not leave a future initialization automation event that can overwrite a CC update received before the note starts. Resolve a gain envelope once per pattern note and reuse that resolved value wherever the engine needs it.
+
+**Acceptance criteria:**
+
+- [ ] CC updates current voices and initializes future voices from the latest state.
+- [ ] A CC change between voice construction and note start is not overwritten at note start.
+- [ ] Linear/exponential/reversed/constant mappings are tested.
+- [ ] First real CC value of zero is distinguishable from no received CC value.
+- [ ] Retirement, stop, replacement, and destroy clean up subscriptions.
+
+---
+
+## Phase 4: Synth pattern-to-MIDI output
+
+Tracer bullet: a clock-driven synth plays locally and sends synchronized, non-stuck MIDI notes to one external output.
+
+### Step 4.1 — Isolated MIDI output scheduler
+
+**Files:** `packages/audio-engine/src/midi-output-scheduler.ts`, `packages/audio-engine/src/midi-output-scheduler.test.ts`, `packages/audio-engine/src/index.ts`
+
+Create a dedicated `MidiOutputScheduler`. It is the only AudioEngine module that knows about:
+
+- the globally time-sorted logical MIDI event queue;
+- short rolling lookahead dispatch;
+- selector resolution to opaque `ResolvedMidiOutput` handles;
+- mapping logical note IDs to their concrete output handles;
+- same-pitch reference counts;
+- output queue clearing and All Notes Off;
+- scheduler timer/clock integration and output teardown.
+
+It is an output delivery buffer, not a second musical sequencer. `AudioClock` remains the single source of BPM, bar/beat timing, schema commit boundaries, note start times, and note durations.
+
+Construct the scheduler with injectable timing dependencies so its behavior is deterministic in tests:
+
+```ts
+new MidiOutputScheduler({
+  getCurrentTime: () => ctx.currentTime,
+  audioTimeToMidiTime: (time) => clock.audioTimeToMIDITime(time),
+  scheduleTimer,
+  clearTimer,
+  horizon: 0.05,
+});
+```
+
+The production factory can hide this wiring, but the module must not read global timers or `performance.now()` directly.
+
+A narrow internal API is sufficient:
+
+```ts
+scheduler.connect(midi: Midi): void;
+scheduler.disconnect(): void;
+scheduler.scheduleNote({ selector, channel, note, velocity, startTime, endTime }): void;
+scheduler.stop(): void;
+scheduler.destroy(): void;
+```
+
+The scheduler accepts AudioContext timestamps. It converts to MIDI timestamps only when events enter its short near-term dispatch horizon. This permits logical events from successive bars to be globally ordered before irreversible `MIDIOutput.send()` calls are queued.
+
+**Timing invariant:** the dispatch horizon must be shorter than AudioClock’s minimum lead time for exposing the next bar’s logical notes. Tests must cover worst-case timer delay and next-bar submission timing.
+
+**Acceptance criteria:**
+
+- [ ] Scheduler is unit-testable with fake clock/time and fake MIDI adapter, without AudioContext nodes or synth instances.
+- [ ] Scheduler owns all MIDI output queues, concrete handles, counts, and teardown state.
+- [ ] Timing/timer dependencies are injectable; tests do not require global clocks.
+- [ ] AudioEngine only owns one scheduler instance and forwards engine lifecycle calls.
+
+### Step 4.2 — Synth submits logical notes
+
+**Files:** `packages/audio-engine/src/instruments/synthesizer.ts`, synth tests
+
+For each resolved synth pattern note:
+
+- resolve gain-envelope values once;
+- calculate `velocity = clamp(Math.round(resolvedEnvelope.max * 127), 0, 127)`;
+- skip velocity-zero events;
+- retain the resolved original MIDI note number;
+- submit `{ selector, channel, note, velocity, startTime, endTime }` to `MidiOutputScheduler`;
+- local effects, base balancing gain, and mute never alter velocity.
+
+Synthesizer does not resolve ports, schedule MIDI timestamps, manage note-off, reference-count notes, clear queues, or send All Notes Off.
+
+For unscoped output, the scheduler resolves `midi.outputs.value[0]` only when the logical note-on reaches its dispatch horizon. A missing target skips that logical note with a `MidiSendResult` failure; scheduled playback does not throw.
+
+### Step 4.3 — Globally ordered overlap and queue safety
+
+**Files:** `packages/audio-engine/src/midi-output-scheduler.ts`, `packages/audio-engine/src/midi-output-scheduler.test.ts`
+
+Whole bars can be discovered independently while notes cross bar boundaries. The scheduler therefore retains logical events until they are within a short rolling horizon, rather than immediately queuing complete-bar MIDI sends.
+
+When dispatching:
+
+- sort the single global queue across every currently submitted bar by timestamp;
+- for equal timestamps, process every note-off first, then every note-on, with stable sequence ordering within each group;
+- resolve each note-on selector to a concrete `ResolvedMidiOutput` and retain that handle under a generated logical-note ID for its matching note-off;
+- only increment concrete `outputId:channel:note` reference counts after a physical note-on succeeds; an unavailable/failed note-on makes its later logical note-off a no-op;
+- remove internal logical-note state even if physical note-off fails, so bookkeeping cannot remain wedged;
+- send a physical note-on for every successful logical onset, but send physical note-off only for the final successful logical end;
+- handle an event discovered after its target time by deliberately sending it immediately with a current MIDI timestamp, never by passing an accidentally stale timestamp;
+- track outputs with queued sends and used channels independently from active-note counts.
+
+On transport stop, MIDI disconnect/replacement, and engine destruction, clear every tracked concrete output’s pending send queue with `MIDIOutput.clear()`, then send channel-scoped All Notes Off (CC 123) on every tracked used channel. Also clear undispatched logical events, logical-note-to-output mappings, overlap counts, tracked handles/channels, and the dispatcher timer. Do not derive ports to clear solely from active-note counts.
+
+A disconnect/replacement starts a new scheduler generation: logical events submitted to the old generation are discarded and never replayed after reconnect. `stop()` clears the current generation and stops the timer; a later `scheduleNote()` lazily starts a new dispatcher. `destroy()` is terminal and ignores later scheduling.
+
+Clearing is intentionally port-wide and assumes exclusive engine ownership of the entire output port queue. Schema retirement follows the existing bar-boundary behavior: do not indiscriminately clear a port queue merely because an old local instrument is retiring, since it could cancel valid current-bar output. Explicit output teardown paths do clear queues.
+
+**Acceptance criteria:**
+
+- [ ] Note-on and note-off always target the same concrete port despite port-list changes.
+- [ ] Overlapping same-pitch notes do not cut each other off early.
+- [ ] Stop after queued note-on, before queued note-off, and near bar end does not leave a hardware note stuck.
+- [ ] MIDI replacement/disconnect/destroy clears engine-owned queued sends and active hardware notes.
+- [ ] Local synth playback remains additive and works when MIDI is unavailable.
+
+### Manual verification
+
+```ts
+d.synth("sawtooth")
   .out(d.midi.out().channel(1))
   .notes([0, 3, 5])
   .euclid(3, 8)
-  .gain(0.8)
-
-// Specific device
-d.synth()
-  .out(d.midi.out("device-id").channel(1))
-  .notes([0, 3, 5])
+  .gain(0.5)
+  .push();
 ```
 
-- `d.midi.out()` returns a fluent builder that serializes to `MidiOutSchema`.
-- `.out()` is a new method on `Synthesizer` that sets the note output target. Mutually exclusive with producing Web Audio nodes.
-- When no device ID is provided, `MidiOutSchema.deviceId` is omitted; AudioEngine resolves to the first available MIDI output at runtime.
-- Full pattern system (`.notes()`, `.euclid()`, `.fast()`, `.slow()`, `.reverse()`, etc.) works identically.
-- Gain value is preserved in the schema for velocity mapping.
+Verify:
 
-**Acceptance criteria:**
-- [ ] `getSchema()` produces correct `noteOutput` for a MIDI output synth
-- [ ] `d.midi.out().channel(1)` produces `{ type: "midi-out", channel: 1 }` (no deviceId)
-- [ ] `d.midi.out("id").channel(1)` produces `{ type: "midi-out", deviceId: "id", channel: 1 }`
-- [ ] Pattern methods work on MIDI output synths
-- [ ] Gain value appears in schema for downstream velocity conversion
-- [ ] No import of `@web-audio/midi` anywhere in `@web-audio/fluid`
+- [ ] Local audio and external MIDI hardware both play.
+- [ ] MIDI timing follows the clock.
+- [ ] `.mute()` silences only local audio.
+- [ ] Stop leaves no external notes sounding.
+- [ ] An explicit name/ID target remains consistent for note-on/note-off.
 
 ---
 
-## Phase 4: AudioEngine Integration
+## Phase 5: Web-app integration
 
-AudioEngine resolves MIDI schema nodes using a connected `Midi` instance.
+Tracer bullet: the web app enables MIDI from a user action and its UI remains reactive to external MIDI signals.
 
-### Step 4.1 — `engine.connectMidi()`
+### Step 5.1 — AudioPlayer ownership and enable/disable flow
 
-**Files:** `packages/audio-engine/src/engine.ts`
+**Files:** `apps/web/src/lib/globals/audio-player.svelte.ts`
+
+Add main-thread MIDI ownership:
 
 ```ts
-engine.connectMidi(midi: Midi): void
+audio.enableMidi(): Midi;
+audio.disableMidi(): void;
 ```
 
-- Stores the `Midi` instance for use when processing schemas.
-- Logs a console warning if called after a schema with MIDI nodes has already been processed.
-- No-op if called with the same instance twice.
+- `enableMidi()` creates and retains `Midi`, connects it to AudioEngine, and returns the pending instance immediately.
+- Subscribe internally to `midi.ready` to handle rejection and prevent unhandled promise rejections.
+- `disableMidi()` disconnects the engine, destroys the instance, and clears app-owned MIDI state.
+- Do not create `Midi` in `eval.worker.ts`; `d.midi.*` remains pure schema construction.
+
+### Step 5.2 — Svelte reactive adapter and header UI
+
+**Files:** `apps/web/src/lib/globals/audio-player.svelte.ts`, `apps/web/src/routes/+layout.svelte`, MIDI UI components as needed
+
+External `Signal<T>` values are not Svelte runes/stores. `AudioPlayer` must subscribe and copy MIDI status/input/output state into `$state` values that the UI consumes.
+
+The header control should:
+
+- enable MIDI from a user gesture;
+- display pending, connected, denied, unavailable, and error states;
+- list currently connected input/output names and IDs;
+- provide a copy-ID action;
+- permit disabling MIDI.
 
 **Acceptance criteria:**
-- [ ] `connectMidi()` can be called before or after `engine.update()`
-- [ ] Calling without MIDI nodes in the schema has no effect
-- [ ] Warning logged if MIDI nodes are in the current schema but no instance is connected
+
+- [ ] Permission denial/error is visible without an unhandled rejection.
+- [ ] Device connect/disconnect updates the UI reactively.
+- [ ] Enable/disable correctly creates/destroys engine bindings.
+- [ ] Worker evaluation remains independent of Web MIDI browser APIs.
 
 ---
 
-### Step 4.2 — Resolve `midi-cc` schema nodes
+## Phase 6: Verification and hardening
 
-**Files:** `packages/audio-engine/src/engine.ts`, relevant scheduler files
+### Automated verification
 
-When AudioEngine processes an instrument schema and encounters a `{ type: "midi-cc" }` parameter node:
-- Subscribes to `midi.in.cc(cc, { channel })`.
-- On each value, updates the corresponding `AudioParam` in real time.
-- Unsubscribes when the instrument is torn down or the schema is updated.
+- [ ] `pnpm --filter @web-audio/midi build`
+- [ ] `pnpm --filter @web-audio/midi check`
+- [ ] `pnpm --filter @web-audio/midi lint`
+- [ ] `pnpm --filter @web-audio/midi test:ci`
+- [ ] `pnpm --filter @web-audio/schema check`
+- [ ] `pnpm --filter @web-audio/fluid check`
+- [ ] `pnpm --filter @web-audio/fluid lint`
+- [ ] `pnpm --filter @web-audio/fluid test:ci`
+- [ ] `pnpm --filter @web-audio/audio-engine check`
+- [ ] `pnpm --filter @web-audio/audio-engine lint`
+- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
+- [ ] `pnpm --filter web check`
+- [ ] `pnpm --filter web lint`
+- [ ] `pnpm test`
 
-**Acceptance criteria:**
-- [ ] Moving a MIDI controller updates the target audio parameter in real time
-- [ ] Subscription is cleaned up on schema update or engine stop
-- [ ] Console warning if schema has `midi-cc` node but no Midi instance
+### Required focused tests
 
----
-
-### Step 4.3 — Resolve `midi-in` schema nodes (MIDI-driven synths)
-
-**Files:** `packages/audio-engine/src/engine.ts`, synth scheduler
-
-When AudioEngine processes an instrument with `noteSource: { type: "midi-in" }`:
-- Subscribes to `midi.in.note({ channel, deviceId })`.
-- On note-on: starts the synth's attack → decay → sustain hold. Velocity multiplied against envelope peak gain.
-- On note-off: triggers the release phase for that note; schedules node cleanup after release completes.
-- Tracks polyphony: each held note gets its own voice.
-
-**Acceptance criteria:**
-- [ ] Note-on triggers synth audio
-- [ ] Note-off triggers release and cleans up nodes
-- [ ] Velocity scales gain correctly (`velocity / 127 * envelopePeakGain`)
-- [ ] Multiple simultaneous notes produce correct polyphonic voices
-- [ ] Subscription is cleaned up on schema update or engine stop
-
----
-
-### Step 4.4 — Resolve `midi-out` schema nodes (MIDI output synths)
-
-**Files:** `packages/audio-engine/src/engine.ts`, pattern scheduler
-
-When AudioEngine processes an instrument with `noteOutput: { type: "midi-out" }`:
-- Uses the existing pattern scheduling pipeline to compute note events and timestamps.
-- Sends `midi.out.noteOn()` at the scheduled note start time.
-- Sends `midi.out.noteOff()` at end of sustain (attack + decay + sustain duration), before release.
-- Converts gain to velocity: `Math.round(gain * 127)`.
-- No Web Audio nodes are created for MIDI output synths.
-
-**Acceptance criteria:**
-- [ ] Pattern notes arrive at external hardware at correct clock-synchronized times
-- [ ] Note-off is sent before the release phase would begin
-- [ ] Velocity matches `Math.round(gain * 127)`
-- [ ] No audio nodes created for MIDI output instruments
-- [ ] Pattern methods (euclid, fast, slow, reverse, etc.) work correctly
+- [ ] Destroy while `requestMIDIAccess()` is pending.
+- [ ] Port disconnect/reconnect with the same ID.
+- [ ] Default-output change between note-on and note-off.
+- [ ] Same output/channel/note overlap, including notes supplied out of chronological order and across independently discovered bars.
+- [ ] Cross-bar note overlap where an earlier logical note-off is not physically queued before the later onset is known.
+- [ ] Worst-case timer delay still preserves the horizon/next-bar discovery invariant.
+- [ ] Failed note-on does not increment overlap counts; its note-off is a no-op.
+- [ ] Late events deliberately send immediately rather than using stale timestamps.
+- [ ] Stop with queued note-on near a bar end and queued note-off later.
+- [ ] Replace MIDI instance while voices/output sends are active.
+- [ ] CC update after voice creation but before scheduled note start.
+- [ ] `connectMidi()` after active voices exist.
+- [ ] Invalid/non-finite/exponential ranges.
+- [ ] Svelte UI update after external port-state changes.
 
 ---
 
-## Future: Quantization
+## Follow-up gaps
 
-Not implemented in this plan. MIDI-driven synths fire free-form only. This section documents the intended API for when quantization is added to AudioEngine.
+### Structured diagnostics
 
-### Fluid API
+See [`error-handling.md`](error-handling.md). Do not add MIDI-specific console-warning/deduplication infrastructure. Once shared diagnostics exist, use it for implicit CC defaults, ambiguous names, unavailable MIDI targets, and engine lifecycle warnings.
 
-```ts
-d.synth().notes(d.midi.notes().channel(1).quantize(16))
-d.synth().notes(d.midi.notes().channel(1).quantize(16, "start"))
-```
+### MIDI note input → synthesizer voices
 
-```ts
-quantize(steps: 4 | 8 | 16 | 32, points: "both" | "start" = "both")
-```
+A separate SOW must define and implement:
 
-- `steps` — the subdivision to snap to (4 = quarter note, 8 = eighth, 16 = sixteenth, 32 = thirty-second)
-- `points: "both"` — snap both note-on and note-off to the grid
-- `points: "start"` — snap note-on only; note-off fires free-form (more natural feel for live performance)
+- `MidiInSchema` and `d.midi.notes()`;
+- transport-independent versus transport-bound triggering;
+- held-note attack/decay/sustain and note-off release;
+- source-aware polyphony and duplicate-note semantics;
+- live-voice teardown on stop, schema update, reconnect, and destroy;
+- random/pattern/LFO/envelope semantics for live notes;
+- MIDI-controlled primary gain and ADSR/envelope values;
+- correct MIDI note endpoint handling in `midiToFrequency()` (`< 0`, not `<= 0`).
 
-### Schema extension
+The current engine is bar-scheduled and calculates envelopes from known note durations. MIDI note input requires a dedicated live-voice runtime, not a small branch in the pattern scheduler.
 
-`MidiInSchema` grows a `quantize` field:
+### Sampler MIDI output
 
-```ts
-interface MidiInSchema {
-  type: "midi-in"
-  channel?: number
-  deviceId?: string
-  quantize?: { steps: 4 | 8 | 16 | 32; points: "both" | "start" }
-}
-```
+Sampler output is intentionally deferred. It needs a product decision around whether sample pitch, generated fit/chop timing, and local-buffer availability should drive external hardware. If added, carry the original resolved MIDI note separately from sample playback rate and schedule output independently of sample-buffer readiness.
 
-### AudioEngine requirements
+### MIDI input → samplers
 
-When `quantize` is present on a `midi-in` schema node, AudioEngine must:
-1. On note-on: compute the next subdivision boundary using `clock.nextBeatStartTime` and `clock.beatDuration / (steps / 4)`
-2. Schedule the note to start at that future `AudioContext` time rather than immediately
-3. If `points: "both"`: apply the same snapping logic to note-off
-4. If `points: "start"`: fire note-off immediately when received
-
-AudioEngine already holds a reference to `AudioClock` — no new dependencies required.
+Sampler MIDI input follows the live synth-note work and needs separate decisions around source-key selection, held-note behavior, and sample release semantics.
