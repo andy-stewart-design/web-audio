@@ -125,13 +125,13 @@ interface CcSignal extends Signal<number> {
   readonly raw: number;
   readonly hasValue: boolean;
   readonly deviceId: string | null;
-  readonly channel: number | null;
+  readonly receivedChannel: number | null;
 }
 
 interface NoteSignal extends Signal<ReadonlySet<MidiNote>> {}
 ```
 
-- CC initial state is `value: 0`, `raw: 0`, `hasValue: false`, `deviceId: null`, and `channel: null`.
+- CC initial state is `value: 0`, `raw: 0`, `hasValue: false`, `deviceId: null`, and `receivedChannel: null`.
 - For merged signals, CC metadata identifies the latest accepted message source; scoped signals retain `null` metadata until their first matching message.
 - CC `value` is normalized 0–1; `raw` is 0–127.
 - Note state is keyed internally by `deviceId:channel:note`.

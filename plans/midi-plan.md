@@ -72,7 +72,7 @@ Requirements:
 - subscriptions receive the current value immediately, then later emissions;
 - unsubscription is idempotent;
 - emitted collection state is a new snapshot on each change; do not promise runtime immutability beyond the TypeScript `ReadonlySet` API unless a later shared collection abstraction is introduced;
-- `CcSignal` initial state is `value: 0`, `raw: 0`, `hasValue: false`, `deviceId: null`, and `channel: null`; metadata identifies the latest accepted matching message after one arrives;
+- `CcSignal` initial state is `value: 0`, `raw: 0`, `hasValue: false`, `deviceId: null`, and `receivedChannel: null`; metadata identifies the latest accepted matching message after one arrives; `_channel` remains the internal matching scope so `.channel(1)` remains the public immutable builder;
 - input-builder methods are immutable: `.channel(1)` returns a distinct canonical scoped signal and never mutates the unscoped signal;
 - cache identity is the requested selector string (or unscoped), input kind, CC number where applicable, and channel—not a currently resolved physical port.
 
@@ -407,9 +407,16 @@ Do not leave a future initialization automation event that can overwrite a CC up
 
 Tracer bullet: a clock-driven synth plays locally and sends synchronized, non-stuck MIDI notes to one external output.
 
-### Step 4.1 — Isolated MIDI output scheduler
+### Step 4.1 — Clock lead-time invariant and isolated MIDI output scheduler
 
-**Files:** `packages/audio-engine/src/midi-output-scheduler.ts`, `packages/audio-engine/src/midi-output-scheduler.test.ts`, `packages/audio-engine/src/index.ts`
+**Files:** `packages/clock/src/index.ts`, clock tests, `packages/audio-engine/src/midi-output-scheduler.ts`, `packages/audio-engine/src/midi-output-scheduler.test.ts`, `packages/audio-engine/src/index.ts`
+
+Before implementing the scheduler, make AudioClock's scheduling lead explicit and consistent:
+
+- expose the scheduling lead time needed to configure and validate downstream schedulers;
+- schedule the first bar with `AudioClock.scheduleAheadTime`, rather than the current shorter hard-coded startup delay;
+- preserve immediate dispatch as recovery for genuinely late MIDI events, not expected startup behavior;
+- define the bounded timer delay used by deterministic tests and verify that `MIDI horizon + maximum expected timer delay < scheduling lead`.
 
 Create a dedicated `MidiOutputScheduler`. It is the only AudioEngine module that knows about:
 
@@ -453,6 +460,9 @@ The scheduler accepts AudioContext timestamps. It converts to MIDI timestamps on
 
 **Acceptance criteria:**
 
+- [ ] AudioClock uses its scheduling lead for the first bar and exposes that lead without duplicating timing constants in AudioEngine.
+- [ ] Clock tests cover first-bar and normal-bar scheduling lead.
+- [ ] The configured MIDI horizon plus the bounded test timer delay is strictly less than the clock scheduling lead.
 - [ ] Scheduler is unit-testable with fake clock/time and fake MIDI adapter, without AudioContext nodes or synth instances.
 - [ ] Scheduler owns all MIDI output queues, concrete handles, counts, and teardown state.
 - [ ] Timing/timer dependencies are injectable; tests do not require global clocks.
