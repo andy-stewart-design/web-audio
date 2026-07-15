@@ -1,4 +1,4 @@
-import { MidiInputs } from "./inputs.js";
+import { createMidiInputs } from "./inputs.js";
 import { MidiOutputs } from "./outputs.js";
 import { WritableSignal } from "./signal.js";
 import type {
@@ -45,7 +45,8 @@ class Midi {
   readonly status: Signal<MidiStatus> = this._status;
   readonly inputs: Signal<readonly MidiDevice[]> = this._inputs;
   readonly outputs: Signal<readonly MidiDevice[]> = this._outputs;
-  readonly in = new MidiInputs();
+  private _inputManager = createMidiInputs();
+  readonly in = this._inputManager.inputs;
   readonly out = new MidiOutputs();
   readonly ready: Promise<void>;
 
@@ -82,7 +83,7 @@ class Midi {
       this._access.onstatechange = null;
       this._access = null;
     }
-    this.in.destroy();
+    this._inputManager.destroy();
     this.out.destroy();
 
     if (!this._readySettled) {
@@ -123,7 +124,7 @@ class Midi {
 
     const inputs = connectedPorts(this._access.inputs.values());
     const outputs = connectedPorts(this._access.outputs.values());
-    this.in._setPorts(inputs);
+    this._inputManager.setPorts(inputs);
     this._inputs.set(deviceSnapshot(inputs));
     this._outputs.set(deviceSnapshot(outputs));
   }

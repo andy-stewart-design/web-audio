@@ -1,6 +1,7 @@
 import { WritableSignal } from "./signal.js";
 import type {
   CcSignal,
+  MidiInputs,
   MidiNote,
   NoteSignal,
   WebMidiInput,
@@ -26,7 +27,7 @@ class MidiCcSignal extends WritableSignal<number> implements CcSignal {
   private _receivedChannel: number | null = null;
 
   constructor(
-    private readonly _inputs: MidiInputs,
+    private readonly controller: MidiInputsController,
     private readonly _selector: string | undefined,
     private readonly _cc: number,
     private readonly _channel: number | undefined,
@@ -51,18 +52,18 @@ class MidiCcSignal extends WritableSignal<number> implements CcSignal {
   }
 
   channel(channel: number) {
-    return this._inputs._cc(this._selector, this._cc, channel);
+    return this.controller.getCc(this._selector, this._cc, channel);
   }
 
-  _accepts(port: WebMidiInput, cc: number, channel: number) {
+  accepts(port: WebMidiInput, cc: number, channel: number) {
     return (
       this._cc === cc &&
       (this._channel === undefined || this._channel === channel) &&
-      this._inputs._matchesPort(this._selector, port)
+      this.controller.matchesPort(this._selector, port)
     );
   }
 
-  _receive(raw: number, deviceId: string, channel: number) {
+  receive(raw: number, deviceId: string, channel: number) {
     this._raw = raw;
     this._hasValue = true;
     this._deviceId = deviceId;
@@ -78,7 +79,7 @@ class MidiNoteSignal
   private _held = new Map<string, MidiNote>();
 
   constructor(
-    private readonly _inputs: MidiInputs,
+    private readonly controller: MidiInputsController,
     private readonly _selector: string | undefined,
     private readonly _channel: number | undefined,
   ) {
@@ -86,17 +87,17 @@ class MidiNoteSignal
   }
 
   channel(channel: number) {
-    return this._inputs._notes(this._selector, channel);
+    return this.controller.getNotes(this._selector, channel);
   }
 
-  _accepts(port: WebMidiInput, channel: number) {
+  accepts(port: WebMidiInput, channel: number) {
     return (
       (this._channel === undefined || this._channel === channel) &&
-      this._inputs._matchesPort(this._selector, port)
+      this.controller.matchesPort(this._selector, port)
     );
   }
 
-  _noteOn(deviceId: string, channel: number, note: number, velocity: number) {
+  noteOn(deviceId: string, channel: number, note: number, velocity: number) {
     this._held.set(`${deviceId}:${channel}:${note}`, {
       note,
       velocity,
@@ -106,15 +107,15 @@ class MidiNoteSignal
     this._emitSnapshot();
   }
 
-  _noteOff(deviceId: string, channel: number, note: number) {
+  noteOff(deviceId: string, channel: number, note: number) {
     const removed = this._held.delete(`${deviceId}:${channel}:${note}`);
     if (removed) this._emitSnapshot();
   }
 
-  _retainMatchingPorts(ports: readonly WebMidiInput[]) {
+  retainMatchingPorts(ports: readonly WebMidiInput[]) {
     const deviceIds = new Set(
       ports
-        .filter((port) => this._inputs._matchesPort(this._selector, port))
+        .filter((port) => this.controller.matchesPort(this._selector, port))
         .map((port) => port.id),
     );
     let changed = false;
@@ -131,7 +132,7 @@ class MidiNoteSignal
   }
 }
 
-class MidiInputs {
+class MidiInputsController {
   private _ccSignals = new Map<string, MidiCcSignal>();
   private _noteSignals = new Map<string, MidiNoteSignal>();
   private _ports: readonly WebMidiInput[] = [];
@@ -140,23 +141,7 @@ class MidiInputs {
     (event: WebMidiMessageEvent) => void
   >();
 
-  cc(cc: number): CcSignal;
-  cc(selector: string, cc: number): CcSignal;
-  cc(selectorOrCc: string | number, maybeCc?: number) {
-    const selector =
-      typeof selectorOrCc === "string" ? selectorOrCc : undefined;
-    const cc = typeof selectorOrCc === "number" ? selectorOrCc : maybeCc;
-    if (cc === undefined) {
-      throw new TypeError("A MIDI CC number is required.");
-    }
-    return this._cc(selector, cc);
-  }
-
-  notes(selector?: string) {
-    return this._notes(selector);
-  }
-
-  _setPorts(ports: readonly WebMidiInput[]) {
+  setPorts(ports: readonly WebMidiInput[]) {
     const connected = new Set(ports);
     for (const [port, listener] of this._portListeners) {
       if (connected.has(port)) continue;
@@ -176,15 +161,15 @@ class MidiInputs {
     }
 
     for (const signal of this._noteSignals.values()) {
-      signal._retainMatchingPorts(ports);
+      signal.retainMatchingPorts(ports);
     }
   }
 
   destroy() {
-    this._setPorts([]);
+    this.setPorts([]);
   }
 
-  _matchesPort(selector: string | undefined, port: WebMidiInput) {
+  matchesPort(selector: string | undefined, port: WebMidiInput) {
     if (selector === undefined) return true;
     const idMatch = this._ports.find((candidate) => candidate.id === selector);
     if (idMatch) return idMatch === port;
@@ -202,8 +187,8 @@ class MidiInputs {
 
     if (message === 0xb0) {
       for (const signal of this._ccSignals.values()) {
-        if (signal._accepts(port, data1, channel)) {
-          signal._receive(data2, port.id, channel);
+        if (signal.accepts(port, data1, channel)) {
+          signal.receive(data2, port.id, channel);
         }
       }
       return;
@@ -212,13 +197,13 @@ class MidiInputs {
     if (message !== 0x80 && message !== 0x90) return;
     const noteOn = message === 0x90 && data2 > 0;
     for (const signal of this._noteSignals.values()) {
-      if (!signal._accepts(port, channel)) continue;
-      if (noteOn) signal._noteOn(port.id, channel, data1, data2);
-      else signal._noteOff(port.id, channel, data1);
+      if (!signal.accepts(port, channel)) continue;
+      if (noteOn) signal.noteOn(port.id, channel, data1, data2);
+      else signal.noteOff(port.id, channel, data1);
     }
   }
 
-  _cc(selector: string | undefined, cc: number, channel?: number) {
+  getCc(selector: string | undefined, cc: number, channel?: number) {
     validateCc(cc);
     if (channel !== undefined) validateChannel(channel);
 
@@ -231,7 +216,7 @@ class MidiInputs {
     return signal;
   }
 
-  _notes(selector: string | undefined, channel?: number) {
+  getNotes(selector: string | undefined, channel?: number) {
     if (channel !== undefined) validateChannel(channel);
 
     const key = JSON.stringify([selector ?? null, channel ?? null]);
@@ -244,4 +229,31 @@ class MidiInputs {
   }
 }
 
-export { MidiInputs };
+const createMidiInputs = () => {
+  const controller = new MidiInputsController();
+
+  function cc(cc: number): CcSignal;
+  function cc(selector: string, cc: number): CcSignal;
+  function cc(selectorOrCc: string | number, maybeCc?: number) {
+    if (typeof selectorOrCc === "number") {
+      return controller.getCc(undefined, selectorOrCc);
+    }
+    if (maybeCc === undefined) {
+      throw new TypeError("A MIDI CC number is required.");
+    }
+    return controller.getCc(selectorOrCc, maybeCc);
+  }
+
+  const inputs: MidiInputs = {
+    cc,
+    notes: (selector) => controller.getNotes(selector),
+  };
+
+  return {
+    inputs,
+    setPorts: (ports: readonly WebMidiInput[]) => controller.setPorts(ports),
+    destroy: () => controller.destroy(),
+  };
+};
+
+export { createMidiInputs };

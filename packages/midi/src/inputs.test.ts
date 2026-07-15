@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
-import { MidiInputs } from "./inputs.js";
-import type { WebMidiMessageEvent } from "./types.js";
+import { createMidiInputs } from "./inputs.js";
+import type { MidiInputs, WebMidiMessageEvent } from "./types.js";
 
 class FakeInput {
   state: "connected" | "disconnected" = "connected";
@@ -38,7 +38,8 @@ const heldNotes = (signal: ReturnType<MidiInputs["notes"]>) =>
 
 describe("MidiInputs signal identity", () => {
   test("returns canonical CC signals for each selector, number, and channel", () => {
-    const inputs = new MidiInputs();
+    const manager = createMidiInputs();
+    const inputs = manager.inputs;
 
     expect(inputs.cc(74)).toBe(inputs.cc(74));
     expect(inputs.cc("device", 74)).toBe(inputs.cc("device", 74));
@@ -48,7 +49,8 @@ describe("MidiInputs signal identity", () => {
   });
 
   test("channel scoping is immutable", () => {
-    const inputs = new MidiInputs();
+    const manager = createMidiInputs();
+    const inputs = manager.inputs;
     const unscoped = inputs.cc(74);
     const scoped = unscoped.channel(1);
 
@@ -58,7 +60,8 @@ describe("MidiInputs signal identity", () => {
   });
 
   test("returns canonical note signals", () => {
-    const inputs = new MidiInputs();
+    const manager = createMidiInputs();
+    const inputs = manager.inputs;
 
     expect(inputs.notes()).toBe(inputs.notes());
     expect(inputs.notes("device")).toBe(inputs.notes("device"));
@@ -67,7 +70,7 @@ describe("MidiInputs signal identity", () => {
   });
 
   test("CC signals expose their specified initial state", () => {
-    const signal = new MidiInputs().cc(74);
+    const signal = createMidiInputs().inputs.cc(74);
 
     expect(signal.value).toBe(0);
     expect(signal.raw).toBe(0);
@@ -79,12 +82,13 @@ describe("MidiInputs signal identity", () => {
 
 describe("MIDI CC input", () => {
   test("decodes values and records source metadata", () => {
-    const inputs = new MidiInputs();
+    const manager = createMidiInputs();
+    const inputs = manager.inputs;
     const port = new FakeInput("keys-id", "Keys");
     const signal = inputs.cc(74);
     const subscriber = vi.fn();
     signal.subscribe(subscriber);
-    inputs._setPorts([port]);
+    manager.setPorts([port]);
 
     port.send(0xb2, 74, 127);
 
@@ -97,12 +101,13 @@ describe("MIDI CC input", () => {
   });
 
   test("filters by CC, channel, exact ID, and exact name", () => {
-    const inputs = new MidiInputs();
+    const manager = createMidiInputs();
+    const inputs = manager.inputs;
     const keys = new FakeInput("keys-id", "Keys");
     const drums = new FakeInput("drums-id", "Drums");
     const byId = inputs.cc("keys-id", 74).channel(2);
     const byName = inputs.cc("Keys", 74);
-    inputs._setPorts([keys, drums]);
+    manager.setPorts([keys, drums]);
 
     keys.send(0xb0, 74, 10);
     keys.send(0xb1, 1, 20);
@@ -115,7 +120,8 @@ describe("MIDI CC input", () => {
   });
 
   test("prefers an exact ID and selects the first duplicate name", () => {
-    const inputs = new MidiInputs();
+    const manager = createMidiInputs();
+    const inputs = manager.inputs;
     const first = new FakeInput("first", "Shared");
     const exactId = new FakeInput("Shared", "Other");
     const duplicate = new FakeInput("duplicate", "Shared");
@@ -123,7 +129,7 @@ describe("MIDI CC input", () => {
     const duplicateName = inputs.cc("Duplicate", 2);
     const namedFirst = new FakeInput("named-first", "Duplicate");
     const namedSecond = new FakeInput("named-second", "Duplicate");
-    inputs._setPorts([first, exactId, duplicate, namedFirst, namedSecond]);
+    manager.setPorts([first, exactId, duplicate, namedFirst, namedSecond]);
 
     first.send(0xb0, 1, 10);
     exactId.send(0xb0, 1, 20);
@@ -138,13 +144,14 @@ describe("MIDI CC input", () => {
   });
 
   test("retains the latest CC state on disconnect", () => {
-    const inputs = new MidiInputs();
+    const manager = createMidiInputs();
+    const inputs = manager.inputs;
     const port = new FakeInput("keys-id", "Keys");
     const signal = inputs.cc(7);
-    inputs._setPorts([port]);
+    manager.setPorts([port]);
     port.send(0xb0, 7, 50);
 
-    inputs._setPorts([]);
+    manager.setPorts([]);
 
     expect(signal.raw).toBe(50);
     expect(signal.hasValue).toBe(true);
@@ -154,11 +161,12 @@ describe("MIDI CC input", () => {
 
 describe("MIDI note input", () => {
   test("tracks notes by device, channel, and pitch", () => {
-    const inputs = new MidiInputs();
+    const manager = createMidiInputs();
+    const inputs = manager.inputs;
     const first = new FakeInput("first", "First");
     const second = new FakeInput("second", "Second");
     const signal = inputs.notes();
-    inputs._setPorts([first, second]);
+    manager.setPorts([first, second]);
 
     first.send(0x90, 60, 100);
     first.send(0x91, 60, 90);
@@ -172,10 +180,11 @@ describe("MIDI note input", () => {
   });
 
   test("handles note-off and velocity-zero note-on", () => {
-    const inputs = new MidiInputs();
+    const manager = createMidiInputs();
+    const inputs = manager.inputs;
     const port = new FakeInput("keys-id", "Keys");
     const signal = inputs.notes();
-    inputs._setPorts([port]);
+    manager.setPorts([port]);
 
     port.send(0x90, 60, 100);
     port.send(0x90, 61, 100);
@@ -186,12 +195,13 @@ describe("MIDI note input", () => {
   });
 
   test("updates velocity and emits a fresh snapshot for repeated note-on", () => {
-    const inputs = new MidiInputs();
+    const manager = createMidiInputs();
+    const inputs = manager.inputs;
     const port = new FakeInput("keys-id", "Keys");
     const signal = inputs.notes();
     const snapshots: ReadonlySet<unknown>[] = [];
     signal.subscribe((value) => snapshots.push(value));
-    inputs._setPorts([port]);
+    manager.setPorts([port]);
 
     port.send(0x90, 60, 40);
     const first = signal.value;
@@ -205,11 +215,12 @@ describe("MIDI note input", () => {
   });
 
   test("filters notes by device and channel", () => {
-    const inputs = new MidiInputs();
+    const manager = createMidiInputs();
+    const inputs = manager.inputs;
     const keys = new FakeInput("keys-id", "Keys");
     const drums = new FakeInput("drums-id", "Drums");
     const signal = inputs.notes("Keys").channel(2);
-    inputs._setPorts([keys, drums]);
+    manager.setPorts([keys, drums]);
 
     keys.send(0x90, 60, 100);
     drums.send(0x91, 61, 100);
@@ -221,15 +232,16 @@ describe("MIDI note input", () => {
   });
 
   test("removes disconnected-device notes while retaining other devices", () => {
-    const inputs = new MidiInputs();
+    const manager = createMidiInputs();
+    const inputs = manager.inputs;
     const first = new FakeInput("first", "First");
     const second = new FakeInput("second", "Second");
     const signal = inputs.notes();
-    inputs._setPorts([first, second]);
+    manager.setPorts([first, second]);
     first.send(0x90, 60, 100);
     second.send(0x90, 60, 80);
 
-    inputs._setPorts([second]);
+    manager.setPorts([second]);
 
     expect(heldNotes(signal)).toEqual([
       { note: 60, velocity: 80, deviceId: "second", channel: 1 },
@@ -237,11 +249,12 @@ describe("MIDI note input", () => {
   });
 
   test("ignores unsupported and incomplete messages", () => {
-    const inputs = new MidiInputs();
+    const manager = createMidiInputs();
+    const inputs = manager.inputs;
     const port = new FakeInput("keys-id", "Keys");
     const notes = inputs.notes();
     const cc = inputs.cc(1);
-    inputs._setPorts([port]);
+    manager.setPorts([port]);
 
     port.send(0xc0, 1, 2);
     port.send(0x90, 60);
