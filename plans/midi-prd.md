@@ -61,6 +61,8 @@ type MidiStatus =
 - `error`: another access failure occurred.
 - `destroyed`: the instance has been permanently torn down.
 
+Denied and error states retain the original thrown value as `midi.error: unknown | null`. The package deliberately does not normalize it to a string, preserving DOMException names, stacks, and other programmatic context. UI adapters may derive their own display string.
+
 The package is safe to import and construct outside a browser: it never reads `navigator` at module scope.
 
 ### Signals and devices

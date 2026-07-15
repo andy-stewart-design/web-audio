@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { MidiInput } from "./input.js";
+import { MidiInputs } from "./inputs.js";
 
-describe("MidiInput signal identity", () => {
+describe("MidiInputs signal identity", () => {
   test("returns canonical CC signals for each selector, number, and channel", () => {
-    const input = new MidiInput();
+    const input = new MidiInputs();
 
     expect(input.cc(74)).toBe(input.cc(74));
     expect(input.cc("device", 74)).toBe(input.cc("device", 74));
@@ -13,7 +13,7 @@ describe("MidiInput signal identity", () => {
   });
 
   test("channel scoping is immutable", () => {
-    const input = new MidiInput();
+    const input = new MidiInputs();
     const unscoped = input.cc(74);
     const scoped = unscoped.channel(1);
 
@@ -23,7 +23,7 @@ describe("MidiInput signal identity", () => {
   });
 
   test("returns canonical note signals", () => {
-    const input = new MidiInput();
+    const input = new MidiInputs();
 
     expect(input.notes()).toBe(input.notes());
     expect(input.notes("device")).toBe(input.notes("device"));
@@ -32,7 +32,7 @@ describe("MidiInput signal identity", () => {
   });
 
   test("CC signals expose their specified initial state", () => {
-    const signal = new MidiInput().cc(74);
+    const signal = new MidiInputs().cc(74);
 
     expect(signal.value).toBe(0);
     expect(signal.raw).toBe(0);

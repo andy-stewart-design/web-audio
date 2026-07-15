@@ -3,7 +3,7 @@ import { WritableSignal } from "./signal.js";
 
 class TestSignal<T> extends WritableSignal<T> {
   update(value: T) {
-    this.emit(value);
+    this.set(value);
   }
 }
 

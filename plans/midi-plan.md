@@ -84,7 +84,7 @@ Requirements:
 
 ### Step 1.2 — Access, ports, and destruction
 
-**Files:** `packages/midi/src/midi.ts`, `packages/midi/src/input.ts`, `packages/midi/src/output.ts`
+**Files:** `packages/midi/src/midi.ts`, `packages/midi/src/inputs.ts`, `packages/midi/src/outputs.ts`
 
 ```ts
 const midi = new Midi();
@@ -96,7 +96,7 @@ Requirements:
 
 - no `navigator` access at module scope;
 - absent `requestMIDIAccess` sets `unavailable`, rejects `ready`, and exposes empty lists;
-- `NotAllowedError` sets `denied`; other access failures set `error` and retain the underlying error for callers/logging;
+- `NotAllowedError` sets `denied`; other access failures set `error`; both retain the original thrown value as `midi.error: unknown | null` so callers can inspect DOMException names, stacks, and other context rather than receiving a lossy normalized string;
 - successful access sets `connected`, including when no physical ports are connected;
 - expose only currently connected ports in `inputs` and `outputs`;
 - `MIDIAccess.onstatechange` refreshes lists, attaches one central listener to each connected input, and detaches disconnected listeners;
@@ -115,7 +115,7 @@ Requirements:
 
 ### Step 1.3 — Input API
 
-**Files:** `packages/midi/src/input.ts`, `packages/midi/src/input.test.ts`
+**Files:** `packages/midi/src/inputs.ts`, `packages/midi/src/inputs.test.ts`
 
 ```ts
 midi.in.cc(74);
@@ -150,7 +150,7 @@ Requirements:
 
 ### Step 1.4 — Output API
 
-**Files:** `packages/midi/src/output.ts`, `packages/midi/src/output.test.ts`
+**Files:** `packages/midi/src/outputs.ts`, `packages/midi/src/outputs.test.ts`
 
 ```ts
 midi.out.noteOn(device, { note, velocity, channel, time? });

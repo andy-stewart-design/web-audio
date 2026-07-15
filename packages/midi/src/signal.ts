@@ -24,7 +24,7 @@ class WritableSignal<T> implements Signal<T> {
     };
   }
 
-  protected emit(value: T) {
+  set(value: T) {
     this._value = value;
     this._subscribers.forEach((fn) => fn(value));
   }

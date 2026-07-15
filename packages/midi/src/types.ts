@@ -35,4 +35,50 @@ interface NoteSignal extends Signal<ReadonlySet<MidiNote>> {
   channel(channel: number): NoteSignal;
 }
 
-export type { CcSignal, MidiDevice, MidiNote, MidiStatus, NoteSignal, Signal };
+// Internal browser-adapter contracts. These intentionally model only the Web
+// MIDI surface used by this package and are not exported from the public entry.
+interface WebMidiPort {
+  readonly id: string;
+  readonly name: string | null;
+  readonly state: "connected" | "disconnected";
+}
+
+interface WebMidiMessageEvent extends Event {
+  readonly data: Uint8Array;
+}
+
+interface WebMidiInput extends WebMidiPort {
+  addEventListener(
+    type: "midimessage",
+    listener: (event: WebMidiMessageEvent) => void,
+  ): void;
+  removeEventListener(
+    type: "midimessage",
+    listener: (event: WebMidiMessageEvent) => void,
+  ): void;
+}
+
+type WebMidiOutput = WebMidiPort;
+
+interface WebMidiPortMap<T extends WebMidiPort> {
+  values(): IterableIterator<T>;
+}
+
+interface WebMidiAccess {
+  readonly inputs: WebMidiPortMap<WebMidiInput>;
+  readonly outputs: WebMidiPortMap<WebMidiOutput>;
+  onstatechange: ((event: Event) => void) | null;
+}
+
+export type {
+  CcSignal,
+  MidiDevice,
+  MidiNote,
+  MidiStatus,
+  NoteSignal,
+  Signal,
+  WebMidiAccess,
+  WebMidiInput,
+  WebMidiMessageEvent,
+  WebMidiOutput,
+};

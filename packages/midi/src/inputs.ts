@@ -1,5 +1,11 @@
 import { WritableSignal } from "./signal.js";
-import type { CcSignal, MidiNote, NoteSignal } from "./types.js";
+import type {
+  CcSignal,
+  MidiNote,
+  NoteSignal,
+  WebMidiInput,
+  WebMidiMessageEvent,
+} from "./types.js";
 
 const validateChannel = (channel: number) => {
   if (!Number.isInteger(channel) || channel < 1 || channel > 16) {
@@ -20,7 +26,7 @@ class MidiCcSignal extends WritableSignal<number> implements CcSignal {
   readonly receivedChannel: number | null = null;
 
   constructor(
-    private readonly _input: MidiInput,
+    private readonly _inputs: MidiInputs,
     private readonly _selector: string | undefined,
     private readonly _cc: number,
   ) {
@@ -28,7 +34,7 @@ class MidiCcSignal extends WritableSignal<number> implements CcSignal {
   }
 
   channel(channel: number) {
-    return this._input._cc(this._selector, this._cc, channel);
+    return this._inputs._cc(this._selector, this._cc, channel);
   }
 }
 
@@ -37,20 +43,24 @@ class MidiNoteSignal
   implements NoteSignal
 {
   constructor(
-    private readonly _input: MidiInput,
+    private readonly _inputs: MidiInputs,
     private readonly _selector: string | undefined,
   ) {
     super(new Set<MidiNote>());
   }
 
   channel(channel: number) {
-    return this._input._notes(this._selector, channel);
+    return this._inputs._notes(this._selector, channel);
   }
 }
 
-class MidiInput {
+class MidiInputs {
   private _ccSignals = new Map<string, MidiCcSignal>();
   private _noteSignals = new Map<string, MidiNoteSignal>();
+  private _portListeners = new Map<
+    WebMidiInput,
+    (event: WebMidiMessageEvent) => void
+  >();
 
   cc(cc: number): CcSignal;
   cc(selector: string, cc: number): CcSignal;
@@ -66,6 +76,33 @@ class MidiInput {
 
   notes(selector?: string) {
     return this._notes(selector);
+  }
+
+  _setPorts(ports: readonly WebMidiInput[]) {
+    const connected = new Set(ports);
+    for (const [port, listener] of this._portListeners) {
+      if (connected.has(port)) continue;
+      port.removeEventListener("midimessage", listener);
+      this._portListeners.delete(port);
+    }
+
+    for (const port of ports) {
+      if (this._portListeners.has(port)) continue;
+      const listener = () => {
+        this._dispatch();
+      };
+      port.addEventListener("midimessage", listener);
+      this._portListeners.set(port, listener);
+    }
+  }
+
+  destroy() {
+    this._setPorts([]);
+  }
+
+  private _dispatch() {
+    // Message routing is introduced in Phase 1.3. Keeping this single
+    // dispatcher here guarantees one native listener per connected port.
   }
 
   _cc(selector: string | undefined, cc: number, channel?: number) {
@@ -94,4 +131,4 @@ class MidiInput {
   }
 }
 
-export { MidiInput };
+export { MidiInputs };
