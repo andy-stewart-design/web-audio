@@ -161,7 +161,7 @@ midi.out.send(device, data, time?);
 
 Requirements:
 
-- validate typed note/CC/velocity fields as integers 0–127 and channel as 1–16;
+- typed note-on defaults velocity to 127; all typed sends default channel to 1; supplied note/CC/velocity fields validate as integers 0–127 and supplied channels as 1–16;
 - encode channel 1 as nibble 0, e.g. `0x90 | (channel - 1)`;
 - accept non-empty `Uint8Array` and readonly byte arrays for raw sends; validate bytes are integers 0–255;
 - raw send is for ordinary non-SysEx messages such as pitch bend/program change; reject any sequence containing SysEx bytes (`0xf0`/`0xf7`) in V1, but permit system realtime bytes such as `0xf8`;

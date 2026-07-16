@@ -41,6 +41,56 @@ interface MidiInputs {
   notes(selector?: string): NoteSignal;
 }
 
+interface ResolvedMidiOutput {
+  readonly id: string;
+}
+
+type MidiSendResult =
+  | { sent: true }
+  | { sent: false; reason: "unavailable" | "destroyed" | "send-error" };
+
+type MidiNoteOnOptions = {
+  note: number;
+  velocity?: number;
+  channel?: number;
+  time?: number;
+};
+
+type MidiNoteOffOptions = {
+  note: number;
+  channel?: number;
+  time?: number;
+};
+
+type MidiCcOptions = {
+  cc: number;
+  value: number;
+  channel?: number;
+  time?: number;
+};
+
+interface MidiOutputs {
+  resolve(selector?: string): ResolvedMidiOutput | null;
+  noteOn(
+    target: string | ResolvedMidiOutput,
+    options: MidiNoteOnOptions,
+  ): MidiSendResult;
+  noteOff(
+    target: string | ResolvedMidiOutput,
+    options: MidiNoteOffOptions,
+  ): MidiSendResult;
+  cc(
+    target: string | ResolvedMidiOutput,
+    options: MidiCcOptions,
+  ): MidiSendResult;
+  send(
+    target: string | ResolvedMidiOutput,
+    data: Uint8Array | readonly number[],
+    time?: number,
+  ): MidiSendResult;
+  clear(output: ResolvedMidiOutput): void;
+}
+
 // Internal browser-adapter contracts. These intentionally model only the Web
 // MIDI surface used by this package and are not exported from the public entry.
 interface WebMidiPort {
@@ -64,7 +114,10 @@ interface WebMidiInput extends WebMidiPort {
   ): void;
 }
 
-type WebMidiOutput = WebMidiPort;
+interface WebMidiOutput extends WebMidiPort {
+  send(data: Uint8Array | readonly number[], timestamp?: number): void;
+  clear(): void;
+}
 
 interface WebMidiPortMap<T extends WebMidiPort> {
   values(): IterableIterator<T>;
@@ -78,11 +131,17 @@ interface WebMidiAccess {
 
 export type {
   CcSignal,
+  MidiCcOptions,
   MidiDevice,
   MidiInputs,
   MidiNote,
+  MidiNoteOffOptions,
+  MidiNoteOnOptions,
+  MidiOutputs,
+  MidiSendResult,
   MidiStatus,
   NoteSignal,
+  ResolvedMidiOutput,
   Signal,
   WebMidiAccess,
   WebMidiInput,

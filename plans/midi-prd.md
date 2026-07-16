@@ -152,7 +152,7 @@ midi.out.cc(device, { cc, value, channel, time? });
 midi.out.send(device, data, time?);
 ```
 
-Typed protocol values validate and throw on invalid programmer input:
+Typed note-on defaults velocity to 127, and all typed sends default channel to 1. Supplied protocol values validate and throw on invalid programmer input:
 
 - note, CC, and velocity: integer 0–127;
 - channel: integer 1–16.
