@@ -78,6 +78,16 @@ describe("MidiInputs signal identity", () => {
     expect(signal.deviceId).toBeNull();
     expect(signal.receivedChannel).toBeNull();
   });
+
+  test.each([-1, 128, 1.5, NaN])("rejects invalid CC number %s", (cc) => {
+    expect(() => createMidiInputs().inputs.cc(cc)).toThrow();
+  });
+
+  test.each([0, 17, 1.5, NaN])("rejects invalid channel %s", (channel) => {
+    const inputs = createMidiInputs().inputs;
+    expect(() => inputs.cc(74).channel(channel)).toThrow();
+    expect(() => inputs.notes().channel(channel)).toThrow();
+  });
 });
 
 describe("MIDI CC input", () => {

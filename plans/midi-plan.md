@@ -78,9 +78,9 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] `pnpm --filter @web-audio/midi build` succeeds.
-- [ ] `pnpm --filter @web-audio/midi check` passes.
-- [ ] Signal subscriptions, immediate delivery, unsubscription, and canonical input-signal identity are tested.
+- [x] `pnpm --filter @web-audio/midi build` succeeds.
+- [x] `pnpm --filter @web-audio/midi check` passes.
+- [x] Signal subscriptions, immediate delivery, unsubscription, and canonical input-signal identity are tested.
 
 ### Step 1.2 — Access, ports, and destruction
 
@@ -108,10 +108,10 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Port lists update for connect, disconnect, and reconnect.
-- [ ] Central dispatch does not add listeners as signals are created.
-- [ ] Destroy while pending, after granted access, and after denied/error access is tested.
-- [ ] No listener is attached after destruction.
+- [x] Port lists update for connect, disconnect, and reconnect.
+- [x] Central dispatch does not add listeners as signals are created.
+- [x] Destroy while pending, after granted access, and after denied/error access is tested.
+- [x] No listener is attached after destruction.
 
 ### Step 1.3 — Input API
 
@@ -143,10 +143,10 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Device/name/channel filtering works.
-- [ ] Multiple devices holding the same pitch remain distinct in note state.
-- [ ] Note-off, velocity-zero note-on, repeated note-on, and disconnect behavior are tested.
-- [ ] Repeated builder calls and `.channel()` calls return canonical signals without mutating others.
+- [x] Device/name/channel filtering works.
+- [x] Multiple devices holding the same pitch remain distinct in note state.
+- [x] Note-off, velocity-zero note-on, repeated note-on, and disconnect behavior are tested.
+- [x] Repeated builder calls and `.channel()` calls return canonical signals without mutating others.
 
 ### Step 1.4 — Output API
 
@@ -188,9 +188,9 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Typed message bytes, timestamps, validation, raw byte validation, and SysEx rejection are tested.
-- [ ] Channel 1 tests encode `0x90`, `0x80`, and `0xb0` correctly.
-- [ ] Resolution by ID/name and unavailable output behavior are tested.
+- [x] Typed message bytes, timestamps, validation, raw byte validation, and SysEx rejection are tested.
+- [x] Channel 1 tests encode `0x90`, `0x80`, and `0xb0` correctly.
+- [x] Resolution by ID/name and unavailable output behavior are tested.
 
 ### Step 1.5 — Demo app
 
@@ -200,12 +200,12 @@ Create a small Vite/vanilla TypeScript manual-test application.
 
 **Acceptance criteria:**
 
-- [ ] MIDI is enabled only from a user action.
-- [ ] Status and currently connected port names/IDs update reactively.
-- [ ] CC 1, 7, and 74 values/metadata are shown.
-- [ ] Source-aware held notes update correctly.
-- [ ] Test note, note-off, and CC sends work on a selected output.
-- [ ] Connect/disconnect is manually verifiable.
+- [x] MIDI is enabled only from a user action.
+- [x] Status and currently connected port names/IDs update reactively.
+- [x] CC 1, 7, and 74 values/metadata are shown.
+- [x] Source-aware held notes update correctly.
+- [x] Test note, note-off, and CC sends work on a selected output.
+- [x] Connect/disconnect is manually verifiable.
 
 ---
 
@@ -241,10 +241,10 @@ interface MidiCcSchema {
 
 **Acceptance criteria:**
 
-- [ ] Schema exports all MIDI types.
-- [ ] Only synthesizers accept `notesOut`.
-- [ ] Allowed direct parameter slots accept `MidiCcSchema`; envelope slots do not.
-- [ ] Schema package type-checks.
+- [x] Schema exports all MIDI types.
+- [x] Only synthesizers accept `notesOut`.
+- [x] Allowed direct parameter slots accept `MidiCcSchema`; envelope slots do not.
+- [x] Schema package type-checks.
 
 ### Step 2.2 — Fluid MIDI builders
 
