@@ -181,6 +181,7 @@ class Sampler extends Instrument {
       detune: this._detune.getSchema(),
       gain: this._gain.getSchema(),
       effects: this._effects.map((e) => e.getSchema()),
+      muted: false,
       loop: this._loop,
       clipMode: this._clipMode,
     };

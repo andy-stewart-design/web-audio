@@ -5,6 +5,7 @@ import { BUILT_IN_BANKS } from "./banks";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
 import Instrument from "./instruments/instrument";
+import { MidiBuilders } from "./midi";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import {
@@ -17,6 +18,7 @@ import type { CycleInput, DromeSchema, LoadSamplesInput } from "./types";
 import type { WaveformAlias } from "./utils/waveform";
 
 class Drome {
+  readonly midi = new MidiBuilders();
   private _instruments: Set<Instrument>;
   private _bpm: number | undefined;
   private _banks: Record<string, BankSchema>;

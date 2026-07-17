@@ -275,9 +275,9 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] ID/name selector, channel, explicit range/default, reversed range, equal range, and invalid-value tests pass.
-- [ ] Exponential zero/negative/non-finite endpoints fail clearly.
-- [ ] Builder call ordering serializes identical schemas.
+- [x] ID/name selector, channel, explicit range/default, reversed range, equal range, and invalid-value tests pass.
+- [x] Exponential zero/negative/non-finite endpoints fail clearly.
+- [x] Builder call ordering serializes identical schemas.
 
 ### Step 2.3 — Instrument methods and contextual CC serialization
 
