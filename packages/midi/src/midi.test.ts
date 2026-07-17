@@ -2,13 +2,15 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { Midi, MidiDestroyedError } from "./midi.js";
 
 class FakeInput {
-  state: "connected" | "disconnected" = "connected";
+  readonly id: string;
+  readonly name: string | null;
   readonly listeners = new Set<(event: Event) => void>();
+  state: "connected" | "disconnected" = "connected";
 
-  constructor(
-    readonly id: string,
-    readonly name: string | null,
-  ) {}
+  constructor(id: string, name: string | null) {
+    this.id = id;
+    this.name = name;
+  }
 
   addEventListener(_type: "midimessage", listener: (event: Event) => void) {
     this.listeners.add(listener);
@@ -20,16 +22,22 @@ class FakeInput {
 }
 
 class FakeOutput {
+  readonly id: string;
+  readonly name: string | null;
   state: "connected" | "disconnected" = "connected";
 
-  constructor(
-    readonly id: string,
-    readonly name: string | null,
-  ) {}
+  constructor(id: string, name: string | null) {
+    this.id = id;
+    this.name = name;
+  }
 }
 
 class FakePortMap<T extends FakeInput | FakeOutput> {
-  constructor(readonly ports: T[]) {}
+  readonly ports: T[];
+
+  constructor(ports: T[]) {
+    this.ports = ports;
+  }
 
   values() {
     return this.ports.values();

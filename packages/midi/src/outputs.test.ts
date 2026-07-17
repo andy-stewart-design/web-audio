@@ -2,16 +2,18 @@ import { describe, expect, test } from "vitest";
 import { createMidiOutputs } from "./outputs.js";
 
 class FakeOutput {
-  state: "connected" | "disconnected" = "connected";
+  readonly id: string;
+  readonly name: string | null;
   readonly sends: { data: number[]; time: number | undefined }[] = [];
+  state: "connected" | "disconnected" = "connected";
   clearCount = 0;
   throwOnSend = false;
   throwOnClear = false;
 
-  constructor(
-    readonly id: string,
-    readonly name: string | null,
-  ) {}
+  constructor(id: string, name: string | null) {
+    this.id = id;
+    this.name = name;
+  }
 
   send(data: Uint8Array | readonly number[], time?: number) {
     if (this.throwOnSend) throw new Error("send failed");

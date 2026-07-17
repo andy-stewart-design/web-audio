@@ -3,13 +3,15 @@ import { createMidiInputs } from "./inputs.js";
 import type { MidiInputs, WebMidiMessageEvent } from "./types.js";
 
 class FakeInput {
+  readonly id: string;
+  readonly name: string | null;
   state: "connected" | "disconnected" = "connected";
   private _listeners = new Set<(event: WebMidiMessageEvent) => void>();
 
-  constructor(
-    readonly id: string,
-    readonly name: string | null,
-  ) {}
+  constructor(id: string, name: string | null) {
+    this.id = id;
+    this.name = name;
+  }
 
   addEventListener(
     _type: "midimessage",

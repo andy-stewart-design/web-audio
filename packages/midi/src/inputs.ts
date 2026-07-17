@@ -21,18 +21,26 @@ const validateCc = (cc: number) => {
 };
 
 class MidiCcSignal extends WritableSignal<number> implements CcSignal {
+  private readonly controller: MidiInputsController;
+  private readonly _selector: string | undefined;
+  private readonly _cc: number;
+  private readonly _channel: number | undefined;
   private _raw = 0;
   private _hasValue = false;
   private _deviceId: string | null = null;
   private _receivedChannel: number | null = null;
 
   constructor(
-    private readonly controller: MidiInputsController,
-    private readonly _selector: string | undefined,
-    private readonly _cc: number,
-    private readonly _channel: number | undefined,
+    controller: MidiInputsController,
+    selector: string | undefined,
+    cc: number,
+    channel: number | undefined,
   ) {
     super(0);
+    this.controller = controller;
+    this._selector = selector;
+    this._cc = cc;
+    this._channel = channel;
   }
 
   get raw() {
@@ -76,14 +84,20 @@ class MidiNoteSignal
   extends WritableSignal<ReadonlySet<MidiNote>>
   implements NoteSignal
 {
+  private readonly controller: MidiInputsController;
+  private readonly _selector: string | undefined;
+  private readonly _channel: number | undefined;
   private _held = new Map<string, MidiNote>();
 
   constructor(
-    private readonly controller: MidiInputsController,
-    private readonly _selector: string | undefined,
-    private readonly _channel: number | undefined,
+    controller: MidiInputsController,
+    selector: string | undefined,
+    channel: number | undefined,
   ) {
     super(new Set<MidiNote>());
+    this.controller = controller;
+    this._selector = selector;
+    this._channel = channel;
   }
 
   channel(channel: number) {
