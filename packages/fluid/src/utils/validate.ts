@@ -1,6 +1,7 @@
 import { RandomCycle } from "@web-audio/patterns";
 import Envelope from "@/automations/envelope";
 import Lfo from "@/automations/lfo";
+import { MidiCc } from "@/midi";
 
 function isRandomCycleTuple<T>(v: unknown[]): v is [T] {
   return v.length === 1 && v[0] instanceof RandomCycle;
@@ -18,4 +19,14 @@ function isLfoTuple(v: unknown[]): v is [Lfo] {
   return v.length === 1 && v[0] instanceof Lfo;
 }
 
-export { isEnvelopeTuple, isLfoTuple, isRandomCycle, isRandomCycleTuple };
+function isMidiCcTuple(v: unknown[]): v is [MidiCc] {
+  return v.length === 1 && v[0] instanceof MidiCc;
+}
+
+export {
+  isEnvelopeTuple,
+  isLfoTuple,
+  isMidiCcTuple,
+  isRandomCycle,
+  isRandomCycleTuple,
+};

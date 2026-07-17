@@ -5,9 +5,16 @@ export type {
   Waveform,
 } from "@web-audio/schema";
 import type { RandomCycle } from "@web-audio/patterns";
+import type Envelope from "./automations/envelope";
+import type Lfo from "./automations/lfo";
+import type { MidiCc } from "./midi";
+import type Parameter from "./patterns/parameter";
 import type { scaleAliasMap } from "./utils/get-scale";
 
 type CycleInput = (number | number[])[] | [RandomCycle];
+
+type AudioParamSource = Parameter | Envelope | Lfo | MidiCc;
+type AudioParamInput = CycleInput | [Envelope] | [Lfo] | [MidiCc];
 
 type ADSR = { a: number; d: number; s: number; r: number };
 
@@ -49,6 +56,8 @@ type LoadSamplesInput =
 
 export type {
   ADSR,
+  AudioParamInput,
+  AudioParamSource,
   CycleInput,
   ScaleAlias,
   NoteName,

@@ -22,7 +22,32 @@ const validateFinite = (name: string, value: number) => {
 const clampToRange = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, Math.min(min, max)), Math.max(min, max));
 
-type MidiCcContext = Pick<MidiCcSchema, "range" | "default">;
+type MidiCcDefaults = Pick<MidiCcSchema, "range" | "default">;
+
+const MIDI_CC_CONTEXTS = {
+  gain: {
+    range: { min: 0, max: 1, curve: "linear" },
+    default: 1,
+  },
+  frequency: {
+    range: { min: 20, max: 20_000, curve: "exponential" },
+    default: 1_000,
+  },
+  q: {
+    range: { min: 0, max: 30, curve: "linear" },
+    default: 1,
+  },
+  detune: {
+    range: { min: -1_200, max: 1_200, curve: "linear" },
+    default: 0,
+  },
+  filterGain: {
+    range: { min: -24, max: 24, curve: "linear" },
+    default: 0,
+  },
+} satisfies Record<string, MidiCcDefaults>;
+
+type MidiCcContext = keyof typeof MIDI_CC_CONTEXTS;
 
 class MidiOut {
   private _channel = 1;
@@ -92,8 +117,10 @@ class MidiCc {
   }
 
   getSchema(context?: MidiCcContext) {
-    const range = this._range ?? context?.range;
-    const defaultValue = this._default ?? context?.default;
+    const contextual =
+      context === undefined ? undefined : MIDI_CC_CONTEXTS[context];
+    const range = this._range ?? contextual?.range;
+    const defaultValue = this._default ?? contextual?.default;
     if (!range || defaultValue === undefined) {
       throw new Error("[Midi] MIDI CC requires a range and default value.");
     }

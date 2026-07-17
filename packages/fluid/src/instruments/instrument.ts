@@ -4,14 +4,15 @@ import {
   type ScheduledValue,
 } from "@web-audio/patterns";
 import Envelope from "@/automations/envelope";
-import Lfo from "@/automations/lfo";
 import Filter from "@/effects/filter";
 import GainEffect from "@/effects/gain";
 import MidiNotes from "@/patterns/midi-notes";
 import Parameter from "@/patterns/parameter";
-import { isEnvelopeTuple, isLfoTuple } from "@/utils/validate";
+import { isEnvelopeTuple, isLfoTuple, isMidiCcTuple } from "@/utils/validate";
 import type {
   ADSR,
+  AudioParamInput,
+  AudioParamSource,
   CycleInput,
   NoteName,
   NoteValue,
@@ -27,10 +28,11 @@ const DEFAULT_GAIN_ENVELOPE = { a: 0.01, d: 0, s: 1, r: 0.01 } satisfies ADSR;
 
 abstract class Instrument {
   protected _cycle: MidiNotes;
-  protected _detune: Parameter | Envelope | Lfo;
+  protected _detune: AudioParamSource;
   protected _gain: Envelope;
   protected _effects: (Filter | GainEffect)[] = [];
   protected _host: Drome | undefined;
+  protected _muted = false;
   private _gainEnvelope: ADSR;
 
   constructor(
@@ -111,14 +113,21 @@ abstract class Instrument {
     return this;
   }
 
-  detune(...input: CycleInput | [Envelope] | [Lfo]) {
+  detune(...input: AudioParamInput) {
     if (isLfoTuple(input)) {
       this._detune = input[0];
     } else if (isEnvelopeTuple(input)) {
       this._detune = input[0];
+    } else if (isMidiCcTuple(input)) {
+      this._detune = input[0];
     } else {
       this._detune = new Parameter(...input);
     }
+    return this;
+  }
+
+  mute(enabled = true) {
+    this._muted = enabled;
     return this;
   }
 

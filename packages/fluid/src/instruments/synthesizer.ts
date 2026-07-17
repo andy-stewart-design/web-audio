@@ -1,5 +1,6 @@
 import type { SynthesizerSchema, Waveform } from "@web-audio/schema";
 import Instrument from "./instrument";
+import { MidiOut } from "@/midi";
 import type Drome from "@/index";
 import { resolveWaveform, type WaveformAlias } from "@/utils/waveform";
 
@@ -10,6 +11,7 @@ interface SynthesizerOptions {
 
 class Synthesizer extends Instrument {
   private _type: Waveform;
+  private _notesOut: MidiOut | undefined;
 
   constructor({ type = "sine", host }: SynthesizerOptions = {}) {
     super([60], host, { a: 0.005, r: 0.005 });
@@ -21,15 +23,23 @@ class Synthesizer extends Instrument {
     return this;
   }
 
+  out(output: MidiOut) {
+    this._notesOut = output;
+    return this;
+  }
+
   getSchema(): SynthesizerSchema {
     return {
       type: "synthesizer" as const,
       waveform: this._type,
       notes: this._cycle.getSchema(),
-      detune: this._detune.getSchema(),
+      detune: this._detune.getSchema("detune"),
       gain: this._gain.getSchema(),
       effects: this._effects.map((e) => e.getSchema()),
-      muted: false,
+      muted: this._muted,
+      ...(this._notesOut !== undefined && {
+        notesOut: this._notesOut.getSchema(),
+      }),
     };
   }
 }

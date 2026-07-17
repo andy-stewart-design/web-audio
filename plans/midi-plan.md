@@ -305,11 +305,11 @@ d.sample("break").mute(false);
 
 **Acceptance criteria:**
 
-- [ ] Synth output schema defaults to channel 1 and supports device selectors.
-- [ ] Samplers do not expose `.out()` in V1.
-- [ ] Mute serializes for both synths and samplers.
-- [ ] Explicit configuration overrides contextual values.
-- [ ] Contextual CC schemas are deterministic and do not use MIDI-specific `console.warn` calls.
+- [x] Synth output schema defaults to channel 1 and supports device selectors.
+- [x] Samplers do not expose `.out()` in V1.
+- [x] Mute serializes for both synths and samplers.
+- [x] Explicit configuration overrides contextual values.
+- [x] Contextual CC schemas are deterministic and do not use MIDI-specific `console.warn` calls.
 
 ---
 

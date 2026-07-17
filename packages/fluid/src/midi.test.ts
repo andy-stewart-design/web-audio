@@ -1,11 +1,6 @@
 import { describe, expect, test } from "vitest";
 import Drome from "./index";
 
-const context = {
-  range: { min: 0, max: 1, curve: "linear" as const },
-  default: 0.5,
-};
-
 describe("MIDI output builder", () => {
   test("defaults to channel 1", () => {
     expect(new Drome().midi.out().getSchema()).toEqual({
@@ -31,21 +26,21 @@ describe("MIDI output builder", () => {
 
 describe("MIDI CC builder", () => {
   test("serializes unscoped and device/channel-scoped CCs", () => {
-    expect(new Drome().midi.cc(74).getSchema(context)).toEqual({
+    expect(new Drome().midi.cc(74).getSchema("gain")).toEqual({
       type: "midi-cc",
       cc: 74,
-      range: context.range,
-      default: 0.5,
+      range: { min: 0, max: 1, curve: "linear" },
+      default: 1,
     });
     expect(
-      new Drome().midi.cc("Launchkey Mini", 74).channel(1).getSchema(context),
+      new Drome().midi.cc("Launchkey Mini", 74).channel(1).getSchema("gain"),
     ).toEqual({
       type: "midi-cc",
       cc: 74,
       device: "Launchkey Mini",
       channel: 1,
-      range: context.range,
-      default: 0.5,
+      range: { min: 0, max: 1, curve: "linear" },
+      default: 1,
     });
   });
 
@@ -94,7 +89,7 @@ describe("MIDI CC builder", () => {
 
   test("explicit values override contextual values", () => {
     expect(
-      new Drome().midi.cc(1).range(10, 20).default(15).getSchema(context),
+      new Drome().midi.cc(1).range(10, 20).default(15).getSchema("gain"),
     ).toMatchObject({
       range: { min: 10, max: 20, curve: "linear" },
       default: 15,
