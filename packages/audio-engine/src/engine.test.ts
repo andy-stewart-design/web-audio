@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Midi } from "@web-audio/midi";
 import type { DromeSchema } from "@web-audio/schema";
 
 // Mock Synthesizer so tests don't need Web Audio APIs.
@@ -12,6 +13,8 @@ vi.mock("./instruments/synthesizer", () => {
   ) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
+    this.connectMidi = vi.fn();
+    this.disconnectMidi = vi.fn();
     this._destination = opts.destination;
     let resolve: () => void;
     this.done = new Promise<void>((r) => {
@@ -31,6 +34,8 @@ vi.mock("./instruments/sampler", () => {
   ) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
+    this.connectMidi = vi.fn();
+    this.disconnectMidi = vi.fn();
     this._destination = opts.destination;
     this.isReady = vi.fn(() => true);
     this.load = vi.fn();
@@ -155,6 +160,7 @@ function makeSamplerSchema(): DromeSchema {
           mode: "bleed",
         },
         effects: [],
+        muted: false,
         loop: false,
         clipMode: "clipped",
       },
@@ -175,6 +181,8 @@ function instances() {
   return vi.mocked(MockSynthesizer).mock.instances as unknown as Array<{
     scheduleBar: ReturnType<typeof vi.fn>;
     cancelFutureNotes: ReturnType<typeof vi.fn>;
+    connectMidi: ReturnType<typeof vi.fn>;
+    disconnectMidi: ReturnType<typeof vi.fn>;
     done: Promise<void>;
     _destination: unknown;
     _resolveDone: () => void;
@@ -185,6 +193,8 @@ function samplerInstances() {
   return vi.mocked(MockSampler).mock.instances as unknown as Array<{
     scheduleBar: ReturnType<typeof vi.fn>;
     cancelFutureNotes: ReturnType<typeof vi.fn>;
+    connectMidi: ReturnType<typeof vi.fn>;
+    disconnectMidi: ReturnType<typeof vi.fn>;
     load: ReturnType<typeof vi.fn>;
     isReady: ReturnType<typeof vi.fn>;
     fallbackBufferFor: ReturnType<typeof vi.fn>;
@@ -194,6 +204,8 @@ function samplerInstances() {
     _resolveDone: () => void;
   }>;
 }
+
+const midiInstance = () => ({}) as Midi;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -380,6 +392,64 @@ describe("AudioEngine", () => {
       });
       await Promise.resolve();
       expect(i1Resolved).toBe(false);
+    });
+  });
+
+  describe("MIDI lifecycle", () => {
+    it("connects MIDI to instruments that are already active", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      engine.update(makeSchema());
+      clock.emit("prebar");
+      const midi = midiInstance();
+
+      engine.connectMidi(midi);
+
+      expect(instances()[0].connectMidi).toHaveBeenCalledWith(midi);
+    });
+
+    it("connects new instruments when MIDI was connected before commit", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const midi = midiInstance();
+      engine.connectMidi(midi);
+
+      engine.update(makeSchema());
+      clock.emit("prebar");
+
+      expect(instances()[0].connectMidi).toHaveBeenCalledWith(midi);
+    });
+
+    it("treats the same instance as a no-op and tears down replacements", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      engine.update(makeSchema());
+      clock.emit("prebar");
+      const first = midiInstance();
+      const second = midiInstance();
+
+      engine.connectMidi(first);
+      engine.connectMidi(first);
+      expect(instances()[0].connectMidi).toHaveBeenCalledTimes(1);
+
+      engine.connectMidi(second);
+      expect(instances()[0].disconnectMidi).toHaveBeenCalledTimes(1);
+      expect(instances()[0].connectMidi).toHaveBeenLastCalledWith(second);
+    });
+
+    it("disconnects active bindings explicitly and on destroy", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      engine.update(makeSchema());
+      clock.emit("prebar");
+
+      engine.connectMidi(midiInstance());
+      engine.disconnectMidi();
+      expect(instances()[0].disconnectMidi).toHaveBeenCalledTimes(1);
+
+      engine.connectMidi(midiInstance());
+      engine.destroy();
+      expect(instances()[0].disconnectMidi).toHaveBeenCalledTimes(2);
     });
   });
 

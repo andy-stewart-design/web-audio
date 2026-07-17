@@ -1,5 +1,7 @@
 import type AudioClock from "@web-audio/clock";
+import type { Midi } from "@web-audio/midi";
 import type {
+  AudioParamSchema,
   EffectSchema,
   EnvelopeSchema,
   InstrumentSchema,
@@ -16,8 +18,6 @@ import type { ScheduledNote, ResolvedEnvelopeSchema } from "@/types";
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
-
-type AutomationSchema = ParameterSchema | EnvelopeSchema | LfoSchema;
 
 interface NoteScheduleContext {
   barIndex: number;
@@ -44,6 +44,8 @@ type ScheduleVoiceParams = BaseScheduleVoiceParams &
     | { source: AudioScheduledSourceNode; offset?: undefined }
   );
 
+type MidiBinding = (midi: Midi | null) => void;
+
 // -----------------------------------------------------------------------------
 // Main Class
 // -----------------------------------------------------------------------------
@@ -56,6 +58,8 @@ abstract class Instrument {
   protected _lfoSchemas = new Map<string, LfoSchema>();
   private _resolvers = new Map<RandomSchema, RandomResolver>();
   private _scheduled: Set<ScheduledNote> = new Set();
+  private _midi: Midi | null = null;
+  private _midiBindings = new Set<MidiBinding>();
   private _doneResolve: (() => void) | null = null;
   readonly done: Promise<void>;
 
@@ -76,6 +80,27 @@ abstract class Instrument {
   }
 
   abstract scheduleBar(barIndex: number, barStartTime: number): void;
+
+  connectMidi(midi: Midi) {
+    if (this._midi === midi) return;
+    this._midi = midi;
+    this._midiBindings.forEach((bind) => bind(midi));
+  }
+
+  disconnectMidi() {
+    if (!this._midi) return;
+    this._midi = null;
+    this._midiBindings.forEach((bind) => bind(null));
+  }
+
+  protected _registerMidiBinding(bind: MidiBinding) {
+    this._midiBindings.add(bind);
+    bind(this._midi);
+    return () => {
+      if (!this._midiBindings.delete(bind)) return;
+      bind(null);
+    };
+  }
 
   protected _initLfos(
     schema: InstrumentSchema,
@@ -132,11 +157,13 @@ abstract class Instrument {
 
   protected _applyParamSchema(
     param: AudioParam,
-    schema: AutomationSchema,
+    schema: AudioParamSchema,
     note: NoteScheduleContext,
     scale = 1,
   ) {
-    if (schema.type === "lfo") {
+    if (schema.type === "midi-cc") {
+      param.value = schema.default * scale;
+    } else if (schema.type === "lfo") {
       const node = this._lfoNodes.get(schema.id);
       if (node) node.connect(param);
     } else if (schema.type === "envelope") {
@@ -239,12 +266,17 @@ abstract class Instrument {
   }
 
   protected _resolveDetune(
-    schema: AutomationSchema,
+    schema: AudioParamSchema,
     barIndex: number,
     stepIndex: number,
   ) {
     let value = 0;
     switch (schema.type) {
+      case "midi-cc":
+        return {
+          type: "static",
+          value: schema.default,
+        } satisfies ResolvedDetune;
       case "lfo":
         return { type: "lfo", schema, value } satisfies ResolvedDetune;
       case "envelope":

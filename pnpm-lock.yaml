@@ -170,6 +170,9 @@ importers:
       '@web-audio/fluid':
         specifier: workspace:*
         version: link:../../packages/fluid
+      '@web-audio/midi':
+        specifier: workspace:*
+        version: link:../../packages/midi
       '@web-audio/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -252,6 +255,9 @@ importers:
       '@web-audio/clock':
         specifier: workspace:*
         version: link:../clock
+      '@web-audio/midi':
+        specifier: workspace:*
+        version: link:../midi
       '@web-audio/schema':
         specifier: workspace:*
         version: link:../schema

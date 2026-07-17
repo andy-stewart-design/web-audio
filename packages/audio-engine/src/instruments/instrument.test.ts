@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { Midi } from "@web-audio/midi";
 import type { EnvelopeSchema, StaticSchema } from "@web-audio/schema";
 import Instrument from "./instrument";
 
@@ -52,6 +53,10 @@ class TestInstrument extends Instrument {
       audioNodes as unknown as AudioNode[],
       startTime,
     );
+  }
+
+  registerMidiBinding(bind: (midi: Midi | null) => void) {
+    return this._registerMidiBinding(bind);
   }
 
   computeTimings(
@@ -199,6 +204,55 @@ describe("Instrument.done", () => {
     node.fireEnded();
     await Promise.resolve();
     expect(calls).toEqual([1, 2, 3]);
+  });
+});
+
+describe("Instrument MIDI bindings", () => {
+  it("binds registrations immediately when MIDI connects later", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const bind = vi.fn();
+    const midi = {} as Midi;
+    instrument.registerMidiBinding(bind);
+
+    instrument.connectMidi(midi);
+
+    expect(bind.mock.calls).toEqual([[null], [midi]]);
+  });
+
+  it("treats the same MIDI instance as a no-op and tears down replacement", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const bind = vi.fn();
+    const first = {} as Midi;
+    const second = {} as Midi;
+    instrument.registerMidiBinding(bind);
+
+    instrument.connectMidi(first);
+    instrument.connectMidi(first);
+    instrument.connectMidi(second);
+    instrument.disconnectMidi();
+
+    expect(bind.mock.calls).toEqual([[null], [first], [second], [null]]);
+  });
+
+  it("unregisters a binding idempotently", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const bind = vi.fn();
+    const unregister = instrument.registerMidiBinding(bind);
+
+    unregister();
+    unregister();
+    instrument.connectMidi({} as Midi);
+
+    expect(bind.mock.calls).toEqual([[null], [null]]);
   });
 });
 

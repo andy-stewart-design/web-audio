@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@web-audio/clock": "workspace:*",
+    "@web-audio/midi": "workspace:*",
     "@web-audio/schema": "workspace:*",
     "@web-audio/worklets": "workspace:*"
   },

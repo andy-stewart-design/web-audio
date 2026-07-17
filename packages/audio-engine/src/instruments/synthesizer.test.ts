@@ -67,6 +67,7 @@ function makeSchema(detune: SynthesizerSchema["detune"]): SynthesizerSchema {
     detune,
     gain: makeEnvelope(),
     effects: [],
+    muted: false,
   };
 }
 

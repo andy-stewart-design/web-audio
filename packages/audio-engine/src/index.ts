@@ -1,4 +1,5 @@
 import type AudioClock from "@web-audio/clock";
+import type { Midi } from "@web-audio/midi";
 import type { BankSchema, DromeSchema, SamplerSchema } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
 import Sampler from "./instruments/sampler";
@@ -21,6 +22,7 @@ class AudioEngine {
   // are intentionally discarded — in a live coding context, only the latest
   // user intent should take effect.
   private _pending: DromeSchema | null = null;
+  private _midi: Midi | null = null;
   private _unsub: Set<() => void>;
   // Two-level cache: resolved for synchronous access in _commit(), promises
   // for deduplicating concurrent fetches across instruments and commits.
@@ -53,6 +55,20 @@ class AudioEngine {
 
   update(schema: DromeSchema): void {
     this._pending = schema;
+  }
+
+  connectMidi(midi: Midi) {
+    if (this._midi === midi) return;
+    this.disconnectMidi();
+    this._midi = midi;
+    this._instruments.forEach((instrument) => instrument.connectMidi(midi));
+  }
+
+  disconnectMidi() {
+    if (!this._midi) return;
+    this._instruments.forEach((instrument) => instrument.disconnectMidi());
+    this._retiring.forEach((instrument) => instrument.disconnectMidi());
+    this._midi = null;
   }
 
   // Pre-loads all sampler buffers into the cache before the clock starts.
@@ -104,6 +120,7 @@ class AudioEngine {
 
     // Retire current instruments — each removes itself from _retiring when done
     for (const inst of this._instruments) {
+      inst.disconnectMidi();
       this._retiring.add(inst);
       inst.done.then(() => this._retiring.delete(inst));
     }
@@ -125,14 +142,17 @@ class AudioEngine {
         // If the requested sample is still loading, the sampler keeps using the
         // previous matching buffer until the new one is decoded.
         inst.load();
+        if (this._midi) inst.connectMidi(this._midi);
         return inst;
       }
-      return new Synthesizer(this._ctx, this._clock, {
+      const inst = new Synthesizer(this._ctx, this._clock, {
         schema,
         destination: this._master,
         startingBar: upcomingBar,
         barStartTime,
       });
+      if (this._midi) inst.connectMidi(this._midi);
+      return inst;
     });
 
     this._pending = null;
@@ -168,6 +188,7 @@ class AudioEngine {
 
   destroy(): void {
     this._unsub.forEach((fn) => fn());
+    this.disconnectMidi();
     this._instruments = [];
     this._retiring.clear();
     this._pending = null;

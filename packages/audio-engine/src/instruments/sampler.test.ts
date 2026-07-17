@@ -183,6 +183,7 @@ function makeSchema(overrides: Partial<SamplerSchema> = {}): SamplerSchema {
     detune: staticParam(0),
     gain: envelope(),
     effects: [],
+    muted: false,
     loop: false,
     clipMode: "clipped",
     ...overrides,

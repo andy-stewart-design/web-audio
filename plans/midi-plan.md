@@ -346,9 +346,9 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Connect after active voices exist binds them.
-- [ ] Replacing/disconnecting a MIDI instance removes old subscriptions and output state.
-- [ ] Engine destroy removes every MIDI binding.
+- [x] Connect after active voices exist binds them.
+- [x] Replacing/disconnecting a MIDI instance removes old subscriptions and output state.
+- [x] Engine destroy removes every MIDI binding.
 
 ### Step 3.2 — Explicit instrument lifecycle and mute stage
 
