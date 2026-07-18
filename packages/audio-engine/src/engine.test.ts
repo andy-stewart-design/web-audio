@@ -15,12 +15,14 @@ vi.mock("./instruments/synthesizer", () => {
     this.cancelFutureNotes = vi.fn();
     this.connectMidi = vi.fn();
     this.disconnectMidi = vi.fn();
+    this.retire = vi.fn();
+    this.destroy = vi.fn();
     this._destination = opts.destination;
     let resolve: () => void;
-    this.done = new Promise<void>((r) => {
+    this.finished = new Promise<void>((r) => {
       resolve = r;
     });
-    this._resolveDone = () => resolve();
+    this._resolveFinished = () => resolve();
   }
   return { default: vi.fn(MockSynthesizer) };
 });
@@ -36,16 +38,18 @@ vi.mock("./instruments/sampler", () => {
     this.cancelFutureNotes = vi.fn();
     this.connectMidi = vi.fn();
     this.disconnectMidi = vi.fn();
+    this.retire = vi.fn();
+    this.destroy = vi.fn();
     this._destination = opts.destination;
     this.isReady = vi.fn(() => true);
     this.load = vi.fn();
     this.fallbackBufferFor = vi.fn(() => null);
     this._cache = opts.cache;
     let resolve: () => void;
-    this.done = new Promise<void>((r) => {
+    this.finished = new Promise<void>((r) => {
       resolve = r;
     });
-    this._resolveDone = () => resolve();
+    this._resolveFinished = () => resolve();
   }
   return { default: vi.fn(MockSampler) };
 });
@@ -183,9 +187,11 @@ function instances() {
     cancelFutureNotes: ReturnType<typeof vi.fn>;
     connectMidi: ReturnType<typeof vi.fn>;
     disconnectMidi: ReturnType<typeof vi.fn>;
-    done: Promise<void>;
+    retire: ReturnType<typeof vi.fn>;
+    destroy: ReturnType<typeof vi.fn>;
+    finished: Promise<void>;
     _destination: unknown;
-    _resolveDone: () => void;
+    _resolveFinished: () => void;
   }>;
 }
 
@@ -195,13 +201,15 @@ function samplerInstances() {
     cancelFutureNotes: ReturnType<typeof vi.fn>;
     connectMidi: ReturnType<typeof vi.fn>;
     disconnectMidi: ReturnType<typeof vi.fn>;
+    retire: ReturnType<typeof vi.fn>;
+    destroy: ReturnType<typeof vi.fn>;
     load: ReturnType<typeof vi.fn>;
     isReady: ReturnType<typeof vi.fn>;
     fallbackBufferFor: ReturnType<typeof vi.fn>;
     _cache: { resolved: Map<string, unknown> };
-    done: Promise<void>;
+    finished: Promise<void>;
     _destination: unknown;
-    _resolveDone: () => void;
+    _resolveFinished: () => void;
   }>;
 }
 
@@ -367,7 +375,7 @@ describe("AudioEngine", () => {
   });
 
   describe("retirement", () => {
-    it("retires old instruments on hot-swap and removes them when done resolves", async () => {
+    it("retires old instruments on hot-swap and removes them when finished resolves", async () => {
       const clock = new FakeClock();
       clock.paused = false;
       const engine = new AudioEngine(fakeCtx, clock as never);
@@ -380,14 +388,16 @@ describe("AudioEngine", () => {
 
       // i1 should not be retired yet
       const [i0, i1] = instances();
+      expect(i0.retire).toHaveBeenCalledOnce();
 
-      // Resolving i0.done should not throw (removes it from _retiring)
-      i0._resolveDone();
+      // Resolving i0.finished removes it from retirement and destroys its graph.
+      i0._resolveFinished();
       await Promise.resolve();
+      expect(i0.destroy).toHaveBeenCalledOnce();
 
-      // inst is the active instrument — its done should not have been resolved
+      // inst is the active instrument — its finished should not have been resolved
       let i1Resolved = false;
-      i1.done.then(() => {
+      i1.finished.then(() => {
         i1Resolved = true;
       });
       await Promise.resolve();
@@ -478,6 +488,7 @@ describe("AudioEngine", () => {
       engine.update(makeSchema());
       clock.emit("prebar");
       engine.destroy();
+      expect(instances()[0].destroy).toHaveBeenCalledOnce();
 
       // After destroy, bar events must not call scheduleBar
       clock.emit("bar");
@@ -640,8 +651,8 @@ describe("AudioEngine", () => {
       const firstSampler = samplerInstances()[0];
       expect(firstSampler.load).toHaveBeenCalledOnce();
 
-      // Resolve first sampler's done so retirement completes
-      firstSampler._resolveDone();
+      // Resolve first sampler's finished so retirement completes
+      firstSampler._resolveFinished();
 
       // Second commit with the same schema
       engine.update(schema);

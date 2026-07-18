@@ -19,7 +19,7 @@ class Synthesizer extends Instrument {
     clock: AudioClock,
     { schema, destination, startingBar = 0, barStartTime }: SynthesizerOptions,
   ) {
-    super(ctx, clock, destination ?? ctx.destination);
+    super(ctx, clock, { destination, muted: schema.muted });
     this._schema = schema;
     this._initLfos(schema, startingBar, barStartTime);
   }

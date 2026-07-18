@@ -375,9 +375,9 @@ voice/effects → balancing gain → mute gain → engine master
 
 **Acceptance criteria:**
 
-- [ ] Retired instruments no longer react to CC while release tails remain audible.
-- [ ] Destroy has no remaining audio or MIDI subscriptions.
-- [ ] `.mute(false)` restores balancing behavior without needing to reconstruct its value.
+- [x] Retired instruments no longer react to CC while release tails remain audible.
+- [x] Destroy has no remaining audio or MIDI subscriptions.
+- [x] `.mute(false)` restores balancing behavior without needing to reconstruct its value.
 
 ### Step 3.3 — CC mapping and pre-scheduled voices
 

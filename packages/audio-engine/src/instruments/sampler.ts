@@ -37,7 +37,11 @@ class Sampler extends Instrument {
       fallbackBuffer = null,
     }: SamplerOptions,
   ) {
-    super(ctx, clock, destination ?? ctx.destination, SAMPLE_BASE_GAIN);
+    super(ctx, clock, {
+      destination,
+      baseGain: SAMPLE_BASE_GAIN,
+      muted: schema.muted,
+    });
     this._schema = schema;
     this._bufferStore = new SampleBufferStore({
       ctx,

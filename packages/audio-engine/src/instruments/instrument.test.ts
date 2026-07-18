@@ -24,15 +24,18 @@ class FakeGainNode {
     setValueAtTime() {},
     linearRampToValueAtTime() {},
   };
-  connect() {}
-  disconnect() {}
+  connect = vi.fn();
+  disconnect = vi.fn();
 }
 
 class FakeAudioContext {
   currentTime = 0;
   destination = {};
+  gains: FakeGainNode[] = [];
   createGain() {
-    return new FakeGainNode();
+    const gain = new FakeGainNode();
+    this.gains.push(gain);
+    return gain;
   }
 }
 
@@ -116,7 +119,7 @@ function makeEnvelope(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("Instrument.done", () => {
+describe("Instrument.finished", () => {
   it("resolves after all scheduled notes fire onended", async () => {
     const ctx = new FakeAudioContext();
     const instrument = new TestInstrument(
@@ -128,17 +131,18 @@ describe("Instrument.done", () => {
     const node2 = new FakeSourceNode();
     instrument.track(node1, [], 0);
     instrument.track(node2, [], 0);
+    instrument.retire();
 
-    // Fire first node — done should not resolve yet
+    // Fire first node — finished should not resolve yet
     node1.fireEnded();
     let resolved = false;
-    instrument.done.then(() => {
+    instrument.finished.then(() => {
       resolved = true;
     });
     await Promise.resolve();
     expect(resolved).toBe(false);
 
-    // Fire second node — done should now resolve
+    // Fire second node — finished should now resolve
     node2.fireEnded();
     await Promise.resolve();
     expect(resolved).toBe(true);
@@ -154,11 +158,11 @@ describe("Instrument.done", () => {
 
     const node = new FakeSourceNode();
     instrument.track(node, [], 1); // startTime=1 > currentTime=0
-
+    instrument.retire();
     instrument.cancelFutureNotes();
 
     let resolved = false;
-    instrument.done.then(() => {
+    instrument.finished.then(() => {
       resolved = true;
     });
     await Promise.resolve();
@@ -172,12 +176,12 @@ describe("Instrument.done", () => {
       {} as never,
     );
 
-    // No notes scheduled — cancelFutureNotes resolves immediately
-    instrument.cancelFutureNotes();
+    // No notes scheduled — retirement finishes immediately.
+    instrument.retire();
 
     // Attach .then() after the promise has already settled
     let resolved = false;
-    instrument.done.then(() => {
+    instrument.finished.then(() => {
       resolved = true;
     });
 
@@ -186,7 +190,23 @@ describe("Instrument.done", () => {
     expect(resolved).toBe(true);
   });
 
-  it("fires multiple .then() registrations when done resolves", async () => {
+  it("does not finish while an active instrument is temporarily idle", async () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    instrument.cancelFutureNotes();
+    let resolved = false;
+    instrument.finished.then(() => {
+      resolved = true;
+    });
+
+    await Promise.resolve();
+
+    expect(resolved).toBe(false);
+  });
+
+  it("fires multiple .then() registrations when finished resolves", async () => {
     const ctx = new FakeAudioContext();
     const instrument = new TestInstrument(
       ctx as unknown as AudioContext,
@@ -195,15 +215,77 @@ describe("Instrument.done", () => {
 
     const node = new FakeSourceNode();
     instrument.track(node, [], 0);
+    instrument.retire();
 
     const calls: number[] = [];
-    instrument.done.then(() => calls.push(1));
-    instrument.done.then(() => calls.push(2));
-    instrument.done.then(() => calls.push(3));
+    instrument.finished.then(() => calls.push(1));
+    instrument.finished.then(() => calls.push(2));
+    instrument.finished.then(() => calls.push(3));
 
     node.fireEnded();
     await Promise.resolve();
     expect(calls).toEqual([1, 2, 3]);
+  });
+});
+
+describe("Instrument output lifecycle", () => {
+  it("always creates balancing and mute stages in order", () => {
+    const ctx = new FakeAudioContext();
+    const destination = {} as AudioNode;
+    new TestInstrument(ctx as unknown as AudioContext, {} as never, {
+      destination,
+      baseGain: 0.25,
+      muted: true,
+    });
+
+    const [balancing, mute] = ctx.gains;
+    expect(balancing.gain.value).toBe(0.25);
+    expect(mute.gain.value).toBe(0);
+    expect(balancing.connect).toHaveBeenCalledWith(mute);
+    expect(mute.connect).toHaveBeenCalledWith(destination);
+  });
+
+  it("uses unity mute gain for unmuted instruments", () => {
+    const ctx = new FakeAudioContext();
+    new TestInstrument(ctx as unknown as AudioContext, {} as never);
+
+    expect(ctx.gains[1].gain.value).toBe(1);
+  });
+
+  it("retire removes MIDI bindings while preserving the audio graph", () => {
+    const ctx = new FakeAudioContext();
+    const instrument = new TestInstrument(
+      ctx as unknown as AudioContext,
+      {} as never,
+    );
+    const bind = vi.fn();
+    instrument.registerMidiBinding(bind);
+    instrument.connectMidi({} as Midi);
+
+    instrument.retire();
+    instrument.connectMidi({} as Midi);
+
+    expect(bind.mock.calls.at(-1)).toEqual([null]);
+    expect(ctx.gains[0].disconnect).not.toHaveBeenCalled();
+    expect(ctx.gains[1].disconnect).not.toHaveBeenCalled();
+  });
+
+  it("destroy disconnects balancing, mute, and scheduled voice nodes", () => {
+    const ctx = new FakeAudioContext();
+    const instrument = new TestInstrument(
+      ctx as unknown as AudioContext,
+      {} as never,
+    );
+    const source = new FakeSourceNode();
+    const voice = new FakeGainNode();
+    instrument.track(source, [voice], 0);
+
+    instrument.destroy();
+    instrument.destroy();
+
+    expect(ctx.gains[0].disconnect).toHaveBeenCalledOnce();
+    expect(ctx.gains[1].disconnect).toHaveBeenCalledOnce();
+    expect(voice.disconnect).toHaveBeenCalledOnce();
   });
 });
 

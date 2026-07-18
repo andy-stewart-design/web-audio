@@ -19,6 +19,12 @@ import type { ScheduledNote, ResolvedEnvelopeSchema } from "@/types";
 // Types
 // -----------------------------------------------------------------------------
 
+interface InstrumentOptions {
+  destination?: AudioNode;
+  baseGain?: number;
+  muted?: boolean;
+}
+
 interface NoteScheduleContext {
   barIndex: number;
   stepIndex: number;
@@ -54,35 +60,45 @@ abstract class Instrument {
   protected _ctx: AudioContext;
   protected _clock: AudioClock;
   protected readonly _outputNode: GainNode;
+  protected readonly _muteNode: GainNode;
   protected _lfoNodes = new Map<string, AudioWorkletNode>();
   protected _lfoSchemas = new Map<string, LfoSchema>();
   private _resolvers = new Map<RandomSchema, RandomResolver>();
   private _scheduled: Set<ScheduledNote> = new Set();
   private _midi: Midi | null = null;
   private _midiBindings = new Set<MidiBinding>();
-  private _doneResolve: (() => void) | null = null;
-  readonly done: Promise<void>;
+  private _retired = false;
+  private _finished = false;
+  private _destroyed = false;
+  private _finishedResolve: (() => void) | null = null;
+  readonly finished: Promise<void>;
 
   constructor(
     ctx: AudioContext,
     clock: AudioClock,
-    destination?: AudioNode,
-    baseGain?: number,
+    {
+      destination = ctx.destination,
+      baseGain = SYNTH_BASE_GAIN,
+      muted = false,
+    }: InstrumentOptions = {},
   ) {
     this._ctx = ctx;
     this._clock = clock;
     this._outputNode = ctx.createGain();
-    this._outputNode.gain.value = baseGain ?? SYNTH_BASE_GAIN;
-    this._outputNode.connect(destination ?? ctx.destination);
-    this.done = new Promise<void>((resolve) => {
-      this._doneResolve = resolve;
+    this._muteNode = ctx.createGain();
+    this._outputNode.gain.value = baseGain;
+    this._muteNode.gain.value = muted ? 0 : 1;
+    this._outputNode.connect(this._muteNode);
+    this._muteNode.connect(destination);
+    this.finished = new Promise<void>((resolve) => {
+      this._finishedResolve = resolve;
     });
   }
 
   abstract scheduleBar(barIndex: number, barStartTime: number): void;
 
   connectMidi(midi: Midi) {
-    if (this._midi === midi) return;
+    if (this._retired || this._destroyed || this._midi === midi) return;
     this._midi = midi;
     this._midiBindings.forEach((bind) => bind(midi));
   }
@@ -100,6 +116,33 @@ abstract class Instrument {
       if (!this._midiBindings.delete(bind)) return;
       bind(null);
     };
+  }
+
+  retire() {
+    if (this._retired || this._destroyed) return;
+    this._retired = true;
+    this.disconnectMidi();
+    this._finish();
+  }
+
+  destroy() {
+    if (this._destroyed) return;
+    this._destroyed = true;
+    this.disconnectMidi();
+    this._midiBindings.clear();
+
+    for (const note of this._scheduled) {
+      note.sourceNode.onended = null;
+      note.sourceNode.stop(0);
+      note.sourceNode.disconnect();
+      for (const node of note.audioNodes) node.disconnect();
+    }
+    this._scheduled.clear();
+    this._cleanupLfos();
+    this._outputNode.disconnect();
+    this._muteNode.disconnect();
+    this._finished = true;
+    this._finishedResolve?.();
   }
 
   protected _initLfos(
@@ -198,17 +241,14 @@ abstract class Instrument {
   cancelFutureNotes() {
     const now = this._ctx.currentTime;
     for (const note of this._scheduled) {
-      if (note.startTime > now) {
-        note.sourceNode.stop(0);
-        note.sourceNode.disconnect();
-        for (const n of note.audioNodes) n.disconnect();
-        this._scheduled.delete(note);
-      }
+      if (note.startTime <= now) continue;
+      note.sourceNode.onended = null;
+      note.sourceNode.stop(0);
+      note.sourceNode.disconnect();
+      for (const node of note.audioNodes) node.disconnect();
+      this._scheduled.delete(note);
     }
-    if (this._scheduled.size === 0) {
-      this._cleanupLfos();
-      this._doneResolve?.();
-    }
+    this._finish();
   }
 
   protected _resolve(
@@ -368,11 +408,15 @@ abstract class Instrument {
       sourceNode.disconnect();
       for (const n of audioNodes) n.disconnect();
       this._scheduled.delete(scheduled);
-      if (this._scheduled.size === 0) {
-        this._cleanupLfos();
-        this._doneResolve?.();
-      }
+      this._finish();
     };
+  }
+
+  private _finish() {
+    if (!this._retired || this._finished || this._scheduled.size > 0) return;
+    this._finished = true;
+    this._cleanupLfos();
+    this._finishedResolve?.();
   }
 
   private _getResolver(schema: RandomSchema) {

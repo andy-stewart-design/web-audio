@@ -118,11 +118,14 @@ class AudioEngine {
       this._clock.bpm(this._pending.bpm);
     }
 
-    // Retire current instruments — each removes itself from _retiring when done
+    // Retire current instruments until their existing release tails finish.
     for (const inst of this._instruments) {
-      inst.disconnectMidi();
+      inst.retire();
       this._retiring.add(inst);
-      inst.done.then(() => this._retiring.delete(inst));
+      inst.finished.then(() => {
+        this._retiring.delete(inst);
+        inst.destroy();
+      });
     }
 
     // Create instruments with correct startingBar/barStartTime for LFO phase init
@@ -189,6 +192,8 @@ class AudioEngine {
   destroy(): void {
     this._unsub.forEach((fn) => fn());
     this.disconnectMidi();
+    this._instruments.forEach((inst) => inst.destroy());
+    this._retiring.forEach((inst) => inst.destroy());
     this._instruments = [];
     this._retiring.clear();
     this._pending = null;
