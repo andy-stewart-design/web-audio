@@ -2,11 +2,13 @@ import type {
   EnvelopeMode,
   EnvelopeSchema,
   LfoSchema,
+  MidiCcSchema,
 } from "@web-audio/schema";
 
 interface ScheduledNote {
   sourceNode: AudioScheduledSourceNode;
   audioNodes: AudioNode[];
+  midiBindings: (() => void)[];
   startTime: number;
 }
 
@@ -41,7 +43,8 @@ interface EnvelopeParams {
 type ResolvedDetune =
   | { type: "static"; value: number }
   | { type: "envelope"; value: number; schema: EnvelopeSchema }
-  | { type: "lfo"; value: number; schema: LfoSchema };
+  | { type: "lfo"; value: number; schema: LfoSchema }
+  | { type: "midi-cc"; value: number; schema: MidiCcSchema };
 
 export type {
   EnvelopeParams,

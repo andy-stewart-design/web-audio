@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Midi } from "@web-audio/midi";
-import type { EnvelopeSchema, StaticSchema } from "@web-audio/schema";
+import type { CcSignal, Midi } from "@web-audio/midi";
+import type { MidiCcSchema } from "@web-audio/schema";
 import Instrument from "./instrument";
 
 // ---------------------------------------------------------------------------
@@ -28,6 +28,42 @@ class FakeGainNode {
   disconnect = vi.fn();
 }
 
+class FakeAudioParam {
+  value = 0;
+  setValueAtTime = vi.fn();
+  setTargetAtTime = vi.fn();
+}
+
+class FakeCcSignal implements CcSignal {
+  value = 0;
+  raw = 0;
+  hasValue = false;
+  deviceId: string | null = null;
+  receivedChannel: number | null = null;
+  private subscribers = new Set<(value: number) => void>();
+
+  channel() {
+    return this;
+  }
+
+  subscribe(fn: (value: number) => void) {
+    this.subscribers.add(fn);
+    fn(this.value);
+    return () => this.subscribers.delete(fn);
+  }
+
+  emit(raw: number) {
+    this.raw = raw;
+    this.value = raw / 127;
+    this.hasValue = true;
+    this.subscribers.forEach((fn) => fn(this.value));
+  }
+
+  get subscriberCount() {
+    return this.subscribers.size;
+  }
+}
+
 class FakeAudioContext {
   currentTime = 0;
   destination = {};
@@ -50,37 +86,30 @@ class TestInstrument extends Instrument {
     sourceNode: FakeSourceNode,
     audioNodes: FakeGainNode[],
     startTime: number,
+    midiBindings: (() => void)[] = [],
   ) {
     this._track(
       sourceNode as unknown as AudioScheduledSourceNode,
       audioNodes as unknown as AudioNode[],
       startTime,
+      midiBindings,
     );
+  }
+
+  applyParam(param: AudioParam, schema: MidiCcSchema) {
+    const midiBindings: (() => void)[] = [];
+    this._applyParamSchema(
+      param,
+      schema,
+      { barIndex: 0, stepIndex: 0, startTime: 10, duration: 1, endTime: 11 },
+      1,
+      midiBindings,
+    );
+    return midiBindings;
   }
 
   registerMidiBinding(bind: (midi: Midi | null) => void) {
     return this._registerMidiBinding(bind);
-  }
-
-  computeTimings(
-    envSchema: EnvelopeSchema,
-    barIndex: number,
-    stepIndex: number,
-    noteDuration: number,
-    endTime: number,
-    scale?: number,
-  ) {
-    return this._computeTimings(
-      envSchema,
-      {
-        barIndex,
-        stepIndex,
-        startTime: endTime - noteDuration,
-        duration: noteDuration,
-        endTime,
-      },
-      scale,
-    );
   }
 }
 
@@ -88,31 +117,19 @@ class TestInstrument extends Instrument {
 // Schema fixtures
 // ---------------------------------------------------------------------------
 
-function staticParam(value: number): StaticSchema {
+function midiCc(overrides: Partial<MidiCcSchema> = {}): MidiCcSchema {
   return {
-    type: "static",
-    polyphonic: false,
-    cycle: [[{ value, offset: 0, duration: 1, stepIndex: 0 }]],
+    type: "midi-cc",
+    cc: 74,
+    range: { min: 0, max: 10, curve: "linear" },
+    default: 5,
+    ...overrides,
   };
 }
 
-function makeEnvelope(
-  a: number,
-  d: number,
-  s: number,
-  r: number,
-  mode: EnvelopeSchema["mode"] = "bleed",
-): EnvelopeSchema {
-  return {
-    type: "envelope",
-    min: 0,
-    max: staticParam(1),
-    a: staticParam(a),
-    d: staticParam(d),
-    s: staticParam(s),
-    r: staticParam(r),
-    mode,
-  };
+function midiWithSignal(signal: FakeCcSignal) {
+  const cc = vi.fn(() => signal);
+  return { midi: { in: { cc } } as unknown as Midi, cc };
 }
 
 // ---------------------------------------------------------------------------
@@ -289,6 +306,172 @@ describe("Instrument output lifecycle", () => {
   });
 });
 
+describe("Instrument MIDI CC parameters", () => {
+  it("initializes immediately without scheduling a future overwrite", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const param = new FakeAudioParam();
+
+    instrument.applyParam(param as unknown as AudioParam, midiCc());
+
+    expect(param.value).toBe(5);
+    expect(param.setValueAtTime).not.toHaveBeenCalled();
+  });
+
+  it("binds existing parameters when MIDI connects and smooths later updates", () => {
+    const ctx = new FakeAudioContext();
+    ctx.currentTime = 4;
+    const instrument = new TestInstrument(
+      ctx as unknown as AudioContext,
+      {} as never,
+    );
+    const param = new FakeAudioParam();
+    const signal = new FakeCcSignal();
+    signal.emit(64);
+    const { midi } = midiWithSignal(signal);
+    instrument.applyParam(param as unknown as AudioParam, midiCc());
+
+    instrument.connectMidi(midi);
+    expect(param.value).toBeCloseTo((64 / 127) * 10);
+
+    signal.emit(127);
+    expect(param.setTargetAtTime).toHaveBeenCalledWith(10, 4, 0.01);
+  });
+
+  it("maps exponential, reversed, and constant ranges", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+
+    const cases = [
+      {
+        schema: midiCc({
+          range: { min: 20, max: 20_000, curve: "exponential" },
+        }),
+        expected: Math.sqrt(20 * 20_000),
+      },
+      {
+        schema: midiCc({ range: { min: 10, max: 0, curve: "linear" } }),
+        expected: 5,
+      },
+      {
+        schema: midiCc({ range: { min: 3, max: 3, curve: "linear" } }),
+        expected: 3,
+      },
+    ];
+
+    for (const { schema, expected } of cases) {
+      const param = new FakeAudioParam();
+      const signal = new FakeCcSignal();
+      signal.emit(63.5);
+      instrument.applyParam(param as unknown as AudioParam, schema);
+      instrument.connectMidi(midiWithSignal(signal).midi);
+      expect(param.value).toBeCloseTo(expected);
+      instrument.disconnectMidi();
+    }
+  });
+
+  it("distinguishes a first real zero from an absent CC value", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const param = new FakeAudioParam();
+    const signal = new FakeCcSignal();
+    instrument.applyParam(param as unknown as AudioParam, midiCc());
+    instrument.connectMidi(midiWithSignal(signal).midi);
+    expect(param.value).toBe(5);
+
+    signal.emit(0);
+
+    expect(param.setTargetAtTime).toHaveBeenLastCalledWith(0, 0, 0.01);
+  });
+
+  it("initializes newly created parameters from an already connected controller", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const signal = new FakeCcSignal();
+    signal.emit(127);
+    instrument.connectMidi(midiWithSignal(signal).midi);
+    const param = new FakeAudioParam();
+
+    instrument.applyParam(param as unknown as AudioParam, midiCc());
+
+    expect(param.value).toBe(10);
+  });
+
+  it("uses device and channel scopes and cleans up on retirement", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const signal = new FakeCcSignal();
+    const channel = vi.spyOn(signal, "channel");
+    const { midi, cc } = midiWithSignal(signal);
+    instrument.applyParam(
+      new FakeAudioParam() as unknown as AudioParam,
+      midiCc({ device: "controller", channel: 3 }),
+    );
+    instrument.connectMidi(midi);
+
+    expect(cc).toHaveBeenCalledWith("controller", 74);
+    expect(channel).toHaveBeenCalledWith(3);
+    expect(signal.subscriberCount).toBe(1);
+
+    instrument.retire();
+
+    expect(signal.subscriberCount).toBe(0);
+  });
+
+  it("moves subscriptions on MIDI replacement and removes them on destroy", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const first = new FakeCcSignal();
+    const second = new FakeCcSignal();
+    instrument.applyParam(
+      new FakeAudioParam() as unknown as AudioParam,
+      midiCc(),
+    );
+
+    instrument.connectMidi(midiWithSignal(first).midi);
+    expect(first.subscriberCount).toBe(1);
+    instrument.connectMidi(midiWithSignal(second).midi);
+    expect(first.subscriberCount).toBe(0);
+    expect(second.subscriberCount).toBe(1);
+
+    instrument.destroy();
+
+    expect(second.subscriberCount).toBe(0);
+  });
+
+  it("removes voice bindings when transport stop cancels notes", () => {
+    const ctx = new FakeAudioContext();
+    const instrument = new TestInstrument(
+      ctx as unknown as AudioContext,
+      {} as never,
+    );
+    const signal = new FakeCcSignal();
+    const bindings = instrument.applyParam(
+      new FakeAudioParam() as unknown as AudioParam,
+      midiCc(),
+    );
+    instrument.connectMidi(midiWithSignal(signal).midi);
+    instrument.track(new FakeSourceNode(), [], 1, bindings);
+    expect(signal.subscriberCount).toBe(1);
+
+    instrument.cancelFutureNotes();
+
+    expect(signal.subscriberCount).toBe(0);
+  });
+});
+
 describe("Instrument MIDI bindings", () => {
   it("binds registrations immediately when MIDI connects later", () => {
     const instrument = new TestInstrument(
@@ -335,64 +518,5 @@ describe("Instrument MIDI bindings", () => {
     instrument.connectMidi({} as Midi);
 
     expect(bind.mock.calls).toEqual([[null], [null]]);
-  });
-});
-
-describe("Instrument._computeTimings", () => {
-  function makeInstrument() {
-    const ctx = new FakeAudioContext();
-    return new TestInstrument(ctx as unknown as AudioContext, {} as never);
-  }
-
-  it("resolves static envelope fields and computes timing durations", () => {
-    const result = makeInstrument().computeTimings(
-      makeEnvelope(0.25, 0.25, 0.5, 0.25),
-      0,
-      0,
-      2,
-      5,
-    );
-    expect(result.startTime).toBe(3);
-    expect(result.attackDur).toBeCloseTo(0.5);
-    expect(result.decayDur).toBeCloseTo(0.5);
-    expect(result.releaseDur).toBeCloseTo(0.5);
-  });
-
-  it("bleed mode — normalizes a+d when they exceed 1, clamps r to 1", () => {
-    // a=0.7, d=0.7 → adSum=1.4 → a=0.5, d=0.5; r=1.5 clamped to 1.0
-    const result = makeInstrument().computeTimings(
-      makeEnvelope(0.7, 0.7, 0.5, 1.5, "bleed"),
-      0,
-      0,
-      2,
-      5,
-    );
-    expect(result.attackDur).toBeCloseTo(0.5 * 2);
-    expect(result.decayDur).toBeCloseTo(0.5 * 2);
-    expect(result.releaseDur).toBeCloseTo(1.0 * 2);
-  });
-
-  it("bounded mode — normalizes a+d+r together when they exceed 1", () => {
-    // a=0.5, d=0.5, r=0.5 → adrSum=1.5 → each becomes 1/3
-    const result = makeInstrument().computeTimings(
-      makeEnvelope(0.5, 0.5, 0.5, 0.5, "bounded"),
-      0,
-      0,
-      3,
-      6,
-    );
-    expect(result.attackDur).toBeCloseTo((1 / 3) * 3);
-    expect(result.decayDur).toBeCloseTo((1 / 3) * 3);
-    expect(result.releaseDur).toBeCloseTo((1 / 3) * 3);
-  });
-
-  it("applies scale to min and max", () => {
-    const env: EnvelopeSchema = {
-      ...makeEnvelope(0.25, 0.25, 0.5, 0.25),
-      min: 0,
-      max: staticParam(1),
-    };
-    const result = makeInstrument().computeTimings(env, 0, 0, 2, 5, 0.5);
-    expect(result.max).toBeCloseTo(0.5);
   });
 });

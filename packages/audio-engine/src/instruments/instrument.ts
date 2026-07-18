@@ -6,6 +6,7 @@ import type {
   EnvelopeSchema,
   InstrumentSchema,
   LfoSchema,
+  MidiCcSchema,
   ParameterSchema,
   RandomSchema,
 } from "@web-audio/schema";
@@ -132,11 +133,13 @@ abstract class Instrument {
     this._midiBindings.clear();
 
     for (const note of this._scheduled) {
+      note.midiBindings.forEach((unbind) => unbind());
       note.sourceNode.onended = null;
       note.sourceNode.stop(0);
       note.sourceNode.disconnect();
       for (const node of note.audioNodes) node.disconnect();
     }
+
     this._scheduled.clear();
     this._cleanupLfos();
     this._outputNode.disconnect();
@@ -203,20 +206,70 @@ abstract class Instrument {
     schema: AudioParamSchema,
     note: NoteScheduleContext,
     scale = 1,
+    midiBindings: (() => void)[] = [],
   ) {
     if (schema.type === "midi-cc") {
-      param.value = schema.default * scale;
+      midiBindings.push(this._bindMidiParam(param, schema, scale));
     } else if (schema.type === "lfo") {
       const node = this._lfoNodes.get(schema.id);
       if (node) node.connect(param);
     } else if (schema.type === "envelope") {
-      this._scheduleParamEnvelope(param, schema, note, scale);
+      this._scheduleParamEnvelope(
+        param,
+        this._resolveEnvelope(schema, note),
+        note,
+        scale,
+      );
     } else {
       param.setValueAtTime(
         this._resolve(schema, note.barIndex, note.stepIndex) * scale,
         note.startTime,
       );
     }
+  }
+
+  private _bindMidiParam(
+    param: AudioParam,
+    schema: MidiCcSchema,
+    scale: number,
+  ) {
+    let unsubscribe: (() => void) | null = null;
+    param.value = schema.default * scale;
+
+    return this._registerMidiBinding((midi) => {
+      unsubscribe?.();
+      unsubscribe = null;
+      if (!midi) return;
+
+      const unscoped =
+        schema.device === undefined
+          ? midi.in.cc(schema.cc)
+          : midi.in.cc(schema.device, schema.cc);
+      const signal =
+        schema.channel === undefined
+          ? unscoped
+          : unscoped.channel(schema.channel);
+      let isInitialized = false;
+      unsubscribe = signal.subscribe((value) => {
+        const mapped = signal.hasValue
+          ? this._mapMidiCc(value, schema)
+          : schema.default;
+        if (!isInitialized) {
+          isInitialized = true;
+          param.value = mapped * scale;
+          return;
+        }
+        param.setTargetAtTime(mapped * scale, this._ctx.currentTime, 0.01);
+      });
+    });
+  }
+
+  private _mapMidiCc(value: number, schema: MidiCcSchema) {
+    const { min, max, curve } = schema.range;
+    if (curve === "exponential") {
+      return min * Math.pow(max / min, value);
+    }
+    return min + (max - min) * value;
   }
 
   protected _updateLfoParams(barIndex: number, barStartTime: number) {
@@ -241,6 +294,7 @@ abstract class Instrument {
   cancelFutureNotes() {
     const now = this._ctx.currentTime;
     for (const note of this._scheduled) {
+      note.midiBindings.forEach((unbind) => unbind());
       if (note.startTime <= now) continue;
       note.sourceNode.onended = null;
       note.sourceNode.stop(0);
@@ -278,22 +332,13 @@ abstract class Instrument {
     } satisfies ResolvedEnvelopeSchema;
   }
 
-  protected _computeTimings(
-    schema: EnvelopeSchema,
-    note: NoteScheduleContext,
-    scale = 1,
-  ) {
-    const resolved = this._resolveEnvelope(schema, note);
-    return computeEnvelope(resolved, note.duration, note.endTime, scale);
-  }
-
   protected _scheduleParamEnvelope(
     param: AudioParam,
-    schema: EnvelopeSchema,
+    envelope: ResolvedEnvelopeSchema,
     note: NoteScheduleContext,
     scale = 1,
   ): number {
-    const env = this._computeTimings(schema, note, scale);
+    const env = computeEnvelope(envelope, note.duration, note.endTime, scale);
     const decay = env.startTime + env.attackDur + env.decayDur;
 
     param.setValueAtTime(env.min, env.startTime);
@@ -314,8 +359,9 @@ abstract class Instrument {
     switch (schema.type) {
       case "midi-cc":
         return {
-          type: "static",
+          type: "midi-cc",
           value: schema.default,
+          schema,
         } satisfies ResolvedDetune;
       case "lfo":
         return { type: "lfo", schema, value } satisfies ResolvedDetune;
@@ -328,7 +374,11 @@ abstract class Instrument {
     }
   }
 
-  protected _buildEffectNode(effect: EffectSchema, note: NoteScheduleContext) {
+  protected _buildEffectNode(
+    effect: EffectSchema,
+    note: NoteScheduleContext,
+    midiBindings: (() => void)[],
+  ) {
     switch (effect.type) {
       case "filter": {
         const node = new BiquadFilterNode(this._ctx, {
@@ -340,13 +390,13 @@ abstract class Instrument {
           [node.detune, effect.detune],
           [node.gain, effect.gain],
         ] as const) {
-          this._applyParamSchema(param, schema, note);
+          this._applyParamSchema(param, schema, note, 1, midiBindings);
         }
         return node;
       }
       case "gain": {
         const node = new GainNode(this._ctx);
-        this._applyParamSchema(node.gain, effect.gain, note);
+        this._applyParamSchema(node.gain, effect.gain, note, 1, midiBindings);
         return node;
       }
     }
@@ -354,26 +404,36 @@ abstract class Instrument {
 
   protected _scheduleVoice(params: ScheduleVoiceParams) {
     const { source, note, detune, gainEnvelope, effects } = params;
+    const midiBindings: (() => void)[] = [];
+    const resolvedGain = this._resolveEnvelope(gainEnvelope, note);
 
     const gain = new GainNode(this._ctx);
 
     const releaseDur = this._scheduleParamEnvelope(
       gain.gain,
-      gainEnvelope,
+      resolvedGain,
       note,
     );
 
     if (detune) {
       if (detune.resolved.type === "envelope") {
-        this._scheduleParamEnvelope(detune.param, detune.resolved.schema, note);
+        this._scheduleParamEnvelope(
+          detune.param,
+          this._resolveEnvelope(detune.resolved.schema, note),
+          note,
+        );
       } else if (detune.resolved.type === "lfo") {
         const lfoNode = this._lfoNodes.get(detune.resolved.schema.id);
         if (lfoNode) lfoNode.connect(detune.param);
+      } else if (detune.resolved.type === "midi-cc") {
+        midiBindings.push(
+          this._bindMidiParam(detune.param, detune.resolved.schema, 1),
+        );
       }
     }
 
     const effectNodes = effects.map((effect) =>
-      this._buildEffectNode(effect, note),
+      this._buildEffectNode(effect, note, midiBindings),
     );
 
     source.connect(gain);
@@ -393,20 +453,27 @@ abstract class Instrument {
     }
 
     source.stop(params.stopTime ?? note.endTime + releaseDur + 0.05);
-    this._track(source, chain, note.startTime);
+    this._track(source, chain, note.startTime, midiBindings);
   }
 
   protected _track(
     sourceNode: AudioScheduledSourceNode,
     audioNodes: AudioNode[],
     startTime: number,
+    midiBindings: (() => void)[] = [],
   ) {
-    const scheduled: ScheduledNote = { sourceNode, audioNodes, startTime };
+    const scheduled = {
+      sourceNode,
+      audioNodes,
+      midiBindings,
+      startTime,
+    } satisfies ScheduledNote;
     this._scheduled.add(scheduled);
 
     sourceNode.onended = () => {
       sourceNode.disconnect();
       for (const n of audioNodes) n.disconnect();
+      midiBindings.forEach((unbind) => unbind());
       this._scheduled.delete(scheduled);
       this._finish();
     };

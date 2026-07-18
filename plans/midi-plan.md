@@ -395,11 +395,11 @@ Do not leave a future initialization automation event that can overwrite a CC up
 
 **Acceptance criteria:**
 
-- [ ] CC updates current voices and initializes future voices from the latest state.
-- [ ] A CC change between voice construction and note start is not overwritten at note start.
-- [ ] Linear/exponential/reversed/constant mappings are tested.
-- [ ] First real CC value of zero is distinguishable from no received CC value.
-- [ ] Retirement, stop, replacement, and destroy clean up subscriptions.
+- [x] CC updates current voices and initializes future voices from the latest state.
+- [x] A CC change between voice construction and note start is not overwritten at note start.
+- [x] Linear/exponential/reversed/constant mappings are tested.
+- [x] First real CC value of zero is distinguishable from no received CC value.
+- [x] Retirement, stop, replacement, and destroy clean up subscriptions.
 
 ---
 
