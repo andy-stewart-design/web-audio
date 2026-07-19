@@ -159,6 +159,7 @@ class AudioEngine {
         destination: this._master,
         startingBar: upcomingBar,
         barStartTime,
+        midiOutputScheduler: this._midiOutputScheduler,
       });
       if (this._midi) inst.connectMidi(this._midi);
       return inst;

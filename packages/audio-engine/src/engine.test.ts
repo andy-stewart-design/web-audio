@@ -9,7 +9,7 @@ vi.mock("./instruments/synthesizer", () => {
     this: Record<string, unknown>,
     _ctx: unknown,
     _clock: unknown,
-    opts: { destination?: unknown },
+    opts: { destination?: unknown; midiOutputScheduler?: unknown },
   ) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
@@ -18,6 +18,7 @@ vi.mock("./instruments/synthesizer", () => {
     this.retire = vi.fn();
     this.destroy = vi.fn();
     this._destination = opts.destination;
+    this._midiOutputScheduler = opts.midiOutputScheduler;
     let resolve: () => void;
     this.finished = new Promise<void>((r) => {
       resolve = r;
@@ -199,6 +200,7 @@ function instances() {
     destroy: ReturnType<typeof vi.fn>;
     finished: Promise<void>;
     _destination: unknown;
+    _midiOutputScheduler: unknown;
     _resolveFinished: () => void;
   }>;
 }
@@ -250,6 +252,16 @@ describe("AudioEngine", () => {
 
       expect(instances()[0]._destination).toBe(master);
       expect(instances()[0]._destination).not.toBe(destinationNode);
+    });
+
+    it("passes the engine MIDI output scheduler to synthesizers", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+
+      engine.update(makeSchema());
+      clock.emit("prebar");
+
+      expect(instances()[0]._midiOutputScheduler).toBeDefined();
     });
 
     it("passes the master output to samplers instead of ctx.destination", () => {

@@ -494,6 +494,14 @@ Synthesizer does not resolve ports, schedule MIDI timestamps, manage note-off, r
 
 For unscoped output, the scheduler resolves `midi.outputs.value[0]` only when the logical note-on reaches its dispatch horizon. A missing target skips that logical note with a `MidiSendResult` failure; scheduled playback does not throw.
 
+**Acceptance criteria:**
+
+- [x] Synths submit logical MIDI notes with original note number, configured selector/channel, and AudioContext start/end times.
+- [x] Gain envelopes are resolved once per pattern note and the resolved maximum determines clamped MIDI velocity.
+- [x] Velocity-zero notes skip MIDI output without skipping local audio.
+- [x] Local mute and the absence of a MIDI connection do not alter logical MIDI submission.
+- [x] Synths without `notesOut` do not submit MIDI events.
+
 ### Step 4.3 — Globally ordered overlap and queue safety
 
 **Files:** `packages/audio-engine/src/midi-output-scheduler.ts`, `packages/audio-engine/src/midi-output-scheduler.test.ts`

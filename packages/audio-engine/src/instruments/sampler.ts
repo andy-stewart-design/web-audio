@@ -190,6 +190,13 @@ class Sampler extends Instrument {
       detune: detune.value,
       loop: this._schema.loop,
     });
+    const noteContext = {
+      barIndex,
+      stepIndex: note.stepIndex,
+      startTime,
+      duration,
+      endTime,
+    };
 
     this._scheduleVoice({
       source,
@@ -197,15 +204,9 @@ class Sampler extends Instrument {
         param: source.detune,
         resolved: detune,
       },
-      gainEnvelope: this._schema.gain,
+      gainEnvelope: this._resolveEnvelope(this._schema.gain, noteContext),
       effects: this._schema.effects,
-      note: {
-        barIndex,
-        stepIndex: note.stepIndex,
-        startTime,
-        duration,
-        endTime,
-      },
+      note: noteContext,
       offset: sourceWindow.offset,
     });
   }

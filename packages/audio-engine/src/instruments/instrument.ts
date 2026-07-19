@@ -40,7 +40,7 @@ interface BaseScheduleVoiceParams {
     param: AudioParam;
     resolved: ResolvedDetune;
   };
-  gainEnvelope: EnvelopeSchema;
+  gainEnvelope: ResolvedEnvelopeSchema;
   effects: EffectSchema[];
   stopTime?: number;
 }
@@ -175,13 +175,12 @@ abstract class Instrument {
   protected _scheduleVoice(params: ScheduleVoiceParams) {
     const { source, note, detune, gainEnvelope, effects } = params;
     const midiBindings: (() => void)[] = [];
-    const resolvedGain = this._resolveEnvelope(gainEnvelope, note);
 
     const gain = new GainNode(this._ctx);
 
     const releaseDur = this._scheduleParamEnvelope(
       gain.gain,
-      resolvedGain,
+      gainEnvelope,
       note,
     );
 
