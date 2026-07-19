@@ -25,6 +25,7 @@ class FakeGainNode {
 }
 
 class FakeOscillatorNode {
+  static startCount = 0;
   detune = new FakeAudioParam();
   onended: (() => void) | null = null;
 
@@ -35,7 +36,9 @@ class FakeOscillatorNode {
 
   connect() {}
   disconnect() {}
-  start() {}
+  start() {
+    FakeOscillatorNode.startCount++;
+  }
   stop() {}
 }
 
@@ -110,6 +113,7 @@ function makeSynth(detune: SynthesizerSchema["detune"]) {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  FakeOscillatorNode.startCount = 0;
   vi.stubGlobal("GainNode", FakeGainNode);
   vi.stubGlobal("OscillatorNode", FakeOscillatorNode);
 });
@@ -202,6 +206,23 @@ describe("Synthesizer MIDI output submission", () => {
       expect.objectContaining({ velocity: 127 }),
     );
     expect(scheduleNote.mock.calls[0][0]).not.toHaveProperty("selector");
+  });
+
+  it("continues local playback when MIDI output is configured but unavailable", () => {
+    const ctx = new FakeAudioContext();
+    const synth = new Synthesizer(
+      ctx as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(staticParam(0), {
+          notesOut: { type: "midi-out", channel: 1 },
+        }),
+      },
+    );
+
+    synth.scheduleBar(0, 0);
+
+    expect(FakeOscillatorNode.startCount).toBe(1);
   });
 
   it("does not submit MIDI when notesOut is absent", () => {

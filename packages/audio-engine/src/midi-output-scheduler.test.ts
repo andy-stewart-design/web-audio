@@ -1,14 +1,17 @@
 import { describe, expect, test, vi } from "vitest";
-import type { Midi, ResolvedMidiOutput } from "@web-audio/midi";
+import type { Midi, MidiSendResult, ResolvedMidiOutput } from "@web-audio/midi";
 import MidiOutputScheduler, { type LogicalNote } from "./midi-output-scheduler";
 
 const createHarness = () => {
   let currentTime = 0;
   let nextTimer = 0;
+  let defaultOutputId = "default";
+  let noteOnResult: MidiSendResult = { sent: true };
+  let noteOffResult: MidiSendResult = { sent: true };
   const timers = new Map<number, { time: number; callback: () => void }>();
   const handles = new Map<string, ResolvedMidiOutput>();
   const resolve = vi.fn((selector?: string) => {
-    const id = selector ?? "default";
+    const id = selector ?? defaultOutputId;
     let handle = handles.get(id);
     if (!handle) {
       handle = Object.freeze({ id });
@@ -19,12 +22,12 @@ const createHarness = () => {
   const noteOn = vi.fn((output: ResolvedMidiOutput, options: unknown) => {
     void output;
     void options;
-    return { sent: true } as const;
+    return noteOnResult;
   });
   const noteOff = vi.fn((output: ResolvedMidiOutput, options: unknown) => {
     void output;
     void options;
-    return { sent: true } as const;
+    return noteOffResult;
   });
   const allNotesOff = vi.fn((output: ResolvedMidiOutput, options: unknown) => {
     void output;
@@ -81,6 +84,15 @@ const createHarness = () => {
     advanceTo,
     setCurrentTime: (time: number) => {
       currentTime = time;
+    },
+    setDefaultOutput: (id: string) => {
+      defaultOutputId = id;
+    },
+    setNoteOnResult: (result: MidiSendResult) => {
+      noteOnResult = result;
+    },
+    setNoteOffResult: (result: MidiSendResult) => {
+      noteOffResult = result;
     },
   };
 };
@@ -155,6 +167,25 @@ describe("MidiOutputScheduler timing", () => {
     );
   });
 
+  test("preserves submission order within equal-time event groups", () => {
+    const harness = createHarness();
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(note({ note: 61 }));
+    harness.scheduler.scheduleNote(note({ note: 60 }));
+
+    harness.advanceTo(0.95);
+    harness.advanceTo(1.95);
+
+    expect(harness.noteOn.mock.calls.map((call) => call[1])).toEqual([
+      expect.objectContaining({ note: 61 }),
+      expect.objectContaining({ note: 60 }),
+    ]);
+    expect(harness.noteOff.mock.calls.map((call) => call[1])).toEqual([
+      expect.objectContaining({ note: 61 }),
+      expect.objectContaining({ note: 60 }),
+    ]);
+  });
+
   test("orders note-off before note-on at equal timestamps", () => {
     const harness = createHarness();
     harness.scheduler.connect(harness.midi);
@@ -185,6 +216,101 @@ describe("MidiOutputScheduler lifecycle", () => {
     expect(harness.noteOff.mock.calls[0][0]).toBe(output);
   });
 
+  test("retains the onset output when the unscoped default changes", () => {
+    const harness = createHarness();
+    harness.setDefaultOutput("first");
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(note());
+    harness.advanceTo(0.95);
+    const output = harness.noteOn.mock.calls[0][0];
+
+    harness.setDefaultOutput("second");
+    harness.advanceTo(1.95);
+
+    expect(output.id).toBe("first");
+    expect(harness.noteOff.mock.calls[0][0]).toBe(output);
+  });
+
+  test("reference-counts out-of-order overlapping notes on one output", () => {
+    const harness = createHarness();
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(note({ startTime: 2, endTime: 4 }));
+    harness.scheduler.scheduleNote(note({ startTime: 1, endTime: 3 }));
+
+    harness.advanceTo(0.95);
+    harness.advanceTo(1.95);
+    expect(harness.noteOn).toHaveBeenCalledTimes(2);
+
+    harness.advanceTo(2.95);
+    expect(harness.noteOff).not.toHaveBeenCalled();
+
+    harness.advanceTo(3.95);
+    expect(harness.noteOff).toHaveBeenCalledOnce();
+    expect(harness.noteOff.mock.calls[0][0]).toBe(
+      harness.noteOn.mock.calls[0][0],
+    );
+  });
+
+  test("merges same-pitch overlap submitted from a later bar", () => {
+    const harness = createHarness();
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(note({ startTime: 1, endTime: 2.5 }));
+    harness.advanceTo(0.95);
+
+    // The next bar arrives independently after the first onset was dispatched.
+    harness.setCurrentTime(1.9);
+    harness.scheduler.scheduleNote(note({ startTime: 2, endTime: 3 }));
+    harness.advanceTo(1.95);
+    harness.advanceTo(2.45);
+    expect(harness.noteOff).not.toHaveBeenCalled();
+
+    harness.advanceTo(2.95);
+    expect(harness.noteOff).toHaveBeenCalledOnce();
+  });
+
+  test("failed note-on does not create output or overlap state", () => {
+    const harness = createHarness();
+    harness.setNoteOnResult({ sent: false, reason: "send-error" });
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(note());
+
+    harness.advanceTo(0.95);
+    harness.advanceTo(1.95);
+    harness.scheduler.stop();
+
+    expect(harness.noteOff).not.toHaveBeenCalled();
+    expect(harness.clear).not.toHaveBeenCalled();
+    expect(harness.allNotesOff).not.toHaveBeenCalled();
+  });
+
+  test("failed note-off still releases internal overlap state", () => {
+    const harness = createHarness();
+    harness.setNoteOffResult({ sent: false, reason: "send-error" });
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(note());
+    harness.advanceTo(0.95);
+    harness.advanceTo(1.95);
+
+    harness.scheduler.scheduleNote(note({ startTime: 3, endTime: 4 }));
+    harness.advanceTo(2.95);
+    harness.advanceTo(3.95);
+
+    expect(harness.noteOff).toHaveBeenCalledTimes(2);
+  });
+
+  test("stop before onset discards undispatched notes without touching outputs", () => {
+    const harness = createHarness();
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(note());
+
+    harness.scheduler.stop();
+    harness.advanceTo(3);
+
+    expect(harness.noteOn).not.toHaveBeenCalled();
+    expect(harness.clear).not.toHaveBeenCalled();
+    expect(harness.allNotesOff).not.toHaveBeenCalled();
+  });
+
   test("stop clears queues, sends All Notes Off, and discards logical events", () => {
     const harness = createHarness();
     harness.scheduler.connect(harness.midi);
@@ -198,8 +324,54 @@ describe("MidiOutputScheduler lifecycle", () => {
       channel: 1,
       time: 950,
     });
+    expect(harness.clear.mock.invocationCallOrder[0]).toBeLessThan(
+      harness.allNotesOff.mock.invocationCallOrder[0],
+    );
     expect(harness.timers.size).toBe(0);
     harness.advanceTo(3);
+    expect(harness.noteOff).not.toHaveBeenCalled();
+  });
+
+  test("tracks used outputs and channels after active counts reach zero", () => {
+    const harness = createHarness();
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(note({ channel: 3 }));
+    harness.advanceTo(0.95);
+    harness.advanceTo(1.95);
+    expect(harness.noteOff).toHaveBeenCalledOnce();
+
+    harness.scheduler.stop();
+
+    expect(harness.clear).toHaveBeenCalledOnce();
+    expect(harness.allNotesOff).toHaveBeenCalledWith(expect.anything(), {
+      channel: 3,
+      time: 1950,
+    });
+  });
+
+  test("starts a fresh generation lazily after stop", () => {
+    const harness = createHarness();
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(note());
+    harness.scheduler.stop();
+
+    harness.scheduler.scheduleNote(note({ startTime: 3, endTime: 4 }));
+    harness.advanceTo(2.95);
+
+    expect(harness.noteOn).toHaveBeenCalledOnce();
+  });
+
+  test("disconnect cleans active output state and discards queued note-off", () => {
+    const harness = createHarness();
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(note());
+    harness.advanceTo(0.95);
+
+    harness.scheduler.disconnect();
+    harness.advanceTo(3);
+
+    expect(harness.clear).toHaveBeenCalledOnce();
+    expect(harness.allNotesOff).toHaveBeenCalledOnce();
     expect(harness.noteOff).not.toHaveBeenCalled();
   });
 
@@ -213,20 +385,26 @@ describe("MidiOutputScheduler lifecycle", () => {
     harness.scheduler.connect(replacement.midi);
 
     expect(harness.clear).toHaveBeenCalledOnce();
+    expect(harness.allNotesOff).toHaveBeenCalledOnce();
     harness.advanceTo(3);
+    replacement.advanceTo(3);
     expect(harness.noteOff).not.toHaveBeenCalled();
+    expect(replacement.noteOn).not.toHaveBeenCalled();
   });
 
-  test("destroy is terminal", () => {
+  test("destroy cleans active output state and is terminal", () => {
     const harness = createHarness();
     harness.scheduler.connect(harness.midi);
     harness.scheduler.scheduleNote(note());
+    harness.advanceTo(0.95);
 
     harness.scheduler.destroy();
     harness.scheduler.scheduleNote(note({ startTime: 3, endTime: 4 }));
     harness.advanceTo(5);
 
-    expect(harness.noteOn).not.toHaveBeenCalled();
+    expect(harness.noteOn).toHaveBeenCalledOnce();
+    expect(harness.clear).toHaveBeenCalledOnce();
+    expect(harness.allNotesOff).toHaveBeenCalledOnce();
     expect(harness.timers.size).toBe(0);
   });
 });
