@@ -69,6 +69,11 @@ type MidiCcOptions = {
   time?: number;
 };
 
+type MidiAllNotesOffOptions = {
+  channel?: number;
+  time?: number;
+};
+
 interface MidiOutputs {
   resolve(selector?: string): ResolvedMidiOutput | null;
   noteOn(
@@ -82,6 +87,10 @@ interface MidiOutputs {
   cc(
     target: string | ResolvedMidiOutput,
     options: MidiCcOptions,
+  ): MidiSendResult;
+  allNotesOff(
+    target: string | ResolvedMidiOutput,
+    options?: MidiAllNotesOffOptions,
   ): MidiSendResult;
   send(
     target: string | ResolvedMidiOutput,
@@ -131,6 +140,7 @@ interface WebMidiAccess {
 
 export type {
   CcSignal,
+  MidiAllNotesOffOptions,
   MidiCcOptions,
   MidiDevice,
   MidiInputs,

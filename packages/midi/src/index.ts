@@ -1,6 +1,7 @@
 export { Midi, MidiDestroyedError } from "./midi.js";
 export type {
   CcSignal,
+  MidiAllNotesOffOptions,
   MidiCcOptions,
   MidiDevice,
   MidiInputs,

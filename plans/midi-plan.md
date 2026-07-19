@@ -25,7 +25,8 @@ MIDI note input driving AudioEngine voices, MIDI-controlled envelope values, and
 - CC values are normalized 0–1. Fluid supplies contextual range/default values when authors omit them; the future diagnostics system, not MIDI-local `console.warn`, will report implicit defaults.
 - CC v1 applies only to direct AudioParam slots: filter frequency/Q/detune/gain, gain-effect gain, and instrument detune.
 - MIDI output is additive, but V1 supports it on synthesizers only. `.mute()` remains general to all instruments.
-- MIDI output resolves an opaque concrete port handle for each logical note-on and retains it for the paired note-off.
+- MIDI output resolves opaque concrete port handles with stable identity for the lifetime of a connected native port; disconnect/reconnect or native-port replacement produces a new handle even when the public port ID is unchanged.
+- MIDI output exposes channel-scoped All Notes Off as a typed convenience send; queue clearing remains a separate concrete-output operation.
 - Logical MIDI output events are sorted by timestamp before overlap accounting; note-off precedes note-on at equal timestamps.
 - Transport stop, MIDI replacement, and engine destruction clear queued output sends and send All Notes Off. This assumes the engine exclusively owns each configured output port’s queue.
 - A dedicated AudioEngine-internal `MidiOutputScheduler` owns rolling MIDI dispatch, concrete-port resolution, overlap accounting, and output cleanup; synths only submit logical notes to it.
@@ -180,17 +181,21 @@ Requirements:
   midi.out.resolve(selector?: string): ResolvedMidiOutput | null;
   midi.out.noteOn(output: ResolvedMidiOutput, options): MidiSendResult;
   midi.out.noteOff(output: ResolvedMidiOutput, options): MidiSendResult;
+  midi.out.allNotesOff(output: ResolvedMidiOutput, options): MidiSendResult;
   midi.out.clear(output: ResolvedMidiOutput): void;
   ```
 
+- repeated resolution of the same currently connected native output returns the same handle object; disconnect/reconnect or replacement invalidates that canonical identity while previously issued handles remain bound to their original native output;
 - invalid programmer input throws; unavailable/destroyed target and native `send()` failure return `MidiSendResult` failure;
+- expose channel-scoped All Notes Off (CC 123) as a typed convenience send;
 - expose clearing of a concrete output queue for engine lifecycle handling without exposing native `MIDIOutput`.
 
 **Acceptance criteria:**
 
 - [x] Typed message bytes, timestamps, validation, raw byte validation, and SysEx rejection are tested.
 - [x] Channel 1 tests encode `0x90`, `0x80`, and `0xb0` correctly.
-- [x] Resolution by ID/name and unavailable output behavior are tested.
+- [x] Resolution by ID/name, stable concrete-handle identity, reconnect/replacement identity, and unavailable output behavior are tested.
+- [x] Channel-scoped All Notes Off encoding, defaults, timestamps, and validation are tested.
 
 ### Step 1.5 — Demo app
 
@@ -500,7 +505,7 @@ When dispatching:
 - sort the single global queue across every currently submitted bar by timestamp;
 - for equal timestamps, process every note-off first, then every note-on, with stable sequence ordering within each group;
 - resolve each note-on selector to a concrete `ResolvedMidiOutput` and retain that handle under a generated logical-note ID for its matching note-off;
-- only increment concrete `outputId:channel:note` reference counts after a physical note-on succeeds; an unavailable/failed note-on makes its later logical note-off a no-op;
+- key overlap counts by stable concrete output-handle identity plus channel and note, and only increment after a physical note-on succeeds; an unavailable/failed note-on makes its later logical note-off a no-op;
 - remove internal logical-note state even if physical note-off fails, so bookkeeping cannot remain wedged;
 - send a physical note-on for every successful logical onset, but send physical note-off only for the final successful logical end;
 - handle an event discovered after its target time by deliberately sending it immediately with a current MIDI timestamp, never by passing an accidentally stale timestamp;

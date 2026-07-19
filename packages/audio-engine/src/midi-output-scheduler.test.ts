@@ -26,7 +26,7 @@ const createHarness = () => {
     void options;
     return { sent: true } as const;
   });
-  const cc = vi.fn((output: ResolvedMidiOutput, options: unknown) => {
+  const allNotesOff = vi.fn((output: ResolvedMidiOutput, options: unknown) => {
     void output;
     void options;
     return { sent: true } as const;
@@ -35,7 +35,7 @@ const createHarness = () => {
     void output;
   });
   const midi = {
-    out: { resolve, noteOn, noteOff, cc, clear },
+    out: { resolve, noteOn, noteOff, allNotesOff, clear },
   } as unknown as Midi;
 
   const clock = {
@@ -76,7 +76,7 @@ const createHarness = () => {
     resolve,
     noteOn,
     noteOff,
-    cc,
+    allNotesOff,
     clear,
     advanceTo,
     setCurrentTime: (time: number) => {
@@ -194,9 +194,7 @@ describe("MidiOutputScheduler lifecycle", () => {
     harness.scheduler.stop();
 
     expect(harness.clear).toHaveBeenCalledOnce();
-    expect(harness.cc).toHaveBeenCalledWith(expect.anything(), {
-      cc: 123,
-      value: 0,
+    expect(harness.allNotesOff).toHaveBeenCalledWith(expect.anything(), {
       channel: 1,
       time: 950,
     });

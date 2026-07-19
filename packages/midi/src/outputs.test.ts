@@ -51,6 +51,8 @@ describe("typed MIDI output", () => {
     outputs.noteOn("synth-id", { note: 62 });
     outputs.noteOff("synth-id", { note: 62 });
     outputs.cc("synth-id", { cc: 1, value: 2 });
+    outputs.allNotesOff("synth-id", { channel: 16, time: 789 });
+    outputs.allNotesOff("synth-id");
 
     expect(port.sends).toEqual([
       { data: [0x90, 60, 100], time: 123 },
@@ -60,6 +62,8 @@ describe("typed MIDI output", () => {
       { data: [0x90, 62, 127], time: undefined },
       { data: [0x80, 62, 0], time: undefined },
       { data: [0xb0, 1, 2], time: undefined },
+      { data: [0xbf, 123, 0], time: 789 },
+      { data: [0xb0, 123, 0], time: undefined },
     ]);
   });
 
@@ -78,6 +82,10 @@ describe("typed MIDI output", () => {
       () => setup().outputs.cc("x", { cc: 1, value: NaN, channel: 1 }),
     ],
     ["channel", () => setup().outputs.noteOff("x", { note: 1, channel: 0 })],
+    [
+      "All Notes Off channel",
+      () => setup().outputs.allNotesOff("x", { channel: 17 }),
+    ],
     [
       "time",
       () =>
@@ -135,6 +143,41 @@ describe("MIDI output resolution and lifecycle", () => {
     expect(outputs.resolve("Shared")?.id).toBe("Shared");
     expect(outputs.resolve("Other")?.id).toBe("Shared");
     expect(outputs.resolve("missing")).toBeNull();
+  });
+
+  test("returns one stable handle for the same connected native port", () => {
+    const port = new FakeOutput("synth-id", "Synth");
+    const { outputs } = setup(port);
+
+    expect(outputs.resolve()).toBe(outputs.resolve("synth-id"));
+    expect(outputs.resolve("Synth")).toBe(outputs.resolve("synth-id"));
+  });
+
+  test("creates a new handle when a native port disconnects and reconnects", () => {
+    const port = new FakeOutput("synth-id", "Synth");
+    const manager = createMidiOutputs();
+    manager.setPorts([port]);
+    const original = manager.outputs.resolve();
+
+    manager.setPorts([]);
+    manager.setPorts([port]);
+
+    expect(manager.outputs.resolve()).not.toBe(original);
+  });
+
+  test("does not conflate replacement native ports with the same ID", () => {
+    const original = new FakeOutput("synth-id", "Synth");
+    const replacement = new FakeOutput("synth-id", "Synth");
+    const manager = createMidiOutputs();
+    manager.setPorts([original]);
+    const originalHandle = manager.outputs.resolve();
+    manager.setPorts([replacement]);
+    const replacementHandle = manager.outputs.resolve();
+
+    expect(replacementHandle).not.toBe(originalHandle);
+    manager.outputs.noteOn(replacementHandle!, { note: 60 });
+    expect(original.sends).toHaveLength(0);
+    expect(replacement.sends).toHaveLength(1);
   });
 
   test("retains a concrete output handle across port-list changes", () => {

@@ -1,5 +1,8 @@
 import type { Midi, ResolvedMidiOutput } from "@web-audio/midi";
 
+// Keep logical events reorderable until shortly before they must be handed to
+// Web MIDI. This must remain shorter than the clock's guaranteed scheduling
+// lead after allowing for one delayed scheduler wake-up.
 const MIDI_DISPATCH_HORIZON = 0.05;
 
 type SchedulerClock = {
@@ -9,6 +12,8 @@ type SchedulerClock = {
   audioTimeToMIDITime: (time: number) => number;
 };
 
+// Returning cancellation rather than a timer handle keeps browser/Node timer
+// types out of the scheduler and makes deterministic test timers trivial.
 type ScheduleTimer = (callback: () => void, delay: number) => () => void;
 
 type MidiOutputSchedulerOptions = {
@@ -45,8 +50,16 @@ class MidiOutputScheduler {
   private _scheduleTimer: ScheduleTimer;
   private _midi: Midi | null = null;
   private _events: LogicalEvent[] = [];
+  // A note-off must use the exact concrete output selected by its note-on,
+  // even if the default output or connected-port list changes in between.
   private _noteOutputs = new Map<number, ResolvedMidiOutput>();
-  private _overlapCounts = new Map<string, number>();
+  // MIDI has no logical voice identity: one note-off can silence every onset
+  // of the same channel/pitch. Counts defer the physical note-off until the
+  // final successfully sent logical voice ends.
+  private _overlapCounts = new Map<ResolvedMidiOutput, Map<string, number>>();
+  // Teardown targets cannot be derived from active counts: a note-off may
+  // already be queued in native Web MIDI while its count is gone. Retain every
+  // concrete output/channel touched by successful sends until reset instead.
   private _trackedOutputs = new Map<ResolvedMidiOutput, Set<number>>();
   private _cancelTimer: (() => void) | null = null;
   private _nextNoteId = 0;
@@ -54,6 +67,8 @@ class MidiOutputScheduler {
   private _destroyed = false;
 
   constructor(clock: SchedulerClock, opts: MidiOutputSchedulerOptions = {}) {
+    // The next bar must be submitted before any of its events can enter the
+    // irreversible Web MIDI send queue, even when the timer wakes up late.
     if (
       MIDI_DISPATCH_HORIZON + clock.schedulingInterval >=
       clock.schedulingLeadTime
@@ -82,6 +97,9 @@ class MidiOutputScheduler {
   scheduleNote(note: LogicalNote) {
     if (this._destroyed || note.velocity === 0) return;
 
+    // Store both ends in one global queue. Bars are discovered independently,
+    // so immediately sending a whole bar could queue an old note-off before a
+    // later bar has supplied an equal-time note-on that must be ordered with it.
     const noteId = this._nextNoteId++;
     this._events.push(
       {
@@ -126,6 +144,8 @@ class MidiOutputScheduler {
     const next = this._events[0];
     if (!next) return;
 
+    // Wake when the earliest event enters the horizon, not at the event time.
+    // A newly submitted earlier event cancels and replaces this timer.
     const delay = Math.max(
       0,
       (next.time - MIDI_DISPATCH_HORIZON - this._clock.ctx.currentTime) * 1000,
@@ -147,6 +167,8 @@ class MidiOutputScheduler {
     const ready = this._events.splice(0, count);
 
     for (const event of ready) {
+      // Late events intentionally send now. Passing a stale timestamp leaves
+      // behavior up to the native MIDI implementation and obscures recovery.
       const midiTime = this._clock.audioTimeToMIDITime(
         event.time <= now ? now : event.time,
       );
@@ -159,6 +181,9 @@ class MidiOutputScheduler {
 
   private _sendNoteOn(event: LogicalEvent, time: number) {
     if (!this._midi) return;
+    // Resolve only at dispatch time so an unscoped note uses the output that is
+    // actually current near its onset. The resulting stable handle is retained
+    // for note-off and overlap bookkeeping.
     const output = this._midi.out.resolve(event.selector);
     if (!output) return;
 
@@ -168,11 +193,18 @@ class MidiOutputScheduler {
       channel: event.channel,
       time,
     });
+    // Failed onsets must not affect counts; their eventual note-offs become
+    // no-ops because no concrete output mapping is recorded.
     if (!result.sent) return;
 
     this._noteOutputs.set(event.noteId, output);
-    const key = this._overlapKey(output, event.channel, event.note);
-    this._overlapCounts.set(key, (this._overlapCounts.get(key) ?? 0) + 1);
+    let counts = this._overlapCounts.get(output);
+    if (!counts) {
+      counts = new Map();
+      this._overlapCounts.set(output, counts);
+    }
+    const key = this._noteKey(event.channel, event.note);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
     let channels = this._trackedOutputs.get(output);
     if (!channels) {
       channels = new Set();
@@ -187,14 +219,18 @@ class MidiOutputScheduler {
     this._noteOutputs.delete(event.noteId);
     if (!output) return;
 
-    const key = this._overlapKey(output, event.channel, event.note);
-    const count = this._overlapCounts.get(key) ?? 0;
-    if (count > 1) {
-      this._overlapCounts.set(key, count - 1);
+    const counts = this._overlapCounts.get(output);
+    const key = this._noteKey(event.channel, event.note);
+    const count = counts?.get(key) ?? 0;
+    // Every logical onset is sent physically, but only the final matching end
+    // sends note-off so overlapping voices cannot cut one another short.
+    if (counts && count > 1) {
+      counts.set(key, count - 1);
       return;
     }
 
-    this._overlapCounts.delete(key);
+    counts?.delete(key);
+    if (counts?.size === 0) this._overlapCounts.delete(output);
     this._midi.out.noteOff(output, {
       note: event.note,
       channel: event.channel,
@@ -205,13 +241,15 @@ class MidiOutputScheduler {
   private _reset(clearOutputs: boolean) {
     this._clearActiveTimer();
     if (clearOutputs && this._midi) {
+      // First cancel future native sends, then silence channels that may already
+      // have received note-ons. Clearing alone does not stop sounding notes.
       const time = this._clock.audioTimeToMIDITime(this._clock.ctx.currentTime);
       for (const output of this._trackedOutputs.keys()) {
         this._midi.out.clear(output);
       }
       for (const [output, channels] of this._trackedOutputs) {
         for (const channel of channels) {
-          this._midi.out.cc(output, { cc: 123, value: 0, channel, time });
+          this._midi.out.allNotesOff(output, { channel, time });
         }
       }
     }
@@ -229,6 +267,8 @@ class MidiOutputScheduler {
   }
 
   private _sortEvents() {
+    // At equal times, releasing before retriggering avoids the new onset being
+    // immediately silenced. Sequence preserves submission order within a group.
     this._events.sort(
       (a, b) =>
         a.time - b.time ||
@@ -237,12 +277,8 @@ class MidiOutputScheduler {
     );
   }
 
-  private _overlapKey(
-    output: ResolvedMidiOutput,
-    channel: number,
-    note: number,
-  ) {
-    return `${output.id}:${channel}:${note}`;
+  private _noteKey(channel: number, note: number) {
+    return `${channel}:${note}`;
   }
 }
 

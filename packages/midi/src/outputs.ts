@@ -1,4 +1,5 @@
 import type {
+  MidiAllNotesOffOptions,
   MidiCcOptions,
   MidiNoteOffOptions,
   MidiNoteOnOptions,
@@ -53,9 +54,13 @@ const validateRawData = (data: Uint8Array | readonly number[]) => {
 class MidiOutputsController {
   private _ports: readonly WebMidiOutput[] = [];
   private _handles = new WeakMap<ResolvedMidiOutput, WebMidiOutput>();
+  private _portHandles = new WeakMap<WebMidiOutput, ResolvedMidiOutput>();
   private _destroyed = false;
 
   setPorts(ports: readonly WebMidiOutput[]) {
+    for (const port of this._ports) {
+      if (!ports.includes(port)) this._portHandles.delete(port);
+    }
     this._ports = ports;
   }
 
@@ -69,8 +74,12 @@ class MidiOutputsController {
     const port = this._resolvePort(selector);
     if (!port) return null;
 
-    const handle = Object.freeze({ id: port.id });
-    this._handles.set(handle, port);
+    let handle = this._portHandles.get(port);
+    if (!handle) {
+      handle = Object.freeze({ id: port.id });
+      this._portHandles.set(port, handle);
+      this._handles.set(handle, port);
+    }
     return handle;
   }
 
@@ -154,6 +163,16 @@ const createMidiOutputs = () => {
       return controller.send(
         target,
         Uint8Array.of(0xb0 | (channel - 1), options.cc, options.value),
+        options.time,
+      );
+    },
+    allNotesOff: (target, options: MidiAllNotesOffOptions = {}) => {
+      const channel = options.channel ?? 1;
+      validateChannel(channel);
+      validateTime(options.time);
+      return controller.send(
+        target,
+        Uint8Array.of(0xb0 | (channel - 1), 123, 0),
         options.time,
       );
     },
