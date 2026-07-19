@@ -73,6 +73,7 @@ const destinationNode = new FakeAudioNode();
 
 // Stub AudioContext with audioWorklet.addModule for worklet registration
 const fakeCtx = {
+  currentTime: 0,
   audioWorklet: { addModule: () => Promise.resolve() },
   decodeAudioData: vi.fn(async () => ({ duration: 1 }) as AudioBuffer),
   destination: destinationNode,
@@ -84,8 +85,11 @@ type EventCallback = (m: { beat: number; bar: number }, time: number) => void;
 
 // Controllable clock stub — lets tests fire events manually
 class FakeClock {
+  ctx = fakeCtx;
   paused = true;
   barDuration = 2;
+  schedulingLeadTime = 0.1;
+  schedulingInterval = 0.025;
   private _listeners = new Map<string, Set<EventCallback>>();
 
   on(type: string, fn: EventCallback): () => void {
@@ -96,6 +100,10 @@ class FakeClock {
 
   emit(type: string, bar = 0, time = 0) {
     this._listeners.get(type)?.forEach((cb) => cb({ beat: 0, bar }, time));
+  }
+
+  audioTimeToMIDITime(time: number) {
+    return time * 1000;
   }
 }
 

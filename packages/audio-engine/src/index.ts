@@ -4,6 +4,7 @@ import type { BankSchema, DromeSchema, SamplerSchema } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
+import MidiOutputScheduler from "./midi-output-scheduler";
 import { registerWorklets } from "./utils/register-worklets";
 import { preloadVariationIndices } from "./utils/preload-variations";
 import { resolveSampleUrl } from "./utils/resolve-sample-entry";
@@ -23,6 +24,7 @@ class AudioEngine {
   // user intent should take effect.
   private _pending: DromeSchema | null = null;
   private _midi: Midi | null = null;
+  private _midiOutputScheduler: MidiOutputScheduler;
   private _unsub: Set<() => void>;
   // Two-level cache: resolved for synchronous access in _commit(), promises
   // for deduplicating concurrent fetches across instruments and commits.
@@ -39,6 +41,7 @@ class AudioEngine {
     this._analyser = ctx.createAnalyser();
     this._master.connect(ctx.destination);
     this._master.connect(this._analyser);
+    this._midiOutputScheduler = new MidiOutputScheduler(clock);
 
     this.ready = registerWorklets(this._ctx, [lfoProcessorSource]);
 
@@ -49,6 +52,7 @@ class AudioEngine {
       }),
       clock.on("stop", () => {
         this._instruments.forEach((inst) => inst.cancelFutureNotes());
+        this._midiOutputScheduler.stop();
       }),
     ]);
   }
@@ -61,6 +65,7 @@ class AudioEngine {
     if (this._midi === midi) return;
     this.disconnectMidi();
     this._midi = midi;
+    this._midiOutputScheduler.connect(midi);
     this._instruments.forEach((instrument) => instrument.connectMidi(midi));
   }
 
@@ -68,6 +73,7 @@ class AudioEngine {
     if (!this._midi) return;
     this._instruments.forEach((instrument) => instrument.disconnectMidi());
     this._retiring.forEach((instrument) => instrument.disconnectMidi());
+    this._midiOutputScheduler.disconnect();
     this._midi = null;
   }
 
@@ -192,6 +198,7 @@ class AudioEngine {
   destroy(): void {
     this._unsub.forEach((fn) => fn());
     this.disconnectMidi();
+    this._midiOutputScheduler.destroy();
     this._instruments.forEach((inst) => inst.destroy());
     this._retiring.forEach((inst) => inst.destroy());
     this._instruments = [];

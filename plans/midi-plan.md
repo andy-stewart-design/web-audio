@@ -430,19 +430,23 @@ Create a dedicated `MidiOutputScheduler`. It is the only AudioEngine module that
 
 It is an output delivery buffer, not a second musical sequencer. `AudioClock` remains the single source of BPM, bar/beat timing, schema commit boundaries, note start times, and note durations.
 
-Construct the scheduler with injectable timing dependencies so its behavior is deterministic in tests:
+Construct the scheduler from the engine's `AudioClock`, which already owns the audio context, MIDI timestamp conversion, scheduling lead, and bounded scheduler interval:
 
 ```ts
-new MidiOutputScheduler({
-  getCurrentTime: () => ctx.currentTime,
-  audioTimeToMidiTime: (time) => clock.audioTimeToMIDITime(time),
+new MidiOutputScheduler(clock);
+```
+
+The dispatch horizon is an internal scheduler constant rather than AudioEngine configuration. Validate it against `clock.schedulingLeadTime` and `clock.schedulingInterval` so AudioEngine does not duplicate clock timing constants.
+
+For deterministic tests, allow one optional timer dependency:
+
+```ts
+new MidiOutputScheduler(clock, {
   scheduleTimer,
-  clearTimer,
-  horizon: 0.05,
 });
 ```
 
-The production factory can hide this wiring, but the module must not read global timers or `performance.now()` directly.
+`scheduleTimer(callback, delayMs)` returns a cancellation callback. This avoids environment-specific timer-handle types and a separate clear function. Production uses an internal `setTimeout` wrapper; tests supply a fake clock and timer and do not require global timers.
 
 A narrow internal API is sufficient:
 
@@ -460,13 +464,13 @@ The scheduler accepts AudioContext timestamps. It converts to MIDI timestamps on
 
 **Acceptance criteria:**
 
-- [ ] AudioClock uses its scheduling lead for the first bar and exposes that lead without duplicating timing constants in AudioEngine.
-- [ ] Clock tests cover first-bar and normal-bar scheduling lead.
-- [ ] The configured MIDI horizon plus the bounded test timer delay is strictly less than the clock scheduling lead.
-- [ ] Scheduler is unit-testable with fake clock/time and fake MIDI adapter, without AudioContext nodes or synth instances.
-- [ ] Scheduler owns all MIDI output queues, concrete handles, counts, and teardown state.
-- [ ] Timing/timer dependencies are injectable; tests do not require global clocks.
-- [ ] AudioEngine only owns one scheduler instance and forwards engine lifecycle calls.
+- [x] AudioClock uses its scheduling lead for the first bar and exposes that lead without duplicating timing constants in AudioEngine.
+- [x] Clock tests cover first-bar and normal-bar scheduling lead.
+- [x] The configured MIDI horizon plus the bounded test timer delay is strictly less than the clock scheduling lead.
+- [x] Scheduler is unit-testable with fake clock/time and fake MIDI adapter, without AudioContext nodes or synth instances.
+- [x] Scheduler owns all MIDI output queues, concrete handles, counts, and teardown state.
+- [x] Audio time and MIDI conversion come from the supplied clock; the timer remains optionally injectable, and tests require neither global timers nor an audio graph.
+- [x] AudioEngine only owns one scheduler instance and forwards engine lifecycle calls.
 
 ### Step 4.2 — Synth submits logical notes
 
