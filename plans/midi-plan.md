@@ -555,6 +555,14 @@ audio.disableMidi(): void;
 - `disableMidi()` disconnects the engine, destroys the instance, and clears app-owned MIDI state.
 - Do not create `Midi` in `eval.worker.ts`; `d.midi.*` remains pure schema construction.
 
+**Acceptance criteria:**
+
+- [x] `enableMidi()` immediately returns, retains, and connects one pending MIDI instance.
+- [x] Repeated enable calls are idempotent until MIDI is disabled.
+- [x] MIDI readiness rejection is handled without an unhandled promise rejection.
+- [x] `disableMidi()` disconnects and destroys the current instance and allows a clean re-enable.
+- [x] Worker evaluation remains independent of Web MIDI browser APIs.
+
 ### Step 5.2 — Svelte reactive adapter and header UI
 
 **Files:** `apps/web/src/lib/globals/audio-player.svelte.ts`, `apps/web/src/routes/+layout.svelte`, MIDI UI components as needed

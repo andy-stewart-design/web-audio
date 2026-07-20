@@ -1,6 +1,7 @@
 import AudioClock from '@web-audio/clock';
 import { createAudioContext, type ManagedAudioContext } from '@web-audio/context';
 import AudioEngine from '@web-audio/audio-engine';
+import { Midi } from '@web-audio/midi';
 import type { DromeSchema } from '@web-audio/schema';
 
 type PendingEval = { resolve: (schema: DromeSchema) => void; reject: (err: Error) => void };
@@ -18,6 +19,7 @@ class AudioPlayer {
 	private audioCtx: ManagedAudioContext | null = null;
 	private clock: AudioClock | null = null;
 	private engine: AudioEngine | null = null;
+	private midi: Midi | null = null;
 	private worker: Worker | null = null;
 	private pending = new Map<string, PendingEval>();
 
@@ -40,6 +42,27 @@ class AudioPlayer {
 
 	getAnalyser(): AnalyserNode | null {
 		return this.engine?.getAnalyser() ?? null;
+	}
+
+	enableMidi(): Midi {
+		if (this.midi) return this.midi;
+
+		this.lastError = null;
+		const midi = new Midi();
+		this.midi = midi;
+		this.getEngine().connectMidi(midi);
+		void midi.ready.catch((error: unknown) => {
+			if (this.midi !== midi) return;
+			this.lastError = error instanceof Error ? error.message : 'MIDI access failed';
+		});
+		return midi;
+	}
+
+	disableMidi(): void {
+		if (!this.midi) return;
+		this.engine?.disconnectMidi();
+		this.midi.destroy();
+		this.midi = null;
 	}
 
 	private getWorker(): Worker {

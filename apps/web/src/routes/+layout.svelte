@@ -8,6 +8,7 @@
 	import favicon from '@/lib/assets/favicon.svg';
 	import { audio, persistence, workspace } from '@/lib/globals';
 	import '@/styles/global.css';
+	import IconMidi from '@/components/icons/icon-midi.svelte';
 
 	let { children, data } = $props();
 
@@ -60,15 +61,20 @@
 		</div>
 
 		{#if isRepl && persistence.showPublish}
-			<button
-				class="publish-btn"
-				onclick={() => persistence.publish()}
-				disabled={!persistence.canPublish}
-				aria-label={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
-				title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
-			>
-				<IconPublish size={20} />
-			</button>
+			<div class="repl-controls">
+				<button class="publish-btn" onclick={() => {}} aria-label="TKTKTK" title="TKTKTK">
+					<IconMidi size={20} />
+				</button>
+				<button
+					class="publish-btn"
+					onclick={() => persistence.publish()}
+					disabled={!persistence.canPublish}
+					aria-label={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
+					title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
+				>
+					<IconPublish size={20} />
+				</button>
+			</div>
 		{/if}
 	</div>
 
@@ -97,7 +103,8 @@
 	}
 
 	.transport-controls,
-	.header-right {
+	.header-right,
+	.repl-controls {
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
