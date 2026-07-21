@@ -7,6 +7,9 @@ const mocks = vi.hoisted(() => ({
 		instance: unknown;
 		destroy: ReturnType<typeof vi.fn>;
 		rejectReady: (error: unknown) => void;
+		status: { set: (value: string) => void };
+		inputs: { set: (value: unknown[]) => void };
+		outputs: { set: (value: unknown[]) => void };
 	}>
 }));
 
@@ -35,24 +38,49 @@ vi.mock('@web-audio/audio-engine', () => ({
 	}
 }));
 
-vi.mock('@web-audio/midi', () => ({
-	Midi: class MockMidi {
-		ready: Promise<void>;
-		destroy = vi.fn();
+vi.mock('@web-audio/midi', () => {
+	class MockSignal<T> {
+		private listeners = new Set<(value: T) => void>();
 
-		constructor() {
-			let rejectReady: (error: unknown) => void = () => {};
-			this.ready = new Promise((_resolve, reject) => {
-				rejectReady = reject;
-			});
-			mocks.midiRecords.push({
-				instance: this,
-				destroy: this.destroy,
-				rejectReady
-			});
+		constructor(private value: T) {}
+
+		subscribe(listener: (value: T) => void) {
+			this.listeners.add(listener);
+			listener(this.value);
+			return () => this.listeners.delete(listener);
+		}
+
+		set(value: T) {
+			this.value = value;
+			this.listeners.forEach((listener) => listener(value));
 		}
 	}
-}));
+
+	return {
+		Midi: class MockMidi {
+			ready: Promise<void>;
+			destroy = vi.fn();
+			status = new MockSignal('pending');
+			inputs = new MockSignal<unknown[]>([]);
+			outputs = new MockSignal<unknown[]>([]);
+
+			constructor() {
+				let rejectReady: (error: unknown) => void = () => {};
+				this.ready = new Promise((_resolve, reject) => {
+					rejectReady = reject;
+				});
+				mocks.midiRecords.push({
+					instance: this,
+					destroy: this.destroy,
+					rejectReady,
+					status: this.status,
+					inputs: this.inputs,
+					outputs: this.outputs
+				});
+			}
+		}
+	};
+});
 
 import { audio } from './audio-player.svelte';
 
@@ -62,6 +90,7 @@ beforeEach(() => {
 	mocks.disconnectMidi.mockClear();
 	mocks.midiRecords.length = 0;
 	audio.lastError = null;
+	audio.midiError = null;
 });
 
 describe('AudioPlayer MIDI ownership', () => {
@@ -75,6 +104,35 @@ describe('AudioPlayer MIDI ownership', () => {
 		expect(mocks.connectMidi).toHaveBeenCalledWith(first);
 	});
 
+	test('copies reactive MIDI status and port snapshots into app state', () => {
+		audio.enableMidi();
+		const record = mocks.midiRecords[0];
+		const input = { id: 'input-id', name: 'Controller' };
+		const output = { id: 'output-id', name: 'Synth' };
+
+		record.status.set('connected');
+		record.inputs.set([input]);
+		record.outputs.set([output]);
+
+		expect(audio.midiStatus).toBe('connected');
+		expect(audio.midiInputs).toEqual([input]);
+		expect(audio.midiOutputs).toEqual([output]);
+	});
+
+	test('stops mirroring signals and clears snapshots when disabled', () => {
+		audio.enableMidi();
+		const record = mocks.midiRecords[0];
+		record.inputs.set([{ id: 'input-id', name: 'Controller' }]);
+
+		audio.disableMidi();
+		record.status.set('connected');
+		record.inputs.set([{ id: 'late-input', name: 'Late controller' }]);
+
+		expect(audio.midiStatus).toBe('disabled');
+		expect(audio.midiInputs).toEqual([]);
+		expect(audio.midiOutputs).toEqual([]);
+	});
+
 	test('disconnects and destroys MIDI before allowing a new instance', () => {
 		const first = audio.enableMidi();
 		const firstRecord = mocks.midiRecords[0];
@@ -84,6 +142,9 @@ describe('AudioPlayer MIDI ownership', () => {
 
 		expect(mocks.disconnectMidi).toHaveBeenCalledOnce();
 		expect(firstRecord.destroy).toHaveBeenCalledOnce();
+		expect(audio.midiStatus).toBe('pending');
+		expect(audio.midiInputs).toEqual([]);
+		expect(audio.midiOutputs).toEqual([]);
 		expect(second).not.toBe(first);
 		expect(mocks.midiRecords).toHaveLength(2);
 	});
@@ -94,6 +155,7 @@ describe('AudioPlayer MIDI ownership', () => {
 
 		await Promise.resolve();
 
+		expect(audio.midiError).toBe('permission denied');
 		expect(audio.lastError).toBe('permission denied');
 	});
 });

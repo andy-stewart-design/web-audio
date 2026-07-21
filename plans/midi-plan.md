@@ -579,10 +579,12 @@ The header control should:
 
 **Acceptance criteria:**
 
-- [ ] Permission denial/error is visible without an unhandled rejection.
-- [ ] Device connect/disconnect updates the UI reactively.
-- [ ] Enable/disable correctly creates/destroys engine bindings.
-- [ ] Worker evaluation remains independent of Web MIDI browser APIs.
+- [x] Permission denial/error is visible without an unhandled rejection.
+- [x] Device connect/disconnect updates the UI reactively.
+- [x] Pending, connected, denied, unavailable, error, destroyed, and disabled states have clear UI labels and status styling.
+- [x] Connected input/output names and IDs are listed with copy-ID actions.
+- [x] Enable, retry, and disable correctly create/destroy engine bindings and reactive subscriptions.
+- [x] Worker evaluation remains independent of Web MIDI browser APIs.
 
 ### Step 5.3 — End-to-end manual verification
 
@@ -602,7 +604,7 @@ Run this only after the web UI can enable, display, and disable MIDI. Use Chrome
 Run a sketch with supported CC mappings on instrument detune, filter frequency/Q/gain, and gain-effect gain. Replace `controller-id` with an ID copied from the MIDI UI:
 
 ```ts
-const scopedCutoff = d.midi.cc("controller-id", 74).channel(1);
+const scopedCutoff = d.midi.cc("1986674228", 74).channel(1);
 
 const filter = d
   .lpf(scopedCutoff)
@@ -611,9 +613,11 @@ const filter = d
   .gain(d.midi.cc(73));
 
 d.synth("sawtooth")
-  .notes([0, 3, 5, 7])
+  .root("a3")
+  .notes(0, 3, 5, 7)
+  .adsr(0, 1, 0.5, 0.2)
   .detune(d.midi.cc(1))
-  .fx(filter, d.gain(d.midi.cc(7)))
+  .fx(filter)
   .push();
 ```
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import LoginButton from '@/components/login-button/index.svelte';
+	import MidiControl from '@/components/midi-control/index.svelte';
 	import IconPlay from '@/components/icons/icon-play.svelte';
 	import IconPublish from '@/components/icons/icon-publish.svelte';
 	import IconRepeat from '@/components/icons/icon-repeat.svelte';
@@ -8,7 +9,6 @@
 	import favicon from '@/lib/assets/favicon.svg';
 	import { audio, persistence, workspace } from '@/lib/globals';
 	import '@/styles/global.css';
-	import IconMidi from '@/components/icons/icon-midi.svelte';
 
 	let { children, data } = $props();
 
@@ -60,11 +60,9 @@
 			{/if}
 		</div>
 
-		{#if isRepl && persistence.showPublish}
-			<div class="repl-controls">
-				<button class="publish-btn" onclick={() => {}} aria-label="TKTKTK" title="TKTKTK">
-					<IconMidi size={20} />
-				</button>
+		<div class="header-controls">
+			{#if isRepl && persistence.showPublish}
+				<MidiControl />
 				<button
 					class="publish-btn"
 					onclick={() => persistence.publish()}
@@ -74,8 +72,8 @@
 				>
 					<IconPublish size={20} />
 				</button>
-			</div>
-		{/if}
+			{/if}
+		</div>
 	</div>
 
 	<div class="header-right">
@@ -104,7 +102,7 @@
 
 	.transport-controls,
 	.header-right,
-	.repl-controls {
+	.header-controls {
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
