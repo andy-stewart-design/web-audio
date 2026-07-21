@@ -9,9 +9,26 @@
 	let open = $state(false);
 	let copiedId = $state<string | null>(null);
 	let copyError = $state(false);
+	let showConnecting = $state(false);
 
+	$effect(() => {
+		if (audio.midiStatus !== 'pending') {
+			showConnecting = false;
+			return;
+		}
+
+		const timeout = setTimeout(() => {
+			showConnecting = true;
+		}, 100);
+
+		return () => clearTimeout(timeout);
+	});
+
+	const displayStatus = $derived(
+		audio.midiStatus === 'pending' && !showConnecting ? 'disabled' : audio.midiStatus
+	);
 	const devices = $derived.by(() => groupDevices(audio.midiInputs, audio.midiOutputs));
-	const statusLabel = $derived.by(() => getMidiStatus(audio.midiStatus));
+	const statusLabel = $derived.by(() => getMidiStatus(displayStatus));
 
 	function toggle() {
 		open = !open;
@@ -46,7 +63,7 @@
 	>
 		<IconMidi size={20} />
 		<span class="trigger-signal">
-			<MidiSignal status={audio.midiStatus} visible={audio.midiStatus !== 'disabled'} />
+			<MidiSignal status={displayStatus} visible={displayStatus !== 'disabled'} />
 		</span>
 	</button>
 
@@ -54,6 +71,7 @@
 		<div class="popover" role="dialog" aria-label="MIDI settings">
 			<MidiToggle
 				status={audio.midiStatus}
+				{displayStatus}
 				label={statusLabel}
 				error={audio.midiError}
 				ontoggle={toggleMidi}
@@ -61,7 +79,7 @@
 
 			<section>
 				<h2>Devices</h2>
-				<MidiDevices status={audio.midiStatus} {devices} {copiedId} onCopy={copyId} />
+				<MidiDevices status={displayStatus} {devices} {copiedId} onCopy={copyId} />
 			</section>
 
 			{#if copyError}<p class="copy-error">Could not copy the device ID.</p>{/if}

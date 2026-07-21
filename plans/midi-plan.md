@@ -752,7 +752,6 @@ d.synth("sine").out(d.midi.out().channel(1)).notes([0, 0]).gain(0.75).push();
 - [ ] Pressing Stop before onset, during a held note, near a bar boundary, and after a queued onset leaves no external note sounding.
 - [ ] Replacing a sketch does not clear valid current output merely because the old instrument retires.
 - [ ] Disabling/replacing MIDI while notes are active clears queued sends and silences every engine-used channel.
-- [ ] Explicitly destroying the player while notes are active leaves no external note sounding.
 - [ ] Re-enabling MIDI or restarting playback does not replay events from an earlier scheduler generation.
 
 ---
