@@ -5,18 +5,17 @@
 
 	interface Props {
 		status: MidiStatus | 'disabled';
-		displayStatus: MidiStatus | 'disabled';
 		label: string;
 		error: string | null;
 		ontoggle(): void;
 	}
 
-	let { status, displayStatus, label, error, ontoggle }: Props = $props();
+	let { status, label, error, ontoggle }: Props = $props();
 </script>
 
 <label class="status-row">
 	<div class="status-label">
-		<MidiSignal status={displayStatus} size="md" />
+		<MidiSignal {status} size="md" />
 		<div class="status-text">
 			<strong>{label}</strong>
 			{#if error}
@@ -24,11 +23,7 @@
 			{/if}
 		</div>
 	</div>
-	<Switch
-		checked={status !== 'disabled'}
-		pending={displayStatus === 'pending'}
-		onchange={ontoggle}
-	/>
+	<Switch checked={status !== 'disabled'} pending={status === 'pending'} onchange={ontoggle} />
 </label>
 
 <style>

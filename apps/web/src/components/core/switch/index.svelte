@@ -30,15 +30,15 @@
 		cursor: pointer;
 		transition: background 120ms ease;
 
-		&:checked {
+		&[data-state='checked'] {
 			background: #42a66c;
 		}
 
-		&[data-state='pending']:checked {
+		&[data-state='pending'] {
 			background: #568bd6;
 		}
 
-		&:checked::after {
+		&:is([data-state='checked'], [data-state='pending'])::after {
 			translate: 1.25rem 0;
 		}
 

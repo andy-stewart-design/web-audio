@@ -5,6 +5,7 @@ import { Midi, type MidiDevice, type MidiStatus } from '@web-audio/midi';
 import type { DromeSchema } from '@web-audio/schema';
 
 type PendingEval = { resolve: (schema: DromeSchema) => void; reject: (err: Error) => void };
+type AppMidiStatus = MidiStatus | 'disabled';
 
 export type LogEntry = {
 	id: string;
@@ -15,7 +16,8 @@ export type LogEntry = {
 class AudioPlayer {
 	isRunning = $state(false);
 	lastError = $state<string | null>(null);
-	midiStatus = $state<MidiStatus | 'disabled'>('disabled');
+	midiStatus = $state<AppMidiStatus>('disabled');
+	midiDisplayStatus = $state<AppMidiStatus>('disabled');
 	midiInputs = $state<MidiDevice[]>([]);
 	midiOutputs = $state<MidiDevice[]>([]);
 	midiError = $state<string | null>(null);
@@ -25,6 +27,7 @@ class AudioPlayer {
 	private engine: AudioEngine | null = null;
 	private midi: Midi | null = null;
 	private midiSubscriptions = new Set<() => void>();
+	private midiDisplayTimer: ReturnType<typeof setTimeout> | null = null;
 	private worker: Worker | null = null;
 	private pending = new Map<string, PendingEval>();
 
@@ -49,6 +52,11 @@ class AudioPlayer {
 		return this.engine?.getAnalyser() ?? null;
 	}
 
+	toggleMidi() {
+		if (this.midi) this.disableMidi();
+		else this.enableMidi();
+	}
+
 	enableMidi(): Midi {
 		if (this.midi) return this.midi;
 
@@ -56,11 +64,7 @@ class AudioPlayer {
 		this.midiError = null;
 		const midi = new Midi();
 		this.midi = midi;
-		this.midiSubscriptions.add(
-			midi.status.subscribe((status) => {
-				this.midiStatus = status;
-			})
-		);
+		this.midiSubscriptions.add(midi.status.subscribe((status) => this.setMidiStatus(status)));
 		this.midiSubscriptions.add(
 			midi.inputs.subscribe((inputs) => {
 				this.midiInputs = [...inputs];
@@ -88,10 +92,28 @@ class AudioPlayer {
 		this.engine?.disconnectMidi();
 		this.midi.destroy();
 		this.midi = null;
-		this.midiStatus = 'disabled';
+		this.setMidiStatus('disabled');
 		this.midiInputs = [];
 		this.midiOutputs = [];
 		this.midiError = null;
+	}
+
+	private setMidiStatus(status: AppMidiStatus) {
+		this.midiStatus = status;
+		if (this.midiDisplayTimer !== null) {
+			clearTimeout(this.midiDisplayTimer);
+			this.midiDisplayTimer = null;
+		}
+
+		if (status !== 'pending') {
+			this.midiDisplayStatus = status;
+			return;
+		}
+
+		this.midiDisplayTimer = setTimeout(() => {
+			this.midiDisplayTimer = null;
+			if (this.midiStatus === 'pending') this.midiDisplayStatus = 'pending';
+		}, 100);
 	}
 
 	private getWorker(): Worker {
