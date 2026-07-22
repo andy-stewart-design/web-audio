@@ -56,7 +56,7 @@ class MidiOutputScheduler {
   // MIDI has no logical voice identity: one note-off can silence every onset
   // of the same channel/pitch. Counts defer the physical note-off until the
   // final successfully sent logical voice ends.
-  private _overlapCounts = new Map<ResolvedMidiOutput, Map<string, number>>();
+  private _overlapCounts = new Map<ResolvedMidiOutput, Map<number, number>>();
   // Teardown targets cannot be derived from active counts: a note-off may
   // already be queued in native Web MIDI while its count is gone. Retain every
   // concrete output/channel touched by successful sends until reset instead.
@@ -243,13 +243,35 @@ class MidiOutputScheduler {
     if (clearOutputs && this._midi) {
       // First cancel future native sends, then silence channels that may already
       // have received note-ons. Clearing alone does not stop sounding notes.
-      const time = this._clock.audioTimeToMIDITime(this._clock.ctx.currentTime);
+      const cleanupTime = this._clock.audioTimeToMIDITime(
+        this._clock.ctx.currentTime +
+          MIDI_DISPATCH_HORIZON +
+          this._clock.schedulingInterval,
+      );
       for (const output of this._trackedOutputs.keys()) {
         this._midi.out.clear(output);
       }
+      // Some native/driver queues cannot retract a future note-on after Web
+      // MIDI accepted it. Release active pitches immediately, then queue the
+      // same cleanup just beyond the dispatch horizon so an escaped onset
+      // cannot arrive after its cleanup. The clock invariant guarantees this
+      // second pass still precedes notes from a restarted transport.
+      for (const [output, counts] of this._overlapCounts) {
+        for (const key of counts.keys()) {
+          const options = {
+            channel: Math.floor(key / 128) + 1,
+            note: key % 128,
+          };
+          this._midi.out.noteOff(output, options);
+          this._midi.out.noteOff(output, { ...options, time: cleanupTime });
+        }
+      }
+      // CC 123 is advisory and some receivers ignore it, so retain it only as
+      // a channel-wide fallback after the explicit note-offs.
       for (const [output, channels] of this._trackedOutputs) {
         for (const channel of channels) {
-          this._midi.out.allNotesOff(output, { channel, time });
+          this._midi.out.allNotesOff(output, { channel });
+          this._midi.out.allNotesOff(output, { channel, time: cleanupTime });
         }
       }
     }
@@ -278,7 +300,7 @@ class MidiOutputScheduler {
   }
 
   private _noteKey(channel: number, note: number) {
-    return `${channel}:${note}`;
+    return (channel - 1) * 128 + note;
   }
 }
 

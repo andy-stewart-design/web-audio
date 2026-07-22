@@ -311,7 +311,7 @@ describe("MidiOutputScheduler lifecycle", () => {
     expect(harness.allNotesOff).not.toHaveBeenCalled();
   });
 
-  test("stop clears queues, sends All Notes Off, and discards logical events", () => {
+  test("stop clears queues, explicitly releases active notes, and sends All Notes Off", () => {
     const harness = createHarness();
     harness.scheduler.connect(harness.midi);
     harness.scheduler.scheduleNote(note());
@@ -320,16 +320,37 @@ describe("MidiOutputScheduler lifecycle", () => {
     harness.scheduler.stop();
 
     expect(harness.clear).toHaveBeenCalledOnce();
-    expect(harness.allNotesOff).toHaveBeenCalledWith(expect.anything(), {
-      channel: 1,
-      time: 950,
-    });
+    expect(harness.noteOff.mock.calls.map((call) => call[1])).toEqual([
+      { note: 60, channel: 1 },
+      { note: 60, channel: 1, time: 1025 },
+    ]);
+    expect(harness.allNotesOff.mock.calls.map((call) => call[1])).toEqual([
+      { channel: 1 },
+      { channel: 1, time: 1025 },
+    ]);
     expect(harness.clear.mock.invocationCallOrder[0]).toBeLessThan(
+      harness.noteOff.mock.invocationCallOrder[0],
+    );
+    expect(harness.noteOff.mock.invocationCallOrder[0]).toBeLessThan(
       harness.allNotesOff.mock.invocationCallOrder[0],
     );
     expect(harness.timers.size).toBe(0);
     harness.advanceTo(3);
-    expect(harness.noteOff).not.toHaveBeenCalled();
+    expect(harness.noteOff).toHaveBeenCalledTimes(2);
+  });
+
+  test("stop sends one explicit note-off for overlapping logical voices", () => {
+    const harness = createHarness();
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(note({ startTime: 1, endTime: 3 }));
+    harness.scheduler.scheduleNote(note({ startTime: 1.5, endTime: 4 }));
+    harness.advanceTo(0.95);
+    harness.advanceTo(1.45);
+
+    harness.scheduler.stop();
+
+    expect(harness.noteOn).toHaveBeenCalledTimes(2);
+    expect(harness.noteOff).toHaveBeenCalledTimes(2);
   });
 
   test("tracks used outputs and channels after active counts reach zero", () => {
@@ -343,10 +364,10 @@ describe("MidiOutputScheduler lifecycle", () => {
     harness.scheduler.stop();
 
     expect(harness.clear).toHaveBeenCalledOnce();
-    expect(harness.allNotesOff).toHaveBeenCalledWith(expect.anything(), {
-      channel: 3,
-      time: 1950,
-    });
+    expect(harness.allNotesOff.mock.calls.map((call) => call[1])).toEqual([
+      { channel: 3 },
+      { channel: 3, time: 2025 },
+    ]);
   });
 
   test("starts a fresh generation lazily after stop", () => {
@@ -371,8 +392,8 @@ describe("MidiOutputScheduler lifecycle", () => {
     harness.advanceTo(3);
 
     expect(harness.clear).toHaveBeenCalledOnce();
-    expect(harness.allNotesOff).toHaveBeenCalledOnce();
-    expect(harness.noteOff).not.toHaveBeenCalled();
+    expect(harness.noteOff).toHaveBeenCalledTimes(2);
+    expect(harness.allNotesOff).toHaveBeenCalledTimes(2);
   });
 
   test("replacement discards the old generation and cleans the old MIDI instance", () => {
@@ -385,10 +406,10 @@ describe("MidiOutputScheduler lifecycle", () => {
     harness.scheduler.connect(replacement.midi);
 
     expect(harness.clear).toHaveBeenCalledOnce();
-    expect(harness.allNotesOff).toHaveBeenCalledOnce();
+    expect(harness.allNotesOff).toHaveBeenCalledTimes(2);
     harness.advanceTo(3);
     replacement.advanceTo(3);
-    expect(harness.noteOff).not.toHaveBeenCalled();
+    expect(harness.noteOff).toHaveBeenCalledTimes(2);
     expect(replacement.noteOn).not.toHaveBeenCalled();
   });
 
@@ -404,7 +425,8 @@ describe("MidiOutputScheduler lifecycle", () => {
 
     expect(harness.noteOn).toHaveBeenCalledOnce();
     expect(harness.clear).toHaveBeenCalledOnce();
-    expect(harness.allNotesOff).toHaveBeenCalledOnce();
+    expect(harness.noteOff).toHaveBeenCalledTimes(2);
+    expect(harness.allNotesOff).toHaveBeenCalledTimes(2);
     expect(harness.timers.size).toBe(0);
   });
 });

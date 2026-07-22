@@ -28,7 +28,7 @@ MIDI note input driving AudioEngine voices, MIDI-controlled envelope values, and
 - MIDI output resolves opaque concrete port handles with stable identity for the lifetime of a connected native port; disconnect/reconnect or native-port replacement produces a new handle even when the public port ID is unchanged.
 - MIDI output exposes channel-scoped All Notes Off as a typed convenience send; queue clearing remains a separate concrete-output operation.
 - Logical MIDI output events are sorted by timestamp before overlap accounting; note-off precedes note-on at equal timestamps.
-- Transport stop, MIDI replacement, and engine destruction clear queued output sends and send All Notes Off. This assumes the engine exclusively owns each configured output port’s queue.
+- Transport stop, MIDI replacement, and engine destruction clear queued output sends, explicitly release every tracked active pitch, and send All Notes Off as a channel-wide fallback. This assumes the engine exclusively owns each configured output port’s queue.
 - A dedicated AudioEngine-internal `MidiOutputScheduler` owns rolling MIDI dispatch, concrete-port resolution, overlap accounting, and output cleanup; synths only submit logical notes to it.
 - Instrument lifecycle gains explicit `retire()` and `destroy()` hooks so real-time bindings can end immediately while audio release tails continue.
 
@@ -430,7 +430,7 @@ Create a dedicated `MidiOutputScheduler`. It is the only AudioEngine module that
 - selector resolution to opaque `ResolvedMidiOutput` handles;
 - mapping logical note IDs to their concrete output handles;
 - same-pitch reference counts;
-- output queue clearing and All Notes Off;
+- output queue clearing, explicit active-note release, and All Notes Off fallback;
 - scheduler timer/clock integration and output teardown.
 
 It is an output delivery buffer, not a second musical sequencer. `AudioClock` remains the single source of BPM, bar/beat timing, schema commit boundaries, note start times, and note durations.
@@ -519,7 +519,7 @@ When dispatching:
 - handle an event discovered after its target time by deliberately sending it immediately with a current MIDI timestamp, never by passing an accidentally stale timestamp;
 - track outputs with queued sends and used channels independently from active-note counts.
 
-On transport stop, MIDI disconnect/replacement, and engine destruction, clear every tracked concrete output’s pending send queue with `MIDIOutput.clear()`, then send channel-scoped All Notes Off (CC 123) on every tracked used channel. Also clear undispatched logical events, logical-note-to-output mappings, overlap counts, tracked handles/channels, and the dispatcher timer. Do not derive ports to clear solely from active-note counts.
+On transport stop, MIDI disconnect/replacement, and engine destruction, clear every tracked concrete output’s pending send queue with `MIDIOutput.clear()`, explicitly send note-off for every currently active concrete output/channel/pitch, then send channel-scoped All Notes Off (CC 123) on every tracked used channel as a safety fallback. Explicit note-offs are required because some receivers ignore CC 123. Also clear undispatched logical events, logical-note-to-output mappings, overlap counts, tracked handles/channels, and the dispatcher timer. Do not derive ports to clear solely from active-note counts.
 
 A disconnect/replacement starts a new scheduler generation: logical events submitted to the old generation are discarded and never replayed after reconnect. `stop()` clears the current generation and stops the timer; a later `scheduleNote()` lazily starts a new dispatcher. `destroy()` is terminal and ignores later scheduling.
 
