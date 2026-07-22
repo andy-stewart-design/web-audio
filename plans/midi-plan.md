@@ -592,10 +592,10 @@ Run this only after the web UI can enable, display, and disable MIDI. Use Chrome
 
 #### Access and reactive port state
 
-- [ ] MIDI is not requested on page load; enabling it from the UI triggers the browser permission flow.
-- [ ] Pending, connected, denied, unavailable, and error states are understandable and do not produce unhandled promise rejections.
-- [ ] Connected input and output names/IDs appear in the UI, and copy-ID produces the exact selector string.
-- [ ] Connecting, disconnecting, and reconnecting a device updates the UI without reloading the page.
+- [x] MIDI is not requested on page load; enabling it from the UI triggers the browser permission flow.
+- [x] Pending, connected, denied, unavailable, and error states are understandable and do not produce unhandled promise rejections.
+- [x] Connected input and output names/IDs appear in the UI, and copy-ID produces the exact selector string.
+- [x] Connecting, disconnecting, and reconnecting a device updates the UI without reloading the page.
 - [ ] A device that reconnects with the same ID remains usable for new sends.
 - [ ] Disabling MIDI clears UI state, removes active bindings, silences engine-owned output notes, and permits a later clean re-enable.
 
@@ -624,24 +624,43 @@ d.synth("sawtooth")
 Exercise explicit mapping modes separately:
 
 ```ts
-const cutoff = d.midi.cc(74).expRange(20, 20_000).default(440);
-const invertedDetune = d.midi.cc(1).range(1_200, -1_200).default(0);
-const fixedQ = d.midi.cc(71).range(5, 5).default(5);
+const cutoff = d.midi.cc("1986674228", 74).expRange(20, 20_000).default(440);
+const invertedDetune = d.midi
+  .cc("1986674228", 1)
+  .range(1_200, -1_200)
+  .default(0);
+const q = d.midi.cc("1986674228", 50).range(1, 10).default(5);
 
 d.synth("triangle")
+  .root("a4")
+  .scale("min")
   .notes([0, 7])
   .detune(invertedDetune)
-  .fx(d.lpf(cutoff).q(fixedQ), d.gain(d.midi.cc(7).range(0, 1).default(0.5)))
+  .fx(d.lpf(cutoff).q(q), d.gain(d.midi.cc(7).range(0, 1).default(0.5)))
   .push();
 ```
 
-- [ ] Before the first physical CC message, each destination uses its schema/contextual default.
-- [ ] Moving a controller updates already sounding voices smoothly.
-- [ ] A CC change made after a future voice is created but before its note starts is preserved at note start.
-- [ ] Device and channel-scoped CC mappings ignore messages from other devices/channels.
-- [ ] Linear, exponential, reversed, and constant mappings behave as authored.
-- [ ] Retiring/replacing a sketch removes old CC behavior while existing local release tails finish.
-- [ ] Stop, MIDI disable, and engine/page teardown leave no continuing CC reactions.
+```ts
+const dId = "MIDI Controller Bluetooth";
+const cutoffCC = d.midi.cc(dId, 1).channel(2).expRange(20, 20_000).default(440);
+const detuneCC = d.midi.cc(dId, 1).channel(3).range(-1_200, 1_200).default(0);
+
+d.synth("triangle")
+  .root("a3")
+  .scale("min")
+  .notes([0, 4])
+  .detune(detuneCC)
+  .fx(d.lpf(cutoffCC))
+  .push();
+```
+
+- [x] Before the first physical CC message, each destination uses its schema/contextual default.
+- [x] Moving a controller updates already sounding voices smoothly.
+- [x] A CC change made after a future voice is created but before its note starts is preserved at note start.
+- [x] Device and channel-scoped CC mappings ignore messages from other devices/channels.
+- [x] Linear, exponential, reversed, and constant mappings behave as authored.
+- [x] Retiring/replacing a sketch removes old CC behavior while existing local release tails finish.
+- [x] Stop, MIDI disable, and engine/page teardown leave no continuing CC reactions.
 
 #### Synth MIDI output
 

@@ -4,13 +4,16 @@
 	interface Props extends HTMLAttributes<HTMLInputElement> {
 		checked?: boolean;
 		pending?: boolean;
+		error?: boolean;
 	}
 
-	type SwitchStatus = 'checked' | 'pending' | 'unchecked';
+	type SwitchStatus = 'checked' | 'pending' | 'unchecked' | 'error';
 
-	let { checked = false, pending = false, ...props }: Props = $props();
+	let { checked = false, pending = false, error = false, ...props }: Props = $props();
 
-	let status: SwitchStatus = $derived(pending ? 'pending' : checked ? 'checked' : 'unchecked');
+	let status: SwitchStatus = $derived(
+		error ? 'error' : pending ? 'pending' : checked ? 'checked' : 'unchecked'
+	);
 </script>
 
 <input {...props} data-state={status} class="switch" type="checkbox" {checked} />
@@ -38,7 +41,11 @@
 			background: #568bd6;
 		}
 
-		&:is([data-state='checked'], [data-state='pending'])::after {
+		&[data-state='error'] {
+			background: #d65c5c;
+		}
+
+		&:not([data-state='unchecked'])::after {
 			translate: 1.25rem 0;
 		}
 

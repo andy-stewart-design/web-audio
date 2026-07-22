@@ -18,13 +18,19 @@
 		<MidiSignal {status} size="md" />
 		<div class="status-text">
 			<strong>{label}</strong>
-			{#if error}
-				<p>{error}</p>
-			{/if}
 		</div>
 	</div>
-	<Switch checked={status !== 'disabled'} pending={status === 'pending'} onchange={ontoggle} />
+	<Switch
+		checked={status !== 'disabled'}
+		pending={status === 'pending'}
+		error={!!error}
+		onchange={ontoggle}
+	/>
 </label>
+
+{#if error}
+	<p class="error">{error}</p>
+{/if}
 
 <style>
 	.status-row {
@@ -54,9 +60,10 @@
 		font-size: 0.875rem;
 	}
 
-	.status-row p {
-		margin-block-start: 0.2rem;
-		color: var(--color-fg-secondary);
+	.error {
+		margin-block-start: 0.5rem;
+		color: #d65c5c;
+		font-weight: 500;
 		font-size: 0.75rem;
 	}
 </style>
