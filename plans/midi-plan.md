@@ -489,6 +489,7 @@ For each resolved synth pattern note:
 - retain the resolved original MIDI note number;
 - submit `{ selector, channel, note, velocity, startTime, endTime }` to `MidiOutputScheduler`;
 - skip pattern-derived MIDI output notes that are not integers from 0–127 at the scheduler boundary, while leaving local audio behavior unchanged;
+- after microsecond time normalization, discard non-finite timings and notes whose end is not later than their start so a degenerate note cannot leave an unmatched note-on;
 - local effects, base balancing gain, and mute never alter velocity.
 
 Synthesizer does not resolve ports, schedule MIDI timestamps, manage note-off, reference-count notes, clear queues, or send All Notes Off.
@@ -503,6 +504,7 @@ For unscoped output, the scheduler resolves `midi.outputs.value[0]` only when th
 - [x] Local mute and the absence of a MIDI connection do not alter logical MIDI submission.
 - [x] Synths without `notesOut` do not submit MIDI events.
 - [x] Invalid pattern-derived MIDI note values are discarded synchronously and cannot abort a dispatch batch or stall its timer.
+- [x] Zero-duration, negative-duration, sub-precision, and non-finite logical notes are discarded before queueing.
 
 ### Step 4.3 — Globally ordered overlap and queue safety
 
@@ -791,20 +793,20 @@ d.synth("sine").out(d.midi.out().channel(1)).notes([0, 0]).gain(0.75).push();
 
 ### Automated verification
 
-- [ ] `pnpm --filter @web-audio/midi build`
-- [ ] `pnpm --filter @web-audio/midi check`
-- [ ] `pnpm --filter @web-audio/midi lint`
-- [ ] `pnpm --filter @web-audio/midi test:ci`
-- [ ] `pnpm --filter @web-audio/schema check`
-- [ ] `pnpm --filter @web-audio/fluid check`
-- [ ] `pnpm --filter @web-audio/fluid lint`
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine check`
-- [ ] `pnpm --filter @web-audio/audio-engine lint`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
-- [ ] `pnpm --filter web check`
-- [ ] `pnpm --filter web lint`
-- [ ] `pnpm test`
+- [x] `pnpm --filter @web-audio/midi build`
+- [x] `pnpm --filter @web-audio/midi check`
+- [x] `pnpm --filter @web-audio/midi lint`
+- [x] `pnpm --filter @web-audio/midi test:ci`
+- [x] `pnpm --filter @web-audio/schema check`
+- [x] `pnpm --filter @web-audio/fluid check`
+- [x] `pnpm --filter @web-audio/fluid lint`
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine check`
+- [x] `pnpm --filter @web-audio/audio-engine lint`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] `pnpm --filter web check`
+- [x] `pnpm --filter web lint`
+- [x] `pnpm test`
 
 ### Required focused tests
 

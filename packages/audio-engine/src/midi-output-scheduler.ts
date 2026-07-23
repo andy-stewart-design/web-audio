@@ -106,6 +106,16 @@ class MidiOutputScheduler {
       return;
     }
 
+    const startTime = this._normalizeTime(note.startTime);
+    const endTime = this._normalizeTime(note.endTime);
+    if (
+      !Number.isFinite(startTime) ||
+      !Number.isFinite(endTime) ||
+      endTime <= startTime
+    ) {
+      return;
+    }
+
     // Store both ends in one global queue. Bars are discovered independently,
     // so immediately sending a whole bar could queue an old note-off before a
     // later bar has supplied an equal-time note-on that must be ordered with it.
@@ -118,7 +128,7 @@ class MidiOutputScheduler {
         channel: note.channel,
         note: note.note,
         velocity: note.velocity,
-        time: this._normalizeTime(note.startTime),
+        time: startTime,
         sequence: this._nextSequence++,
       },
       {
@@ -128,7 +138,7 @@ class MidiOutputScheduler {
         channel: note.channel,
         note: note.note,
         velocity: 0,
-        time: this._normalizeTime(note.endTime),
+        time: endTime,
         sequence: this._nextSequence++,
       },
     );

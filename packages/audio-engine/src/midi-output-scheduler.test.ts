@@ -135,6 +135,26 @@ describe("MidiOutputScheduler timing", () => {
     );
   });
 
+  test("drops non-positive and non-finite durations after time normalization", () => {
+    const harness = createHarness();
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(note({ startTime: 1, endTime: 1 }));
+    harness.scheduler.scheduleNote(note({ startTime: 2, endTime: 1 }));
+    harness.scheduler.scheduleNote(note({ startTime: 1, endTime: 1.0000001 }));
+    harness.scheduler.scheduleNote(note({ startTime: NaN, endTime: 2 }));
+    harness.scheduler.scheduleNote(note({ note: 61 }));
+
+    harness.advanceTo(0.95);
+    harness.advanceTo(1.95);
+
+    expect(harness.noteOn).toHaveBeenCalledOnce();
+    expect(harness.noteOff).toHaveBeenCalledOnce();
+    expect(harness.noteOn).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ note: 61 }),
+    );
+  });
+
   test("dispatches only when an event enters the rolling horizon", () => {
     const harness = createHarness();
     harness.scheduler.connect(harness.midi);
