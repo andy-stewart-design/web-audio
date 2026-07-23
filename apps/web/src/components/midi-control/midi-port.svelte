@@ -75,7 +75,7 @@
 		font-size: var(--font-2xs);
 		background: none;
 		border: none;
-		border-radius: 100vamx;
+		border-radius: 100vmax;
 		cursor: pointer;
 	}
 </style>
