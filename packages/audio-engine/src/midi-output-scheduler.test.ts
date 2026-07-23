@@ -186,6 +186,25 @@ describe("MidiOutputScheduler timing", () => {
     ]);
   });
 
+  test("normalizes floating-point-equivalent retrigger boundaries", () => {
+    const harness = createHarness();
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(
+      note({ startTime: 0.1, endTime: 0.1 + 0.2 }),
+    );
+    harness.scheduler.scheduleNote(note({ startTime: 0.3, endTime: 0.5 }));
+    harness.advanceTo(0.05);
+    harness.advanceTo(0.25);
+
+    expect(harness.noteOff).toHaveBeenCalledOnce();
+    expect(harness.noteOff.mock.calls[0][1]).toEqual(
+      expect.objectContaining({ time: 300 }),
+    );
+    expect(harness.noteOff.mock.invocationCallOrder[0]).toBeLessThan(
+      harness.noteOn.mock.invocationCallOrder[1],
+    );
+  });
+
   test("orders note-off before note-on at equal timestamps", () => {
     const harness = createHarness();
     harness.scheduler.connect(harness.midi);

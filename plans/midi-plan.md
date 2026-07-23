@@ -511,7 +511,7 @@ Whole bars can be discovered independently while notes cross bar boundaries. The
 When dispatching:
 
 - sort the single global queue across every currently submitted bar by timestamp;
-- for equal timestamps, process every note-off first, then every note-on, with stable sequence ordering within each group;
+- normalize AudioContext event times to microsecond precision so independently calculated floating-point-equivalent boundaries form one tie group; process every note-off first, then every note-on, with stable sequence ordering within each group;
 - resolve each note-on selector to a concrete `ResolvedMidiOutput` and retain that handle under a generated logical-note ID for its matching note-off;
 - key overlap counts by stable concrete output-handle identity plus channel and note, and only increment after a physical note-on succeeds; an unavailable/failed note-on makes its later logical note-off a no-op;
 - remove internal logical-note state even if physical note-off fails, so bookkeeping cannot remain wedged;
@@ -596,8 +596,8 @@ Run this only after the web UI can enable, display, and disable MIDI. Use Chrome
 - [x] Pending, connected, denied, unavailable, and error states are understandable and do not produce unhandled promise rejections.
 - [x] Connected input and output names/IDs appear in the UI, and copy-ID produces the exact selector string.
 - [x] Connecting, disconnecting, and reconnecting a device updates the UI without reloading the page.
-- [ ] A device that reconnects with the same ID remains usable for new sends.
-- [ ] Disabling MIDI clears UI state, removes active bindings, silences engine-owned output notes, and permits a later clean re-enable.
+- [x] A device that reconnects with the same ID remains usable for new sends.
+- [x] Disabling MIDI clears UI state, removes active bindings, silences engine-owned output notes, and permits a later clean re-enable.
 
 #### MIDI CC input
 
@@ -673,13 +673,23 @@ d.synth("sawtooth")
   .euclid(3, 8)
   .gain([0.25, 0.5, 1])
   .push();
+
+d.synth("sawtooth")
+  .out(d.midi.out("-1778794549").channel(1))
+  .root("a3")
+  .scale("min")
+  .notes([0, 3, 5, 7])
+  .fast(2)
+  .push();
 ```
 
 Then target a copied output ID and non-default channel:
 
 ```ts
 d.synth("square")
-  .out(d.midi.out("output-id-from-ui").channel(10))
+  .out(d.midi.out("-1778794549").channel(10))
+  .root("a2")
+  .scale("min")
   .notes([0, 7, 12])
   .gain(0.75)
   .push();
@@ -713,14 +723,14 @@ d.synth("sine")
   .push();
 ```
 
-- [ ] Local audio and external MIDI play together with aligned rhythm.
-- [ ] MIDI note, channel, and gain-derived velocity values match the sketch.
-- [ ] `.mute()` silences only local audio; external MIDI continues unchanged.
-- [ ] Local effects, balancing gain, and mute do not alter outgoing velocity.
-- [ ] An unscoped output uses the current default output at note-on time.
-- [ ] Explicit output name and ID selectors reach the intended output.
-- [ ] Changing the default output after note-on does not redirect its paired note-off.
-- [ ] An unavailable or disconnected target does not interrupt local playback or throw during scheduled playback.
+- [x] Local audio and external MIDI play together with aligned rhythm.
+- [x] MIDI note, channel, and gain-derived velocity values match the sketch.
+- [x] `.mute()` silences only local audio; external MIDI continues unchanged.
+- [x] Local effects, balancing gain, and mute do not alter outgoing velocity.
+- [x] An unscoped output uses the current default output at note-on time.
+- [x] Explicit output name and ID selectors reach the intended output.
+- [x] Changing the default output after note-on does not redirect its paired note-off.
+- [x] An unavailable or disconnected target does not interrupt local playback or throw during scheduled playback.
 
 #### Ordering, overlap, and teardown safety
 
@@ -765,13 +775,13 @@ d.synth("sine").out(d.midi.out().channel(1)).notes([0]).gain(0.25).push();
 d.synth("sine").out(d.midi.out().channel(1)).notes([0, 0]).gain(0.75).push();
 ```
 
-- [ ] Overlapping same-output/channel/pitch notes do not cut one another off early.
-- [ ] Equal-time note-off/retrigger boundaries sound cleanly without stuck or immediately silenced notes.
-- [ ] Cross-bar notes remain correctly ordered under normal playback and rapid sketch updates.
-- [ ] Pressing Stop before onset, during a held note, near a bar boundary, and after a queued onset leaves no external note sounding.
-- [ ] Replacing a sketch does not clear valid current output merely because the old instrument retires.
-- [ ] Disabling/replacing MIDI while notes are active clears queued sends and silences every engine-used channel.
-- [ ] Re-enabling MIDI or restarting playback does not replay events from an earlier scheduler generation.
+- [x] Overlapping same-output/channel/pitch notes do not cut one another off early.
+- [x] Equal-time note-off/retrigger boundaries sound cleanly without stuck or immediately silenced notes.
+- [x] Cross-bar notes remain correctly ordered under normal playback and rapid sketch updates.
+- [x] Pressing Stop before onset, during a held note, near a bar boundary, and after a queued onset leaves no external note sounding.
+- [x] Replacing a sketch does not clear valid current output merely because the old instrument retires.
+- [x] Disabling/replacing MIDI while notes are active clears queued sends and silences every engine-used channel.
+- [x] Re-enabling MIDI or restarting playback does not replay events from an earlier scheduler generation.
 
 ---
 
@@ -796,7 +806,7 @@ d.synth("sine").out(d.midi.out().channel(1)).notes([0, 0]).gain(0.75).push();
 
 ### Required focused tests
 
-- [ ] Destroy while `requestMIDIAccess()` is pending.
+- [x] Destroy while `requestMIDIAccess()` is pending.
 - [x] Port disconnect/reconnect with the same ID.
 - [x] Default-output change between note-on and note-off.
 - [x] Same output/channel/note overlap, including notes supplied out of chronological order and across independently discovered bars.
@@ -806,10 +816,10 @@ d.synth("sine").out(d.midi.out().channel(1)).notes([0, 0]).gain(0.75).push();
 - [x] Late events deliberately send immediately rather than using stale timestamps.
 - [x] Stop with queued note-on near a bar end and queued note-off later.
 - [x] Replace MIDI instance while voices/output sends are active.
-- [ ] CC update after voice creation but before scheduled note start.
-- [ ] `connectMidi()` after active voices exist.
-- [ ] Invalid/non-finite/exponential ranges.
-- [ ] Svelte UI update after external port-state changes.
+- [x] CC update after voice creation but before scheduled note start.
+- [x] `connectMidi()` after active voices exist.
+- [x] Invalid/non-finite/exponential ranges.
+- [x] Svelte UI update after external port-state changes.
 
 ---
 

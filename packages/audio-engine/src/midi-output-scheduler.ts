@@ -4,6 +4,7 @@ import type { Midi, ResolvedMidiOutput } from "@web-audio/midi";
 // Web MIDI. This must remain shorter than the clock's guaranteed scheduling
 // lead after allowing for one delayed scheduler wake-up.
 const MIDI_DISPATCH_HORIZON = 0.05;
+const AUDIO_TIME_PRECISION = 1_000_000;
 
 type SchedulerClock = {
   ctx: { readonly currentTime: number };
@@ -109,7 +110,7 @@ class MidiOutputScheduler {
         channel: note.channel,
         note: note.note,
         velocity: note.velocity,
-        time: note.startTime,
+        time: this._normalizeTime(note.startTime),
         sequence: this._nextSequence++,
       },
       {
@@ -119,7 +120,7 @@ class MidiOutputScheduler {
         channel: note.channel,
         note: note.note,
         velocity: 0,
-        time: note.endTime,
+        time: this._normalizeTime(note.endTime),
         sequence: this._nextSequence++,
       },
     );
@@ -297,6 +298,13 @@ class MidiOutputScheduler {
         (a.type === b.type ? 0 : a.type === "note-off" ? -1 : 1) ||
         a.sequence - b.sequence,
     );
+  }
+
+  private _normalizeTime(time: number) {
+    // Independently calculated adjacent note boundaries can differ by a few
+    // floating-point bits. Normalize to microsecond precision so they become
+    // one tie group and note-off is reliably ordered before retriggering.
+    return Math.round(time * AUDIO_TIME_PRECISION) / AUDIO_TIME_PRECISION;
   }
 
   private _noteKey(channel: number, note: number) {
