@@ -839,8 +839,9 @@ A separate SOW must define and implement:
 - source-aware polyphony and duplicate-note semantics;
 - live-voice teardown on stop, schema update, reconnect, and destroy;
 - random/pattern/LFO/envelope semantics for live notes;
-- MIDI-controlled primary gain and ADSR/envelope values;
-- correct MIDI note endpoint handling in `midiToFrequency()` (`< 0`, not `<= 0`).
+- MIDI-controlled primary gain and ADSR/envelope values.
+
+MIDI note 0 endpoint handling in `midiToFrequency()` is already corrected and covered by AudioEngine tests.
 
 The current engine is bar-scheduled and calculates envelopes from known note durations. MIDI note input requires a dedicated live-voice runtime, not a small branch in the pattern scheduler.
 

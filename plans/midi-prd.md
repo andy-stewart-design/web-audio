@@ -351,7 +351,7 @@ See [`error-handling.md`](error-handling.md). Future diagnostics should cover co
 
 ### MIDI note input → synth voices
 
-This needs a dedicated live-voice design covering `MidiInSchema`, `d.midi.notes()`, transport behavior, held-note ADSR/release, source-aware polyphony, cleanup, and dynamic parameter semantics. MIDI note 0 must be fixed in `midiToFrequency()` (`< 0`, not `<= 0`).
+This needs a dedicated live-voice design covering `MidiInSchema`, `d.midi.notes()`, transport behavior, held-note ADSR/release, source-aware polyphony, cleanup, and dynamic parameter semantics. MIDI note 0 endpoint handling in `midiToFrequency()` is already correct and covered by AudioEngine tests.
 
 ### MIDI-controlled envelopes
 
