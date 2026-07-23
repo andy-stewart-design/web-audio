@@ -230,7 +230,7 @@ MIDI output is additive: local Web Audio still plays. MIDI velocity comes from t
 velocity = clamp(Math.round(resolvedEnvelope.max * 127), 0, 127);
 ```
 
-Velocity zero skips the event. The engine resolves the envelope once and reuses it for local scheduling and MIDI velocity. Local effects, internal balancing gain, and mute do not affect MIDI velocity.
+Velocity zero skips the event. Pattern-derived output notes that are not integers from 0–127 are discarded synchronously at the scheduler boundary rather than reaching the throwing public MIDI transport API; local audio behavior remains unchanged. The engine resolves the envelope once and reuses it for local scheduling and MIDI velocity. Local effects, internal balancing gain, and mute do not affect MIDI velocity.
 
 ### Mute
 

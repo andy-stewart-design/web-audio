@@ -119,6 +119,22 @@ describe("MidiOutputScheduler timing", () => {
     ).toThrow("must be shorter");
   });
 
+  test("drops invalid pattern-derived notes without poisoning valid events", () => {
+    const harness = createHarness();
+    harness.scheduler.connect(harness.midi);
+    harness.scheduler.scheduleNote(note({ note: -1 }));
+    harness.scheduler.scheduleNote(note({ note: 128 }));
+    harness.scheduler.scheduleNote(note({ note: 60.5 }));
+    harness.scheduler.scheduleNote(note({ note: 61 }));
+
+    expect(() => harness.advanceTo(0.95)).not.toThrow();
+    expect(harness.noteOn).toHaveBeenCalledOnce();
+    expect(harness.noteOn).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ note: 61 }),
+    );
+  });
+
   test("dispatches only when an event enters the rolling horizon", () => {
     const harness = createHarness();
     harness.scheduler.connect(harness.midi);

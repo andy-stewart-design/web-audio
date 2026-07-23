@@ -488,6 +488,7 @@ For each resolved synth pattern note:
 - skip velocity-zero events;
 - retain the resolved original MIDI note number;
 - submit `{ selector, channel, note, velocity, startTime, endTime }` to `MidiOutputScheduler`;
+- skip pattern-derived MIDI output notes that are not integers from 0–127 at the scheduler boundary, while leaving local audio behavior unchanged;
 - local effects, base balancing gain, and mute never alter velocity.
 
 Synthesizer does not resolve ports, schedule MIDI timestamps, manage note-off, reference-count notes, clear queues, or send All Notes Off.
@@ -501,6 +502,7 @@ For unscoped output, the scheduler resolves `midi.outputs.value[0]` only when th
 - [x] Velocity-zero notes skip MIDI output without skipping local audio.
 - [x] Local mute and the absence of a MIDI connection do not alter logical MIDI submission.
 - [x] Synths without `notesOut` do not submit MIDI events.
+- [x] Invalid pattern-derived MIDI note values are discarded synchronously and cannot abort a dispatch batch or stall its timer.
 
 ### Step 4.3 — Globally ordered overlap and queue safety
 

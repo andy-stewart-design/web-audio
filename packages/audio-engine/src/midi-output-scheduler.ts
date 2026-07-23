@@ -96,7 +96,15 @@ class MidiOutputScheduler {
   }
 
   scheduleNote(note: LogicalNote) {
-    if (this._destroyed || note.velocity === 0) return;
+    if (
+      this._destroyed ||
+      note.velocity === 0 ||
+      !Number.isInteger(note.note) ||
+      note.note < 0 ||
+      note.note > 127
+    ) {
+      return;
+    }
 
     // Store both ends in one global queue. Bars are discovered independently,
     // so immediately sending a whole bar could queue an old note-off before a
