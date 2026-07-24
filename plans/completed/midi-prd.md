@@ -31,7 +31,7 @@ MIDI note input driving AudioEngine voices, MIDI-controlled envelopes, and sampl
 - Multiple output targets per synth.
 - Persistent device aliases.
 - MIDI control of primary gain envelopes, ADSR values, or envelope effect values.
-- A MIDI-specific diagnostics/logging subsystem; see [`error-handling.md`](error-handling.md).
+- A MIDI-specific diagnostics/logging subsystem; see [`error-handling.md`](../error-handling.md).
 
 ## `@web-audio/midi`
 
@@ -343,20 +343,6 @@ audio.disableMidi(): void;
 - `AudioPlayer` adapts external MIDI signals into Svelte `$state`; reading `signal.value` directly in a component is not reactive.
 - Header UI enables MIDI from a user gesture, displays all status states, lists reactive port names/IDs, copies IDs, and permits disable.
 
-## Follow-up scopes
+## Follow-up work
 
-### Structured diagnostics
-
-See [`error-handling.md`](error-handling.md). Future diagnostics should cover contextual CC defaults, ambiguous selectors, unavailable output, and engine warnings in the frontend REPL rather than only browser developer tools.
-
-### MIDI note input → synth voices
-
-This needs a dedicated live-voice design covering `MidiInSchema`, `d.midi.notes()`, transport behavior, held-note ADSR/release, source-aware polyphony, cleanup, and dynamic parameter semantics. MIDI note 0 endpoint handling in `midiToFrequency()` is already correct and covered by AudioEngine tests.
-
-### MIDI-controlled envelopes
-
-Primary gain and ADSR/envelope MIDI control are valuable but require explicit semantics for changing scheduled envelope ramps and are deferred.
-
-### Sampler MIDI output/input
-
-Sampler MIDI output is deferred pending a concrete product workflow. It must keep original resolved MIDI pitch separate from sample playback rate and decide whether output remains independent of sample-buffer availability. Sampler MIDI input follows live synth-note design and needs source-key/release semantics.
+Deferred MIDI work was extracted to the active [`midi-follow-ups.md`](../midi-follow-ups.md) index when this PRD was completed.
