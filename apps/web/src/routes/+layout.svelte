@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import LoginButton from '@/components/login-button/index.svelte';
+	import MidiControl from '@/components/midi-control/index.svelte';
 	import IconPlay from '@/components/icons/icon-play.svelte';
 	import IconPublish from '@/components/icons/icon-publish.svelte';
 	import IconRepeat from '@/components/icons/icon-repeat.svelte';
@@ -59,17 +60,20 @@
 			{/if}
 		</div>
 
-		{#if isRepl && persistence.showPublish}
-			<button
-				class="publish-btn"
-				onclick={() => persistence.publish()}
-				disabled={!persistence.canPublish}
-				aria-label={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
-				title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
-			>
-				<IconPublish size={20} />
-			</button>
-		{/if}
+		<div class="header-controls">
+			{#if isRepl && persistence.showPublish}
+				<MidiControl />
+				<button
+					class="publish-btn"
+					onclick={() => persistence.publish()}
+					disabled={!persistence.canPublish}
+					aria-label={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
+					title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
+				>
+					<IconPublish size={20} />
+				</button>
+			{/if}
+		</div>
 	</div>
 
 	<div class="header-right">
@@ -97,7 +101,8 @@
 	}
 
 	.transport-controls,
-	.header-right {
+	.header-right,
+	.header-controls {
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;

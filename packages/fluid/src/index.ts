@@ -5,6 +5,7 @@ import { BUILT_IN_BANKS } from "./banks";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
 import Instrument from "./instruments/instrument";
+import { MidiBuilders, MidiCc } from "./midi";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import {
@@ -13,10 +14,16 @@ import {
   resolveBank,
 } from "./utils/sample-utils";
 import type { BankSchema, FilterType } from "@web-audio/schema";
-import type { CycleInput, DromeSchema, LoadSamplesInput } from "./types";
+import type {
+  AudioParamInput,
+  CycleInput,
+  DromeSchema,
+  LoadSamplesInput,
+} from "./types";
 import type { WaveformAlias } from "./utils/waveform";
 
 class Drome {
+  readonly midi = new MidiBuilders();
   private _instruments: Set<Instrument>;
   private _bpm: number | undefined;
   private _banks: Record<string, BankSchema>;
@@ -90,23 +97,23 @@ class Drome {
     return new Lfo(outputA, outputB);
   }
 
-  gain(input: number | Envelope | Lfo) {
+  gain(input: number | Envelope | Lfo | MidiCc) {
     return new GainEffect(input);
   }
 
-  filter(type: FilterType, ...frequency: CycleInput | [Envelope] | [Lfo]) {
+  filter(type: FilterType, ...frequency: AudioParamInput) {
     return new Filter(type, ...frequency);
   }
 
-  lpf(...frequency: CycleInput | [Envelope] | [Lfo]) {
+  lpf(...frequency: AudioParamInput) {
     return new Filter("lp", ...frequency);
   }
 
-  hpf(...frequency: CycleInput | [Envelope] | [Lfo]) {
+  hpf(...frequency: AudioParamInput) {
     return new Filter("hp", ...frequency);
   }
 
-  bpf(...frequency: CycleInput | [Envelope] | [Lfo]) {
+  bpf(...frequency: AudioParamInput) {
     return new Filter("bp", ...frequency);
   }
 

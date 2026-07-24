@@ -40,6 +40,29 @@ interface RandomSchema {
 
 type ParameterSchema = StaticSchema | RandomSchema;
 
+// ---------------------------------------------------
+// MIDI ----------------------------------------------
+// ---------------------------------------------------
+
+interface MidiOutSchema {
+  type: "midi-out";
+  device?: string;
+  channel: number;
+}
+
+interface MidiCcSchema {
+  type: "midi-cc";
+  cc: number;
+  device?: string;
+  channel?: number;
+  range: {
+    min: number;
+    max: number;
+    curve: "linear" | "exponential";
+  };
+  default: number;
+}
+
 interface FitSchema {
   type: "fit";
   bars: number;
@@ -126,18 +149,24 @@ interface LfoSchema {
 // EFFECTS -------------------------------------------
 // ---------------------------------------------------
 
+type AudioParamSchema =
+  | ParameterSchema
+  | EnvelopeSchema
+  | LfoSchema
+  | MidiCcSchema;
+
 interface FilterSchema {
   type: "filter";
   filterType: FilterType;
-  frequency: ParameterSchema | EnvelopeSchema | LfoSchema;
-  q: ParameterSchema | EnvelopeSchema | LfoSchema;
-  detune: ParameterSchema | EnvelopeSchema | LfoSchema;
-  gain: ParameterSchema | EnvelopeSchema | LfoSchema;
+  frequency: AudioParamSchema;
+  q: AudioParamSchema;
+  detune: AudioParamSchema;
+  gain: AudioParamSchema;
 }
 
 interface GainEffectSchema {
   type: "gain";
-  gain: ParameterSchema | EnvelopeSchema | LfoSchema;
+  gain: AudioParamSchema;
 }
 
 type EffectSchema = FilterSchema | GainEffectSchema;
@@ -149,13 +178,15 @@ type EffectSchema = FilterSchema | GainEffectSchema;
 interface InstrumentSchema {
   gain: EnvelopeSchema;
   effects: EffectSchema[];
-  detune: ParameterSchema | EnvelopeSchema | LfoSchema;
+  detune: AudioParamSchema;
+  muted: boolean;
 }
 
 interface SynthesizerSchema extends InstrumentSchema {
   type: "synthesizer";
   waveform: Waveform;
   notes: ParameterSchema;
+  notesOut?: MidiOutSchema;
 }
 
 interface SamplerSchema extends InstrumentSchema {
@@ -182,6 +213,7 @@ interface DromeSchema {
 }
 
 export type {
+  AudioParamSchema,
   BankDefinition,
   BankSchema,
   ChopRegionSchema,
@@ -198,6 +230,8 @@ export type {
   GainEffectSchema,
   InstrumentSchema,
   LfoSchema,
+  MidiCcSchema,
+  MidiOutSchema,
   NormalizedSampleSchema,
   ParameterSchema,
   RandomSchema,

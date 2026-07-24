@@ -1,8 +1,10 @@
 import type AudioClock from "@web-audio/clock";
+import type { Midi } from "@web-audio/midi";
 import type { BankSchema, DromeSchema, SamplerSchema } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
+import MidiOutputScheduler from "./midi-output-scheduler";
 import { registerWorklets } from "./utils/register-worklets";
 import { preloadVariationIndices } from "./utils/preload-variations";
 import { resolveSampleUrl } from "./utils/resolve-sample-entry";
@@ -21,6 +23,8 @@ class AudioEngine {
   // are intentionally discarded — in a live coding context, only the latest
   // user intent should take effect.
   private _pending: DromeSchema | null = null;
+  private _midi: Midi | null = null;
+  private _midiOutputScheduler: MidiOutputScheduler;
   private _unsub: Set<() => void>;
   // Two-level cache: resolved for synchronous access in _commit(), promises
   // for deduplicating concurrent fetches across instruments and commits.
@@ -37,6 +41,7 @@ class AudioEngine {
     this._analyser = ctx.createAnalyser();
     this._master.connect(ctx.destination);
     this._master.connect(this._analyser);
+    this._midiOutputScheduler = new MidiOutputScheduler(clock);
 
     this.ready = registerWorklets(this._ctx, [lfoProcessorSource]);
 
@@ -47,12 +52,29 @@ class AudioEngine {
       }),
       clock.on("stop", () => {
         this._instruments.forEach((inst) => inst.cancelFutureNotes());
+        this._midiOutputScheduler.stop();
       }),
     ]);
   }
 
   update(schema: DromeSchema): void {
     this._pending = schema;
+  }
+
+  connectMidi(midi: Midi) {
+    if (this._midi === midi) return;
+    this.disconnectMidi();
+    this._midi = midi;
+    this._midiOutputScheduler.connect(midi);
+    this._instruments.forEach((instrument) => instrument.connectMidi(midi));
+  }
+
+  disconnectMidi() {
+    if (!this._midi) return;
+    this._instruments.forEach((instrument) => instrument.disconnectMidi());
+    this._retiring.forEach((instrument) => instrument.disconnectMidi());
+    this._midiOutputScheduler.disconnect();
+    this._midi = null;
   }
 
   // Pre-loads all sampler buffers into the cache before the clock starts.
@@ -102,10 +124,14 @@ class AudioEngine {
       this._clock.bpm(this._pending.bpm);
     }
 
-    // Retire current instruments — each removes itself from _retiring when done
+    // Retire current instruments until their existing release tails finish.
     for (const inst of this._instruments) {
+      inst.retire();
       this._retiring.add(inst);
-      inst.done.then(() => this._retiring.delete(inst));
+      inst.finished.then(() => {
+        this._retiring.delete(inst);
+        inst.destroy();
+      });
     }
 
     // Create instruments with correct startingBar/barStartTime for LFO phase init
@@ -125,14 +151,18 @@ class AudioEngine {
         // If the requested sample is still loading, the sampler keeps using the
         // previous matching buffer until the new one is decoded.
         inst.load();
+        if (this._midi) inst.connectMidi(this._midi);
         return inst;
       }
-      return new Synthesizer(this._ctx, this._clock, {
+      const inst = new Synthesizer(this._ctx, this._clock, {
         schema,
         destination: this._master,
         startingBar: upcomingBar,
         barStartTime,
+        midiOutputScheduler: this._midiOutputScheduler,
       });
+      if (this._midi) inst.connectMidi(this._midi);
+      return inst;
     });
 
     this._pending = null;
@@ -168,6 +198,10 @@ class AudioEngine {
 
   destroy(): void {
     this._unsub.forEach((fn) => fn());
+    this.disconnectMidi();
+    this._midiOutputScheduler.destroy();
+    this._instruments.forEach((inst) => inst.destroy());
+    this._retiring.forEach((inst) => inst.destroy());
     this._instruments = [];
     this._retiring.clear();
     this._pending = null;

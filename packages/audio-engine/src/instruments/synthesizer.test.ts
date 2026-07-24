@@ -1,19 +1,45 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type AudioClock from "@web-audio/clock";
 import type {
   EnvelopeSchema,
   StaticSchema,
   SynthesizerSchema,
 } from "@web-audio/schema";
 import Synthesizer from "./synthesizer";
+import type MidiOutputScheduler from "@/midi-output-scheduler";
 
 // ---------------------------------------------------------------------------
 // Minimal Web Audio fakes
 // ---------------------------------------------------------------------------
 
+class FakeAudioParam {
+  value = 0;
+  setValueAtTime() {}
+  linearRampToValueAtTime() {}
+}
+
 class FakeGainNode {
-  gain = { value: 1 };
+  gain = new FakeAudioParam();
   connect() {}
   disconnect() {}
+}
+
+class FakeOscillatorNode {
+  static startCount = 0;
+  detune = new FakeAudioParam();
+  onended: (() => void) | null = null;
+
+  constructor(ctx: AudioContext, options: OscillatorOptions) {
+    void ctx;
+    void options;
+  }
+
+  connect() {}
+  disconnect() {}
+  start() {
+    FakeOscillatorNode.startCount++;
+  }
+  stop() {}
 }
 
 class FakeAudioContext {
@@ -59,7 +85,10 @@ function makeEnvelope(min = 0): EnvelopeSchema {
   };
 }
 
-function makeSchema(detune: SynthesizerSchema["detune"]): SynthesizerSchema {
+function makeSchema(
+  detune: SynthesizerSchema["detune"],
+  overrides: Partial<SynthesizerSchema> = {},
+): SynthesizerSchema {
   return {
     type: "synthesizer",
     waveform: "sine",
@@ -67,6 +96,8 @@ function makeSchema(detune: SynthesizerSchema["detune"]): SynthesizerSchema {
     detune,
     gain: makeEnvelope(),
     effects: [],
+    muted: false,
+    ...overrides,
   };
 }
 
@@ -80,6 +111,16 @@ function makeSynth(detune: SynthesizerSchema["detune"]) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+beforeEach(() => {
+  FakeOscillatorNode.startCount = 0;
+  vi.stubGlobal("GainNode", FakeGainNode);
+  vi.stubGlobal("OscillatorNode", FakeOscillatorNode);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("Synthesizer._resolveDetune", () => {
   it("returns { type: 'static' } with the resolved value for a ParameterSchema", () => {
@@ -102,5 +143,104 @@ describe("Synthesizer._resolveDetune", () => {
     const result = synth.resolveDetune(0, 0);
     if (result.type !== "envelope") throw new Error("expected envelope");
     expect(result.schema).toBe(env);
+  });
+});
+
+describe("Synthesizer MIDI output submission", () => {
+  it("submits resolved pattern timing, original note, and gain-derived velocity", () => {
+    const ctx = new FakeAudioContext();
+    const scheduleNote = vi.fn();
+    const schema = makeSchema(staticParam(0), {
+      gain: { ...makeEnvelope(), max: staticParam(0.5) },
+      notesOut: { type: "midi-out", device: "hardware", channel: 10 },
+      muted: true,
+    });
+    const synth = new Synthesizer(
+      ctx as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema,
+        midiOutputScheduler: {
+          scheduleNote,
+        } as unknown as MidiOutputScheduler,
+      },
+    );
+
+    synth.scheduleBar(3, 10);
+
+    expect(scheduleNote).toHaveBeenCalledWith({
+      selector: "hardware",
+      channel: 10,
+      note: 60,
+      velocity: 64,
+      startTime: 10,
+      endTime: 12,
+    });
+  });
+
+  it("clamps velocity and skips zero-velocity output without skipping local audio", () => {
+    const ctx = new FakeAudioContext();
+    const scheduleNote = vi.fn();
+    const scheduler = { scheduleNote } as unknown as MidiOutputScheduler;
+    const clock = { barDuration: 2 } as AudioClock;
+    const loud = new Synthesizer(ctx as unknown as AudioContext, clock, {
+      schema: makeSchema(staticParam(0), {
+        gain: { ...makeEnvelope(), max: staticParam(2) },
+        notesOut: { type: "midi-out", channel: 1 },
+      }),
+      midiOutputScheduler: scheduler,
+    });
+    const silent = new Synthesizer(ctx as unknown as AudioContext, clock, {
+      schema: makeSchema(staticParam(0), {
+        gain: { ...makeEnvelope(), max: staticParam(-1) },
+        notesOut: { type: "midi-out", channel: 1 },
+      }),
+      midiOutputScheduler: scheduler,
+    });
+
+    loud.scheduleBar(0, 0);
+    silent.scheduleBar(0, 0);
+
+    expect(scheduleNote).toHaveBeenCalledOnce();
+    expect(scheduleNote).toHaveBeenCalledWith(
+      expect.objectContaining({ velocity: 127 }),
+    );
+    expect(scheduleNote.mock.calls[0][0]).not.toHaveProperty("selector");
+  });
+
+  it("continues local playback when MIDI output is configured but unavailable", () => {
+    const ctx = new FakeAudioContext();
+    const synth = new Synthesizer(
+      ctx as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(staticParam(0), {
+          notesOut: { type: "midi-out", channel: 1 },
+        }),
+      },
+    );
+
+    synth.scheduleBar(0, 0);
+
+    expect(FakeOscillatorNode.startCount).toBe(1);
+  });
+
+  it("does not submit MIDI when notesOut is absent", () => {
+    const ctx = new FakeAudioContext();
+    const scheduleNote = vi.fn();
+    const synth = new Synthesizer(
+      ctx as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(staticParam(0)),
+        midiOutputScheduler: {
+          scheduleNote,
+        } as unknown as MidiOutputScheduler,
+      },
+    );
+
+    synth.scheduleBar(0, 0);
+
+    expect(scheduleNote).not.toHaveBeenCalled();
   });
 });

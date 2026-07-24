@@ -61,6 +61,8 @@ type MidiStatus =
 - `error`: another access failure occurred.
 - `destroyed`: the instance has been permanently torn down.
 
+Denied and error states retain the original thrown value as `midi.error: unknown | null`. The package deliberately does not normalize it to a string, preserving DOMException names, stacks, and other programmatic context. UI adapters may derive their own display string.
+
 The package is safe to import and construct outside a browser: it never reads `navigator` at module scope.
 
 ### Signals and devices
@@ -125,13 +127,13 @@ interface CcSignal extends Signal<number> {
   readonly raw: number;
   readonly hasValue: boolean;
   readonly deviceId: string | null;
-  readonly channel: number | null;
+  readonly receivedChannel: number | null;
 }
 
 interface NoteSignal extends Signal<ReadonlySet<MidiNote>> {}
 ```
 
-- CC initial state is `value: 0`, `raw: 0`, `hasValue: false`, `deviceId: null`, and `channel: null`.
+- CC initial state is `value: 0`, `raw: 0`, `hasValue: false`, `deviceId: null`, and `receivedChannel: null`.
 - For merged signals, CC metadata identifies the latest accepted message source; scoped signals retain `null` metadata until their first matching message.
 - CC `value` is normalized 0–1; `raw` is 0–127.
 - Note state is keyed internally by `deviceId:channel:note`.
@@ -150,7 +152,7 @@ midi.out.cc(device, { cc, value, channel, time? });
 midi.out.send(device, data, time?);
 ```
 
-Typed protocol values validate and throw on invalid programmer input:
+Typed note-on defaults velocity to 127, and all typed sends default channel to 1. Supplied protocol values validate and throw on invalid programmer input:
 
 - note, CC, and velocity: integer 0–127;
 - channel: integer 1–16.
@@ -228,7 +230,7 @@ MIDI output is additive: local Web Audio still plays. MIDI velocity comes from t
 velocity = clamp(Math.round(resolvedEnvelope.max * 127), 0, 127);
 ```
 
-Velocity zero skips the event. The engine resolves the envelope once and reuses it for local scheduling and MIDI velocity. Local effects, internal balancing gain, and mute do not affect MIDI velocity.
+Velocity zero skips the event. Pattern-derived output notes that are not integers from 0–127 are discarded synchronously at the scheduler boundary rather than reaching the throwing public MIDI transport API; local audio behavior remains unchanged. After scheduler time normalization, non-finite timings and notes whose end is not later than their start are also discarded so no unmatched note-on can be queued. The engine resolves the envelope once and reuses it for local scheduling and MIDI velocity. Local effects, internal balancing gain, and mute do not affect MIDI velocity.
 
 ### Mute
 
@@ -349,7 +351,7 @@ See [`error-handling.md`](error-handling.md). Future diagnostics should cover co
 
 ### MIDI note input → synth voices
 
-This needs a dedicated live-voice design covering `MidiInSchema`, `d.midi.notes()`, transport behavior, held-note ADSR/release, source-aware polyphony, cleanup, and dynamic parameter semantics. MIDI note 0 must be fixed in `midiToFrequency()` (`< 0`, not `<= 0`).
+This needs a dedicated live-voice design covering `MidiInSchema`, `d.midi.notes()`, transport behavior, held-note ADSR/release, source-aware polyphony, cleanup, and dynamic parameter semantics. MIDI note 0 endpoint handling in `midiToFrequency()` is already correct and covered by AudioEngine tests.
 
 ### MIDI-controlled envelopes
 

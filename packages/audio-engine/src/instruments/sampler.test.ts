@@ -183,6 +183,7 @@ function makeSchema(overrides: Partial<SamplerSchema> = {}): SamplerSchema {
     detune: staticParam(0),
     gain: envelope(),
     effects: [],
+    muted: false,
     loop: false,
     clipMode: "clipped",
     ...overrides,
@@ -2158,7 +2159,7 @@ describe("Sampler", () => {
     expect(createdSources[1].start).toHaveBeenCalledWith(14);
   });
 
-  it("done resolves after the scheduled source ends", async () => {
+  it("finished resolves after a retired instrument's scheduled source ends", async () => {
     cache.resolved.set("https://example.com/bd.wav", makeBuffer(1));
     const sampler = new Sampler(
       ctx as unknown as AudioContext,
@@ -2172,9 +2173,10 @@ describe("Sampler", () => {
 
     await sampler.load();
     sampler.scheduleBar(0, 2);
+    sampler.retire();
 
     let resolved = false;
-    sampler.done.then(() => {
+    sampler.finished.then(() => {
       resolved = true;
     });
 
@@ -2186,7 +2188,7 @@ describe("Sampler", () => {
     expect(createdGains[0].disconnect).toHaveBeenCalled();
   });
 
-  it("cancelFutureNotes() stops future scheduled notes and resolves done", async () => {
+  it("cancelFutureNotes() finishes retirement after stopping future notes", async () => {
     ctx.currentTime = 0;
     cache.resolved.set("https://example.com/bd.wav", makeBuffer(1));
     const notes: ParameterSchema = staticPattern(1, 0.75, 0.25, 0);
@@ -2203,10 +2205,11 @@ describe("Sampler", () => {
 
     await sampler.load();
     sampler.scheduleBar(0, 2);
+    sampler.retire();
     sampler.cancelFutureNotes();
 
     let resolved = false;
-    sampler.done.then(() => {
+    sampler.finished.then(() => {
       resolved = true;
     });
 

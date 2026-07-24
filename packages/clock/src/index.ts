@@ -121,7 +121,7 @@ class AudioClock {
       await this.ctx.resume();
     }
 
-    const startTime = this.ctx.currentTime + 0.05;
+    const startTime = this.ctx.currentTime + this.schedulingLeadTime;
 
     // Initialize "On" timeline
     this._currentBeat = 0;
@@ -189,6 +189,14 @@ class AudioClock {
   }
 
   // --- Getters ---
+
+  get schedulingLeadTime() {
+    return AudioClock.scheduleAheadTime;
+  }
+
+  get schedulingInterval() {
+    return AudioClock.lookahead / 1000;
+  }
 
   get paused(): boolean {
     return !this._running;

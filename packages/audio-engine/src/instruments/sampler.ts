@@ -37,7 +37,11 @@ class Sampler extends Instrument {
       fallbackBuffer = null,
     }: SamplerOptions,
   ) {
-    super(ctx, clock, destination ?? ctx.destination, SAMPLE_BASE_GAIN);
+    super(ctx, clock, {
+      destination,
+      baseGain: SAMPLE_BASE_GAIN,
+      muted: schema.muted,
+    });
     this._schema = schema;
     this._bufferStore = new SampleBufferStore({
       ctx,
@@ -186,6 +190,13 @@ class Sampler extends Instrument {
       detune: detune.value,
       loop: this._schema.loop,
     });
+    const noteContext = {
+      barIndex,
+      stepIndex: note.stepIndex,
+      startTime,
+      duration,
+      endTime,
+    };
 
     this._scheduleVoice({
       source,
@@ -193,15 +204,9 @@ class Sampler extends Instrument {
         param: source.detune,
         resolved: detune,
       },
-      gainEnvelope: this._schema.gain,
+      gainEnvelope: this._resolveEnvelope(this._schema.gain, noteContext),
       effects: this._schema.effects,
-      note: {
-        barIndex,
-        stepIndex: note.stepIndex,
-        startTime,
-        duration,
-        endTime,
-      },
+      note: noteContext,
       offset: sourceWindow.offset,
     });
   }

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Midi } from "@web-audio/midi";
 import type { DromeSchema } from "@web-audio/schema";
 
 // Mock Synthesizer so tests don't need Web Audio APIs.
@@ -8,16 +9,21 @@ vi.mock("./instruments/synthesizer", () => {
     this: Record<string, unknown>,
     _ctx: unknown,
     _clock: unknown,
-    opts: { destination?: unknown },
+    opts: { destination?: unknown; midiOutputScheduler?: unknown },
   ) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
+    this.connectMidi = vi.fn();
+    this.disconnectMidi = vi.fn();
+    this.retire = vi.fn();
+    this.destroy = vi.fn();
     this._destination = opts.destination;
+    this._midiOutputScheduler = opts.midiOutputScheduler;
     let resolve: () => void;
-    this.done = new Promise<void>((r) => {
+    this.finished = new Promise<void>((r) => {
       resolve = r;
     });
-    this._resolveDone = () => resolve();
+    this._resolveFinished = () => resolve();
   }
   return { default: vi.fn(MockSynthesizer) };
 });
@@ -31,16 +37,20 @@ vi.mock("./instruments/sampler", () => {
   ) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
+    this.connectMidi = vi.fn();
+    this.disconnectMidi = vi.fn();
+    this.retire = vi.fn();
+    this.destroy = vi.fn();
     this._destination = opts.destination;
     this.isReady = vi.fn(() => true);
     this.load = vi.fn();
     this.fallbackBufferFor = vi.fn(() => null);
     this._cache = opts.cache;
     let resolve: () => void;
-    this.done = new Promise<void>((r) => {
+    this.finished = new Promise<void>((r) => {
       resolve = r;
     });
-    this._resolveDone = () => resolve();
+    this._resolveFinished = () => resolve();
   }
   return { default: vi.fn(MockSampler) };
 });
@@ -64,6 +74,7 @@ const destinationNode = new FakeAudioNode();
 
 // Stub AudioContext with audioWorklet.addModule for worklet registration
 const fakeCtx = {
+  currentTime: 0,
   audioWorklet: { addModule: () => Promise.resolve() },
   decodeAudioData: vi.fn(async () => ({ duration: 1 }) as AudioBuffer),
   destination: destinationNode,
@@ -75,8 +86,11 @@ type EventCallback = (m: { beat: number; bar: number }, time: number) => void;
 
 // Controllable clock stub — lets tests fire events manually
 class FakeClock {
+  ctx = fakeCtx;
   paused = true;
   barDuration = 2;
+  schedulingLeadTime = 0.1;
+  schedulingInterval = 0.025;
   private _listeners = new Map<string, Set<EventCallback>>();
 
   on(type: string, fn: EventCallback): () => void {
@@ -87,6 +101,10 @@ class FakeClock {
 
   emit(type: string, bar = 0, time = 0) {
     this._listeners.get(type)?.forEach((cb) => cb({ beat: 0, bar }, time));
+  }
+
+  audioTimeToMIDITime(time: number) {
+    return time * 1000;
   }
 }
 
@@ -155,6 +173,7 @@ function makeSamplerSchema(): DromeSchema {
           mode: "bleed",
         },
         effects: [],
+        muted: false,
         loop: false,
         clipMode: "clipped",
       },
@@ -175,9 +194,14 @@ function instances() {
   return vi.mocked(MockSynthesizer).mock.instances as unknown as Array<{
     scheduleBar: ReturnType<typeof vi.fn>;
     cancelFutureNotes: ReturnType<typeof vi.fn>;
-    done: Promise<void>;
+    connectMidi: ReturnType<typeof vi.fn>;
+    disconnectMidi: ReturnType<typeof vi.fn>;
+    retire: ReturnType<typeof vi.fn>;
+    destroy: ReturnType<typeof vi.fn>;
+    finished: Promise<void>;
     _destination: unknown;
-    _resolveDone: () => void;
+    _midiOutputScheduler: unknown;
+    _resolveFinished: () => void;
   }>;
 }
 
@@ -185,15 +209,21 @@ function samplerInstances() {
   return vi.mocked(MockSampler).mock.instances as unknown as Array<{
     scheduleBar: ReturnType<typeof vi.fn>;
     cancelFutureNotes: ReturnType<typeof vi.fn>;
+    connectMidi: ReturnType<typeof vi.fn>;
+    disconnectMidi: ReturnType<typeof vi.fn>;
+    retire: ReturnType<typeof vi.fn>;
+    destroy: ReturnType<typeof vi.fn>;
     load: ReturnType<typeof vi.fn>;
     isReady: ReturnType<typeof vi.fn>;
     fallbackBufferFor: ReturnType<typeof vi.fn>;
     _cache: { resolved: Map<string, unknown> };
-    done: Promise<void>;
+    finished: Promise<void>;
     _destination: unknown;
-    _resolveDone: () => void;
+    _resolveFinished: () => void;
   }>;
 }
+
+const midiInstance = () => ({}) as Midi;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -222,6 +252,16 @@ describe("AudioEngine", () => {
 
       expect(instances()[0]._destination).toBe(master);
       expect(instances()[0]._destination).not.toBe(destinationNode);
+    });
+
+    it("passes the engine MIDI output scheduler to synthesizers", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+
+      engine.update(makeSchema());
+      clock.emit("prebar");
+
+      expect(instances()[0]._midiOutputScheduler).toBeDefined();
     });
 
     it("passes the master output to samplers instead of ctx.destination", () => {
@@ -355,7 +395,7 @@ describe("AudioEngine", () => {
   });
 
   describe("retirement", () => {
-    it("retires old instruments on hot-swap and removes them when done resolves", async () => {
+    it("retires old instruments on hot-swap and removes them when finished resolves", async () => {
       const clock = new FakeClock();
       clock.paused = false;
       const engine = new AudioEngine(fakeCtx, clock as never);
@@ -368,18 +408,78 @@ describe("AudioEngine", () => {
 
       // i1 should not be retired yet
       const [i0, i1] = instances();
+      expect(i0.retire).toHaveBeenCalledOnce();
 
-      // Resolving i0.done should not throw (removes it from _retiring)
-      i0._resolveDone();
+      // Resolving i0.finished removes it from retirement and destroys its graph.
+      i0._resolveFinished();
       await Promise.resolve();
+      expect(i0.destroy).toHaveBeenCalledOnce();
 
-      // inst is the active instrument — its done should not have been resolved
+      // inst is the active instrument — its finished should not have been resolved
       let i1Resolved = false;
-      i1.done.then(() => {
+      i1.finished.then(() => {
         i1Resolved = true;
       });
       await Promise.resolve();
       expect(i1Resolved).toBe(false);
+    });
+  });
+
+  describe("MIDI lifecycle", () => {
+    it("connects MIDI to instruments that are already active", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      engine.update(makeSchema());
+      clock.emit("prebar");
+      const midi = midiInstance();
+
+      engine.connectMidi(midi);
+
+      expect(instances()[0].connectMidi).toHaveBeenCalledWith(midi);
+    });
+
+    it("connects new instruments when MIDI was connected before commit", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const midi = midiInstance();
+      engine.connectMidi(midi);
+
+      engine.update(makeSchema());
+      clock.emit("prebar");
+
+      expect(instances()[0].connectMidi).toHaveBeenCalledWith(midi);
+    });
+
+    it("treats the same instance as a no-op and tears down replacements", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      engine.update(makeSchema());
+      clock.emit("prebar");
+      const first = midiInstance();
+      const second = midiInstance();
+
+      engine.connectMidi(first);
+      engine.connectMidi(first);
+      expect(instances()[0].connectMidi).toHaveBeenCalledTimes(1);
+
+      engine.connectMidi(second);
+      expect(instances()[0].disconnectMidi).toHaveBeenCalledTimes(1);
+      expect(instances()[0].connectMidi).toHaveBeenLastCalledWith(second);
+    });
+
+    it("disconnects active bindings explicitly and on destroy", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      engine.update(makeSchema());
+      clock.emit("prebar");
+
+      engine.connectMidi(midiInstance());
+      engine.disconnectMidi();
+      expect(instances()[0].disconnectMidi).toHaveBeenCalledTimes(1);
+
+      engine.connectMidi(midiInstance());
+      engine.destroy();
+      expect(instances()[0].disconnectMidi).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -408,6 +508,7 @@ describe("AudioEngine", () => {
       engine.update(makeSchema());
       clock.emit("prebar");
       engine.destroy();
+      expect(instances()[0].destroy).toHaveBeenCalledOnce();
 
       // After destroy, bar events must not call scheduleBar
       clock.emit("bar");
@@ -570,8 +671,8 @@ describe("AudioEngine", () => {
       const firstSampler = samplerInstances()[0];
       expect(firstSampler.load).toHaveBeenCalledOnce();
 
-      // Resolve first sampler's done so retirement completes
-      firstSampler._resolveDone();
+      // Resolve first sampler's finished so retirement completes
+      firstSampler._resolveFinished();
 
       // Second commit with the same schema
       engine.update(schema);

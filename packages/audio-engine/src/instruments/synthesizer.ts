@@ -1,4 +1,5 @@
 import Instrument from "./instrument";
+import MidiOutputScheduler from "@/midi-output-scheduler";
 import { midiToFrequency } from "@/utils/midi-to-frequency";
 
 import type { StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
@@ -9,19 +10,21 @@ interface SynthesizerOptions {
   destination?: AudioNode;
   startingBar?: number;
   barStartTime?: number;
+  midiOutputScheduler?: MidiOutputScheduler;
 }
 
 class Synthesizer extends Instrument {
   protected _schema: SynthesizerSchema;
+  private _midiOutputScheduler?: MidiOutputScheduler;
 
-  constructor(
-    ctx: AudioContext,
-    clock: AudioClock,
-    { schema, destination, startingBar = 0, barStartTime }: SynthesizerOptions,
-  ) {
-    super(ctx, clock, destination ?? ctx.destination);
-    this._schema = schema;
-    this._initLfos(schema, startingBar, barStartTime);
+  constructor(ctx: AudioContext, clock: AudioClock, opts: SynthesizerOptions) {
+    super(ctx, clock, {
+      destination: opts.destination,
+      muted: opts.schema.muted,
+    });
+    this._schema = opts.schema;
+    this._midiOutputScheduler = opts.midiOutputScheduler;
+    this._initLfos(opts.schema, opts.startingBar, opts.barStartTime);
   }
 
   scheduleBar(barIndex: number, barStartTime: number): void {
@@ -82,22 +85,36 @@ class Synthesizer extends Instrument {
       frequency: midiToFrequency(note.value),
       detune: detune.value,
     });
+    const noteContext = {
+      barIndex,
+      stepIndex: note.stepIndex,
+      startTime,
+      duration,
+      endTime,
+    };
+    const gainEnvelope = this._resolveEnvelope(this._schema.gain, noteContext);
 
     this._scheduleVoice({
       source: osc,
-      detune: {
-        param: osc.detune,
-        resolved: detune,
-      },
-      gainEnvelope: this._schema.gain,
+      detune: { param: osc.detune, resolved: detune },
+      gainEnvelope,
       effects: this._schema.effects,
-      note: {
-        barIndex,
-        stepIndex: note.stepIndex,
-        startTime,
-        duration,
-        endTime,
-      },
+      note: noteContext,
+    });
+
+    const notesOut = this._schema.notesOut;
+    const velocity = Math.min(
+      127,
+      Math.max(0, Math.round(gainEnvelope.max * 127)),
+    );
+    if (!notesOut || !this._midiOutputScheduler || velocity === 0) return;
+    this._midiOutputScheduler.scheduleNote({
+      ...(notesOut.device === undefined ? {} : { selector: notesOut.device }),
+      channel: notesOut.channel,
+      note: note.value,
+      velocity,
+      startTime,
+      endTime,
     });
   }
 }

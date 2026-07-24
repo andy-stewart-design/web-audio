@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>Web Audio MIDI Demo</title>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">@web-audio/midi</p>
+          <h1>MIDI Demo</h1>
+          <p>
+            Inspect MIDI devices, controller values, held notes, and output
+            messages.
+          </p>
+        </div>
+        <div class="access">
+          <span id="status" class="status" data-status="disabled"
+            >disabled</span
+          >
+          <button id="enable" type="button">Enable MIDI</button>
+          <button id="disable" type="button" class="secondary" disabled>
+            Disable
+          </button>
+        </div>
+      </header>
+
+      <p id="error" class="error" hidden></p>
+
+      <section class="grid ports">
+        <article class="panel">
+          <h2>Inputs <span id="input-count" class="count">0</span></h2>
+          <div id="inputs" class="device-list empty">No connected inputs</div>
+        </article>
+        <article class="panel">
+          <h2>Outputs <span id="output-count" class="count">0</span></h2>
+          <div id="outputs" class="device-list empty">No connected outputs</div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <h2>Continuous controllers</h2>
+        <div class="cc-target">
+          <label for="cc-input-target">Input device</label>
+          <select id="cc-input-target" disabled>
+            <option value="">All connected inputs</option>
+          </select>
+        </div>
+        <div class="grid cc-grid">
+          <article class="cc" data-cc="1">
+            <div><strong>CC 1</strong><span>Modulation</span></div>
+            <output>0.000</output>
+            <progress max="1" value="0"></progress>
+            <small>No value received</small>
+            <div class="cc-channel">
+              <label
+                ><input data-channel-enabled type="checkbox" /> Single
+                channel</label
+              >
+              <label
+                >Channel
+                <input
+                  data-channel
+                  type="number"
+                  min="1"
+                  max="16"
+                  value="1"
+                  disabled
+              /></label>
+            </div>
+          </article>
+          <article class="cc" data-cc="7">
+            <div><strong>CC 7</strong><span>Volume</span></div>
+            <output>0.000</output>
+            <progress max="1" value="0"></progress>
+            <small>No value received</small>
+            <div class="cc-channel">
+              <label
+                ><input data-channel-enabled type="checkbox" /> Single
+                channel</label
+              >
+              <label
+                >Channel
+                <input
+                  data-channel
+                  type="number"
+                  min="1"
+                  max="16"
+                  value="1"
+                  disabled
+              /></label>
+            </div>
+          </article>
+          <article class="cc" data-cc="74">
+            <div><strong>CC 74</strong><span>Brightness</span></div>
+            <output>0.000</output>
+            <progress max="1" value="0"></progress>
+            <small>No value received</small>
+            <div class="cc-channel">
+              <label
+                ><input data-channel-enabled type="checkbox" /> Single
+                channel</label
+              >
+              <label
+                >Channel
+                <input
+                  data-channel
+                  type="number"
+                  min="1"
+                  max="16"
+                  value="1"
+                  disabled
+              /></label>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Held notes <span id="note-count" class="count">0</span></h2>
+        <div id="notes" class="notes empty">
+          Play notes on a connected input
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Send MIDI</h2>
+        <div class="output-target">
+          <label for="output-target">Output</label>
+          <select id="output-target" disabled>
+            <option value="">No connected outputs</option>
+          </select>
+        </div>
+        <div class="grid send-grid">
+          <form id="note-form">
+            <h3>Note</h3>
+            <label
+              >Note
+              <input name="note" type="number" min="0" max="127" value="60"
+            /></label>
+            <label
+              >Velocity
+              <input
+                name="velocity"
+                type="number"
+                min="0"
+                max="127"
+                value="100"
+            /></label>
+            <label
+              >Channel
+              <input name="channel" type="number" min="1" max="16" value="1"
+            /></label>
+            <div class="actions">
+              <button name="action" value="on">Note on</button>
+              <button name="action" value="off" class="secondary">
+                Note off
+              </button>
+            </div>
+          </form>
+          <form id="cc-form">
+            <h3>Controller</h3>
+            <label
+              >CC <input name="cc" type="number" min="0" max="127" value="74"
+            /></label>
+            <label
+              >Value
+              <input name="value" type="number" min="0" max="127" value="64"
+            /></label>
+            <label
+              >Channel
+              <input name="channel" type="number" min="1" max="16" value="1"
+            /></label>
+            <button>Send CC</button>
+          </form>
+        </div>
+        <output id="send-result" class="send-result">No messages sent</output>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
