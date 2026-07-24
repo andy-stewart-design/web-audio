@@ -52,9 +52,11 @@ type MidiCcContext = keyof typeof MIDI_CC_CONTEXTS;
 class MidiOut {
   private _channel = 1;
   private _device: string | undefined;
+  chan: (channel: number) => this;
 
   constructor(device?: string) {
     this._device = device;
+    this.chan = this.channel.bind(this);
   }
 
   channel(channel: number) {
@@ -78,11 +80,13 @@ class MidiCc {
   private _channel: number | undefined;
   private _range: MidiCcSchema["range"] | undefined;
   private _default: number | undefined;
+  chan: (channel: number) => this;
 
   constructor(cc: number, device?: string) {
     validateProtocolValue("CC number", cc, 0, 127);
     this._cc = cc;
     this._device = device;
+    this.chan = this.channel.bind(this);
   }
 
   channel(channel: number) {
