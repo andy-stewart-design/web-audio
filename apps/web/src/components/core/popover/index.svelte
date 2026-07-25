@@ -1,5 +1,13 @@
 <script lang="ts">
 	import { dev } from '$app/environment';
+	import {
+		autoUpdate,
+		computePosition,
+		flip,
+		offset as offsetMiddleware,
+		shift,
+		type Placement
+	} from '@floating-ui/dom';
 	import type { PopoverAction, Props, TriggerAction } from './types';
 
 	const uid = $props.id();
@@ -21,6 +29,7 @@
 	let popoverElement = $state<HTMLElement>();
 	let initialFocusElement: HTMLElement | undefined;
 	let restoreFocusOnClose = true;
+	let resolvedPlacement = $state<Placement>();
 
 	function isPopoverOpen(node: HTMLElement) {
 		return node.matches(':popover-open');
@@ -95,6 +104,34 @@
 		else if (!open && nativeOpen) node.hidePopover();
 	});
 
+	$effect(() => {
+		const reference = triggerElement;
+		const floating = popoverElement;
+		if (!open || !reference || !floating) return;
+
+		let active = true;
+
+		const updatePosition = async () => {
+			const position = await computePosition(reference, floating, {
+				placement,
+				strategy: 'fixed',
+				middleware: [offsetMiddleware(offset), flip(), shift({ padding: collisionPadding })]
+			});
+			if (!active) return;
+
+			floating.style.left = `${position.x}px`;
+			floating.style.top = `${position.y}px`;
+			resolvedPlacement = position.placement;
+		};
+
+		const cleanup = autoUpdate(reference, floating, updatePosition);
+
+		return () => {
+			active = false;
+			cleanup();
+		};
+	});
+
 	// Focus restoration is implemented in Phase 4.
 	void restoreFocusOnClose;
 
@@ -111,7 +148,7 @@
 		'aria-label': ariaLabel,
 		tabindex: -1 as const,
 		'data-open': open,
-		'data-placement': placement,
+		'data-placement': resolvedPlacement ?? placement,
 		'data-offset': offset,
 		'data-collision-padding': collisionPadding,
 		style: 'position: fixed; inset: unset; margin: 0;'

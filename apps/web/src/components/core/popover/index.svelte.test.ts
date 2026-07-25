@@ -61,6 +61,68 @@ describe('Popover', () => {
 		expect(styles.margin).toBe('0px');
 	});
 
+	test('positions the panel below and end-aligned by default', async () => {
+		render(PopoverTest);
+
+		const trigger = page.getByTestId('trigger');
+		const panel = page.getByTestId('panel');
+		await trigger.click();
+		await expect.poll(() => panel.element().style.left).not.toBe('');
+
+		const triggerRect = trigger.element().getBoundingClientRect();
+		const panelRect = panel.element().getBoundingClientRect();
+		expect(panelRect.top).toBeGreaterThanOrEqual(triggerRect.bottom + 7);
+		expect(Math.abs(panelRect.right - triggerRect.right)).toBeLessThanOrEqual(1);
+	});
+
+	test('supports placement and offset configuration', async () => {
+		render(PopoverTest, { placement: 'bottom-start', offset: 16 });
+
+		const trigger = page.getByTestId('trigger');
+		const panel = page.getByTestId('panel');
+		await trigger.click();
+		await expect.element(panel).toHaveAttribute('data-placement', 'bottom-start');
+
+		const triggerRect = trigger.element().getBoundingClientRect();
+		const panelRect = panel.element().getBoundingClientRect();
+		expect(panelRect.top).toBeGreaterThanOrEqual(triggerRect.bottom + 15);
+		expect(Math.abs(panelRect.left - triggerRect.left)).toBeLessThanOrEqual(1);
+	});
+
+	test('flips and shifts the panel within viewport collision padding', async () => {
+		render(PopoverTest, { edge: true, collisionPadding: 10 });
+
+		const panel = page.getByTestId('panel');
+		await page.getByTestId('trigger').click();
+		await expect.element(panel).toHaveAttribute('data-placement', 'top-end');
+
+		const panelRect = panel.element().getBoundingClientRect();
+		expect(panelRect.top).toBeGreaterThanOrEqual(9);
+		expect(panelRect.right).toBeLessThanOrEqual(window.innerWidth - 9);
+		expect(panelRect.bottom).toBeLessThanOrEqual(window.innerHeight - 9);
+	});
+
+	test('updates position when the reference layout changes', async () => {
+		render(PopoverTest);
+
+		const trigger = page.getByTestId('trigger');
+		const panel = page.getByTestId('panel');
+		await trigger.click();
+		await expect.poll(() => panel.element().style.left).not.toBe('');
+		const initialLeft = panel.element().getBoundingClientRect().left;
+
+		const triggerElement = trigger.element();
+		expect(triggerElement).toBeInstanceOf(HTMLButtonElement);
+		if (triggerElement instanceof HTMLButtonElement) {
+			triggerElement.style.transform = 'translateX(100px)';
+		}
+		window.dispatchEvent(new Event('resize'));
+
+		await expect
+			.poll(() => panel.element().getBoundingClientRect().left)
+			.toBeGreaterThan(initialLeft + 99);
+	});
+
 	test('toggles native state from the trigger', async () => {
 		render(PopoverTest);
 
