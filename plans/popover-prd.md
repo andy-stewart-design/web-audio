@@ -37,7 +37,7 @@ Create the primitive at:
 apps/web/src/components/core/popover/index.svelte
 ```
 
-Keep its implementation and local types in the Svelte file initially. Extract utilities only when they become independently reusable.
+Keep the component, local types, and reusable positioning/focus helpers together in the `core/popover` directory.
 
 ## Consumer API
 
@@ -109,15 +109,18 @@ The trigger snippet receives:
 The action:
 
 - Registers the Floating UI reference element.
-- Opens or closes the native popover on click.
 - Retains the element used for focus restoration.
-- Cleans up listeners and references when destroyed.
+- Cleans up its reference when destroyed.
+
+Native `popovertarget` attributes supplied through `props` own trigger activation.
 
 The trigger props include:
 
 - `aria-expanded`
 - `aria-controls`
 - `aria-haspopup`, derived from the effective panel role
+- `popovertarget`
+- `popovertargetaction="toggle"`
 
 The consumer owns the button's accessible name, visual styles, contents, and unrelated attributes.
 
@@ -139,6 +142,7 @@ The panel props include:
 - `aria-modal="false"` if needed for the effective semantics
 - `tabindex="-1"` so the panel can be the final focus fallback
 - `data-open` for consumer styling
+- `data-popover-panel` for shared structural display rules
 - Essential fixed-position/native-popover reset styles
 
 The primitive supplies only structural styles needed for positioning, including the equivalent of:
@@ -149,7 +153,7 @@ inset: unset;
 margin: 0;
 ```
 
-The positioning action manages `left` and `top`. Consumer classes own width, height, overflow, spacing, colors, borders, radius, shadows, typography, and other visual presentation.
+The positioning action manages `left` and `top`. The core defaults open panels to `display: block` and always hides closed panels. Consumers can set `--popover-display` when they need another open display mode, such as `grid`. Consumer classes otherwise own width, height, overflow, spacing, colors, borders, radius, shadows, typography, and other visual presentation.
 
 Only one live element may register each of `trigger`, `popover`, and `initialFocus`. The initial-focus action is optional. Development builds should warn if multiple live trigger or panel elements are registered for one instance.
 
@@ -179,7 +183,7 @@ Use `@floating-ui/dom` with:
 - `shift({ padding: collisionPadding })`
 - Fixed positioning strategy
 
-Start `autoUpdate()` after the native panel opens and both elements are registered. Stop it when the panel closes or either action is destroyed.
+Start `autoUpdate()` after the native panel opens and both elements are registered. Stop it when the panel closes or either action is destroyed. Keep the panel transparent and non-interactive until its first position is computed, preventing a flash at the browser's default popover position.
 
 Do not expose raw Floating UI middleware in the first version. Add an escape hatch only in response to a concrete use case.
 
@@ -246,7 +250,7 @@ Migration requirements:
 - Remove obsolete popover types and helpers from `login-button/utils.ts`.
 - Keep the login dialog path unchanged.
 
-The exact split between `index.svelte` and `profile-popover.svelte` may change to accommodate the headless snippet contract, but profile-specific presentation should remain separate where that improves readability.
+`profile-popover.svelte` owns both the authenticated avatar trigger and profile panel so the primitive's snippets stay co-located. `login-button/index.svelte` chooses between that authenticated control and the unauthenticated login flow.
 
 ### MIDI popover
 
