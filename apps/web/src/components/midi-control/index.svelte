@@ -1,21 +1,17 @@
 <script lang="ts">
 	import { audio } from '@/lib/globals';
+	import Popover from '@/components/core/popover/index.svelte';
 	import IconMidi from '@/components/icons/icon-midi.svelte';
 	import MidiToggle from './midi-toggle.svelte';
 	import MidiSignal from './midi-signal.svelte';
 	import MidiDevices from './midi-devices.svelte';
 	import { getMidiStatus, groupDevices } from './utils';
 
-	let open = $state(false);
 	let copiedId = $state<string | null>(null);
 	let copyError = $state(false);
 
 	const devices = $derived.by(() => groupDevices(audio.midiInputs, audio.midiOutputs));
 	const statusLabel = $derived.by(() => getMidiStatus(audio.midiDisplayStatus));
-
-	function toggle() {
-		open = !open;
-	}
 
 	function toggleMidi() {
 		audio.toggleMidi();
@@ -35,25 +31,27 @@
 	}
 </script>
 
-<div class="midi-control">
-	<button
-		class="trigger"
-		onclick={toggle}
-		aria-label={`${statusLabel}. Open settings`}
-		aria-expanded={open}
-		title={statusLabel}
-	>
-		<IconMidi size={20} />
-		<span class="trigger-signal">
-			<MidiSignal
-				status={audio.midiDisplayStatus}
-				visible={audio.midiDisplayStatus !== 'disabled'}
-			/>
-		</span>
-	</button>
+<Popover ariaLabel="MIDI settings">
+	{#snippet trigger({ trigger, props })}
+		<button
+			use:trigger
+			{...props}
+			class="trigger"
+			aria-label={`${statusLabel}. ${props['aria-expanded'] ? 'Close' : 'Open'} settings`}
+			title={statusLabel}
+		>
+			<IconMidi size={20} />
+			<span class="trigger-signal">
+				<MidiSignal
+					status={audio.midiDisplayStatus}
+					visible={audio.midiDisplayStatus !== 'disabled'}
+				/>
+			</span>
+		</button>
+	{/snippet}
 
-	{#if open}
-		<div class="popover" role="dialog" aria-label="MIDI settings">
+	{#snippet content({ popover, props })}
+		<div use:popover {...props} class="popover">
 			<MidiToggle
 				status={audio.midiDisplayStatus}
 				label={statusLabel}
@@ -68,14 +66,10 @@
 
 			{#if copyError}<p class="copy-error">Could not copy the device ID.</p>{/if}
 		</div>
-	{/if}
-</div>
+	{/snippet}
+</Popover>
 
 <style>
-	.midi-control {
-		position: relative;
-	}
-
 	button {
 		font: inherit;
 	}
@@ -107,10 +101,6 @@
 	}
 
 	.popover {
-		position: absolute;
-		z-index: 20;
-		inset-block-start: calc(100% + 0.5rem);
-		inset-inline-end: 0;
 		inline-size: min(24rem, calc(100vw - 2rem));
 		max-block-size: calc(100vh - var(--ui-header-block-size) - 2rem);
 		overflow: auto;

@@ -56,6 +56,10 @@
 		}
 		popoverElement = node;
 
+		const handleBeforeToggle = () => {
+			node.style.opacity = '0';
+			node.style.pointerEvents = 'none';
+		};
 		const handleToggle = (event: ToggleEvent) => {
 			const isOpen = event.newState === 'open';
 			open = isOpen;
@@ -70,11 +74,13 @@
 		const handleKeydown = (event: KeyboardEvent) => {
 			if (event.key === 'Escape' && isPopoverOpen(node)) restoreFocusOnClose = true;
 		};
+		node.addEventListener('beforetoggle', handleBeforeToggle);
 		node.addEventListener('toggle', handleToggle);
 		document.addEventListener('keydown', handleKeydown, { capture: true });
 
 		return {
 			destroy() {
+				node.removeEventListener('beforetoggle', handleBeforeToggle);
 				node.removeEventListener('toggle', handleToggle);
 				document.removeEventListener('keydown', handleKeydown, { capture: true });
 				if (popoverElement === node) popoverElement = undefined;
@@ -133,12 +139,23 @@
 		'aria-label': ariaLabel,
 		tabindex: -1 as const,
 		'data-open': open,
+		'data-popover-panel': '' as const,
 		'data-placement': resolvedPlacement ?? placement,
 		'data-offset': offset,
 		'data-collision-padding': collisionPadding,
-		style: 'position: fixed; inset: unset; margin: 0;'
+		style: 'position: fixed; inset: unset; margin: 0; opacity: 0; pointer-events: none;'
 	});
 </script>
 
 {@render triggerSnippet({ trigger, props: triggerProps })}
 {@render content({ popover, props: popoverProps, close, initialFocus })}
+
+<style>
+	:global([data-popover-panel]) {
+		display: var(--popover-display, block);
+	}
+
+	:global([data-popover-panel]:not(:popover-open)) {
+		display: none;
+	}
+</style>

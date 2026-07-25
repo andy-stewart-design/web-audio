@@ -26,6 +26,7 @@ describe('Popover', () => {
 		await expect.element(panel).toHaveAttribute('popover', 'auto');
 		await expect.element(panel).toHaveAttribute('tabindex', '-1');
 		await expect.element(panel).toHaveAttribute('data-open', 'false');
+		await expect.element(panel).toHaveAttribute('data-popover-panel', '');
 		await expect.element(panel).toHaveAttribute('data-placement', 'bottom-end');
 		await expect.element(panel).toHaveAttribute('data-offset', '8');
 		await expect.element(panel).toHaveAttribute('data-collision-padding', '8');
@@ -54,11 +55,12 @@ describe('Popover', () => {
 		await expect.element(panel).toBeVisible();
 		await expect.element(panel).toHaveAttribute('data-open', 'true');
 		await expect.element(trigger).toHaveAttribute('aria-expanded', 'true');
+		await expect.poll(() => getComputedStyle(panel.element()).opacity).toBe('1');
 
 		const styles = getComputedStyle(panel.element());
 		expect(styles.position).toBe('fixed');
-		expect(panel.element().style.inset).toBe('unset');
 		expect(styles.margin).toBe('0px');
+		expect(styles.opacity).toBe('1');
 	});
 
 	test('focuses the explicitly registered initial target', async () => {

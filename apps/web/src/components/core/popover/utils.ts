@@ -50,6 +50,8 @@ function startPositioning(
 
 		floating.style.left = `${position.x}px`;
 		floating.style.top = `${position.y}px`;
+		floating.style.opacity = '1';
+		floating.style.pointerEvents = '';
 		onPlacementChange(position.placement);
 	};
 

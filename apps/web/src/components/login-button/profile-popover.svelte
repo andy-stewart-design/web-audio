@@ -64,7 +64,8 @@
 	}
 
 	.profile-popover {
-		display: none;
+		--popover-display: grid;
+
 		gap: 1rem;
 		min-width: 14rem;
 		padding: 1rem 0.5rem 0.75rem;
@@ -74,10 +75,6 @@
 		outline: 1px solid rgb(255 255 255 / 0.2);
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 		font-size: 0.875rem;
-
-		&:popover-open {
-			display: grid;
-		}
 	}
 
 	.profile-info {

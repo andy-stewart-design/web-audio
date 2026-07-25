@@ -26,6 +26,7 @@ type ContentContext = {
 		'aria-label': string;
 		tabindex: -1;
 		'data-open': boolean;
+		'data-popover-panel': '';
 		'data-placement': Placement;
 		'data-offset': number;
 		'data-collision-padding': number;
