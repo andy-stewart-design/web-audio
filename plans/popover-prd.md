@@ -74,7 +74,6 @@ The trigger must be a native `button`. The panel may be any suitable `HTMLElemen
 interface Props {
   ariaLabel: string;
   id?: string;
-  role?: "dialog" | "menu" | "listbox" | "tree" | "grid";
   placement?: Placement;
   offset?: number;
   collisionPadding?: number;
@@ -88,7 +87,6 @@ Exact snippet generic types should be inferred or declared from their supplied a
 
 Defaults:
 
-- `role`: `'dialog'`
 - `placement`: `'bottom-end'`
 - `offset`: `8`
 - `collisionPadding`: `8`
@@ -118,7 +116,7 @@ The trigger props include:
 
 - `aria-expanded`
 - `aria-controls`
-- `aria-haspopup`, derived from the effective panel role
+- `aria-haspopup="dialog"`
 - `popovertarget`
 - `popovertargetaction="toggle"`
 
@@ -137,7 +135,7 @@ The panel props include:
 
 - `id`
 - `popover="auto"`
-- The effective `role`
+- `role="dialog"`
 - Required `aria-label`
 - `aria-modal="false"` if needed for the effective semantics
 - `tabindex="-1"` so the panel can be the final focus fallback
@@ -217,15 +215,7 @@ Do not set `aria-modal="true"` and do not add focus guards.
 
 `ariaLabel` is required because the panel is an independently announced interactive region.
 
-Default the role to `dialog`. This correctly describes both current panels without imposing the child-role and keyboard requirements of a menu. Consumers may opt into only these roles:
-
-- `dialog`
-- `menu`
-- `listbox`
-- `tree`
-- `grid`
-
-A consumer choosing a specialized role is responsible for the corresponding child semantics and keyboard behavior.
+The primitive always uses `role="dialog"`. Menu, listbox, tree, and grid popups require specialized child semantics, focus management, and keyboard interactions and should use dedicated components rather than this primitive.
 
 Generate a hydration-safe panel ID unless the consumer supplies one. Use it for both the panel `id` and trigger `aria-controls`.
 

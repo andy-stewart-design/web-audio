@@ -4,7 +4,6 @@
 
 	interface Props {
 		id?: string;
-		role?: 'dialog' | 'menu' | 'listbox' | 'tree' | 'grid';
 		placement?: Placement;
 		offset?: number;
 		collisionPadding?: number;
@@ -15,7 +14,6 @@
 
 	let {
 		id,
-		role,
 		placement,
 		offset,
 		collisionPadding,
@@ -25,7 +23,7 @@
 	}: Props = $props();
 </script>
 
-<Popover ariaLabel="Test popover" {id} {role} {placement} {offset} {collisionPadding} bind:open>
+<Popover ariaLabel="Test popover" {id} {placement} {offset} {collisionPadding} bind:open>
 	{#snippet trigger({ trigger, props })}
 		<button
 			use:trigger

@@ -35,15 +35,15 @@ describe('Popover', () => {
 		await expect.element(trigger).toHaveAttribute('aria-haspopup', 'dialog');
 	});
 
-	test('respects explicit IDs and supported roles', async () => {
-		render(PopoverTest, { id: 'settings-panel', role: 'menu' });
+	test('respects explicit IDs while retaining dialog semantics', async () => {
+		render(PopoverTest, { id: 'settings-panel' });
 
 		await expect.element(page.getByTestId('panel')).toHaveAttribute('id', 'settings-panel');
-		await expect.element(page.getByTestId('panel')).toHaveAttribute('role', 'menu');
+		await expect.element(page.getByTestId('panel')).toHaveAttribute('role', 'dialog');
 		await expect
 			.element(page.getByTestId('trigger'))
 			.toHaveAttribute('aria-controls', 'settings-panel');
-		await expect.element(page.getByTestId('trigger')).toHaveAttribute('aria-haspopup', 'menu');
+		await expect.element(page.getByTestId('trigger')).toHaveAttribute('aria-haspopup', 'dialog');
 	});
 
 	test('reflects initial open state and structural positioning styles', async () => {

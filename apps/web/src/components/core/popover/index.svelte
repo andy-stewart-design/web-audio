@@ -10,7 +10,6 @@
 	let {
 		ariaLabel,
 		id = generatedId,
-		role = 'dialog',
 		placement = 'bottom-end',
 		offset = 8,
 		collisionPadding = 8,
@@ -127,7 +126,7 @@
 	const triggerProps = $derived({
 		'aria-expanded': open,
 		'aria-controls': id,
-		'aria-haspopup': role,
+		'aria-haspopup': 'dialog' as const,
 		popovertarget: id,
 		popovertargetaction: 'toggle' as const
 	});
@@ -135,7 +134,7 @@
 	const popoverProps = $derived({
 		id,
 		popover: 'auto' as const,
-		role,
+		role: 'dialog' as const,
 		'aria-label': ariaLabel,
 		tabindex: -1 as const,
 		'data-open': open,

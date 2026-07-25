@@ -49,7 +49,7 @@ Create:
 1. Define the component props:
    - required `ariaLabel`;
    - optional `id`;
-   - optional constrained `role`;
+   - fixed dialog semantics;
    - optional `placement`, `offset`, and `collisionPadding` defaults;
    - bindable `open`, defaulting to `false`;
    - required `trigger` and `content` snippets.
@@ -62,11 +62,11 @@ Create:
 8. Pass trigger attributes through `props`:
    - `aria-expanded`;
    - `aria-controls`;
-   - `aria-haspopup` derived from the effective role.
+   - `aria-haspopup="dialog"`.
 9. Pass panel attributes through `props`:
    - generated or explicit `id`;
    - `popover="auto"`;
-   - effective role;
+   - `role="dialog"`;
    - `aria-label`;
    - `tabindex="-1"`;
    - `data-open`;
@@ -81,8 +81,7 @@ Keep exact snippet and action types local to the component. Avoid explicit retur
 Add browser component tests that verify:
 
 - Trigger and panel snippets render simultaneously while closed.
-- The default role is `dialog`.
-- An allowed explicit role is reflected in the panel and trigger `aria-haspopup`.
+- The panel role and trigger `aria-haspopup` are both fixed to `dialog`.
 - `ariaLabel` becomes the panel's accessible label.
 - Generated `aria-controls` and panel `id` match.
 - An explicit `id` overrides the generated ID.
@@ -330,7 +329,7 @@ Add a targeted browser test only if existing primitive coverage cannot validate 
 
 1. Wrap the authenticated avatar trigger and profile panel in `Popover` with:
    - `ariaLabel="Profile"`;
-   - default dialog role;
+   - dialog semantics;
    - default bottom-end placement.
 2. Apply `use:trigger` and spread trigger props onto the existing avatar button.
 3. Apply `use:popover` and spread panel props onto the profile panel element.
@@ -403,7 +402,7 @@ Update child components only if necessary for accessible focus behavior; avoid u
 
 1. Wrap the MIDI trigger and panel in `Popover` with:
    - `ariaLabel="MIDI settings"`;
-   - default dialog role;
+   - dialog semantics;
    - default bottom-end placement.
 2. Apply `use:trigger` and trigger props to the existing MIDI button.
 3. Apply `use:popover` and panel props to the existing MIDI panel.

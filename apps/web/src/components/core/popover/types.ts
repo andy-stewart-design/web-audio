@@ -2,7 +2,6 @@ import type { Placement } from '@floating-ui/dom';
 import type { Snippet } from 'svelte';
 import type { Action } from 'svelte/action';
 
-type PopoverRole = 'dialog' | 'menu' | 'listbox' | 'tree' | 'grid';
 type TriggerAction = Action<HTMLButtonElement>;
 type PopoverAction = Action<HTMLElement>;
 
@@ -11,7 +10,7 @@ type TriggerContext = {
 	props: {
 		'aria-expanded': boolean;
 		'aria-controls': string;
-		'aria-haspopup': PopoverRole;
+		'aria-haspopup': 'dialog';
 		popovertarget: string;
 		popovertargetaction: 'toggle';
 	};
@@ -22,7 +21,7 @@ type ContentContext = {
 	props: {
 		id: string;
 		popover: 'auto';
-		role: PopoverRole;
+		role: 'dialog';
 		'aria-label': string;
 		tabindex: -1;
 		'data-open': boolean;
@@ -46,7 +45,6 @@ interface PositioningOptions {
 interface Props {
 	ariaLabel: string;
 	id?: string;
-	role?: PopoverRole;
 	placement?: Placement;
 	offset?: number;
 	collisionPadding?: number;
