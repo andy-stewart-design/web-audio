@@ -13,7 +13,7 @@
 	width={size}
 	height={size}
 	stroke="currentColor"
-	stroke-width={1.5}
+	stroke-width={2}
 	stroke-linejoin="round"
 	stroke-linecap="round"
 	{fill}

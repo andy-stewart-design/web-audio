@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { audio } from '@/lib/globals';
 	import Popover from '@/components/core/popover/index.svelte';
-	import IconMidi from '@/components/icons/icon-midi.svelte';
 	import MidiToggle from './midi-toggle.svelte';
 	import MidiSignal from './midi-signal.svelte';
 	import MidiDevices from './midi-devices.svelte';
 	import { getMidiStatus, groupDevices } from './utils';
+	import IconLink from '../icons/icon-link.svelte';
 
 	let copiedId = $state<string | null>(null);
 	let copyError = $state(false);
@@ -40,7 +40,7 @@
 			aria-label={`${statusLabel}. ${props['aria-expanded'] ? 'Close' : 'Open'} settings`}
 			title={statusLabel}
 		>
-			<IconMidi size={20} />
+			<IconLink size={20} />
 			<span class="trigger-signal">
 				<MidiSignal
 					status={audio.midiDisplayStatus}

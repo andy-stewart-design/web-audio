@@ -5,7 +5,7 @@
 		size?: number;
 	}
 
-	let { size = 24, ...props }: Props = $props();
+	let { size = 24, fill = 'none', ...props }: Props = $props();
 </script>
 
 <svg
@@ -16,10 +16,11 @@
 	stroke-width={2}
 	stroke-linejoin="round"
 	stroke-linecap="round"
+	{fill}
 	{...props}
 >
 	<path
-		d="M19 21V6C19 4.5 17.5 3 16 3L8 3C6.5 3 5 4.5 5 6V21L12 16L19 21Z"
+		d="M11.5355 19.5356C9.58291 21.4882 6.41709 21.4882 4.46447 19.5356C2.51184 17.5829 2.51184 14.4171 4.46447 12.4645L5.99999 10.929M11.5 19.5L13 18M11 5.92893L12.4645 4.46447C14.4171 2.51184 17.5829 2.51184 19.5356 4.46447C21.4882 6.41709 21.4882 9.58291 19.5356 11.5355L18.0711 13M8.99999 15L15 8.99999"
 		vector-effect="non-scaling-stroke"
 	/>
 </svg>
