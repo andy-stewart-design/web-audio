@@ -1,24 +1,18 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import IconUser from '@/components/icons/icon-user.svelte';
+	import Avatar from './avatar.svelte';
 	import LoginDialog from './login-dialog.svelte';
 	import ProfilePopover from './profile-popover.svelte';
 	import { getOAuthURL, type ButtonProps } from './utils';
 
 	let { session }: ButtonProps = $props();
 
-	// ── login dialog ──────────────────────────────────────────────────────────
 	let inputHandle = $state('');
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let dialogEl = $state<HTMLDialogElement | undefined>();
 
-	// ── profile popover ───────────────────────────────────────────────────────
-	let isOpen = $state(false);
-	let triggerEl = $state<HTMLButtonElement | undefined>();
-
 	async function handleLogout() {
-		isOpen = false;
 		await fetch('/oauth/logout', { method: 'POST' });
 		await invalidateAll();
 	}
@@ -39,36 +33,12 @@
 	const openDialog = () => dialogEl?.showModal();
 </script>
 
-<button
-	bind:this={triggerEl}
-	class="avatar"
-	onclick={session.did ? () => (isOpen = !isOpen) : openDialog}
-	aria-label={session.did ? (isOpen ? 'Close profile menu' : 'Open profile menu') : 'Login'}
-	aria-haspopup={session.did ? 'dialog' : undefined}
-	aria-expanded={session.did ? isOpen : undefined}
-	aria-controls={session.did ? 'profile-popover' : undefined}
->
-	{#if session.avatar}
-		<img
-			src={session.avatar}
-			alt={session.displayName ?? session.handle ?? session.did}
-			class="avatar"
-		/>
-	{:else}
-		<IconUser fill="currentColor" />
-	{/if}
-</button>
-
 {#if session.did}
-	<ProfilePopover
-		bind:isOpen
-		trigger={triggerEl}
-		did={session.did}
-		displayName={session.displayName}
-		handle={session.handle}
-		onlogout={handleLogout}
-	/>
+	<ProfilePopover {session} onlogout={handleLogout} />
 {:else}
+	<button class="avatar" onclick={openDialog} aria-label="Login">
+		<Avatar avatar={session.avatar} alt={session.displayName ?? session.handle ?? 'User'} />
+	</button>
 	<LoginDialog
 		bind:ref={dialogEl}
 		bind:handle={inputHandle}
@@ -90,20 +60,9 @@
 		border: none;
 		border-radius: 100vmax;
 
-		img {
-			display: block;
-			width: 100%;
-			height: 100%;
-			object-fit: cover;
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: 2px;
 		}
-
-		:global(svg) {
-			opacity: 0.666;
-		}
-	}
-
-	.avatar:focus-visible {
-		outline: 2px solid currentColor;
-		outline-offset: 2px;
 	}
 </style>

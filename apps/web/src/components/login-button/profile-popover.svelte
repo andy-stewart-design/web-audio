@@ -1,109 +1,73 @@
 <script lang="ts">
-	import { updatePosition, supportsPopover, type PopoverProps } from './utils';
+	import Popover from '@/components/core/popover/index.svelte';
+	import Avatar from './avatar.svelte';
+	import type { PopoverProps } from './utils';
 
-	let {
-		ref = $bindable(),
-		isOpen = $bindable(false),
-		trigger,
-		did,
-		displayName,
-		handle,
-		onlogout
-	}: PopoverProps = $props();
-
-	function dismiss() {
-		if (supportsPopover && ref?.matches(':popover-open')) ref.hidePopover();
-		else ref?.classList.remove('is-open');
-
-		isOpen = false;
-		trigger?.focus();
-	}
-
-	// Show/hide based on isOpen
-	$effect(() => {
-		if (!ref) return;
-		if (isOpen) {
-			if (supportsPopover) ref.showPopover();
-			else ref.classList.add('is-open');
-
-			updatePosition(ref, trigger);
-			requestAnimationFrame(() => ref?.querySelector('a')?.focus());
-		} else {
-			if (supportsPopover && ref.matches(':popover-open')) {
-				(ref as unknown as { hidePopover: () => void }).hidePopover();
-			} else {
-				ref.classList.remove('is-open');
-			}
-		}
-	});
-
-	// Reposition on resize/scroll while open
-	$effect(() => {
-		if (!isOpen) return;
-		const update = () => updatePosition(ref, trigger);
-		window.addEventListener('resize', update, { passive: true });
-		window.addEventListener('scroll', update, { passive: true, capture: true });
-		return () => {
-			window.removeEventListener('resize', update);
-			window.removeEventListener('scroll', update, { capture: true });
-		};
-	});
-
-	// Escape + click-outside (both paths need this since popover="manual" never auto-dismisses)
-	$effect(() => {
-		if (!isOpen) return;
-		const onKeydown = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') dismiss();
-		};
-		const onPointerdown = (e: PointerEvent) => {
-			const t = e.target as Node;
-			if (!ref?.contains(t) && !trigger?.contains(t)) dismiss();
-		};
-		document.addEventListener('keydown', onKeydown);
-		document.addEventListener('pointerdown', onPointerdown);
-		return () => {
-			document.removeEventListener('keydown', onKeydown);
-			document.removeEventListener('pointerdown', onPointerdown);
-		};
-	});
+	let { session, onlogout }: PopoverProps = $props();
+	const avatarLabel = $derived(session.displayName ?? session.handle ?? session.did);
 </script>
 
-<div
-	bind:this={ref}
-	id="profile-popover"
-	popover={supportsPopover ? 'manual' : undefined}
-	role="dialog"
-	aria-modal="false"
-	aria-label="Profile"
-	class="profile-popover"
-	data-open={isOpen}
->
-	<div class="profile-info">
-		{#if displayName}
-			<p class="display-name">{displayName}</p>
-		{/if}
-		<p class="handle">@{handle}</p>
-	</div>
-	<nav class="links">
-		<a href="/repl" class="profile-link" onclick={dismiss}>Repl</a>
-		<a href="/feed" class="profile-link" onclick={dismiss}>Feed</a>
-		<a href="/bookmarks" class="profile-link" onclick={dismiss}>Bookmarks</a>
-		<a href="/profile/{did}" class="profile-link" onclick={dismiss}>Profile</a>
-		<button class="logout-btn" onclick={onlogout}>Log out</button>
-	</nav>
-</div>
+<Popover id="profile-popover" ariaLabel="Profile">
+	{#snippet trigger({ trigger, props })}
+		<button
+			use:trigger
+			{...props}
+			class="avatar"
+			aria-label={props['aria-expanded'] ? 'Close profile menu' : 'Open profile menu'}
+		>
+			<Avatar avatar={session.avatar} alt={avatarLabel} />
+		</button>
+	{/snippet}
+	{#snippet content({ popover, props, close, initialFocus })}
+		<div use:popover {...props} class="profile-popover">
+			<div class="profile-info">
+				{#if session.displayName}
+					<p class="display-name">{session.displayName}</p>
+				{/if}
+				<p class="handle">@{session.handle}</p>
+			</div>
+			<nav class="links">
+				<a href="/repl" class="profile-link" use:initialFocus onclick={() => close(false)}>Repl</a>
+				<a href="/feed" class="profile-link" onclick={() => close(false)}>Feed</a>
+				<a href="/bookmarks" class="profile-link" onclick={() => close(false)}>Bookmarks</a>
+				<a href="/profile/{session.did}" class="profile-link" onclick={() => close(false)}
+					>Profile</a
+				>
+				<button
+					class="logout-btn"
+					onclick={async () => {
+						close();
+						await onlogout();
+					}}>Log out</button
+				>
+			</nav>
+		</div>
+	{/snippet}
+</Popover>
 
 <style>
+	.avatar {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		block-size: 2.25rem;
+		inline-size: 2.25rem;
+		padding: 0;
+		border: none;
+		border-radius: 100vmax;
+		background: var(--color-bg-secondary);
+
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: 2px;
+		}
+	}
+
 	.profile-popover {
-		position: fixed;
-		inset: unset;
-		top: 0;
-		left: 0;
 		display: none;
 		gap: 1rem;
 		min-width: 14rem;
 		padding: 1rem 0.5rem 0.75rem;
-		margin: 0;
 		border: none;
 		border-radius: 0.5rem;
 		background: light-dark(var(--color-bg-primary), var(--color-bg-secondary));
@@ -111,7 +75,7 @@
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 		font-size: 0.875rem;
 
-		&:is(:popover-open, [data-open='true']) {
+		&:popover-open {
 			display: grid;
 		}
 	}

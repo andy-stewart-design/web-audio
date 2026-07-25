@@ -54,4 +54,4 @@ interface Props {
 	content: Snippet<[ContentContext]>;
 }
 
-export type { PopoverAction, PositioningOptions, Props, TriggerAction };
+export type { PopoverAction, PositioningOptions, Props, TriggerAction, TriggerContext };
