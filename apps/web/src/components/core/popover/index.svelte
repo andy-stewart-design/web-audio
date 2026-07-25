@@ -1,13 +1,7 @@
 <script lang="ts">
 	import { dev } from '$app/environment';
-	import {
-		autoUpdate,
-		computePosition,
-		flip,
-		offset as offsetMiddleware,
-		shift,
-		type Placement
-	} from '@floating-ui/dom';
+	import { isPopoverOpen, setPopoverOpen, startPositioning } from './utils';
+	import type { Placement } from '@floating-ui/dom';
 	import type { PopoverAction, Props, TriggerAction } from './types';
 
 	const uid = $props.id();
@@ -30,10 +24,6 @@
 	let initialFocusElement: HTMLElement | undefined;
 	let restoreFocusOnClose = true;
 	let resolvedPlacement = $state<Placement>();
-
-	function isPopoverOpen(node: HTMLElement) {
-		return node.matches(':popover-open');
-	}
 
 	const trigger: TriggerAction = (node) => {
 		if (dev && triggerElement && triggerElement !== node) {
@@ -96,40 +86,19 @@
 	}
 
 	$effect(() => {
-		const node = popoverElement;
-		if (!node) return;
-
-		const nativeOpen = isPopoverOpen(node);
-		if (open && !nativeOpen) node.showPopover();
-		else if (!open && nativeOpen) node.hidePopover();
+		if (!popoverElement) return;
+		setPopoverOpen(popoverElement, open);
 	});
 
 	$effect(() => {
-		const reference = triggerElement;
-		const floating = popoverElement;
-		if (!open || !reference || !floating) return;
+		if (!open || !triggerElement || !popoverElement) return;
 
-		let active = true;
-
-		const updatePosition = async () => {
-			const position = await computePosition(reference, floating, {
-				placement,
-				strategy: 'fixed',
-				middleware: [offsetMiddleware(offset), flip(), shift({ padding: collisionPadding })]
-			});
-			if (!active) return;
-
-			floating.style.left = `${position.x}px`;
-			floating.style.top = `${position.y}px`;
-			resolvedPlacement = position.placement;
-		};
-
-		const cleanup = autoUpdate(reference, floating, updatePosition);
-
-		return () => {
-			active = false;
-			cleanup();
-		};
+		return startPositioning(triggerElement, popoverElement, {
+			placement,
+			offset,
+			collisionPadding,
+			onPlacementChange: (nextPlacement) => (resolvedPlacement = nextPlacement)
+		});
 	});
 
 	// Focus restoration is implemented in Phase 4.

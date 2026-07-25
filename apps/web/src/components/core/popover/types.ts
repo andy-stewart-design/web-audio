@@ -33,6 +33,13 @@ type ContentContext = {
 	initialFocus: PopoverAction;
 };
 
+interface PositioningOptions {
+	placement: Placement;
+	offset: number;
+	collisionPadding: number;
+	onPlacementChange(placement: Placement): void;
+}
+
 interface Props {
 	ariaLabel: string;
 	id?: string;
@@ -45,4 +52,4 @@ interface Props {
 	content: Snippet<[ContentContext]>;
 }
 
-export type { PopoverAction, Props, TriggerAction };
+export type { PopoverAction, PositioningOptions, Props, TriggerAction };
