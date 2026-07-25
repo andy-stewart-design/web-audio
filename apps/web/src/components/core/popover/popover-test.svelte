@@ -24,3 +24,6 @@
 </Popover>
 
 <output data-testid="open-state">{open}</output>
+<button data-testid="open-externally" onclick={() => (open = true)}>Open externally</button>
+<button data-testid="close-externally" onclick={() => (open = false)}>Close externally</button>
+<button data-testid="outside">Outside</button>

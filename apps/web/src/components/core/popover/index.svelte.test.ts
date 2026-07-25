@@ -1,6 +1,7 @@
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { describe, expect, test } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import MultiPopoverTest from './multi-popover-test.svelte';
 import PopoverTest from './popover-test.svelte';
 
 describe('Popover', () => {
@@ -50,6 +51,7 @@ describe('Popover', () => {
 		const panel = page.getByTestId('panel');
 		const trigger = page.getByTestId('trigger');
 
+		await expect.element(panel).toBeVisible();
 		await expect.element(panel).toHaveAttribute('data-open', 'true');
 		await expect.element(trigger).toHaveAttribute('aria-expanded', 'true');
 
@@ -57,5 +59,85 @@ describe('Popover', () => {
 		expect(styles.position).toBe('fixed');
 		expect(panel.element().style.inset).toBe('unset');
 		expect(styles.margin).toBe('0px');
+	});
+
+	test('toggles native state from the trigger', async () => {
+		render(PopoverTest);
+
+		const trigger = page.getByTestId('trigger');
+		const panel = page.getByTestId('panel');
+
+		await trigger.click();
+		await expect.element(panel).toBeVisible();
+		await expect.element(trigger).toHaveAttribute('aria-expanded', 'true');
+		await expect.element(page.getByTestId('open-state')).toHaveTextContent('true');
+
+		const triggerElement = trigger.element();
+		expect(triggerElement).toBeInstanceOf(HTMLButtonElement);
+		if (triggerElement instanceof HTMLButtonElement) triggerElement.click();
+		await expect.element(panel).not.toBeVisible();
+		await expect.element(trigger).toHaveAttribute('aria-expanded', 'false');
+		await expect.element(page.getByTestId('open-state')).toHaveTextContent('false');
+	});
+
+	test('responds to externally bound open state', async () => {
+		render(PopoverTest);
+
+		const panel = page.getByTestId('panel');
+
+		await page.getByTestId('open-externally').click();
+		await expect.element(panel).toBeVisible();
+		await expect.element(page.getByTestId('open-state')).toHaveTextContent('true');
+
+		await page.getByTestId('close-externally').click();
+		await expect.element(panel).not.toBeVisible();
+		await expect.element(page.getByTestId('open-state')).toHaveTextContent('false');
+	});
+
+	test('closes through the content API', async () => {
+		render(PopoverTest);
+
+		await page.getByTestId('trigger').click();
+		await page.getByText('Close', { exact: true }).click();
+
+		await expect.element(page.getByTestId('panel')).not.toBeVisible();
+		await expect.element(page.getByTestId('open-state')).toHaveTextContent('false');
+	});
+
+	test('tracks native Escape dismissal', async () => {
+		render(PopoverTest);
+
+		const trigger = page.getByTestId('trigger');
+		await trigger.click();
+		await userEvent.keyboard('{Escape}');
+
+		await expect.element(page.getByTestId('panel')).not.toBeVisible();
+		await expect.element(page.getByTestId('open-state')).toHaveTextContent('false');
+	});
+
+	test('tracks native light dismissal', async () => {
+		render(PopoverTest);
+
+		await page.getByTestId('trigger').click();
+		await page.getByTestId('outside').click();
+
+		await expect.element(page.getByTestId('panel')).not.toBeVisible();
+		await expect.element(page.getByTestId('open-state')).toHaveTextContent('false');
+	});
+
+	test('tracks native dismissal when another auto popover opens', async () => {
+		render(MultiPopoverTest);
+
+		await page.getByTestId('first-trigger').click();
+		await expect.element(page.getByTestId('first-panel')).toBeVisible();
+
+		const secondTrigger = page.getByTestId('second-trigger').element();
+		expect(secondTrigger).toBeInstanceOf(HTMLButtonElement);
+		if (secondTrigger instanceof HTMLButtonElement) secondTrigger.click();
+
+		await expect.element(page.getByTestId('first-panel')).not.toBeVisible();
+		await expect.element(page.getByTestId('second-panel')).toBeVisible();
+		await expect.element(page.getByTestId('first-state')).toHaveTextContent('false');
+		await expect.element(page.getByTestId('second-state')).toHaveTextContent('true');
 	});
 });

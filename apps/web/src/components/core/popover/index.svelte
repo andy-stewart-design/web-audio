@@ -17,9 +17,14 @@
 		content
 	}: Props = $props();
 
-	let triggerElement: HTMLButtonElement | undefined;
-	let popoverElement: HTMLElement | undefined;
+	let triggerElement = $state<HTMLButtonElement>();
+	let popoverElement = $state<HTMLElement>();
 	let initialFocusElement: HTMLElement | undefined;
+	let restoreFocusOnClose = true;
+
+	function isPopoverOpen(node: HTMLElement) {
+		return node.matches(':popover-open');
+	}
 
 	const trigger: TriggerAction = (node) => {
 		if (dev && triggerElement && triggerElement !== node) {
@@ -27,8 +32,16 @@
 		}
 		triggerElement = node;
 
+		const handleClick = () => {
+			if (!popoverElement) return;
+			restoreFocusOnClose = false;
+			popoverElement.togglePopover();
+		};
+		node.addEventListener('click', handleClick);
+
 		return {
 			destroy() {
+				node.removeEventListener('click', handleClick);
 				if (triggerElement === node) triggerElement = undefined;
 			}
 		};
@@ -40,8 +53,14 @@
 		}
 		popoverElement = node;
 
+		const handleToggle = (event: ToggleEvent) => {
+			open = event.newState === 'open';
+		};
+		node.addEventListener('toggle', handleToggle);
+
 		return {
 			destroy() {
+				node.removeEventListener('toggle', handleToggle);
 				if (popoverElement === node) popoverElement = undefined;
 			}
 		};
@@ -58,8 +77,26 @@
 	};
 
 	function close(restoreFocus = true) {
-		void restoreFocus;
+		restoreFocusOnClose = restoreFocus;
+
+		if (popoverElement && isPopoverOpen(popoverElement)) {
+			popoverElement.hidePopover();
+		} else {
+			open = false;
+		}
 	}
+
+	$effect(() => {
+		const node = popoverElement;
+		if (!node) return;
+
+		const nativeOpen = isPopoverOpen(node);
+		if (open && !nativeOpen) node.showPopover();
+		else if (!open && nativeOpen) node.hidePopover();
+	});
+
+	// Focus restoration is implemented in Phase 4.
+	void restoreFocusOnClose;
 
 	const triggerProps = $derived({
 		'aria-expanded': open,
