@@ -7,8 +7,24 @@ import {
 } from '@floating-ui/dom';
 import type { PositioningOptions } from './types';
 
+const focusableSelector = [
+	'a[href]',
+	'button:not([disabled])',
+	'input:not([disabled]):not([type="hidden"])',
+	'select:not([disabled])',
+	'textarea:not([disabled])',
+	'[tabindex]:not([tabindex="-1"])'
+].join(',');
+
 function isPopoverOpen(node: HTMLElement) {
 	return node.matches(':popover-open');
+}
+
+function getFirstFocusable(node: HTMLElement) {
+	return Array.from(node.querySelectorAll<HTMLElement>(focusableSelector)).find((candidate) => {
+		const styles = getComputedStyle(candidate);
+		return !candidate.hidden && styles.display !== 'none' && styles.visibility !== 'hidden';
+	});
 }
 
 function setPopoverOpen(node: HTMLElement, open: boolean) {
@@ -45,4 +61,4 @@ function startPositioning(
 	};
 }
 
-export { isPopoverOpen, setPopoverOpen, startPositioning };
+export { getFirstFocusable, isPopoverOpen, setPopoverOpen, startPositioning };

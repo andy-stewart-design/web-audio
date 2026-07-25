@@ -9,6 +9,7 @@
 		offset?: number;
 		collisionPadding?: number;
 		edge?: boolean;
+		focusMode?: 'explicit' | 'first' | 'panel';
 		open?: boolean;
 	}
 
@@ -19,6 +20,7 @@
 		offset,
 		collisionPadding,
 		edge = false,
+		focusMode = 'explicit',
 		open = $bindable(false)
 	}: Props = $props();
 </script>
@@ -44,8 +46,23 @@
 			data-testid="panel"
 			style={`${props.style} width: 8rem; height: 6rem;`}
 		>
-			<button use:initialFocus>Initial focus</button>
-			<button onclick={() => close()}>Close</button>
+			{#if focusMode === 'explicit'}
+				<button use:initialFocus data-testid="initial-focus">Initial focus</button>
+				<button onclick={() => close()}>Close</button>
+				<button
+					data-testid="close-without-restore"
+					onclick={() => {
+						const outside = document.querySelector<HTMLElement>('[data-testid="outside"]');
+						outside?.focus();
+						close(false);
+					}}>Close without restore</button
+				>
+			{:else if focusMode === 'first'}
+				<button data-testid="first-focus">First focusable</button>
+				<button>Second focusable</button>
+			{:else}
+				<p>No focusable content</p>
+			{/if}
 		</section>
 	{/snippet}
 </Popover>

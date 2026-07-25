@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { dev } from '$app/environment';
-	import { isPopoverOpen, setPopoverOpen, startPositioning } from './utils';
+	import { getFirstFocusable, isPopoverOpen, setPopoverOpen, startPositioning } from './utils';
 	import type { Placement } from '@floating-ui/dom';
 	import type { PopoverAction, Props, TriggerAction } from './types';
 
@@ -22,8 +22,20 @@
 	let triggerElement = $state<HTMLButtonElement>();
 	let popoverElement = $state<HTMLElement>();
 	let initialFocusElement: HTMLElement | undefined;
-	let restoreFocusOnClose = true;
+	let restoreFocusOnClose = false;
 	let resolvedPlacement = $state<Placement>();
+
+	function focusPopover(node: HTMLElement) {
+		const explicitTarget =
+			initialFocusElement && node.contains(initialFocusElement) ? initialFocusElement : undefined;
+		const target = explicitTarget ?? getFirstFocusable(node) ?? node;
+		target.focus();
+	}
+
+	function restoreTriggerFocus() {
+		if (restoreFocusOnClose && triggerElement?.isConnected) triggerElement.focus();
+		restoreFocusOnClose = false;
+	}
 
 	const trigger: TriggerAction = (node) => {
 		if (dev && triggerElement && triggerElement !== node) {
@@ -31,16 +43,8 @@
 		}
 		triggerElement = node;
 
-		const handleClick = () => {
-			if (!popoverElement) return;
-			restoreFocusOnClose = false;
-			popoverElement.togglePopover();
-		};
-		node.addEventListener('click', handleClick);
-
 		return {
 			destroy() {
-				node.removeEventListener('click', handleClick);
 				if (triggerElement === node) triggerElement = undefined;
 			}
 		};
@@ -53,13 +57,26 @@
 		popoverElement = node;
 
 		const handleToggle = (event: ToggleEvent) => {
-			open = event.newState === 'open';
+			const isOpen = event.newState === 'open';
+			open = isOpen;
+
+			if (isOpen) {
+				restoreFocusOnClose = false;
+				focusPopover(node);
+			} else {
+				restoreTriggerFocus();
+			}
+		};
+		const handleKeydown = (event: KeyboardEvent) => {
+			if (event.key === 'Escape' && isPopoverOpen(node)) restoreFocusOnClose = true;
 		};
 		node.addEventListener('toggle', handleToggle);
+		document.addEventListener('keydown', handleKeydown, { capture: true });
 
 		return {
 			destroy() {
 				node.removeEventListener('toggle', handleToggle);
+				document.removeEventListener('keydown', handleKeydown, { capture: true });
 				if (popoverElement === node) popoverElement = undefined;
 			}
 		};
@@ -101,13 +118,12 @@
 		});
 	});
 
-	// Focus restoration is implemented in Phase 4.
-	void restoreFocusOnClose;
-
 	const triggerProps = $derived({
 		'aria-expanded': open,
 		'aria-controls': id,
-		'aria-haspopup': role
+		'aria-haspopup': role,
+		popovertarget: id,
+		popovertargetaction: 'toggle' as const
 	});
 
 	const popoverProps = $derived({

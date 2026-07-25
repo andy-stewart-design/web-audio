@@ -12,6 +12,8 @@ type TriggerContext = {
 		'aria-expanded': boolean;
 		'aria-controls': string;
 		'aria-haspopup': PopoverRole;
+		popovertarget: string;
+		popovertargetaction: 'toggle';
 	};
 };
 

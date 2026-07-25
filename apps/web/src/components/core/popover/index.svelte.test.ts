@@ -61,6 +61,47 @@ describe('Popover', () => {
 		expect(styles.margin).toBe('0px');
 	});
 
+	test('focuses the explicitly registered initial target', async () => {
+		render(PopoverTest);
+
+		await page.getByTestId('trigger').click();
+
+		await expect
+			.poll(() => document.activeElement?.getAttribute('data-testid'))
+			.toBe('initial-focus');
+	});
+
+	test('falls back to the first focusable descendant', async () => {
+		render(PopoverTest, { focusMode: 'first' });
+
+		await page.getByTestId('trigger').click();
+
+		await expect
+			.poll(() => document.activeElement?.getAttribute('data-testid'))
+			.toBe('first-focus');
+	});
+
+	test('falls back to the panel when it has no focusable descendants', async () => {
+		render(PopoverTest, { focusMode: 'panel' });
+
+		await page.getByTestId('trigger').click();
+
+		await expect.poll(() => document.activeElement?.getAttribute('data-testid')).toBe('panel');
+	});
+
+	test('does not trap focus within the panel', async () => {
+		render(PopoverTest, { focusMode: 'first' });
+
+		await page.getByTestId('trigger').click();
+		await expect
+			.poll(() => document.activeElement?.getAttribute('data-testid'))
+			.toBe('first-focus');
+		await userEvent.tab();
+		await userEvent.tab();
+
+		expect(page.getByTestId('panel').element().contains(document.activeElement)).toBe(false);
+	});
+
 	test('positions the panel below and end-aligned by default', async () => {
 		render(PopoverTest);
 
@@ -134,11 +175,10 @@ describe('Popover', () => {
 		await expect.element(trigger).toHaveAttribute('aria-expanded', 'true');
 		await expect.element(page.getByTestId('open-state')).toHaveTextContent('true');
 
-		const triggerElement = trigger.element();
-		expect(triggerElement).toBeInstanceOf(HTMLButtonElement);
-		if (triggerElement instanceof HTMLButtonElement) triggerElement.click();
+		await trigger.click();
 		await expect.element(panel).not.toBeVisible();
 		await expect.element(trigger).toHaveAttribute('aria-expanded', 'false');
+		await expect.poll(() => document.activeElement).toBe(trigger.element());
 		await expect.element(page.getByTestId('open-state')).toHaveTextContent('false');
 	});
 
@@ -164,6 +204,17 @@ describe('Popover', () => {
 
 		await expect.element(page.getByTestId('panel')).not.toBeVisible();
 		await expect.element(page.getByTestId('open-state')).toHaveTextContent('false');
+		await expect.poll(() => document.activeElement).toBe(page.getByTestId('trigger').element());
+	});
+
+	test('can close without restoring trigger focus', async () => {
+		render(PopoverTest);
+
+		await page.getByTestId('trigger').click();
+		await page.getByTestId('close-without-restore').click();
+
+		await expect.element(page.getByTestId('panel')).not.toBeVisible();
+		await expect.poll(() => document.activeElement).toBe(page.getByTestId('outside').element());
 	});
 
 	test('tracks native Escape dismissal', async () => {
@@ -175,6 +226,7 @@ describe('Popover', () => {
 
 		await expect.element(page.getByTestId('panel')).not.toBeVisible();
 		await expect.element(page.getByTestId('open-state')).toHaveTextContent('false');
+		await expect.poll(() => document.activeElement).toBe(trigger.element());
 	});
 
 	test('tracks native light dismissal', async () => {
@@ -185,6 +237,7 @@ describe('Popover', () => {
 
 		await expect.element(page.getByTestId('panel')).not.toBeVisible();
 		await expect.element(page.getByTestId('open-state')).toHaveTextContent('false');
+		await expect.poll(() => document.activeElement).toBe(page.getByTestId('outside').element());
 	});
 
 	test('tracks native dismissal when another auto popover opens', async () => {
