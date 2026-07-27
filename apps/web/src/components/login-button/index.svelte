@@ -10,7 +10,7 @@
 	let inputHandle = $state('');
 	let loading = $state(false);
 	let error = $state<string | null>(null);
-	let dialogEl = $state<HTMLDialogElement | undefined>();
+	let loginDialog = $state<LoginDialog>();
 
 	async function handleLogout() {
 		await fetch('/oauth/logout', { method: 'POST' });
@@ -30,7 +30,7 @@
 		}
 	}
 
-	const openDialog = () => dialogEl?.showModal();
+	const openDialog = () => loginDialog?.open();
 </script>
 
 {#if session.did}
@@ -40,7 +40,7 @@
 		<Avatar avatar={session.avatar} alt={session.displayName ?? session.handle ?? 'User'} />
 	</button>
 	<LoginDialog
-		bind:ref={dialogEl}
+		bind:this={loginDialog}
 		bind:handle={inputHandle}
 		onsubmit={handleSubmit}
 		{loading}

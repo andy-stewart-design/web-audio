@@ -5,7 +5,6 @@ interface ButtonProps {
 }
 
 interface DialogProps {
-	ref: HTMLDialogElement | undefined;
 	handle: string;
 	onsubmit: (e: SubmitEvent) => Promise<void>;
 	loading: boolean;
