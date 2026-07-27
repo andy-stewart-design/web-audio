@@ -51,7 +51,6 @@
 		display: block;
 		inline-size: 100%;
 		aspect-ratio: 3 / 2;
-		border-radius: 6px;
 		background: var(--color-bg-primary);
 	}
 </style>

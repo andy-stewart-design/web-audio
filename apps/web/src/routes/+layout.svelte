@@ -16,7 +16,7 @@
 	const isRunning = $derived(audio.isRunning);
 	const canPlay = $derived(Boolean(workspace.draft?.code.trim() || workspace.loaded));
 	const playLabel = $derived(
-		isRepl ? (isRunning ? 'Restart sketch' : 'Run sketch') : 'Play sketch'
+		isRepl ? (isRunning ? 'Reevaluate sketch' : 'Run sketch') : 'Play sketch'
 	);
 	const showRepeatIcon = $derived(isRepl && isRunning);
 
@@ -38,7 +38,9 @@
 </svelte:head>
 
 <header>
-	<div class="header-main">
+	<div class="header-left"></div>
+
+	<div class="header-center">
 		<div class="transport-controls">
 			<button onclick={handlePlay} disabled={!canPlay} aria-label={playLabel} title={playLabel}>
 				{#if showRepeatIcon}
@@ -55,24 +57,25 @@
 			>
 				<IconStop size={20} fill="currentColor" />
 			</button>
+		</div>
+		<div class="metadata">
 			{#if workspace.loaded?.title}
 				<span class="track-title">{workspace.loaded.title}</span>
+			{:else}
+				<span class="track-title">Welcome to drome</span>
 			{/if}
 		</div>
-
-		<div class="header-controls">
-			{#if isRepl && persistence.showPublish}
-				<MidiControl />
-				<button
-					class="publish-btn"
-					onclick={() => persistence.publish()}
-					disabled={!persistence.canPublish}
-					aria-label={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
-					title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
-				>
-					<IconPublish size={20} />
-				</button>
-			{/if}
+		<div class="editor-controls">
+			<MidiControl />
+			<button
+				class="publish-btn"
+				onclick={() => persistence.publish()}
+				disabled={!(isRepl && persistence.showPublish) || !persistence.canPublish}
+				aria-label={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
+				title={!data.session.did ? 'Log in to publish' : 'Publish sketch'}
+			>
+				<IconPublish size={20} />
+			</button>
 		</div>
 	</div>
 
@@ -84,33 +87,37 @@
 
 <style>
 	header {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 360px);
+		display: flex;
+		/*display: grid;
+		grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 360px);*/
 		align-items: center;
 		block-size: var(--ui-header-block-size);
 		border-bottom: 1px solid var(--color-border-subtle);
 	}
 
-	.header-main {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		min-width: 0;
-		padding-inline: 1rem;
-	}
-
-	.transport-controls,
+	.header-center,
+	.header-left,
 	.header-right,
-	.header-controls {
+	.transport-controls,
+	.editor-controls {
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
 	}
 
+	.header-left,
+	.header-right {
+		flex: 1 0 0;
+		padding-inline: 1rem;
+	}
+
 	.header-right {
 		justify-content: flex-end;
-		padding-inline: 1rem;
+	}
+
+	.header-center {
+		flex: 0 0 0;
+		gap: 0.75rem;
 	}
 
 	button {
@@ -127,6 +134,11 @@
 		background: none;
 		cursor: pointer;
 
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: 2px;
+		}
+
 		&:disabled {
 			cursor: default;
 			opacity: 0.5;
@@ -134,13 +146,26 @@
 		}
 	}
 
+	.metadata {
+		display: flex;
+		align-items: center;
+		height: 2.25rem;
+		width: 24ch;
+		padding-inline: 1.25ch;
+		padding-block-end: 2px;
+		background: var(--color-bg-secondary);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: 4px;
+	}
+
 	.track-title {
-		margin-left: 0.75rem;
+		flex: 1 0 0;
 		overflow: hidden;
 		color: var(--color-fg-secondary);
-		font-size: 0.875rem;
+		font-size: 0.8125rem;
 		font-weight: 500;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		text-align: center;
 	}
 </style>

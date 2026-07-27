@@ -27,12 +27,14 @@
 				<p class="handle">@{session.handle}</p>
 			</div>
 			<nav class="links">
-				<a href="/repl" class="profile-link" use:initialFocus onclick={() => close(false)}>Repl</a>
+				<a href="/repl" class="profile-link" use:initialFocus onclick={() => close(false)}>
+					Editor
+				</a>
 				<a href="/feed" class="profile-link" onclick={() => close(false)}>Feed</a>
 				<a href="/bookmarks" class="profile-link" onclick={() => close(false)}>Bookmarks</a>
-				<a href="/profile/{session.did}" class="profile-link" onclick={() => close(false)}
-					>Profile</a
-				>
+				<a href="/profile/{session.did}" class="profile-link" onclick={() => close(false)}>
+					Profile
+				</a>
 				<button
 					class="logout-btn"
 					onclick={async () => {

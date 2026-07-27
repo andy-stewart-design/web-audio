@@ -18,7 +18,7 @@
 
 <div class="port">
 	<div class="port-id">
-		<span class="direction">{portLabel(port)}</span>
+		<span class="port-type">{portLabel(port)}</span>
 		<code>{port.id}</code>
 	</div>
 	<button
@@ -54,13 +54,13 @@
 		}
 	}
 
-	.direction {
+	.port-type {
 		flex: 0 0 auto;
 		padding: 0.1rem 0.3rem;
 		color: var(--color-fg-secondary);
 		font-size: var(--font-2xs);
 		font-weight: 600;
-		border: 1px solid var(--color-border-subtle);
+		border: 1px solid var(--color-neutral-700);
 		border-radius: 4px;
 		background: var(--color-bg-primary);
 	}
