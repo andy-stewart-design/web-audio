@@ -3,6 +3,8 @@
 	import BookmarkButton from '@/components/bookmark-button/index.svelte';
 	import type { SketchCard } from '@/lib/types/sketch';
 	import Button from '@/components/core/button/index.svelte';
+	import IconPlay from '../icons/icon-play.svelte';
+	import IconStop from '../icons/icon-stop.svelte';
 
 	let { sketch }: { sketch: SketchCard } = $props();
 
@@ -62,10 +64,15 @@
 			</a>
 
 			<div class="controls">
-				<Button active={isThisPlaying} onclick={handlePlay}>
+				<Button class="play" onclick={handlePlay} variant="secondary">
+					{#if isThisPlaying}
+						<IconStop size={12} fill="currentColor" stroke-width={1} />
+					{:else}
+						<IconPlay size={12} fill="currentColor" stroke-width={1} />
+					{/if}
 					{isThisPlaying ? 'Stop' : 'Play'}
 				</Button>
-				<Button href={sketch.remixHref}>Remix</Button>
+				<Button href={sketch.remixHref} variant="tertiary">Remix</Button>
 			</div>
 		</div>
 	</footer>
@@ -196,5 +203,9 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+
+		:global(.play) {
+			min-width: 9.5ch;
+		}
 	}
 </style>

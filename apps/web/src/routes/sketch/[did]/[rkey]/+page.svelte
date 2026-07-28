@@ -2,6 +2,8 @@
 	import type { PageData } from './$types';
 	import BookmarkButton from '@/components/bookmark-button/index.svelte';
 	import Button from '@/components/core/button/index.svelte';
+	import IconPlay from '@/components/icons/icon-play.svelte';
+	import IconStop from '@/components/icons/icon-stop.svelte';
 	import { audio, workspace } from '@/lib/globals';
 
 	let { data }: { data: PageData } = $props();
@@ -69,10 +71,17 @@
 		</a>
 
 		<div class="controls">
-			<Button active={isPlaying} onclick={handlePlay}>
+			<Button class="play" onclick={handlePlay} variant="secondary">
+				{#if isPlaying}
+					<IconStop size={12} fill="currentColor" stroke-width={1} />
+				{:else}
+					<IconPlay size={12} fill="currentColor" stroke-width={1} />
+				{/if}
 				{isPlaying ? 'Stop' : 'Play'}
 			</Button>
-			<Button href="/repl?load={encodeURIComponent(data.sketch.uri)}">Remix</Button>
+			<Button href="/repl?load={encodeURIComponent(data.sketch.uri)}" variant="tertiary">
+				Remix
+			</Button>
 		</div>
 	</footer>
 
@@ -152,6 +161,10 @@
 	.controls {
 		display: flex;
 		gap: 0.5rem;
+
+		:global(.play) {
+			min-width: 9.5ch;
+		}
 	}
 
 	.author {

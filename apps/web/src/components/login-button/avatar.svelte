@@ -24,7 +24,7 @@
 		border-radius: 100vmax;
 	}
 
-	:global(svg) {
+	/*:global(svg) {
 		opacity: 0.666;
-	}
+	}*/
 </style>

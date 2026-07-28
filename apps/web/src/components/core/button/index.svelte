@@ -4,7 +4,7 @@
 
 	type BaseProps = {
 		children: Snippet;
-		active?: boolean;
+		variant?: 'primary' | 'secondary' | 'tertiary';
 	};
 
 	type ButtonProps = BaseProps & HTMLButtonAttributes & { href?: never };
@@ -12,11 +12,12 @@
 
 	type Props = ButtonProps | LinkProps;
 
-	let { active, ...props }: Props = $props();
+	let { variant = 'primary', class: className, ...props }: Props = $props();
+
 	const tag = $derived(props.href ? 'a' : 'button');
 </script>
 
-<svelte:element this={tag} {...props} class={['button', active && 'active']}>
+<svelte:element this={tag} {...props} class={['button', className]} data-variant={variant}>
 	{@render props.children()}
 </svelte:element>
 
@@ -24,23 +25,48 @@
 	.button {
 		display: inline-flex;
 		align-items: center;
-		block-size: 2rem;
-		padding: 0 0.75rem 1px;
-		font-size: 0.8rem;
-		font-weight: 500;
-		border: 1px solid var(--color-border-subtle);
+		justify-content: center;
+		gap: 0.5rem;
+		block-size: 2.5rem;
+		padding: 0 1rem 1px;
+		font-size: 0.875rem;
+		font-weight: 600;
+		border: 1px solid transparent;
 		border-radius: 3px;
 		text-decoration: none;
 		cursor: pointer;
 		background: none;
 		color: inherit;
 
-		&:hover {
-			color: var(--color-fg-secondary);
+		&[data-variant='primary'] {
+			color: var(--color-bg-primary);
+			background: var(--color-fg-primary);
+			border-color: transparent;
+			font-weight: 700;
+
+			&:hover {
+				opacity: 0.8;
+			}
 		}
 
-		&.active {
-			border-color: currentColor;
+		&[data-variant='secondary'] {
+			color: var(--color-fg-primary);
+			background: transparent;
+			border-color: var(--color-fg-primary);
+
+			&:hover {
+				opacity: 0.8;
+			}
+		}
+
+		&[data-variant='tertiary'] {
+			color: var(--color-fg-primary);
+			background: transparent;
+			border-color: var(--color-border-subtle);
+
+			&:hover {
+				border-color: var(--color-fg-primary);
+			}
 		}
 	}
 </style>

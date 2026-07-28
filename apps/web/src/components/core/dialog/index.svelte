@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
 	import IconClose from '../../icons/icon-close.svelte';
+	import type { Snippet } from 'svelte';
 
 	let { title, content }: { title: string; content: Snippet } = $props();
 
