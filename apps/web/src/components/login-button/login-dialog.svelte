@@ -1,5 +1,7 @@
 <script lang="ts">
 	import Dialog from '@/components/core/dialog/index.svelte';
+	import Button from '@/components/core/button/index.svelte';
+	import TextInput from '@/components/core/text-input/index.svelte';
 	import type { DialogProps } from './utils';
 
 	let { handle = $bindable(), loading, onsubmit, error }: DialogProps = $props();
@@ -17,18 +19,18 @@
 <Dialog bind:this={dialog} title="Login">
 	{#snippet content()}
 		<form {onsubmit}>
-			<label>
-				Handle
-				<input
-					id="handle"
-					type="text"
-					bind:value={handle}
-					placeholder="user.bsky.social"
-					disabled={loading}
-				/>
-			</label>
+			<TextInput
+				label="Handle"
+				id="handle"
+				bind:value={handle}
+				placeholder="user.bsky.social"
+				disabled={loading}
+				autocapitalize="none"
+				inputmode="url"
+				autofocus
+			/>
 			<div class="button-container">
-				<button type="submit" disabled={loading}>Login</button>
+				<Button type="submit" disabled={loading}>Login</Button>
 			</div>
 			{#if error}
 				<p class="error">{error}</p>
@@ -41,11 +43,6 @@
 	form {
 		display: grid;
 		gap: 1rem;
-	}
-
-	label {
-		display: grid;
-		gap: 0.5rem;
 	}
 
 	.button-container {

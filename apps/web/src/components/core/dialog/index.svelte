@@ -62,10 +62,10 @@
 		align-items: center;
 		justify-content: space-between;
 		padding-block-end: 1.5rem;
-	}
 
-	h2 {
-		font-size: inherit;
+		h2 {
+			font-size: 1.25rem;
+		}
 	}
 
 	.close {
