@@ -38,7 +38,7 @@
 	label {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: 0.375rem;
 		font-size: 0.875rem;
 	}
 
@@ -46,6 +46,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: baseline;
+		color: var(--color-fg-secondary);
 	}
 
 	.hint {
@@ -55,13 +56,14 @@
 
 	input,
 	textarea {
-		padding: 0.375rem 0.5rem;
+		padding: 0.5rem 0.625rem;
 		background: var(--color-bg-primary);
 		color: var(--color-fg-primary);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: 4px;
 		font-family: monospace;
 		font-size: 0.875rem;
+		min-height: 2.5rem;
 
 		&:focus {
 			outline: none;
@@ -73,8 +75,8 @@
 	}
 
 	textarea {
-		resize: vertical;
+		resize: none;
 		field-sizing: content;
-		min-height: 3lh;
+		min-height: 5.125rem;
 	}
 </style>
