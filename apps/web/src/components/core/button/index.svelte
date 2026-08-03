@@ -15,9 +15,16 @@
 	let { variant = 'primary', class: className, ...props }: Props = $props();
 
 	const tag = $derived(props.href ? 'a' : 'button');
+	const role = $derived(`surface-${variant}`);
 </script>
 
-<svelte:element this={tag} {...props} class={['button', className]} data-variant={variant}>
+<svelte:element
+	this={tag}
+	{...props}
+	class={['button', className]}
+	data-variant={variant}
+	data-role={role}
+>
 	{@render props.children()}
 </svelte:element>
 
@@ -39,9 +46,8 @@
 		color: inherit;
 
 		&[data-variant='primary'] {
-			color: var(--color-bg-primary);
-			background: var(--color-fg-primary);
-			border-color: transparent;
+			color: var(--color-background-primary);
+			background: var(--color-foreground-primary);
 			font-weight: 700;
 
 			&:hover {
@@ -50,22 +56,22 @@
 		}
 
 		&[data-variant='secondary'] {
-			color: var(--color-fg-primary);
+			color: var(--color-foreground-primary);
 			background: transparent;
-			border-color: var(--color-fg-primary);
+			border-color: var(--color-border-strong);
 
 			&:hover {
-				opacity: 0.8;
+				border-color: var(--color-border);
 			}
 		}
 
 		&[data-variant='tertiary'] {
-			color: var(--color-fg-primary);
+			color: var(--color-foreground-primary);
 			background: transparent;
 			border-color: var(--color-border-subtle);
 
 			&:hover {
-				border-color: var(--color-fg-primary);
+				border-color: var(--color-border-strong);
 			}
 		}
 	}

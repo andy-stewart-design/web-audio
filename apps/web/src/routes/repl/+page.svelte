@@ -66,12 +66,15 @@
 
 			<section class="panel" aria-label="Output log">
 				<h2>Log</h2>
-				<div class="log">
+				<div class="log" data-role="surface-secondary">
 					{#if workspace.logs.length === 0}
 						<span class="empty">no output</span>
 					{:else}
 						{#each workspace.logs as entry (entry.id)}
-							<div class={entry.type}>{entry.type === 'output' ? '✓' : '×'} {entry.message}</div>
+							<div class="msg" data-role={entry.type === 'output' ? 'success' : 'alert'}>
+								{entry.type === 'output' ? '✓' : '×'}
+								{entry.message}
+							</div>
 						{/each}
 					{/if}
 				</div>
@@ -108,7 +111,7 @@
 		min-height: 0;
 		overflow: clip;
 		block-size: calc(100dvh - var(--ui-header-block-size));
-		background: var(--color-bg-primary);
+		background: var(--color-background-primary);
 		height: 100%;
 	}
 
@@ -141,18 +144,14 @@
 		overflow-y: auto;
 		font-family: monospace;
 		font-size: var(--font-xs);
-		background: var(--color-bg-secondary);
+		background: var(--color-background-primary);
 	}
 
 	.empty {
-		color: var(--color-fg-tertiary);
+		color: var(--color-foreground-tertiary);
 	}
 
-	.output {
-		color: #a6e3a1;
-	}
-
-	.error {
-		color: #f38ba8;
+	.msg {
+		color: var(--color-foreground-secondary);
 	}
 </style>

@@ -36,7 +36,7 @@
 {#if session.did}
 	<ProfilePopover {session} onlogout={handleLogout} />
 {:else}
-	<button class="avatar" onclick={openDialog} aria-label="Login">
+	<button class="avatar" onclick={openDialog} aria-label="Login" data-role="surface-secondary">
 		<Avatar avatar={session.avatar} alt={session.displayName ?? session.handle ?? 'User'} />
 	</button>
 	<LoginDialog
@@ -55,7 +55,7 @@
 		align-items: center;
 		block-size: 2.25rem;
 		inline-size: 2.25rem;
-		background: var(--color-bg-secondary);
+		background: var(--color-background-primary);
 		padding: 0;
 		border: none;
 		border-radius: 100vmax;

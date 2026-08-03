@@ -24,7 +24,7 @@
 		if (event.target === event.currentTarget) close();
 	}}
 >
-	<div class="surface">
+	<div class="surface" data-role="surface-secondary">
 		<header>
 			<h2 id={titleId}>{title}</h2>
 			<button type="button" class="close" aria-label="Close" onclick={close}>
@@ -42,7 +42,7 @@
 		padding: 0;
 		background: transparent;
 		border: none;
-		color: var(--color-fg-primary);
+		color: var(--color-foreground-primary);
 
 		&::backdrop {
 			background: rgb(0 0 0 / 0.5);
@@ -52,7 +52,7 @@
 
 	.surface {
 		padding: 1.5rem;
-		background: var(--color-bg-secondary);
+		background: var(--color-background-primary);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: 8px;
 	}

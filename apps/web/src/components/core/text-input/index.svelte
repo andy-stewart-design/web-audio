@@ -22,7 +22,7 @@
 	}: Props = $props();
 </script>
 
-<label for={id}>
+<label for={id} data-role="surface-tertiary">
 	<span class="label-row">
 		<span>{label}</span>
 		{#if hint}<span class="hint">{hint}</span>{/if}
@@ -46,19 +46,19 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: baseline;
-		color: var(--color-fg-secondary);
+		color: var(--color-foreground-secondary);
 	}
 
 	.hint {
 		font-size: 0.75rem;
-		color: var(--color-fg-tertiary);
+		color: var(--color-foreground-tertiary);
 	}
 
 	input,
 	textarea {
 		padding: 0.5rem 0.625rem;
-		background: var(--color-bg-primary);
-		color: var(--color-fg-primary);
+		background: var(--color-background-primary);
+		color: var(--color-foreground-primary);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: 4px;
 		font-family: monospace;
@@ -70,7 +70,7 @@
 		}
 
 		&:focus-visible {
-			outline: 1px solid var(--color-fg-primary);
+			outline: 1px solid var(--color-foreground-primary);
 		}
 	}
 

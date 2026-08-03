@@ -20,7 +20,7 @@
 	}
 </script>
 
-<article class="card">
+<article class="card" data-role="surface-secondary">
 	<header>
 		<div class="meta">
 			{#if sketch.tags?.length}
@@ -82,7 +82,7 @@
 	.card {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
-		background: var(--color-bg-secondary);
+		background: var(--color-background-primary);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: 6px;
 	}
@@ -107,7 +107,7 @@
 	}
 
 	.date {
-		color: var(--color-fg-tertiary);
+		color: var(--color-foreground-tertiary);
 	}
 
 	.tags {
@@ -135,13 +135,13 @@
 			color: inherit;
 
 			&:hover {
-				color: var(--color-fg-secondary);
+				color: var(--color-foreground-secondary);
 			}
 		}
 
 		.description {
 			font-size: 0.875rem;
-			color: var(--color-fg-tertiary);
+			color: var(--color-foreground-tertiary);
 			display: -webkit-box;
 			-webkit-line-clamp: 2;
 			line-clamp: 2;
@@ -179,7 +179,7 @@
 			block-size: 1.75rem;
 			inline-size: 1.75rem;
 			border-radius: 100vmax;
-			background: var(--color-bg-primary);
+			background: var(--color-background-primary);
 			margin-inline-end: 0.125rem;
 
 			img {
@@ -191,11 +191,11 @@
 		}
 
 		.handle {
-			color: var(--color-fg-tertiary);
+			color: var(--color-foreground-tertiary);
 		}
 
 		&:hover {
-			color: var(--color-fg-secondary);
+			color: var(--color-foreground-secondary);
 		}
 	}
 

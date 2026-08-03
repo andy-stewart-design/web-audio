@@ -18,7 +18,7 @@
 
 <div class="port">
 	<div class="port-id">
-		<span class="port-type">{portLabel(port)}</span>
+		<span class="port-type" data-role="surface-tertiary">{portLabel(port)}</span>
 		<code>{port.id}</code>
 	</div>
 	<button
@@ -47,7 +47,7 @@
 
 		code {
 			overflow: hidden;
-			color: var(--color-fg-secondary);
+			color: var(--color-foreground-secondary);
 			font-size: var(--font-2xs);
 			text-overflow: ellipsis;
 			white-space: nowrap;
@@ -57,12 +57,12 @@
 	.port-type {
 		flex: 0 0 auto;
 		padding: 0.1rem 0.3rem;
-		color: var(--color-fg-secondary);
+		color: var(--color-foreground-secondary);
 		font-size: var(--font-2xs);
 		font-weight: 600;
-		border: 1px solid var(--color-neutral-700);
+		background: var(--color-background-primary);
+		border: 1px solid var(--color-border-subtle);
 		border-radius: 4px;
-		background: var(--color-bg-primary);
 	}
 
 	.copy {
@@ -71,7 +71,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.25rem;
-		color: var(--color-fg-secondary);
+		color: var(--color-foreground-secondary);
 		font-size: var(--font-2xs);
 		background: none;
 		border: none;

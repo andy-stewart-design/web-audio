@@ -37,7 +37,7 @@
 		padding: 0.2rem;
 		border: none;
 		border-radius: 100vmax;
-		background: var(--color-fg-tertiary);
+		background: var(--color-foreground-tertiary);
 		cursor: pointer;
 		transition: background 120ms ease;
 		overflow: clip;
@@ -70,7 +70,7 @@
 			block-size: var(--switch-thumb-size);
 			inline-size: var(--switch-thumb-size);
 			border-radius: 50%;
-			background: var(--color-fg-primary);
+			background: var(--color-foreground-primary);
 			box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
 			content: '';
 			transition: translate 120ms ease;

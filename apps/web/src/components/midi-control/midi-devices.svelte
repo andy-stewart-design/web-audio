@@ -14,13 +14,17 @@
 </script>
 
 {#if status === 'disabled'}
-	<div class="device-placeholder">Enable MIDI to see available devices</div>
+	<div class="device-placeholder" data-role="surface-secondary">
+		Enable MIDI to see available devices
+	</div>
 {:else if status === 'pending'}
-	<div class="device-placeholder connecting">Looking for MIDI devices…</div>
+	<div class="device-placeholder connecting" data-role="surface-secondary">
+		Looking for MIDI devices…
+	</div>
 {:else if status === 'connected' && devices.length > 0}
 	<ul>
 		{#each devices as device (device.key)}
-			<li>
+			<li data-role="surface-secondary">
 				<strong>{device.name ?? 'Unnamed device'}</strong>
 				<div class="ports">
 					{#each device.ports as port (port.id)}
@@ -31,9 +35,11 @@
 		{/each}
 	</ul>
 {:else if status === 'connected'}
-	<div class="device-placeholder">No MIDI devices connected</div>
+	<div class="device-placeholder" data-role="surface-secondary">No MIDI devices connected</div>
 {:else}
-	<div class="device-placeholder">Turn MIDI off and on to try again</div>
+	<div class="device-placeholder" data-role="surface-secondary">
+		Turn MIDI off and on to try again
+	</div>
 {/if}
 
 <style>
@@ -42,11 +48,12 @@
 		place-items: center;
 		min-block-size: 10rem;
 		padding: 1rem;
-		color: var(--color-fg-tertiary);
+		color: var(--color-foreground-tertiary);
 		font-size: var(--font-sm);
 		text-align: center;
 		border-radius: 0.5rem;
-		background: var(--color-bg-secondary);
+		background: var(--color-background-primary);
+		border: 1px solid var(--color-border-subtle);
 	}
 
 	.device-placeholder.connecting {
@@ -66,7 +73,8 @@
 		gap: 0.375rem;
 		padding: 0.5rem;
 		border-radius: 0.375rem;
-		background: var(--color-bg-secondary);
+		background: var(--color-background-primary);
+		border: 1px solid var(--color-border-subtle);
 	}
 
 	li > strong {

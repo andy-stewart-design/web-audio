@@ -11,16 +11,16 @@
 
 	font-family: var(--font-sans);
 	color-scheme: light dark;
-	background: var(--color-bg-primary);
-	color: var(--color-fg-primary);
+	background: var(--color-background-primary);
+	color: var(--color-foreground-primary);
 }
 
 a {
-	color: var(--color-fg-primary);
+	color: var(--color-foreground-primary);
 	user-select: none;
 
 	&:visited {
-		color: var(--color-fg-primary);
+		color: var(--color-foreground-primary);
 	}
 }
 

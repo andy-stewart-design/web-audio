@@ -19,9 +19,9 @@
 		flex: 0 0 auto;
 		block-size: var(--size);
 		inline-size: var(--size);
-		outline: 1px solid var(--color-bg-primary);
+		outline: 1px solid var(--color-background-primary);
 		border-radius: 100vmax;
-		background: var(--color-fg-tertiary);
+		background: var(--color-background-primary);
 
 		&[data-size='md'] {
 			--size: 0.625rem;

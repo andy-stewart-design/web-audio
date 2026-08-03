@@ -44,13 +44,13 @@
 <style>
 	.visualizer {
 		border-bottom: 1px solid var(--color-border-subtle);
-		background: var(--color-bg-primary);
+		background: var(--color-background-primary);
 	}
 
 	canvas {
 		display: block;
 		inline-size: 100%;
 		aspect-ratio: 3 / 2;
-		background: var(--color-bg-primary);
+		background: var(--color-background-primary);
 	}
 </style>

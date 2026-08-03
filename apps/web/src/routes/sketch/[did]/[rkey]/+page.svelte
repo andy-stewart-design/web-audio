@@ -60,7 +60,7 @@
 	<footer>
 		<a href="/profile/{data.profile.did}" class="author">
 			{#if data.profile.avatar}
-				<span class="avatar">
+				<span class="avatar" data-role="surface-secondary">
 					<img src={data.profile.avatar} alt={data.authorPrimaryLabel} />
 				</span>
 			{/if}
@@ -85,7 +85,7 @@
 		</div>
 	</footer>
 
-	<div class="code">
+	<div class="code" data-role="surface-secondary">
 		<pre>{data.sketch.code}</pre>
 	</div>
 </article>
@@ -113,7 +113,7 @@
 		font-size: 0.875rem;
 
 		time {
-			color: var(--color-fg-tertiary);
+			color: var(--color-foreground-tertiary);
 		}
 	}
 
@@ -137,7 +137,7 @@
 
 		.remixed-from {
 			font-size: 0.875rem;
-			color: var(--color-fg-tertiary);
+			color: var(--color-foreground-tertiary);
 
 			a {
 				color: inherit;
@@ -147,7 +147,7 @@
 
 		.description {
 			font-size: 0.9375rem;
-			color: var(--color-fg-secondary);
+			color: var(--color-foreground-secondary);
 		}
 	}
 
@@ -180,7 +180,7 @@
 			block-size: 1.75rem;
 			inline-size: 1.75rem;
 			border-radius: 100vmax;
-			background: var(--color-bg-secondary);
+			background: var(--color-background-primary);
 			margin-inline-end: 0.125rem;
 
 			img {
@@ -192,12 +192,12 @@
 		}
 
 		.handle {
-			color: var(--color-fg-tertiary);
+			color: var(--color-foreground-tertiary);
 		}
 	}
 
 	.code {
-		background: var(--color-bg-secondary);
+		background: var(--color-background-primary);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: 6px;
 		padding: 1rem;

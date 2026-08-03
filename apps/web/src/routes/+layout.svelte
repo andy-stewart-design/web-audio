@@ -58,7 +58,7 @@
 				<IconStop size={20} fill="currentColor" />
 			</button>
 		</div>
-		<div class="metadata">
+		<div class="metadata" data-role="surface-secondary">
 			{#if workspace.loaded?.title}
 				<span class="track-title">{workspace.loaded.title}</span>
 			{:else}
@@ -88,10 +88,9 @@
 <style>
 	header {
 		display: flex;
-		/*display: grid;
-		grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 360px);*/
 		align-items: center;
 		block-size: var(--ui-header-block-size);
+		background: var(--color-background-primary);
 		border-bottom: 1px solid var(--color-border-subtle);
 	}
 
@@ -142,7 +141,7 @@
 		&:disabled {
 			cursor: default;
 			opacity: 0.5;
-			color: var(--color-fg-tertiary);
+			color: var(--color-foreground-tertiary);
 		}
 	}
 
@@ -153,7 +152,7 @@
 		width: 24ch;
 		padding-inline: 1.25ch;
 		padding-block-end: 2px;
-		background: var(--color-bg-secondary);
+		background: var(--color-background-primary);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: 4px;
 	}
@@ -161,7 +160,7 @@
 	.track-title {
 		flex: 1 0 0;
 		overflow: hidden;
-		color: var(--color-fg-secondary);
+		color: var(--color-foreground-secondary);
 		font-size: 0.8125rem;
 		font-weight: 500;
 		text-overflow: ellipsis;

@@ -25,7 +25,7 @@
 	{#snippet content()}
 		{#if publishedUri}
 			<p>Your sketch is live on the network.</p>
-			<code class="uri">{publishedUri}</code>
+			<code class="uri" data-role="surface-tertiary">{publishedUri}</code>
 			<div class="dialog-actions">
 				<button onclick={close}>close</button>
 			</div>
@@ -78,7 +78,7 @@
 				/>
 
 				{#if error}
-					<p class="form-error">{error}</p>
+					<p class="form-error" data-role="alert">{error}</p>
 				{/if}
 
 				<div class="dialog-actions">
@@ -101,14 +101,15 @@
 
 	.form-error {
 		font-size: 0.875rem;
-		color: #f38ba8;
+		color: var(--color-foreground-secondary);
 	}
 
 	.uri {
 		display: block;
 		margin: 0.75rem 0;
 		padding: 0.5rem;
-		background: #313244;
+		background: var(--color-background-primary);
+		border: 1px solid var(--color-border-subtle);
 		border-radius: 4px;
 		font-size: 0.8rem;
 		word-break: break-all;

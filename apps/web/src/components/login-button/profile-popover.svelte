@@ -14,12 +14,13 @@
 			{...props}
 			class="avatar"
 			aria-label={props['aria-expanded'] ? 'Close profile menu' : 'Open profile menu'}
+			data-role="surface-secondary"
 		>
 			<Avatar avatar={session.avatar} alt={avatarLabel} />
 		</button>
 	{/snippet}
 	{#snippet content({ popover, props, close, initialFocus })}
-		<div use:popover {...props} class="profile-popover">
+		<div use:popover {...props} class="profile-popover" data-role="surface-secondary">
 			<div class="profile-info">
 				{#if session.displayName}
 					<p class="display-name">{session.displayName}</p>
@@ -57,7 +58,7 @@
 		padding: 0;
 		border: none;
 		border-radius: 100vmax;
-		background: var(--color-bg-secondary);
+		background: var(--color-background-primary);
 
 		&:focus-visible {
 			outline: 2px solid currentColor;
@@ -73,8 +74,8 @@
 		padding: 1rem 0.5rem 0.75rem;
 		border: none;
 		border-radius: 0.5rem;
-		background: light-dark(var(--color-bg-primary), var(--color-bg-secondary));
-		outline: 1px solid rgb(255 255 255 / 0.2);
+		background: var(--color-background-primary);
+		border: 1px solid var(--color-border-subtle);
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 		font-size: 0.875rem;
 	}
@@ -91,7 +92,7 @@
 		}
 
 		.handle {
-			color: var(--color-fg-tertiary);
+			color: var(--color-foreground-tertiary);
 			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
@@ -113,7 +114,7 @@
 			cursor: pointer;
 
 			&:hover {
-				color: var(--color-fg-secondary);
+				color: var(--color-foreground-secondary);
 			}
 		}
 	}

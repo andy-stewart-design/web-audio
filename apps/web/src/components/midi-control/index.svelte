@@ -82,7 +82,7 @@
 		block-size: 2.25rem;
 		inline-size: 2.25rem;
 		padding: 0;
-		color: var(--color-fg-primary);
+		color: var(--color-foreground-primary);
 		border: none;
 		border-radius: 100vmax;
 		background: none;
@@ -94,7 +94,7 @@
 		}
 
 		&:is(:hover, [aria-expanded='true']) {
-			background: var(--color-bg-secondary);
+			background: var(--color-background-secondary);
 		}
 
 		.trigger-signal {
@@ -112,13 +112,13 @@
 		padding: 1rem;
 		border: 1px solid var(--color-border-subtle);
 		border-radius: 0.75rem;
-		background: var(--color-bg-primary);
+		background: var(--color-background-primary);
 		box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 18%);
 	}
 
 	.copy-error {
 		margin-block-start: 0.2rem;
-		color: var(--color-fg-secondary);
+		color: var(--color-foreground-secondary);
 		font-size: 0.75rem;
 		color: #d65c5c;
 	}
@@ -133,7 +133,7 @@
 
 	h2 {
 		margin-block-end: 0.375rem;
-		color: var(--color-fg-secondary);
+		color: var(--color-foreground-secondary);
 		font-size: 0.6875rem;
 		font-weight: 600;
 		letter-spacing: 0.06em;
