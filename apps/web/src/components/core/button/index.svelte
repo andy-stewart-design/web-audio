@@ -35,7 +35,7 @@
 		justify-content: center;
 		gap: 0.5rem;
 		block-size: 2.5rem;
-		padding: 0 1rem 1px;
+		padding: 0 0.75rem 1px;
 		font-size: 0.875rem;
 		font-weight: 600;
 		border: 1px solid transparent;

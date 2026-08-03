@@ -26,7 +26,7 @@
 		onclick={() => onCopy(port.id)}
 		aria-label={copiedId === port.id ? 'Copied' : 'Copy ID'}
 	>
-		<IconCopy size={16} />
+		<IconCopy size={16} weight="thin" />
 	</button>
 </div>
 

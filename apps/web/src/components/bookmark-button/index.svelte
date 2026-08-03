@@ -43,6 +43,7 @@
 	>
 		<IconBookmark
 			size={24}
+			weight="thin"
 			fill={bookmarkUri ? 'currentColor' : undefined}
 			opacity={bookmarkUri ? 1 : 0.5}
 		/>
