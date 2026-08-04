@@ -33,6 +33,7 @@
 			<form
 				method="POST"
 				action="?/publish"
+				data-role="surface-tertiary"
 				use:enhance={({ formData }) => {
 					formData.set('code', draft.code);
 					if (draft.previousVersion) formData.set('previousVersion', draft.previousVersion);

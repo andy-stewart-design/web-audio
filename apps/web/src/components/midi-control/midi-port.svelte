@@ -18,7 +18,7 @@
 
 <div class="port">
 	<div class="port-id">
-		<span class="port-type" data-role="surface-tertiary">{portLabel(port)}</span>
+		<span class="port-type" data-role="surface-secondary">{portLabel(port)}</span>
 		<code>{port.id}</code>
 	</div>
 	<button
@@ -48,7 +48,7 @@
 		code {
 			overflow: hidden;
 			color: var(--color-foreground-secondary);
-			font-size: var(--font-2xs);
+			font: var(--font-label-small);
 			text-overflow: ellipsis;
 			white-space: nowrap;
 		}
@@ -56,10 +56,9 @@
 
 	.port-type {
 		flex: 0 0 auto;
-		padding: 0.1rem 0.3rem;
+		padding: 0.25rem 0.375rem;
 		color: var(--color-foreground-secondary);
-		font-size: var(--font-2xs);
-		font-weight: 600;
+		font: var(--font-label-small);
 		background: var(--color-background-primary);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: 4px;
@@ -72,7 +71,6 @@
 		gap: 0.5rem;
 		padding: 0.25rem;
 		color: var(--color-foreground-secondary);
-		font-size: var(--font-2xs);
 		background: none;
 		border: none;
 		border-radius: 100vmax;

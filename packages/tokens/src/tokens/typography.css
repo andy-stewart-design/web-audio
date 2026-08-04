@@ -18,4 +18,70 @@
   --font-black: 900;
 
   --line-height-base: 1.5;
+
+  /* HEADING ----------------------------------- */
+
+  --font-heading-large-family: system-ui, sans-serif;
+  --font-heading-large-size: 2rem;
+  --font-heading-large-weight: 600;
+  --font-heading-large-leading: 1.2;
+  --font-heading-large-tracking: -0.025em;
+  --font-heading-large: var(--font-heading-large-weight)
+    var(--font-heading-large-size) / var(--font-heading-large-leading)
+    var(--font-heading-large-family);
+
+  --font-heading-medium-family: var(--font-heading-large-family);
+  --font-heading-medium-size: 1.5rem;
+  --font-heading-medium-weight: var(--font-heading-large-weight);
+  --font-heading-medium-leading: var(--font-heading-large-leading);
+  --font-heading-medium-tracking: var(--font-heading-large-tracking);
+  --font-heading-medium: var(--font-heading-medium-weight)
+    var(--font-heading-medium-size) / var(--font-heading-medium-leading)
+    var(--font-heading-medium-family);
+
+  --font-heading-small-family: var(--font-heading-large-family);
+  --font-heading-small-size: 1.25rem;
+  --font-heading-small-weight: var(--font-heading-large-weight);
+  --font-heading-small-leading: var(--font-heading-large-leading);
+  --font-heading-small-tracking: -0.0125em;
+  --font-heading-small: var(--font-heading-small-weight)
+    var(--font-heading-small-size) / var(--font-heading-small-leading)
+    var(--font-heading-small-family);
+
+  /* BODY ----------------------------------- */
+
+  --font-body-family: system-ui, sans-serif;
+  --font-body-size: 1rem;
+  --font-body-weight: 400;
+  --font-body-leading: 1.5;
+  --font-body-tracking: 0;
+  --font-body: var(--font-body-weight) var(--font-body-size) /
+    var(--font-body-leading) var(--font-body-family);
+
+  --font-body-small-family: var(--font-body-family);
+  --font-body-small-size: 0.875rem;
+  --font-body-small-weight: var(--font-body-weight);
+  --font-body-small-leading: var(--font-body-leading);
+  --font-body-small-tracking: var(--font-body-tracking);
+  --font-body-small: var(--font-body-small-weight) var(--font-body-small-size) /
+    var(--font-body-small-leading) var(--font-body-small-family);
+
+  /* LABEL ----------------------------------- */
+
+  --font-label-family: system-ui, sans-serif;
+  --font-label-size: 0.8125rem;
+  --font-label-weight: 500;
+  --font-label-leading: 1.2;
+  --font-label-tracking: 0;
+  --font-label: var(--font-label-weight) var(--font-label-size) /
+    var(--font-label-leading) var(--font-label-family);
+
+  --font-label-small-family: var(--font-label-family);
+  --font-label-small-size: 0.75rem;
+  --font-label-small-weight: var(--font-label-weight);
+  --font-label-small-leading: var(--font-label-leading);
+  --font-label-small-tracking: var(--font-label-tracking);
+  --font-label-small: var(--font-label-small-weight)
+    var(--font-label-small-size) / var(--font-label-small-leading)
+    var(--font-label-small-family);
 }

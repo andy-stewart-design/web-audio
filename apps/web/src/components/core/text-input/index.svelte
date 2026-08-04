@@ -22,7 +22,7 @@
 	}: Props = $props();
 </script>
 
-<label for={id} data-role="surface-tertiary">
+<label for={id}>
 	<span class="label-row">
 		<span>{label}</span>
 		{#if hint}<span class="hint">{hint}</span>{/if}

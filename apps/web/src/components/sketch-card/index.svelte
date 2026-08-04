@@ -42,7 +42,7 @@
 	</header>
 
 	<div class="main">
-		<a href={sketch.href} class="title">{sketch.title}</a>
+		<a href={sketch.href} class="title"><h2>{sketch.title}</h2></a>
 
 		{#if sketch.description}
 			<p class="description">{sketch.description}</p>
@@ -103,11 +103,11 @@
 		gap: 0.75rem;
 		block-size: 3rem;
 		padding-inline: 1rem;
-		font-size: 0.75rem;
+		font: var(--font-label-small);
 	}
 
 	.date {
-		color: var(--color-foreground-tertiary);
+		color: var(--color-foreground-secondary);
 	}
 
 	.tags {
@@ -129,19 +129,22 @@
 		padding-block: 0 1.25rem;
 
 		.title {
-			font-size: 1.25rem;
-			font-weight: 600;
 			text-decoration: none;
 			color: inherit;
 
 			&:hover {
 				color: var(--color-foreground-secondary);
 			}
+
+			h2 {
+				font: var(--font-heading-small);
+				letter-spacing: var(--font-heading-small-tracking);
+			}
 		}
 
 		.description {
-			font-size: 0.875rem;
-			color: var(--color-foreground-tertiary);
+			font: var(--font-body-small);
+			color: var(--color-foreground-secondary);
 			display: -webkit-box;
 			-webkit-line-clamp: 2;
 			line-clamp: 2;
@@ -170,8 +173,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		font-size: 0.875rem;
-		font-weight: 500;
+		font: var(--font-body-small);
+		font-weight: var(--font-medium);
 		text-decoration: none;
 
 		.avatar {

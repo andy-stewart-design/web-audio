@@ -51,7 +51,7 @@
 	{/snippet}
 
 	{#snippet content({ popover, props })}
-		<div use:popover {...props} class="popover">
+		<div use:popover {...props} class="popover" data-role="surface-secondary">
 			<MidiToggle
 				status={audio.midiDisplayStatus}
 				label={statusLabel}

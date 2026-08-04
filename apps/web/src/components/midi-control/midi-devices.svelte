@@ -14,17 +14,17 @@
 </script>
 
 {#if status === 'disabled'}
-	<div class="device-placeholder" data-role="surface-secondary">
+	<div class="device-placeholder" data-role="surface-tertiary">
 		Enable MIDI to see available devices
 	</div>
 {:else if status === 'pending'}
-	<div class="device-placeholder connecting" data-role="surface-secondary">
+	<div class="device-placeholder connecting" data-role="surface-tertiary">
 		Looking for MIDI devices…
 	</div>
 {:else if status === 'connected' && devices.length > 0}
 	<ul>
 		{#each devices as device (device.key)}
-			<li data-role="surface-secondary">
+			<li data-role="surface-tertiary">
 				<strong>{device.name ?? 'Unnamed device'}</strong>
 				<div class="ports">
 					{#each device.ports as port (port.id)}
@@ -35,9 +35,9 @@
 		{/each}
 	</ul>
 {:else if status === 'connected'}
-	<div class="device-placeholder" data-role="surface-secondary">No MIDI devices connected</div>
+	<div class="device-placeholder" data-role="surface-tertiary">No MIDI devices connected</div>
 {:else}
-	<div class="device-placeholder" data-role="surface-secondary">
+	<div class="device-placeholder" data-role="surface-tertiary">
 		Turn MIDI off and on to try again
 	</div>
 {/if}
