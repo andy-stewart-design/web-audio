@@ -47,17 +47,17 @@
 		gap: 0.625rem;
 	}
 
-	.status-text {
-		margin-block-end: 2px;
-	}
-
-	strong,
-	p {
+	:is(strong, p) {
 		margin: 0;
 	}
 
-	.status-row strong {
-		font-size: 0.875rem;
+	.status-text {
+		margin-block-end: 2px;
+
+		strong {
+			font: var(--font-body-small);
+			font-weight: var(--font-bold);
+		}
 	}
 
 	.error {

@@ -49,7 +49,7 @@
 		min-block-size: 10rem;
 		padding: 1rem;
 		color: var(--color-foreground-tertiary);
-		font-size: var(--font-sm);
+		font: var(--font-body-small);
 		text-align: center;
 		border-radius: 0.5rem;
 		background: var(--color-background-primary);
@@ -79,7 +79,8 @@
 
 	li > strong {
 		overflow: hidden;
-		font-size: var(--font-sm);
+		font: var(--font-body-small);
+		font-weight: var(--font-bold);
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
