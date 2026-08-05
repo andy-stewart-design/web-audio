@@ -28,6 +28,7 @@
 				autocapitalize="none"
 				inputmode="url"
 				autofocus
+				data-role="surface-tertiary"
 			/>
 			<div class="button-container">
 				<Button type="submit" disabled={loading}>Login</Button>

@@ -1,5 +1,6 @@
+/* PRIMITIVE -------------------------------------------------- */
+
 :where(html) {
-  /* PRIMITIVE -------------------------------------------------- */
   --color-white-lch: 100% 0 285;
   --color-white: oklch(var(--color-white-lch));
   --color-black-lch: 0% 0 285;

@@ -1,8 +1,9 @@
 :where(html) {
   --cm-editor-color-foreground: var(--color-foreground-primary, inherit);
   --cm-editor-color-background: var(--color-background-primary, transparent);
-  --cm-editor-font-family: var(--font-mono, monospace);
-  --cm-editor-font-size: var(--font-sm, 0.875rem);
+  --cm-editor-font-size: var(--font-code-size);
+  --cm-editor-font: var(--font-code);
+  --cm-editor-leading: var(--font-code-leading);
   --cm-editor-block-size: auto;
   --cm-editor-padding-block-start: 0.5lh;
   --cm-editor-padding-block-end: 10lh;
@@ -38,4 +39,5 @@
     var(--color-neutral-300),
     var(--color-neutral-600)
   );
+  --cm-matching-bracket-color-background-blurred: transparent;
 }

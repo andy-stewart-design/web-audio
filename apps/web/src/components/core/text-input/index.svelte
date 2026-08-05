@@ -61,8 +61,7 @@
 		color: var(--color-foreground-primary);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: 4px;
-		font-family: monospace;
-		font-size: 0.875rem;
+		font: var(--font-body);
 		min-height: 2.5rem;
 
 		&:focus {

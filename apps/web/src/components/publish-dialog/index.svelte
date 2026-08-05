@@ -112,7 +112,7 @@
 		background: var(--color-background-primary);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: 4px;
-		font-size: 0.8rem;
+		font: var(--font-code-small);
 		word-break: break-all;
 	}
 

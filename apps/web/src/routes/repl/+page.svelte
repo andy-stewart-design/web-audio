@@ -5,6 +5,8 @@
 	import PublishDialog from '@/components/publish-dialog/index.svelte';
 	import type { PageData, ActionData } from './$types';
 	import { audio, persistence, workspace } from '$lib/globals';
+	import IconCheck from '@/components/icons/icon-check.svelte';
+	import IconClose from '@/components/icons/icon-close.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -72,7 +74,11 @@
 					{:else}
 						{#each workspace.logs as entry (entry.id)}
 							<div class="msg" data-role={entry.type === 'output' ? 'success' : 'alert'}>
-								{entry.type === 'output' ? '✓' : '×'}
+								{#if entry.type === 'error'}
+									<IconClose size={12} weight="thin" />
+								{:else}
+									<IconCheck size={12} weight="thin" />
+								{/if}
 								{entry.message}
 							</div>
 						{/each}
@@ -139,11 +145,14 @@
 	}
 
 	.log {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		grid-auto-rows: max-content;
+		gap: var(--space-1);
 		min-height: 0;
 		padding: 0.75rem 1rem;
 		overflow-y: auto;
-		font-family: monospace;
-		font-size: var(--font-xs);
+		font: var(--font-code-small);
 		background: var(--color-background-primary);
 	}
 
@@ -152,6 +161,13 @@
 	}
 
 	.msg {
+		display: flex;
 		color: var(--color-foreground-secondary);
+		gap: var(--space-2);
+
+		& > :global(svg) {
+			flex-shrink: 0;
+			margin-top: 3px;
+		}
 	}
 </style>
