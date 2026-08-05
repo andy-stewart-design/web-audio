@@ -6,11 +6,10 @@
 	interface Props {
 		status: MidiStatus | 'disabled';
 		devices: Device[];
-		copiedId: string | null;
-		onCopy(id: string): Promise<void>;
+		onCopy(id: string): Promise<boolean>;
 	}
 
-	let { status, devices, copiedId, onCopy }: Props = $props();
+	let { status, devices, onCopy }: Props = $props();
 </script>
 
 {#if status === 'disabled'}
@@ -28,7 +27,7 @@
 				<strong>{device.name ?? 'Unnamed device'}</strong>
 				<div class="ports">
 					{#each device.ports as port (port.id)}
-						<MidiPort {port} {copiedId} {onCopy} />
+						<MidiPort {port} {onCopy} />
 					{/each}
 				</div>
 			</li>

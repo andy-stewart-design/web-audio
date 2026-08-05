@@ -7,7 +7,6 @@
 	import { getMidiStatus, groupDevices } from './utils';
 	import IconLink from '../icons/icon-link.svelte';
 
-	let copiedId = $state<string | null>(null);
 	let copyError = $state(false);
 
 	const devices = $derived.by(() => groupDevices(audio.midiInputs, audio.midiOutputs));
@@ -15,18 +14,17 @@
 
 	function toggleMidi() {
 		audio.toggleMidi();
-		copiedId = null;
 		copyError = false;
 	}
 
 	async function copyId(id: string) {
 		try {
 			await navigator.clipboard.writeText(id);
-			copiedId = id;
 			copyError = false;
+			return true;
 		} catch {
-			copiedId = null;
 			copyError = true;
+			return false;
 		}
 	}
 </script>
@@ -61,7 +59,7 @@
 
 			<section>
 				<h2>Devices</h2>
-				<MidiDevices status={audio.midiDisplayStatus} {devices} {copiedId} onCopy={copyId} />
+				<MidiDevices status={audio.midiDisplayStatus} {devices} onCopy={copyId} />
 			</section>
 
 			{#if copyError}<p class="copy-error">Could not copy the device ID.</p>{/if}
