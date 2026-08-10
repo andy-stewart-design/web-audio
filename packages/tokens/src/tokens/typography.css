@@ -8,6 +8,10 @@
   --font-xs: 0.8125rem;
   --font-sm: 0.875rem;
   --font-base: 1rem;
+  --font-lg: 1.125rem;
+  --font-xl: 1.25rem;
+  --font-2xl: 1.5rem;
+  --font-3xl: 1.875rem;
 
   --font-light: 300;
   --font-normal: 400;
@@ -22,19 +26,19 @@ html,
 [data-theme="neutral/typography"] {
   /* HEADING ----------------------------------- */
   --font-heading-large-family: var(--font-sans);
-  --font-heading-large-size: 2rem;
-  --font-heading-large-weight: 600;
+  --font-heading-large-size: var(--font-3xl);
+  --font-heading-large-weight: var(--font-semibold);
   --font-heading-large-leading: 1.2;
   --font-heading-large-tracking: -0.025em;
 
   --font-heading-medium-family: var(--font-heading-large-family);
-  --font-heading-medium-size: 1.5rem;
+  --font-heading-medium-size: var(--font-2xl);
   --font-heading-medium-weight: var(--font-heading-large-weight);
   --font-heading-medium-leading: var(--font-heading-large-leading);
   --font-heading-medium-tracking: var(--font-heading-large-tracking);
 
   --font-heading-small-family: var(--font-heading-large-family);
-  --font-heading-small-size: 1.25rem;
+  --font-heading-small-size: var(--font-xl);
   --font-heading-small-weight: var(--font-heading-large-weight);
   --font-heading-small-leading: var(--font-heading-large-leading);
   --font-heading-small-tracking: -0.0125em;
@@ -42,7 +46,7 @@ html,
   /* BODY ----------------------------------- */
   --font-body-family: var(--font-sans);
   --font-body-size: var(--font-base);
-  --font-body-weight: 400;
+  --font-body-weight: var(--font-normal);
   --font-body-leading: 1.5;
   --font-body-tracking: 0;
 
@@ -55,7 +59,7 @@ html,
   /* LABEL ----------------------------------- */
   --font-label-family: var(--font-sans);
   --font-label-size: var(--font-xs);
-  --font-label-weight: 500;
+  --font-label-weight: var(--font-medium);
   --font-label-leading: 1.2;
   --font-label-tracking: 0;
 
@@ -68,7 +72,7 @@ html,
   /* CODE ----------------------------------- */
   --font-code-family: var(--font-mono);
   --font-code-size: var(--font-sm);
-  --font-code-weight: 400;
+  --font-code-weight: var(--font-normal);
   --font-code-leading: 1.5;
   --font-code-tracking: 0;
 
