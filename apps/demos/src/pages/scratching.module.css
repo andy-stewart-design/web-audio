@@ -1,0 +1,219 @@
+.demo {
+  display: grid;
+  gap: 1rem;
+  max-width: 52rem;
+  margin-top: 3rem;
+}
+
+.source,
+.buffer {
+  padding: 1.25rem;
+  border: 1px solid #2a3042;
+  border-radius: 1rem;
+  background: #12151f;
+}
+
+.source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+}
+
+.fileLabel {
+  display: grid;
+  flex: 1 1 18rem;
+  gap: 0.5rem;
+  color: #c5cadd;
+  font-size: 0.9rem;
+}
+
+.fileLabel input {
+  width: 100%;
+  border: 1px solid #353b50;
+  border-radius: 0.5rem;
+  padding: 0.55rem;
+  color: #c5cadd;
+  background: #181c28;
+  font: inherit;
+}
+
+.status {
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  color: #ffd886;
+  background: #3a3018;
+  font:
+    0.75rem ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  text-transform: uppercase;
+}
+
+.status[data-state="ready"] {
+  color: #90f0b0;
+  background: #153624;
+}
+
+.status[data-state="error"] {
+  color: #ff9d9d;
+  background: #3c1c24;
+}
+
+.credit {
+  margin: 0;
+  color: #aab1c8;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.credit a {
+  color: #9eb1ff;
+}
+
+.error {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border-radius: 0.6rem;
+  color: #ffaaaa;
+  background: #351b22;
+}
+
+.buffer {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.buffer h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.sourceName {
+  display: block;
+  margin-top: 0.4rem;
+  color: #c5cadd;
+}
+
+.metadata {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+  margin: 0;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: #181c28;
+}
+
+.metadata dt {
+  color: #9da7c6;
+}
+
+.metadata dd {
+  margin: 0;
+  color: #edf0ff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.sliceControls {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid #353b50;
+  border-radius: 0.75rem;
+}
+
+.sliceControls legend {
+  padding: 0 0.35rem;
+  color: #c5cadd;
+}
+
+.sliceControls label {
+  display: grid;
+  gap: 0.5rem;
+  color: #c5cadd;
+  font-size: 0.9rem;
+}
+
+.sliceControls label span {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sliceControls output {
+  color: #9eb1ff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.sliceControls input {
+  width: 100%;
+  accent-color: #9eb1ff;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.eventLog {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #2a3042;
+}
+
+.eventLog h3 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.eventLog p {
+  margin: 0.35rem 0 0;
+  color: #aab1c8;
+  font-size: 0.85rem;
+}
+
+.eventLog ol {
+  max-height: 12rem;
+  margin: 0;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  overflow: auto;
+  border-radius: 0.75rem;
+  color: #c5cadd;
+  background: #181c28;
+  font:
+    0.8rem/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+
+.primaryButton,
+.secondaryButton {
+  border: 0;
+  border-radius: 0.6rem;
+  padding: 0.65rem 0.9rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primaryButton {
+  color: #080a10;
+  background: #9eb1ff;
+}
+
+.secondaryButton {
+  color: #dce1f5;
+  background: #292d3d;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}

@@ -24,7 +24,7 @@ This is an internal learning/manual-verification tool, not the deployable Drome 
 
 - Recreate Hyperblam or depend on Hyperblam.
 - Add scratch semantics to `@web-audio/audio-engine` or the Drome language.
-- Bundle or fetch the copyrighted Chocolate Rain / Tay Zonday source used by Hyperblam.
+- Re-fetch the Chocolate Rain / Tay Zonday source from a third-party host; the local default is `apps/demos/public/tay.mp3`, and users can replace it with a local file.
 - Deploy `apps/demos` or link it from the production web app.
 - Preserve the obsolete sequencer UI or migrate its code.
 
@@ -35,7 +35,7 @@ This is an internal learning/manual-verification tool, not the deployable Drome 
 - Use vanilla TypeScript for every interactive demo. Migrate the Solid audio-clock UI as a small DOM-rendering/controller module rather than retaining Solid or installing an Astro framework integration.
 - Existing demo CSS may be migrated and normalized gradually; visual consistency is useful but is not a reason to block the functional migration.
 - The scratch demo owns its own `AudioContext` and raw nodes. It intentionally does not use `@web-audio/audio-engine`, so the node graph and scheduling choices remain visible.
-- Scratch audio comes from a user-selected local file. Include no remotely hosted default audio. Optionally provide a small, clearly licensed local test asset later only after its license is recorded.
+- The default source is the repository-local `apps/demos/public/tay.mp3`, credited to Hyperblam's “Ch-ch-ch-chocolate” example. A user-selected local file can replace it at any time.
 - “Scratch” means a baby-scratch approximation: short, retriggered forward/reversed sample slices, gain choking, and playback-speed modulation. It is not arbitrary continuous timeline scrubbing.
 
 ## Target structure

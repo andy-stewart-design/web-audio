@@ -1,18 +1,81 @@
 ---
 import DemoLayout from "../layouts/DemoLayout.astro";
+import styles from "./scratching.module.css";
 ---
 
 <DemoLayout
   title="Scratching"
-  description="An upcoming exploration of retriggered forward and reverse sample slices."
+  description="Load a sample, inspect its reversed buffer, and audition each direction."
 >
   <a class="back-link" href="/">← All demos</a>
   <section class="demo-intro" aria-labelledby="page-title">
     <h1 id="page-title">Scratching</h1>
     <p>
-      This route will make a turntable-style baby scratch visible: short
-      forward and reverse sample slices, gain choking, and playback-speed
-      modulation.
+      Start with Hyperblam’s Tay Zonday vocal sample or replace it with any
+      browser-decodable local audio file. The demo stores a forward buffer and
+      a separately reversed buffer for later scratch playback.
     </p>
   </section>
+
+  <section class={styles.demo} data-scratch aria-label="Scratch sample loader">
+    <div class={styles.source}>
+      <label class={styles.fileLabel}>
+        <span>Replace the source audio</span>
+        <input data-file type="file" accept="audio/*" />
+      </label>
+      <output class={styles.status} data-status data-state="loading">
+        loading default vocal sample…
+      </output>
+    </div>
+
+    <p class={styles.credit}>
+      Default audio: <code>/public/tay.mp3</code>, a local copy of the Tay
+      Zonday vocal sample used by Hyperblam’s
+      <a href="https://hyperblam.how/examples/ch-ch-ch-chocolate/">Ch-ch-ch-chocolate</a>
+      example.
+    </p>
+
+    <p class={styles.error} data-error hidden></p>
+
+    <section class={styles.buffer} aria-labelledby="buffer-title">
+      <div>
+        <h2 id="buffer-title">Decoded source</h2>
+        <output class={styles.sourceName} data-source-name>Waiting for audio</output>
+      </div>
+      <dl class={styles.metadata} data-metadata hidden></dl>
+      <fieldset class={styles.sliceControls}>
+        <legend>Clip region in the original recording</legend>
+        <label>
+          <span>Start <output data-slice-start-value>0.000 s</output></span>
+          <input data-slice-start type="range" min="0" max="1" step="0.001" value="0" disabled />
+        </label>
+        <label>
+          <span>Duration <output data-slice-duration-value>0.150 s</output></span>
+          <input data-slice-duration type="range" min="0.01" max="1" step="0.001" value="0.15" disabled />
+        </label>
+      </fieldset>
+      <div class={styles.actions}>
+        <button class={styles.primaryButton} type="button" data-forward disabled>
+          Play forward clip
+        </button>
+        <button class={styles.secondaryButton} type="button" data-reverse disabled>
+          Play matching reversed clip
+        </button>
+      </div>
+      <section class={styles.eventLog} aria-labelledby="event-log-title">
+        <div>
+          <h3 id="event-log-title">Audio event log</h3>
+          <p>Every button press creates a new one-shot AudioBufferSourceNode.</p>
+        </div>
+        <ol data-event-log></ol>
+      </section>
+    </section>
+  </section>
 </DemoLayout>
+
+<script>
+  import { setupScratch } from "../components/scratch";
+
+  const root = document.querySelector<HTMLElement>("[data-scratch]");
+  if (root) setupScratch(root);
+</script>
