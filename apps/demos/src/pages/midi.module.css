@@ -1,0 +1,304 @@
+.demo {
+  display: grid;
+  gap: 1rem;
+  margin-top: 3rem;
+}
+
+.access,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.primaryButton,
+.secondaryButton {
+  border: 0;
+  border-radius: 0.6rem;
+  padding: 0.65rem 0.9rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primaryButton {
+  color: #080a10;
+  background: #9eb1ff;
+}
+
+.secondaryButton {
+  color: #dce1f5;
+  background: #292d3d;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.status,
+.count {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #292d3d;
+}
+
+.status {
+  padding: 0.35rem 0.6rem;
+  color: #b9c0d8;
+  font:
+    0.75rem ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  text-transform: uppercase;
+}
+
+.status[data-status="connected"] {
+  color: #90f0b0;
+  background: #153624;
+}
+
+.status[data-status="pending"] {
+  color: #ffd886;
+  background: #3a3018;
+}
+
+.status[data-status="denied"],
+.status[data-status="error"],
+.status[data-status="unavailable"] {
+  color: #ff9d9d;
+  background: #3c1c24;
+}
+
+.error {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border-radius: 0.6rem;
+  color: #ffaaaa;
+  background: #351b22;
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.ports,
+.sendGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.controllerGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.panel {
+  padding: 1.25rem;
+  border: 1px solid #2a3042;
+  border-radius: 1rem;
+  background: #12151f;
+}
+
+.panel h2,
+.form h3 {
+  margin: 0 0 1rem;
+}
+
+.panel h2 {
+  font-size: 1rem;
+}
+
+.form h3 {
+  font-size: 0.9rem;
+  color: #bfc6dd;
+}
+
+.count {
+  min-width: 1.5rem;
+  height: 1.5rem;
+  margin-left: 0.35rem;
+  font-size: 0.75rem;
+}
+
+.deviceList {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.deviceList[data-empty="true"],
+.notes[data-empty="true"] {
+  color: #8991aa;
+}
+
+.deviceList [data-device] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 1rem;
+  padding: 0.75rem;
+  border-radius: 0.65rem;
+  background: #1a1e2a;
+}
+
+.deviceList strong,
+.deviceList code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deviceList code {
+  grid-column: 1;
+  color: #9da7c6;
+}
+
+.deviceList button {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  color: #dce1f5;
+  background: #292d3d;
+  font: inherit;
+  cursor: pointer;
+}
+
+.target {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.controller {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: #1a1e2a;
+}
+
+.controller > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  color: #b9c0d8;
+}
+
+.controller output {
+  display: block;
+  margin: 1rem 0 0.4rem;
+  font:
+    1.6rem ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+
+.controller progress {
+  width: 100%;
+  accent-color: #9eb1ff;
+}
+
+.controller small {
+  display: block;
+  min-height: 2.4em;
+  margin-top: 0.5rem;
+  color: #9da7c6;
+  overflow-wrap: anywhere;
+}
+
+.channel {
+  display: grid;
+  grid-template-columns: 1fr 5rem;
+  align-items: end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #303648;
+}
+
+.channel label,
+.form label {
+  display: grid;
+  gap: 0.35rem;
+  color: #c5cadd;
+  font-size: 0.8rem;
+}
+
+.channel label:first-child {
+  display: flex;
+  align-items: center;
+  min-height: 2.2rem;
+}
+
+.channel input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.notes [data-note] {
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.6rem;
+  background: #1a1e2a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.notes small {
+  display: block;
+  margin-top: 0.2rem;
+  color: #9da7c6;
+}
+
+.target select,
+.form input {
+  width: 100%;
+  border: 1px solid #353b50;
+  border-radius: 0.5rem;
+  padding: 0.55rem;
+  color: inherit;
+  background: #181c28;
+  font: inherit;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: #1a1e2a;
+}
+
+.form h3,
+.form button,
+.form .actions {
+  grid-column: 1 / -1;
+}
+
+.sendResult {
+  display: block;
+  margin-top: 1rem;
+  color: #b9c0d8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (max-width: 48rem) {
+  .ports,
+  .sendGrid,
+  .controllerGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .form {
+    grid-template-columns: 1fr;
+  }
+}
