@@ -5,6 +5,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "dev:web": "turbo run dev --filter=web...",
+    "dev:demos": "turbo run dev --filter=demos...",
     "lint": "turbo run lint",
     "format": "turbo run format",
     "check": "turbo run check",

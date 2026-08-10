@@ -9,9 +9,21 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "check": "astro check",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
     "astro": "astro"
   },
   "dependencies": {
+    "@web-audio/clock": "workspace:*",
+    "@web-audio/midi": "workspace:*",
     "astro": "^7.2.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@repo/eslint-config": "workspace:*",
+    "eslint": "^10.8.1",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3"
   }
 }
