@@ -36,7 +36,7 @@
 
 <div class="profile">
 	<header class="profile-header">
-		<div class="avatar">
+		<div class="avatar" data-role="surface-secondary">
 			{#if data.profile.avatar}
 				<img src={data.profile.avatar} alt={data.profile.handle} />
 			{:else}
@@ -101,7 +101,7 @@
 		height: 4rem;
 		border-radius: 100vmax;
 		overflow: hidden;
-		background: var(--color-bg-secondary);
+		background: var(--color-background-primary);
 
 		img {
 			display: block;
@@ -126,12 +126,12 @@
 	.display-name {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: var(--color-fg-primary);
+		color: var(--color-foreground-primary);
 	}
 
 	.handle {
 		font-size: 0.875rem;
-		color: var(--color-fg-tertiary);
+		color: var(--color-foreground-tertiary);
 	}
 
 	.follow-btn {
@@ -140,12 +140,12 @@
 		font-weight: 500;
 		border-radius: 100vmax;
 		border: none;
-		background: var(--color-fg-primary);
-		color: var(--color-bg-primary);
+		background: var(--color-foreground-primary);
+		color: var(--color-background-primary);
 		cursor: pointer;
 
 		&.following {
-			background: var(--color-fg-tertiary);
+			background: var(--color-foreground-tertiary);
 		}
 
 		&:hover {
@@ -162,7 +162,7 @@
 	}
 
 	.empty {
-		color: var(--color-fg-tertiary);
+		color: var(--color-foreground-tertiary);
 		font-size: 0.875rem;
 	}
 </style>

@@ -827,32 +827,6 @@ d.synth("sine").out(d.midi.out().channel(1)).notes([0, 0]).gain(0.75).push();
 
 ---
 
-## Follow-up gaps
+## Follow-up work
 
-### Structured diagnostics
-
-See [`error-handling.md`](error-handling.md). Do not add MIDI-specific console-warning/deduplication infrastructure. Once shared diagnostics exist, use it for implicit CC defaults, ambiguous names, unavailable MIDI targets, and engine lifecycle warnings.
-
-### MIDI note input → synthesizer voices
-
-A separate SOW must define and implement:
-
-- `MidiInSchema` and `d.midi.notes()`;
-- transport-independent versus transport-bound triggering;
-- held-note attack/decay/sustain and note-off release;
-- source-aware polyphony and duplicate-note semantics;
-- live-voice teardown on stop, schema update, reconnect, and destroy;
-- random/pattern/LFO/envelope semantics for live notes;
-- MIDI-controlled primary gain and ADSR/envelope values.
-
-MIDI note 0 endpoint handling in `midiToFrequency()` is already corrected and covered by AudioEngine tests.
-
-The current engine is bar-scheduled and calculates envelopes from known note durations. MIDI note input requires a dedicated live-voice runtime, not a small branch in the pattern scheduler.
-
-### Sampler MIDI output
-
-Sampler output is intentionally deferred. It needs a product decision around whether sample pitch, generated fit/chop timing, and local-buffer availability should drive external hardware. If added, carry the original resolved MIDI note separately from sample playback rate and schedule output independently of sample-buffer readiness.
-
-### MIDI input → samplers
-
-Sampler MIDI input follows the live synth-note work and needs separate decisions around source-key selection, held-note behavior, and sample release semantics.
+Deferred MIDI work was extracted to the active [`midi-follow-ups.md`](../midi-follow-ups.md) index when this plan was completed.

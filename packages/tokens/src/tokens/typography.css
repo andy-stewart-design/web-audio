@@ -1,3 +1,5 @@
+/* PRIMITIVE -------------------------------------------------- */
+
 :where(html) {
   --font-sans: system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -6,16 +8,101 @@
   --font-xs: 0.8125rem;
   --font-sm: 0.875rem;
   --font-base: 1rem;
+  --font-lg: 1.125rem;
+  --font-xl: 1.25rem;
+  --font-2xl: 1.5rem;
+  --font-3xl: 1.875rem;
 
-  --font-thin: 100;
-  --font-extralight: 200;
   --font-light: 300;
   --font-normal: 400;
   --font-medium: 500;
   --font-semibold: 600;
   --font-bold: 700;
-  --font-extrabold: 800;
-  --font-black: 900;
+}
 
-  --line-height-base: 1.5;
+/* SEMANTIC -------------------------------------------------- */
+
+html,
+[data-theme="neutral/typography"] {
+  /* HEADING ----------------------------------- */
+  --font-heading-large-family: var(--font-sans);
+  --font-heading-large-size: var(--font-3xl);
+  --font-heading-large-weight: var(--font-semibold);
+  --font-heading-large-leading: 1.2;
+  --font-heading-large-tracking: -0.025em;
+
+  --font-heading-medium-family: var(--font-heading-large-family);
+  --font-heading-medium-size: var(--font-2xl);
+  --font-heading-medium-weight: var(--font-heading-large-weight);
+  --font-heading-medium-leading: var(--font-heading-large-leading);
+  --font-heading-medium-tracking: var(--font-heading-large-tracking);
+
+  --font-heading-small-family: var(--font-heading-large-family);
+  --font-heading-small-size: var(--font-xl);
+  --font-heading-small-weight: var(--font-heading-large-weight);
+  --font-heading-small-leading: var(--font-heading-large-leading);
+  --font-heading-small-tracking: -0.0125em;
+
+  /* BODY ----------------------------------- */
+  --font-body-family: var(--font-sans);
+  --font-body-size: var(--font-base);
+  --font-body-weight: var(--font-normal);
+  --font-body-leading: 1.5;
+  --font-body-tracking: 0;
+
+  --font-body-small-family: var(--font-body-family);
+  --font-body-small-size: var(--font-sm);
+  --font-body-small-weight: var(--font-body-weight);
+  --font-body-small-leading: var(--font-body-leading);
+  --font-body-small-tracking: var(--font-body-tracking);
+
+  /* LABEL ----------------------------------- */
+  --font-label-family: var(--font-sans);
+  --font-label-size: var(--font-xs);
+  --font-label-weight: var(--font-medium);
+  --font-label-leading: 1.2;
+  --font-label-tracking: 0;
+
+  --font-label-small-family: var(--font-label-family);
+  --font-label-small-size: var(--font-2xs);
+  --font-label-small-weight: var(--font-label-weight);
+  --font-label-small-leading: var(--font-label-leading);
+  --font-label-small-tracking: var(--font-label-tracking);
+
+  /* CODE ----------------------------------- */
+  --font-code-family: var(--font-mono);
+  --font-code-size: var(--font-sm);
+  --font-code-weight: var(--font-normal);
+  --font-code-leading: 1.5;
+  --font-code-tracking: 0;
+
+  --font-code-small-family: var(--font-code-family);
+  --font-code-small-size: var(--font-xs);
+  --font-code-small-weight: var(--font-code-weight);
+  --font-code-small-leading: var(--font-code-leading);
+  --font-code-small-tracking: var(--font-code-tracking);
+
+  /* COMPOSITE ----------------------------------- */
+  --font-heading-large: var(--font-heading-large-weight)
+    var(--font-heading-large-size) / var(--font-heading-large-leading)
+    var(--font-heading-large-family);
+  --font-heading-medium: var(--font-heading-medium-weight)
+    var(--font-heading-medium-size) / var(--font-heading-medium-leading)
+    var(--font-heading-medium-family);
+  --font-heading-small: var(--font-heading-small-weight)
+    var(--font-heading-small-size) / var(--font-heading-small-leading)
+    var(--font-heading-small-family);
+  --font-body: var(--font-body-weight) var(--font-body-size) /
+    var(--font-body-leading) var(--font-body-family);
+  --font-body-small: var(--font-body-small-weight) var(--font-body-small-size) /
+    var(--font-body-small-leading) var(--font-body-small-family);
+  --font-label: var(--font-label-weight) var(--font-label-size) /
+    var(--font-label-leading) var(--font-label-family);
+  --font-label-small: var(--font-label-small-weight)
+    var(--font-label-small-size) / var(--font-label-small-leading)
+    var(--font-label-small-family);
+  --font-code: var(--font-code-weight) var(--font-code-size) /
+    var(--font-code-leading) var(--font-code-family);
+  --font-code-small: var(--font-code-small-weight) var(--font-code-small-size) /
+    var(--font-code-small-leading) var(--font-code-small-family);
 }

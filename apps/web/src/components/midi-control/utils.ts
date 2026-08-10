@@ -24,22 +24,24 @@ function groupDevices(inputs: MidiDevice[], outputs: MidiDevice[]) {
 	return grouped;
 }
 
+const BASE_STATUS = 'MIDI Link';
+
 function getMidiStatus(status: MidiStatus | 'disabled') {
 	switch (status) {
 		case 'disabled':
-			return 'MIDI disabled';
+			return `${BASE_STATUS} disabled`;
 		case 'pending':
-			return 'MIDI connecting…';
+			return `${BASE_STATUS} connecting…`;
 		case 'connected':
-			return 'MIDI connected';
+			return `${BASE_STATUS} connected`;
 		case 'denied':
-			return 'MIDI permission denied';
+			return `${BASE_STATUS} permission denied`;
 		case 'unavailable':
-			return 'MIDI unavailable';
+			return `${BASE_STATUS} unavailable`;
 		case 'error':
-			return 'MIDI error';
+			return `${BASE_STATUS} error`;
 		case 'destroyed':
-			return 'MIDI destroyed';
+			return `${BASE_STATUS} destroyed`;
 	}
 }
 

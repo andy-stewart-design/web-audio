@@ -1,31 +1,22 @@
 import type { Session } from '@/app';
-import { computePosition, flip, offset, shift } from '@floating-ui/dom';
-
-// PROP TYPES --------------------------------------------------------------------
 
 interface ButtonProps {
 	session: Session;
 }
 
 interface DialogProps {
-	ref: HTMLDialogElement | undefined;
 	handle: string;
 	onsubmit: (e: SubmitEvent) => Promise<void>;
 	loading: boolean;
 	error: string | null;
 }
 
-interface PopoverProps {
-	ref?: HTMLDivElement;
-	isOpen?: boolean;
-	trigger: HTMLButtonElement | undefined;
-	did: string;
-	displayName: string | null;
-	handle: string;
-	onlogout: () => void;
-}
+type AuthenticatedSession = Extract<Session, { did: string }>;
 
-// LOGIN BUTTON --------------------------------------------------------------------
+interface PopoverProps {
+	session: AuthenticatedSession;
+	onlogout: () => Promise<void>;
+}
 
 async function getOAuthURL(handle: string) {
 	const res = await fetch('/oauth/login', {
@@ -48,28 +39,4 @@ async function getOAuthURL(handle: string) {
 	return url;
 }
 
-// POPOVER --------------------------------------------------------------------
-
-async function updatePosition(popover?: HTMLElement, trigger?: HTMLElement) {
-	if (!trigger || !popover) return;
-	const { x, y } = await computePosition(trigger, popover, {
-		placement: 'bottom-end',
-		strategy: 'fixed',
-		middleware: [offset(8), flip(), shift({ padding: 8 })]
-	});
-	popover.style.left = `${x}px`;
-	popover.style.top = `${y}px`;
-}
-
-const supportsPopover =
-	typeof HTMLElement !== 'undefined' &&
-	typeof (HTMLElement.prototype as unknown as { showPopover?: unknown }).showPopover === 'function';
-
-export {
-	getOAuthURL,
-	supportsPopover,
-	updatePosition,
-	type ButtonProps,
-	type DialogProps,
-	type PopoverProps
-};
+export { getOAuthURL, type ButtonProps, type DialogProps, type PopoverProps };

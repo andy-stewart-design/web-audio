@@ -1,50 +1,49 @@
 <script lang="ts">
+	import Dialog from '@/components/core/dialog/index.svelte';
+	import Button from '@/components/core/button/index.svelte';
+	import TextInput from '@/components/core/text-input/index.svelte';
 	import type { DialogProps } from './utils';
 
-	let { ref = $bindable(), handle = $bindable(), loading, onsubmit, error }: DialogProps = $props();
+	let { handle = $bindable(), loading, onsubmit, error }: DialogProps = $props();
+	let dialog: Dialog;
+
+	export function open() {
+		dialog.open();
+	}
+
+	export function close() {
+		dialog.close();
+	}
 </script>
 
-<dialog bind:this={ref}>
-	<h2>Login</h2>
-	<form {onsubmit}>
-		<label>
-			Handle
-			<input
+<Dialog bind:this={dialog} title="Login">
+	{#snippet content()}
+		<form {onsubmit}>
+			<TextInput
+				label="Handle"
 				id="handle"
-				type="text"
 				bind:value={handle}
 				placeholder="user.bsky.social"
 				disabled={loading}
+				autocapitalize="none"
+				inputmode="url"
+				autofocus
+				data-role="surface-tertiary"
 			/>
-		</label>
-		<div class="button-container">
-			<button type="submit" disabled={loading}>Login</button>
-		</div>
-		{#if error}
-			<p class="error">{error}</p>
-		{/if}
-	</form>
-</dialog>
+			<div class="button-container">
+				<Button type="submit" disabled={loading}>Login</Button>
+			</div>
+			{#if error}
+				<p class="error">{error}</p>
+			{/if}
+		</form>
+	{/snippet}
+</Dialog>
 
 <style>
-	dialog {
-		gap: 1rem;
-		inline-size: 100%;
-		max-inline-size: 480px;
-
-		&[open] {
-			display: grid;
-		}
-	}
-
 	form {
 		display: grid;
 		gap: 1rem;
-	}
-
-	label {
-		display: grid;
-		gap: 0.5rem;
 	}
 
 	.button-container {

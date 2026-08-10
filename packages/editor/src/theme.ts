@@ -5,6 +5,8 @@ export const theme = EditorView.theme(
     "&": {
       color: "var(--cm-editor-color-foreground)",
       background: "var(--cm-editor-color-background)",
+      font: "var(--cm-editor-font)",
+      fontFamily: "var(--cm-editor-font-family)",
       fontSize: "var(--cm-editor-font-size)",
       height: "var(--cm-editor-block-size)",
     },
@@ -16,11 +18,13 @@ export const theme = EditorView.theme(
       overscrollBehavior: "contain",
       scrollbarWidth: "thin",
       scrollbarColor: "var(--cm-scrollbar-color) transparent",
-      lineHeight: 1.6,
+      lineHeight: "var(--cm-editor-leading)",
     },
     ".cm-content": {
-      fontFamily: "var(--cm-editor-font-family)",
       caretColor: "transparent",
+      font: "var(--cm-editor-font)",
+      fontFamily: "var(--cm-editor-font-family)",
+      fontSize: "var(--cm-editor-font-size)",
       paddingBlockStart: "var(--cm-editor-padding-block-start)",
       paddingBlockEnd: "var(--cm-editor-padding-block-end)",
     },
@@ -34,6 +38,7 @@ export const theme = EditorView.theme(
     ".cm-gutters": {
       background: "var(--cm-gutter-color-background)",
       color: "var(--cm-gutter-color-foreground)",
+      font: "var(--cm-editor-font)",
       fontFamily: "var(--cm-editor-font-family)",
       fontSize: "var(--cm-gutter-font-size)",
       userSelect: "none",

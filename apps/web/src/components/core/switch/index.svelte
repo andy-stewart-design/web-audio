@@ -20,18 +20,27 @@
 
 <style>
 	.switch {
+		--switch-block-size: 1.5rem;
+		--switch-inline-size: 2.5rem;
+		--switch-thumb-offset: 0.175rem;
+		--switch-thumb-size: calc(var(--switch-block-size) - 2 * var(--switch-thumb-offset));
+		--switch-checked-translate: calc(
+			var(--switch-inline-size) - var(--switch-thumb-size) - 2 * var(--switch-thumb-offset)
+		);
+
 		position: relative;
 		flex: 0 0 auto;
 		appearance: none;
-		block-size: 1.625rem;
-		inline-size: 3rem;
+		block-size: var(--switch-block-size);
+		inline-size: var(--switch-inline-size);
 		margin: 0;
 		padding: 0.2rem;
 		border: none;
 		border-radius: 100vmax;
-		background: var(--color-fg-tertiary);
+		background: var(--color-foreground-tertiary);
 		cursor: pointer;
 		transition: background 120ms ease;
+		overflow: clip;
 
 		&[data-state='checked'] {
 			background: #42a66c;
@@ -46,7 +55,7 @@
 		}
 
 		&:not([data-state='unchecked'])::after {
-			translate: 1.25rem 0;
+			translate: var(--switch-checked-translate) 0;
 		}
 
 		&:focus-visible {
@@ -56,13 +65,13 @@
 
 		&::after {
 			position: absolute;
-			inset-block-start: 0.2rem;
-			inset-inline-start: 0.2rem;
-			block-size: 1.25rem;
-			inline-size: 1.25rem;
+			inset-block-start: var(--switch-thumb-offset);
+			inset-inline-start: var(--switch-thumb-offset);
+			block-size: var(--switch-thumb-size);
+			inline-size: var(--switch-thumb-size);
 			border-radius: 50%;
-			background: var(--color-bg-primary);
-			box-shadow: 0 1px 3px rgb(0 0 0 / 25%);
+			background: var(--color-foreground-primary);
+			box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
 			content: '';
 			transition: translate 120ms ease;
 		}

@@ -3,6 +3,8 @@
 	import BookmarkButton from '@/components/bookmark-button/index.svelte';
 	import type { SketchCard } from '@/lib/types/sketch';
 	import Button from '@/components/core/button/index.svelte';
+	import IconPlay from '../icons/icon-play.svelte';
+	import IconStop from '../icons/icon-stop.svelte';
 
 	let { sketch }: { sketch: SketchCard } = $props();
 
@@ -18,7 +20,7 @@
 	}
 </script>
 
-<article class="card">
+<article class="card" data-role="surface-secondary">
 	<header>
 		<div class="meta">
 			{#if sketch.tags?.length}
@@ -40,7 +42,7 @@
 	</header>
 
 	<div class="main">
-		<a href={sketch.href} class="title">{sketch.title}</a>
+		<a href={sketch.href} class="title"><h2>{sketch.title}</h2></a>
 
 		{#if sketch.description}
 			<p class="description">{sketch.description}</p>
@@ -62,10 +64,15 @@
 			</a>
 
 			<div class="controls">
-				<Button active={isThisPlaying} onclick={handlePlay}>
+				<Button class="play" onclick={handlePlay} variant="secondary">
+					{#if isThisPlaying}
+						<IconStop size={12} fill="currentColor" stroke-width={1} />
+					{:else}
+						<IconPlay size={12} fill="currentColor" stroke-width={1} />
+					{/if}
 					{isThisPlaying ? 'Stop' : 'Play'}
 				</Button>
-				<Button href={sketch.remixHref}>Remix</Button>
+				<Button href={sketch.remixHref} variant="tertiary">Remix</Button>
 			</div>
 		</div>
 	</footer>
@@ -75,7 +82,7 @@
 	.card {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
-		background: var(--color-bg-secondary);
+		background: var(--color-background-primary);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: 6px;
 	}
@@ -96,11 +103,11 @@
 		gap: 0.75rem;
 		block-size: 3rem;
 		padding-inline: 1rem;
-		font-size: 0.75rem;
+		font: var(--font-label-small);
 	}
 
 	.date {
-		color: var(--color-fg-tertiary);
+		color: var(--color-foreground-secondary);
 	}
 
 	.tags {
@@ -122,19 +129,22 @@
 		padding-block: 0 1.25rem;
 
 		.title {
-			font-size: 1.25rem;
-			font-weight: 600;
 			text-decoration: none;
 			color: inherit;
 
 			&:hover {
-				color: var(--color-fg-secondary);
+				color: var(--color-foreground-secondary);
+			}
+
+			h2 {
+				font: var(--font-heading-small);
+				letter-spacing: var(--font-heading-small-tracking);
 			}
 		}
 
 		.description {
-			font-size: 0.875rem;
-			color: var(--color-fg-tertiary);
+			font: var(--font-body-small);
+			color: var(--color-foreground-secondary);
 			display: -webkit-box;
 			-webkit-line-clamp: 2;
 			line-clamp: 2;
@@ -163,8 +173,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		font-size: 0.875rem;
-		font-weight: 500;
+		font: var(--font-body-small);
+		font-weight: var(--font-medium);
 		text-decoration: none;
 
 		.avatar {
@@ -172,7 +182,7 @@
 			block-size: 1.75rem;
 			inline-size: 1.75rem;
 			border-radius: 100vmax;
-			background: var(--color-bg-primary);
+			background: var(--color-background-primary);
 			margin-inline-end: 0.125rem;
 
 			img {
@@ -184,11 +194,11 @@
 		}
 
 		.handle {
-			color: var(--color-fg-tertiary);
+			color: var(--color-foreground-tertiary);
 		}
 
 		&:hover {
-			color: var(--color-fg-secondary);
+			color: var(--color-foreground-secondary);
 		}
 	}
 
@@ -196,5 +206,9 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+
+		:global(.play) {
+			min-width: 9.5ch;
+		}
 	}
 </style>
