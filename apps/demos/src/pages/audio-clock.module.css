@@ -1,0 +1,134 @@
+.clockDemo {
+  display: grid;
+  gap: 2rem;
+  max-width: 52rem;
+  margin-top: 3rem;
+  padding: 1.5rem;
+  border: 1px solid #2a3042;
+  border-radius: 1rem;
+  background: #12151f;
+}
+
+.clockControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.primaryButton {
+  border: 0;
+  border-radius: 0.6rem;
+  padding: 0.7rem 1rem;
+  color: #0b0d14;
+  background: #9eb1ff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.clockState {
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  color: #b9c0d8;
+  background: #292d3d;
+  font:
+    0.75rem ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  text-transform: uppercase;
+}
+
+.clockState[data-running="true"] {
+  color: #90f0b0;
+  background: #153624;
+}
+
+.rangeControl {
+  display: grid;
+  flex: 1 1 15rem;
+  gap: 0.5rem;
+  color: #c5cadd;
+}
+
+.rangeControl input {
+  width: 100%;
+  accent-color: #9eb1ff;
+}
+
+.beatLights {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.beatLight {
+  width: clamp(2.75rem, 10vw, 4rem);
+  aspect-ratio: 1;
+  border: 2px solid #4a5269;
+  border-radius: 50%;
+  background: #1d2230;
+  transition:
+    background-color 50ms linear,
+    border-color 50ms linear;
+}
+
+.beatLight[data-active="true"] {
+  border-color: #eff2ff;
+  background: #6f89ff;
+}
+
+.beatLight[data-light="0"][data-active="true"] {
+  background: #ff7e91;
+}
+
+.clockPosition {
+  margin: 0;
+  color: #c5cadd;
+  font-size: 1.15rem;
+  text-align: center;
+}
+
+.eventLog {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #2a3042;
+}
+
+.eventLog h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.eventLog p {
+  margin: 0.35rem 0 0;
+  color: #aab1c8;
+  font-size: 0.9rem;
+}
+
+.eventLog ol {
+  max-height: 14rem;
+  margin: 0;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  overflow: auto;
+  border-radius: 0.75rem;
+  color: #c5cadd;
+  background: #0b0d14;
+  font:
+    0.8rem/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+
+@media (max-width: 36rem) {
+  .clockDemo {
+    padding: 1rem;
+  }
+
+  .clockControls {
+    align-items: stretch;
+  }
+}
