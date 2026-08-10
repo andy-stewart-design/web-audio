@@ -159,6 +159,69 @@
   gap: 0.6rem;
 }
 
+.autoControls {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid #353b50;
+  border-radius: 0.75rem;
+}
+
+.autoControls legend {
+  padding: 0 0.35rem;
+  color: #c5cadd;
+}
+
+.numberControls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.75rem;
+}
+
+.numberControls label,
+.rangeControl {
+  display: grid;
+  gap: 0.35rem;
+  color: #c5cadd;
+  font-size: 0.85rem;
+}
+
+.numberControls input,
+.numberControls select {
+  width: 100%;
+  border: 1px solid #353b50;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  color: inherit;
+  background: #181c28;
+  font: inherit;
+}
+
+.rangeControl span {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.rangeControl output {
+  color: #9eb1ff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.rangeControl input {
+  width: 100%;
+  accent-color: #9eb1ff;
+}
+
+.checkControl {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #c5cadd;
+  font-size: 0.85rem;
+}
+
 .eventLog {
   display: grid;
   gap: 1rem;

@@ -62,6 +62,33 @@ import styles from "./scratching.module.css";
           Play matching reversed clip
         </button>
       </div>
+      <fieldset class={styles.autoControls}>
+        <legend>Automatic baby scratch</legend>
+        <div class={styles.numberControls}>
+          <label>Tempo <input data-bpm type="number" min="40" max="240" value="94" /> BPM</label>
+          <label>Steps per beat <select data-subdivision><option value="2">2</option><option value="4" selected>4</option><option value="8">8</option></select></label>
+          <label>Scratch steps <input data-phrase type="number" min="1" max="64" value="16" /></label>
+          <label>Rest steps <input data-rest type="number" min="0" max="64" value="16" /></label>
+          <label>Direction <select data-direction-mode><option value="alternate">Alternate</option><option value="random">Random</option></select></label>
+        </div>
+        <label class={styles.rangeControl}>
+          <span>Hit probability <output data-probability-value>60%</output></span>
+          <input data-probability type="range" min="0" max="1" step="0.01" value="0.6" />
+        </label>
+        <label class={styles.checkControl}><input data-vary-duration type="checkbox" checked /> Randomize clip duration ±35%</label>
+        <label class={styles.rangeControl}>
+          <span>Timing jitter <output data-jitter-value>0 ms</output></span>
+          <input data-jitter type="range" min="0" max="60" step="1" value="0" />
+        </label>
+        <label class={styles.rangeControl}>
+          <span>Choke time <output data-choke-value>5 ms</output></span>
+          <input data-choke type="range" min="1" max="100" step="1" value="5" />
+        </label>
+        <div class={styles.actions}>
+          <button class={styles.primaryButton} type="button" data-auto disabled>Start automatic scratch</button>
+          <button class={styles.secondaryButton} type="button" data-stop disabled>Stop</button>
+        </div>
+      </fieldset>
       <section class={styles.eventLog} aria-labelledby="event-log-title">
         <div>
           <h3 id="event-log-title">Audio event log</h3>
