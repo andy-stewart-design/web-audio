@@ -52,6 +52,10 @@ const reverseBuffer = (context: AudioContext, source: AudioBuffer) => {
 
 export const setupScratch = (root: HTMLElement) => {
   const file = selector<HTMLInputElement>(root, "[data-file]");
+  const loadDefaultButton = selector<HTMLButtonElement>(
+    root,
+    "[data-load-default]",
+  );
   const sourceName = selector<HTMLOutputElement>(root, "[data-source-name]");
   const status = selector<HTMLOutputElement>(root, "[data-status]");
   const error = selector<HTMLParagraphElement>(root, "[data-error]");
@@ -66,9 +70,10 @@ export const setupScratch = (root: HTMLElement) => {
   const auto = selector<HTMLButtonElement>(root, "[data-auto]");
   const stop = selector<HTMLButtonElement>(root, "[data-stop]");
   const bpm = selector<HTMLInputElement>(root, "[data-bpm]");
-  const subdivision = selector<HTMLSelectElement>(root, "[data-subdivision]");
-  const phrase = selector<HTMLInputElement>(root, "[data-phrase]");
-  const rest = selector<HTMLInputElement>(root, "[data-rest]");
+  const scratchBars = selector<HTMLInputElement>(root, "[data-scratch-bars]");
+  const scratchSteps = selector<HTMLInputElement>(root, "[data-scratch-steps]");
+  const restBars = selector<HTMLInputElement>(root, "[data-rest-bars]");
+  const restSteps = selector<HTMLInputElement>(root, "[data-rest-steps]");
   const probability = selector<HTMLInputElement>(root, "[data-probability]");
   const probabilityValue = selector<HTMLOutputElement>(
     root,
@@ -121,11 +126,13 @@ export const setupScratch = (root: HTMLElement) => {
   let reversed: AudioBuffer | null = null;
   let pendingDefault: Promise<ArrayBuffer> | null = null;
   let defaultData: ArrayBuffer | null = null;
+  let defaultSourceLoaded = false;
   let activeVoice: Voice | null = null;
   const activeVoices = new Set<Voice>();
   let scheduler: number | null = null;
   let nextStepTime = 0;
-  let sequenceStep = 0;
+  let phase: "scratch" | "rest" = "scratch";
+  let phaseStep = 0;
   let alternateDirection: Direction = "forward";
   let random = seededRandom(seed.value);
 
@@ -259,9 +266,10 @@ export const setupScratch = (root: HTMLElement) => {
   };
 
   const stopVoice = (voice: Voice, when: number, chokeSeconds = 0) => {
-    voice.gain.gain.cancelScheduledValues(when);
-    voice.gain.gain.setTargetAtTime(0, when, Math.max(chokeSeconds / 3, 0.001));
-    voice.source.stop(when + Math.max(chokeSeconds, 0.005) + fadeDuration);
+    const fadeEnd = when + Math.max(chokeSeconds, fadeDuration);
+    voice.gain.gain.cancelAndHoldAtTime(when);
+    voice.gain.gain.linearRampToValueAtTime(0, fadeEnd);
+    voice.source.stop(fadeEnd + fadeDuration);
   };
 
   const stopVoices = () => {
@@ -271,13 +279,20 @@ export const setupScratch = (root: HTMLElement) => {
     activeVoice = null;
   };
 
-  const decode = async (data: ArrayBuffer, name: string) => {
+  const decode = async (
+    data: ArrayBuffer,
+    name: string,
+    isDefaultSource: boolean,
+  ) => {
     const audioContext = getContext();
     stopAuto();
     stopVoices();
     original = await audioContext.decodeAudioData(data.slice(0));
     reversed = reverseBuffer(audioContext, original);
     sourceName.value = name;
+    defaultSourceLoaded = isDefaultSource;
+    loadDefaultButton.disabled = isDefaultSource;
+    file.disabled = false;
     start.value = "0";
     updateSliceControls();
     setMetadata(original);
@@ -288,7 +303,7 @@ export const setupScratch = (root: HTMLElement) => {
 
   const downloadDefault = async () => {
     if (!pendingDefault) {
-      setStatus("loading default vocal sample…", "loading");
+      setStatus("downloading default track…", "loading");
       pendingDefault = fetch(defaultSource).then(async (response) => {
         if (!response.ok) {
           throw new Error(`Default sample request failed: ${response.status}`);
@@ -300,15 +315,37 @@ export const setupScratch = (root: HTMLElement) => {
     return defaultData;
   };
 
+  const setSourceLoading = () => {
+    loadDefaultButton.disabled = true;
+    file.disabled = true;
+  };
+
+  const restoreSourceControls = () => {
+    loadDefaultButton.disabled = defaultSourceLoaded;
+    file.disabled = false;
+  };
+
   const loadDefault = async () => {
-    const data = defaultData ?? (await downloadDefault());
-    setStatus("decoding default vocal sample…", "loading");
-    await decode(data, "Tay Zonday vocal sample via Hyperblam");
+    setSourceLoading();
+    try {
+      const data = defaultData ?? (await downloadDefault());
+      setStatus("decoding default track…", "loading");
+      await decode(data, "tay.mp3", true);
+    } catch (reason) {
+      restoreSourceControls();
+      throw reason;
+    }
   };
 
   const loadFile = async (selected: File) => {
-    setStatus("decoding local file…", "loading");
-    await decode(await selected.arrayBuffer(), selected.name);
+    setSourceLoading();
+    try {
+      setStatus("decoding local file…", "loading");
+      await decode(await selected.arrayBuffer(), selected.name, false);
+    } catch (reason) {
+      restoreSourceControls();
+      throw reason;
+    }
   };
 
   const resolveDirection = () => {
@@ -352,9 +389,8 @@ export const setupScratch = (root: HTMLElement) => {
         when ?? audioContext.currentTime,
         audioContext.currentTime,
       );
-      const end = startTime + clipDuration;
-      const releaseStart =
-        startTime + Math.max(fadeDuration, clipDuration - fadeDuration);
+      const gateTime = startTime + clipDuration;
+      const stopTime = gateTime + fadeDuration * 8;
       const source = new AudioBufferSourceNode(audioContext, { buffer });
       source.detune.setValueAtTime(detune.valueAsNumber, startTime);
       const gain = new GainNode(audioContext, { gain: 0 });
@@ -364,12 +400,11 @@ export const setupScratch = (root: HTMLElement) => {
 
       if (activeVoice) stopVoice(activeVoice, startTime, chokeSeconds);
       gain.gain.setValueAtTime(0, startTime);
-      gain.gain.linearRampToValueAtTime(1, startTime + fadeDuration);
-      gain.gain.setValueAtTime(1, releaseStart);
-      gain.gain.exponentialRampToValueAtTime(0.001, end);
+      gain.gain.setTargetAtTime(1, startTime, fadeDuration);
+      gain.gain.setTargetAtTime(0, gateTime, fadeDuration);
       source.connect(gain).connect(masterGain);
-      source.start(startTime, offset, clipDuration);
-      source.stop(end + fadeDuration);
+      source.start(startTime, offset);
+      source.stop(stopTime);
       activeVoices.add(voice);
       activeVoice = voice;
       source.addEventListener(
@@ -394,7 +429,7 @@ export const setupScratch = (root: HTMLElement) => {
     }
   };
 
-  const playRelease = (when: number) => {
+  const playRelease = (when: number, duration: number) => {
     if (!context || !original || !masterGain) return;
 
     const source = new AudioBufferSourceNode(context, { buffer: original });
@@ -406,11 +441,14 @@ export const setupScratch = (root: HTMLElement) => {
     if (activeVoice) stopVoice(activeVoice, when, chokeSeconds);
     source.detune.setValueAtTime(-1200, when);
     source.detune.linearRampToValueAtTime(0, when + accelerationTime);
+    const releaseEnd = when + Math.max(duration, fadeDuration * 2);
     gain.gain.setValueAtTime(0, when);
     gain.gain.linearRampToValueAtTime(1, when + fadeDuration);
+    gain.gain.setValueAtTime(1, releaseEnd - fadeDuration);
+    gain.gain.linearRampToValueAtTime(0, releaseEnd);
     source.connect(gain).connect(masterGain);
     source.start(when);
-    source.stop(when + original.duration * 2 + fadeDuration);
+    source.stop(releaseEnd + fadeDuration);
     activeVoices.add(voice);
     activeVoice = voice;
     source.addEventListener(
@@ -431,42 +469,63 @@ export const setupScratch = (root: HTMLElement) => {
   const schedule = () => {
     if (!context || scheduler === null) return;
     const tempo = Math.max(1, bpm.valueAsNumber || 94);
-    const stepsPerBeat = Math.max(1, Number(subdivision.value));
-    const stepDuration = 60 / tempo / stepsPerBeat;
-    const phraseSteps = Math.max(1, Math.floor(phrase.valueAsNumber || 1));
-    const restSteps = Math.max(0, Math.floor(rest.valueAsNumber || 0));
-    const cycleLength = phraseSteps + restSteps;
+    const barDuration = (60 / tempo) * 4;
+    const scratchBarCount = Math.max(
+      1,
+      Math.floor(scratchBars.valueAsNumber || 1),
+    );
+    const scratchStepCount = Math.max(
+      1,
+      Math.floor(scratchSteps.valueAsNumber || 1),
+    );
+    const restBarCount = Math.max(1, Math.floor(restBars.valueAsNumber || 1));
+    const restStepCount = Math.max(1, Math.floor(restSteps.valueAsNumber || 1));
+    const scratchStepDuration = barDuration / scratchStepCount;
+    const restStepDuration = barDuration / restStepCount;
+    const scratchPhraseSteps = scratchBarCount * scratchStepCount;
+    const restPhraseSteps = restBarCount * restStepCount;
 
     while (nextStepTime < context.currentTime + scheduleAheadTime) {
-      const position = sequenceStep % cycleLength;
-      const active = position < phraseSteps;
-      if (releaseEnabled.checked && position === phraseSteps && restSteps > 0) {
-        playRelease(nextStepTime);
+      if (phase === "scratch") {
+        if (random() <= probability.valueAsNumber) {
+          const maxDuration = original
+            ? original.duration - start.valueAsNumber
+            : 0;
+          const minimumDuration = Math.min(
+            durationMin.valueAsNumber,
+            maxDuration,
+          );
+          const maximumDuration = Math.min(
+            Math.max(durationMax.valueAsNumber, minimumDuration),
+            maxDuration,
+          );
+          const randomizedDuration =
+            minimumDuration + random() * (maximumDuration - minimumDuration);
+          const jitterSeconds =
+            (random() * 2 - 1) * (jitter.valueAsNumber / 1000);
+          const when = Math.max(
+            context.currentTime + 0.005,
+            nextStepTime + jitterSeconds,
+          );
+          void play(resolveDirection(), when, randomizedDuration);
+        }
+        nextStepTime += scratchStepDuration;
+        phaseStep += 1;
+        if (phaseStep === scratchPhraseSteps) {
+          phase = "rest";
+          phaseStep = 0;
+        }
+      } else {
+        if (releaseEnabled.checked) {
+          playRelease(nextStepTime, restStepDuration);
+        }
+        nextStepTime += restStepDuration;
+        phaseStep += 1;
+        if (phaseStep === restPhraseSteps) {
+          phase = "scratch";
+          phaseStep = 0;
+        }
       }
-      if (active && random() <= probability.valueAsNumber) {
-        const maxDuration = original
-          ? original.duration - start.valueAsNumber
-          : 0;
-        const minimumDuration = Math.min(
-          durationMin.valueAsNumber,
-          maxDuration,
-        );
-        const maximumDuration = Math.min(
-          Math.max(durationMax.valueAsNumber, minimumDuration),
-          maxDuration,
-        );
-        const randomizedDuration =
-          minimumDuration + random() * (maximumDuration - minimumDuration);
-        const jitterSeconds =
-          (random() * 2 - 1) * (jitter.valueAsNumber / 1000);
-        const when = Math.max(
-          context.currentTime + 0.005,
-          nextStepTime + jitterSeconds,
-        );
-        void play(resolveDirection(), when, randomizedDuration);
-      }
-      nextStepTime += stepDuration;
-      sequenceStep += 1;
     }
   };
 
@@ -478,7 +537,8 @@ export const setupScratch = (root: HTMLElement) => {
       await audioContext.resume();
       scheduler = window.setInterval(schedule, schedulerInterval);
       nextStepTime = audioContext.currentTime + 0.02;
-      sequenceStep = 0;
+      phase = "scratch";
+      phaseStep = 0;
       alternateDirection = "forward";
       random = seededRandom(seed.value);
       addEvent(`random seed: ${seed.value}`);
@@ -503,6 +563,16 @@ export const setupScratch = (root: HTMLElement) => {
     stop.disabled = true;
     stopVoices();
   }
+
+  const onLoadDefault = () => {
+    error.hidden = true;
+    void loadDefault().catch((reason: unknown) => {
+      error.textContent =
+        reason instanceof Error ? reason.message : String(reason);
+      error.hidden = false;
+      setStatus("default track unavailable", "error");
+    });
+  };
 
   const onFileChange = () => {
     const selected = file.files?.[0];
@@ -539,6 +609,7 @@ export const setupScratch = (root: HTMLElement) => {
   };
 
   file.addEventListener("change", onFileChange);
+  loadDefaultButton.addEventListener("click", onLoadDefault);
   start.addEventListener("input", updateSliceControls);
   probability.addEventListener("input", updateValues);
   jitter.addEventListener("input", updateValues);
@@ -559,17 +630,11 @@ export const setupScratch = (root: HTMLElement) => {
   stop.disabled = true;
   updateValues();
   setMetadata(null);
-  void downloadDefault()
-    .then(() => {
-      setPlayable(true);
-      setStatus("default vocal sample ready", "ready");
-    })
-    .catch(() => {
-      setStatus("default sample unavailable — choose a local file", "error");
-    });
+  setStatus("no track loaded", "idle");
 
   return () => {
     file.removeEventListener("change", onFileChange);
+    loadDefaultButton.removeEventListener("click", onLoadDefault);
     start.removeEventListener("input", updateSliceControls);
     probability.removeEventListener("input", updateValues);
     jitter.removeEventListener("input", updateValues);

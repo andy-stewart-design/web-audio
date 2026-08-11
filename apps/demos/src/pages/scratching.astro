@@ -18,29 +18,32 @@ import styles from "./scratching.module.css";
   </section>
 
   <section class={styles.demo} data-scratch aria-label="Scratch sample loader">
-    <div class={styles.source}>
-      <label class={styles.fileLabel}>
-        <span>Replace the source audio</span>
-        <input data-file type="file" accept="audio/*" />
-      </label>
-      <output class={styles.status} data-status data-state="loading">
-        loading default vocal sample…
-      </output>
-    </div>
-
-    <p class={styles.credit}>
-      Default audio: <code>/public/tay.mp3</code>, a local copy of the Tay
-      Zonday vocal sample used by Hyperblam’s
-      <a href="https://hyperblam.how/examples/ch-ch-ch-chocolate/">Ch-ch-ch-chocolate</a>
-      example.
-    </p>
+    <section class={styles.source} aria-labelledby="source-title">
+      <h2 id="source-title">Audio source</h2>
+      <div class={styles.sourceControls}>
+        <div class={styles.sourceState}>
+          <output class={styles.status} data-status data-state="idle">
+            no track loaded
+          </output>
+          <output class={styles.sourceName} data-source-name>—</output>
+        </div>
+        <div class={styles.actions}>
+          <button class={styles.primaryButton} type="button" data-load-default>
+            Load default track
+          </button>
+          <label class={`${styles.secondaryButton} ${styles.fileButton}`}>
+            Choose file
+            <input class={styles.fileInput} data-file type="file" accept="audio/*" />
+          </label>
+        </div>
+      </div>
+    </section>
 
     <p class={styles.error} data-error hidden></p>
 
     <section class={styles.buffer} aria-labelledby="buffer-title">
       <div>
         <h2 id="buffer-title">Decoded source</h2>
-        <output class={styles.sourceName} data-source-name>Waiting for audio</output>
       </div>
       <dl class={styles.metadata} data-metadata hidden></dl>
       <fieldset class={styles.sliceControls}>
@@ -69,10 +72,11 @@ import styles from "./scratching.module.css";
       <fieldset class={styles.autoControls}>
         <legend>Automatic baby scratch</legend>
         <div class={styles.numberControls}>
-          <label>Tempo <input data-bpm type="number" min="40" max="240" value="94" /> BPM</label>
-          <label>Steps per beat <select data-subdivision><option value="2">2</option><option value="4" selected>4</option><option value="8">8</option></select></label>
-          <label>Scratch steps <input data-phrase type="number" min="1" max="64" value="16" /></label>
-          <label>Rest steps <input data-rest type="number" min="0" max="64" value="16" /></label>
+          <label>Tempo (BPM) <input data-bpm type="number" min="40" max="240" value="94" /></label>
+          <label>Scratch bars <input data-scratch-bars type="number" min="1" max="64" value="1" /></label>
+          <label>Scratch steps <input data-scratch-steps type="number" min="1" max="64" value="16" /></label>
+          <label>Rest bars <input data-rest-bars type="number" min="1" max="64" value="1" /></label>
+          <label>Rest steps <input data-rest-steps type="number" min="1" max="64" value="1" /></label>
           <label>Direction <select data-direction-mode><option value="alternate">Alternate</option><option value="random">Random</option></select></label>
           <label>Random seed <input data-seed type="text" value="chocolate" /></label>
         </div>

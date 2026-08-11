@@ -276,3 +276,14 @@ d.sample("hh")
   .push();
 
 d.sample("rim").euclid(5, 8, 1).gain(0.5).push();
+
+d.loadSamples({
+  tay: [
+    "https://cdn.jsdelivr.net/gh/Heydon/hyperblam-docs@main/src/static/sounds/chocolate/tay.mp3",
+  ],
+});
+
+d.sample("tay")
+  .bank("user")
+  .detune(d.env(-1200, 0).adsr(0.0625, 0, 1, 0))
+  .push();
