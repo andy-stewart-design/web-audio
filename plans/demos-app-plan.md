@@ -66,6 +66,14 @@ apps/demos/
 
 Exact component names may change, but routes should remain independent: loading or changing one demo must not instantiate audio/MIDI state for another.
 
+## Implementation status
+
+- **Phase 1:** complete. `apps/demos` is an Astro/vanilla-TypeScript workspace app with shared layout, index, routes, lint/check/format/build scripts, and root-workspace dependencies.
+- **Phase 2:** complete in code. The clock and MIDI apps are migrated to scoped vanilla modules, and the superseded `apps/audio-clock` and `apps/midi-demo` apps have been removed. Real-browser audio/MIDI verification remains pending.
+- **Phase 3:** complete in code. The scratch route loads local `public/tay.mp3` or an uploaded file, builds a reversed buffer, creates short forward/reverse voices with gain envelopes, schedules a 16-step scratch / 16-step rest phrase by default, optionally plays a ramp-up full-sample release at each rest, and supports detune/LFO modulation.
+- Scratch scheduling randomness is deterministic per automatic run: a string seed initializes a PRNG when Start is pressed. The same seed and settings reproduce hit selection, random direction, duration variation, and jitter.
+- **Phase 4 and manual browser verification:** pending.
+
 ---
 
 ## Phase 1 — Establish the Astro demos shell
@@ -248,7 +256,7 @@ Implement an automatic sequence with a simple lookahead scheduler based on `Audi
 - fixed or randomized clip duration;
 - optional timing jitter.
 
-Keep randomization inspectable: log the resolved values used for each actual hit.
+Keep randomization inspectable and deterministic: initialize a seeded PRNG from a visible seed when automatic playback starts, and log the resolved values used for each actual hit.
 
 **Acceptance criteria:**
 
@@ -394,17 +402,19 @@ Use a current Chromium-based browser on localhost.
 
 ## File change summary
 
-| Path                                          | Change                                                          |
-| --------------------------------------------- | --------------------------------------------------------------- |
-| `apps/demos/`                                 | New Astro internal demos application                            |
-| `apps/demos/src/pages/index.astro`            | Demos directory/index                                           |
-| `apps/demos/src/pages/audio-clock.astro`      | Migrated clock route                                            |
-| `apps/demos/src/pages/midi.astro`             | Migrated MIDI route                                             |
-| `apps/demos/src/pages/scratching.astro`       | New scratch experiment route                                    |
-| `apps/demos/src/components/AudioClockDemo.ts` | Vanilla DOM controller adapted from the existing Solid clock UI |
-| `apps/demos/src/components/MidiDemo.ts`       | Adapted existing vanilla MIDI UI/controller                     |
-| `apps/demos/src/components/ScratchDemo.ts`    | Raw Web Audio scratch controller and UI binding                 |
-| `apps/audio-clock/`                           | Removed after migration                                         |
-| `apps/midi-demo/`                             | Removed after migration                                         |
-| `apps/sequencer/`                             | Removed after demos app is complete                             |
-| `pnpm-lock.yaml`                              | Updated by package-manager installation for Astro               |
+| Path                                       | Change                                                          |
+| ------------------------------------------ | --------------------------------------------------------------- |
+| `apps/demos/`                              | New Astro internal demos application                            |
+| `apps/demos/src/pages/index.astro`         | Demos directory/index                                           |
+| `apps/demos/src/pages/audio-clock.astro`   | Migrated clock route                                            |
+| `apps/demos/src/pages/midi.astro`          | Migrated MIDI route                                             |
+| `apps/demos/src/pages/scratching.astro`    | New scratch experiment route                                    |
+| `apps/demos/src/components/audio-clock.ts` | Vanilla DOM controller adapted from the existing Solid clock UI |
+| `apps/demos/src/components/midi.ts`        | Adapted existing vanilla MIDI UI/controller                     |
+| `apps/demos/src/components/scratch.ts`     | Raw Web Audio scratch controller and UI binding                 |
+| `apps/demos/src/pages/*.module.css`        | Route-scoped demo styles                                        |
+| `apps/demos/public/tay.mp3`                | Default vocal sample                                            |
+| `apps/audio-clock/`                        | Removed after migration                                         |
+| `apps/midi-demo/`                          | Removed after migration                                         |
+| `apps/sequencer/`                          | Removed after demos app is complete                             |
+| `pnpm-lock.yaml`                           | Updated by package-manager installation for Astro               |

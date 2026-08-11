@@ -4,8 +4,28 @@ const fadeDuration = 0.005;
 const scheduleAheadTime = 0.1;
 const schedulerInterval = 25;
 
+const seededRandom = (seed: string) => {
+  let state = 2_166_136_261;
+  for (let index = 0; index < seed.length; index += 1) {
+    state ^= seed.charCodeAt(index);
+    state = Math.imul(state, 16_777_619);
+  }
+
+  return () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
+  };
+};
+
 type Direction = "forward" | "reverse";
-type Voice = { source: AudioBufferSourceNode; gain: GainNode };
+type Voice = {
+  source: AudioBufferSourceNode;
+  gain: GainNode;
+  lfoConnected: boolean;
+};
 
 const selector = <T extends Element>(root: Element, value: string) => {
   const element = root.querySelector<T>(value);
@@ -63,15 +83,36 @@ export const setupScratch = (root: HTMLElement) => {
     root,
     "[data-direction-mode]",
   );
+  const seed = selector<HTMLInputElement>(root, "[data-seed]");
   const varyDuration = selector<HTMLInputElement>(root, "[data-vary-duration]");
+  const releaseEnabled = selector<HTMLInputElement>(
+    root,
+    "[data-release-enabled]",
+  );
   const jitter = selector<HTMLInputElement>(root, "[data-jitter]");
   const jitterValue = selector<HTMLOutputElement>(root, "[data-jitter-value]");
   const choke = selector<HTMLInputElement>(root, "[data-choke]");
   const chokeValue = selector<HTMLOutputElement>(root, "[data-choke-value]");
+  const detune = selector<HTMLInputElement>(root, "[data-detune]");
+  const detuneValue = selector<HTMLOutputElement>(root, "[data-detune-value]");
+  const lfoEnabled = selector<HTMLInputElement>(root, "[data-lfo-enabled]");
+  const lfoRate = selector<HTMLInputElement>(root, "[data-lfo-rate]");
+  const lfoRateValue = selector<HTMLOutputElement>(
+    root,
+    "[data-lfo-rate-value]",
+  );
+  const lfoDepth = selector<HTMLInputElement>(root, "[data-lfo-depth]");
+  const lfoDepthValue = selector<HTMLOutputElement>(
+    root,
+    "[data-lfo-depth-value]",
+  );
+  const lfoWave = selector<HTMLSelectElement>(root, "[data-lfo-wave]");
   const eventLog = selector<HTMLOListElement>(root, "[data-event-log]");
 
   let context: AudioContext | null = null;
   let masterGain: GainNode | null = null;
+  let lfo: OscillatorNode | null = null;
+  let lfoGain: GainNode | null = null;
   let original: AudioBuffer | null = null;
   let reversed: AudioBuffer | null = null;
   let pendingDefault: Promise<ArrayBuffer> | null = null;
@@ -82,6 +123,7 @@ export const setupScratch = (root: HTMLElement) => {
   let nextStepTime = 0;
   let sequenceStep = 0;
   let alternateDirection: Direction = "forward";
+  let random = seededRandom(seed.value);
 
   const setStatus = (message: string, state: string) => {
     status.value = message;
@@ -120,6 +162,9 @@ export const setupScratch = (root: HTMLElement) => {
     probabilityValue.value = `${Math.round(probability.valueAsNumber * 100)}%`;
     jitterValue.value = `${jitter.value} ms`;
     chokeValue.value = `${choke.value} ms`;
+    detuneValue.value = `${detune.value} cents`;
+    lfoRateValue.value = `${lfoRate.value} Hz`;
+    lfoDepthValue.value = `${lfoDepth.value} cents`;
   };
 
   const updateSliceControls = () => {
@@ -160,6 +205,44 @@ export const setupScratch = (root: HTMLElement) => {
       masterGain.connect(context.destination);
     }
     return context;
+  };
+
+  const updateLfo = () => {
+    if (!lfo || !lfoGain || !context) return;
+    const waveforms = ["sine", "square", "sawtooth", "triangle"] as const;
+    const waveform =
+      waveforms.find((value) => value === lfoWave.value) ?? "sine";
+    lfo.type = waveform;
+    lfo.frequency.setTargetAtTime(
+      lfoRate.valueAsNumber,
+      context.currentTime,
+      0.005,
+    );
+    lfoGain.gain.setTargetAtTime(
+      lfoEnabled.checked ? lfoDepth.valueAsNumber : 0,
+      context.currentTime,
+      0.005,
+    );
+  };
+
+  const ensureLfo = () => {
+    const audioContext = getContext();
+    if (!lfo) {
+      lfo = new OscillatorNode(audioContext);
+      lfoGain = new GainNode(audioContext, { gain: 0 });
+      lfo.connect(lfoGain);
+      lfo.start();
+    }
+    updateLfo();
+    return lfoGain;
+  };
+
+  const connectLfo = (voice: Voice) => {
+    const modulation = ensureLfo();
+    if (modulation && !voice.lfoConnected) {
+      modulation.connect(voice.source.detune);
+      voice.lfoConnected = true;
+    }
   };
 
   const stopVoice = (voice: Voice, when: number, chokeSeconds = 0) => {
@@ -218,7 +301,7 @@ export const setupScratch = (root: HTMLElement) => {
 
   const resolveDirection = () => {
     if (directionMode.value === "random") {
-      return Math.random() < 0.5 ? "forward" : "reverse";
+      return random() < 0.5 ? "forward" : "reverse";
     }
     const direction = alternateDirection;
     alternateDirection = direction === "forward" ? "reverse" : "forward";
@@ -257,8 +340,10 @@ export const setupScratch = (root: HTMLElement) => {
       const releaseStart =
         startTime + Math.max(fadeDuration, clipDuration - fadeDuration);
       const source = new AudioBufferSourceNode(audioContext, { buffer });
+      source.detune.setValueAtTime(detune.valueAsNumber, startTime);
       const gain = new GainNode(audioContext, { gain: 0 });
-      const voice = { source, gain };
+      const voice = { source, gain, lfoConnected: false };
+      if (lfoEnabled.checked) connectLfo(voice);
       const chokeSeconds = choke.valueAsNumber / 1000;
 
       if (activeVoice) stopVoice(activeVoice, startTime, chokeSeconds);
@@ -293,6 +378,40 @@ export const setupScratch = (root: HTMLElement) => {
     }
   };
 
+  const playRelease = (when: number) => {
+    if (!context || !original || !masterGain) return;
+
+    const source = new AudioBufferSourceNode(context, { buffer: original });
+    const gain = new GainNode(context, { gain: 0 });
+    const voice = { source, gain, lfoConnected: false };
+    const accelerationTime = 0.25 * (60 / Math.max(1, bpm.valueAsNumber || 94));
+    const chokeSeconds = choke.valueAsNumber / 1000;
+
+    if (activeVoice) stopVoice(activeVoice, when, chokeSeconds);
+    source.detune.setValueAtTime(-1200, when);
+    source.detune.linearRampToValueAtTime(0, when + accelerationTime);
+    gain.gain.setValueAtTime(0, when);
+    gain.gain.linearRampToValueAtTime(1, when + fadeDuration);
+    source.connect(gain).connect(masterGain);
+    source.start(when);
+    source.stop(when + original.duration * 2 + fadeDuration);
+    activeVoices.add(voice);
+    activeVoice = voice;
+    source.addEventListener(
+      "ended",
+      () => {
+        activeVoices.delete(voice);
+        source.disconnect();
+        gain.disconnect();
+        if (activeVoice === voice) activeVoice = null;
+      },
+      { once: true },
+    );
+    addEvent(
+      `release → full forward buffer → -1200 to 0 cents over ${accelerationTime.toFixed(3)} s → ${when.toFixed(3)} s`,
+    );
+  };
+
   const schedule = () => {
     if (!context || scheduler === null) return;
     const tempo = Math.max(1, bpm.valueAsNumber || 94);
@@ -305,16 +424,19 @@ export const setupScratch = (root: HTMLElement) => {
     while (nextStepTime < context.currentTime + scheduleAheadTime) {
       const position = sequenceStep % cycleLength;
       const active = position < phraseSteps;
-      if (active && Math.random() <= probability.valueAsNumber) {
+      if (releaseEnabled.checked && position === phraseSteps && restSteps > 0) {
+        playRelease(nextStepTime);
+      }
+      if (active && random() <= probability.valueAsNumber) {
         const maxDuration = original
           ? original.duration - start.valueAsNumber
           : 0;
         const baseDuration = duration.valueAsNumber;
         const variedDuration = varyDuration.checked
-          ? baseDuration * (0.65 + Math.random() * 0.7)
+          ? baseDuration * (0.65 + random() * 0.7)
           : baseDuration;
         const jitterSeconds =
-          (Math.random() * 2 - 1) * (jitter.valueAsNumber / 1000);
+          (random() * 2 - 1) * (jitter.valueAsNumber / 1000);
         const when = Math.max(
           context.currentTime + 0.005,
           nextStepTime + jitterSeconds,
@@ -331,7 +453,7 @@ export const setupScratch = (root: HTMLElement) => {
   };
 
   const startAuto = async () => {
-    if (scheduler) return;
+    if (scheduler !== null) return;
     try {
       if (!original || !reversed) await loadDefault();
       const audioContext = getContext();
@@ -340,6 +462,8 @@ export const setupScratch = (root: HTMLElement) => {
       nextStepTime = audioContext.currentTime + 0.02;
       sequenceStep = 0;
       alternateDirection = "forward";
+      random = seededRandom(seed.value);
+      addEvent(`random seed: ${seed.value}`);
       auto.disabled = true;
       stop.disabled = false;
       addEvent("automatic baby scratch started");
@@ -377,6 +501,18 @@ export const setupScratch = (root: HTMLElement) => {
   const onForward = () => void play("forward");
   const onReverse = () => void play("reverse");
   const onAuto = () => void startAuto();
+  const onLfoRate = () => {
+    updateValues();
+    updateLfo();
+  };
+  const onLfoDepth = () => {
+    updateValues();
+    updateLfo();
+  };
+  const onLfoEnabled = () => {
+    updateLfo();
+    if (lfoEnabled.checked) activeVoices.forEach(connectLfo);
+  };
 
   file.addEventListener("change", onFileChange);
   start.addEventListener("input", updateSliceControls);
@@ -384,6 +520,11 @@ export const setupScratch = (root: HTMLElement) => {
   probability.addEventListener("input", updateValues);
   jitter.addEventListener("input", updateValues);
   choke.addEventListener("input", updateValues);
+  detune.addEventListener("input", updateValues);
+  lfoRate.addEventListener("input", onLfoRate);
+  lfoDepth.addEventListener("input", onLfoDepth);
+  lfoWave.addEventListener("change", updateLfo);
+  lfoEnabled.addEventListener("change", onLfoEnabled);
   forward.addEventListener("click", onForward);
   reverse.addEventListener("click", onReverse);
   auto.addEventListener("click", onAuto);
@@ -409,11 +550,19 @@ export const setupScratch = (root: HTMLElement) => {
     probability.removeEventListener("input", updateValues);
     jitter.removeEventListener("input", updateValues);
     choke.removeEventListener("input", updateValues);
+    detune.removeEventListener("input", updateValues);
+    lfoRate.removeEventListener("input", onLfoRate);
+    lfoDepth.removeEventListener("input", onLfoDepth);
+    lfoWave.removeEventListener("change", updateLfo);
+    lfoEnabled.removeEventListener("change", onLfoEnabled);
     forward.removeEventListener("click", onForward);
     reverse.removeEventListener("click", onReverse);
     auto.removeEventListener("click", onAuto);
     stop.removeEventListener("click", stopAuto);
     stopAuto();
+    lfo?.stop();
+    lfo?.disconnect();
+    lfoGain?.disconnect();
     masterGain?.disconnect();
     void context?.close();
   };

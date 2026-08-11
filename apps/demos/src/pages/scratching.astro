@@ -70,12 +70,15 @@ import styles from "./scratching.module.css";
           <label>Scratch steps <input data-phrase type="number" min="1" max="64" value="16" /></label>
           <label>Rest steps <input data-rest type="number" min="0" max="64" value="16" /></label>
           <label>Direction <select data-direction-mode><option value="alternate">Alternate</option><option value="random">Random</option></select></label>
+          <label>Random seed <input data-seed type="text" value="chocolate" /></label>
         </div>
+        <p class={styles.seedHint}>The seed is read when automatic playback starts. Same seed and settings, same random hit/direction/duration/jitter sequence.</p>
         <label class={styles.rangeControl}>
           <span>Hit probability <output data-probability-value>60%</output></span>
           <input data-probability type="range" min="0" max="1" step="0.01" value="0.6" />
         </label>
         <label class={styles.checkControl}><input data-vary-duration type="checkbox" checked /> Randomize clip duration ±35%</label>
+        <label class={styles.checkControl}><input data-release-enabled type="checkbox" checked /> At the start of each rest phrase, play the full forward sample with a turntable-style speed-up</label>
         <label class={styles.rangeControl}>
           <span>Timing jitter <output data-jitter-value>0 ms</output></span>
           <input data-jitter type="range" min="0" max="60" step="1" value="0" />
@@ -87,6 +90,20 @@ import styles from "./scratching.module.css";
         <div class={styles.actions}>
           <button class={styles.primaryButton} type="button" data-auto disabled>Start automatic scratch</button>
           <button class={styles.secondaryButton} type="button" data-stop disabled>Stop</button>
+        </div>
+      </fieldset>
+      <fieldset class={styles.speedControls}>
+        <legend>Playback speed and pitch</legend>
+        <p class={styles.nodeGraph}><code>OscillatorNode → GainNode → AudioBufferSourceNode.detune</code>. The modulation signal is never connected to the speakers.</p>
+        <label class={styles.rangeControl}>
+          <span>Base detune <output data-detune-value>0 cents</output></span>
+          <input data-detune type="range" min="-1200" max="1200" step="1" value="0" />
+        </label>
+        <label class={styles.checkControl}><input data-lfo-enabled type="checkbox" checked /> Modulate source <code>detune</code> with an LFO</label>
+        <div class={styles.numberControls}>
+          <label>LFO waveform <select data-lfo-wave><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="sawtooth">Sawtooth</option><option value="square">Square</option></select></label>
+          <label class={styles.rangeControl}>LFO rate <output data-lfo-rate-value>3 Hz</output><input data-lfo-rate type="range" min="0.1" max="20" step="0.1" value="3" /></label>
+          <label class={styles.rangeControl}>LFO depth <output data-lfo-depth-value>700 cents</output><input data-lfo-depth type="range" min="0" max="1200" step="1" value="700" /></label>
         </div>
       </fieldset>
       <section class={styles.eventLog} aria-labelledby="event-log-title">

@@ -198,6 +198,13 @@
   font: inherit;
 }
 
+.seedHint {
+  margin: 0;
+  color: #aab1c8;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
 .rangeControl span {
   display: flex;
   justify-content: space-between;
@@ -220,6 +227,31 @@
   gap: 0.5rem;
   color: #c5cadd;
   font-size: 0.85rem;
+}
+
+.speedControls {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid #353b50;
+  border-radius: 0.75rem;
+}
+
+.speedControls legend {
+  padding: 0 0.35rem;
+  color: #c5cadd;
+}
+
+.speedControls code {
+  color: #9eb1ff;
+}
+
+.nodeGraph {
+  margin: 0;
+  color: #aab1c8;
+  font-size: 0.85rem;
+  line-height: 1.6;
 }
 
 .eventLog {
