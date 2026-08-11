@@ -57,14 +57,9 @@ export const setupScratch = (root: HTMLElement) => {
   const error = selector<HTMLParagraphElement>(root, "[data-error]");
   const metadata = selector<HTMLDListElement>(root, "[data-metadata]");
   const start = selector<HTMLInputElement>(root, "[data-slice-start]");
-  const duration = selector<HTMLInputElement>(root, "[data-slice-duration]");
   const startValue = selector<HTMLOutputElement>(
     root,
     "[data-slice-start-value]",
-  );
-  const durationValue = selector<HTMLOutputElement>(
-    root,
-    "[data-slice-duration-value]",
   );
   const forward = selector<HTMLButtonElement>(root, "[data-forward]");
   const reverse = selector<HTMLButtonElement>(root, "[data-reverse]");
@@ -84,7 +79,16 @@ export const setupScratch = (root: HTMLElement) => {
     "[data-direction-mode]",
   );
   const seed = selector<HTMLInputElement>(root, "[data-seed]");
-  const varyDuration = selector<HTMLInputElement>(root, "[data-vary-duration]");
+  const durationMin = selector<HTMLInputElement>(root, "[data-duration-min]");
+  const durationMinValue = selector<HTMLOutputElement>(
+    root,
+    "[data-duration-min-value]",
+  );
+  const durationMax = selector<HTMLInputElement>(root, "[data-duration-max]");
+  const durationMaxValue = selector<HTMLOutputElement>(
+    root,
+    "[data-duration-max-value]",
+  );
   const releaseEnabled = selector<HTMLInputElement>(
     root,
     "[data-release-enabled]",
@@ -162,6 +166,8 @@ export const setupScratch = (root: HTMLElement) => {
     probabilityValue.value = `${Math.round(probability.valueAsNumber * 100)}%`;
     jitterValue.value = `${jitter.value} ms`;
     chokeValue.value = `${choke.value} ms`;
+    durationMinValue.value = `${durationMin.valueAsNumber.toFixed(3)} s`;
+    durationMaxValue.value = `${durationMax.valueAsNumber.toFixed(3)} s`;
     detuneValue.value = `${detune.value} cents`;
     lfoRateValue.value = `${lfoRate.value} Hz`;
     lfoDepthValue.value = `${lfoDepth.value} cents`;
@@ -177,14 +183,20 @@ export const setupScratch = (root: HTMLElement) => {
       minimumClipDuration,
       original.duration - resolvedStart,
     );
-    const resolvedDuration = Math.min(
-      Math.max(duration.valueAsNumber, minimumClipDuration),
+    durationMin.max = String(maxDuration);
+    durationMax.max = String(maxDuration);
+    const resolvedMin = Math.min(
+      Math.max(durationMin.valueAsNumber, minimumClipDuration),
       maxDuration,
     );
-    duration.max = String(maxDuration);
-    duration.value = String(resolvedDuration);
+    const resolvedMax = Math.min(
+      Math.max(durationMax.valueAsNumber, resolvedMin),
+      maxDuration,
+    );
+    durationMin.value = String(resolvedMin);
+    durationMax.value = String(resolvedMax);
     startValue.value = `${resolvedStart.toFixed(3)} s`;
-    durationValue.value = `${resolvedDuration.toFixed(3)} s`;
+    updateValues();
   };
 
   const setPlayable = (playable: boolean) => {
@@ -195,7 +207,8 @@ export const setupScratch = (root: HTMLElement) => {
 
   const setSliceControlsEnabled = (enabled: boolean) => {
     start.disabled = !enabled;
-    duration.disabled = !enabled;
+    durationMin.disabled = !enabled;
+    durationMax.disabled = !enabled;
   };
 
   const getContext = () => {
@@ -265,7 +278,6 @@ export const setupScratch = (root: HTMLElement) => {
     original = await audioContext.decodeAudioData(data.slice(0));
     reversed = reverseBuffer(audioContext, original);
     sourceName.value = name;
-    duration.value = String(Math.min(0.15, original.duration));
     start.value = "0";
     updateSliceControls();
     setMetadata(original);
@@ -323,10 +335,14 @@ export const setupScratch = (root: HTMLElement) => {
       updateSliceControls();
       const clipStart = start.valueAsNumber;
       const maxDuration = original.duration - clipStart;
-      const clipDuration = Math.min(
-        requestedDuration ?? duration.valueAsNumber,
+      const minimumDuration = Math.min(durationMin.valueAsNumber, maxDuration);
+      const maximumDuration = Math.min(
+        Math.max(durationMax.valueAsNumber, minimumDuration),
         maxDuration,
       );
+      const clipDuration =
+        requestedDuration ??
+        minimumDuration + Math.random() * (maximumDuration - minimumDuration);
       const buffer = direction === "forward" ? original : reversed;
       const offset =
         direction === "forward"
@@ -431,21 +447,23 @@ export const setupScratch = (root: HTMLElement) => {
         const maxDuration = original
           ? original.duration - start.valueAsNumber
           : 0;
-        const baseDuration = duration.valueAsNumber;
-        const variedDuration = varyDuration.checked
-          ? baseDuration * (0.65 + random() * 0.7)
-          : baseDuration;
+        const minimumDuration = Math.min(
+          durationMin.valueAsNumber,
+          maxDuration,
+        );
+        const maximumDuration = Math.min(
+          Math.max(durationMax.valueAsNumber, minimumDuration),
+          maxDuration,
+        );
+        const randomizedDuration =
+          minimumDuration + random() * (maximumDuration - minimumDuration);
         const jitterSeconds =
           (random() * 2 - 1) * (jitter.valueAsNumber / 1000);
         const when = Math.max(
           context.currentTime + 0.005,
           nextStepTime + jitterSeconds,
         );
-        void play(
-          resolveDirection(),
-          when,
-          Math.min(variedDuration, maxDuration),
-        );
+        void play(resolveDirection(), when, randomizedDuration);
       }
       nextStepTime += stepDuration;
       sequenceStep += 1;
@@ -501,6 +519,12 @@ export const setupScratch = (root: HTMLElement) => {
   const onForward = () => void play("forward");
   const onReverse = () => void play("reverse");
   const onAuto = () => void startAuto();
+  const onDurationRange = () => {
+    if (durationMin.valueAsNumber > durationMax.valueAsNumber) {
+      durationMax.value = durationMin.value;
+    }
+    updateValues();
+  };
   const onLfoRate = () => {
     updateValues();
     updateLfo();
@@ -516,10 +540,11 @@ export const setupScratch = (root: HTMLElement) => {
 
   file.addEventListener("change", onFileChange);
   start.addEventListener("input", updateSliceControls);
-  duration.addEventListener("input", updateSliceControls);
   probability.addEventListener("input", updateValues);
   jitter.addEventListener("input", updateValues);
   choke.addEventListener("input", updateValues);
+  durationMin.addEventListener("input", onDurationRange);
+  durationMax.addEventListener("input", onDurationRange);
   detune.addEventListener("input", updateValues);
   lfoRate.addEventListener("input", onLfoRate);
   lfoDepth.addEventListener("input", onLfoDepth);
@@ -546,10 +571,11 @@ export const setupScratch = (root: HTMLElement) => {
   return () => {
     file.removeEventListener("change", onFileChange);
     start.removeEventListener("input", updateSliceControls);
-    duration.removeEventListener("input", updateSliceControls);
     probability.removeEventListener("input", updateValues);
     jitter.removeEventListener("input", updateValues);
     choke.removeEventListener("input", updateValues);
+    durationMin.removeEventListener("input", onDurationRange);
+    durationMax.removeEventListener("input", onDurationRange);
     detune.removeEventListener("input", updateValues);
     lfoRate.removeEventListener("input", onLfoRate);
     lfoDepth.removeEventListener("input", onLfoDepth);

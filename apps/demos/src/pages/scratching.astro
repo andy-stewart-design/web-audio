@@ -50,8 +50,12 @@ import styles from "./scratching.module.css";
           <input data-slice-start type="range" min="0" max="1" step="0.001" value="0" disabled />
         </label>
         <label>
-          <span>Duration <output data-slice-duration-value>0.150 s</output></span>
-          <input data-slice-duration type="range" min="0.01" max="1" step="0.001" value="0.15" disabled />
+          <span>Duration Min <output data-duration-min-value>0.063 s</output></span>
+          <input data-duration-min type="range" min="0.01" max="1" step="0.001" value="0.063" disabled />
+        </label>
+        <label>
+          <span>Duration Max <output data-duration-max-value>0.150 s</output></span>
+          <input data-duration-max type="range" min="0.01" max="1" step="0.001" value="0.15" disabled />
         </label>
       </fieldset>
       <div class={styles.actions}>
@@ -77,7 +81,6 @@ import styles from "./scratching.module.css";
           <span>Hit probability <output data-probability-value>60%</output></span>
           <input data-probability type="range" min="0" max="1" step="0.01" value="0.6" />
         </label>
-        <label class={styles.checkControl}><input data-vary-duration type="checkbox" checked /> Randomize clip duration ±35%</label>
         <label class={styles.checkControl}><input data-release-enabled type="checkbox" checked /> At the start of each rest phrase, play the full forward sample with a turntable-style speed-up</label>
         <label class={styles.rangeControl}>
           <span>Timing jitter <output data-jitter-value>0 ms</output></span>
