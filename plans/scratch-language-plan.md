@@ -38,7 +38,7 @@ Each phase should leave those package boundaries coherent and testable. Do not d
 - Empty bars occupy time and advance the global bar/random timeline but contain no steps to resolve.
 - `RandomCycle.chance()` is valid only when the final random data type is binary.
 - Chance is independent per eligible step, seeded and deterministic, not an exact-density operation.
-- Random input to `xox()` remains a dynamic trigger mask and does not replace the instrument's note/pitch values.
+- Random input to `xox()` remains a dynamic trigger mask and does not replace the instrument's note/pitch values; it establishes the trigger grid and underlying notes cycle across that grid as they do for static `xox()`.
 - Suppressed triggers do not compress or re-index duration, nudge, swing, or other step-addressed parameters.
 - `Sampler.duration()` is a normalized source length relative to the resolved `start`; `end` remains an absolute normalized endpoint.
 - `end()` and `duration()` are mutually exclusive and the latest call wins.
@@ -51,6 +51,7 @@ Each phase should leave those package boundaries coherent and testable. Do not d
 - `Instrument.swing()` is conventional odd-step delay and varies only by bar.
 - Swing and nudge affect onset, not event duration, and their combined onset remains within its originating bar.
 - Gated sampler playback does not pass a third duration argument to `AudioBufferSourceNode.start()`.
+- Under LFO-modulated detune, gate timing uses nominal/base playback speed rather than attempting sample-frame-exact dynamic-rate tracking.
 - Gain reaches effective silence before a gated or replaced source is stopped and disconnected.
 
 ## Scope guardrails
@@ -341,6 +342,7 @@ Requirements:
 - maintain existing sprite coordinate mapping;
 - keep source duration separate from wall-clock gate duration;
 - static/pattern detune naturally changes traversal time;
+- for looping samplers, use the resolved duration region as the loop region and continue looping until another lifecycle operation stops it;
 - a skipped zero-duration event performs no voice-state side effects in later phases.
 
 **Acceptance criteria:**
@@ -446,6 +448,8 @@ Requirements:
 
 ### Step 4.4 — Implement hit-aware alternate direction state
 
+**Dependency:** Complete Step 5.1 before wiring reverse or alternate voice scheduling. Direction schema and reversed-buffer preparation may precede it, but all emitted reverse/alternate voices must use the click-free gate and teardown lifecycle.
+
 **Files:** `packages/audio-engine/src/instruments/sampler.ts`, lifecycle code/tests as needed
 
 Maintain per-sampler direction state:
@@ -489,7 +493,7 @@ Requirements:
 - ensure gain reaches exact/effective zero before `source.stop()`;
 - stop after a short silent tail rather than exactly at a waveform discontinuity;
 - for static detune, use playback speed when calculating nominal source traversal time;
-- for envelope/LFO detune, prioritize the nominal gate and silent teardown over sample-frame-exact stopping;
+- for envelope/LFO detune, derive the nominal gate from base playback speed and prioritize silent teardown over sample-frame-exact stopping;
 - make teardown idempotent so natural end, mono replacement, cancellation, retirement, and destruction cannot double-stop/disconnect unsafely;
 - preserve synthesizer scheduling unless a shared lifecycle refactor intentionally improves both paths;
 - preserve MIDI binding cleanup and instrument `finished` behavior.
@@ -644,7 +648,7 @@ Requirements:
 - resolve nudge at original `barIndex`/`stepIndex`;
 - apply after rhythmic transformations because schema `note.duration` is the final step length;
 - preserve the original note duration and derive `endTime` from shifted `startTime + duration`;
-- clamp onset to bar start/end, including negative nudge on the first step;
+- clamp onset to bar start/end, including negative nudge on the first step; an onset exactly at bar end remains scheduled with its originating grid position;
 - permit tails beyond bar end;
 - permit coincident events without sorting/re-indexing them;
 - update envelope, detune, effects, MIDI, and source scheduling to use shifted note context consistently.
@@ -715,7 +719,7 @@ Requirements:
 - preserve event duration;
 - do not re-index after chance gaps;
 - clamp only final onset, not individual components;
-- `.swing(0.5)` produces conventional 2:1 triplet timing on an even grid;
+- `.swing(1 / 3)` produces conventional 2:1 triplet timing on an even grid;
 - `.swing(1)` may place an odd step on the next grid boundary, subject to bar clamp.
 
 **Acceptance criteria:**
