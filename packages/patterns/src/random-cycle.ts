@@ -18,8 +18,23 @@ class RandomCycle2 extends BinaryCycle {
     this.rib = this.ribbon.bind(this);
   }
 
-  steps(n: number) {
-    this._cycle = [Array.from({ length: n }, () => 1)];
+  steps(...counts: number[]) {
+    if (counts.length === 0) {
+      throw new Error("RandomCycle.steps() requires at least one step count");
+    }
+
+    if (
+      counts.some(
+        (count) =>
+          !Number.isFinite(count) || count < 0 || !Number.isInteger(count),
+      )
+    ) {
+      throw new Error(
+        "RandomCycle.steps() counts must be finite, non-negative integers",
+      );
+    }
+
+    this._cycle = counts.map((count) => Array.from({ length: count }, () => 1));
     return this;
   }
 

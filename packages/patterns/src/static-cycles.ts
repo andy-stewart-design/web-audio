@@ -8,6 +8,8 @@ class BinaryCycle extends PatternCycle<1 | 0> {
 
   getStaticSchema() {
     const cycle = this._cycle.map((pattern) => {
+      if (pattern.length === 0) return [];
+
       const duration = 1 / pattern.length;
 
       return pattern.reduce<StaticSchemaValue[]>((acc, value, i) => {

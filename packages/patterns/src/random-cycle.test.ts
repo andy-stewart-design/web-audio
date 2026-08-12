@@ -69,6 +69,42 @@ describe("RandomCycle", () => {
       expect(schema.cycle.cycle[0]).toHaveLength(4);
     });
 
+    it("creates a repeating sequence of active and empty bars", () => {
+      const bars = new RandomCycle().steps(16, 0, 8).getRandomSchema()
+        .cycle.cycle;
+
+      expect(bars).toHaveLength(3);
+      expect(bars.map((bar) => bar.length)).toEqual([16, 0, 8]);
+      expect(bars[0][0]).toMatchObject({
+        duration: 1 / 16,
+        offset: 0,
+        stepIndex: 0,
+      });
+      expect(bars[0][15]).toMatchObject({
+        duration: 1 / 16,
+        offset: 15 / 16,
+        stepIndex: 15,
+      });
+      expect(bars[1]).toEqual([]);
+      expect(bars[2][7]).toMatchObject({
+        duration: 1 / 8,
+        offset: 7 / 8,
+        stepIndex: 7,
+      });
+    });
+
+    it("rejects missing, negative, fractional, and non-finite step counts", () => {
+      expect(() => new RandomCycle().steps()).toThrow(
+        "requires at least one step count",
+      );
+
+      for (const count of [-1, 1.5, Infinity, NaN]) {
+        expect(() => new RandomCycle().steps(count)).toThrow(
+          "counts must be finite, non-negative integers",
+        );
+      }
+    });
+
     it("euclid filters the inner cycle events", () => {
       // euclid(2, 4) => [1, 0, 1, 0] — pulses at steps 0 and 2
       const bar = new RandomCycle().steps(4).euclid(2, 4).getRandomSchema()
