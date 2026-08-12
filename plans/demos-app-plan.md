@@ -74,7 +74,7 @@ Exact component names may change, but routes should remain independent: loading 
 - Scratch scheduling randomness is deterministic per automatic run: a string seed initializes a PRNG when Start is pressed. The same seed and settings reproduce hit selection, random direction, duration variation, and jitter.
 - Scratch voices intentionally call `source.start(when, offset)` without the optional source-duration argument. Supplying a duration caused audible boundary pops; the per-voice gain envelope gates the slice and the source is stopped only after its fade-out instead.
 - **Phase 4:** complete in code. Step 4.1 provides a downsampled, responsive canvas displaying forward and precomputed reversed buffers, selected matching regions, and the latest hit/offset/duration. It animates a source-buffer playhead only when LFO modulation is disabled, since that is the only configuration for which the position can be represented accurately. Step 4.2 organizes controls by mechanism and Reset stops playback before restoring all configuration defaults without replacing the loaded source. Step 4.3 adds the in-app explanation and Hyperblam inspiration link. Manual browser verification remains pending.
-- **Phase 5 and manual browser verification:** pending. `apps/sequencer` still exists, and no real-browser clock, MIDI, or scratch verification has been recorded.
+- **Phase 5:** complete except for manual browser verification. Step 5.1 removed `apps/sequencer` and pruned the lockfile. Step 5.2 passed the demos checks and root formatting; root check/lint have unrelated pre-existing dependency failures, recorded below. No real-browser clock, MIDI, or scratch verification has been recorded.
 
 ---
 
@@ -358,9 +358,9 @@ Search repository documentation, root scripts, and configuration for references 
 
 **Acceptance criteria:**
 
-- [ ] `apps/sequencer/` is absent.
-- [ ] `pnpm-workspace.yaml` requires no change because it already discovers `apps/*`.
-- [ ] No active documentation directs contributors to the retired sequencer app.
+- [x] `apps/sequencer/` is absent.
+- [x] `pnpm-workspace.yaml` requires no change because it already discovers `apps/*`.
+- [x] No active documentation directs contributors to the retired sequencer app.
 
 ### Step 5.2 — Automated verification
 
@@ -377,11 +377,24 @@ pnpm format
 
 Run focused package checks if migration changes package code rather than only app code.
 
+**Verification recorded after Step 5.1:**
+
+```text
+pnpm --filter demos check  passed
+pnpm --filter demos lint   passed
+pnpm --filter demos build  passed
+pnpm format                passed
+pnpm check                 failed in @web-audio/worklets: test files cannot resolve vitest
+pnpm lint                  failed in web: @sveltejs/adapter-vercel cannot be resolved from svelte.config.js
+```
+
+The root failures are unrelated to the demos/sequencer cleanup. `pnpm format` made no tracked source changes. No generated build output was added.
+
 **Acceptance criteria:**
 
-- [ ] Demos-specific scripts pass.
-- [ ] Root check/lint/format tasks pass or any unrelated pre-existing failure is recorded clearly.
-- [ ] No generated build output is accidentally committed unless repository conventions explicitly require it.
+- [x] Demos-specific scripts pass.
+- [x] Root check/lint/format tasks pass or any unrelated pre-existing failure is recorded clearly.
+- [x] No generated build output is accidentally committed unless repository conventions explicitly require it.
 
 ### Step 5.3 — Manual browser verification
 
