@@ -1,0 +1,68 @@
+---
+import DemoLayout from "../layouts/DemoLayout.astro";
+import styles from "./audio-clock.module.css";
+---
+
+<DemoLayout
+  title="Audio clock"
+  description="Observe clock events, audio-time scheduling, and a metronome."
+>
+  <a class="back-link" href="/">← All demos</a>
+  <section class="demo-intro" aria-labelledby="page-title">
+    <h1 id="page-title">Audio clock</h1>
+    <p>
+      The clock schedules audio slightly ahead of wall-clock time. The lights
+      change at the scheduled audio time; the log distinguishes that time from
+      the earlier JavaScript callback that creates the click nodes.
+    </p>
+  </section>
+
+  <section class={styles.clockDemo} data-audio-clock aria-label="Audio clock controls">
+    <div class={styles.clockControls}>
+      <button class={styles.primaryButton} type="button" data-toggle>
+        Start clock
+      </button>
+      <output class={styles.clockState} data-state aria-live="polite"
+        >stopped</output
+      >
+      <label class={styles.rangeControl}>
+        <span>Tempo <output data-bpm-value>120</output> BPM</span>
+        <input data-bpm type="range" min="60" max="220" value="120" />
+      </label>
+    </div>
+
+    <div class={styles.beatLights} aria-label="Current beat">
+      {
+        Array.from({ length: 4 }, (_, index) => (
+          <span
+            class={styles.beatLight}
+            data-light={index}
+            data-active="false"
+            aria-label={`Beat ${index + 1}`}
+          />
+        ))
+      }
+    </div>
+
+    <p class={styles.clockPosition} aria-live="polite">
+      Bar <output data-bar>1</output> · Beat <output data-beat>1</output>
+    </p>
+
+    <section class={styles.eventLog} aria-labelledby="event-log-title">
+      <div>
+        <h2 id="event-log-title">Scheduled event log</h2>
+        <p>Audio time is measured in seconds from the AudioContext timeline.</p>
+      </div>
+      <ol data-log></ol>
+    </section>
+  </section>
+</DemoLayout>
+
+<script>
+  import { setupAudioClock } from "../components/audio-clock";
+
+  const root = document.querySelector<HTMLElement>("[data-audio-clock]");
+  if (root) {
+    setupAudioClock(root);
+  }
+</script>

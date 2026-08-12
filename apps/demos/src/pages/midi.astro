@@ -1,0 +1,120 @@
+---
+import DemoLayout from "../layouts/DemoLayout.astro";
+import styles from "./midi.module.css";
+
+const controllers = [
+  { cc: 1, label: "Modulation" },
+  { cc: 7, label: "Volume" },
+  { cc: 74, label: "Brightness" },
+];
+---
+
+<DemoLayout
+  title="MIDI"
+  description="Inspect Web MIDI devices, controller values, held notes, and output messages."
+>
+  <a class="back-link" href="/">← All demos</a>
+  <section class="demo-intro" aria-labelledby="page-title">
+    <h1 id="page-title">MIDI</h1>
+    <p>
+      Enable Web MIDI from a user gesture, inspect live device state, and send
+      test messages to a selected output.
+    </p>
+  </section>
+
+  <section class={styles.demo} data-midi aria-label="MIDI controls">
+    <div class={styles.access}>
+      <output class={styles.status} data-status="disabled">disabled</output>
+      <button class={styles.primaryButton} type="button" data-enable>
+        Enable MIDI
+      </button>
+      <button class={styles.secondaryButton} type="button" data-disable disabled>
+        Disable
+      </button>
+    </div>
+
+    <p class={styles.error} data-error hidden></p>
+
+    <div class={`${styles.grid} ${styles.ports}`}>
+      <section class={styles.panel} aria-labelledby="inputs-title">
+        <h2 id="inputs-title">Inputs <output class={styles.count} data-input-count>0</output></h2>
+        <div class={styles.deviceList} data-inputs data-empty="true">No connected inputs</div>
+      </section>
+      <section class={styles.panel} aria-labelledby="outputs-title">
+        <h2 id="outputs-title">Outputs <output class={styles.count} data-output-count>0</output></h2>
+        <div class={styles.deviceList} data-outputs data-empty="true">No connected outputs</div>
+      </section>
+    </div>
+
+    <section class={styles.panel} aria-labelledby="controllers-title">
+      <h2 id="controllers-title">Continuous controllers</h2>
+      <label class={styles.target}>
+        <span>Input device</span>
+        <select data-cc-input-target disabled>
+          <option value="">All connected inputs</option>
+        </select>
+      </label>
+      <div class={`${styles.grid} ${styles.controllerGrid}`}>
+        {
+          controllers.map(({ cc, label }) => (
+            <article class={styles.controller} data-cc={cc}>
+              <div><strong>CC {cc}</strong><span>{label}</span></div>
+              <output>0.000</output>
+              <progress max="1" value="0"></progress>
+              <small>No value received</small>
+              <div class={styles.channel}>
+                <label>
+                  <input data-channel-enabled type="checkbox" /> Single channel
+                </label>
+                <label>
+                  <span>Channel</span>
+                  <input data-channel type="number" min="1" max="16" value="1" disabled />
+                </label>
+              </div>
+            </article>
+          ))
+        }
+      </div>
+    </section>
+
+    <section class={styles.panel} aria-labelledby="notes-title">
+      <h2 id="notes-title">Held notes <output class={styles.count} data-note-count>0</output></h2>
+      <div class={styles.notes} data-notes data-empty="true">Play notes on a connected input</div>
+    </section>
+
+    <section class={styles.panel} aria-labelledby="send-title">
+      <h2 id="send-title">Send MIDI</h2>
+      <label class={styles.target}>
+        <span>Output</span>
+        <select data-output-target disabled><option value="">No connected outputs</option></select>
+      </label>
+      <div class={`${styles.grid} ${styles.sendGrid}`}>
+        <form class={styles.form} data-note-form>
+          <h3>Note</h3>
+          <label>Note <input name="note" type="number" min="0" max="127" value="60" /></label>
+          <label>Velocity <input name="velocity" type="number" min="0" max="127" value="100" /></label>
+          <label>Channel <input name="channel" type="number" min="1" max="16" value="1" /></label>
+          <div class={styles.actions}>
+            <button class={styles.primaryButton} name="action" value="on">Note on</button>
+            <button class={styles.secondaryButton} name="action" value="off">Note off</button>
+          </div>
+        </form>
+        <form class={styles.form} data-cc-form>
+          <h3>Controller</h3>
+          <label>CC <input name="cc" type="number" min="0" max="127" value="74" /></label>
+          <label>Value <input name="value" type="number" min="0" max="127" value="64" /></label>
+          <label>Channel <input name="channel" type="number" min="1" max="16" value="1" /></label>
+          <button class={styles.primaryButton}>Send CC</button>
+        </form>
+      </div>
+      <output class={styles.sendResult} data-send-result>No messages sent</output>
+    </section>
+  </section>
+</DemoLayout>
+
+<script>
+  import { setupMidi } from "../components/midi";
+
+  const root = document.querySelector<HTMLElement>("[data-midi]");
+  if (root) setupMidi(root);
+</script>

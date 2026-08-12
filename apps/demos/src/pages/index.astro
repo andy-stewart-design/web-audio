@@ -1,0 +1,48 @@
+---
+import DemoLayout from "../layouts/DemoLayout.astro";
+
+const demos = [
+  {
+    href: "/audio-clock",
+    name: "Audio clock",
+    description: "Clock events, audio-time scheduling, and a metronome.",
+  },
+  {
+    href: "/midi",
+    name: "MIDI",
+    description: "Connected ports, control changes, held notes, and test output.",
+  },
+  {
+    href: "/scratching",
+    name: "Scratching",
+    description: "Forward and reverse sample slices, retriggering, and speed modulation.",
+  },
+];
+---
+
+<DemoLayout
+  title="Demos"
+  description="Small, focused Web Audio API explorations."
+>
+  <section class="hero" aria-labelledby="page-title">
+    <h1 id="page-title">Web Audio demos</h1>
+    <p>
+      Small, isolated experiments for understanding browser audio behavior and
+      manually verifying the packages in this repository.
+    </p>
+  </section>
+
+  <nav class="demo-grid" aria-label="Demo index">
+    {
+      demos.map((demo) => (
+        <a class="demo-card" href={demo.href}>
+          <div>
+            <h2>{demo.name}</h2>
+            <p>{demo.description}</p>
+          </div>
+          <span class="card-status">Open demo →</span>
+        </a>
+      ))
+    }
+  </nav>
+</DemoLayout>

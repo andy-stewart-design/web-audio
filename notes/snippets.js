@@ -276,3 +276,19 @@ d.sample("hh")
   .push();
 
 d.sample("rim").euclid(5, 8, 1).gain(0.5).push();
+
+// Ch-ch-chocolate Rain
+
+d.bpm(96);
+
+d.loadSamples({
+  tay: [
+    "https://cdn.jsdelivr.net/gh/Heydon/hyperblam-docs@main/src/static/sounds/chocolate/tay.mp3",
+  ],
+});
+
+d.sample("tay")
+  .bank("user")
+  .end(0, 0.375, 0, 1)
+  .detune(d.env(-1200, 0).a(0, 0.25, 0, 0.075).d(0).s(1).r(0))
+  .push();
