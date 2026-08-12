@@ -150,6 +150,39 @@ import styles from "./scratching.module.css";
           <label class={styles.rangeControl}>LFO depth <output data-lfo-depth-value>700 cents</output><input data-lfo-depth type="range" min="0" max="1200" step="1" value="700" /></label>
         </div>
       </fieldset>
+      <section class={styles.explanation} aria-labelledby="explanation-title">
+        <div>
+          <h3 id="explanation-title">How this approximation works</h3>
+          <p>
+            Inspired by Hyperblam’s
+            <a href="https://hyperblam.how/examples/ch-ch-ch-chocolate/" target="_blank" rel="noreferrer">“Ch-ch-ch-chocolate” example</a>,
+            this is an independent Web Audio API experiment. It approximates
+            record motion; it is not continuous bidirectional scrubbing.
+          </p>
+        </div>
+        <div class={styles.explanationGrid}>
+          <article>
+            <h4>One-shot sources</h4>
+            <p>An <code>AudioBufferSourceNode</code> can start only once, so every hit creates a fresh source and voice gain node.</p>
+          </article>
+          <article>
+            <h4>Forward and reverse buffers</h4>
+            <p>Reverse playback uses a separately precomputed <code>AudioBuffer</code>. It is not negative-rate playback, and matching offsets refer to the same original region.</p>
+          </article>
+          <article>
+            <h4>Retriggering and gate</h4>
+            <p>Short envelope-gated sources approximate record movement. Before an automatic replacement, the choke gain ramp fades the prior voice to avoid a click.</p>
+          </article>
+          <article>
+            <h4>Speed and pitch</h4>
+            <p>Source <code>detune</code> changes speed and pitch together: 1,200 cents is one octave. Slice duration and buffer direction are separate choices.</p>
+          </article>
+          <article>
+            <h4>LFO modulation</h4>
+            <p><code>OscillatorNode → GainNode → source.detune</code> connects a control signal to each processed source’s pitch/speed parameter; it never reaches the speakers.</p>
+          </article>
+        </div>
+      </section>
       <section class={styles.eventLog} aria-labelledby="event-log-title">
         <div>
           <h3 id="event-log-title">Audio event log</h3>

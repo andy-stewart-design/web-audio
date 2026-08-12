@@ -392,6 +392,61 @@
   line-height: 1.6;
 }
 
+.explanation {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #2a3042;
+}
+
+.explanation h3,
+.explanation h4,
+.explanation p {
+  margin: 0;
+}
+
+.explanation h3 {
+  font-size: 0.9rem;
+}
+
+.explanation > div > p {
+  max-width: 48rem;
+  margin-top: 0.35rem;
+  color: #aab1c8;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.explanation a,
+.explanation code {
+  color: #9eb1ff;
+}
+
+.explanationGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+}
+
+.explanationGrid article {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem;
+  border-radius: 0.75rem;
+  background: #181c28;
+}
+
+.explanationGrid h4 {
+  color: #edf0ff;
+  font-size: 0.85rem;
+}
+
+.explanationGrid p {
+  color: #aab1c8;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
 .eventLog {
   display: grid;
   gap: 1rem;
