@@ -70,9 +70,11 @@ Exact component names may change, but routes should remain independent: loading 
 
 - **Phase 1:** complete. `apps/demos` is an Astro/vanilla-TypeScript workspace app with shared layout, index, routes, lint/check/format/build scripts, and root-workspace dependencies.
 - **Phase 2:** complete in code. The clock and MIDI apps are migrated to scoped vanilla modules, and the superseded `apps/audio-clock` and `apps/midi-demo` apps have been removed. Real-browser audio/MIDI verification remains pending.
-- **Phase 3:** complete in code. The scratch route loads local `public/tay.mp3` or an uploaded file, builds a reversed buffer, creates short forward/reverse voices with gain envelopes, schedules a 16-step scratch / 16-step rest phrase by default, optionally plays a ramp-up full-sample release at each rest, and supports detune/LFO modulation.
+- **Phase 3:** complete in code. The scratch route loads repository-local `public/tay.mp3` or an uploaded file, builds a separate reversed buffer, creates short forward/reverse voices with gain envelopes, and schedules a default one-bar 16-step scratch phrase followed by a one-bar rest/release phrase. It supports configurable min/max clip durations, choking, probability, direction, timing jitter, a turntable-style full-sample release at rest, base detune, and LFO-to-`detune` modulation.
 - Scratch scheduling randomness is deterministic per automatic run: a string seed initializes a PRNG when Start is pressed. The same seed and settings reproduce hit selection, random direction, duration variation, and jitter.
-- **Phase 4 and manual browser verification:** pending.
+- Scratch voices intentionally call `source.start(when, offset)` without the optional source-duration argument. Supplying a duration caused audible boundary pops; the per-voice gain envelope gates the slice and the source is stopped only after its fade-out instead.
+- **Phase 4:** in progress. Step 4.1 is complete in code: a downsampled, responsive canvas displays forward and precomputed reversed buffers, selected matching regions, and the latest hit/offset/duration. It animates a source-buffer playhead only when LFO modulation is disabled, since that is the only configuration for which the position can be represented accurately. The reset control and complete in-app explanation remain.
+- **Phase 5 and manual browser verification:** pending. `apps/sequencer` still exists, and no real-browser clock, MIDI, or scratch verification has been recorded.
 
 ---
 
@@ -231,16 +233,16 @@ For each hit:
 - set `playbackRate` and/or `detune` before `start()`;
 - calculate a valid source offset and duration from the selected clip region;
 - schedule a short attack and release gain envelope to avoid clicks;
-- call `start(when, offset, duration)`;
-- stop/disconnect the voice after its envelope finishes.
+- call `start(when, offset)`; intentionally do not pass the optional source-duration argument because it produced audible boundary pops;
+- use the per-voice gain envelope to gate the selected slice, then stop/disconnect the source after its fade-out finishes.
 
 When direction is reverse and the demo is configured to mimic Hyperblam-style matching slices, derive the reverse-buffer offset so forward and reverse hits refer to the corresponding region of the original recording. Show the chosen buffer, offset, duration, and scheduled audio time in the event log.
 
 **Acceptance criteria:**
 
 - [ ] A hit is a newly created source; no attempt is made to restart or reverse an already-started source.
-- [ ] Start/offset/duration stay within buffer bounds, including near either edge.
-- [ ] Short clips do not produce obvious gain discontinuity clicks under normal settings.
+- [ ] Start/offset and envelope-gated slice duration stay within buffer bounds, including near either edge.
+- [ ] Short clips do not produce obvious gain discontinuity clicks under normal settings; in particular, do not reintroduce `start(when, offset, duration)` unless its boundary pops are resolved.
 - [ ] Finished voices disconnect and are removed from controller bookkeeping.
 
 ### Step 3.3 — Add choking and automatic baby-scratch scheduling

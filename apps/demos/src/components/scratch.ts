@@ -27,6 +27,16 @@ type Voice = {
   lfoConnected: boolean;
 };
 
+type VisualHit = {
+  direction: Direction;
+  offset: number;
+  duration: number;
+  when: number;
+  stopTime: number;
+  baseDetune: number;
+  modulated: boolean;
+};
+
 const selector = <T extends Element>(root: Element, value: string) => {
   const element = root.querySelector<T>(value);
   if (!element) throw new Error(`Missing scratch demo element: ${value}`);
@@ -60,6 +70,12 @@ export const setupScratch = (root: HTMLElement) => {
   const status = selector<HTMLOutputElement>(root, "[data-status]");
   const error = selector<HTMLParagraphElement>(root, "[data-error]");
   const metadata = selector<HTMLDListElement>(root, "[data-metadata]");
+  const waveform = selector<HTMLElement>(root, "[data-waveform]");
+  const waveformCanvas = selector<HTMLCanvasElement>(
+    root,
+    "[data-waveform-canvas]",
+  );
+  const waveformHit = selector<HTMLOutputElement>(root, "[data-waveform-hit]");
   const start = selector<HTMLInputElement>(root, "[data-slice-start]");
   const startValue = selector<HTMLOutputElement>(
     root,
@@ -135,6 +151,9 @@ export const setupScratch = (root: HTMLElement) => {
   let phaseStep = 0;
   let alternateDirection: Direction = "forward";
   let random = seededRandom(seed.value);
+  let waveformData: Float32Array | null = null;
+  let lastHit: VisualHit | null = null;
+  let animationFrame: number | null = null;
 
   const setStatus = (message: string, state: string) => {
     status.value = message;
@@ -146,6 +165,26 @@ export const setupScratch = (root: HTMLElement) => {
     item.textContent = message;
     eventLog.prepend(item);
     while (eventLog.children.length > 12) eventLog.lastElementChild?.remove();
+  };
+
+  const buildWaveformData = (buffer: AudioBuffer) => {
+    const columns = 720;
+    const values = new Float32Array(columns);
+    const framesPerColumn = Math.max(1, Math.floor(buffer.length / columns));
+
+    for (let column = 0; column < columns; column += 1) {
+      const firstFrame = column * framesPerColumn;
+      const finalFrame = Math.min(buffer.length, firstFrame + framesPerColumn);
+      let peak = 0;
+      for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+        const samples = buffer.getChannelData(channel);
+        for (let frame = firstFrame; frame < finalFrame; frame += 1) {
+          peak = Math.max(peak, Math.abs(samples[frame] ?? 0));
+        }
+      }
+      values[column] = peak;
+    }
+    waveformData = values;
   };
 
   const setMetadata = (buffer: AudioBuffer | null) => {
@@ -166,6 +205,99 @@ export const setupScratch = (root: HTMLElement) => {
       const description = document.createElement("dd");
       description.textContent = value;
       metadata.append(term, description);
+    }
+  };
+
+  const renderWaveform = () => {
+    if (!original || !waveformData) return;
+    const data = waveformData;
+    const width = waveformCanvas.clientWidth;
+    const height = waveformCanvas.clientHeight;
+    if (!width || !height) return;
+
+    const pixelRatio = window.devicePixelRatio || 1;
+    waveformCanvas.width = Math.round(width * pixelRatio);
+    waveformCanvas.height = Math.round(height * pixelRatio);
+    const drawing = waveformCanvas.getContext("2d");
+    if (!drawing) return;
+    drawing.scale(pixelRatio, pixelRatio);
+    drawing.clearRect(0, 0, width, height);
+
+    const duration = original.duration;
+    const rowHeight = height / 2;
+    const selectedStart = start.valueAsNumber;
+    const selectedDuration = durationMax.valueAsNumber;
+    const drawRegion = (
+      regionStart: number,
+      regionDuration: number,
+      y: number,
+      color: string,
+    ) => {
+      drawing.fillStyle = color;
+      drawing.fillRect(
+        (regionStart / duration) * width,
+        y,
+        (regionDuration / duration) * width,
+        rowHeight,
+      );
+    };
+    const drawWaveform = (reverse: boolean, y: number) => {
+      drawing.strokeStyle = "#9eb1ff";
+      drawing.lineWidth = 1;
+      drawing.beginPath();
+      for (let column = 0; column < data.length; column += 1) {
+        const peak = data[reverse ? data.length - 1 - column : column] ?? 0;
+        const x = (column / (data.length - 1)) * width;
+        const amplitude = peak * (rowHeight * 0.36);
+        drawing.moveTo(x, y + rowHeight / 2 - amplitude);
+        drawing.lineTo(x, y + rowHeight / 2 + amplitude);
+      }
+      drawing.stroke();
+    };
+
+    drawing.fillStyle = "#aab1c8";
+    drawing.font = "12px ui-monospace, monospace";
+    drawing.fillText("forward buffer", 8, 16);
+    drawing.fillText("reversed buffer", 8, rowHeight + 16);
+    drawRegion(selectedStart, selectedDuration, 0, "rgb(158 177 255 / 25%)");
+    drawRegion(
+      duration - (selectedStart + selectedDuration),
+      selectedDuration,
+      rowHeight,
+      "rgb(158 177 255 / 25%)",
+    );
+    drawWaveform(false, 0);
+    drawWaveform(true, rowHeight);
+
+    if (lastHit) {
+      const row = lastHit.direction === "forward" ? 0 : rowHeight;
+      drawRegion(
+        lastHit.offset,
+        lastHit.duration,
+        row,
+        "rgb(255 207 112 / 35%)",
+      );
+      drawWaveform(lastHit.direction === "reverse", row);
+      const isPlaying =
+        context &&
+        context.currentTime >= lastHit.when &&
+        context.currentTime < lastHit.stopTime;
+      if (isPlaying && !lastHit.modulated && context) {
+        const rate = 2 ** (lastHit.baseDetune / 1200);
+        const position = Math.min(
+          duration,
+          lastHit.offset + (context.currentTime - lastHit.when) * rate,
+        );
+        drawing.strokeStyle = "#90f0b0";
+        drawing.lineWidth = 2;
+        drawing.beginPath();
+        drawing.moveTo((position / duration) * width, row);
+        drawing.lineTo((position / duration) * width, row + rowHeight);
+        drawing.stroke();
+      }
+      if (context && context.currentTime < lastHit.stopTime) {
+        animationFrame = window.requestAnimationFrame(renderWaveform);
+      }
     }
   };
 
@@ -204,6 +336,7 @@ export const setupScratch = (root: HTMLElement) => {
     durationMax.value = String(resolvedMax);
     startValue.value = `${resolvedStart.toFixed(3)} s`;
     updateValues();
+    renderWaveform();
   };
 
   const setPlayable = (playable: boolean) => {
@@ -277,6 +410,7 @@ export const setupScratch = (root: HTMLElement) => {
     for (const voice of activeVoices) stopVoice(voice, context.currentTime);
     activeVoices.clear();
     activeVoice = null;
+    if (lastHit) lastHit.stopTime = context.currentTime;
   };
 
   const decode = async (
@@ -289,6 +423,10 @@ export const setupScratch = (root: HTMLElement) => {
     stopVoices();
     original = await audioContext.decodeAudioData(data.slice(0));
     reversed = reverseBuffer(audioContext, original);
+    buildWaveformData(original);
+    lastHit = null;
+    waveformHit.value = "No hit scheduled";
+    waveform.hidden = false;
     sourceName.value = name;
     defaultSourceLoaded = isDefaultSource;
     loadDefaultButton.disabled = isDefaultSource;
@@ -361,6 +499,7 @@ export const setupScratch = (root: HTMLElement) => {
     direction: Direction,
     when?: number,
     requestedDuration?: number,
+    processed = true,
   ) => {
     try {
       error.hidden = true;
@@ -392,21 +531,37 @@ export const setupScratch = (root: HTMLElement) => {
       const gateTime = startTime + clipDuration;
       const stopTime = gateTime + fadeDuration * 8;
       const source = new AudioBufferSourceNode(audioContext, { buffer });
-      source.detune.setValueAtTime(detune.valueAsNumber, startTime);
+      const baseDetune = processed ? detune.valueAsNumber : 0;
+      const modulated = processed && lfoEnabled.checked;
+      source.detune.setValueAtTime(baseDetune, startTime);
       const gain = new GainNode(audioContext, { gain: 0 });
       const voice = { source, gain, lfoConnected: false };
-      if (lfoEnabled.checked) connectLfo(voice);
+      if (modulated) connectLfo(voice);
       const chokeSeconds = choke.valueAsNumber / 1000;
 
-      if (activeVoice) stopVoice(activeVoice, startTime, chokeSeconds);
+      if (processed && activeVoice) {
+        stopVoice(activeVoice, startTime, chokeSeconds);
+      }
       gain.gain.setValueAtTime(0, startTime);
       gain.gain.setTargetAtTime(1, startTime, fadeDuration);
       gain.gain.setTargetAtTime(0, gateTime, fadeDuration);
       source.connect(gain).connect(masterGain);
       source.start(startTime, offset);
       source.stop(stopTime);
+      lastHit = {
+        direction,
+        offset,
+        duration: clipDuration,
+        when: startTime,
+        stopTime,
+        baseDetune,
+        modulated,
+      };
+      waveformHit.value = `${direction} hit: ${offset.toFixed(3)}–${(offset + clipDuration).toFixed(3)} s in the ${direction} buffer`;
+      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(renderWaveform);
       activeVoices.add(voice);
-      activeVoice = voice;
+      if (processed) activeVoice = voice;
       source.addEventListener(
         "ended",
         () => {
@@ -586,14 +741,17 @@ export const setupScratch = (root: HTMLElement) => {
     });
   };
 
-  const onForward = () => void play("forward");
-  const onReverse = () => void play("reverse");
+  const playAudition = (direction: Direction) =>
+    void play(direction, undefined, durationMax.valueAsNumber, false);
+  const onForward = () => playAudition("forward");
+  const onReverse = () => playAudition("reverse");
   const onAuto = () => void startAuto();
   const onDurationRange = () => {
     if (durationMin.valueAsNumber > durationMax.valueAsNumber) {
       durationMax.value = durationMin.value;
     }
     updateValues();
+    renderWaveform();
   };
   const onLfoRate = () => {
     updateValues();
@@ -631,6 +789,8 @@ export const setupScratch = (root: HTMLElement) => {
   updateValues();
   setMetadata(null);
   setStatus("no track loaded", "idle");
+  const resizeObserver = new ResizeObserver(renderWaveform);
+  resizeObserver.observe(waveformCanvas);
 
   return () => {
     file.removeEventListener("change", onFileChange);
@@ -651,6 +811,8 @@ export const setupScratch = (root: HTMLElement) => {
     auto.removeEventListener("click", onAuto);
     stop.removeEventListener("click", stopAuto);
     stopAuto();
+    resizeObserver.disconnect();
+    if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
     lfo?.stop();
     lfo?.disconnect();
     lfoGain?.disconnect();

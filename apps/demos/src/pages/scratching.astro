@@ -46,6 +46,21 @@ import styles from "./scratching.module.css";
         <h2 id="buffer-title">Decoded source</h2>
       </div>
       <dl class={styles.metadata} data-metadata hidden></dl>
+      <section class={styles.waveform} data-waveform hidden aria-labelledby="waveform-title">
+        <div class={styles.waveformHeading}>
+          <div>
+            <h3 id="waveform-title">Forward and reversed buffers</h3>
+            <p>Both rows contain the same audio region. The lower row is a precomputed reversed buffer, not negative-rate playback.</p>
+          </div>
+          <output data-waveform-hit aria-live="polite">No hit scheduled</output>
+        </div>
+        <canvas data-waveform-canvas aria-label="Forward and reversed audio buffer waveforms"></canvas>
+        <ul class={styles.waveformLegend} aria-label="Waveform legend">
+          <li data-kind="selection">Selected original region</li>
+          <li data-kind="hit">Most recent hit</li>
+          <li data-kind="playhead">Playback position</li>
+        </ul>
+      </section>
       <fieldset class={styles.sliceControls}>
         <legend>Clip region in the original recording</legend>
         <label>
@@ -69,6 +84,11 @@ import styles from "./scratching.module.css";
           Play matching reversed clip
         </button>
       </div>
+      <p class={styles.auditionHint}>
+        These audition buttons play the selected maximum-duration slice at its
+        original speed. Detune, LFO, choking, jitter, and automatic-scratch
+        settings apply only to automatic playback.
+      </p>
       <fieldset class={styles.autoControls}>
         <legend>Automatic baby scratch</legend>
         <div class={styles.numberControls}>
