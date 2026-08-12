@@ -18,32 +18,41 @@ import styles from "./scratching.module.css";
   </section>
 
   <section class={styles.demo} data-scratch aria-label="Scratch sample loader">
-    <section class={styles.source} aria-labelledby="source-title">
-      <h2 id="source-title">Audio source</h2>
-      <div class={styles.sourceControls}>
-        <div class={styles.sourceState}>
-          <output class={styles.status} data-status data-state="idle">
-            no track loaded
-          </output>
-          <output class={styles.sourceName} data-source-name>—</output>
-        </div>
-        <div class={styles.actions}>
-          <button class={styles.primaryButton} type="button" data-load-default>
-            Load default track
-          </button>
-          <label class={`${styles.secondaryButton} ${styles.fileButton}`}>
-            Choose file
-            <input class={styles.fileInput} data-file type="file" accept="audio/*" />
-          </label>
-        </div>
+    <div class={styles.loadingControls}>
+      <div class={styles.actions}>
+        <button class={styles.primaryButton} type="button" data-load-default>
+          Load default track
+        </button>
+        <label class={`${styles.secondaryButton} ${styles.fileButton}`}>
+          Choose file
+          <input class={styles.fileInput} data-file type="file" accept="audio/*" />
+        </label>
       </div>
-    </section>
+      <div class={styles.sourceState}>
+        <output class={styles.status} data-status data-state="idle">
+          no track loaded
+        </output>
+        <output class={styles.sourceName} data-source-name>—</output>
+      </div>
+    </div>
 
     <p class={styles.error} data-error hidden></p>
 
+    <section class={styles.transport} aria-labelledby="transport-title">
+      <h2 id="transport-title">Automatic scratch</h2>
+      <div class={styles.actions}>
+        <button class={styles.primaryButton} type="button" data-auto disabled>
+          Start automatic scratch
+        </button>
+        <button class={styles.secondaryButton} type="button" data-stop disabled>
+          Stop
+        </button>
+      </div>
+    </section>
+
     <section class={styles.buffer} aria-labelledby="buffer-title">
       <div>
-        <h2 id="buffer-title">Decoded source</h2>
+        <h2 id="buffer-title">Source and slice</h2>
       </div>
       <dl class={styles.metadata} data-metadata hidden></dl>
       <section class={styles.waveform} data-waveform hidden aria-labelledby="waveform-title">
@@ -60,6 +69,19 @@ import styles from "./scratching.module.css";
           <li data-kind="hit">Most recent hit</li>
           <li data-kind="playhead">Playback position</li>
         </ul>
+        <p class={styles.auditionHint}>
+          Auditions play the selected maximum-duration slice at its original
+          speed. Detune, LFO, choking, jitter, and automatic-scratch settings
+          apply only to automatic playback.
+        </p>
+        <div class={styles.actions}>
+          <button class={styles.primaryButton} type="button" data-forward disabled>
+            Play forward clip
+          </button>
+          <button class={styles.secondaryButton} type="button" data-reverse disabled>
+            Play matching reversed clip
+          </button>
+        </div>
       </section>
       <fieldset class={styles.sliceControls}>
         <legend>Clip region in the original recording</legend>
@@ -76,28 +98,20 @@ import styles from "./scratching.module.css";
           <input data-duration-max type="range" min="0.01" max="1" step="0.001" value="0.15" disabled />
         </label>
       </fieldset>
-      <div class={styles.actions}>
-        <button class={styles.primaryButton} type="button" data-forward disabled>
-          Play forward clip
-        </button>
-        <button class={styles.secondaryButton} type="button" data-reverse disabled>
-          Play matching reversed clip
-        </button>
-      </div>
-      <p class={styles.auditionHint}>
-        These audition buttons play the selected maximum-duration slice at its
-        original speed. Detune, LFO, choking, jitter, and automatic-scratch
-        settings apply only to automatic playback.
-      </p>
+      <fieldset class={styles.directionControls}>
+        <legend>Direction</legend>
+        <p class={styles.controlHint}>Choose how automatic hits select between the forward and reversed buffers.</p>
+        <label class={styles.directionSelect}>Automatic direction <select data-direction-mode><option value="alternate">Alternate</option><option value="random">Random</option></select></label>
+      </fieldset>
       <fieldset class={styles.autoControls}>
-        <legend>Automatic baby scratch</legend>
+        <legend>Retriggering</legend>
+        <p class={styles.controlHint}>Schedule short hits ahead on the audio clock, with optional gaps and a full-sample release during rests.</p>
         <div class={styles.numberControls}>
           <label>Tempo (BPM) <input data-bpm type="number" min="40" max="240" value="94" /></label>
           <label>Scratch bars <input data-scratch-bars type="number" min="1" max="64" value="1" /></label>
           <label>Scratch steps <input data-scratch-steps type="number" min="1" max="64" value="16" /></label>
           <label>Rest bars <input data-rest-bars type="number" min="1" max="64" value="1" /></label>
           <label>Rest steps <input data-rest-steps type="number" min="1" max="64" value="1" /></label>
-          <label>Direction <select data-direction-mode><option value="alternate">Alternate</option><option value="random">Random</option></select></label>
           <label>Random seed <input data-seed type="text" value="chocolate" /></label>
         </div>
         <p class={styles.seedHint}>The seed is read when automatic playback starts. Same seed and settings, same random hit/direction/duration/jitter sequence.</p>
@@ -110,17 +124,17 @@ import styles from "./scratching.module.css";
           <span>Timing jitter <output data-jitter-value>0 ms</output></span>
           <input data-jitter type="range" min="0" max="60" step="1" value="0" />
         </label>
+      </fieldset>
+      <fieldset class={styles.gateControls}>
+        <legend>Gate</legend>
+        <p class={styles.controlHint}>Every voice uses a fixed 5 ms attack/release envelope; choking fades the previous automatic voice before the next begins.</p>
         <label class={styles.rangeControl}>
           <span>Choke time <output data-choke-value>5 ms</output></span>
           <input data-choke type="range" min="1" max="100" step="1" value="5" />
         </label>
-        <div class={styles.actions}>
-          <button class={styles.primaryButton} type="button" data-auto disabled>Start automatic scratch</button>
-          <button class={styles.secondaryButton} type="button" data-stop disabled>Stop</button>
-        </div>
       </fieldset>
       <fieldset class={styles.speedControls}>
-        <legend>Playback speed and pitch</legend>
+        <legend>Speed and pitch</legend>
         <p class={styles.nodeGraph}><code>OscillatorNode → GainNode → AudioBufferSourceNode.detune</code>. The modulation signal is never connected to the speakers.</p>
         <label class={styles.rangeControl}>
           <span>Base detune <output data-detune-value>0 cents</output></span>

@@ -5,25 +5,25 @@
   margin-top: 3rem;
 }
 
-.source,
-.buffer {
+.buffer,
+.transport {
   padding: 1.25rem;
   border: 1px solid #2a3042;
   border-radius: 1rem;
   background: #12151f;
 }
 
-.source {
+.transport {
   display: grid;
   gap: 1rem;
 }
 
-.source h2 {
+.transport h2 {
   margin: 0;
   font-size: 1rem;
 }
 
-.sourceControls,
+.loadingControls,
 .sourceState {
   display: flex;
   flex-wrap: wrap;
@@ -31,8 +31,8 @@
   gap: 0.75rem;
 }
 
-.sourceControls {
-  justify-content: space-between;
+.loadingControls {
+  justify-content: flex-start;
 }
 
 .fileButton {
@@ -281,7 +281,10 @@
   line-height: 1.5;
 }
 
-.autoControls {
+.autoControls,
+.directionControls,
+.gateControls,
+.speedControls {
   display: grid;
   gap: 1rem;
   margin: 0;
@@ -290,9 +293,36 @@
   border-radius: 0.75rem;
 }
 
-.autoControls legend {
+.autoControls legend,
+.directionControls legend,
+.gateControls legend,
+.speedControls legend {
   padding: 0 0.35rem;
   color: #c5cadd;
+}
+
+.controlHint {
+  margin: 0;
+  color: #aab1c8;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.directionSelect {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 14rem;
+  color: #c5cadd;
+  font-size: 0.85rem;
+}
+
+.directionSelect select {
+  border: 1px solid #353b50;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  color: inherit;
+  background: #181c28;
+  font: inherit;
 }
 
 .numberControls {
@@ -349,20 +379,6 @@
   gap: 0.5rem;
   color: #c5cadd;
   font-size: 0.85rem;
-}
-
-.speedControls {
-  display: grid;
-  gap: 1rem;
-  margin: 0;
-  padding: 1rem;
-  border: 1px solid #353b50;
-  border-radius: 0.75rem;
-}
-
-.speedControls legend {
-  padding: 0 0.35rem;
-  color: #c5cadd;
 }
 
 .speedControls code {
