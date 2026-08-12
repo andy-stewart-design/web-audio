@@ -85,6 +85,7 @@ export const setupScratch = (root: HTMLElement) => {
   const reverse = selector<HTMLButtonElement>(root, "[data-reverse]");
   const auto = selector<HTMLButtonElement>(root, "[data-auto]");
   const stop = selector<HTMLButtonElement>(root, "[data-stop]");
+  const reset = selector<HTMLButtonElement>(root, "[data-reset]");
   const bpm = selector<HTMLInputElement>(root, "[data-bpm]");
   const scratchBars = selector<HTMLInputElement>(root, "[data-scratch-bars]");
   const scratchSteps = selector<HTMLInputElement>(root, "[data-scratch-steps]");
@@ -746,6 +747,32 @@ export const setupScratch = (root: HTMLElement) => {
   const onForward = () => playAudition("forward");
   const onReverse = () => playAudition("reverse");
   const onAuto = () => void startAuto();
+  const onReset = () => {
+    stopAuto();
+    start.value = "0";
+    durationMin.value = "0.063";
+    durationMax.value = "0.15";
+    bpm.value = "94";
+    scratchBars.value = "1";
+    scratchSteps.value = "16";
+    restBars.value = "1";
+    restSteps.value = "1";
+    probability.value = "0.6";
+    directionMode.value = "alternate";
+    seed.value = "chocolate";
+    releaseEnabled.checked = true;
+    jitter.value = "0";
+    choke.value = "5";
+    detune.value = "0";
+    lfoEnabled.checked = true;
+    lfoRate.value = "3";
+    lfoDepth.value = "700";
+    lfoWave.value = "sine";
+    updateSliceControls();
+    updateValues();
+    updateLfo();
+    addEvent("configuration reset");
+  };
   const onDurationRange = () => {
     if (durationMin.valueAsNumber > durationMax.valueAsNumber) {
       durationMax.value = durationMin.value;
@@ -783,6 +810,7 @@ export const setupScratch = (root: HTMLElement) => {
   reverse.addEventListener("click", onReverse);
   auto.addEventListener("click", onAuto);
   stop.addEventListener("click", stopAuto);
+  reset.addEventListener("click", onReset);
   setPlayable(false);
   setSliceControlsEnabled(false);
   stop.disabled = true;
@@ -810,6 +838,7 @@ export const setupScratch = (root: HTMLElement) => {
     reverse.removeEventListener("click", onReverse);
     auto.removeEventListener("click", onAuto);
     stop.removeEventListener("click", stopAuto);
+    reset.removeEventListener("click", onReset);
     stopAuto();
     resizeObserver.disconnect();
     if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
