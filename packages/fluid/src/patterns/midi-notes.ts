@@ -8,7 +8,11 @@ import {
 import { getScale } from "@/utils/get-scale";
 import { noteStringToMidi } from "@/utils/note-string-to-midi";
 import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
-import type { RandomSchema, StaticSchema } from "@web-audio/schema";
+import type {
+  ParameterSchema,
+  RandomSchema,
+  StaticSchema,
+} from "@web-audio/schema";
 import type { NoteName, NoteValue, ScaleAlias } from "@/types";
 
 type NoteOrChord<T> = T | T[];
@@ -16,7 +20,7 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class MidiNotes {
   private _cycle: ChordCycle | RandomCycle;
-  private _triggerMask: StaticSchema | undefined;
+  private _triggerMask: BinaryCycle | RandomCycle | undefined;
   private _root = 0;
   private _scale: number[] | undefined;
 
@@ -81,13 +85,27 @@ class MidiNotes {
     return this;
   }
 
-  xox(...input: (number | number[])[]) {
-    this._triggerMask = new BinaryCycle().xox(...input).getStaticSchema();
+  xox(...input: (number | number[])[] | [RandomCycle]) {
+    if (isRandomCycleTuple(input)) {
+      this._triggerMask = input[0];
+    } else {
+      this._triggerMask = new BinaryCycle().xox(...input);
+    }
     return this;
   }
 
-  getTriggerMask() {
-    return this._triggerMask;
+  getTriggerMask(): ParameterSchema | undefined {
+    if (!this._triggerMask) return undefined;
+
+    if (isRandomCycle(this._triggerMask)) {
+      const schema = this._triggerMask.getRandomSchema();
+      if (schema.dataType !== "binary") {
+        throw new Error("Instrument.xox() random masks must be binary");
+      }
+      return schema;
+    }
+
+    return this._triggerMask.getStaticSchema();
   }
 
   fast(multiplier: number) {

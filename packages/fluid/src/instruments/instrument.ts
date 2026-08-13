@@ -93,7 +93,7 @@ abstract class Instrument {
     return this;
   }
 
-  xox(...input: (number | number[])[]) {
+  xox(...input: (number | number[])[] | [RandomCycle]) {
     this._cycle.xox(...input);
     return this;
   }

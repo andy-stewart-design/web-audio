@@ -1,3 +1,4 @@
+import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
 import Sampler from "./sampler";
 import Synthesizer from "./synthesizer";
@@ -57,6 +58,32 @@ describe("Instrument static xox masks", () => {
         [0, 2, 3],
       );
     }
+  });
+
+  it("preserves a binary random cycle as a dynamic trigger mask", () => {
+    const mask = new RandomCycle().chance(0.6).bin().steps(16, 0);
+    const schema = new Synthesizer().notes([60]).xox(mask).getSchema();
+
+    expect(schema.notes.type).toBe("static");
+    expect(schema.triggerMask).toMatchObject({
+      type: "random",
+      dataType: "binary",
+      chance: 0.6,
+    });
+    if (schema.triggerMask?.type === "random") {
+      expect(schema.triggerMask.cycle.cycle.map((bar) => bar.length)).toEqual([
+        16, 0,
+      ]);
+    }
+  });
+
+  it("rejects non-binary random trigger masks during schema construction", () => {
+    expect(() =>
+      new Synthesizer().xox(new RandomCycle().range(0, 1)).getSchema(),
+    ).toThrow("Instrument.xox() random masks must be binary");
+    expect(() =>
+      new Synthesizer().xox(new RandomCycle().bin().int()).getSchema(),
+    ).toThrow("Instrument.xox() random masks must be binary");
   });
 });
 
