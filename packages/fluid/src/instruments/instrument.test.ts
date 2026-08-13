@@ -31,7 +31,7 @@ describe("Instrument static xox masks", () => {
     expect(schema.notes.source.type).toBe("static");
     if (schema.notes.source.type === "static") {
       expect(schema.notes.source.cycle[0].map((step) => step.value)).toEqual([
-        60, 64, 67, 71,
+        60, 64, 67, 71, 60, 64,
       ]);
     }
     expect(schema.notes.mask?.type).toBe("static");
@@ -39,6 +39,27 @@ describe("Instrument static xox masks", () => {
       expect(schema.notes.mask.cycle[0].map((step) => step.stepIndex)).toEqual([
         0, 2, 3, 4, 5, 7,
       ]);
+    }
+  });
+
+  it("preserves static modifier order after xox", () => {
+    const schema = new Synthesizer()
+      .notes([60, 64])
+      .xox([1, 0, 1, 1])
+      .slow(2)
+      .getSchema();
+
+    expect(schema.notes.source.type).toBe("static");
+    if (schema.notes.source.type === "static") {
+      expect(
+        schema.notes.source.cycle.map((bar) => bar.map((step) => step.value)),
+      ).toEqual([[60], [64, 60]]);
+    }
+    expect(schema.notes.mask?.type).toBe("static");
+    if (schema.notes.mask?.type === "static") {
+      expect(
+        schema.notes.mask.cycle.map((bar) => bar.map((step) => step.stepIndex)),
+      ).toEqual([[0], [0, 2]]);
     }
   });
 
@@ -51,7 +72,7 @@ describe("Instrument static xox masks", () => {
     expect(schema.notes.source.type).toBe("static");
     if (schema.notes.source.type === "static") {
       expect(schema.notes.source.cycle[0].map((step) => step.value)).toEqual([
-        0, 12,
+        0, 12, 0,
       ]);
     }
     expect(schema.notes.mask?.type).toBe("static");

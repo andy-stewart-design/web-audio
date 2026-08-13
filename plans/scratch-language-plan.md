@@ -54,6 +54,33 @@ Each phase should leave those package boundaries coherent and testable. Do not d
 - Under LFO-modulated detune, gate timing uses nominal/base playback speed rather than attempting sample-frame-exact dynamic-rate tracking.
 - Gain reaches effective silence before a gated or replaced source is stopped and disconnected.
 
+## Implementation status (2026-08-12)
+
+### Completed and committed
+
+- **Phase 1** — patterned random bars, binary-only chance, deterministic chance resolution, and defensive empty-bar resolver handling.
+- **Phase 1.5** — binary random notes now preserve root/scale meaning: without a scale they select root/root-plus-one-semitone; with a scale they select degrees 0/1.
+- **Phase 2, dynamic path** — binary `RandomCycle` input to `xox()` is represented as a dynamic mask, resolves per grid position, suppresses voices without re-indexing source-specific parameters, and skips empty mask bars without resolving them.
+
+### Phase 2 architecture derivations
+
+Implementation clarified two schema terms that were not fixed in the original plan:
+
+```ts
+notes: {
+  source: ParameterSchema,
+  mask?: ParameterSchema,
+}
+```
+
+- `notes.source` is the note/pitch source; `notes.mask` is trigger eligibility plus its final timing grid. This replaces the former top-level `triggerMask` experiment and is the only supported schema shape.
+- `RandomSchema.grid` is the random schema's structural `StaticSchema`; it replaces the ambiguous former `RandomSchema.cycle`. Static schemas retain their own `cycle` field. Engine code therefore reads `notes.source.grid.cycle` for a random source and `notes.mask.grid.cycle` for a random mask, never `.cycle.cycle`.
+- Static `xox()` currently uses a temporary compatibility implementation that combines source values and rests, then derives source/mask schemas. It preserves existing modifier behavior but is intentionally not the final design.
+
+### Immediate next step
+
+Before Phase 2 can be closed, implement [`masked-cycle-refactor-plan.md`](masked-cycle-refactor-plan.md). It replaces the temporary static combine/reconstruct path with an internal paired masked-cycle representation while characterizing and preserving static modifier ordering. Do not begin Phase 3 until that plan's completion criteria are met.
+
 ## Scope guardrails
 
 Do not add these features while implementing this plan:
@@ -183,6 +210,8 @@ Tracer bullet: `.notes(d.rand().bin().steps(4))` resolves only two notes while a
 
 ### Step 1.5.1 — Apply note-value transforms before random note selection
 
+**Status:** Complete.
+
 **Files:** `packages/fluid/src/patterns/midi-notes.ts`, `packages/fluid/src/patterns/notes.test.ts`, related Fluid integration tests
 
 Current random notes with `scale()` are converted into a full scale `valueMap`, whose resolver path bypasses `RandomSchema.dataType`; this makes `.bin()` select from every mapped scale degree. Random notes without `scale()` also bypass the normal root-offset transform.
@@ -214,9 +243,20 @@ Tracer bullet: `.xox(d.rand().bin().chance(0.6).steps(16, 0))` gates a sampler's
 
 ### Step 2.1 — Represent a dynamic note trigger mask explicitly
 
+**Status:** Partially complete. The strict `notes.source` / `notes.mask` schema and engine scheduling migration are in place. Static modifier compatibility is deferred to the immediate masked-cycle refactor described above; do not mark this step complete until that work lands.
+
 **Files:** `packages/schema/src/index.ts`, `packages/fluid/src/patterns/midi-notes.ts`, `packages/fluid/src/patterns/sample-notes.ts`, `packages/fluid/src/instruments/instrument.ts`, related tests
 
-Replace the current architectural ambiguity noted by the engine's `notes.mask.cycle` TODO with an explicit schema representation for a note source plus an optional trigger mask.
+Replace the former ambiguous random-note structural-grid usage with an explicit schema representation for a note source plus an optional trigger mask. The finalized schema shape is:
+
+```ts
+notes: {
+  source: ParameterSchema,
+  mask?: ParameterSchema,
+}
+```
+
+For random schemas, use `RandomSchema.grid` for structural positions; reserve `mask` for trigger eligibility.
 
 Requirements:
 
@@ -241,6 +281,8 @@ Before editing, add characterization tests for current static `xox` behavior on 
 
 ### Step 2.2 — Overload `xox()` for binary `RandomCycle`
 
+**Status:** Complete.
+
 **Files:** `packages/fluid/src/instruments/instrument.ts`, `packages/fluid/src/patterns/midi-notes.ts`, `packages/fluid/src/utils/validate.ts`, `packages/fluid/src/index.test.ts`, focused pattern tests
 
 Support:
@@ -261,14 +303,16 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] TypeScript accepts static `xox` inputs and one binary `RandomCycle`.
-- [ ] Runtime schema construction rejects float/integer random masks.
-- [ ] `.xox(RandomCycle)` does not become static `[1]`.
-- [ ] `.notes(RandomCycle)` continues to produce random note values rather than a mask.
-- [ ] Empty bars survive Fluid schema construction.
-- [ ] Fluid check, lint, and focused tests pass.
+- [x] TypeScript accepts static `xox` inputs and one binary `RandomCycle`.
+- [x] Runtime schema construction rejects float/integer random masks.
+- [x] `.xox(RandomCycle)` does not become static `[1]`.
+- [x] `.notes(RandomCycle)` continues to produce random note values rather than a mask.
+- [x] Empty bars survive Fluid schema construction.
+- [x] Fluid check, lint, and focused tests pass.
 
 ### Step 2.3 — Schedule dynamic masks in synth and sampler engines
+
+**Status:** Complete for dynamic masks; static-mask modifier-composition verification remains part of the Phase 2 masked-cycle completion gate.
 
 **Files:** `packages/audio-engine/src/instruments/instrument.ts`, `packages/audio-engine/src/instruments/sampler.ts`, `packages/audio-engine/src/instruments/synthesizer.ts`, relevant instrument tests
 
@@ -287,13 +331,13 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] A 16-step/empty-bar random mask schedules no events in every second bar.
-- [ ] Active bars change deterministically over time without a ribbon.
-- [ ] Ribbon-configured masks repeat at their configured period.
-- [ ] Sampler hits retain normal source pitch.
-- [ ] Synth notes retain their underlying MIDI values.
-- [ ] Suppressed positions do not resolve/schedule voice-specific work.
-- [ ] Audio-engine sampler and synthesizer tests pass.
+- [x] A 16-step/empty-bar random mask schedules no events in every second bar.
+- [x] Active bars change deterministically over time without a ribbon.
+- [x] Ribbon-configured masks repeat at their configured period.
+- [x] Sampler hits retain normal source pitch.
+- [x] Synth notes retain their underlying MIDI values.
+- [x] Suppressed positions do not resolve/schedule voice-specific work.
+- [x] Audio-engine sampler and synthesizer tests pass.
 
 ---
 

@@ -20,7 +20,7 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class MidiNotes {
   private _cycle: ChordCycle | RandomCycle;
-  private _mask: BinaryCycle | RandomCycle | undefined;
+  private _mask: RandomCycle | undefined;
   private _root = 0;
   private _scale: number[] | undefined;
 
@@ -39,6 +39,7 @@ class MidiNotes {
   }
 
   notes(...input: NoteInput<ScheduledValue> | [RandomCycle]) {
+    this._hasStaticMask = false;
     if (isRandomCycleTuple(input)) {
       this._cycle = input[0];
     } else if (!isRandomCycle(this._cycle)) {
@@ -87,17 +88,18 @@ class MidiNotes {
 
   xox(...input: (number | number[])[] | [RandomCycle]) {
     if (isRandomCycleTuple(input)) {
+      this._hasStaticMask = false;
       this._mask = input[0];
     } else {
-      this._mask = new BinaryCycle().xox(...input);
+      this._mask = undefined;
+      this._hasStaticMask = true;
+      this._cycle.xox(...input);
     }
     return this;
   }
 
   getMask(): ParameterSchema | undefined {
-    if (!this._mask) return undefined;
-
-    if (isRandomCycle(this._mask)) {
+    if (this._mask) {
       const schema = this._mask.getRandomSchema();
       if (schema.dataType !== "binary") {
         throw new Error("Instrument.xox() random masks must be binary");
@@ -105,7 +107,14 @@ class MidiNotes {
       return schema;
     }
 
-    return this._mask.getStaticSchema();
+    if (!this._hasStaticMask || isRandomCycle(this._cycle)) return undefined;
+    const mask = new BinaryCycle();
+    mask.replace(
+      this._cycle.current.map((bar) =>
+        bar.map((chord) => (chord === null ? 0 : 1)),
+      ),
+    );
+    return mask.getStaticSchema();
   }
 
   fast(multiplier: number) {
