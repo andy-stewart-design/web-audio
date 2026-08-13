@@ -6,6 +6,7 @@ import {
   floatMapper,
   intMapper,
   binaryMapper,
+  chanceMapper,
 } from "./random";
 
 describe("xorwise", () => {
@@ -62,5 +63,18 @@ describe("binaryMapper", () => {
     expect(binaryMapper(0.3, 0, 1)).toBe(0);
     expect(binaryMapper(0.7, 0, 1)).toBe(1);
     expect(binaryMapper(0.5, 0, 1)).toBe(1);
+  });
+});
+
+describe("chanceMapper", () => {
+  it("returns exact results at probability boundaries", () => {
+    expect(chanceMapper(0)(0.999, 0, 1)).toBe(0);
+    expect(chanceMapper(1)(0, 0, 1)).toBe(1);
+  });
+
+  it("preserves the binary mapper threshold at 50%", () => {
+    for (const value of [0, 0.3, 0.5, 0.7, 1]) {
+      expect(chanceMapper(0.5)(value, 0, 1)).toBe(binaryMapper(value, 0, 1));
+    }
   });
 });

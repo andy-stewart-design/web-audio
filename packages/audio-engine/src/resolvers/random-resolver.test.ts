@@ -84,6 +84,110 @@ describe("RandomResolver", () => {
     }
   });
 
+  it("applies binary chance deterministically", () => {
+    const schema = makeSchema({
+      dataType: "binary",
+      chance: 0.6,
+      cycle: {
+        type: "static",
+        polyphonic: false,
+        cycle: [
+          Array.from({ length: 16 }, (_, i) => ({
+            value: 1,
+            offset: i / 16,
+            duration: 1 / 16,
+            stepIndex: i,
+          })),
+        ],
+      },
+    });
+    const first = new RandomResolver(schema);
+    const second = new RandomResolver(schema);
+
+    expect(
+      Array.from({ length: 16 }, (_, step) => first.resolve(0, step)),
+    ).toEqual(Array.from({ length: 16 }, (_, step) => second.resolve(0, step)));
+  });
+
+  it("returns exact binary chance extremes", () => {
+    for (const [chance, expected] of [
+      [0, 0],
+      [1, 1],
+    ]) {
+      const resolver = new RandomResolver(
+        makeSchema({ dataType: "binary", chance }),
+      );
+      expect(resolver.resolve(0, 0)).toBe(expected);
+    }
+  });
+
+  it("preserves the default binary sequence at 50% chance", () => {
+    const cycle = {
+      type: "static" as const,
+      polyphonic: false,
+      cycle: [
+        Array.from({ length: 8 }, (_, i) => ({
+          value: 1 as const,
+          offset: i / 8,
+          duration: 1 / 8,
+          stepIndex: i,
+        })),
+      ],
+    };
+    const defaultResolver = new RandomResolver(
+      makeSchema({ dataType: "binary", cycle }),
+    );
+    const chanceResolver = new RandomResolver(
+      makeSchema({ dataType: "binary", chance: 0.5, cycle }),
+    );
+
+    expect(
+      Array.from({ length: 8 }, (_, step) => chanceResolver.resolve(0, step)),
+    ).toEqual(
+      Array.from({ length: 8 }, (_, step) => defaultResolver.resolve(0, step)),
+    );
+  });
+
+  it("rejects resolution from an empty bar", () => {
+    const resolver = new RandomResolver(
+      makeSchema({
+        cycle: { type: "static", polyphonic: false, cycle: [[]] },
+      }),
+    );
+
+    expect(() => resolver.resolve(0, 0)).toThrow(
+      "Cannot resolve a random value from an empty bar",
+    );
+  });
+
+  it("uses binary output to select binary value map entries", () => {
+    const resolver = new RandomResolver(
+      makeSchema({
+        dataType: "binary",
+        chance: 0.5,
+        valueMap: [57, 59],
+        cycle: {
+          type: "static",
+          polyphonic: false,
+          cycle: [
+            Array.from({ length: 16 }, (_, i) => ({
+              value: 1,
+              offset: i / 16,
+              duration: 1 / 16,
+              stepIndex: i,
+            })),
+          ],
+        },
+      }),
+    );
+
+    const values = Array.from({ length: 16 }, (_, step) =>
+      resolver.resolve(0, step),
+    );
+    expect(values.every((value) => value === 57 || value === 59)).toBe(true);
+    expect(new Set(values)).toEqual(new Set([57, 59]));
+  });
+
   it("outputs 0 for masked-out steps", () => {
     const schema = makeSchema({
       cycle: {

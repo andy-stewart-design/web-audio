@@ -32,6 +32,13 @@ const intMapper: RandMapper = (r, start, end) =>
   Math.floor(r * (end - start) + start);
 const binaryMapper: RandMapper = (r) => Math.round(r);
 
+const chanceMapper = (probability: number): RandMapper => {
+  if (probability === 0) return () => 0;
+  if (probability === 1) return () => 1;
+
+  return (r) => (r >= 1 - probability ? 1 : 0);
+};
+
 const quantizeMapper =
   (step: number): RandMapper =>
   (r, start, end) => {
@@ -48,6 +55,7 @@ export {
   floatMapper,
   intMapper,
   binaryMapper,
+  chanceMapper,
   quantizeMapper,
   type RandMapper,
   type RandAlgo,

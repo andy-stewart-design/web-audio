@@ -1,7 +1,7 @@
 import { BinaryCycle } from "./static-cycles";
 import type { RandomSchema } from "./types";
 
-class RandomCycle2 extends BinaryCycle {
+class RandomCycle extends BinaryCycle {
   private _type: "float" | "integer" | "binary" = "float";
   private _baseSeed: number = 0;
   private _segments: { seed: number; len: number }[] | undefined;
@@ -115,4 +115,4 @@ class RandomCycle2 extends BinaryCycle {
   }
 }
 
-export default RandomCycle2;
+export default RandomCycle;
