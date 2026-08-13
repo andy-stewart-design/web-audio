@@ -35,11 +35,16 @@ interface RandomSchema {
   chance?: number;
   range: { min: number; max: number } | undefined;
   algorithm: "xor" | "mulberry";
-  cycle: StaticSchema;
+  grid: StaticSchema;
   valueMap?: number[];
 }
 
 type ParameterSchema = StaticSchema | RandomSchema;
+
+interface NotesSchema {
+  source: ParameterSchema;
+  mask?: ParameterSchema;
+}
 
 // ---------------------------------------------------
 // MIDI ----------------------------------------------
@@ -181,13 +186,12 @@ interface InstrumentSchema {
   effects: EffectSchema[];
   detune: AudioParamSchema;
   muted: boolean;
-  triggerMask?: ParameterSchema;
 }
 
 interface SynthesizerSchema extends InstrumentSchema {
   type: "synthesizer";
   waveform: Waveform;
-  notes: ParameterSchema;
+  notes: NotesSchema;
   notesOut?: MidiOutSchema;
 }
 
@@ -196,7 +200,7 @@ interface SamplerSchema extends InstrumentSchema {
   bank: string;
   sample: string;
   variation: ParameterSchema;
-  notes: ParameterSchema;
+  notes: NotesSchema;
   fit: FitSchema | null;
   region: RegionSchema | null;
   sourceKeys: number[];
@@ -234,6 +238,7 @@ export type {
   LfoSchema,
   MidiCcSchema,
   MidiOutSchema,
+  NotesSchema,
   NormalizedSampleSchema,
   ParameterSchema,
   RandomSchema,

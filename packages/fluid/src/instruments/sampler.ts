@@ -174,7 +174,10 @@ class Sampler extends Instrument {
       bank: this._bank,
       sample: this._sample,
       variation: this._variation.getSchema(),
-      notes,
+      notes: {
+        source: notes,
+        mask: this._cycle.getMask(),
+      },
       fit: this._fit,
       region,
       sourceKeys,
@@ -182,7 +185,6 @@ class Sampler extends Instrument {
       gain: this._gain.getSchema(),
       effects: this._effects.map((e) => e.getSchema()),
       muted: this._muted,
-      triggerMask: this._cycle.getTriggerMask(),
       loop: this._loop,
       clipMode: this._clipMode,
     };

@@ -142,7 +142,7 @@ function randomSchema(valueMap: number[]): RandomSchema {
     range: undefined,
     algorithm: "xor",
     valueMap,
-    cycle: {
+    grid: {
       type: "static",
       polyphonic: false,
       cycle: [
@@ -170,13 +170,23 @@ function lowpassEffect(frequency = 800): FilterSchema {
   };
 }
 
-function makeSchema(overrides: Partial<SamplerSchema> = {}): SamplerSchema {
+type SchemaOverrides = Omit<Partial<SamplerSchema>, "notes"> & {
+  notes?: ParameterSchema;
+  mask?: ParameterSchema;
+};
+
+function makeSchema(overrides: SchemaOverrides = {}): SamplerSchema {
+  const { notes, mask, ...rest } = overrides;
+
   return {
     type: "sampler",
     bank: "kit",
     sample: "bd",
     variation: staticParam(0),
-    notes: staticPattern(1),
+    notes: {
+      source: notes ?? staticPattern(1),
+      mask: mask,
+    },
     fit: null,
     region: null,
     sourceKeys: [0],
@@ -186,7 +196,7 @@ function makeSchema(overrides: Partial<SamplerSchema> = {}): SamplerSchema {
     muted: false,
     loop: false,
     clipMode: "clipped",
-    ...overrides,
+    ...rest,
   };
 }
 
@@ -1187,7 +1197,7 @@ describe("Sampler", () => {
       {
         schema: makeSchema({
           notes: staticCycle([0, 12]),
-          triggerMask: {
+          mask: {
             type: "static",
             polyphonic: false,
             cycle: [
@@ -1214,6 +1224,46 @@ describe("Sampler", () => {
     expect(
       createdSources.map((source) => source.start.mock.calls[0][0]),
     ).toEqual([8, 9, 9.5]);
+  });
+
+  it("suppresses sampler voices for dynamic mask misses", async () => {
+    const url = "https://example.com/bd.wav";
+    cache.resolved.set(url, makeBuffer(1));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          mask: {
+            type: "random",
+            dataType: "binary",
+            chance: 0,
+            segments: [{ seed: 42 }],
+            quantValue: undefined,
+            range: undefined,
+            algorithm: "xor",
+            grid: {
+              type: "static",
+              polyphonic: false,
+              cycle: [
+                [
+                  { value: 1, offset: 0, duration: 0.5, stepIndex: 0 },
+                  { value: 1, offset: 0.5, duration: 0.5, stepIndex: 1 },
+                ],
+              ],
+            },
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 8);
+
+    expect(createdSources).toHaveLength(0);
   });
 
   it("scheduleBar() handles random notes and skips masked-out steps", async () => {

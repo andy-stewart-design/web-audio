@@ -32,12 +32,14 @@ class Synthesizer extends Instrument {
     return {
       type: "synthesizer" as const,
       waveform: this._type,
-      notes: this._cycle.getSchema(),
+      notes: {
+        source: this._cycle.getSchema(),
+        mask: this._cycle.getMask(),
+      },
       detune: this._detune.getSchema("detune"),
       gain: this._gain.getSchema(),
       effects: this._effects.map((e) => e.getSchema()),
       muted: this._muted,
-      triggerMask: this._cycle.getTriggerMask(),
       notesOut: this._notesOut?.getSchema(),
     };
   }

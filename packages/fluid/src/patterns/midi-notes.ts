@@ -20,7 +20,7 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class MidiNotes {
   private _cycle: ChordCycle | RandomCycle;
-  private _triggerMask: BinaryCycle | RandomCycle | undefined;
+  private _mask: BinaryCycle | RandomCycle | undefined;
   private _root = 0;
   private _scale: number[] | undefined;
 
@@ -87,25 +87,25 @@ class MidiNotes {
 
   xox(...input: (number | number[])[] | [RandomCycle]) {
     if (isRandomCycleTuple(input)) {
-      this._triggerMask = input[0];
+      this._mask = input[0];
     } else {
-      this._triggerMask = new BinaryCycle().xox(...input);
+      this._mask = new BinaryCycle().xox(...input);
     }
     return this;
   }
 
-  getTriggerMask(): ParameterSchema | undefined {
-    if (!this._triggerMask) return undefined;
+  getMask(): ParameterSchema | undefined {
+    if (!this._mask) return undefined;
 
-    if (isRandomCycle(this._triggerMask)) {
-      const schema = this._triggerMask.getRandomSchema();
+    if (isRandomCycle(this._mask)) {
+      const schema = this._mask.getRandomSchema();
       if (schema.dataType !== "binary") {
         throw new Error("Instrument.xox() random masks must be binary");
       }
       return schema;
     }
 
-    return this._triggerMask.getStaticSchema();
+    return this._mask.getStaticSchema();
   }
 
   fast(multiplier: number) {

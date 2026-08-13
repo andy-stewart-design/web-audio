@@ -12,8 +12,8 @@ type ChopState = { sliceCount: number; sequence: Parameter | null };
 
 function isDefaultRandomMask(schema: ParameterSchema) {
   if (schema.type !== "random") return false;
-  if (schema.cycle.cycle.length !== 1) return false;
-  const pattern = schema.cycle.cycle[0];
+  if (schema.grid.cycle.length !== 1) return false;
+  const pattern = schema.grid.cycle[0];
   const [step] = pattern;
   return (
     pattern.length === 1 &&
@@ -87,7 +87,7 @@ function getChopSequenceSchema(chop: {
 
   return {
     ...schema,
-    cycle: {
+    grid: {
       type: "static",
       polyphonic: false,
       cycle: [
@@ -127,7 +127,7 @@ function getDefaultNotesForSequence(
   if (sequence.type === "random") {
     return getDefaultNotes(
       noteValue,
-      sequence.cycle.cycle[0]?.length ?? chopSchema?.sliceCount ?? 1,
+      sequence.grid.cycle[0]?.length ?? chopSchema?.sliceCount ?? 1,
       1,
     );
   }

@@ -8,7 +8,7 @@ const C_MAJ_MIDI = [60, 62, 64, 65, 67, 69, 71];
 const C_MIN_MIDI = [60, 62, 63, 65, 67, 68, 70];
 
 function getNotes(d: Drome) {
-  return d.getSchema().instruments[0].notes;
+  return d.getSchema().instruments[0].notes.source;
 }
 
 describe(".scale().notes(d.rand()) schema contract", () => {

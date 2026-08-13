@@ -28,17 +28,17 @@ describe("Instrument static xox masks", () => {
       .xox([1, 0, 1, 1, 1, 1, 0, 1])
       .getSchema();
 
-    expect(schema.notes.type).toBe("static");
-    if (schema.notes.type === "static") {
-      expect(schema.notes.cycle[0].map((step) => step.value)).toEqual([
+    expect(schema.notes.source.type).toBe("static");
+    if (schema.notes.source.type === "static") {
+      expect(schema.notes.source.cycle[0].map((step) => step.value)).toEqual([
         60, 64, 67, 71,
       ]);
     }
-    expect(schema.triggerMask?.type).toBe("static");
-    if (schema.triggerMask?.type === "static") {
-      expect(schema.triggerMask.cycle[0].map((step) => step.stepIndex)).toEqual(
-        [0, 2, 3, 4, 5, 7],
-      );
+    expect(schema.notes.mask?.type).toBe("static");
+    if (schema.notes.mask?.type === "static") {
+      expect(schema.notes.mask.cycle[0].map((step) => step.stepIndex)).toEqual([
+        0, 2, 3, 4, 5, 7,
+      ]);
     }
   });
 
@@ -48,15 +48,17 @@ describe("Instrument static xox masks", () => {
       .xox([1, 0, 1, 1])
       .getSchema();
 
-    expect(schema.notes.type).toBe("static");
-    if (schema.notes.type === "static") {
-      expect(schema.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+    expect(schema.notes.source.type).toBe("static");
+    if (schema.notes.source.type === "static") {
+      expect(schema.notes.source.cycle[0].map((step) => step.value)).toEqual([
+        0, 12,
+      ]);
     }
-    expect(schema.triggerMask?.type).toBe("static");
-    if (schema.triggerMask?.type === "static") {
-      expect(schema.triggerMask.cycle[0].map((step) => step.stepIndex)).toEqual(
-        [0, 2, 3],
-      );
+    expect(schema.notes.mask?.type).toBe("static");
+    if (schema.notes.mask?.type === "static") {
+      expect(schema.notes.mask.cycle[0].map((step) => step.stepIndex)).toEqual([
+        0, 2, 3,
+      ]);
     }
   });
 
@@ -64,14 +66,14 @@ describe("Instrument static xox masks", () => {
     const mask = new RandomCycle().chance(0.6).bin().steps(16, 0);
     const schema = new Synthesizer().notes([60]).xox(mask).getSchema();
 
-    expect(schema.notes.type).toBe("static");
-    expect(schema.triggerMask).toMatchObject({
+    expect(schema.notes.source.type).toBe("static");
+    expect(schema.notes.mask).toMatchObject({
       type: "random",
       dataType: "binary",
       chance: 0.6,
     });
-    if (schema.triggerMask?.type === "random") {
-      expect(schema.triggerMask.cycle.cycle.map((bar) => bar.length)).toEqual([
+    if (schema.notes.mask?.type === "random") {
+      expect(schema.notes.mask.grid.cycle.map((bar) => bar.length)).toEqual([
         16, 0,
       ]);
     }

@@ -85,9 +85,9 @@ class Sampler extends Instrument {
 
     this._updateLfoParams(barIndex, barStartTime);
 
-    if (this._schema.triggerMask) {
+    if (this._schema.notes.mask) {
       this._scheduleMaskedBar(barIndex, barStartTime);
-    } else if (this._schema.notes.type === "random") {
+    } else if (this._schema.notes.source.type === "random") {
       this._scheduleRandomBar(barIndex, barStartTime);
     } else {
       this._scheduleSequenceBar(barIndex, barStartTime);
@@ -95,43 +95,46 @@ class Sampler extends Instrument {
   }
 
   private _scheduleMaskedBar(barIndex: number, barStartTime: number) {
-    const mask = this._schema.triggerMask;
-    if (!mask || mask.type !== "static") return;
+    const mask = this._schema.notes.mask;
+    if (!mask) return;
 
-    const maskBar = mask.cycle[barIndex % mask.cycle.length];
-    const notes = this._schema.notes;
-    if (notes.type === "static") {
-      const notesBar = notes.cycle[barIndex % notes.cycle.length];
-      if (notesBar.length === 0) return;
+    const maskBar =
+      mask.type === "random"
+        ? mask.grid.cycle[barIndex % mask.grid.cycle.length]
+        : mask.cycle[barIndex % mask.cycle.length];
+    const notes = this._schema.notes.source;
+    const notesBar =
+      notes.type === "static"
+        ? notes.cycle[barIndex % notes.cycle.length]
+        : undefined;
+    if (notesBar?.length === 0) return;
 
-      maskBar.forEach((maskStep, emittedIndex) => {
-        const sourceNote = notesBar[emittedIndex % notesBar.length];
-        this._scheduleResolvedSampleNote(
-          { ...maskStep, value: sourceNote.value },
-          barStartTime,
-          barIndex,
-        );
-      });
-      return;
-    }
+    let emittedIndex = 0;
+    for (const maskStep of maskBar) {
+      if (
+        mask.type === "random" &&
+        this._resolve(mask, barIndex, maskStep.stepIndex) === 0
+      ) {
+        continue;
+      }
 
-    maskBar.forEach((maskStep) => {
-      const noteValue = this._resolve(notes, barIndex, maskStep.stepIndex);
+      const noteValue = notesBar
+        ? notesBar[emittedIndex++ % notesBar.length].value
+        : this._resolve(notes, barIndex, maskStep.stepIndex);
       this._scheduleResolvedSampleNote(
         { ...maskStep, value: noteValue },
         barStartTime,
         barIndex,
       );
-    });
+    }
   }
 
   private _scheduleRandomBar(barIndex: number, barStartTime: number) {
-    const notes = this._schema.notes;
+    const notes = this._schema.notes.source;
     if (notes.type !== "random") return;
 
-    // TODO: Update schema to make this notes.mask.cycle
-    const mask = notes.cycle.cycle[barIndex % notes.cycle.cycle.length];
-    mask.forEach((step, stepIndex) => {
+    const steps = notes.grid.cycle[barIndex % notes.grid.cycle.length];
+    steps.forEach((step, stepIndex) => {
       if (step.value === 0) return;
       const noteValue = this._resolve(notes, barIndex, stepIndex);
       this._scheduleResolvedSampleNote(
@@ -143,7 +146,7 @@ class Sampler extends Instrument {
   }
 
   private _scheduleSequenceBar(barIndex: number, barStartTime: number) {
-    const notes = this._schema.notes;
+    const notes = this._schema.notes.source;
     if (notes.type !== "static") return;
 
     const notesBar = notes.cycle[barIndex % notes.cycle.length];

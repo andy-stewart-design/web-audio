@@ -82,7 +82,7 @@ class RandomResolver {
     let seed = getSeed(currentSeed + seedOffset);
 
     const mask =
-      this._schema.cycle.cycle[barIndex % this._schema.cycle.cycle.length];
+      this._schema.grid.cycle[barIndex % this._schema.grid.cycle.length];
     const rangeStart = this._schema.range?.min ?? 0;
     const rangeEnd = this._schema.range?.max ?? 1;
 

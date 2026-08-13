@@ -20,7 +20,7 @@ function preloadVariationIndices(schema: SamplerSchema) {
 }
 
 function firstValue(schema: ParameterSchema): number {
-  if (schema.type === "random") return schema.cycle.cycle[0]?.[0]?.value ?? 0;
+  if (schema.type === "random") return schema.grid.cycle[0]?.[0]?.value ?? 0;
   return schema.cycle[0]?.[0]?.value ?? 0;
 }
 

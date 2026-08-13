@@ -100,11 +100,11 @@ class RandomCycle extends BinaryCycle {
       );
     }
 
-    const cycle = this.getStaticSchema();
+    const grid = this.getStaticSchema();
 
     return {
       type: "random",
-      cycle,
+      grid,
       dataType: this._type,
       range: this._range,
       segments: this._segments ?? [{ seed: this._baseSeed }],

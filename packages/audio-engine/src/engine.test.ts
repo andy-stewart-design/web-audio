@@ -130,9 +130,11 @@ function makeSamplerSchema(): DromeSchema {
           cycle: [[{ value: 0, offset: 0, duration: 1, stepIndex: 0 }]],
         },
         notes: {
-          type: "static",
-          polyphonic: false,
-          cycle: [[{ value: 1, offset: 0, duration: 1, stepIndex: 0 }]],
+          source: {
+            type: "static",
+            polyphonic: false,
+            cycle: [[{ value: 1, offset: 0, duration: 1, stepIndex: 0 }]],
+          },
         },
         fit: null,
         region: null,

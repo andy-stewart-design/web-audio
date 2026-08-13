@@ -358,8 +358,10 @@ describe("Drome", () => {
       const inst = d.getSchema().instruments[0];
 
       expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler" && inst.notes.type === "static") {
-        expect(inst.notes.cycle[0].map((s) => s.value)).toEqual([69, 72, 76]);
+      if (inst.type === "sampler" && inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle[0].map((s) => s.value)).toEqual([
+          69, 72, 76,
+        ]);
       }
     });
 
@@ -371,7 +373,7 @@ describe("Drome", () => {
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
         expect(inst.fit).toEqual({ type: "fit", bars: 2 });
-        expect(inst.notes.type).toBe("static");
+        expect(inst.notes.source.type).toBe("static");
         expect(inst.region?.type).toBe("chop");
         expect(inst.loop).toBe(true);
       }
@@ -518,7 +520,7 @@ describe("Drome", () => {
 
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
-        expect(inst.notes.type).toBe("static");
+        expect(inst.notes.source.type).toBe("static");
         expect(inst.variation.type).toBe("random");
         expect(inst).not.toHaveProperty("playback");
       }
@@ -534,7 +536,7 @@ describe("Drome", () => {
 
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
-        expect(inst.notes.type).toBe("random");
+        expect(inst.notes.source.type).toBe("random");
         expect(inst.variation.type).toBe("static");
         expect(inst).not.toHaveProperty("playback");
       }
@@ -671,15 +673,15 @@ describe("Drome", () => {
       const d = new Drome();
       const inst = d.sample("bd").chop(8).getSchema();
 
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle).toHaveLength(1);
-        expect(inst.notes.cycle[0]).toHaveLength(8);
-        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle).toHaveLength(1);
+        expect(inst.notes.source.cycle[0]).toHaveLength(8);
+        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
           0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875,
         ]);
         expect(
-          inst.notes.cycle[0].every((step) => step.duration === 0.125),
+          inst.notes.source.cycle[0].every((step) => step.duration === 0.125),
         ).toBe(true);
       }
     });
@@ -688,10 +690,10 @@ describe("Drome", () => {
       const d = new Drome();
       const inst = d.sample("bd").chop(8, [0, 2, 1, 3]).getSchema();
 
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle[0]).toHaveLength(4);
-        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle[0]).toHaveLength(4);
+        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
           0, 0.25, 0.5, 0.75,
         ]);
       }
@@ -701,9 +703,11 @@ describe("Drome", () => {
       const d = new Drome();
       const inst = d.sample("bd").chop(8).notes([0, 12]).getSchema();
 
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle[0].map((step) => step.value)).toEqual([
+          0, 12,
+        ]);
       }
     });
 
@@ -733,20 +737,20 @@ describe("Drome", () => {
       const d = new Drome();
       const inst = d.sample("bd").fit(2).chop(8).getSchema();
 
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle).toHaveLength(2);
-        expect(inst.notes.cycle[0]).toHaveLength(4);
-        expect(inst.notes.cycle[1]).toHaveLength(4);
-        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle).toHaveLength(2);
+        expect(inst.notes.source.cycle[0]).toHaveLength(4);
+        expect(inst.notes.source.cycle[1]).toHaveLength(4);
+        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
           0, 0.25, 0.5, 0.75,
         ]);
-        expect(inst.notes.cycle[1].map((step) => step.offset)).toEqual([
+        expect(inst.notes.source.cycle[1].map((step) => step.offset)).toEqual([
           0, 0.25, 0.5, 0.75,
         ]);
-        expect(inst.notes.cycle.flat().map((step) => step.stepIndex)).toEqual([
-          0, 1, 2, 3, 4, 5, 6, 7,
-        ]);
+        expect(
+          inst.notes.source.cycle.flat().map((step) => step.stepIndex),
+        ).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
       }
       expect(inst.region?.type).toBe("chop");
       if (inst.region?.type === "chop") {
@@ -758,16 +762,16 @@ describe("Drome", () => {
       const d = new Drome();
       const inst = d.sample("bd").fit(2).chop(8, [0, 2, 1, 3]).getSchema();
 
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle).toHaveLength(1);
-        expect(inst.notes.cycle[0]).toHaveLength(4);
-        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle).toHaveLength(1);
+        expect(inst.notes.source.cycle[0]).toHaveLength(4);
+        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
           0, 0.25, 0.5, 0.75,
         ]);
-        expect(inst.notes.cycle[0].map((step) => step.stepIndex)).toEqual([
-          0, 1, 2, 3,
-        ]);
+        expect(
+          inst.notes.source.cycle[0].map((step) => step.stepIndex),
+        ).toEqual([0, 1, 2, 3]);
       }
     });
 
@@ -775,23 +779,23 @@ describe("Drome", () => {
       const d = new Drome();
       const inst = d.sample("bd").fit(2).chop(8, [0, 2], [1, 3]).getSchema();
 
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle).toHaveLength(2);
-        expect(inst.notes.cycle[0]).toHaveLength(2);
-        expect(inst.notes.cycle[1]).toHaveLength(2);
-        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle).toHaveLength(2);
+        expect(inst.notes.source.cycle[0]).toHaveLength(2);
+        expect(inst.notes.source.cycle[1]).toHaveLength(2);
+        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
           0, 0.5,
         ]);
-        expect(inst.notes.cycle[1].map((step) => step.offset)).toEqual([
+        expect(inst.notes.source.cycle[1].map((step) => step.offset)).toEqual([
           0, 0.5,
         ]);
-        expect(inst.notes.cycle[0].map((step) => step.stepIndex)).toEqual([
-          0, 1,
-        ]);
-        expect(inst.notes.cycle[1].map((step) => step.stepIndex)).toEqual([
-          0, 1,
-        ]);
+        expect(
+          inst.notes.source.cycle[0].map((step) => step.stepIndex),
+        ).toEqual([0, 1]);
+        expect(
+          inst.notes.source.cycle[1].map((step) => step.stepIndex),
+        ).toEqual([0, 1]);
       }
     });
 
@@ -801,16 +805,18 @@ describe("Drome", () => {
 
       expect(inst.fit).toEqual({ type: "fit", bars: 2 });
       expect(inst.region).toBeNull();
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle).toHaveLength(1);
-        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
-        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle).toHaveLength(1);
+        expect(inst.notes.source.cycle[0].map((step) => step.value)).toEqual([
+          0, 12,
+        ]);
+        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
           0, 0.5,
         ]);
-        expect(inst.notes.cycle[0].map((step) => step.duration)).toEqual([
-          0.5, 0.5,
-        ]);
+        expect(inst.notes.source.cycle[0].map((step) => step.duration)).toEqual(
+          [0.5, 0.5],
+        );
       }
     });
 
@@ -823,18 +829,18 @@ describe("Drome", () => {
         .notes([0, 12])
         .getSchema();
 
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle).toHaveLength(1);
-        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle).toHaveLength(1);
+        expect(inst.notes.source.cycle[0].map((step) => step.value)).toEqual([
           0, 12, 0, 12,
         ]);
-        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
           0, 0.25, 0.5, 0.75,
         ]);
-        expect(inst.notes.cycle[0].map((step) => step.duration)).toEqual([
-          0.25, 0.25, 0.25, 0.25,
-        ]);
+        expect(inst.notes.source.cycle[0].map((step) => step.duration)).toEqual(
+          [0.25, 0.25, 0.25, 0.25],
+        );
       }
       expect(inst.fit).toEqual({ type: "fit", bars: 2 });
       expect(inst.region?.type).toBe("chop");
@@ -847,17 +853,17 @@ describe("Drome", () => {
         .chop(8, d.rand().int().range(0, 7))
         .getSchema();
 
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle[0]).toHaveLength(8);
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle[0]).toHaveLength(8);
       }
       expect(inst.region?.type).toBe("chop");
       if (inst.region?.type === "chop") {
         expect(inst.region.sequence.type).toBe("random");
         if (inst.region.sequence.type === "random") {
-          expect(inst.region.sequence.cycle.cycle[0]).toHaveLength(8);
+          expect(inst.region.sequence.grid.cycle[0]).toHaveLength(8);
           expect(
-            inst.region.sequence.cycle.cycle[0].map((step) => step.stepIndex),
+            inst.region.sequence.grid.cycle[0].map((step) => step.stepIndex),
           ).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
         }
       }
@@ -870,15 +876,15 @@ describe("Drome", () => {
         .chop(8, d.rand().int().range(0, 7).steps(4))
         .getSchema();
 
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle[0]).toHaveLength(4);
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle[0]).toHaveLength(4);
       }
       expect(inst.region?.type).toBe("chop");
       if (inst.region?.type === "chop") {
         expect(inst.region.sequence.type).toBe("random");
         if (inst.region.sequence.type === "random") {
-          expect(inst.region.sequence.cycle.cycle[0]).toHaveLength(4);
+          expect(inst.region.sequence.grid.cycle[0]).toHaveLength(4);
         }
       }
     });
@@ -894,12 +900,12 @@ describe("Drome", () => {
 
       expect(inst.fit).toEqual({ type: "fit", bars: 2 });
       expect(inst.region?.type).toBe("chop");
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle[0].map((step) => step.value)).toEqual([
           0, 0, 0, 0,
         ]);
-        expect(inst.notes.cycle[0].map((step) => step.offset)).toEqual([
+        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
           0, 0.25, 0.5, 0.75,
         ]);
       }
@@ -961,9 +967,9 @@ describe("Drome", () => {
       d.loadSamples({ loop: ["loop.wav"] });
       const inst = d.sample("loop").bank("user").fit(2).getSchema();
 
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle).toEqual([
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle).toEqual([
           [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
           [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
         ]);
@@ -988,9 +994,9 @@ describe("Drome", () => {
       const d = new Drome();
       const inst = d.sample("bd").fit(3).getSchema();
 
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle).toHaveLength(3);
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle).toHaveLength(3);
       }
       expect(inst.region?.type).toBe("chop");
       if (inst.region?.type === "chop") {
@@ -1010,10 +1016,10 @@ describe("Drome", () => {
       });
       const inst = d.sample("piano").bank("acoustic").fit(2).getSchema();
 
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle[0][0].value).toBe(45);
-        expect(inst.notes.cycle[1][0].value).toBe(45);
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle[0][0].value).toBe(45);
+        expect(inst.notes.source.cycle[1][0].value).toBe(45);
       }
     });
 
@@ -1021,9 +1027,11 @@ describe("Drome", () => {
       const d = new Drome();
       const inst = d.sample("bd").fit(2).notes([0, 12]).getSchema();
 
-      expect(inst.notes.type).toBe("static");
-      if (inst.notes.type === "static") {
-        expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle[0].map((step) => step.value)).toEqual([
+          0, 12,
+        ]);
       }
       expect(inst.region).toBeNull();
     });
@@ -1045,7 +1053,7 @@ describe("Drome", () => {
       if (inst.type === "sampler") {
         expect(inst.sourceKeys).toEqual([0]);
         expect(inst.fit).toEqual({ type: "fit", bars: 2 });
-        expect(inst.notes.type).toBe("static");
+        expect(inst.notes.source.type).toBe("static");
       }
     });
 
@@ -1063,7 +1071,7 @@ describe("Drome", () => {
       if (inst.type === "sampler") {
         expect(inst.sourceKeys).toEqual([0]);
         expect(inst.fit).toEqual({ type: "fit", bars: 2 });
-        expect(inst.notes.type).toBe("static");
+        expect(inst.notes.source.type).toBe("static");
       }
     });
 
@@ -1091,9 +1099,9 @@ describe("Drome", () => {
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
         expect(inst.fit).toEqual({ type: "fit", bars: 2 });
-        expect(inst.notes.type).toBe("static");
-        if (inst.notes.type === "static") {
-          expect(inst.notes.cycle[0].map((step) => step.value)).toEqual([
+        expect(inst.notes.source.type).toBe("static");
+        if (inst.notes.source.type === "static") {
+          expect(inst.notes.source.cycle[0].map((step) => step.value)).toEqual([
             0, 12,
           ]);
         }

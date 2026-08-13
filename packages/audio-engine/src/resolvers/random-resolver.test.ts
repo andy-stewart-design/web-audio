@@ -10,7 +10,7 @@ function makeSchema(overrides: Partial<RandomSchema> = {}): RandomSchema {
     quantValue: undefined,
     range: { min: 0, max: 100 },
     algorithm: "xor",
-    cycle: {
+    grid: {
       type: "static",
       polyphonic: false,
       cycle: [[{ value: 1, offset: 0, duration: 1, stepIndex: 0 }]],
@@ -37,7 +37,7 @@ describe("RandomResolver", () => {
   it("produces values within the specified range", () => {
     const schema = makeSchema({
       range: { min: 10, max: 20 },
-      cycle: {
+      grid: {
         type: "static",
         polyphonic: false,
         cycle: [
@@ -64,7 +64,7 @@ describe("RandomResolver", () => {
     const schema = makeSchema({
       dataType: "integer",
       range: { min: 0, max: 100 },
-      cycle: {
+      grid: {
         type: "static",
         polyphonic: false,
         cycle: [
@@ -88,7 +88,7 @@ describe("RandomResolver", () => {
     const schema = makeSchema({
       dataType: "binary",
       chance: 0.6,
-      cycle: {
+      grid: {
         type: "static",
         polyphonic: false,
         cycle: [
@@ -135,10 +135,10 @@ describe("RandomResolver", () => {
       ],
     };
     const defaultResolver = new RandomResolver(
-      makeSchema({ dataType: "binary", cycle }),
+      makeSchema({ dataType: "binary", grid: cycle }),
     );
     const chanceResolver = new RandomResolver(
-      makeSchema({ dataType: "binary", chance: 0.5, cycle }),
+      makeSchema({ dataType: "binary", chance: 0.5, grid: cycle }),
     );
 
     expect(
@@ -151,7 +151,7 @@ describe("RandomResolver", () => {
   it("rejects resolution from an empty bar", () => {
     const resolver = new RandomResolver(
       makeSchema({
-        cycle: { type: "static", polyphonic: false, cycle: [[]] },
+        grid: { type: "static", polyphonic: false, cycle: [[]] },
       }),
     );
 
@@ -166,7 +166,7 @@ describe("RandomResolver", () => {
         dataType: "binary",
         chance: 0.5,
         valueMap: [57, 59],
-        cycle: {
+        grid: {
           type: "static",
           polyphonic: false,
           cycle: [
@@ -190,7 +190,7 @@ describe("RandomResolver", () => {
 
   it("outputs 0 for masked-out steps", () => {
     const schema = makeSchema({
-      cycle: {
+      grid: {
         type: "static",
         polyphonic: false,
         cycle: [

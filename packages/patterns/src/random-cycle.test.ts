@@ -67,12 +67,12 @@ describe("RandomCycle", () => {
   describe("inner cycle geometry", () => {
     it("steps(4) produces a 4-step inner cycle", () => {
       const schema = new RandomCycle().steps(4).getRandomSchema();
-      expect(schema.cycle.cycle[0]).toHaveLength(4);
+      expect(schema.grid.cycle[0]).toHaveLength(4);
     });
 
     it("creates a repeating sequence of active and empty bars", () => {
       const bars = new RandomCycle().steps(16, 0, 8).getRandomSchema()
-        .cycle.cycle;
+        .grid.cycle;
 
       expect(bars).toHaveLength(3);
       expect(bars.map((bar) => bar.length)).toEqual([16, 0, 8]);
@@ -108,8 +108,8 @@ describe("RandomCycle", () => {
 
     it("euclid filters the inner cycle events", () => {
       // euclid(2, 4) => [1, 0, 1, 0] — pulses at steps 0 and 2
-      const bar = new RandomCycle().steps(4).euclid(2, 4).getRandomSchema()
-        .cycle.cycle[0];
+      const bar = new RandomCycle().steps(4).euclid(2, 4).getRandomSchema().grid
+        .cycle[0];
       expect(bar).toHaveLength(2);
       expect(bar[0].stepIndex).toBe(0);
       expect(bar[1].stepIndex).toBe(2);
