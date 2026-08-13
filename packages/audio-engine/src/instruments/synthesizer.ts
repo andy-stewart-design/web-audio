@@ -30,12 +30,44 @@ class Synthesizer extends Instrument {
   scheduleBar(barIndex: number, barStartTime: number): void {
     this._updateLfoParams(barIndex, barStartTime);
 
-    if (this._schema.notes.type === "random") {
+    if (this._schema.triggerMask) {
+      this._scheduleMaskedBar(barIndex, barStartTime);
+    } else if (this._schema.notes.type === "random") {
       this._scheduleRandomBar(barIndex, barStartTime);
+    } else {
+      this._scheduleSequenceBar(barIndex, barStartTime);
+    }
+  }
+
+  private _scheduleMaskedBar(barIndex: number, barStartTime: number) {
+    const mask = this._schema.triggerMask;
+    if (!mask || mask.type !== "static") return;
+
+    const maskBar = mask.cycle[barIndex % mask.cycle.length];
+    const notes = this._schema.notes;
+    if (notes.type === "static") {
+      const notesBar = notes.cycle[barIndex % notes.cycle.length];
+      if (notesBar.length === 0) return;
+
+      maskBar.forEach((maskStep, emittedIndex) => {
+        const sourceNote = notesBar[emittedIndex % notesBar.length];
+        this._scheduleSynthNote(
+          { ...maskStep, value: sourceNote.value },
+          barStartTime,
+          barIndex,
+        );
+      });
       return;
     }
 
-    this._scheduleSequenceBar(barIndex, barStartTime);
+    maskBar.forEach((maskStep) => {
+      const midiNote = this._resolve(notes, barIndex, maskStep.stepIndex);
+      this._scheduleSynthNote(
+        { ...maskStep, value: midiNote },
+        barStartTime,
+        barIndex,
+      );
+    });
   }
 
   private _scheduleRandomBar(barIndex: number, barStartTime: number): void {

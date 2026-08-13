@@ -181,6 +181,7 @@ interface InstrumentSchema {
   effects: EffectSchema[];
   detune: AudioParamSchema;
   muted: boolean;
+  triggerMask?: ParameterSchema;
 }
 
 interface SynthesizerSchema extends InstrumentSchema {

@@ -20,6 +20,46 @@ function expectGainADSR(
   expect(staticValue(envelope.r)).toBe(expected.r);
 }
 
+describe("Instrument static xox masks", () => {
+  it("keeps synth source notes separate from the trigger mask", () => {
+    const schema = new Synthesizer()
+      .notes([60, 64, 67, 71])
+      .xox([1, 0, 1, 1, 1, 1, 0, 1])
+      .getSchema();
+
+    expect(schema.notes.type).toBe("static");
+    if (schema.notes.type === "static") {
+      expect(schema.notes.cycle[0].map((step) => step.value)).toEqual([
+        60, 64, 67, 71,
+      ]);
+    }
+    expect(schema.triggerMask?.type).toBe("static");
+    if (schema.triggerMask?.type === "static") {
+      expect(schema.triggerMask.cycle[0].map((step) => step.stepIndex)).toEqual(
+        [0, 2, 3, 4, 5, 7],
+      );
+    }
+  });
+
+  it("keeps sampler source notes separate from the trigger mask", () => {
+    const schema = new Sampler("kick")
+      .notes([0, 12])
+      .xox([1, 0, 1, 1])
+      .getSchema();
+
+    expect(schema.notes.type).toBe("static");
+    if (schema.notes.type === "static") {
+      expect(schema.notes.cycle[0].map((step) => step.value)).toEqual([0, 12]);
+    }
+    expect(schema.triggerMask?.type).toBe("static");
+    if (schema.triggerMask?.type === "static") {
+      expect(schema.triggerMask.cycle[0].map((step) => step.stepIndex)).toEqual(
+        [0, 2, 3],
+      );
+    }
+  });
+});
+
 describe("Instrument gain envelopes", () => {
   it("defaults synth gain to a faster synth envelope", () => {
     const schema = new Synthesizer().getSchema();

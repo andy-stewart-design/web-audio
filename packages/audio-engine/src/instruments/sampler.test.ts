@@ -1177,6 +1177,45 @@ describe("Sampler", () => {
     );
   });
 
+  it("cycles source notes across active static mask positions", async () => {
+    const url = "https://example.com/bd.wav";
+    cache.resolved.set(url, makeBuffer(1));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticCycle([0, 12]),
+          triggerMask: {
+            type: "static",
+            polyphonic: false,
+            cycle: [
+              [
+                { value: 1, offset: 0, duration: 0.25, stepIndex: 0 },
+                { value: 1, offset: 0.5, duration: 0.25, stepIndex: 2 },
+                { value: 1, offset: 0.75, duration: 0.25, stepIndex: 3 },
+              ],
+            ],
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 8);
+
+    expect(createdSources).toHaveLength(3);
+    expect(createdSources.map((source) => source.playbackRate.value)).toEqual([
+      1, 2, 1,
+    ]);
+    expect(
+      createdSources.map((source) => source.start.mock.calls[0][0]),
+    ).toEqual([8, 9, 9.5]);
+  });
+
   it("scheduleBar() handles random notes and skips masked-out steps", async () => {
     const url = "https://example.com/bd.wav";
     cache.resolved.set(url, makeBuffer(1));

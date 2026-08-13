@@ -146,6 +146,45 @@ describe("Synthesizer._resolveDetune", () => {
   });
 });
 
+describe("Synthesizer trigger masks", () => {
+  it("cycles source notes across active static mask positions", () => {
+    const ctx = new FakeAudioContext();
+    const synth = new Synthesizer(
+      ctx as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(staticParam(0), {
+          notes: {
+            type: "static",
+            polyphonic: false,
+            cycle: [
+              [
+                { value: 60, offset: 0, duration: 0.5, stepIndex: 0 },
+                { value: 64, offset: 0.5, duration: 0.5, stepIndex: 1 },
+              ],
+            ],
+          },
+          triggerMask: {
+            type: "static",
+            polyphonic: false,
+            cycle: [
+              [
+                { value: 1, offset: 0, duration: 0.25, stepIndex: 0 },
+                { value: 1, offset: 0.5, duration: 0.25, stepIndex: 2 },
+                { value: 1, offset: 0.75, duration: 0.25, stepIndex: 3 },
+              ],
+            ],
+          },
+        }),
+      },
+    );
+
+    synth.scheduleBar(0, 10);
+
+    expect(FakeOscillatorNode.startCount).toBe(3);
+  });
+});
+
 describe("Synthesizer MIDI output submission", () => {
   it("submits resolved pattern timing, original note, and gain-derived velocity", () => {
     const ctx = new FakeAudioContext();

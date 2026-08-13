@@ -1,4 +1,5 @@
 import {
+  BinaryCycle,
   ChordCycle,
   RandomCycle,
   type Chord,
@@ -15,6 +16,7 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class MidiNotes {
   private _cycle: ChordCycle | RandomCycle;
+  private _triggerMask: StaticSchema | undefined;
   private _root = 0;
   private _scale: number[] | undefined;
 
@@ -80,8 +82,12 @@ class MidiNotes {
   }
 
   xox(...input: (number | number[])[]) {
-    this._cycle.xox(...input);
+    this._triggerMask = new BinaryCycle().xox(...input).getStaticSchema();
     return this;
+  }
+
+  getTriggerMask() {
+    return this._triggerMask;
   }
 
   fast(multiplier: number) {

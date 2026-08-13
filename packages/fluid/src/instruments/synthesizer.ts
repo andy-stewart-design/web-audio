@@ -37,9 +37,8 @@ class Synthesizer extends Instrument {
       gain: this._gain.getSchema(),
       effects: this._effects.map((e) => e.getSchema()),
       muted: this._muted,
-      ...(this._notesOut !== undefined && {
-        notesOut: this._notesOut.getSchema(),
-      }),
+      triggerMask: this._cycle.getTriggerMask(),
+      notesOut: this._notesOut?.getSchema(),
     };
   }
 }
