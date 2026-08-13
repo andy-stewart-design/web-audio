@@ -21,6 +21,7 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 class MidiNotes {
   private _cycle: ChordCycle | RandomCycle;
   private _mask: RandomCycle | undefined;
+  private _hasStaticMask = false;
   private _root = 0;
   private _scale: number[] | undefined;
 
