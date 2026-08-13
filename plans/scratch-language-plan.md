@@ -109,13 +109,13 @@ Confirm `BinaryCycle.getStaticSchema()` retains empty inner arrays and does not 
 
 **Acceptance criteria:**
 
-- [ ] `.steps(16)` remains schema-compatible with current behavior.
-- [ ] `.steps(16, 0, 8)` emits structural bars with 16, 0, and 8 positions.
-- [ ] Bar offsets and durations are correct within each non-empty bar.
-- [ ] The three-bar structure repeats through existing cycle indexing.
-- [ ] Empty bars contain no scheduled values.
-- [ ] Invalid counts throw descriptive `RandomCycle` errors.
-- [ ] Patterns package check, lint, and tests pass.
+- [x] `.steps(16)` remains schema-compatible with current behavior.
+- [x] `.steps(16, 0, 8)` emits structural bars with 16, 0, and 8 positions.
+- [x] Bar offsets and durations are correct within each non-empty bar.
+- [x] The three-bar structure repeats through existing cycle indexing.
+- [x] Empty bars contain no scheduled values.
+- [x] Invalid counts throw descriptive `RandomCycle` errors.
+- [x] Patterns package check, lint, and tests pass.
 
 ### Step 1.2 — Add binary chance to schema and Fluid random builders
 
@@ -141,13 +141,13 @@ Keep the schema narrow: chance belongs to random binary resolution, not to every
 
 **Acceptance criteria:**
 
-- [ ] `.bin().chance(0.6)` and `.chance(0.6).bin()` produce equivalent schemas.
-- [ ] `.chance(0)`, `.chance(0.5)`, `.chance(0.6)`, and `.chance(1)` serialize correctly.
-- [ ] Repeated calls use the latest chance value.
-- [ ] Final float/integer configurations with chance fail during schema generation.
-- [ ] Out-of-range and non-finite probabilities throw.
-- [ ] Existing random schemas without chance remain valid.
-- [ ] Schema and patterns package checks pass.
+- [x] `.bin().chance(0.6)` and `.chance(0.6).bin()` produce equivalent schemas.
+- [x] `.chance(0)`, `.chance(0.5)`, `.chance(0.6)`, and `.chance(1)` serialize correctly.
+- [x] Repeated calls use the latest chance value.
+- [x] Final float/integer configurations with chance fail during schema generation.
+- [x] Out-of-range and non-finite probabilities throw.
+- [x] Existing random schemas without chance remain valid.
+- [x] Schema and patterns package checks pass.
 
 ### Step 1.3 — Resolve deterministic binary probability
 
@@ -167,13 +167,44 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Chance extremes are exact.
-- [ ] A representative 60% sequence is deterministic across resolver instances.
-- [ ] Different absolute bars continue to generate fresh deterministic values without a ribbon.
-- [ ] Ribbon segment loops retain current deterministic behavior.
-- [ ] Empty-bar resolution cannot cause an unhelpful modulo-by-zero result.
-- [ ] Existing resolver tests for float, integer, quantization, algorithms, ribbons, and value maps pass unchanged.
-- [ ] Audio-engine check, lint, and focused tests pass.
+- [x] Chance extremes are exact.
+- [x] A representative 60% sequence is deterministic across resolver instances.
+- [x] Different absolute bars continue to generate fresh deterministic values without a ribbon.
+- [x] Ribbon segment loops retain current deterministic behavior.
+- [x] Empty-bar resolution cannot cause an unhelpful modulo-by-zero result.
+- [x] Existing resolver tests for float, integer, quantization, algorithms, ribbons, and value maps pass unchanged.
+- [x] Audio-engine check, lint, and focused tests pass.
+
+---
+
+## Phase 1.5 — Preserve binary random-note semantics with root and scale
+
+Tracer bullet: `.notes(d.rand().bin().steps(4))` resolves only two notes while applying `root()` and optional `scale()` exactly as static note values do.
+
+### Step 1.5.1 — Apply note-value transforms before random note selection
+
+**Files:** `packages/fluid/src/patterns/midi-notes.ts`, `packages/fluid/src/patterns/notes.test.ts`, related Fluid integration tests
+
+Current random notes with `scale()` are converted into a full scale `valueMap`, whose resolver path bypasses `RandomSchema.dataType`; this makes `.bin()` select from every mapped scale degree. Random notes without `scale()` also bypass the normal root-offset transform.
+
+Refactor random-note schema construction so the final random type remains meaningful in every note context:
+
+- binary random notes select only values represented by binary output `0` and `1`;
+- without `scale()`, apply `root()` as a chromatic MIDI offset, so binary output selects the root and root plus one semitone;
+- with `scale()`, map binary output to scale degrees `0` and `1`, so `.root("a3").scale("min").notes(d.rand().bin())` selects `A3` and `B3`;
+- preserve existing float/integer random-note behavior, including configured ranges, scale degree mapping, `valueMap` behavior, ribbons, and deterministic resolution;
+- make the implementation type-driven rather than adding a special engine-side exception for `.bin()`.
+
+The preferred implementation may use a value map sized to the random output domain where appropriate, but it must not let raw random floats bypass binary resolution. If the existing `valueMap` resolver path cannot preserve the random data type, adjust that boundary with focused engine coverage rather than duplicating scale logic in the engine.
+
+**Acceptance criteria:**
+
+- [x] `.root("a3").notes(d.rand().bin().steps(4))` resolves only `A3` and `A♯3`.
+- [x] `.root("a3").scale("min").notes(d.rand().bin().steps(4))` resolves only `A3` and `B3`.
+- [x] Binary random notes remain deterministic with and without ribbons.
+- [x] Float and integer random notes retain their existing root, scale, range, and value-map behavior.
+- [x] The random resolver does not bypass binary chance/data-type mapping merely because a note value map is present.
+- [x] Fluid and audio-engine checks, lint, and focused tests pass.
 
 ---
 

@@ -102,7 +102,10 @@ class MidiNotes {
   getSchema(): RandomSchema | StaticSchema {
     if (isRandomCycle(this._cycle)) {
       const schema = this._cycle.getRandomSchema();
-      if (this._scale) {
+      if (schema.dataType === "binary") {
+        schema.valueMap = [this.degreeToMidi(0), this.degreeToMidi(1)];
+        schema.range = undefined;
+      } else if (this._scale) {
         // Use range to determine how many scale degrees to resolve.
         // range.max is exclusive, so {min:0, max:14} → degrees 0–13 (two octaves).
         // Defaults to one octave when no range is set.

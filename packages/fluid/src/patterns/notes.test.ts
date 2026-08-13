@@ -76,4 +76,32 @@ describe(".scale().notes(d.rand()) schema contract", () => {
     expect(notes.valueMap).toBeUndefined();
     expect(notes.range).toEqual({ min: 60, max: 72 });
   });
+
+  it("maps binary random notes to root chromatic offsets without a scale", () => {
+    const d = new Drome();
+    d.synth("sine").root("a3").notes(d.rand().bin().steps(4)).push();
+    const notes = getNotes(d);
+
+    expect(notes.type).toBe("random");
+    if (notes.type !== "random") return;
+
+    expect(notes.valueMap).toEqual([57, 58]);
+    expect(notes.range).toBeUndefined();
+  });
+
+  it("maps binary random notes to the first two scale degrees", () => {
+    const d = new Drome();
+    d.synth("sine")
+      .root("a3")
+      .scale("min")
+      .notes(d.rand().bin().steps(4))
+      .push();
+    const notes = getNotes(d);
+
+    expect(notes.type).toBe("random");
+    if (notes.type !== "random") return;
+
+    expect(notes.valueMap).toEqual([57, 59]);
+    expect(notes.range).toBeUndefined();
+  });
 });
