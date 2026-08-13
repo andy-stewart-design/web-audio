@@ -16,10 +16,11 @@ describe("RandomCycle", () => {
       expect(new RandomCycle().getRandomSchema().algorithm).toBe("xor");
     });
 
-    it("defaults to undefined range and quantValue", () => {
+    it("defaults to undefined range, quantValue, and chance", () => {
       const schema = new RandomCycle().getRandomSchema();
       expect(schema.range).toBeUndefined();
       expect(schema.quantValue).toBeUndefined();
+      expect(schema.chance).toBeUndefined();
     });
   });
 
@@ -124,6 +125,54 @@ describe("RandomCycle", () => {
 
     it("bin() sets dataType to binary", () => {
       expect(new RandomCycle().bin().getRandomSchema().dataType).toBe("binary");
+    });
+
+    it("serializes binary chance regardless of whether bin() comes first", () => {
+      expect(
+        new RandomCycle().bin().chance(0.6).getRandomSchema(),
+      ).toMatchObject({
+        dataType: "binary",
+        chance: 0.6,
+      });
+      expect(
+        new RandomCycle().chance(0.6).bin().getRandomSchema(),
+      ).toMatchObject({
+        dataType: "binary",
+        chance: 0.6,
+      });
+    });
+
+    it("uses the latest configured chance", () => {
+      expect(
+        new RandomCycle().bin().chance(0.25).chance(0.75).getRandomSchema()
+          .chance,
+      ).toBe(0.75);
+    });
+
+    it("accepts chance probability boundaries", () => {
+      expect(new RandomCycle().bin().chance(0).getRandomSchema().chance).toBe(
+        0,
+      );
+      expect(new RandomCycle().bin().chance(1).getRandomSchema().chance).toBe(
+        1,
+      );
+    });
+
+    it("rejects invalid chance probabilities immediately", () => {
+      for (const probability of [-0.01, 1.01, Infinity, -Infinity, NaN]) {
+        expect(() => new RandomCycle().chance(probability)).toThrow(
+          "probability must be a finite number from 0 to 1",
+        );
+      }
+    });
+
+    it("rejects chance unless the final random type is binary", () => {
+      expect(() => new RandomCycle().chance(0.6).getRandomSchema()).toThrow(
+        "only valid for binary random cycles",
+      );
+      expect(() =>
+        new RandomCycle().bin().chance(0.6).int().getRandomSchema(),
+      ).toThrow("only valid for binary random cycles");
     });
 
     it("range() sets min and max", () => {

@@ -32,6 +32,7 @@ interface RandomSchema {
   dataType: "float" | "integer" | "binary";
   segments: { seed: number; len?: number }[];
   quantValue: number | undefined;
+  chance?: number;
   range: { min: number; max: number } | undefined;
   algorithm: "xor" | "mulberry";
   cycle: StaticSchema;

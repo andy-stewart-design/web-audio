@@ -7,6 +7,7 @@ class RandomCycle2 extends BinaryCycle {
   private _segments: { seed: number; len: number }[] | undefined;
   private _range: { min: number; max: number } | undefined;
   private _quantValue: number | undefined;
+  private _chance: number | undefined;
   private _algorithm: "xor" | "mulberry" = "xor";
   public rib: (
     seed: number | number[],
@@ -71,6 +72,17 @@ class RandomCycle2 extends BinaryCycle {
     return this;
   }
 
+  chance(probability: number) {
+    if (!Number.isFinite(probability) || probability < 0 || probability > 1) {
+      throw new Error(
+        "RandomCycle.chance() probability must be a finite number from 0 to 1",
+      );
+    }
+
+    this._chance = probability;
+    return this;
+  }
+
   quant(step: number) {
     this._quantValue = step;
     return this;
@@ -82,6 +94,12 @@ class RandomCycle2 extends BinaryCycle {
   }
 
   getRandomSchema(): RandomSchema {
+    if (this._chance !== undefined && this._type !== "binary") {
+      throw new Error(
+        "RandomCycle.chance() is only valid for binary random cycles",
+      );
+    }
+
     const cycle = this.getStaticSchema();
 
     return {
@@ -92,6 +110,7 @@ class RandomCycle2 extends BinaryCycle {
       segments: this._segments ?? [{ seed: this._baseSeed }],
       algorithm: this._algorithm,
       quantValue: this._quantValue,
+      chance: this._chance,
     };
   }
 }
