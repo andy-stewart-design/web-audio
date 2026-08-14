@@ -1,11 +1,21 @@
-export function xox(...steps: (number | number[])[] | string[]) {
-  return steps.map((c) => {
-    if (typeof c === "string") {
-      return c.split("").reduce<number[]>((acc, s) => {
-        if (s.trim()) acc.push(s.trim() === "x" ? 1 : 0);
-        return acc;
-      }, []);
+import type { BinaryCycleData } from "../types";
+
+function binary(value: number): 0 | 1 {
+  return value ? 1 : 0;
+}
+
+export function xox(
+  ...steps: (number | number[])[] | string[]
+): BinaryCycleData {
+  return steps.map((step) => {
+    if (typeof step === "string") {
+      return step
+        .split("")
+        .reduce<BinaryCycleData[number]>((pattern, value) => {
+          if (value.trim()) pattern.push(binary(value.trim() === "x" ? 1 : 0));
+          return pattern;
+        }, []);
     }
-    return Array.isArray(c) ? c.map((n) => (n ? 1 : 0)) : c ? [1] : [0];
+    return Array.isArray(step) ? step.map(binary) : [binary(step)];
   });
 }
