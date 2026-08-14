@@ -7,6 +7,7 @@ import {
   floatMapper,
   intMapper,
   binaryMapper,
+  chanceMapper,
   quantizeMapper,
   type RandMapper,
 } from "@/utils/random";
@@ -24,10 +25,19 @@ class RandomResolver {
 
   resolve(barIndex: number, stepIndex: number): number {
     const bar = this._generate(barIndex);
+    if (bar.length === 0) {
+      throw new Error("Cannot resolve a random value from an empty bar");
+    }
     return bar[stepIndex % bar.length];
   }
 
   private _getMapper(): RandMapper {
+    if (
+      this._schema.dataType === "binary" &&
+      this._schema.chance !== undefined
+    ) {
+      return chanceMapper(this._schema.chance);
+    }
     if (this._schema.quantValue !== undefined) {
       return quantizeMapper(this._schema.quantValue);
     }
@@ -72,7 +82,7 @@ class RandomResolver {
     let seed = getSeed(currentSeed + seedOffset);
 
     const mask =
-      this._schema.cycle.cycle[barIndex % this._schema.cycle.cycle.length];
+      this._schema.grid.cycle[barIndex % this._schema.grid.cycle.length];
     const rangeStart = this._schema.range?.min ?? 0;
     const rangeEnd = this._schema.range?.max ?? 1;
 
@@ -91,9 +101,10 @@ class RandomResolver {
           seed = xorwise(seed);
         }
         if (this._schema.valueMap) {
-          // valueMap is self-sufficient: index directly from the raw float,
-          // bypassing the range/dataType pipeline entirely.
-          const index = Math.floor(rFloat * this._schema.valueMap.length);
+          const index =
+            this._schema.dataType === "binary"
+              ? this._mapper(rFloat, rangeStart, rangeEnd)
+              : Math.floor(rFloat * this._schema.valueMap.length);
           result.push(this._schema.valueMap[index]);
         } else {
           const mapped = this._mapper(rFloat, rangeStart, rangeEnd);

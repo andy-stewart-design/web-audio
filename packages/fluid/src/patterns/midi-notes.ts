@@ -1,5 +1,7 @@
 import {
-  ChordCycle,
+  BinaryCycle,
+  getChordStaticSchema,
+  MaskedCycle,
   RandomCycle,
   type Chord,
   type ScheduledValue,
@@ -7,19 +9,24 @@ import {
 import { getScale } from "@/utils/get-scale";
 import { noteStringToMidi } from "@/utils/note-string-to-midi";
 import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
-import type { RandomSchema, StaticSchema } from "@web-audio/schema";
+import type {
+  ParameterSchema,
+  RandomSchema,
+  StaticSchema,
+} from "@web-audio/schema";
 import type { NoteName, NoteValue, ScaleAlias } from "@/types";
 
 type NoteOrChord<T> = T | T[];
 type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class MidiNotes {
-  private _cycle: ChordCycle | RandomCycle;
+  private _notes: MaskedCycle<Chord> | RandomCycle;
+  private _randomMask: RandomCycle | undefined;
   private _root = 0;
   private _scale: number[] | undefined;
 
   constructor(defaultPattern: Chord) {
-    this._cycle = new ChordCycle(defaultPattern);
+    this._notes = new MaskedCycle([[defaultPattern]]);
   }
 
   private degreeToMidi(note: number) {
@@ -33,13 +40,16 @@ class MidiNotes {
   }
 
   notes(...input: NoteInput<ScheduledValue> | [RandomCycle]) {
+    this._randomMask = undefined;
     if (isRandomCycleTuple(input)) {
-      this._cycle = input[0];
-    } else if (!isRandomCycle(this._cycle)) {
-      const cycle = input.map((p) =>
-        Array.isArray(p) ? p.map((c) => (Array.isArray(c) ? c : [c])) : [[p]],
+      this._notes = input[0];
+    } else {
+      const cycle = input.map((pattern) =>
+        Array.isArray(pattern)
+          ? pattern.map((chord) => (Array.isArray(chord) ? chord : [chord]))
+          : [[pattern]],
       );
-      this._cycle.pattern(...cycle);
+      this._notes = new MaskedCycle(cycle);
     }
     return this;
   }
@@ -60,49 +70,72 @@ class MidiNotes {
     steps: number,
     rotation: number | number[] = 0,
   ) {
-    this._cycle.euclid(pulses, steps, rotation);
+    this._notes.euclid(pulses, steps, rotation);
     return this;
   }
 
   hex(...hexes: (string | number)[]) {
-    this._cycle.hex(...hexes);
+    this._notes.hex(...hexes);
     return this;
   }
 
   reverse() {
-    this._cycle.reverse();
+    this._notes.reverse();
     return this;
   }
 
   sequence(steps: number, ...pulses: (number | number[])[]) {
-    this._cycle.sequence(steps, ...pulses);
+    this._notes.sequence(steps, ...pulses);
     return this;
   }
 
-  xox(...input: (number | number[])[]) {
-    this._cycle.xox(...input);
+  xox(...input: (number | number[])[] | [RandomCycle]) {
+    if (isRandomCycleTuple(input)) {
+      this._randomMask = input[0];
+    } else {
+      this._randomMask = undefined;
+      this._notes.xox(...input);
+    }
     return this;
+  }
+
+  getMask(): ParameterSchema | undefined {
+    if (this._randomMask) {
+      const schema = this._randomMask.getRandomSchema();
+      if (schema.dataType !== "binary") {
+        throw new Error("Instrument.xox() random masks must be binary");
+      }
+      return schema;
+    }
+
+    if (isRandomCycle(this._notes) || !this._notes.mask) return undefined;
+    const mask = new BinaryCycle();
+    mask.replace(this._notes.mask);
+    return mask.getStaticSchema();
   }
 
   fast(multiplier: number) {
-    this._cycle.fast(multiplier);
+    this._notes.fast(multiplier);
     return this;
   }
 
   slow(multiplier: number) {
-    this._cycle.slow(multiplier);
+    this._notes.slow(multiplier);
     return this;
   }
 
   stretch(bars: number, steps?: number) {
-    this._cycle.stretch(bars, steps);
+    this._notes.stretch(bars, steps);
     return this;
   }
 
   getSchema(): RandomSchema | StaticSchema {
-    if (isRandomCycle(this._cycle)) {
-      const schema = this._cycle.getRandomSchema();
-      if (this._scale) {
+    if (isRandomCycle(this._notes)) {
+      const schema = this._notes.getRandomSchema();
+      if (schema.dataType === "binary") {
+        schema.valueMap = [this.degreeToMidi(0), this.degreeToMidi(1)];
+        schema.range = undefined;
+      } else if (this._scale) {
         // Use range to determine how many scale degrees to resolve.
         // range.max is exclusive, so {min:0, max:14} → degrees 0–13 (two octaves).
         // Defaults to one octave when no range is set.
@@ -116,9 +149,12 @@ class MidiNotes {
         schema.range = undefined;
       }
       return schema;
-    } else {
-      return this._cycle.getStaticSchema(this.degreeToMidi.bind(this));
     }
+
+    return getChordStaticSchema(
+      this._notes.activeEvents,
+      this.degreeToMidi.bind(this),
+    );
   }
 }
 

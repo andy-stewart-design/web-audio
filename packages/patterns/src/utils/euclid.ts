@@ -1,12 +1,14 @@
+import type { BinaryCycleData } from "../types";
+
 function euclid(
   pulses: number | number[],
   steps: number,
   rotation: number | number[] = 0,
-) {
+): BinaryCycleData {
   const numPulses = Array.isArray(pulses) ? pulses.length : 1;
   const numRotation = Array.isArray(rotation) ? rotation.length : 1;
   const numCycles = Math.max(numPulses, numRotation);
-  const cycles: number[][] = [];
+  const cycles: BinaryCycleData = [];
 
   for (let i = 0; i < numCycles; i++) {
     const p = getValue(pulses, i, 1);
@@ -26,11 +28,17 @@ function getValue<T>(v: T | T[], i: number, fb: T) {
   return Array.isArray(v) ? (v[i % v.length] ?? fb) : v;
 }
 
-function _euclid(pulse: number, steps: number, rotation: number) {
+function _euclid(
+  pulse: number,
+  steps: number,
+  rotation: number,
+): BinaryCycleData[number] {
   if (pulse < 0 || steps < 0 || steps < pulse) return [];
 
-  let first = new Array(pulse).fill([1]);
-  let second = new Array(steps - pulse).fill([0]);
+  let first: BinaryCycleData = Array.from({ length: pulse }, () => [1]);
+  let second: BinaryCycleData = Array.from({ length: steps - pulse }, () => [
+    0,
+  ]);
 
   let firstLength = first.length;
   let minLength = Math.min(firstLength, second.length);
@@ -54,7 +62,7 @@ function _euclid(pulse: number, steps: number, rotation: number) {
     minLength = Math.min(firstLength, second.length);
   }
 
-  const pattern: number[] = [...first.flat(), ...second.flat()];
+  const pattern: BinaryCycleData[number] = [...first.flat(), ...second.flat()];
 
   if (rotation !== 0) {
     const len = pattern.length;

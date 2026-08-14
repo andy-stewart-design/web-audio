@@ -107,7 +107,8 @@ Semantics:
 
 - The random cycle is preserved as a dynamic trigger mask, not materialized once during schema construction.
 - The mask resolves independently for each active bar unless ribbon configuration causes it to loop.
-- A `1` preserves the instrument's underlying note/sample trigger.
+- The mask establishes the resulting trigger grid, following existing static `xox` semantics: underlying note values cycle across that grid.
+- A `1` preserves the underlying note/sample trigger at that grid position.
 - A `0` suppresses the trigger.
 - An empty random bar suppresses the instrument for that bar.
 - Non-binary random cycles passed to `xox` are invalid and throw during schema construction.
@@ -140,6 +141,7 @@ Semantics:
 - `end()` and `duration()` are mutually exclusive; the most recently called method wins and clears the other configuration.
 - Duration patterns remain indexed by grid position, including when chance suppresses intervening hits.
 - Duration describes source material, not wall-clock time. Detune naturally changes how long traversal takes.
+- For looping samplers, duration defines the source loop region; the loop continues until another mechanism stops it.
 
 ### 5. Sampler playback direction
 
@@ -210,7 +212,7 @@ Semantics:
 - Nudge resolves by original grid position. Suppressed hits do not compress its indexing.
 - Nudge uses the final step duration after rhythmic transformations such as `fast`, `slow`, and `stretch`.
 - Only onset moves; note/sample duration is preserved and audio tails may cross bar boundaries.
-- The resulting onset is clamped to the current bar's start and end boundaries.
+- The resulting onset is clamped to the current bar's start and end boundaries; an onset exactly at the end boundary remains scheduled and associated with its originating grid position.
 - Coincident events are allowed; the scheduler does not reorder or silently alter user values.
 
 ### 8. Conventional swing
@@ -228,7 +230,7 @@ Semantics:
 - Swing amounts are static, bar-level values; random and per-step variation belong in `nudge`.
 - Values are within `0–1`, inclusive.
 - `0` is straight timing.
-- `0.5` delays every second step by half a step, producing conventional 2:1 triplet swing.
+- `1 / 3` delays every second step by one third of a step, producing conventional 2:1 triplet swing.
 - Odd zero-based grid indices (`1`, `3`, `5`, ...) receive the delay.
 - Swing follows grid positions, not emitted-hit count.
 - Suppressed steps do not change which later positions are swung.
@@ -256,7 +258,7 @@ source.start(when, offset);
 - Fade gain to effective silence before stopping and disconnecting a source.
 - Apply the same principle to natural region completion and monophonic replacement.
 - Under static detune, account for playback speed when deriving nominal traversal/gate timing.
-- Under LFO-modulated detune, prioritize click-free nominal gating over sample-frame-exact boundaries.
+- Under LFO-modulated detune, derive the gate from nominal/base playback speed and prioritize click-free gating over sample-frame-exact boundaries.
 - Reverse sources must contain enough underlying buffer data to remain alive through their gain gate.
 
 ## State and alignment rules

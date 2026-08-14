@@ -16,10 +16,11 @@ describe("RandomCycle", () => {
       expect(new RandomCycle().getRandomSchema().algorithm).toBe("xor");
     });
 
-    it("defaults to undefined range and quantValue", () => {
+    it("defaults to undefined range, quantValue, and chance", () => {
       const schema = new RandomCycle().getRandomSchema();
       expect(schema.range).toBeUndefined();
       expect(schema.quantValue).toBeUndefined();
+      expect(schema.chance).toBeUndefined();
     });
   });
 
@@ -66,13 +67,49 @@ describe("RandomCycle", () => {
   describe("inner cycle geometry", () => {
     it("steps(4) produces a 4-step inner cycle", () => {
       const schema = new RandomCycle().steps(4).getRandomSchema();
-      expect(schema.cycle.cycle[0]).toHaveLength(4);
+      expect(schema.grid.cycle[0]).toHaveLength(4);
+    });
+
+    it("creates a repeating sequence of active and empty bars", () => {
+      const bars = new RandomCycle().steps(16, 0, 8).getRandomSchema()
+        .grid.cycle;
+
+      expect(bars).toHaveLength(3);
+      expect(bars.map((bar) => bar.length)).toEqual([16, 0, 8]);
+      expect(bars[0][0]).toMatchObject({
+        duration: 1 / 16,
+        offset: 0,
+        stepIndex: 0,
+      });
+      expect(bars[0][15]).toMatchObject({
+        duration: 1 / 16,
+        offset: 15 / 16,
+        stepIndex: 15,
+      });
+      expect(bars[1]).toEqual([]);
+      expect(bars[2][7]).toMatchObject({
+        duration: 1 / 8,
+        offset: 7 / 8,
+        stepIndex: 7,
+      });
+    });
+
+    it("rejects missing, negative, fractional, and non-finite step counts", () => {
+      expect(() => new RandomCycle().steps()).toThrow(
+        "requires at least one step count",
+      );
+
+      for (const count of [-1, 1.5, Infinity, NaN]) {
+        expect(() => new RandomCycle().steps(count)).toThrow(
+          "counts must be finite, non-negative integers",
+        );
+      }
     });
 
     it("euclid filters the inner cycle events", () => {
       // euclid(2, 4) => [1, 0, 1, 0] — pulses at steps 0 and 2
-      const bar = new RandomCycle().steps(4).euclid(2, 4).getRandomSchema()
-        .cycle.cycle[0];
+      const bar = new RandomCycle().steps(4).euclid(2, 4).getRandomSchema().grid
+        .cycle[0];
       expect(bar).toHaveLength(2);
       expect(bar[0].stepIndex).toBe(0);
       expect(bar[1].stepIndex).toBe(2);
@@ -88,6 +125,54 @@ describe("RandomCycle", () => {
 
     it("bin() sets dataType to binary", () => {
       expect(new RandomCycle().bin().getRandomSchema().dataType).toBe("binary");
+    });
+
+    it("serializes binary chance regardless of whether bin() comes first", () => {
+      expect(
+        new RandomCycle().bin().chance(0.6).getRandomSchema(),
+      ).toMatchObject({
+        dataType: "binary",
+        chance: 0.6,
+      });
+      expect(
+        new RandomCycle().chance(0.6).bin().getRandomSchema(),
+      ).toMatchObject({
+        dataType: "binary",
+        chance: 0.6,
+      });
+    });
+
+    it("uses the latest configured chance", () => {
+      expect(
+        new RandomCycle().bin().chance(0.25).chance(0.75).getRandomSchema()
+          .chance,
+      ).toBe(0.75);
+    });
+
+    it("accepts chance probability boundaries", () => {
+      expect(new RandomCycle().bin().chance(0).getRandomSchema().chance).toBe(
+        0,
+      );
+      expect(new RandomCycle().bin().chance(1).getRandomSchema().chance).toBe(
+        1,
+      );
+    });
+
+    it("rejects invalid chance probabilities immediately", () => {
+      for (const probability of [-0.01, 1.01, Infinity, -Infinity, NaN]) {
+        expect(() => new RandomCycle().chance(probability)).toThrow(
+          "probability must be a finite number from 0 to 1",
+        );
+      }
+    });
+
+    it("rejects chance unless the final random type is binary", () => {
+      expect(() => new RandomCycle().chance(0.6).getRandomSchema()).toThrow(
+        "only valid for binary random cycles",
+      );
+      expect(() =>
+        new RandomCycle().bin().chance(0.6).int().getRandomSchema(),
+      ).toThrow("only valid for binary random cycles");
     });
 
     it("range() sets min and max", () => {

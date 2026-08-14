@@ -1,12 +1,13 @@
 import { BinaryCycle } from "./static-cycles";
 import type { RandomSchema } from "./types";
 
-class RandomCycle2 extends BinaryCycle {
+class RandomCycle extends BinaryCycle {
   private _type: "float" | "integer" | "binary" = "float";
   private _baseSeed: number = 0;
   private _segments: { seed: number; len: number }[] | undefined;
   private _range: { min: number; max: number } | undefined;
   private _quantValue: number | undefined;
+  private _chance: number | undefined;
   private _algorithm: "xor" | "mulberry" = "xor";
   public rib: (
     seed: number | number[],
@@ -18,8 +19,23 @@ class RandomCycle2 extends BinaryCycle {
     this.rib = this.ribbon.bind(this);
   }
 
-  steps(n: number) {
-    this._cycle = [Array.from({ length: n }, () => 1)];
+  steps(...counts: number[]) {
+    if (counts.length === 0) {
+      throw new Error("RandomCycle.steps() requires at least one step count");
+    }
+
+    if (
+      counts.some(
+        (count) =>
+          !Number.isFinite(count) || count < 0 || !Number.isInteger(count),
+      )
+    ) {
+      throw new Error(
+        "RandomCycle.steps() counts must be finite, non-negative integers",
+      );
+    }
+
+    this._cycle = counts.map((count) => Array.from({ length: count }, () => 1));
     return this;
   }
 
@@ -56,6 +72,17 @@ class RandomCycle2 extends BinaryCycle {
     return this;
   }
 
+  chance(probability: number) {
+    if (!Number.isFinite(probability) || probability < 0 || probability > 1) {
+      throw new Error(
+        "RandomCycle.chance() probability must be a finite number from 0 to 1",
+      );
+    }
+
+    this._chance = probability;
+    return this;
+  }
+
   quant(step: number) {
     this._quantValue = step;
     return this;
@@ -67,18 +94,25 @@ class RandomCycle2 extends BinaryCycle {
   }
 
   getRandomSchema(): RandomSchema {
-    const cycle = this.getStaticSchema();
+    if (this._chance !== undefined && this._type !== "binary") {
+      throw new Error(
+        "RandomCycle.chance() is only valid for binary random cycles",
+      );
+    }
+
+    const grid = this.getStaticSchema();
 
     return {
       type: "random",
-      cycle,
+      grid,
       dataType: this._type,
       range: this._range,
       segments: this._segments ?? [{ seed: this._baseSeed }],
       algorithm: this._algorithm,
       quantValue: this._quantValue,
+      chance: this._chance,
     };
   }
 }
 
-export default RandomCycle2;
+export default RandomCycle;

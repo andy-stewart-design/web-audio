@@ -7,6 +7,7 @@ import type {
 } from "@web-audio/schema";
 import Synthesizer from "./synthesizer";
 import type MidiOutputScheduler from "@/midi-output-scheduler";
+import { midiToFrequency } from "@/utils/midi-to-frequency";
 
 // ---------------------------------------------------------------------------
 // Minimal Web Audio fakes
@@ -26,20 +27,27 @@ class FakeGainNode {
 
 class FakeOscillatorNode {
   static startCount = 0;
+  static instances: FakeOscillatorNode[] = [];
   detune = new FakeAudioParam();
   onended: (() => void) | null = null;
+  start = vi.fn((when: number) => {
+    void when;
+    FakeOscillatorNode.startCount++;
+  });
+  stop = vi.fn((when: number) => {
+    void when;
+  });
 
-  constructor(ctx: AudioContext, options: OscillatorOptions) {
+  constructor(
+    ctx: AudioContext,
+    readonly options: OscillatorOptions,
+  ) {
     void ctx;
-    void options;
+    FakeOscillatorNode.instances.push(this);
   }
 
   connect() {}
   disconnect() {}
-  start() {
-    FakeOscillatorNode.startCount++;
-  }
-  stop() {}
 }
 
 class FakeAudioContext {
@@ -85,19 +93,29 @@ function makeEnvelope(min = 0): EnvelopeSchema {
   };
 }
 
+type SchemaOverrides = Omit<Partial<SynthesizerSchema>, "notes"> & {
+  notes?: StaticSchema;
+  mask?: StaticSchema | import("@web-audio/schema").RandomSchema;
+};
+
 function makeSchema(
   detune: SynthesizerSchema["detune"],
-  overrides: Partial<SynthesizerSchema> = {},
+  overrides: SchemaOverrides = {},
 ): SynthesizerSchema {
+  const { notes, mask, ...rest } = overrides;
+
   return {
     type: "synthesizer",
     waveform: "sine",
-    notes: staticParam(60),
+    notes: {
+      source: notes ?? staticParam(60),
+      mask: mask,
+    },
     detune,
     gain: makeEnvelope(),
     effects: [],
     muted: false,
-    ...overrides,
+    ...rest,
   };
 }
 
@@ -114,6 +132,7 @@ function makeSynth(detune: SynthesizerSchema["detune"]) {
 
 beforeEach(() => {
   FakeOscillatorNode.startCount = 0;
+  FakeOscillatorNode.instances = [];
   vi.stubGlobal("GainNode", FakeGainNode);
   vi.stubGlobal("OscillatorNode", FakeOscillatorNode);
 });
@@ -143,6 +162,97 @@ describe("Synthesizer._resolveDetune", () => {
     const result = synth.resolveDetune(0, 0);
     if (result.type !== "envelope") throw new Error("expected envelope");
     expect(result.schema).toBe(env);
+  });
+});
+
+describe("Synthesizer trigger masks", () => {
+  it("cycles source notes across active static mask positions", () => {
+    const ctx = new FakeAudioContext();
+    const synth = new Synthesizer(
+      ctx as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(staticParam(0), {
+          notes: {
+            type: "static",
+            polyphonic: false,
+            cycle: [
+              [
+                { value: 60, offset: 0, duration: 0.5, stepIndex: 0 },
+                { value: 64, offset: 0.5, duration: 0.5, stepIndex: 1 },
+              ],
+            ],
+          },
+          mask: {
+            type: "static",
+            polyphonic: false,
+            cycle: [
+              [
+                { value: 1, offset: 0, duration: 0.25, stepIndex: 0 },
+                { value: 1, offset: 0.5, duration: 0.25, stepIndex: 2 },
+                { value: 1, offset: 0.75, duration: 0.25, stepIndex: 3 },
+              ],
+            ],
+          },
+        }),
+      },
+    );
+
+    synth.scheduleBar(0, 10);
+
+    expect(FakeOscillatorNode.startCount).toBe(3);
+    expect(
+      FakeOscillatorNode.instances.map(
+        (oscillator) => oscillator.options.frequency,
+      ),
+    ).toEqual([midiToFrequency(60), midiToFrequency(64), midiToFrequency(60)]);
+    expect(
+      FakeOscillatorNode.instances.map(
+        (oscillator) => oscillator.start.mock.calls[0][0],
+      ),
+    ).toEqual([10, 11, 11.5]);
+    expect(
+      FakeOscillatorNode.instances.map(
+        (oscillator) => oscillator.stop.mock.calls[0][0],
+      ),
+    ).toEqual([10.675, 11.675, 12.175]);
+  });
+
+  it("resolves dynamic masks and skips their empty bars", () => {
+    const ctx = new FakeAudioContext();
+    const synth = new Synthesizer(
+      ctx as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(staticParam(0), {
+          mask: {
+            type: "random",
+            dataType: "binary",
+            chance: 1,
+            segments: [{ seed: 42 }],
+            quantValue: undefined,
+            range: undefined,
+            algorithm: "xor",
+            grid: {
+              type: "static",
+              polyphonic: false,
+              cycle: [
+                [
+                  { value: 1, offset: 0, duration: 0.5, stepIndex: 0 },
+                  { value: 1, offset: 0.5, duration: 0.5, stepIndex: 1 },
+                ],
+                [],
+              ],
+            },
+          },
+        }),
+      },
+    );
+
+    synth.scheduleBar(0, 10);
+    synth.scheduleBar(1, 12);
+
+    expect(FakeOscillatorNode.startCount).toBe(2);
   });
 });
 

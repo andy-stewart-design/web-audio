@@ -43,3 +43,4 @@ Do **not** introduce MIDI-specific `console.warn` deduplication for these implic
 - How should diagnostics associate with user source code or schema paths?
 - What is the lifecycle/deduplication policy for repeated runtime diagnostics?
 - Which existing `console.*` calls and thrown errors should migrate first?
+- What do we do about instances like `packages/audio-engine/src/resolvers/random-resolver.ts:29`, which are internal errors that won't make sense to consumers?

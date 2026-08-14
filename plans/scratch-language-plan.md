@@ -38,7 +38,7 @@ Each phase should leave those package boundaries coherent and testable. Do not d
 - Empty bars occupy time and advance the global bar/random timeline but contain no steps to resolve.
 - `RandomCycle.chance()` is valid only when the final random data type is binary.
 - Chance is independent per eligible step, seeded and deterministic, not an exact-density operation.
-- Random input to `xox()` remains a dynamic trigger mask and does not replace the instrument's note/pitch values.
+- Random input to `xox()` remains a dynamic trigger mask and does not replace the instrument's note/pitch values; it establishes the trigger grid and underlying notes cycle across that grid as they do for static `xox()`.
 - Suppressed triggers do not compress or re-index duration, nudge, swing, or other step-addressed parameters.
 - `Sampler.duration()` is a normalized source length relative to the resolved `start`; `end` remains an absolute normalized endpoint.
 - `end()` and `duration()` are mutually exclusive and the latest call wins.
@@ -51,7 +51,35 @@ Each phase should leave those package boundaries coherent and testable. Do not d
 - `Instrument.swing()` is conventional odd-step delay and varies only by bar.
 - Swing and nudge affect onset, not event duration, and their combined onset remains within its originating bar.
 - Gated sampler playback does not pass a third duration argument to `AudioBufferSourceNode.start()`.
+- Under LFO-modulated detune, gate timing uses nominal/base playback speed rather than attempting sample-frame-exact dynamic-rate tracking.
 - Gain reaches effective silence before a gated or replaced source is stopped and disconnected.
+
+## Implementation status (2026-08-14)
+
+### Completed
+
+- **Phase 1** — patterned random bars, binary-only chance, deterministic chance resolution, and defensive empty-bar resolver handling.
+- **Phase 1.5** — binary random notes now preserve root/scale meaning: without a scale they select root/root-plus-one-semitone; with a scale they select degrees 0/1.
+- **Phase 2** — dynamic binary `RandomCycle` masks resolve per grid position, suppress voices without re-indexing source-specific parameters, and skip empty mask bars without resolving them. Static `xox()` now uses the completed [masked-cycle refactor](completed/masked-cycle-refactor-plan.md), preserving modifier ordering without a nullable combine/reconstruct path.
+
+### Phase 2 architecture derivations
+
+Implementation clarified two schema terms that were not fixed in the original plan:
+
+```ts
+notes: {
+  source: ParameterSchema,
+  mask?: ParameterSchema,
+}
+```
+
+- `notes.source` is the note/pitch source; `notes.mask` is trigger eligibility plus its final timing grid. This replaces the former top-level `triggerMask` experiment and is the only supported schema shape.
+- `RandomSchema.grid` is the random schema's structural `StaticSchema`; it replaces the ambiguous former `RandomSchema.cycle`. Static schemas retain their own `cycle` field. Engine code therefore reads `notes.source.grid.cycle` for a random source and `notes.mask.grid.cycle` for a random mask, never `.cycle.cycle`.
+- Static `xox()` uses `MaskedCycle` to retain source references and rest positions separately. Source values are serialized in emitted order while the static mask retains the final timing grid.
+
+### Immediate next step
+
+Begin **Phase 3 — Relative sampler duration**.
 
 ## Scope guardrails
 
@@ -108,13 +136,13 @@ Confirm `BinaryCycle.getStaticSchema()` retains empty inner arrays and does not 
 
 **Acceptance criteria:**
 
-- [ ] `.steps(16)` remains schema-compatible with current behavior.
-- [ ] `.steps(16, 0, 8)` emits structural bars with 16, 0, and 8 positions.
-- [ ] Bar offsets and durations are correct within each non-empty bar.
-- [ ] The three-bar structure repeats through existing cycle indexing.
-- [ ] Empty bars contain no scheduled values.
-- [ ] Invalid counts throw descriptive `RandomCycle` errors.
-- [ ] Patterns package check, lint, and tests pass.
+- [x] `.steps(16)` remains schema-compatible with current behavior.
+- [x] `.steps(16, 0, 8)` emits structural bars with 16, 0, and 8 positions.
+- [x] Bar offsets and durations are correct within each non-empty bar.
+- [x] The three-bar structure repeats through existing cycle indexing.
+- [x] Empty bars contain no scheduled values.
+- [x] Invalid counts throw descriptive `RandomCycle` errors.
+- [x] Patterns package check, lint, and tests pass.
 
 ### Step 1.2 — Add binary chance to schema and Fluid random builders
 
@@ -140,13 +168,13 @@ Keep the schema narrow: chance belongs to random binary resolution, not to every
 
 **Acceptance criteria:**
 
-- [ ] `.bin().chance(0.6)` and `.chance(0.6).bin()` produce equivalent schemas.
-- [ ] `.chance(0)`, `.chance(0.5)`, `.chance(0.6)`, and `.chance(1)` serialize correctly.
-- [ ] Repeated calls use the latest chance value.
-- [ ] Final float/integer configurations with chance fail during schema generation.
-- [ ] Out-of-range and non-finite probabilities throw.
-- [ ] Existing random schemas without chance remain valid.
-- [ ] Schema and patterns package checks pass.
+- [x] `.bin().chance(0.6)` and `.chance(0.6).bin()` produce equivalent schemas.
+- [x] `.chance(0)`, `.chance(0.5)`, `.chance(0.6)`, and `.chance(1)` serialize correctly.
+- [x] Repeated calls use the latest chance value.
+- [x] Final float/integer configurations with chance fail during schema generation.
+- [x] Out-of-range and non-finite probabilities throw.
+- [x] Existing random schemas without chance remain valid.
+- [x] Schema and patterns package checks pass.
 
 ### Step 1.3 — Resolve deterministic binary probability
 
@@ -166,13 +194,46 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Chance extremes are exact.
-- [ ] A representative 60% sequence is deterministic across resolver instances.
-- [ ] Different absolute bars continue to generate fresh deterministic values without a ribbon.
-- [ ] Ribbon segment loops retain current deterministic behavior.
-- [ ] Empty-bar resolution cannot cause an unhelpful modulo-by-zero result.
-- [ ] Existing resolver tests for float, integer, quantization, algorithms, ribbons, and value maps pass unchanged.
-- [ ] Audio-engine check, lint, and focused tests pass.
+- [x] Chance extremes are exact.
+- [x] A representative 60% sequence is deterministic across resolver instances.
+- [x] Different absolute bars continue to generate fresh deterministic values without a ribbon.
+- [x] Ribbon segment loops retain current deterministic behavior.
+- [x] Empty-bar resolution cannot cause an unhelpful modulo-by-zero result.
+- [x] Existing resolver tests for float, integer, quantization, algorithms, ribbons, and value maps pass unchanged.
+- [x] Audio-engine check, lint, and focused tests pass.
+
+---
+
+## Phase 1.5 — Preserve binary random-note semantics with root and scale
+
+Tracer bullet: `.notes(d.rand().bin().steps(4))` resolves only two notes while applying `root()` and optional `scale()` exactly as static note values do.
+
+### Step 1.5.1 — Apply note-value transforms before random note selection
+
+**Status:** Complete.
+
+**Files:** `packages/fluid/src/patterns/midi-notes.ts`, `packages/fluid/src/patterns/notes.test.ts`, related Fluid integration tests
+
+Current random notes with `scale()` are converted into a full scale `valueMap`, whose resolver path bypasses `RandomSchema.dataType`; this makes `.bin()` select from every mapped scale degree. Random notes without `scale()` also bypass the normal root-offset transform.
+
+Refactor random-note schema construction so the final random type remains meaningful in every note context:
+
+- binary random notes select only values represented by binary output `0` and `1`;
+- without `scale()`, apply `root()` as a chromatic MIDI offset, so binary output selects the root and root plus one semitone;
+- with `scale()`, map binary output to scale degrees `0` and `1`, so `.root("a3").scale("min").notes(d.rand().bin())` selects `A3` and `B3`;
+- preserve existing float/integer random-note behavior, including configured ranges, scale degree mapping, `valueMap` behavior, ribbons, and deterministic resolution;
+- make the implementation type-driven rather than adding a special engine-side exception for `.bin()`.
+
+The preferred implementation may use a value map sized to the random output domain where appropriate, but it must not let raw random floats bypass binary resolution. If the existing `valueMap` resolver path cannot preserve the random data type, adjust that boundary with focused engine coverage rather than duplicating scale logic in the engine.
+
+**Acceptance criteria:**
+
+- [x] `.root("a3").notes(d.rand().bin().steps(4))` resolves only `A3` and `A♯3`.
+- [x] `.root("a3").scale("min").notes(d.rand().bin().steps(4))` resolves only `A3` and `B3`.
+- [x] Binary random notes remain deterministic with and without ribbons.
+- [x] Float and integer random notes retain their existing root, scale, range, and value-map behavior.
+- [x] The random resolver does not bypass binary chance/data-type mapping merely because a note value map is present.
+- [x] Fluid and audio-engine checks, lint, and focused tests pass.
 
 ---
 
@@ -182,9 +243,20 @@ Tracer bullet: `.xox(d.rand().bin().chance(0.6).steps(16, 0))` gates a sampler's
 
 ### Step 2.1 — Represent a dynamic note trigger mask explicitly
 
+**Status:** Complete. The strict `notes.source` / `notes.mask` schema and engine scheduling migration are in place, including the completed static masked-cycle refactor.
+
 **Files:** `packages/schema/src/index.ts`, `packages/fluid/src/patterns/midi-notes.ts`, `packages/fluid/src/patterns/sample-notes.ts`, `packages/fluid/src/instruments/instrument.ts`, related tests
 
-Replace the current architectural ambiguity noted by the engine's `notes.mask.cycle` TODO with an explicit schema representation for a note source plus an optional trigger mask.
+Replace the former ambiguous random-note structural-grid usage with an explicit schema representation for a note source plus an optional trigger mask. The finalized schema shape is:
+
+```ts
+notes: {
+  source: ParameterSchema,
+  mask?: ParameterSchema,
+}
+```
+
+For random schemas, use `RandomSchema.grid` for structural positions; reserve `mask` for trigger eligibility.
 
 Requirements:
 
@@ -200,14 +272,16 @@ Before editing, add characterization tests for current static `xox` behavior on 
 
 **Acceptance criteria:**
 
-- [ ] Notes and trigger eligibility are structurally distinguishable in schema.
-- [ ] A sampler mask hit retains its default source key/pitch.
-- [ ] Static `xox`, Euclid, hex, sequence, and notes behavior remains equivalent.
-- [ ] Existing serialized fixtures/tests are updated intentionally rather than through broad snapshots.
-- [ ] The schema does not encode a random mask as random pitch values.
-- [ ] Schema and Fluid checks/tests pass.
+- [x] Notes and trigger eligibility are structurally distinguishable in schema.
+- [x] A sampler mask hit retains its default source key/pitch.
+- [x] Static `xox`, Euclid, hex, sequence, and notes behavior remains equivalent.
+- [x] Existing serialized fixtures/tests are updated intentionally rather than through broad snapshots.
+- [x] The schema does not encode a random mask as random pitch values.
+- [x] Schema and Fluid checks/tests pass.
 
 ### Step 2.2 — Overload `xox()` for binary `RandomCycle`
+
+**Status:** Complete.
 
 **Files:** `packages/fluid/src/instruments/instrument.ts`, `packages/fluid/src/patterns/midi-notes.ts`, `packages/fluid/src/utils/validate.ts`, `packages/fluid/src/index.test.ts`, focused pattern tests
 
@@ -229,14 +303,16 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] TypeScript accepts static `xox` inputs and one binary `RandomCycle`.
-- [ ] Runtime schema construction rejects float/integer random masks.
-- [ ] `.xox(RandomCycle)` does not become static `[1]`.
-- [ ] `.notes(RandomCycle)` continues to produce random note values rather than a mask.
-- [ ] Empty bars survive Fluid schema construction.
-- [ ] Fluid check, lint, and focused tests pass.
+- [x] TypeScript accepts static `xox` inputs and one binary `RandomCycle`.
+- [x] Runtime schema construction rejects float/integer random masks.
+- [x] `.xox(RandomCycle)` does not become static `[1]`.
+- [x] `.notes(RandomCycle)` continues to produce random note values rather than a mask.
+- [x] Empty bars survive Fluid schema construction.
+- [x] Fluid check, lint, and focused tests pass.
 
 ### Step 2.3 — Schedule dynamic masks in synth and sampler engines
+
+**Status:** Complete.
 
 **Files:** `packages/audio-engine/src/instruments/instrument.ts`, `packages/audio-engine/src/instruments/sampler.ts`, `packages/audio-engine/src/instruments/synthesizer.ts`, relevant instrument tests
 
@@ -255,13 +331,13 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] A 16-step/empty-bar random mask schedules no events in every second bar.
-- [ ] Active bars change deterministically over time without a ribbon.
-- [ ] Ribbon-configured masks repeat at their configured period.
-- [ ] Sampler hits retain normal source pitch.
-- [ ] Synth notes retain their underlying MIDI values.
-- [ ] Suppressed positions do not resolve/schedule voice-specific work.
-- [ ] Audio-engine sampler and synthesizer tests pass.
+- [x] A 16-step/empty-bar random mask schedules no events in every second bar.
+- [x] Active bars change deterministically over time without a ribbon.
+- [x] Ribbon-configured masks repeat at their configured period.
+- [x] Sampler hits retain normal source pitch.
+- [x] Synth notes retain their underlying MIDI values.
+- [x] Suppressed positions do not resolve/schedule voice-specific work.
+- [x] Audio-engine sampler and synthesizer tests pass.
 
 ---
 
@@ -341,6 +417,7 @@ Requirements:
 - maintain existing sprite coordinate mapping;
 - keep source duration separate from wall-clock gate duration;
 - static/pattern detune naturally changes traversal time;
+- for looping samplers, use the resolved duration region as the loop region and continue looping until another lifecycle operation stops it;
 - a skipped zero-duration event performs no voice-state side effects in later phases.
 
 **Acceptance criteria:**
@@ -446,6 +523,8 @@ Requirements:
 
 ### Step 4.4 — Implement hit-aware alternate direction state
 
+**Dependency:** Complete Step 5.1 before wiring reverse or alternate voice scheduling. Direction schema and reversed-buffer preparation may precede it, but all emitted reverse/alternate voices must use the click-free gate and teardown lifecycle.
+
 **Files:** `packages/audio-engine/src/instruments/sampler.ts`, lifecycle code/tests as needed
 
 Maintain per-sampler direction state:
@@ -489,7 +568,7 @@ Requirements:
 - ensure gain reaches exact/effective zero before `source.stop()`;
 - stop after a short silent tail rather than exactly at a waveform discontinuity;
 - for static detune, use playback speed when calculating nominal source traversal time;
-- for envelope/LFO detune, prioritize the nominal gate and silent teardown over sample-frame-exact stopping;
+- for envelope/LFO detune, derive the nominal gate from base playback speed and prioritize silent teardown over sample-frame-exact stopping;
 - make teardown idempotent so natural end, mono replacement, cancellation, retirement, and destruction cannot double-stop/disconnect unsafely;
 - preserve synthesizer scheduling unless a shared lifecycle refactor intentionally improves both paths;
 - preserve MIDI binding cleanup and instrument `finished` behavior.
@@ -644,7 +723,7 @@ Requirements:
 - resolve nudge at original `barIndex`/`stepIndex`;
 - apply after rhythmic transformations because schema `note.duration` is the final step length;
 - preserve the original note duration and derive `endTime` from shifted `startTime + duration`;
-- clamp onset to bar start/end, including negative nudge on the first step;
+- clamp onset to bar start/end, including negative nudge on the first step; an onset exactly at bar end remains scheduled with its originating grid position;
 - permit tails beyond bar end;
 - permit coincident events without sorting/re-indexing them;
 - update envelope, detune, effects, MIDI, and source scheduling to use shifted note context consistently.
@@ -715,7 +794,7 @@ Requirements:
 - preserve event duration;
 - do not re-index after chance gaps;
 - clamp only final onset, not individual components;
-- `.swing(0.5)` produces conventional 2:1 triplet timing on an even grid;
+- `.swing(1 / 3)` produces conventional 2:1 triplet timing on an even grid;
 - `.swing(1)` may place an odd step on the next grid boundary, subject to bar clamp.
 
 **Acceptance criteria:**
