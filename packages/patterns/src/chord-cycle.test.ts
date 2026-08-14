@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { ChordCycle } from "./static-cycles";
+import { getChordStaticSchema } from "./utils/chord-static-schema";
 
 describe("ChordCycle", () => {
   describe("getStaticSchema", () => {
+    it("serializes a supplied chord cycle without constructing a ChordCycle", () => {
+      const schema = getChordStaticSchema([[[60], [64]]]);
+
+      expect(schema.cycle[0]).toMatchObject([
+        { value: 60, offset: 0, duration: 0.5, stepIndex: 0 },
+        { value: 64, offset: 0.5, duration: 0.5, stepIndex: 1 },
+      ]);
+    });
+
     it("serializes a chord with correct values and geometry", () => {
       const bar = new ChordCycle([60, 64, 67]).getStaticSchema().cycle[0];
       expect(bar.map((n) => n.value)).toEqual([60, 64, 67]);

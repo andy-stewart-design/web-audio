@@ -9,3 +9,4 @@ export { xox } from "./xox";
 export { euclid } from "./euclid";
 export { hex } from "./hex";
 export { applyPattern } from "./apply-pattern";
+export { getChordStaticSchema } from "./chord-static-schema";

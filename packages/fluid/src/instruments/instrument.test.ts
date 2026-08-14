@@ -34,14 +34,7 @@ function getStaticMaskFixture(
   }
 
   return {
-    source: source.cycle.map((bar) =>
-      bar.map(({ value, offset, duration, stepIndex }) => ({
-        value,
-        offset,
-        duration,
-        stepIndex,
-      })),
-    ),
+    source: source.cycle.map((bar) => bar.map((step) => step.value)),
     mask: mask.cycle.map((bar) =>
       bar.map(({ offset, duration, stepIndex }) => ({
         offset,
@@ -69,6 +62,37 @@ describe("Instrument static xox masks", () => {
     if (schema.notes.mask?.type === "static") {
       expect(schema.notes.mask.cycle[0].map((step) => step.stepIndex)).toEqual([
         0, 2, 3, 4, 5, 7,
+      ]);
+    }
+  });
+
+  it("serializes all-active xox as an unmasked expanded source cycle", () => {
+    const schema = new Synthesizer()
+      .notes([60, 64])
+      .xox([1, 1, 1, 1])
+      .getSchema();
+
+    expect(schema.notes.mask).toBeUndefined();
+    expect(schema.notes.source.type).toBe("static");
+    if (schema.notes.source.type === "static") {
+      expect(schema.notes.source.cycle[0].map((step) => step.value)).toEqual([
+        60, 64, 60, 64,
+      ]);
+    }
+  });
+
+  it("replaces static source content and clears its mask", () => {
+    const schema = new Synthesizer()
+      .notes([60, 64])
+      .xox([1, 0, 1])
+      .notes([67, 71])
+      .getSchema();
+
+    expect(schema.notes.mask).toBeUndefined();
+    expect(schema.notes.source.type).toBe("static");
+    if (schema.notes.source.type === "static") {
+      expect(schema.notes.source.cycle[0].map((step) => step.value)).toEqual([
+        67, 71,
       ]);
     }
   });
@@ -177,7 +201,9 @@ describe("Instrument static xox masks", () => {
 
     for (const { name, instrument, expected } of fixtures) {
       const fixture = getStaticMaskFixture(instrument().getSchema());
-      expect(fixture.source, name).toEqual(expected);
+      expect(fixture.source, name).toEqual(
+        expected.map((bar) => bar.map((step) => step.value)),
+      );
       expect(fixture.mask, name).toEqual(
         expected.map((bar) =>
           bar.map(({ offset, duration, stepIndex }) => ({
@@ -210,13 +236,7 @@ describe("Instrument static xox masks", () => {
     }
 
     expect(getStaticMaskFixture(schema)).toEqual({
-      source: [
-        [
-          { value: 0, offset: 0, duration: 1 / 4, stepIndex: 0 },
-          { value: 12, offset: 2 / 4, duration: 1 / 4, stepIndex: 2 },
-          { value: 0, offset: 3 / 4, duration: 1 / 4, stepIndex: 3 },
-        ],
-      ],
+      source: [[0, 12, 0]],
       mask: [
         [
           { offset: 0, duration: 1 / 4, stepIndex: 0 },

@@ -1,4 +1,5 @@
 import PatternCycle from "./pattern-cycle";
+import { getChordStaticSchema } from "./utils/chord-static-schema";
 import type { Chord, StaticSchema, StaticSchemaValue } from "./types";
 
 class BinaryCycle extends PatternCycle<1 | 0> {
@@ -29,23 +30,8 @@ class ChordCycle extends PatternCycle<Chord> {
     super([defaultPatern], null);
   }
 
-  getStaticSchema(transformer?: (v: number) => number) {
-    const cycle = this._cycle.map((pattern) => {
-      const stepDuration = 1 / pattern.length;
-
-      return pattern.flatMap((chord, stepIndex) =>
-        (chord ?? [])
-          .filter((v) => typeof v === "number")
-          .map((value) => ({
-            value: transformer ? transformer(value) : value,
-            offset: stepDuration * stepIndex,
-            duration: stepDuration,
-            stepIndex,
-          })),
-      );
-    });
-
-    return { type: "static", polyphonic: true, cycle } satisfies StaticSchema;
+  getStaticSchema(transformer?: (value: number) => number) {
+    return getChordStaticSchema(this._cycle, transformer);
   }
 }
 
