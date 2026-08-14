@@ -54,13 +54,13 @@ Each phase should leave those package boundaries coherent and testable. Do not d
 - Under LFO-modulated detune, gate timing uses nominal/base playback speed rather than attempting sample-frame-exact dynamic-rate tracking.
 - Gain reaches effective silence before a gated or replaced source is stopped and disconnected.
 
-## Implementation status (2026-08-12)
+## Implementation status (2026-08-14)
 
-### Completed and committed
+### Completed
 
 - **Phase 1** — patterned random bars, binary-only chance, deterministic chance resolution, and defensive empty-bar resolver handling.
 - **Phase 1.5** — binary random notes now preserve root/scale meaning: without a scale they select root/root-plus-one-semitone; with a scale they select degrees 0/1.
-- **Phase 2, dynamic path** — binary `RandomCycle` input to `xox()` is represented as a dynamic mask, resolves per grid position, suppresses voices without re-indexing source-specific parameters, and skips empty mask bars without resolving them.
+- **Phase 2** — dynamic binary `RandomCycle` masks resolve per grid position, suppress voices without re-indexing source-specific parameters, and skip empty mask bars without resolving them. Static `xox()` now uses the completed [masked-cycle refactor](completed/masked-cycle-refactor-plan.md), preserving modifier ordering without a nullable combine/reconstruct path.
 
 ### Phase 2 architecture derivations
 
@@ -75,11 +75,11 @@ notes: {
 
 - `notes.source` is the note/pitch source; `notes.mask` is trigger eligibility plus its final timing grid. This replaces the former top-level `triggerMask` experiment and is the only supported schema shape.
 - `RandomSchema.grid` is the random schema's structural `StaticSchema`; it replaces the ambiguous former `RandomSchema.cycle`. Static schemas retain their own `cycle` field. Engine code therefore reads `notes.source.grid.cycle` for a random source and `notes.mask.grid.cycle` for a random mask, never `.cycle.cycle`.
-- Static `xox()` currently uses a temporary compatibility implementation that combines source values and rests, then derives source/mask schemas. It preserves existing modifier behavior but is intentionally not the final design.
+- Static `xox()` uses `MaskedCycle` to retain source references and rest positions separately. Source values are serialized in emitted order while the static mask retains the final timing grid.
 
 ### Immediate next step
 
-Before Phase 2 can be closed, implement [`masked-cycle-refactor-plan.md`](masked-cycle-refactor-plan.md). It replaces the temporary static combine/reconstruct path with an internal paired masked-cycle representation while characterizing and preserving static modifier ordering. Do not begin Phase 3 until that plan's completion criteria are met.
+Begin **Phase 3 — Relative sampler duration**.
 
 ## Scope guardrails
 
@@ -243,7 +243,7 @@ Tracer bullet: `.xox(d.rand().bin().chance(0.6).steps(16, 0))` gates a sampler's
 
 ### Step 2.1 — Represent a dynamic note trigger mask explicitly
 
-**Status:** Partially complete. The strict `notes.source` / `notes.mask` schema and engine scheduling migration are in place. Static modifier compatibility is deferred to the immediate masked-cycle refactor described above; do not mark this step complete until that work lands.
+**Status:** Complete. The strict `notes.source` / `notes.mask` schema and engine scheduling migration are in place, including the completed static masked-cycle refactor.
 
 **Files:** `packages/schema/src/index.ts`, `packages/fluid/src/patterns/midi-notes.ts`, `packages/fluid/src/patterns/sample-notes.ts`, `packages/fluid/src/instruments/instrument.ts`, related tests
 
@@ -272,12 +272,12 @@ Before editing, add characterization tests for current static `xox` behavior on 
 
 **Acceptance criteria:**
 
-- [ ] Notes and trigger eligibility are structurally distinguishable in schema.
-- [ ] A sampler mask hit retains its default source key/pitch.
-- [ ] Static `xox`, Euclid, hex, sequence, and notes behavior remains equivalent.
-- [ ] Existing serialized fixtures/tests are updated intentionally rather than through broad snapshots.
-- [ ] The schema does not encode a random mask as random pitch values.
-- [ ] Schema and Fluid checks/tests pass.
+- [x] Notes and trigger eligibility are structurally distinguishable in schema.
+- [x] A sampler mask hit retains its default source key/pitch.
+- [x] Static `xox`, Euclid, hex, sequence, and notes behavior remains equivalent.
+- [x] Existing serialized fixtures/tests are updated intentionally rather than through broad snapshots.
+- [x] The schema does not encode a random mask as random pitch values.
+- [x] Schema and Fluid checks/tests pass.
 
 ### Step 2.2 — Overload `xox()` for binary `RandomCycle`
 
@@ -312,7 +312,7 @@ Requirements:
 
 ### Step 2.3 — Schedule dynamic masks in synth and sampler engines
 
-**Status:** Complete for dynamic masks; static-mask modifier-composition verification remains part of the Phase 2 masked-cycle completion gate.
+**Status:** Complete.
 
 **Files:** `packages/audio-engine/src/instruments/instrument.ts`, `packages/audio-engine/src/instruments/sampler.ts`, `packages/audio-engine/src/instruments/synthesizer.ts`, relevant instrument tests
 

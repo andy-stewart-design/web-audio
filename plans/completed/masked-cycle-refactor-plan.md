@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Completed (2026-08-14)
 
 ## Context
 
