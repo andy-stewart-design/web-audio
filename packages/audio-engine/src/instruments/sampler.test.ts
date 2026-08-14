@@ -735,6 +735,35 @@ describe("Sampler", () => {
     expect(createdSources[0].stop).toHaveBeenCalledWith(11.0025 + 0.05);
   });
 
+  it("relative-duration regions resolve from start and clamp at the buffer end", async () => {
+    const url = "https://example.com/loop.wav";
+    cache.resolved.set(url, makeBuffer(2));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticPattern(0, 0, 1),
+          region: {
+            type: "static",
+            start: staticParam(0.8),
+            duration: staticParam(0.3),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 1.6);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(10.4025 + 0.05);
+  });
+
   it("one-shot static file regions play the selected source duration", async () => {
     const url = "https://example.com/loop.wav";
     cache.resolved.set(url, makeBuffer(4));

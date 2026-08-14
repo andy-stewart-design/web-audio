@@ -101,11 +101,21 @@ type SampleVariationSchema =
 
 type NormalizedSampleSchema = Record<string, SampleVariationSchema[]>;
 
-interface StaticRegionSchema {
+interface StaticEndRegionSchema {
   type: "static";
   start: ParameterSchema;
   end: ParameterSchema;
+  duration?: never;
 }
+
+interface StaticDurationRegionSchema {
+  type: "static";
+  start: ParameterSchema;
+  duration: ParameterSchema;
+  end?: never;
+}
+
+type StaticRegionSchema = StaticEndRegionSchema | StaticDurationRegionSchema;
 
 interface ChopSliceSchema {
   start: number;
@@ -246,6 +256,8 @@ export type {
   SamplerSchema,
   SampleVariationSchema,
   SpriteSampleVariationSchema,
+  StaticDurationRegionSchema,
+  StaticEndRegionSchema,
   StaticRegionSchema,
   StaticSchema,
   StaticSchemaValue,
