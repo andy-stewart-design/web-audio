@@ -21,6 +21,37 @@ function expectGainADSR(
   expect(staticValue(envelope.r)).toBe(expected.r);
 }
 
+function getStaticMaskFixture(
+  schema:
+    | ReturnType<Synthesizer["getSchema"]>
+    | ReturnType<Sampler["getSchema"]>,
+) {
+  const { source, mask } = schema.notes;
+  expect(source.type).toBe("static");
+  expect(mask?.type).toBe("static");
+  if (source.type !== "static" || mask?.type !== "static") {
+    throw new Error("Expected static source and mask schemas");
+  }
+
+  return {
+    source: source.cycle.map((bar) =>
+      bar.map(({ value, offset, duration, stepIndex }) => ({
+        value,
+        offset,
+        duration,
+        stepIndex,
+      })),
+    ),
+    mask: mask.cycle.map((bar) =>
+      bar.map(({ offset, duration, stepIndex }) => ({
+        offset,
+        duration,
+        stepIndex,
+      })),
+    ),
+  };
+}
+
 describe("Instrument static xox masks", () => {
   it("keeps synth source notes separate from the trigger mask", () => {
     const schema = new Synthesizer()
@@ -63,6 +94,102 @@ describe("Instrument static xox masks", () => {
     }
   });
 
+  it("characterizes static xox modifier ordering and timing", () => {
+    const fixtures = [
+      {
+        name: "fast after xox",
+        instrument: () =>
+          new Synthesizer().notes([60, 64]).xox([1, 0, 1]).fast(2),
+        expected: [
+          [
+            { value: 60, offset: 0, duration: 1 / 6, stepIndex: 0 },
+            { value: 64, offset: 2 / 6, duration: 1 / 6, stepIndex: 2 },
+            { value: 60, offset: 3 / 6, duration: 1 / 6, stepIndex: 3 },
+            {
+              value: 64,
+              offset: (1 / 6) * 5,
+              duration: 1 / 6,
+              stepIndex: 5,
+            },
+          ],
+        ],
+      },
+      {
+        name: "reverse after xox",
+        instrument: () =>
+          new Synthesizer().notes([60, 64]).xox([1, 0, 1]).reverse(),
+        expected: [
+          [
+            { value: 64, offset: 0, duration: 1 / 3, stepIndex: 0 },
+            { value: 60, offset: 2 / 3, duration: 1 / 3, stepIndex: 2 },
+          ],
+        ],
+      },
+      {
+        name: "stretch after xox",
+        instrument: () =>
+          new Synthesizer().notes([60, 64]).xox([1, 0, 1]).stretch(2, 2),
+        expected: Array.from({ length: 2 }, () => [
+          { value: 60, offset: 0, duration: 1 / 6, stepIndex: 0 },
+          { value: 60, offset: 1 / 6, duration: 1 / 6, stepIndex: 1 },
+          { value: 64, offset: 4 / 6, duration: 1 / 6, stepIndex: 4 },
+          {
+            value: 64,
+            offset: (1 / 6) * 5,
+            duration: 1 / 6,
+            stepIndex: 5,
+          },
+        ]),
+      },
+      {
+        name: "euclid before xox",
+        instrument: () =>
+          new Synthesizer().notes([60, 64]).euclid(2, 4).xox([1, 0, 1, 1]),
+        expected: [
+          [
+            { value: 60, offset: 0, duration: 1 / 4, stepIndex: 0 },
+            { value: 64, offset: 3 / 4, duration: 1 / 4, stepIndex: 3 },
+          ],
+        ],
+      },
+      {
+        name: "xox before euclid",
+        instrument: () =>
+          new Synthesizer().notes([60, 64]).xox([1, 0, 1, 1]).euclid(2, 4),
+        expected: [[{ value: 60, offset: 0, duration: 1 / 4, stepIndex: 0 }]],
+      },
+      {
+        name: "hex after xox",
+        instrument: () =>
+          new Synthesizer().notes([60, 64]).xox([1, 0, 1, 1]).hex("a"),
+        expected: [[{ value: 60, offset: 0, duration: 1 / 4, stepIndex: 0 }]],
+      },
+      {
+        name: "sequence after xox",
+        instrument: () =>
+          new Synthesizer().notes([60, 64]).xox([1, 0, 1, 1]).sequence(4, 0, 2),
+        expected: [
+          [{ value: 60, offset: 0, duration: 1 / 4, stepIndex: 0 }],
+          [{ value: 60, offset: 2 / 4, duration: 1 / 4, stepIndex: 2 }],
+        ],
+      },
+    ];
+
+    for (const { name, instrument, expected } of fixtures) {
+      const fixture = getStaticMaskFixture(instrument().getSchema());
+      expect(fixture.source, name).toEqual(expected);
+      expect(fixture.mask, name).toEqual(
+        expected.map((bar) =>
+          bar.map(({ offset, duration, stepIndex }) => ({
+            offset,
+            duration,
+            stepIndex,
+          })),
+        ),
+      );
+    }
+  });
+
   it("keeps sampler source notes separate from the trigger mask", () => {
     const schema = new Sampler("kick")
       .notes([0, 12])
@@ -81,6 +208,23 @@ describe("Instrument static xox masks", () => {
         0, 2, 3,
       ]);
     }
+
+    expect(getStaticMaskFixture(schema)).toEqual({
+      source: [
+        [
+          { value: 0, offset: 0, duration: 1 / 4, stepIndex: 0 },
+          { value: 12, offset: 2 / 4, duration: 1 / 4, stepIndex: 2 },
+          { value: 0, offset: 3 / 4, duration: 1 / 4, stepIndex: 3 },
+        ],
+      ],
+      mask: [
+        [
+          { offset: 0, duration: 1 / 4, stepIndex: 0 },
+          { offset: 2 / 4, duration: 1 / 4, stepIndex: 2 },
+          { offset: 3 / 4, duration: 1 / 4, stepIndex: 3 },
+        ],
+      ],
+    });
   });
 
   it("preserves a binary random cycle as a dynamic trigger mask", () => {
