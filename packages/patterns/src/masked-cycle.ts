@@ -24,7 +24,8 @@ const REST: RestStep = { type: "rest" };
 
 /**
  * Keeps source content independent from the trigger grid that determines when
- * that content is consumed. Source values advance only at active mask slots.
+ * that content is consumed. Grid steps retain source references or rests, so
+ * source values advance only across active positions while rests retain timing.
  */
 class MaskedCycle<T> {
   private _source: Cycle<T>;

@@ -1,6 +1,5 @@
 import PatternCycle from "./pattern-cycle";
-import { getChordStaticSchema } from "./utils/chord-static-schema";
-import type { Chord, StaticSchema, StaticSchemaValue } from "./types";
+import type { StaticSchema, StaticSchemaValue } from "./types";
 
 class BinaryCycle extends PatternCycle<1 | 0> {
   constructor() {
@@ -25,16 +24,6 @@ class BinaryCycle extends PatternCycle<1 | 0> {
   }
 }
 
-class ChordCycle extends PatternCycle<Chord> {
-  constructor(defaultPatern: Chord) {
-    super([defaultPatern], null);
-  }
-
-  getStaticSchema(transformer?: (value: number) => number) {
-    return getChordStaticSchema(this._cycle, transformer);
-  }
-}
-
 class ValueCycle extends PatternCycle<number> {
   constructor(defaultPatern: number[], nullValue: number) {
     super(defaultPatern, nullValue);
@@ -54,4 +43,4 @@ class ValueCycle extends PatternCycle<number> {
   }
 }
 
-export { BinaryCycle, ChordCycle, ValueCycle };
+export { BinaryCycle, ValueCycle };
