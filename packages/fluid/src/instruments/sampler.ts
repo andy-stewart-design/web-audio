@@ -167,7 +167,6 @@ class Sampler extends Instrument {
       this._regionStart,
       this._regionEnd,
     );
-    const notes = this._getNotes(sourceKeys);
 
     return {
       type: "sampler",
@@ -175,7 +174,7 @@ class Sampler extends Instrument {
       sample: this._sample,
       variation: this._variation.getSchema(),
       notes: {
-        source: notes,
+        source: this._getNotes(sourceKeys),
         mask: this._cycle.getMask(),
       },
       fit: this._fit,
