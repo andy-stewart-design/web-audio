@@ -65,10 +65,30 @@ class SampleBufferStore {
     );
   }
 
-  getPlaybackSource(variationIndex: number, barIndex: number, sourceKey = 0) {
+  getPlaybackSource(
+    variationIndex: number,
+    barIndex: number,
+    sourceKey = 0,
+    reversed = false,
+  ) {
     const entry = this._resolveEntry(sourceKey, variationIndex);
-    const buffer = this.getPlaybackBuffer(variationIndex, barIndex, sourceKey);
-    if (!entry || !buffer) return null;
+    const original = this.getPlaybackBuffer(
+      variationIndex,
+      barIndex,
+      sourceKey,
+    );
+    if (!entry || !original) return null;
+
+    if (!reversed) return { buffer: original, entry };
+
+    const buffer = this._cache.reversed.get(original);
+    if (!buffer) {
+      console.warn(
+        `[Sampler] "${this._bank}/${this._sample}" reverse buffer is not prepared — skipping bar ${barIndex}`,
+      );
+      return null;
+    }
+
     return { buffer, entry };
   }
 
