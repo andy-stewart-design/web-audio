@@ -201,12 +201,19 @@ class Sampler extends Instrument {
     const fitRate = this._fitRate(sourceWindow.fitDuration);
     const playbackRate = note.value * fitRate;
     const playbackDuration = sourceWindow.duration / playbackRate;
-    const duration =
-      this._schema.clipMode === "one-shot" && !this._schema.loop
-        ? playbackDuration
-        : sourceWindow.isFittedChop
-          ? scheduledDuration
-          : Math.min(scheduledDuration, playbackDuration);
+
+    let duration: number;
+    if (this._schema.loop || sourceWindow.isFittedChop) {
+      // Looped samples and fitted chops sustain for the scheduled note length
+      duration = scheduledDuration;
+    } else if (this._schema.clipMode === "one-shot") {
+      // One-shots play the complete source window, regardless of note length
+      duration = playbackDuration;
+    } else {
+      // In all other instances, stop when the shorter of either the note or source window ends
+      duration = Math.min(scheduledDuration, playbackDuration);
+    }
+
     const endTime = startTime + duration;
 
     const detune = this._resolveDetune(
@@ -220,6 +227,8 @@ class Sampler extends Instrument {
       playbackRate,
       detune: detune.value,
       loop: this._schema.loop,
+      loopStart: sourceWindow.loopStart,
+      loopEnd: sourceWindow.loopEnd,
     });
     const noteContext = {
       barIndex,
@@ -309,6 +318,8 @@ class Sampler extends Instrument {
       this._schema.region?.type === "chop"
         ? this._chopFitDuration(entryDuration * buffer.duration)
         : (normalizedEnd - normalizedStart) * buffer.duration;
+    const isDurationRegion =
+      this._schema.region?.type === "static" && !!this._schema.region.duration;
 
     return {
       offset:
@@ -316,6 +327,10 @@ class Sampler extends Instrument {
           ? undefined
           : normalizedStart * buffer.duration,
       duration: (normalizedEnd - normalizedStart) * buffer.duration,
+      loopStart: isDurationRegion
+        ? normalizedStart * buffer.duration
+        : undefined,
+      loopEnd: isDurationRegion ? normalizedEnd * buffer.duration : undefined,
       fitDuration,
       isFittedChop: this._schema.region?.type === "chop" && !!this._schema.fit,
     };

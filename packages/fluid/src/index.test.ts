@@ -595,6 +595,17 @@ describe("Drome", () => {
       }
     });
 
+    it("dur() aliases duration(), including when extracted", () => {
+      const d = new Drome();
+      const sampler = d.sample("bd");
+      const dur = sampler.dur;
+
+      expect(dur(0.15)).toBe(sampler);
+      expect(sampler.getSchema()).toEqual(
+        d.sample("bd").duration(0.15).getSchema(),
+      );
+    });
+
     it("end() and duration() use the most recently configured region mode", () => {
       const d = new Drome();
       const duration = d.sample("bd").end(0.8).duration(0.15).getSchema();
@@ -1108,6 +1119,23 @@ describe("Drome", () => {
       const inst = d.sample("bd").fit(2).start(0.25).getSchema();
 
       expect(inst.region?.type).toBe("static");
+    });
+
+    it("duration() suppresses the generated fit region while retaining fit playback", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).duration(0.15).getSchema();
+
+      expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+      expect(inst.region?.type).toBe("static");
+      if (inst.region?.type === "static" && inst.region.duration) {
+        expect(inst.region.duration.type).toBe("static");
+      } else {
+        expect.unreachable("Expected a relative-duration region");
+      }
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle[0]).toHaveLength(1);
+      }
     });
 
     it("fit() succeeds for simple samples with sourceKeys [0]", () => {

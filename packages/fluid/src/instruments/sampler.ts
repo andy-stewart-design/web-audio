@@ -38,6 +38,9 @@ class Sampler extends Instrument {
   private _loop = false;
   private _clipMode: ClipMode = "clipped";
 
+  var: (...input: CycleInput) => this;
+  dur: (...input: CycleInput) => this;
+
   constructor(
     sample: string,
     { bank = DEFAULT_BANK, host }: SamplerOptions = {},
@@ -47,11 +50,8 @@ class Sampler extends Instrument {
     this._bank = bank;
     this._sample = sample;
     this._variation = new Parameter(0);
-  }
-
-  // METHOD ALIASES
-  var(...input: CycleInput) {
-    return this.variation(...input);
+    this.var = this.variation.bind(this);
+    this.dur = this.duration.bind(this);
   }
 
   // INSTANCE METHODS
