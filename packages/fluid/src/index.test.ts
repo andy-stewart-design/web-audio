@@ -413,11 +413,11 @@ describe("Drome", () => {
       }
     });
 
-    it("direction() and dir() set sampler playback direction", () => {
+    it("direction() and dir() accept full and abbreviated direction names", () => {
       const d = new Drome();
-      const forward = d.sample("bd").direction("forward").getSchema();
-      const reverse = d.sample("bd").direction("reverse").getSchema();
-      const alternate = d.sample("bd").direction("alternate").getSchema();
+      const forward = d.sample("bd").direction("for").getSchema();
+      const reverse = d.sample("bd").dir("rev").getSchema();
+      const alternate = d.sample("bd").direction("alt").getSchema();
       const sampler = d.sample("bd");
       const dir = sampler.dir;
 
@@ -425,7 +425,9 @@ describe("Drome", () => {
       expect(reverse.direction).toBe("reverse");
       expect(alternate.direction).toBe("alternate");
       expect(dir("reverse")).toBe(sampler);
-      expect(sampler.getSchema().direction).toBe("reverse");
+      expect(sampler.direction("alternate").getSchema().direction).toBe(
+        "alternate",
+      );
     });
 
     it("gain envelope and effects are present", () => {

@@ -23,6 +23,7 @@ interface SamplerOptions {
 class Sampler extends Instrument {
   private _schema: SamplerSchema;
   private _bufferStore: SampleBufferStore;
+  private _nextAlternateDirection: "forward" | "reverse" = "forward";
 
   constructor(
     ctx: AudioContext,
@@ -63,6 +64,10 @@ class Sampler extends Instrument {
 
   fallbackBufferFor(schema: SamplerSchema) {
     return this._bufferStore.fallbackBufferFor(schema.bank, schema.sample);
+  }
+
+  resetPlaybackState() {
+    this._nextAlternateDirection = "forward";
   }
 
   private get _initialVariationIndex() {
@@ -167,7 +172,7 @@ class Sampler extends Instrument {
       barIndex,
       note.stepIndex,
     );
-    const reversed = this._schema.direction === "reverse";
+    const reversed = this._isNextHitReversed();
     const playbackSource = this._bufferStore.getPlaybackSource(
       variationIndex,
       barIndex,
@@ -175,13 +180,17 @@ class Sampler extends Instrument {
       reversed,
     );
     if (!playbackSource) return;
-    this._scheduleSampleNote(
+    const emitted = this._scheduleSampleNote(
       playbackSource,
       { ...note, value: pitchRate },
       barStartTime,
       barIndex,
       reversed,
     );
+    if (emitted && this._schema.direction === "alternate") {
+      this._nextAlternateDirection =
+        this._nextAlternateDirection === "forward" ? "reverse" : "forward";
+    }
   }
 
   private _scheduleSampleNote(
@@ -202,7 +211,7 @@ class Sampler extends Instrument {
       note.stepIndex,
       reversed,
     );
-    if (!sourceWindow) return;
+    if (!sourceWindow) return false;
 
     const fitRate = this._fitRate(sourceWindow.fitDuration);
     const playbackRate = note.value * fitRate;
@@ -255,6 +264,15 @@ class Sampler extends Instrument {
       note: noteContext,
       offset: sourceWindow.offset,
     });
+    return true;
+  }
+
+  private _isNextHitReversed() {
+    if (this._schema.direction === "reverse") return true;
+    if (this._schema.direction === "alternate") {
+      return this._nextAlternateDirection === "reverse";
+    }
+    return false;
   }
 
   private _nearestSourceKey(note: number) {

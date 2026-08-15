@@ -26,6 +26,8 @@ interface SamplerOptions {
   host?: Drome;
 }
 
+type SampleDirectionInput = SampleDirection | "for" | "rev" | "alt";
+
 class Sampler extends Instrument {
   private _bank: string;
   private _sample: string;
@@ -42,7 +44,7 @@ class Sampler extends Instrument {
 
   var: (...input: CycleInput) => this;
   dur: (...input: CycleInput) => this;
-  dir: (direction: SampleDirection) => this;
+  dir: (direction: SampleDirectionInput) => this;
 
   constructor(
     sample: string,
@@ -114,18 +116,33 @@ class Sampler extends Instrument {
     return this;
   }
 
-  direction(direction: SampleDirection) {
+  direction(direction: SampleDirectionInput) {
+    let resolvedDirection: SampleDirection;
+    switch (direction) {
+      case "for":
+        resolvedDirection = "forward";
+        break;
+      case "rev":
+        resolvedDirection = "reverse";
+        break;
+      case "alt":
+        resolvedDirection = "alternate";
+        break;
+      default:
+        resolvedDirection = direction;
+    }
+
     if (
-      direction !== "forward" &&
-      direction !== "reverse" &&
-      direction !== "alternate"
+      resolvedDirection !== "forward" &&
+      resolvedDirection !== "reverse" &&
+      resolvedDirection !== "alternate"
     ) {
       throw new Error(
-        '[Sampler] direction() must be "forward", "reverse", or "alternate".',
+        '[Sampler] direction() must be "forward", "reverse", "alternate", "for", "rev", or "alt".',
       );
     }
 
-    this._direction = direction;
+    this._direction = resolvedDirection;
     return this;
   }
 

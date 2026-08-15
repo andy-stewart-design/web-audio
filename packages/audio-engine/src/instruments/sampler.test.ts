@@ -818,6 +818,72 @@ describe("Sampler", () => {
     expect(createdSources[0].start).toHaveBeenCalledWith(10, 3);
   });
 
+  it("alternate direction toggles only after emitted hits and persists across bars", async () => {
+    const url = "https://example.com/loop.wav";
+    const original = makeBuffer(4);
+    const reversed = makeBuffer(4);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          direction: "alternate",
+          notes: staticPattern(0),
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+    sampler.scheduleBar(1, 12);
+    sampler.scheduleBar(2, 14);
+
+    expect(createdSources.map((source) => source.buffer)).toEqual([
+      original,
+      reversed,
+      original,
+    ]);
+
+    sampler.resetPlaybackState();
+    sampler.scheduleBar(3, 16);
+    expect(createdSources[3].buffer).toBe(original);
+  });
+
+  it("zero-duration hits do not advance alternate direction", async () => {
+    const url = "https://example.com/loop.wav";
+    const original = makeBuffer(4);
+    const reversed = makeBuffer(4);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          direction: "alternate",
+          notes: staticCycle([0, 0]),
+          region: {
+            type: "static",
+            start: staticParam(0),
+            duration: staticCycle([0, 0.25]),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(original);
+  });
+
   it("relative-duration regions resolve from start and clamp at the buffer end", async () => {
     const url = "https://example.com/loop.wav";
     cache.resolved.set(url, makeBuffer(2));

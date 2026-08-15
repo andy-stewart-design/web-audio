@@ -37,6 +37,7 @@ vi.mock("./instruments/sampler", () => {
   ) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
+    this.resetPlaybackState = vi.fn();
     this.connectMidi = vi.fn();
     this.disconnectMidi = vi.fn();
     this.retire = vi.fn();
@@ -212,6 +213,7 @@ function samplerInstances() {
   return vi.mocked(MockSampler).mock.instances as unknown as Array<{
     scheduleBar: ReturnType<typeof vi.fn>;
     cancelFutureNotes: ReturnType<typeof vi.fn>;
+    resetPlaybackState: ReturnType<typeof vi.fn>;
     connectMidi: ReturnType<typeof vi.fn>;
     disconnectMidi: ReturnType<typeof vi.fn>;
     retire: ReturnType<typeof vi.fn>;
@@ -500,6 +502,17 @@ describe("AudioEngine", () => {
         expect(p.cancelFutureNotes).toHaveBeenCalledOnce(),
       );
     });
+  });
+
+  it("resets sampler playback state when transport stops", () => {
+    const clock = new FakeClock();
+    const engine = new AudioEngine(fakeCtx, clock as never);
+
+    engine.update(makeSamplerSchema());
+    clock.emit("prebar");
+    clock.emit("stop");
+
+    expect(samplerInstances()[0].resetPlaybackState).toHaveBeenCalledOnce();
   });
 
   describe("destroy()", () => {
