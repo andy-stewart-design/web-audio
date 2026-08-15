@@ -42,7 +42,7 @@ Each phase should leave those package boundaries coherent and testable. Do not d
 - Suppressed triggers do not compress or re-index duration, nudge, swing, or other step-addressed parameters.
 - `Sampler.duration()` is a normalized source length relative to the resolved `start`; `end` remains an absolute normalized endpoint.
 - `end()` and `duration()` are mutually exclusive and the latest call wins.
-- `Sampler.direction()` accepts `"forward"`, `"reverse"`, or `"alternate"`; alternation advances only when a voice is emitted.
+- `Sampler.direction()` and `.dir()` accept canonical `"forward"`, `"reverse"`, and `"alternate"` values plus `"for"`, `"rev"`, and `"alt"` abbreviations; both serialize canonical values. Alternation advances only when a voice is emitted.
 - Source-region coordinates always refer to the original forward buffer.
 - Reversed buffers are prepared during loading only for reverse-capable sampler schemas and cached by original `AudioBuffer`.
 - Samplers remain polyphonic by default; `.mono()` enables one active voice per sampler instance.
@@ -61,6 +61,8 @@ Each phase should leave those package boundaries coherent and testable. Do not d
 - **Phase 1** — patterned random bars, binary-only chance, deterministic chance resolution, and defensive empty-bar resolver handling.
 - **Phase 1.5** — binary random notes now preserve root/scale meaning: without a scale they select root/root-plus-one-semitone; with a scale they select degrees 0/1.
 - **Phase 2** — dynamic binary `RandomCycle` masks resolve per grid position, suppress voices without re-indexing source-specific parameters, and skip empty mask bars without resolving them. Static `xox()` now uses the completed [masked-cycle refactor](completed/masked-cycle-refactor-plan.md), preserving modifier ordering without a nullable combine/reconstruct path.
+- **Phase 3** — relative sampler duration is complete across schema, Fluid, and engine: `duration()`/`dur()` are relative to resolved start, mutually exclusive with `end()`, support patterned/random values, clamp at the source end, map correctly within sprites, define loop bounds, and skip zero-length windows.
+- **Phase 4** — sampler direction is complete across schema, Fluid, and engine: `.direction()`/`.dir()` accept both canonical and abbreviated names; reverse-capable samplers prepare shared cached reversed buffers during loading; reverse regions map from forward coordinates; and alternate playback starts forward, changes only after emitted voices, persists across bars, and resets to forward on transport stop/restart.
 
 ### Phase 2 architecture derivations
 
@@ -77,9 +79,9 @@ notes: {
 - `RandomSchema.grid` is the random schema's structural `StaticSchema`; it replaces the ambiguous former `RandomSchema.cycle`. Static schemas retain their own `cycle` field. Engine code therefore reads `notes.source.grid.cycle` for a random source and `notes.mask.grid.cycle` for a random mask, never `.cycle.cycle`.
 - Static `xox()` uses `MaskedCycle` to retain source references and rest positions separately. Source values are serialized in emitted order while the static mask retains the final timing grid.
 
-### Immediate next step
+### Next session
 
-Begin **Phase 3 — Relative sampler duration**.
+Begin **Phase 5 — Click-free source gating and explicit monophony**. Phase 5.1 is the priority: replace hard source-duration teardown with gain-gated, silent-tail cleanup before adding `.mono()`. The completed direction paths should be covered by the same gate lifecycle.
 
 ## Scope guardrails
 
@@ -343,6 +345,8 @@ Requirements:
 
 ## Phase 3 — Relative sampler duration
 
+**Status:** Complete.
+
 Tracer bullet: a sampler can resolve a normalized source length relative to its start for every grid position, while existing absolute `end()` behavior remains intact.
 
 ### Step 3.1 — Add duration to Fluid region construction
@@ -434,6 +438,8 @@ Requirements:
 
 ## Phase 4 — Reverse buffers and sampler direction
 
+**Status:** Complete. Manual browser testing confirmed the current shorthand chain, including `.dur(d.rand().range(0.065, 0.15).steps(16))` and `.dir("alt")` with a chance mask.
+
 Tracer bullet: forward, reverse, and alternating hits traverse the same resolved source region, while reverse-capable buffers are prepared before scheduling and shared across sampler instances.
 
 ### Step 4.1 — Add sampler direction to Fluid and schema
@@ -443,8 +449,11 @@ Tracer bullet: forward, reverse, and alternating hits traverse the same resolved
 Add a `SampleDirection` type and:
 
 ```ts
-direction("forward" | "reverse" | "alternate");
+direction("forward" | "reverse" | "alternate" | "for" | "rev" | "alt");
+dir("forward" | "reverse" | "alternate" | "for" | "rev" | "alt");
 ```
+
+Both APIs normalize abbreviations to the canonical schema values.
 
 Requirements:
 
@@ -523,7 +532,7 @@ Requirements:
 
 ### Step 4.4 — Implement hit-aware alternate direction state
 
-**Dependency:** Complete Step 5.1 before wiring reverse or alternate voice scheduling. Direction schema and reversed-buffer preparation may precede it, but all emitted reverse/alternate voices must use the click-free gate and teardown lifecycle.
+**Status:** Complete. Alternate scheduling currently uses the existing voice lifecycle; Phase 5.1 must migrate forward, reverse, and alternate voices together to the click-free gate and teardown lifecycle.
 
 **Files:** `packages/audio-engine/src/instruments/sampler.ts`, lifecycle code/tests as needed
 
