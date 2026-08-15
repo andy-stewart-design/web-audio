@@ -288,6 +288,7 @@ describe("Drome", () => {
         expect(inst.sourceKeys).toEqual([0]);
         expect(inst.loop).toBe(false);
         expect(inst.clipMode).toBe("clipped");
+        expect(inst.direction).toBe("forward");
         expect(inst.variation.type).toBe("static");
         expect(inst.notes).not.toHaveProperty("type", "fit");
         expect(inst.fit).toBeNull();
@@ -410,6 +411,21 @@ describe("Drome", () => {
       if (inst.type === "sampler") {
         expect(inst.clipMode).toBe("clipped");
       }
+    });
+
+    it("direction() and dir() set sampler playback direction", () => {
+      const d = new Drome();
+      const forward = d.sample("bd").direction("forward").getSchema();
+      const reverse = d.sample("bd").direction("reverse").getSchema();
+      const alternate = d.sample("bd").direction("alternate").getSchema();
+      const sampler = d.sample("bd");
+      const dir = sampler.dir;
+
+      expect(forward.direction).toBe("forward");
+      expect(reverse.direction).toBe("reverse");
+      expect(alternate.direction).toBe("alternate");
+      expect(dir("reverse")).toBe(sampler);
+      expect(sampler.getSchema().direction).toBe("reverse");
     });
 
     it("gain envelope and effects are present", () => {

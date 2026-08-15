@@ -202,6 +202,7 @@ function makeSchema(overrides: SchemaOverrides = {}): SamplerSchema {
     muted: false,
     loop: false,
     clipMode: "clipped",
+    direction: "forward",
     ...rest,
   };
 }

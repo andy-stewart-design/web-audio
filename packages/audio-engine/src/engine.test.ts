@@ -178,6 +178,7 @@ function makeSamplerSchema(): DromeSchema {
         muted: false,
         loop: false,
         clipMode: "clipped",
+        direction: "forward",
       },
     ],
     banks: {

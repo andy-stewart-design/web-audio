@@ -5,6 +5,7 @@ import type {
   ClipMode,
   FitSchema,
   ParameterSchema,
+  SampleDirection,
   SamplerSchema,
 } from "@web-audio/schema";
 import {
@@ -37,9 +38,11 @@ class Sampler extends Instrument {
   private _explicitNotes = false;
   private _loop = false;
   private _clipMode: ClipMode = "clipped";
+  private _direction: SampleDirection = "forward";
 
   var: (...input: CycleInput) => this;
   dur: (...input: CycleInput) => this;
+  dir: (direction: SampleDirection) => this;
 
   constructor(
     sample: string,
@@ -52,6 +55,7 @@ class Sampler extends Instrument {
     this._variation = new Parameter(0);
     this.var = this.variation.bind(this);
     this.dur = this.duration.bind(this);
+    this.dir = this.direction.bind(this);
   }
 
   // INSTANCE METHODS
@@ -107,6 +111,21 @@ class Sampler extends Instrument {
       sliceCount,
       sequence: sequence.length > 0 ? new Parameter(...sequence) : null,
     };
+    return this;
+  }
+
+  direction(direction: SampleDirection) {
+    if (
+      direction !== "forward" &&
+      direction !== "reverse" &&
+      direction !== "alternate"
+    ) {
+      throw new Error(
+        '[Sampler] direction() must be "forward", "reverse", or "alternate".',
+      );
+    }
+
+    this._direction = direction;
     return this;
   }
 
@@ -196,6 +215,7 @@ class Sampler extends Instrument {
       muted: this._muted,
       loop: this._loop,
       clipMode: this._clipMode,
+      direction: this._direction,
     };
   }
 }
