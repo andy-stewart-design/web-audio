@@ -547,7 +547,7 @@ describe("Drome", () => {
       const inst = d.sample("bd").start(0.25).getSchema();
 
       expect(inst.region?.type).toBe("static");
-      if (inst.region?.type === "static") {
+      if (inst.region?.type === "static" && inst.region.end) {
         expect(inst.region.start.type).toBe("static");
         expect(inst.region.end.type).toBe("static");
         if (inst.region.start.type === "static") {
@@ -564,7 +564,7 @@ describe("Drome", () => {
       const inst = d.sample("bd").end(0.75).getSchema();
 
       expect(inst.region?.type).toBe("static");
-      if (inst.region?.type === "static") {
+      if (inst.region?.type === "static" && inst.region.end) {
         expect(inst.region.start.type).toBe("static");
         expect(inst.region.end.type).toBe("static");
         if (inst.region.start.type === "static") {
@@ -574,6 +574,95 @@ describe("Drome", () => {
           expect(inst.region.end.cycle[0][0].value).toBe(0.75);
         }
       }
+    });
+
+    it("duration() emits a relative-duration region", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").start(0.4).duration(0.15).getSchema();
+
+      expect(inst.region?.type).toBe("static");
+      if (inst.region?.type === "static" && inst.region.duration) {
+        expect(inst.region.start.type).toBe("static");
+        expect(inst.region.duration.type).toBe("static");
+        if (inst.region.start.type === "static") {
+          expect(inst.region.start.cycle[0][0].value).toBe(0.4);
+        }
+        if (inst.region.duration.type === "static") {
+          expect(inst.region.duration.cycle[0][0].value).toBe(0.15);
+        }
+      } else {
+        expect.unreachable("Expected a relative-duration region");
+      }
+    });
+
+    it("dur() aliases duration(), including when extracted", () => {
+      const d = new Drome();
+      const sampler = d.sample("bd");
+      const dur = sampler.dur;
+
+      expect(dur(0.15)).toBe(sampler);
+      expect(sampler.getSchema()).toEqual(
+        d.sample("bd").duration(0.15).getSchema(),
+      );
+    });
+
+    it("end() and duration() use the most recently configured region mode", () => {
+      const d = new Drome();
+      const duration = d.sample("bd").end(0.8).duration(0.15).getSchema();
+      const end = d.sample("bd").duration(0.15).end(0.8).getSchema();
+
+      expect(duration.region?.type).toBe("static");
+      if (duration.region?.type === "static") {
+        expect(duration.region).toHaveProperty("duration");
+        expect(duration.region).not.toHaveProperty("end");
+      }
+      expect(end.region?.type).toBe("static");
+      if (end.region?.type === "static") {
+        expect(end.region).toHaveProperty("end");
+        expect(end.region).not.toHaveProperty("duration");
+      }
+    });
+
+    it("duration() accepts boundary values and rejects invalid static values", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").duration(0).getSchema()).not.toThrow();
+      expect(() => d.sample("bd").duration(1).getSchema()).not.toThrow();
+      for (const value of [-0.1, 1.1, Number.NaN, Number.POSITIVE_INFINITY]) {
+        expect(() => d.sample("bd").duration(value).getSchema()).toThrow(
+          "[Sampler] duration() values must be finite numbers in [0, 1].",
+        );
+      }
+    });
+
+    it("duration() preserves random parameters and warns for out-of-range ranges", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const d = new Drome();
+      const inst = d
+        .sample("bd")
+        .duration(d.rand().range(-0.1, 1.1).steps(4))
+        .getSchema();
+
+      expect(inst.region?.type).toBe("static");
+      if (inst.region?.type === "static" && inst.region.duration) {
+        expect(inst.region.duration.type).toBe("random");
+      } else {
+        expect.unreachable("Expected a relative-duration region");
+      }
+      expect(warn).toHaveBeenCalledWith(
+        "[Sampler] duration() random range is outside [0, 1]; resolved values will be clamped by the engine.",
+      );
+    });
+
+    it("duration() rejects chop combinations", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").duration(0.15).chop(4).getSchema()).toThrow(
+        "[Sampler] duration() cannot be used with chop().",
+      );
+      expect(() => d.sample("bd").chop(4).duration(0.15).getSchema()).toThrow(
+        "[Sampler] duration() cannot be used with chop().",
+      );
     });
 
     it("start() accepts cycling values", () => {
@@ -1041,6 +1130,23 @@ describe("Drome", () => {
       const inst = d.sample("bd").fit(2).start(0.25).getSchema();
 
       expect(inst.region?.type).toBe("static");
+    });
+
+    it("duration() suppresses the generated fit region while retaining fit playback", () => {
+      const d = new Drome();
+      const inst = d.sample("bd").fit(2).duration(0.15).getSchema();
+
+      expect(inst.fit).toEqual({ type: "fit", bars: 2 });
+      expect(inst.region?.type).toBe("static");
+      if (inst.region?.type === "static" && inst.region.duration) {
+        expect(inst.region.duration.type).toBe("static");
+      } else {
+        expect.unreachable("Expected a relative-duration region");
+      }
+      expect(inst.notes.source.type).toBe("static");
+      if (inst.notes.source.type === "static") {
+        expect(inst.notes.source.cycle[0]).toHaveLength(1);
+      }
     });
 
     it("fit() succeeds for simple samples with sourceKeys [0]", () => {

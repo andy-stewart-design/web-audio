@@ -10,6 +10,16 @@ import type Drome from "@/index";
 
 type ChopState = { sliceCount: number; sequence: Parameter | null };
 
+type RegionState =
+  | { start: Parameter | null; mode: "end"; end: Parameter | null }
+  | { start: Parameter | null; mode: "duration"; duration: Parameter };
+
+type RegionOptions = {
+  fitSchema: FitSchema | null;
+  chopState: ChopState | null;
+  region: RegionState | null;
+};
+
 function isDefaultRandomMask(schema: ParameterSchema) {
   if (schema.type !== "random") return false;
   if (schema.grid.cycle.length !== 1) return false;
@@ -41,7 +51,10 @@ function warnOutOfRangeChopIndices(
   }
 }
 
-function validateRegionParam(name: "start" | "end", schema: ParameterSchema) {
+function validateRegionParam(
+  name: "start" | "end" | "duration",
+  schema: ParameterSchema,
+) {
   if (schema.type === "random") {
     if (schema.range && (schema.range.min < 0 || schema.range.max > 1)) {
       console.warn(
@@ -208,12 +221,7 @@ function getStaticChopBounds(start: ParameterSchema, end: ParameterSchema) {
   return { start: startValue, end: endValue, duration: endValue - startValue };
 }
 
-function getRegion(
-  fitSchema: FitSchema | null,
-  chopState: ChopState | null,
-  regionStart: Parameter | null,
-  regionEnd: Parameter | null,
-) {
+function getRegion({ fitSchema, chopState, region }: RegionOptions) {
   if (fitSchema) {
     const { bars } = fitSchema;
     return {
@@ -232,12 +240,14 @@ function getRegion(
     } satisfies RegionSchema;
   }
 
-  const start = regionStart ?? new Parameter(0);
-  const end = regionEnd ?? new Parameter(1);
-  const startSchema = start.getSchema();
-  const endSchema = end.getSchema();
+  const startSchema = (region?.start ?? new Parameter(0)).getSchema();
 
   if (chopState) {
+    if (region?.mode === "duration") {
+      throw new Error("[Sampler] duration() cannot be used with chop().");
+    }
+
+    const endSchema = (region?.end ?? new Parameter(1)).getSchema();
     const { sliceCount } = chopState;
     const sequenceSchema = getChopSequenceSchema(chopState);
     warnOutOfRangeChopIndices(sliceCount, sequenceSchema);
@@ -253,9 +263,22 @@ function getRegion(
     } satisfies RegionSchema;
   }
 
-  if (!regionStart && !regionEnd) return null;
+  if (!region) return null;
 
   validateRegionParam("start", startSchema);
+
+  if (region.mode === "duration") {
+    const durationSchema = region.duration.getSchema();
+    validateRegionParam("duration", durationSchema);
+
+    return {
+      type: "static",
+      start: startSchema,
+      duration: durationSchema,
+    } satisfies RegionSchema;
+  }
+
+  const endSchema = (region.end ?? new Parameter(1)).getSchema();
   validateRegionParam("end", endSchema);
   validateRegionBounds(startSchema, endSchema);
 
@@ -298,4 +321,5 @@ export {
   getRegion,
   getSourceKeys,
   type ChopState,
+  type RegionState,
 };

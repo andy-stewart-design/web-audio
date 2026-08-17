@@ -15,6 +15,7 @@ import {
   getRegion,
   getSourceKeys,
   type ChopState,
+  type RegionState,
 } from "./sampler-utils";
 import { DEFAULT_BANK } from "@/banks";
 import Instrument from "./instrument";
@@ -30,12 +31,13 @@ class Sampler extends Instrument {
   private _sample: string;
   private _variation: Parameter;
   private _fit: FitSchema | null = null;
-  private _regionStart: Parameter | null = null;
-  private _regionEnd: Parameter | null = null;
+  private _region: RegionState | null = null;
   private _chop: ChopState | null = null;
   private _explicitNotes = false;
   private _loop = false;
   private _clipMode: ClipMode = "clipped";
+
+  dur: (...input: CycleInput) => this;
 
   constructor(
     sample: string,
@@ -46,6 +48,7 @@ class Sampler extends Instrument {
     this._bank = bank;
     this._sample = sample;
     this._variation = new Parameter(0);
+    this.dur = this.duration.bind(this);
   }
 
   // METHOD ALIASES
@@ -79,12 +82,28 @@ class Sampler extends Instrument {
   }
 
   start(...input: CycleInput) {
-    this._regionStart = new Parameter(...input);
+    const start = new Parameter(...input);
+    this._region = this._region
+      ? { ...this._region, start }
+      : { start, mode: "end", end: null };
     return this;
   }
 
   end(...input: CycleInput) {
-    this._regionEnd = new Parameter(...input);
+    this._region = {
+      start: this._region?.start ?? null,
+      mode: "end",
+      end: new Parameter(...input),
+    };
+    return this;
+  }
+
+  duration(...input: CycleInput) {
+    this._region = {
+      start: this._region?.start ?? null,
+      mode: "duration",
+      duration: new Parameter(...input),
+    };
     return this;
   }
 
@@ -113,8 +132,7 @@ class Sampler extends Instrument {
   }
 
   private _getGeneratedFit() {
-    const hasRegion = this._regionStart || this._regionEnd;
-    const unfit = this._explicitNotes || this._chop || hasRegion;
+    const unfit = this._explicitNotes || this._chop || this._region;
     if (unfit) return null;
     return this._fit;
   }
@@ -161,12 +179,11 @@ class Sampler extends Instrument {
   getSchema(): SamplerSchema {
     const sourceKeys = getSourceKeys(this._bank, this._sample, this._host);
 
-    const region = getRegion(
-      this._getGeneratedFit(),
-      this._chop,
-      this._regionStart,
-      this._regionEnd,
-    );
+    const region = getRegion({
+      fitSchema: this._getGeneratedFit(),
+      chopState: this._chop,
+      region: this._region,
+    });
 
     return {
       type: "sampler",
