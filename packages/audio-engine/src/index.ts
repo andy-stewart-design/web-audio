@@ -31,6 +31,7 @@ class AudioEngine {
   private _cache = {
     resolved: new Map<string, AudioBuffer>(),
     promises: new Map<string, Promise<AudioBuffer | null>>(),
+    reversed: new WeakMap<AudioBuffer, AudioBuffer>(),
   };
   readonly ready: Promise<void>;
 
