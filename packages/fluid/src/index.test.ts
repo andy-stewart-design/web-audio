@@ -288,6 +288,7 @@ describe("Drome", () => {
         expect(inst.sourceKeys).toEqual([0]);
         expect(inst.loop).toBe(false);
         expect(inst.clipMode).toBe("clipped");
+        expect(inst.direction).toBe("forward");
         expect(inst.variation.type).toBe("static");
         expect(inst.notes).not.toHaveProperty("type", "fit");
         expect(inst.fit).toBeNull();
@@ -410,6 +411,50 @@ describe("Drome", () => {
       if (inst.type === "sampler") {
         expect(inst.clipMode).toBe("clipped");
       }
+    });
+
+    it("direction() accepts full and abbreviated direction names", () => {
+      const d = new Drome();
+
+      expect(d.sample("bd").direction("forward").getSchema().direction).toBe(
+        "forward",
+      );
+      expect(d.sample("bd").direction("reverse").getSchema().direction).toBe(
+        "reverse",
+      );
+      expect(d.sample("bd").direction("alternate").getSchema().direction).toBe(
+        "alternate",
+      );
+      expect(d.sample("bd").direction("for").getSchema().direction).toBe(
+        "forward",
+      );
+      expect(d.sample("bd").direction("rev").getSchema().direction).toBe(
+        "reverse",
+      );
+      expect(d.sample("bd").direction("alt").getSchema().direction).toBe(
+        "alternate",
+      );
+    });
+
+    it("dir() aliases direction(), including when extracted", () => {
+      const d = new Drome();
+      const sampler = d.sample("bd");
+      const dir = sampler.dir;
+
+      expect(dir("reverse")).toBe(sampler);
+      expect(sampler.getSchema().direction).toBe("reverse");
+    });
+
+    it("direction() rejects invalid runtime input", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").direction("sideways" as never)).toThrow(
+        '[Sampler] direction() must be "forward", "reverse", "alternate", "for", "rev", or "alt".',
+      );
+    });
+
+    it("does not expose sample direction on synthesizers", () => {
+      expect(new Drome().synth()).not.toHaveProperty("direction");
     });
 
     it("gain envelope and effects are present", () => {

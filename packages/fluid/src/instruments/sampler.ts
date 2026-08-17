@@ -5,6 +5,7 @@ import type {
   ClipMode,
   FitSchema,
   ParameterSchema,
+  SampleDirection,
   SamplerSchema,
 } from "@web-audio/schema";
 import {
@@ -26,6 +27,8 @@ interface SamplerOptions {
   host?: Drome;
 }
 
+type SampleDirectionInput = SampleDirection | "for" | "rev" | "alt";
+
 class Sampler extends Instrument {
   private _bank: string;
   private _sample: string;
@@ -36,8 +39,10 @@ class Sampler extends Instrument {
   private _explicitNotes = false;
   private _loop = false;
   private _clipMode: ClipMode = "clipped";
+  private _direction: SampleDirection = "forward";
 
   dur: (...input: CycleInput) => this;
+  dir: (direction: SampleDirectionInput) => this;
 
   constructor(
     sample: string,
@@ -49,6 +54,7 @@ class Sampler extends Instrument {
     this._sample = sample;
     this._variation = new Parameter(0);
     this.dur = this.duration.bind(this);
+    this.dir = this.direction.bind(this);
   }
 
   // METHOD ALIASES
@@ -118,6 +124,36 @@ class Sampler extends Instrument {
       sliceCount,
       sequence: sequence.length > 0 ? new Parameter(...sequence) : null,
     };
+    return this;
+  }
+
+  direction(direction: SampleDirectionInput) {
+    let resolvedDirection: SampleDirection;
+    switch (direction) {
+      case "for":
+        resolvedDirection = "forward";
+        break;
+      case "rev":
+        resolvedDirection = "reverse";
+        break;
+      case "alt":
+        resolvedDirection = "alternate";
+        break;
+      default:
+        resolvedDirection = direction;
+    }
+
+    if (
+      resolvedDirection !== "forward" &&
+      resolvedDirection !== "reverse" &&
+      resolvedDirection !== "alternate"
+    ) {
+      throw new Error(
+        '[Sampler] direction() must be "forward", "reverse", "alternate", "for", "rev", or "alt".',
+      );
+    }
+
+    this._direction = resolvedDirection;
     return this;
   }
 
@@ -203,6 +239,7 @@ class Sampler extends Instrument {
       muted: this._muted,
       loop: this._loop,
       clipMode: this._clipMode,
+      direction: this._direction,
     };
   }
 }

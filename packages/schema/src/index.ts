@@ -8,6 +8,8 @@ type EnvelopeMode = "bleed" | "bounded";
 
 type ClipMode = "clipped" | "one-shot";
 
+type SampleDirection = "forward" | "reverse" | "alternate";
+
 type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
 
 // ---------------------------------------------------
@@ -216,6 +218,7 @@ interface SamplerSchema extends InstrumentSchema {
   sourceKeys: number[];
   loop: boolean;
   clipMode: ClipMode;
+  direction: SampleDirection;
 }
 
 // ---------------------------------------------------
@@ -253,6 +256,7 @@ export type {
   ParameterSchema,
   RandomSchema,
   RegionSchema,
+  SampleDirection,
   SamplerSchema,
   SampleVariationSchema,
   SpriteSampleVariationSchema,
