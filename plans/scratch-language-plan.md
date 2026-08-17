@@ -659,6 +659,8 @@ Requirements:
 
 ### Step 5.4 — Add click-regression test coverage
 
+**Status:** Complete for click-free sampler gating. Mono-replacement coverage is deferred with the shared sampler-and-synthesizer monophony design.
+
 **Files:** audio-engine test helpers and sampler tests
 
 Web Audio mocks cannot prove perceptual quality, but they can enforce the scheduling invariants that fixed the demo:
@@ -667,15 +669,18 @@ Web Audio mocks cannot prove perceptual quality, but they can enforce the schedu
 - explicit gain ramp to zero;
 - source stop strictly after fade completion;
 - reverse and forward paths use the same gating strategy;
-- mono replacement holds/cancels prior automation before ramping;
+- lifecycle replacement/teardown holds or reconstructs prior automation before ramping;
 - LFO detune does not cause a hard source cutoff at nominal source duration.
+
+Mono-specific replacement invariants remain deferred with Steps 5.2 and 5.3.
 
 **Acceptance criteria:**
 
-- [ ] Tests fail if hard-duration source start is reintroduced.
-- [ ] Tests fail if stop is scheduled before gain reaches zero.
-- [ ] Tests cover forward, reverse, alternate, and mono replacement paths.
-- [ ] Browser listening remains an explicit later acceptance gate rather than being claimed by unit tests.
+- [x] Tests fail if hard-duration source start is reintroduced.
+- [x] Tests fail if stop is scheduled before gain reaches zero.
+- [x] Tests cover forward, reverse, alternate, LFO detune, transport stop, retirement, and destruction paths.
+- [x] Browser listening remains an explicit later acceptance gate rather than being claimed by unit tests.
+- [ ] Mono replacement coverage is deferred with the shared monophony design.
 
 ---
 
@@ -1007,6 +1012,8 @@ Requirements:
 - [ ] No core click-free, determinism, or alignment requirement is deferred without review.
 
 ### Step 9.2 — Record follow-ups without expanding scope
+
+Deferred work is tracked in [`scratch-language-followups.md`](scratch-language-followups.md).
 
 Potential follow-ups, only if implementation evidence warrants them:
 

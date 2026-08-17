@@ -1592,10 +1592,13 @@ describe("Sampler", () => {
     await sampler.load();
     sampler.scheduleBar(0, 10);
 
-    expect(createdSources[0].stop).toHaveBeenCalledWith(12.005);
-    expect(
-      createdGains[0].gain.linearRampToValueAtTime,
-    ).toHaveBeenLastCalledWith(0, 12);
+    const [stopTime] = createdSources[0].stop.mock.calls[0];
+    const [zero, silenceTime] =
+      createdGains[0].gain.linearRampToValueAtTime.mock.calls.at(-1)!;
+    expect(zero).toBe(0);
+    expect(silenceTime).toBe(12);
+    expect(stopTime).toBeGreaterThan(silenceTime);
+    expect(stopTime - silenceTime).toBeCloseTo(0.005);
   });
 
   it("forward, reverse, and alternate voices use the same gated lifecycle", async () => {
@@ -1620,13 +1623,19 @@ describe("Sampler", () => {
     }
 
     expect(createdSources).toHaveLength(3);
-    for (const source of createdSources) {
-      expect(source.start.mock.calls[0].length).toBeLessThanOrEqual(2);
-      expect(source.stop).toHaveBeenCalledWith(11.005);
-    }
-    for (const gain of createdGains) {
-      expect(gain.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0, 11);
-    }
+    createdSources.forEach((source, index) => {
+      const gain = createdGains[index];
+      const startArgs = source.start.mock.calls[0];
+      const [stopTime] = source.stop.mock.calls[0];
+      const [zero, silenceTime] =
+        gain.gain.linearRampToValueAtTime.mock.calls.at(-1)!;
+
+      expect(startArgs.length).toBeLessThanOrEqual(2);
+      expect(zero).toBe(0);
+      expect(silenceTime).toBe(11);
+      expect(stopTime).toBeGreaterThan(silenceTime);
+      expect(stopTime - silenceTime).toBeCloseTo(0.005);
+    });
   });
 
   it("cycles source notes across active static mask positions", async () => {
@@ -2787,6 +2796,51 @@ describe("Sampler", () => {
     expect(
       createdGains[0].gain.linearRampToValueAtTime,
     ).toHaveBeenLastCalledWith(0, 0.7);
+    expect(
+      createdGains[0].gain.cancelScheduledValues.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      createdGains[0].gain.setValueAtTime.mock.invocationCallOrder.at(-1)!,
+    );
+    expect(
+      createdGains[0].gain.setValueAtTime.mock.invocationCallOrder.at(-1)!,
+    ).toBeLessThan(
+      createdGains[0].gain.linearRampToValueAtTime.mock.invocationCallOrder.at(
+        -1,
+      )!,
+    );
+  });
+
+  it("destruction fades an active voice and waits for source cleanup", async () => {
+    const url = "https://example.com/destroy-loop.wav";
+    cache.resolved.set(url, makeBuffer(1));
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ loop: true, gain: envelope(1, 0.1) }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 0);
+    ctx.currentTime = 0.5;
+    sampler.destroy();
+
+    const releaseEnd = 0.7;
+    expect(createdGains[0].gain.cancelAndHoldAtTime).toHaveBeenCalledWith(0.5);
+    expect(
+      createdGains[0].gain.linearRampToValueAtTime,
+    ).toHaveBeenLastCalledWith(0, releaseEnd);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(releaseEnd + 0.005);
+    expect(createdSources[0].disconnect).not.toHaveBeenCalled();
+
+    createdSources[0].fireEnded();
+    expect(createdSources[0].disconnect).toHaveBeenCalledOnce();
+    expect(createdGains[0].disconnect).toHaveBeenCalledOnce();
+    expect(ctx.createdContextGains[0].disconnect).toHaveBeenCalledOnce();
+    expect(ctx.createdContextGains[1].disconnect).toHaveBeenCalledOnce();
   });
 
   it("retire fades an active looping voice to silence before stopping", async () => {
