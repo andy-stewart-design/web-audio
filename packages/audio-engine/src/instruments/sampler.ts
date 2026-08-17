@@ -202,10 +202,10 @@ class Sampler extends Instrument {
     const playbackRate = note.value * fitRate;
     const playbackDuration = sourceWindow.duration / playbackRate;
     const duration =
-      this._schema.clipMode === "one-shot" && !this._schema.loop
-        ? playbackDuration
-        : sourceWindow.isFittedChop
-          ? scheduledDuration
+      this._schema.loop || sourceWindow.isFittedChop
+        ? scheduledDuration
+        : this._schema.clipMode === "one-shot"
+          ? playbackDuration
           : Math.min(scheduledDuration, playbackDuration);
     const endTime = startTime + duration;
 
@@ -220,6 +220,8 @@ class Sampler extends Instrument {
       playbackRate,
       detune: detune.value,
       loop: this._schema.loop,
+      loopStart: sourceWindow.loopStart,
+      loopEnd: sourceWindow.loopEnd,
     });
     const noteContext = {
       barIndex,
@@ -274,9 +276,19 @@ class Sampler extends Instrument {
       regionStart = clamp(
         this._resolve(this._schema.region.start, barIndex, stepIndex),
       );
-      regionEnd = clamp(
-        this._resolve(this._schema.region.end, barIndex, stepIndex),
-      );
+      if (this._schema.region.duration) {
+        regionEnd = Math.min(
+          regionStart +
+            clamp(
+              this._resolve(this._schema.region.duration, barIndex, stepIndex),
+            ),
+          1,
+        );
+      } else {
+        regionEnd = clamp(
+          this._resolve(this._schema.region.end, barIndex, stepIndex),
+        );
+      }
     } else if (this._schema.region?.type === "chop") {
       const { slices, sequence } = this._schema.region;
       if (slices.length === 0) return null;
@@ -304,12 +316,16 @@ class Sampler extends Instrument {
         ? this._chopFitDuration(entryDuration * buffer.duration)
         : (normalizedEnd - normalizedStart) * buffer.duration;
 
+    const offset = normalizedStart * buffer.duration;
+    const isDurationRegion =
+      this._schema.region?.type === "static" && !!this._schema.region.duration;
+
     return {
       offset:
-        entry.type === "file" && !this._schema.region
-          ? undefined
-          : normalizedStart * buffer.duration,
+        entry.type === "file" && !this._schema.region ? undefined : offset,
       duration: (normalizedEnd - normalizedStart) * buffer.duration,
+      loopStart: isDurationRegion ? offset : undefined,
+      loopEnd: isDurationRegion ? normalizedEnd * buffer.duration : undefined,
       fitDuration,
       isFittedChop: this._schema.region?.type === "chop" && !!this._schema.fit,
     };

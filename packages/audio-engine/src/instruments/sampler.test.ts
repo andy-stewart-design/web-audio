@@ -41,6 +41,8 @@ class FakeBufferSourceNode {
   playbackRate = { value: 1 };
   detune = new FakeAudioParam();
   loop: boolean;
+  loopStart: number;
+  loopEnd: number;
   onended: (() => void) | null = null;
   start = vi.fn();
   stop = vi.fn();
@@ -58,12 +60,16 @@ class FakeBufferSourceNode {
       playbackRate: number;
       detune?: number;
       loop?: boolean;
+      loopStart?: number;
+      loopEnd?: number;
     },
   ) {
     this.buffer = options.buffer;
     this.playbackRate.value = options.playbackRate;
     this.detune.value = options.detune ?? 0;
     this.loop = options.loop ?? false;
+    this.loopStart = options.loopStart ?? 0;
+    this.loopEnd = options.loopEnd ?? 0;
   }
 }
 
@@ -706,6 +712,37 @@ describe("Sampler", () => {
     );
   });
 
+  it("looping samples use step duration for the gain envelope", async () => {
+    const url = "https://example.com/hh.wav";
+    cache.resolved.set(url, makeBuffer(0.25));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          loop: true,
+          notes: staticPattern(0, 0, 1),
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    const stepEndTime = 10 + clock.barDuration;
+    expect(createdGains[0].gain.setValueAtTime).toHaveBeenNthCalledWith(
+      2,
+      1,
+      stepEndTime,
+    );
+    expect(createdSources[0].stop).toHaveBeenCalledWith(
+      stepEndTime + 0.0025 + 0.05,
+    );
+  });
+
   it("static file regions schedule offset and selected duration", async () => {
     const url = "https://example.com/loop.wav";
     cache.resolved.set(url, makeBuffer(2));
@@ -733,6 +770,207 @@ describe("Sampler", () => {
     expect(createdSources).toHaveLength(1);
     expect(createdSources[0].start).toHaveBeenCalledWith(10, 1);
     expect(createdSources[0].stop).toHaveBeenCalledWith(11.0025 + 0.05);
+  });
+
+  it("relative duration selects a source window from the resolved start", async () => {
+    const url = "https://example.com/loop.wav";
+    cache.resolved.set(url, makeBuffer(2));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticPattern(0, 0, 1),
+          region: {
+            type: "static",
+            start: staticParam(0.4),
+            duration: staticParam(0.15),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 0.8);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(10.3025 + 0.05);
+  });
+
+  it("relative duration clamps at the end without moving start", async () => {
+    const url = "https://example.com/loop.wav";
+    cache.resolved.set(url, makeBuffer(2));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticPattern(0, 0, 1),
+          region: {
+            type: "static",
+            start: staticParam(0.8),
+            duration: staticParam(0.3),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 1.6);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(10.4025 + 0.05);
+  });
+
+  it("zero relative duration skips voice creation", async () => {
+    const url = "https://example.com/loop.wav";
+    cache.resolved.set(url, makeBuffer(2));
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          region: {
+            type: "static",
+            start: staticParam(0.4),
+            duration: staticParam(0),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(0);
+  });
+
+  it("relative duration maps within sprite entries", async () => {
+    const url = "https://example.com/kit.wav";
+    cache.resolved.set(url, makeBuffer(4));
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [
+              { type: "sprite" as const, src: url, start: 0.25, end: 0.75 },
+            ],
+          },
+        },
+      },
+    };
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          region: {
+            type: "static",
+            start: staticParam(0.5),
+            duration: staticParam(0.25),
+          },
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 2);
+    expect(createdSources[0].stop.mock.calls[0][0]).toBeCloseTo(
+      10 + 0.5 / Math.pow(2, 1 / 12) + 0.0025 + 0.05,
+    );
+  });
+
+  it("relative duration uses original grid indices across mask gaps", async () => {
+    const url = "https://example.com/loop.wav";
+    cache.resolved.set(url, makeBuffer(10));
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          mask: {
+            type: "static",
+            polyphonic: false,
+            cycle: [
+              [
+                { value: 1, offset: 0, duration: 0.25, stepIndex: 0 },
+                { value: 1, offset: 0.5, duration: 0.25, stepIndex: 2 },
+              ],
+            ],
+          },
+          region: {
+            type: "static",
+            start: staticParam(0),
+            duration: staticCycle([0.01, 0.02, 0.03]),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(2);
+    expect(createdSources[0].stop.mock.calls[0][0]).toBeCloseTo(
+      10 + 0.1 / Math.pow(2, 1 / 12) + 0.0025 + 0.05,
+    );
+    expect(createdSources[1].stop.mock.calls[0][0]).toBeCloseTo(
+      11 + 0.3 / Math.pow(2, 1 / 12) + 0.0025 + 0.05,
+    );
+  });
+
+  it("looping relative-duration regions set the source loop window", async () => {
+    const url = "https://example.com/loop.wav";
+    cache.resolved.set(url, makeBuffer(2));
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          loop: true,
+          region: {
+            type: "static",
+            start: staticParam(0.4),
+            duration: staticParam(0.15),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources[0].loopStart).toBeCloseTo(0.8);
+    expect(createdSources[0].loopEnd).toBeCloseTo(1.1);
+    const stepEndTime = 10 + clock.barDuration;
+    expect(createdGains[0].gain.setValueAtTime).toHaveBeenNthCalledWith(
+      2,
+      1,
+      stepEndTime,
+    );
+    expect(createdSources[0].stop).toHaveBeenCalledWith(
+      stepEndTime + 0.0025 + 0.05,
+    );
   });
 
   it("one-shot static file regions play the selected source duration", async () => {
