@@ -167,10 +167,12 @@ class Sampler extends Instrument {
       barIndex,
       note.stepIndex,
     );
+    const reversed = this._schema.direction === "reverse";
     const playbackSource = this._bufferStore.getPlaybackSource(
       variationIndex,
       barIndex,
       sourceKey,
+      reversed,
     );
     if (!playbackSource) return;
     this._scheduleSampleNote(
@@ -178,6 +180,7 @@ class Sampler extends Instrument {
       { ...note, value: pitchRate },
       barStartTime,
       barIndex,
+      reversed,
     );
   }
 
@@ -186,6 +189,7 @@ class Sampler extends Instrument {
     note: StaticSchemaValue,
     barStartTime: number,
     barIndex: number,
+    reversed: boolean,
   ) {
     const { buffer, entry } = playbackSource;
     const barDuration = this._clock.barDuration;
@@ -196,6 +200,7 @@ class Sampler extends Instrument {
       entry,
       barIndex,
       note.stepIndex,
+      reversed,
     );
     if (!sourceWindow) return;
 
@@ -265,6 +270,7 @@ class Sampler extends Instrument {
     entry: SampleVariationSchema,
     barIndex: number,
     stepIndex: number,
+    reversed: boolean,
   ) {
     const entryStart = entry.type === "sprite" ? entry.start : 0;
     const entryEnd = entry.type === "sprite" ? entry.end : 1;
@@ -317,16 +323,20 @@ class Sampler extends Instrument {
         ? this._chopFitDuration(entryDuration * buffer.duration)
         : (normalizedEnd - normalizedStart) * buffer.duration;
 
-    const offset = normalizedStart * buffer.duration;
+    const sourceStart = normalizedStart * buffer.duration;
+    const sourceEnd = normalizedEnd * buffer.duration;
+    const playbackStart = reversed ? buffer.duration - sourceEnd : sourceStart;
+    const playbackEnd = reversed ? buffer.duration - sourceStart : sourceEnd;
     const isDurationRegion =
       this._schema.region?.type === "static" && !!this._schema.region.duration;
+    const hasExplicitOffset =
+      reversed || entry.type !== "file" || !!this._schema.region;
 
     return {
-      offset:
-        entry.type === "file" && !this._schema.region ? undefined : offset,
-      duration: (normalizedEnd - normalizedStart) * buffer.duration,
-      loopStart: isDurationRegion ? offset : undefined,
-      loopEnd: isDurationRegion ? normalizedEnd * buffer.duration : undefined,
+      offset: hasExplicitOffset ? playbackStart : undefined,
+      duration: sourceEnd - sourceStart,
+      loopStart: isDurationRegion ? playbackStart : undefined,
+      loopEnd: isDurationRegion ? playbackEnd : undefined,
       fitDuration,
       isFittedChop: this._schema.region?.type === "chop" && !!this._schema.fit,
     };

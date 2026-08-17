@@ -775,6 +775,205 @@ describe("Sampler", () => {
     expect(createdSources[0].stop).toHaveBeenCalledWith(11.0025 + 0.05);
   });
 
+  it("reverse playback uses the prepared buffer and maps whole-buffer offset", async () => {
+    const url = "https://example.com/loop.wav";
+    const original = makeBuffer(4);
+    const reversed = makeBuffer(4);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          direction: "reverse",
+          notes: staticPattern(0),
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources[0].buffer).toBe(reversed);
+    expect(createdSources[0].playbackRate.value).toBe(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 0);
+  });
+
+  it("reverse playback maps absolute regions in forward coordinates", async () => {
+    const url = "https://example.com/loop.wav";
+    const original = makeBuffer(4);
+    const reversed = makeBuffer(4);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          direction: "reverse",
+          notes: staticPattern(0),
+          region: {
+            type: "static",
+            start: staticParam(0.25),
+            end: staticParam(0.5),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources[0].buffer).toBe(reversed);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 2);
+  });
+
+  it("reverse playback maps relative-duration regions in forward coordinates", async () => {
+    const url = "https://example.com/loop.wav";
+    const original = makeBuffer(4);
+    const reversed = makeBuffer(4);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          direction: "reverse",
+          notes: staticPattern(0),
+          region: {
+            type: "static",
+            start: staticParam(0.25),
+            duration: staticParam(0.1),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources[0].buffer).toBe(reversed);
+    expect(createdSources[0].playbackRate.value).toBe(1);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 2.6);
+  });
+
+  it("reverse playback maps clamped duration regions", async () => {
+    const url = "https://example.com/loop.wav";
+    const original = makeBuffer(4);
+    const reversed = makeBuffer(4);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          direction: "reverse",
+          notes: staticPattern(0),
+          region: {
+            type: "static",
+            start: staticParam(0.8),
+            duration: staticParam(0.3),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 0);
+  });
+
+  it("reverse playback maps sprite-relative regions onto the full buffer", async () => {
+    const url = "https://example.com/kit.wav";
+    const original = makeBuffer(8);
+    const reversed = makeBuffer(8);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+    const banks = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [{ type: "sprite" as const, src: url, start: 0.5, end: 0.75 }],
+          },
+        },
+      },
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          direction: "reverse",
+          notes: staticPattern(12),
+          region: {
+            type: "static",
+            start: staticParam(0.25),
+            duration: staticParam(0.25),
+          },
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources[0].buffer).toBe(reversed);
+    expect(createdSources[0].playbackRate.value).toBe(2);
+    expect(createdSources[0].start).toHaveBeenCalledWith(10, 3);
+  });
+
+  it("reverse duration loops map loop points onto the reversed buffer", async () => {
+    const url = "https://example.com/loop.wav";
+    const original = makeBuffer(4);
+    const reversed = makeBuffer(4);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          direction: "reverse",
+          loop: true,
+          notes: staticPattern(0),
+          region: {
+            type: "static",
+            start: staticParam(0.25),
+            duration: staticParam(0.1),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources[0].loopStart).toBeCloseTo(2.6);
+    expect(createdSources[0].loopEnd).toBeCloseTo(3);
+  });
+
   it("relative duration selects a source window from the resolved start", async () => {
     const url = "https://example.com/loop.wav";
     cache.resolved.set(url, makeBuffer(2));
