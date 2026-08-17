@@ -6,7 +6,7 @@ import type {
   StaticSchemaValue,
 } from "@web-audio/schema";
 import Instrument from "./instrument";
-import { SAMPLE_BASE_GAIN } from "@/constants";
+import { SAMPLE_BASE_GAIN, SOURCE_SILENT_TAIL } from "@/constants";
 import { preloadVariationIndices } from "@/utils/preload-variations";
 import SampleBufferStore, { type SampleCache } from "./sample-buffer-store";
 
@@ -23,6 +23,7 @@ interface SamplerOptions {
 class Sampler extends Instrument {
   private _schema: SamplerSchema;
   private _bufferStore: SampleBufferStore;
+  private _nextAlternateDirection: "forward" | "reverse" = "forward";
 
   constructor(
     ctx: AudioContext,
@@ -52,6 +53,7 @@ class Sampler extends Instrument {
       initialVariationIndex: this._initialVariationIndex,
       initialSourceKey: this._schema.sourceKeys[0] ?? 0,
       fallbackBuffer,
+      prepareReverse: schema.direction !== "forward",
     });
     this._initLfos(schema, startingBar, barStartTime);
   }
@@ -62,6 +64,21 @@ class Sampler extends Instrument {
 
   fallbackBufferFor(schema: SamplerSchema) {
     return this._bufferStore.fallbackBufferFor(schema.bank, schema.sample);
+  }
+
+  resetPlaybackState() {
+    this._nextAlternateDirection = "forward";
+  }
+
+  override stopPlayback() {
+    super.stopPlayback();
+    this._releaseControlledVoices();
+    this.resetPlaybackState();
+  }
+
+  override retire() {
+    super.retire();
+    this._releaseControlledVoices();
   }
 
   private get _initialVariationIndex() {
@@ -166,18 +183,25 @@ class Sampler extends Instrument {
       barIndex,
       note.stepIndex,
     );
+    const reversed = this._isNextHitReversed();
     const playbackSource = this._bufferStore.getPlaybackSource(
       variationIndex,
       barIndex,
       sourceKey,
+      reversed,
     );
     if (!playbackSource) return;
-    this._scheduleSampleNote(
+    const emitted = this._scheduleSampleNote(
       playbackSource,
       { ...note, value: pitchRate },
       barStartTime,
       barIndex,
+      reversed,
     );
+    if (emitted && this._schema.direction === "alternate") {
+      this._nextAlternateDirection =
+        this._nextAlternateDirection === "forward" ? "reverse" : "forward";
+    }
   }
 
   private _scheduleSampleNote(
@@ -185,6 +209,7 @@ class Sampler extends Instrument {
     note: StaticSchemaValue,
     barStartTime: number,
     barIndex: number,
+    reversed: boolean,
   ) {
     const { buffer, entry } = playbackSource;
     const barDuration = this._clock.barDuration;
@@ -195,31 +220,43 @@ class Sampler extends Instrument {
       entry,
       barIndex,
       note.stepIndex,
+      reversed,
     );
-    if (!sourceWindow) return;
+    if (!sourceWindow) return false;
 
     const fitRate = this._fitRate(sourceWindow.fitDuration);
     const playbackRate = note.value * fitRate;
-    const playbackDuration = sourceWindow.duration / playbackRate;
-    const duration =
-      this._schema.clipMode === "one-shot" && !this._schema.loop
-        ? playbackDuration
-        : sourceWindow.isFittedChop
-          ? scheduledDuration
-          : Math.min(scheduledDuration, playbackDuration);
-    const endTime = startTime + duration;
-
     const detune = this._resolveDetune(
       this._schema.detune,
       barIndex,
       note.stepIndex,
     );
+    const nominalPlaybackSpeed =
+      playbackRate *
+      (detune.type === "static" ? Math.pow(2, detune.value / 1200) : 1);
+    const playbackDuration = sourceWindow.duration / nominalPlaybackSpeed;
+
+    let duration: number;
+    if (this._schema.loop || sourceWindow.isFittedChop) {
+      // Looped samples and fitted chops sustain for the scheduled note length
+      duration = scheduledDuration;
+    } else if (this._schema.clipMode === "one-shot") {
+      // One-shots play the complete source window, regardless of note length
+      duration = playbackDuration;
+    } else {
+      // In all other instances, stop when the shorter of either the note or source window ends
+      duration = Math.min(scheduledDuration, playbackDuration);
+    }
+
+    const endTime = startTime + duration;
 
     const source = new AudioBufferSourceNode(this._ctx, {
       buffer,
       playbackRate,
       detune: detune.value,
       loop: this._schema.loop,
+      loopStart: sourceWindow.loopStart,
+      loopEnd: sourceWindow.loopEnd,
     });
     const noteContext = {
       barIndex,
@@ -239,7 +276,19 @@ class Sampler extends Instrument {
       effects: this._schema.effects,
       note: noteContext,
       offset: sourceWindow.offset,
+      gateMode: this._schema.loop ? "sustain" : "release-at-end",
+      silentTail: SOURCE_SILENT_TAIL,
+      stopTime: this._schema.loop ? undefined : endTime + SOURCE_SILENT_TAIL,
     });
+    return true;
+  }
+
+  private _isNextHitReversed() {
+    if (this._schema.direction === "reverse") return true;
+    if (this._schema.direction === "alternate") {
+      return this._nextAlternateDirection === "reverse";
+    }
+    return false;
   }
 
   private _nearestSourceKey(note: number) {
@@ -262,6 +311,7 @@ class Sampler extends Instrument {
     entry: SampleVariationSchema,
     barIndex: number,
     stepIndex: number,
+    reversed: boolean,
   ) {
     const entryStart = entry.type === "sprite" ? entry.start : 0;
     const entryEnd = entry.type === "sprite" ? entry.end : 1;
@@ -274,9 +324,15 @@ class Sampler extends Instrument {
       regionStart = clamp(
         this._resolve(this._schema.region.start, barIndex, stepIndex),
       );
-      regionEnd = clamp(
-        this._resolve(this._schema.region.end, barIndex, stepIndex),
-      );
+      const { duration, end } = this._schema.region;
+      if (duration) {
+        regionEnd = Math.min(
+          regionStart + clamp(this._resolve(duration, barIndex, stepIndex)),
+          1,
+        );
+      } else if (end) {
+        regionEnd = clamp(this._resolve(end, barIndex, stepIndex));
+      }
     } else if (this._schema.region?.type === "chop") {
       const { slices, sequence } = this._schema.region;
       if (slices.length === 0) return null;
@@ -303,13 +359,27 @@ class Sampler extends Instrument {
       this._schema.region?.type === "chop"
         ? this._chopFitDuration(entryDuration * buffer.duration)
         : (normalizedEnd - normalizedStart) * buffer.duration;
+    const isDurationRegion =
+      this._schema.region?.type === "static" && !!this._schema.region.duration;
+
+    const sourceStart = normalizedStart * buffer.duration;
+    const sourceEnd = normalizedEnd * buffer.duration;
+    let playbackStart = sourceStart;
+    let playbackEnd = sourceEnd;
+
+    if (reversed) {
+      playbackStart = buffer.duration - sourceEnd;
+      playbackEnd = buffer.duration - sourceStart;
+    }
+
+    const hasExplicitOffset =
+      reversed || entry.type !== "file" || !!this._schema.region;
 
     return {
-      offset:
-        entry.type === "file" && !this._schema.region
-          ? undefined
-          : normalizedStart * buffer.duration,
-      duration: (normalizedEnd - normalizedStart) * buffer.duration,
+      offset: hasExplicitOffset ? playbackStart : undefined,
+      duration: sourceEnd - sourceStart,
+      loopStart: isDurationRegion ? playbackStart : undefined,
+      loopEnd: isDurationRegion ? playbackEnd : undefined,
       fitDuration,
       isFittedChop: this._schema.region?.type === "chop" && !!this._schema.fit,
     };

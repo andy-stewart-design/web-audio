@@ -1,7 +1,3 @@
-<script lang="ts">
-	import Button from '@/components/core/button/index.svelte';
-</script>
-
 <main>
 	<h1>Welcome to Drome</h1>
 	<ul>
