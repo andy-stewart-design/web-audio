@@ -974,6 +974,175 @@ describe("Sampler", () => {
     expect(createdSources[0].loopEnd).toBeCloseTo(3);
   });
 
+  it("alternate direction starts forward and toggles after emitted hits", async () => {
+    const url = "https://example.com/loop.wav";
+    const original = makeBuffer(4);
+    const reversed = makeBuffer(4);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          direction: "alternate",
+          notes: staticPattern(0),
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+    sampler.scheduleBar(1, 12);
+    sampler.scheduleBar(2, 14);
+
+    expect(createdSources.map((source) => source.buffer)).toEqual([
+      original,
+      reversed,
+      original,
+    ]);
+  });
+
+  it("alternate direction persists across empty bars", async () => {
+    const url = "https://example.com/loop.wav";
+    const original = makeBuffer(4);
+    const reversed = makeBuffer(4);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+    const notes: StaticSchema = {
+      type: "static",
+      polyphonic: false,
+      cycle: [
+        [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+        [],
+        [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+      ],
+    };
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ direction: "alternate", notes }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+    sampler.scheduleBar(1, 12);
+    sampler.scheduleBar(2, 14);
+
+    expect(createdSources.map((source) => source.buffer)).toEqual([
+      original,
+      reversed,
+    ]);
+  });
+
+  it("zero-duration hits do not advance alternate direction", async () => {
+    const url = "https://example.com/loop.wav";
+    const original = makeBuffer(4);
+    const reversed = makeBuffer(4);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          direction: "alternate",
+          notes: staticCycle([0, 0]),
+          region: {
+            type: "static",
+            start: staticParam(0),
+            duration: staticCycle([0, 0.25]),
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(original);
+  });
+
+  it("unavailable reverse buffers do not advance alternate direction", async () => {
+    const url = "https://example.com/loop.wav";
+    const original = makeBuffer(4);
+    const reversed = makeBuffer(4);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          direction: "alternate",
+          notes: staticPattern(0),
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+    cache.reversed.delete(original);
+    sampler.scheduleBar(1, 12);
+    cache.reversed.set(original, reversed);
+    sampler.scheduleBar(2, 14);
+
+    expect(createdSources.map((source) => source.buffer)).toEqual([
+      original,
+      reversed,
+    ]);
+  });
+
+  it("cancelFutureNotes() resets alternate direction without changing its lifecycle", async () => {
+    const url = "https://example.com/loop.wav";
+    const original = makeBuffer(4);
+    const reversed = makeBuffer(4);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          direction: "alternate",
+          notes: staticPattern(0),
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+    sampler.scheduleBar(1, 12);
+    sampler.cancelFutureNotes();
+    sampler.scheduleBar(2, 14);
+
+    expect(createdSources.map((source) => source.buffer)).toEqual([
+      original,
+      reversed,
+      original,
+    ]);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(0);
+    expect(createdSources[1].stop).toHaveBeenCalledWith(0);
+  });
+
   it("relative duration selects a source window from the resolved start", async () => {
     const url = "https://example.com/loop.wav";
     cache.resolved.set(url, makeBuffer(2));
