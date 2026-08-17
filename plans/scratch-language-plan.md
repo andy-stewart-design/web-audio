@@ -42,7 +42,7 @@ Each phase should leave those package boundaries coherent and testable. Do not d
 - Suppressed triggers do not compress or re-index duration, nudge, swing, or other step-addressed parameters.
 - `Sampler.duration()` is a normalized source length relative to the resolved `start`; `end` remains an absolute normalized endpoint.
 - `end()` and `duration()` are mutually exclusive and the latest call wins.
-- `Sampler.direction()` and `.dir()` accept canonical `"forward"`, `"reverse"`, and `"alternate"` values plus `"for"`, `"rev"`, and `"alt"` abbreviations; both serialize canonical values. Alternation advances only when a voice is emitted.
+- `Sampler.direction()` accepts `"forward"`, `"reverse"`, or `"alternate"`; alternation advances only when a voice is emitted.
 - Source-region coordinates always refer to the original forward buffer.
 - Reversed buffers are prepared during loading only for reverse-capable sampler schemas and cached by original `AudioBuffer`.
 - Samplers remain polyphonic by default; `.mono()` enables one active voice per sampler instance.
@@ -61,8 +61,6 @@ Each phase should leave those package boundaries coherent and testable. Do not d
 - **Phase 1** — patterned random bars, binary-only chance, deterministic chance resolution, and defensive empty-bar resolver handling.
 - **Phase 1.5** — binary random notes now preserve root/scale meaning: without a scale they select root/root-plus-one-semitone; with a scale they select degrees 0/1.
 - **Phase 2** — dynamic binary `RandomCycle` masks resolve per grid position, suppress voices without re-indexing source-specific parameters, and skip empty mask bars without resolving them. Static `xox()` now uses the completed [masked-cycle refactor](completed/masked-cycle-refactor-plan.md), preserving modifier ordering without a nullable combine/reconstruct path.
-- **Phase 3** — relative sampler duration is complete across schema, Fluid, and engine: `duration()`/`dur()` are relative to resolved start, mutually exclusive with `end()`, support patterned/random values, clamp at the source end, map correctly within sprites, define loop bounds, and skip zero-length windows.
-- **Phase 4** — sampler direction is complete across schema, Fluid, and engine: `.direction()`/`.dir()` accept both canonical and abbreviated names; reverse-capable samplers prepare shared cached reversed buffers during loading; reverse regions map from forward coordinates; and alternate playback starts forward, changes only after emitted voices, persists across bars, and resets to forward on transport stop/restart.
 
 ### Phase 2 architecture derivations
 
@@ -79,9 +77,9 @@ notes: {
 - `RandomSchema.grid` is the random schema's structural `StaticSchema`; it replaces the ambiguous former `RandomSchema.cycle`. Static schemas retain their own `cycle` field. Engine code therefore reads `notes.source.grid.cycle` for a random source and `notes.mask.grid.cycle` for a random mask, never `.cycle.cycle`.
 - Static `xox()` uses `MaskedCycle` to retain source references and rest positions separately. Source values are serialized in emitted order while the static mask retains the final timing grid.
 
-### Next session
+### Immediate next step
 
-Begin **Phase 6 — Patternable nudge**. Phase 5.1 is complete: sampler voices now use gain-gated teardown, reach exact zero before a 5 ms silent tail, account for nominal static-detune playback speed, sustain loops until lifecycle teardown, stop active loops safely on transport stop, and share the same lifecycle across forward, reverse, and alternate playback. Monophony is deferred until sampler and synthesizer semantics can be designed together.
+Begin **Phase 3 — Relative sampler duration**.
 
 ## Scope guardrails
 
@@ -345,8 +343,6 @@ Requirements:
 
 ## Phase 3 — Relative sampler duration
 
-**Status:** Complete.
-
 Tracer bullet: a sampler can resolve a normalized source length relative to its start for every grid position, while existing absolute `end()` behavior remains intact.
 
 ### Step 3.1 — Add duration to Fluid region construction
@@ -438,8 +434,6 @@ Requirements:
 
 ## Phase 4 — Reverse buffers and sampler direction
 
-**Status:** Complete. Manual browser testing confirmed the current shorthand chain, including `.dur(d.rand().range(0.065, 0.15).steps(16))` and `.dir("alt")` with a chance mask.
-
 Tracer bullet: forward, reverse, and alternating hits traverse the same resolved source region, while reverse-capable buffers are prepared before scheduling and shared across sampler instances.
 
 ### Step 4.1 — Add sampler direction to Fluid and schema
@@ -449,11 +443,8 @@ Tracer bullet: forward, reverse, and alternating hits traverse the same resolved
 Add a `SampleDirection` type and:
 
 ```ts
-direction("forward" | "reverse" | "alternate" | "for" | "rev" | "alt");
-dir("forward" | "reverse" | "alternate" | "for" | "rev" | "alt");
+direction("forward" | "reverse" | "alternate");
 ```
-
-Both APIs normalize abbreviations to the canonical schema values.
 
 Requirements:
 
@@ -532,7 +523,7 @@ Requirements:
 
 ### Step 4.4 — Implement hit-aware alternate direction state
 
-**Status:** Complete. Alternate scheduling currently uses the existing voice lifecycle; Phase 5.1 must migrate forward, reverse, and alternate voices together to the click-free gate and teardown lifecycle.
+**Dependency:** Complete Step 5.1 before wiring reverse or alternate voice scheduling. Direction schema and reversed-buffer preparation may precede it, but all emitted reverse/alternate voices must use the click-free gate and teardown lifecycle.
 
 **Files:** `packages/audio-engine/src/instruments/sampler.ts`, lifecycle code/tests as needed
 
@@ -566,8 +557,6 @@ Tracer bullet: rapid alternating sampler hits can self-choke without clicks, whi
 
 ### Step 5.1 — Separate audible gate completion from source teardown
 
-**Status:** Complete.
-
 **Files:** `packages/audio-engine/src/instruments/instrument.ts`, `packages/audio-engine/src/instruments/sampler.ts`, `packages/audio-engine/src/utils/compute-envelope.ts`, related tests
 
 Refactor voice scheduling only as much as necessary to expose and control a sampler voice's gain and teardown lifecycle safely.
@@ -588,16 +577,14 @@ The implementation may introduce an internal tracked-voice handle with gain, sou
 
 **Acceptance criteria:**
 
-- [x] Gated sampler voices never call `source.start()` with a duration argument.
-- [x] Gain reaches silence before scheduled source stop.
-- [x] Static and LFO-detuned short hits clean up after the gate.
-- [x] Cancellation/destruction remain safe for future and active voices.
-- [x] Instrument retirement resolves only after tracked voices are cleaned up.
-- [x] Existing effect, envelope, MIDI, and synthesizer tests pass.
+- [ ] Gated sampler voices never call `source.start()` with a duration argument.
+- [ ] Gain reaches silence before scheduled source stop.
+- [ ] Static and LFO-detuned short hits clean up after the gate.
+- [ ] Cancellation/destruction remain safe for future and active voices.
+- [ ] Instrument retirement resolves only after tracked voices are cleaned up.
+- [ ] Existing effect, envelope, MIDI, and synthesizer tests pass.
 
 ### Step 5.2 — Add explicit sampler monophony
-
-**Status:** Deferred to a separate sampler-and-synthesizer monophony design.
 
 **Files:** `packages/schema/src/index.ts`, `packages/fluid/src/instruments/sampler.ts`, `packages/fluid/src/index.test.ts`
 
@@ -623,8 +610,6 @@ Requirements:
 - [ ] Fluid and schema checks/tests pass.
 
 ### Step 5.3 — Fade and replace the previous mono voice
-
-**Status:** Deferred to a separate sampler-and-synthesizer monophony design.
 
 **Files:** `packages/audio-engine/src/instruments/sampler.ts`, `packages/audio-engine/src/instruments/instrument.ts`, sampler/instrument tests
 
@@ -659,8 +644,6 @@ Requirements:
 
 ### Step 5.4 — Add click-regression test coverage
 
-**Status:** Complete for click-free sampler gating. Mono-replacement coverage is deferred with the shared sampler-and-synthesizer monophony design.
-
 **Files:** audio-engine test helpers and sampler tests
 
 Web Audio mocks cannot prove perceptual quality, but they can enforce the scheduling invariants that fixed the demo:
@@ -669,18 +652,15 @@ Web Audio mocks cannot prove perceptual quality, but they can enforce the schedu
 - explicit gain ramp to zero;
 - source stop strictly after fade completion;
 - reverse and forward paths use the same gating strategy;
-- lifecycle replacement/teardown holds or reconstructs prior automation before ramping;
+- mono replacement holds/cancels prior automation before ramping;
 - LFO detune does not cause a hard source cutoff at nominal source duration.
-
-Mono-specific replacement invariants remain deferred with Steps 5.2 and 5.3.
 
 **Acceptance criteria:**
 
-- [x] Tests fail if hard-duration source start is reintroduced.
-- [x] Tests fail if stop is scheduled before gain reaches zero.
-- [x] Tests cover forward, reverse, alternate, LFO detune, transport stop, retirement, and destruction paths.
-- [x] Browser listening remains an explicit later acceptance gate rather than being claimed by unit tests.
-- [ ] Mono replacement coverage is deferred with the shared monophony design.
+- [ ] Tests fail if hard-duration source start is reintroduced.
+- [ ] Tests fail if stop is scheduled before gain reaches zero.
+- [ ] Tests cover forward, reverse, alternate, and mono replacement paths.
+- [ ] Browser listening remains an explicit later acceptance gate rather than being claimed by unit tests.
 
 ---
 
@@ -1013,14 +993,11 @@ Requirements:
 
 ### Step 9.2 — Record follow-ups without expanding scope
 
-Deferred work is tracked in [`scratch-language-followups.md`](scratch-language-followups.md).
-
 Potential follow-ups, only if implementation evidence warrants them:
 
 - `"alternate-reverse"` direction;
 - independent mono fade configuration;
 - cross-instrument choke groups;
-- synthesizer monophony, with explicit note-priority, retrigger, voice-stealing, and envelope-release semantics; share only proven-common voice lifecycle utilities with sampler monophony;
 - exact-density random masks;
 - additional timing units;
 - richer groove templates;

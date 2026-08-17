@@ -8,8 +8,6 @@ type EnvelopeMode = "bleed" | "bounded";
 
 type ClipMode = "clipped" | "one-shot";
 
-type SampleDirection = "forward" | "reverse" | "alternate";
-
 type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
 
 // ---------------------------------------------------
@@ -103,21 +101,11 @@ type SampleVariationSchema =
 
 type NormalizedSampleSchema = Record<string, SampleVariationSchema[]>;
 
-interface StaticEndRegionSchema {
+interface StaticRegionSchema {
   type: "static";
   start: ParameterSchema;
   end: ParameterSchema;
-  duration?: never;
 }
-
-interface StaticDurationRegionSchema {
-  type: "static";
-  start: ParameterSchema;
-  duration: ParameterSchema;
-  end?: never;
-}
-
-type StaticRegionSchema = StaticEndRegionSchema | StaticDurationRegionSchema;
 
 interface ChopSliceSchema {
   start: number;
@@ -218,7 +206,6 @@ interface SamplerSchema extends InstrumentSchema {
   sourceKeys: number[];
   loop: boolean;
   clipMode: ClipMode;
-  direction: SampleDirection;
 }
 
 // ---------------------------------------------------
@@ -256,12 +243,9 @@ export type {
   ParameterSchema,
   RandomSchema,
   RegionSchema,
-  SampleDirection,
   SamplerSchema,
   SampleVariationSchema,
   SpriteSampleVariationSchema,
-  StaticDurationRegionSchema,
-  StaticEndRegionSchema,
   StaticRegionSchema,
   StaticSchema,
   StaticSchemaValue,

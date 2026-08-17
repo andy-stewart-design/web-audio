@@ -5,7 +5,6 @@ import type {
   ClipMode,
   FitSchema,
   ParameterSchema,
-  SampleDirection,
   SamplerSchema,
 } from "@web-audio/schema";
 import {
@@ -26,8 +25,6 @@ interface SamplerOptions {
   host?: Drome;
 }
 
-type SampleDirectionInput = SampleDirection | "for" | "rev" | "alt";
-
 class Sampler extends Instrument {
   private _bank: string;
   private _sample: string;
@@ -35,16 +32,10 @@ class Sampler extends Instrument {
   private _fit: FitSchema | null = null;
   private _regionStart: Parameter | null = null;
   private _regionEnd: Parameter | null = null;
-  private _regionDuration: Parameter | null = null;
   private _chop: ChopState | null = null;
   private _explicitNotes = false;
   private _loop = false;
   private _clipMode: ClipMode = "clipped";
-  private _direction: SampleDirection = "forward";
-
-  var: (...input: CycleInput) => this;
-  dur: (...input: CycleInput) => this;
-  dir: (direction: SampleDirectionInput) => this;
 
   constructor(
     sample: string,
@@ -55,9 +46,11 @@ class Sampler extends Instrument {
     this._bank = bank;
     this._sample = sample;
     this._variation = new Parameter(0);
-    this.var = this.variation.bind(this);
-    this.dur = this.duration.bind(this);
-    this.dir = this.direction.bind(this);
+  }
+
+  // METHOD ALIASES
+  var(...input: CycleInput) {
+    return this.variation(...input);
   }
 
   // INSTANCE METHODS
@@ -92,13 +85,6 @@ class Sampler extends Instrument {
 
   end(...input: CycleInput) {
     this._regionEnd = new Parameter(...input);
-    this._regionDuration = null;
-    return this;
-  }
-
-  duration(...input: CycleInput) {
-    this._regionDuration = new Parameter(...input);
-    this._regionEnd = null;
     return this;
   }
 
@@ -116,36 +102,6 @@ class Sampler extends Instrument {
     return this;
   }
 
-  direction(direction: SampleDirectionInput) {
-    let resolvedDirection: SampleDirection;
-    switch (direction) {
-      case "for":
-        resolvedDirection = "forward";
-        break;
-      case "rev":
-        resolvedDirection = "reverse";
-        break;
-      case "alt":
-        resolvedDirection = "alternate";
-        break;
-      default:
-        resolvedDirection = direction;
-    }
-
-    if (
-      resolvedDirection !== "forward" &&
-      resolvedDirection !== "reverse" &&
-      resolvedDirection !== "alternate"
-    ) {
-      throw new Error(
-        '[Sampler] direction() must be "forward", "reverse", "alternate", "for", "rev", or "alt".',
-      );
-    }
-
-    this._direction = resolvedDirection;
-    return this;
-  }
-
   loop(enabled = true) {
     this._loop = enabled;
     return this;
@@ -157,8 +113,7 @@ class Sampler extends Instrument {
   }
 
   private _getGeneratedFit() {
-    const hasRegion =
-      this._regionStart || this._regionEnd || this._regionDuration;
+    const hasRegion = this._regionStart || this._regionEnd;
     const unfit = this._explicitNotes || this._chop || hasRegion;
     if (unfit) return null;
     return this._fit;
@@ -206,13 +161,12 @@ class Sampler extends Instrument {
   getSchema(): SamplerSchema {
     const sourceKeys = getSourceKeys(this._bank, this._sample, this._host);
 
-    const region = getRegion({
-      fitSchema: this._getGeneratedFit(),
-      chopState: this._chop,
-      regionStart: this._regionStart,
-      regionEnd: this._regionEnd,
-      regionDuration: this._regionDuration,
-    });
+    const region = getRegion(
+      this._getGeneratedFit(),
+      this._chop,
+      this._regionStart,
+      this._regionEnd,
+    );
 
     return {
       type: "sampler",
@@ -232,7 +186,6 @@ class Sampler extends Instrument {
       muted: this._muted,
       loop: this._loop,
       clipMode: this._clipMode,
-      direction: this._direction,
     };
   }
 }

@@ -10,12 +10,6 @@ interface ScheduledNote {
   audioNodes: AudioNode[];
   midiBindings: (() => void)[];
   startTime: number;
-  gain?: AudioParam;
-  gainValueAtTime?: (time: number) => number;
-  releaseDuration?: number;
-  silentTail?: number;
-  stopping: boolean;
-  cleaned: boolean;
 }
 
 interface ResolvedEnvelopeSchema {

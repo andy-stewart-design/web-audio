@@ -31,7 +31,6 @@ class AudioEngine {
   private _cache = {
     resolved: new Map<string, AudioBuffer>(),
     promises: new Map<string, Promise<AudioBuffer | null>>(),
-    reversed: new WeakMap<AudioBuffer, AudioBuffer>(),
   };
   readonly ready: Promise<void>;
 
@@ -52,7 +51,7 @@ class AudioEngine {
         this._instruments.forEach((inst) => inst.scheduleBar(bar, time));
       }),
       clock.on("stop", () => {
-        this._instruments.forEach((inst) => inst.stopPlayback());
+        this._instruments.forEach((inst) => inst.cancelFutureNotes());
         this._midiOutputScheduler.stop();
       }),
     ]);

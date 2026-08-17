@@ -6,17 +6,6 @@ function makeBuffer(duration: number) {
   return { duration } as AudioBuffer;
 }
 
-function makeReversibleBuffer(values: number[]) {
-  const channel = new Float32Array(values);
-  return {
-    duration: 1,
-    numberOfChannels: 1,
-    length: channel.length,
-    sampleRate: 44_100,
-    getChannelData: () => channel,
-  } as unknown as AudioBuffer;
-}
-
 function makeBanks(
   url = "https://example.com/bd.wav",
 ): Record<string, BankSchema> {
@@ -34,7 +23,6 @@ describe("SampleBufferStore", () => {
   let cache: {
     resolved: Map<string, AudioBuffer>;
     promises: Map<string, Promise<AudioBuffer | null>>;
-    reversed: WeakMap<AudioBuffer, AudioBuffer>;
   };
   let warnSpy: ReturnType<typeof vi.spyOn>;
 
@@ -44,7 +32,6 @@ describe("SampleBufferStore", () => {
     cache = {
       resolved: new Map(),
       promises: new Map(),
-      reversed: new WeakMap(),
     };
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
@@ -71,67 +58,6 @@ describe("SampleBufferStore", () => {
 
     await preloadPromise;
     expect(store.getPlaybackBuffer(0, 0)).toBe(buffer);
-  });
-
-  it("does not prepare reversed buffers by default", async () => {
-    const url = "https://example.com/bd.wav";
-    const buffer = makeReversibleBuffer([1, 2]);
-    cache.resolved.set(url, buffer);
-    ctx.createBuffer = vi.fn() as typeof ctx.createBuffer;
-
-    const store = new SampleBufferStore({
-      ctx,
-      banks: makeBanks(url),
-      cache,
-      bank: "kit",
-      sample: "bd",
-      initialVariationIndex: 0,
-    });
-
-    await store.preload([0]);
-
-    expect(ctx.createBuffer).not.toHaveBeenCalled();
-  });
-
-  it("prepares reversed variants for every preloaded source", async () => {
-    const urls = [
-      "https://example.com/bd-0.wav",
-      "https://example.com/bd-1.wav",
-    ];
-    const originals = [
-      makeReversibleBuffer([1, 2]),
-      makeReversibleBuffer([3, 4]),
-    ];
-    const reversed = [
-      makeReversibleBuffer([0, 0]),
-      makeReversibleBuffer([0, 0]),
-    ];
-    cache.resolved.set(urls[0], originals[0]);
-    cache.resolved.set(urls[1], originals[1]);
-    ctx.createBuffer = vi.fn(
-      () => reversed.shift()!,
-    ) as typeof ctx.createBuffer;
-    const banks = makeBanks(urls[0]);
-    banks.kit.samples.bd["0"] = urls.map((src) => ({
-      type: "file" as const,
-      src,
-    }));
-
-    const store = new SampleBufferStore({
-      ctx,
-      banks,
-      cache,
-      bank: "kit",
-      sample: "bd",
-      initialVariationIndex: 0,
-      prepareReverse: true,
-    });
-
-    await store.preload([0, 1]);
-
-    expect(ctx.createBuffer).toHaveBeenCalledTimes(2);
-    expect(cache.reversed.get(originals[0])).toBeDefined();
-    expect(cache.reversed.get(originals[1])).toBeDefined();
   });
 
   it("fetches and decodes a buffer when not cached", async () => {

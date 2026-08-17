@@ -1,11 +1,9 @@
 import { resolveSampleEntry } from "@/utils/resolve-sample-entry";
-import { getReversedBuffer } from "@/utils/reversed-buffer-cache";
 import type { BankSchema } from "@web-audio/schema";
 
 interface SampleCache {
   resolved: Map<string, AudioBuffer>;
   promises: Map<string, Promise<AudioBuffer | null>>;
-  reversed: WeakMap<AudioBuffer, AudioBuffer>;
 }
 
 interface SampleBufferStoreOptions {
@@ -17,7 +15,6 @@ interface SampleBufferStoreOptions {
   initialVariationIndex: number;
   initialSourceKey?: number;
   fallbackBuffer?: AudioBuffer | null;
-  prepareReverse?: boolean;
 }
 
 class SampleBufferStore {
@@ -29,7 +26,6 @@ class SampleBufferStore {
   private _initialVariationIndex: number;
   private _initialSourceKey: number;
   private _fallbackBuffer: AudioBuffer | null;
-  private _prepareReverse: boolean;
   private _buffers = new Map<string, AudioBuffer>();
 
   constructor({
@@ -41,7 +37,6 @@ class SampleBufferStore {
     initialVariationIndex,
     initialSourceKey = 0,
     fallbackBuffer = null,
-    prepareReverse = false,
   }: SampleBufferStoreOptions) {
     this._ctx = ctx;
     this._banks = banks;
@@ -51,10 +46,6 @@ class SampleBufferStore {
     this._initialVariationIndex = initialVariationIndex;
     this._initialSourceKey = initialSourceKey;
     this._fallbackBuffer = fallbackBuffer;
-    this._prepareReverse = prepareReverse;
-    if (fallbackBuffer && prepareReverse) {
-      getReversedBuffer(this._ctx, this._cache.reversed, fallbackBuffer);
-    }
   }
 
   async preload(variationIndices: number[], sourceKeys = [0]) {
@@ -65,30 +56,10 @@ class SampleBufferStore {
     );
   }
 
-  getPlaybackSource(
-    variationIndex: number,
-    barIndex: number,
-    sourceKey = 0,
-    reversed = false,
-  ) {
+  getPlaybackSource(variationIndex: number, barIndex: number, sourceKey = 0) {
     const entry = this._resolveEntry(sourceKey, variationIndex);
-    const original = this.getPlaybackBuffer(
-      variationIndex,
-      barIndex,
-      sourceKey,
-    );
-    if (!entry || !original) return null;
-
-    if (!reversed) return { buffer: original, entry };
-
-    const buffer = this._cache.reversed.get(original);
-    if (!buffer) {
-      console.warn(
-        `[Sampler] "${this._bank}/${this._sample}" reverse buffer is not prepared — skipping bar ${barIndex}`,
-      );
-      return null;
-    }
-
+    const buffer = this.getPlaybackBuffer(variationIndex, barIndex, sourceKey);
+    if (!entry || !buffer) return null;
     return { buffer, entry };
   }
 
@@ -143,7 +114,6 @@ class SampleBufferStore {
     const resolved = this._cache.resolved.get(url);
     if (resolved) {
       this._buffers.set(cacheKey, resolved);
-      this._prepareReversedBuffer(resolved);
       return;
     }
 
@@ -166,13 +136,7 @@ class SampleBufferStore {
     if (buffer) {
       this._cache.resolved.set(url, buffer);
       this._buffers.set(cacheKey, buffer);
-      this._prepareReversedBuffer(buffer);
     }
-  }
-
-  private _prepareReversedBuffer(buffer: AudioBuffer) {
-    if (!this._prepareReverse) return;
-    getReversedBuffer(this._ctx, this._cache.reversed, buffer);
   }
 
   private _resolveEntry(sourceKey: number, variationIndex: number) {
