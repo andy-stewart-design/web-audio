@@ -6,7 +6,7 @@ import type {
   StaticSchemaValue,
 } from "@web-audio/schema";
 import Instrument from "./instrument";
-import { SAMPLE_BASE_GAIN } from "@/constants";
+import { SAMPLE_BASE_GAIN, SOURCE_SILENT_TAIL } from "@/constants";
 import { preloadVariationIndices } from "@/utils/preload-variations";
 import SampleBufferStore, { type SampleCache } from "./sample-buffer-store";
 
@@ -68,6 +68,17 @@ class Sampler extends Instrument {
 
   resetPlaybackState() {
     this._nextAlternateDirection = "forward";
+  }
+
+  override stopPlayback() {
+    super.stopPlayback();
+    this._releaseControlledVoices();
+    this.resetPlaybackState();
+  }
+
+  override retire() {
+    super.retire();
+    this._releaseControlledVoices();
   }
 
   private get _initialVariationIndex() {
@@ -215,7 +226,15 @@ class Sampler extends Instrument {
 
     const fitRate = this._fitRate(sourceWindow.fitDuration);
     const playbackRate = note.value * fitRate;
-    const playbackDuration = sourceWindow.duration / playbackRate;
+    const detune = this._resolveDetune(
+      this._schema.detune,
+      barIndex,
+      note.stepIndex,
+    );
+    const nominalPlaybackSpeed =
+      playbackRate *
+      (detune.type === "static" ? Math.pow(2, detune.value / 1200) : 1);
+    const playbackDuration = sourceWindow.duration / nominalPlaybackSpeed;
 
     let duration: number;
     if (this._schema.loop || sourceWindow.isFittedChop) {
@@ -230,12 +249,6 @@ class Sampler extends Instrument {
     }
 
     const endTime = startTime + duration;
-
-    const detune = this._resolveDetune(
-      this._schema.detune,
-      barIndex,
-      note.stepIndex,
-    );
 
     const source = new AudioBufferSourceNode(this._ctx, {
       buffer,
@@ -263,6 +276,9 @@ class Sampler extends Instrument {
       effects: this._schema.effects,
       note: noteContext,
       offset: sourceWindow.offset,
+      gateMode: this._schema.loop ? "sustain" : "release-at-end",
+      silentTail: SOURCE_SILENT_TAIL,
+      stopTime: this._schema.loop ? undefined : endTime + SOURCE_SILENT_TAIL,
     });
     return true;
   }

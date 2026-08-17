@@ -52,10 +52,7 @@ class AudioEngine {
         this._instruments.forEach((inst) => inst.scheduleBar(bar, time));
       }),
       clock.on("stop", () => {
-        this._instruments.forEach((inst) => {
-          inst.cancelFutureNotes();
-          if (inst instanceof Sampler) inst.resetPlaybackState();
-        });
+        this._instruments.forEach((inst) => inst.stopPlayback());
         this._midiOutputScheduler.stop();
       }),
     ]);

@@ -14,6 +14,8 @@ class FakeAudioParam {
   value = 0;
   setValueAtTime = vi.fn();
   linearRampToValueAtTime = vi.fn();
+  cancelAndHoldAtTime = vi.fn();
+  cancelScheduledValues = vi.fn();
 }
 
 class FakeGainNode {
@@ -73,6 +75,15 @@ class FakeBufferSourceNode {
   }
 }
 
+class FakeAudioWorkletNode {
+  parameters = new Map([
+    ["outputA", new FakeAudioParam()],
+    ["outputB", new FakeAudioParam()],
+  ]);
+  connect = vi.fn();
+  disconnect = vi.fn();
+}
+
 class FakeAudioContext {
   currentTime = 0;
   destination = {} as AudioDestinationNode;
@@ -126,12 +137,12 @@ function staticPattern(
   };
 }
 
-function envelope(max = 1, r = 0): EnvelopeSchema {
+function envelope(max = 1, r = 0, a = 0): EnvelopeSchema {
   return {
     type: "envelope",
     min: 0,
     max: staticParam(max),
-    a: staticParam(0),
+    a: staticParam(a),
     d: staticParam(0),
     s: staticParam(1),
     r: staticParam(r),
@@ -283,6 +294,13 @@ describe("Sampler", () => {
     globalThis.BiquadFilterNode = vi.fn(
       MockBiquadFilterNode,
     ) as unknown as typeof BiquadFilterNode;
+    function MockAudioWorkletNode(this: FakeAudioWorkletNode) {
+      return new FakeAudioWorkletNode();
+    }
+
+    globalThis.AudioWorkletNode = vi.fn(
+      MockAudioWorkletNode,
+    ) as unknown as typeof AudioWorkletNode;
 
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
@@ -685,16 +703,12 @@ describe("Sampler", () => {
 
     expect(createdSources).toHaveLength(1);
     const source = createdSources[0];
-    const noteDuration = 0.5 * clock.barDuration;
     const startTime = 10 + 0.25 * clock.barDuration;
-    const endTime = startTime + noteDuration;
-    const releaseDur = 0.0025;
-
     expect(source.playbackRate.value).toBeCloseTo(Math.pow(2, 2 / 12));
     expect(source.detune.value).toBe(123);
     expect(source.loop).toBe(true);
     expect(source.start).toHaveBeenCalledWith(startTime);
-    expect(source.stop).toHaveBeenCalledWith(endTime + releaseDur + 0.05);
+    expect(source.stop).not.toHaveBeenCalled();
 
     expect(createdGains).toHaveLength(1);
     const gain = createdGains[0];
@@ -708,11 +722,7 @@ describe("Sampler", () => {
     expect(gain.gain.linearRampToValueAtTime.mock.calls[1][1]).toBeCloseTo(
       startTime + 0.005,
     );
-    expect(gain.gain.setValueAtTime).toHaveBeenNthCalledWith(2, 1, endTime);
-    expect(gain.gain.linearRampToValueAtTime.mock.calls[2][0]).toBe(0);
-    expect(gain.gain.linearRampToValueAtTime.mock.calls[2][1]).toBeCloseTo(
-      endTime + releaseDur,
-    );
+    expect(gain.gain.linearRampToValueAtTime).toHaveBeenCalledTimes(2);
   });
 
   it("static file regions schedule offset and selected duration", async () => {
@@ -741,7 +751,7 @@ describe("Sampler", () => {
 
     expect(createdSources).toHaveLength(1);
     expect(createdSources[0].start).toHaveBeenCalledWith(10, 1);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(11.0025 + 0.05);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(11.005);
   });
 
   it("reverse playback maps forward file regions onto the reversed buffer", async () => {
@@ -910,7 +920,7 @@ describe("Sampler", () => {
 
     expect(createdSources).toHaveLength(1);
     expect(createdSources[0].start).toHaveBeenCalledWith(10, 1.6);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(10.4025 + 0.05);
+    expect(createdSources[0].stop.mock.calls[0][0]).toBeCloseTo(10.405);
   });
 
   it("zero relative duration skips voice creation", async () => {
@@ -973,7 +983,7 @@ describe("Sampler", () => {
 
     expect(createdSources[0].start).toHaveBeenCalledWith(10, 2);
     expect(createdSources[0].stop.mock.calls[0][0]).toBeCloseTo(
-      10 + 0.5 / Math.pow(2, 1 / 12) + 0.0025 + 0.05,
+      10 + 0.5 / Math.pow(2, 1 / 12) + 0.005,
     );
   });
 
@@ -1011,10 +1021,10 @@ describe("Sampler", () => {
 
     expect(createdSources).toHaveLength(2);
     expect(createdSources[0].stop.mock.calls[0][0]).toBeCloseTo(
-      10 + 0.1 / Math.pow(2, 1 / 12) + 0.0025 + 0.05,
+      10 + 0.1 / Math.pow(2, 1 / 12) + 0.005,
     );
     expect(createdSources[1].stop.mock.calls[0][0]).toBeCloseTo(
-      11 + 0.3 / Math.pow(2, 1 / 12) + 0.0025 + 0.05,
+      11 + 0.3 / Math.pow(2, 1 / 12) + 0.005,
     );
   });
 
@@ -1065,7 +1075,7 @@ describe("Sampler", () => {
     sampler.scheduleBar(0, 10);
 
     expect(createdSources[0].loop).toBe(true);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(11.0025 + 0.05);
+    expect(createdSources[0].stop).not.toHaveBeenCalled();
   });
 
   it("one-shot static file regions play the selected source duration", async () => {
@@ -1094,7 +1104,7 @@ describe("Sampler", () => {
     sampler.scheduleBar(0, 10);
 
     expect(createdSources[0].start).toHaveBeenCalledWith(10, 1);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(12.0025 + 0.05);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(12.005);
   });
 
   it("chop regions schedule selected file slices", async () => {
@@ -1303,7 +1313,7 @@ describe("Sampler", () => {
 
     expect(createdSources).toHaveLength(1);
     expect(createdSources[0].start).toHaveBeenCalledWith(10, 2);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(11.0025 + 0.05);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(11.005);
   });
 
   it("fit with bounded chop computes fit rate from the bounded chop window", async () => {
@@ -1511,13 +1521,112 @@ describe("Sampler", () => {
     const source = createdSources[0];
 
     expect(source.start).toHaveBeenCalledWith(startTime);
-    expect(source.stop).toHaveBeenCalledWith(endTime + releaseDur + 0.05);
+    expect(source.stop).toHaveBeenCalledWith(endTime + 0.005);
 
     const gain = createdGains[0];
-    expect(gain.gain.setValueAtTime).toHaveBeenNthCalledWith(2, 1, endTime);
-    expect(gain.gain.linearRampToValueAtTime.mock.calls[2][1]).toBeCloseTo(
-      endTime + releaseDur,
+    expect(gain.gain.setValueAtTime).toHaveBeenNthCalledWith(
+      2,
+      1,
+      endTime - releaseDur,
     );
+    expect(gain.gain.linearRampToValueAtTime.mock.calls[2]).toEqual([
+      0,
+      endTime,
+    ]);
+  });
+
+  it("uses static detune when calculating nominal one-shot traversal time", async () => {
+    const url = "https://example.com/tuned.wav";
+    cache.resolved.set(url, makeBuffer(2));
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticPattern(0),
+          clipMode: "one-shot",
+          detune: staticParam(1200),
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources[0].start).toHaveBeenCalledWith(10);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(11.005);
+    expect(
+      createdGains[0].gain.linearRampToValueAtTime,
+    ).toHaveBeenLastCalledWith(0, 11);
+  });
+
+  it("uses base playback speed for nominal traversal under LFO detune", async () => {
+    const url = "https://example.com/modulated.wav";
+    cache.resolved.set(url, makeBuffer(2));
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticPattern(0),
+          clipMode: "one-shot",
+          detune: {
+            type: "lfo",
+            id: "detune-lfo",
+            outputA: staticParam(0),
+            outputB: staticParam(1200),
+            speed: [1],
+            waveform: ["sine"],
+            phase: 0,
+            norm: false,
+            invert: false,
+          },
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+
+    expect(createdSources[0].stop).toHaveBeenCalledWith(12.005);
+    expect(
+      createdGains[0].gain.linearRampToValueAtTime,
+    ).toHaveBeenLastCalledWith(0, 12);
+  });
+
+  it("forward, reverse, and alternate voices use the same gated lifecycle", async () => {
+    const url = "https://example.com/directions.wav";
+    const original = makeBuffer(1);
+    const reversed = makeBuffer(1);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+
+    for (const direction of ["forward", "reverse", "alternate"] as const) {
+      const sampler = new Sampler(
+        ctx as unknown as AudioContext,
+        clock as never,
+        {
+          schema: makeSchema({ direction, notes: staticPattern(0) }),
+          banks: makeBanks(url),
+          cache,
+        },
+      );
+      await sampler.load();
+      sampler.scheduleBar(0, 10);
+    }
+
+    expect(createdSources).toHaveLength(3);
+    for (const source of createdSources) {
+      expect(source.start.mock.calls[0].length).toBeLessThanOrEqual(2);
+      expect(source.stop).toHaveBeenCalledWith(11.005);
+    }
+    for (const gain of createdGains) {
+      expect(gain.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0, 11);
+    }
   });
 
   it("cycles source notes across active static mask positions", async () => {
@@ -1905,7 +2014,7 @@ describe("Sampler", () => {
 
     expect(createdSources).toHaveLength(1);
     expect(createdSources[0].start).toHaveBeenCalledWith(4, 2);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(5.0025 + 0.05);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(5.005);
   });
 
   it("accounts for playbackRate when scheduling sprite duration", async () => {
@@ -1936,7 +2045,7 @@ describe("Sampler", () => {
 
     expect(createdSources[0].playbackRate.value).toBe(2);
     expect(createdSources[0].start).toHaveBeenCalledWith(4, 0);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(5.0025 + 0.05);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(5.005);
   });
 
   it("sprite variations sharing the same src fetch once", async () => {
@@ -2009,7 +2118,7 @@ describe("Sampler", () => {
 
     expect(createdSources).toHaveLength(1);
     expect(createdSources[0].start).toHaveBeenCalledWith(4, 1.5);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(4.5025 + 0.05);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(4.505);
   });
 
   it("resolves variation before applying static regions", async () => {
@@ -2261,7 +2370,7 @@ describe("Sampler", () => {
     const source = createdSources[0];
     expect(source.playbackRate.value).toBeCloseTo(0.5);
     expect(source.start).toHaveBeenCalledWith(12);
-    expect(source.stop).toHaveBeenCalledWith(14.0525);
+    expect(source.stop).toHaveBeenCalledWith(14.005);
   });
 
   it("fit() uses sprite region duration instead of full buffer duration", async () => {
@@ -2298,7 +2407,7 @@ describe("Sampler", () => {
     expect(createdSources).toHaveLength(1);
     expect(createdSources[0].playbackRate.value).toBeCloseTo(0.5);
     expect(createdSources[0].start).toHaveBeenCalledWith(12, 1);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(14.0525);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(14.005);
   });
 
   it("fit() selects the requested variation", async () => {
@@ -2386,10 +2495,10 @@ describe("Sampler", () => {
     expect(createdSources).toHaveLength(2);
     expect(createdSources[0].playbackRate.value).toBe(2);
     expect(createdSources[0].start).toHaveBeenCalledWith(10, 0);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(11.0025 + 0.05);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(11.005);
     expect(createdSources[1].playbackRate.value).toBe(2);
     expect(createdSources[1].start).toHaveBeenCalledWith(11, 1);
-    expect(createdSources[1].stop).toHaveBeenCalledWith(12.0025 + 0.05);
+    expect(createdSources[1].stop).toHaveBeenCalledWith(12.005);
   });
 
   it("explicit notes transpose fitted chopped slices without changing slice selection", async () => {
@@ -2438,10 +2547,10 @@ describe("Sampler", () => {
     expect(createdSources).toHaveLength(2);
     expect(createdSources[0].playbackRate.value).toBe(2);
     expect(createdSources[0].start).toHaveBeenCalledWith(10, 0);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(11.0025 + 0.05);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(11.005);
     expect(createdSources[1].playbackRate.value).toBe(4);
     expect(createdSources[1].start).toHaveBeenCalledWith(11, 3);
-    expect(createdSources[1].stop).toHaveBeenCalledWith(12.0025 + 0.05);
+    expect(createdSources[1].stop).toHaveBeenCalledWith(12.005);
   });
 
   it("fit + chop schedules quarter-note authored pattern slices", async () => {
@@ -2493,13 +2602,13 @@ describe("Sampler", () => {
       2, 2, 2, 2,
     ]);
     expect(createdSources[0].start).toHaveBeenCalledWith(10, 0);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(11.0025 + 0.05);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(11.005);
     expect(createdSources[1].start).toHaveBeenCalledWith(11, 2);
-    expect(createdSources[1].stop).toHaveBeenCalledWith(12.0025 + 0.05);
+    expect(createdSources[1].stop).toHaveBeenCalledWith(12.005);
     expect(createdSources[2].start).toHaveBeenCalledWith(12, 4);
-    expect(createdSources[2].stop).toHaveBeenCalledWith(13.0025 + 0.05);
+    expect(createdSources[2].stop).toHaveBeenCalledWith(13.005);
     expect(createdSources[3].start).toHaveBeenCalledWith(13, 6);
-    expect(createdSources[3].stop).toHaveBeenCalledWith(14.0025 + 0.05);
+    expect(createdSources[3].stop).toHaveBeenCalledWith(14.005);
   });
 
   it("fit-only generated chop regions use full source duration for fit rate", async () => {
@@ -2548,10 +2657,10 @@ describe("Sampler", () => {
     expect(createdSources).toHaveLength(2);
     expect(createdSources[0].playbackRate.value).toBe(1);
     expect(createdSources[0].start).toHaveBeenCalledWith(10, 0);
-    expect(createdSources[0].stop).toHaveBeenCalledWith(12.0025 + 0.05);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(12.005);
     expect(createdSources[1].playbackRate.value).toBe(1);
     expect(createdSources[1].start).toHaveBeenCalledWith(12, 2);
-    expect(createdSources[1].stop).toHaveBeenCalledWith(14.0025 + 0.05);
+    expect(createdSources[1].stop).toHaveBeenCalledWith(14.005);
   });
 
   it("fit() is applied through normal note scheduling on every triggered bar", async () => {
@@ -2608,6 +2717,113 @@ describe("Sampler", () => {
     expect(resolved).toBe(true);
     expect(createdSources[0].disconnect).toHaveBeenCalled();
     expect(createdGains[0].disconnect).toHaveBeenCalled();
+  });
+
+  it("transport stop fades an active loop and resets alternate direction", async () => {
+    const url = "https://example.com/transport-loop.wav";
+    const original = makeBuffer(1);
+    const reversed = makeBuffer(1);
+    cache.resolved.set(url, original);
+    cache.reversed.set(original, reversed);
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          loop: true,
+          direction: "alternate",
+          gain: envelope(1, 0.1),
+        }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 0);
+    ctx.currentTime = 0.5;
+    sampler.stopPlayback();
+
+    const releaseEnd = 0.7;
+    expect(createdGains[0].gain.cancelAndHoldAtTime).toHaveBeenCalledWith(0.5);
+    expect(
+      createdGains[0].gain.linearRampToValueAtTime,
+    ).toHaveBeenLastCalledWith(0, releaseEnd);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(releaseEnd + 0.005);
+
+    createdSources[0].fireEnded();
+    sampler.scheduleBar(1, 2);
+    expect(createdSources[1].buffer).toBe(original);
+  });
+
+  it("calculates the held gain before fallback cancellation", async () => {
+    const url = "https://example.com/fallback-loop.wav";
+    cache.resolved.set(url, makeBuffer(1));
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ loop: true, gain: envelope(1, 0.1, 0.5) }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 0);
+    Object.defineProperty(createdGains[0].gain, "cancelAndHoldAtTime", {
+      value: undefined,
+    });
+    ctx.currentTime = 0.5;
+    sampler.stopPlayback();
+
+    expect(createdGains[0].gain.cancelScheduledValues).toHaveBeenCalledWith(
+      0.5,
+    );
+    expect(createdGains[0].gain.setValueAtTime).toHaveBeenLastCalledWith(
+      0.5,
+      0.5,
+    );
+    expect(
+      createdGains[0].gain.linearRampToValueAtTime,
+    ).toHaveBeenLastCalledWith(0, 0.7);
+  });
+
+  it("retire fades an active looping voice to silence before stopping", async () => {
+    const url = "https://example.com/loop.wav";
+    cache.resolved.set(url, makeBuffer(1));
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({ loop: true, gain: envelope(1, 0.1) }),
+        banks: makeBanks(url),
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 0);
+    ctx.currentTime = 0.5;
+    sampler.retire();
+
+    const releaseEnd = 0.5 + 0.2;
+    expect(createdGains[0].gain.cancelAndHoldAtTime).toHaveBeenCalledWith(0.5);
+    expect(
+      createdGains[0].gain.linearRampToValueAtTime,
+    ).toHaveBeenLastCalledWith(0, releaseEnd);
+    expect(createdSources[0].stop).toHaveBeenCalledWith(releaseEnd + 0.005);
+
+    let resolved = false;
+    sampler.finished.then(() => {
+      resolved = true;
+    });
+    await Promise.resolve();
+    expect(resolved).toBe(false);
+
+    createdSources[0].fireEnded();
+    await Promise.resolve();
+    expect(resolved).toBe(true);
   });
 
   it("cancelFutureNotes() finishes retirement after stopping future notes", async () => {

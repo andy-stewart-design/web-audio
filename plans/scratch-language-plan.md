@@ -81,7 +81,7 @@ notes: {
 
 ### Next session
 
-Begin **Phase 5 — Click-free source gating and explicit monophony**. Phase 5.1 is the priority: replace hard source-duration teardown with gain-gated, silent-tail cleanup before adding `.mono()`. The completed direction paths should be covered by the same gate lifecycle.
+Begin **Phase 6 — Patternable nudge**. Phase 5.1 is complete: sampler voices now use gain-gated teardown, reach exact zero before a 5 ms silent tail, account for nominal static-detune playback speed, sustain loops until lifecycle teardown, stop active loops safely on transport stop, and share the same lifecycle across forward, reverse, and alternate playback. Monophony is deferred until sampler and synthesizer semantics can be designed together.
 
 ## Scope guardrails
 
@@ -566,6 +566,8 @@ Tracer bullet: rapid alternating sampler hits can self-choke without clicks, whi
 
 ### Step 5.1 — Separate audible gate completion from source teardown
 
+**Status:** Complete.
+
 **Files:** `packages/audio-engine/src/instruments/instrument.ts`, `packages/audio-engine/src/instruments/sampler.ts`, `packages/audio-engine/src/utils/compute-envelope.ts`, related tests
 
 Refactor voice scheduling only as much as necessary to expose and control a sampler voice's gain and teardown lifecycle safely.
@@ -586,14 +588,16 @@ The implementation may introduce an internal tracked-voice handle with gain, sou
 
 **Acceptance criteria:**
 
-- [ ] Gated sampler voices never call `source.start()` with a duration argument.
-- [ ] Gain reaches silence before scheduled source stop.
-- [ ] Static and LFO-detuned short hits clean up after the gate.
-- [ ] Cancellation/destruction remain safe for future and active voices.
-- [ ] Instrument retirement resolves only after tracked voices are cleaned up.
-- [ ] Existing effect, envelope, MIDI, and synthesizer tests pass.
+- [x] Gated sampler voices never call `source.start()` with a duration argument.
+- [x] Gain reaches silence before scheduled source stop.
+- [x] Static and LFO-detuned short hits clean up after the gate.
+- [x] Cancellation/destruction remain safe for future and active voices.
+- [x] Instrument retirement resolves only after tracked voices are cleaned up.
+- [x] Existing effect, envelope, MIDI, and synthesizer tests pass.
 
 ### Step 5.2 — Add explicit sampler monophony
+
+**Status:** Deferred to a separate sampler-and-synthesizer monophony design.
 
 **Files:** `packages/schema/src/index.ts`, `packages/fluid/src/instruments/sampler.ts`, `packages/fluid/src/index.test.ts`
 
@@ -619,6 +623,8 @@ Requirements:
 - [ ] Fluid and schema checks/tests pass.
 
 ### Step 5.3 — Fade and replace the previous mono voice
+
+**Status:** Deferred to a separate sampler-and-synthesizer monophony design.
 
 **Files:** `packages/audio-engine/src/instruments/sampler.ts`, `packages/audio-engine/src/instruments/instrument.ts`, sampler/instrument tests
 
@@ -1007,6 +1013,7 @@ Potential follow-ups, only if implementation evidence warrants them:
 - `"alternate-reverse"` direction;
 - independent mono fade configuration;
 - cross-instrument choke groups;
+- synthesizer monophony, with explicit note-priority, retrigger, voice-stealing, and envelope-release semantics; share only proven-common voice lifecycle utilities with sampler monophony;
 - exact-density random masks;
 - additional timing units;
 - richer groove templates;

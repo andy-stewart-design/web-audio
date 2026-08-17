@@ -43,6 +43,8 @@ interface BaseScheduleVoiceParams {
   gainEnvelope: ResolvedEnvelopeSchema;
   effects: EffectSchema[];
   stopTime?: number;
+  silentTail?: number;
+  gateMode?: "release-at-end" | "sustain";
 }
 
 type ScheduleVoiceParams = BaseScheduleVoiceParams &
@@ -82,6 +84,7 @@ abstract class Instrument {
   private _retired = false;
   private _finished = false;
   private _destroyed = false;
+  private _outputDisconnected = false;
   private _finishedResolve: (() => void) | null = null;
   readonly finished: Promise<void>;
 
@@ -127,16 +130,15 @@ abstract class Instrument {
 
   cancelFutureNotes() {
     const now = this._ctx.currentTime;
-    for (const note of this._scheduled) {
-      note.midiBindings.forEach((unbind) => unbind());
+    for (const note of [...this._scheduled]) {
       if (note.startTime <= now) continue;
-      note.sourceNode.onended = null;
-      note.sourceNode.stop(0);
-      note.sourceNode.disconnect();
-      for (const node of note.audioNodes) node.disconnect();
-      this._scheduled.delete(note);
+      this._stopTrackedNote(note, now, false);
     }
     this._finish();
+  }
+
+  stopPlayback() {
+    this.cancelFutureNotes();
   }
 
   retire() {
@@ -152,20 +154,17 @@ abstract class Instrument {
     this.disconnectMidi();
     this._midiBindings.clear();
 
-    for (const note of this._scheduled) {
-      note.midiBindings.forEach((unbind) => unbind());
-      note.sourceNode.onended = null;
-      note.sourceNode.stop(0);
-      note.sourceNode.disconnect();
-      for (const node of note.audioNodes) node.disconnect();
+    if (this._finished) {
+      this._disconnectOutput();
+      return;
     }
 
-    this._scheduled.clear();
-    this._cleanupLfos();
-    this._balancingNode.disconnect();
-    this._muteNode.disconnect();
-    this._finished = true;
-    this._finishedResolve?.();
+    const now = this._ctx.currentTime;
+    for (const note of [...this._scheduled]) {
+      this._stopTrackedNote(note, now, note.startTime <= now && !!note.gain);
+    }
+
+    this._finish();
   }
 
   // ---------------------------------------------------------------------------
@@ -178,11 +177,12 @@ abstract class Instrument {
 
     const gain = new GainNode(this._ctx);
 
-    const releaseDur = this._scheduleParamEnvelope(
-      gain.gain,
-      gainEnvelope,
-      note,
-    );
+    const releaseDur =
+      params.gateMode === "release-at-end"
+        ? this._scheduleGatedEnvelope(gain.gain, gainEnvelope, note)
+        : params.gateMode === "sustain"
+          ? this._scheduleSustainedEnvelope(gain.gain, gainEnvelope, note)
+          : this._scheduleParamEnvelope(gain.gain, gainEnvelope, note);
 
     if (detune) {
       if (detune.resolved.type === "envelope") {
@@ -221,8 +221,21 @@ abstract class Instrument {
       source.start(note.startTime);
     }
 
-    source.stop(params.stopTime ?? note.endTime + releaseDur + 0.05);
-    this._track(source, chain, note.startTime, midiBindings);
+    const stopTime =
+      params.stopTime ??
+      (params.gateMode === "sustain"
+        ? undefined
+        : note.endTime + releaseDur + 0.05);
+    if (stopTime !== undefined) source.stop(stopTime);
+    this._track(source, chain, note.startTime, midiBindings, {
+      gain: params.gateMode ? gain.gain : undefined,
+      gainValueAtTime: params.gateMode
+        ? (time) =>
+            this._gainValueAtTime(gainEnvelope, note, params.gateMode!, time)
+        : undefined,
+      releaseDuration: params.gateMode ? releaseDur : undefined,
+      silentTail: params.gateMode ? params.silentTail : undefined,
+    });
   }
 
   protected _buildEffectNode(
@@ -258,22 +271,66 @@ abstract class Instrument {
     audioNodes: AudioNode[],
     startTime: number,
     midiBindings: (() => void)[] = [],
+    gate: Pick<
+      ScheduledNote,
+      "gain" | "gainValueAtTime" | "releaseDuration" | "silentTail"
+    > = {},
   ) {
     const scheduled = {
       sourceNode,
       audioNodes,
       midiBindings,
       startTime,
+      ...gate,
+      stopping: false,
+      cleaned: false,
     } satisfies ScheduledNote;
     this._scheduled.add(scheduled);
 
-    sourceNode.onended = () => {
-      sourceNode.disconnect();
-      for (const n of audioNodes) n.disconnect();
-      midiBindings.forEach((unbind) => unbind());
-      this._scheduled.delete(scheduled);
-      this._finish();
-    };
+    sourceNode.onended = () => this._cleanupTrackedNote(scheduled);
+  }
+
+  protected _releaseControlledVoices() {
+    const now = this._ctx.currentTime;
+    for (const note of [...this._scheduled]) {
+      if (!note.gain) continue;
+      this._stopTrackedNote(note, now, note.startTime <= now);
+    }
+    this._finish();
+  }
+
+  private _stopTrackedNote(note: ScheduledNote, atTime: number, fade: boolean) {
+    if (note.stopping || note.cleaned) return;
+    note.stopping = true;
+
+    if (fade && note.gain) {
+      const releaseEnd = atTime + (note.releaseDuration ?? 0);
+      if (typeof note.gain.cancelAndHoldAtTime === "function") {
+        note.gain.cancelAndHoldAtTime(atTime);
+      } else {
+        const heldValue = note.gainValueAtTime?.(atTime) ?? note.gain.value;
+        note.gain.cancelScheduledValues(atTime);
+        note.gain.setValueAtTime(heldValue, atTime);
+      }
+      note.gain.linearRampToValueAtTime(0, releaseEnd);
+      note.sourceNode.stop(releaseEnd + (note.silentTail ?? 0));
+      return;
+    }
+
+    note.sourceNode.onended = null;
+    note.sourceNode.stop(Math.min(atTime, note.startTime));
+    this._cleanupTrackedNote(note);
+  }
+
+  private _cleanupTrackedNote(note: ScheduledNote) {
+    if (note.cleaned) return;
+    note.cleaned = true;
+    note.sourceNode.onended = null;
+    note.sourceNode.disconnect();
+    for (const node of note.audioNodes) node.disconnect();
+    note.midiBindings.forEach((unbind) => unbind());
+    this._scheduled.delete(note);
+    this._finish();
   }
 
   // ---------------------------------------------------------------------------
@@ -362,6 +419,85 @@ abstract class Instrument {
     param.linearRampToValueAtTime(env.min, env.endTime + env.releaseDur);
 
     return env.releaseDur;
+  }
+
+  private _scheduleGatedEnvelope(
+    param: AudioParam,
+    envelope: ResolvedEnvelopeSchema,
+    note: NoteScheduleContext,
+  ) {
+    const env = computeEnvelope(envelope, note.duration, note.endTime);
+    const releaseStart = Math.max(env.startTime, env.endTime - env.releaseDur);
+    const attackEnd = Math.min(env.startTime + env.attackDur, releaseStart);
+    const decayEnd = Math.min(
+      env.startTime + env.attackDur + env.decayDur,
+      releaseStart,
+    );
+
+    param.setValueAtTime(env.min, env.startTime);
+    param.linearRampToValueAtTime(env.max, attackEnd);
+    param.linearRampToValueAtTime(env.sustain, decayEnd);
+    param.setValueAtTime(env.sustain, releaseStart);
+    param.linearRampToValueAtTime(0, env.endTime);
+
+    return env.releaseDur;
+  }
+
+  private _scheduleSustainedEnvelope(
+    param: AudioParam,
+    envelope: ResolvedEnvelopeSchema,
+    note: NoteScheduleContext,
+  ) {
+    const env = computeEnvelope(envelope, note.duration, note.endTime);
+    const decay = env.startTime + env.attackDur + env.decayDur;
+
+    param.setValueAtTime(env.min, env.startTime);
+    param.linearRampToValueAtTime(env.max, env.startTime + env.attackDur);
+    param.linearRampToValueAtTime(env.sustain, decay);
+
+    return env.releaseDur;
+  }
+
+  private _gainValueAtTime(
+    envelope: ResolvedEnvelopeSchema,
+    note: NoteScheduleContext,
+    mode: NonNullable<BaseScheduleVoiceParams["gateMode"]>,
+    time: number,
+  ) {
+    const env = computeEnvelope(envelope, note.duration, note.endTime);
+    const releaseStart = Math.max(env.startTime, env.endTime - env.releaseDur);
+    const attackEnd =
+      mode === "release-at-end"
+        ? Math.min(env.startTime + env.attackDur, releaseStart)
+        : env.startTime + env.attackDur;
+    const decayEnd =
+      mode === "release-at-end"
+        ? Math.min(env.startTime + env.attackDur + env.decayDur, releaseStart)
+        : env.startTime + env.attackDur + env.decayDur;
+
+    const interpolate = (
+      startTime: number,
+      startValue: number,
+      endTime: number,
+      endValue: number,
+    ) => {
+      if (endTime <= startTime) return endValue;
+      const progress = (time - startTime) / (endTime - startTime);
+      return startValue + (endValue - startValue) * progress;
+    };
+
+    if (time <= env.startTime) return env.min;
+    if (time < attackEnd) {
+      return interpolate(env.startTime, env.min, attackEnd, env.max);
+    }
+    if (time < decayEnd) {
+      return interpolate(attackEnd, env.max, decayEnd, env.sustain);
+    }
+    if (mode === "sustain" || time <= releaseStart) return env.sustain;
+    if (time < env.endTime) {
+      return interpolate(releaseStart, env.sustain, env.endTime, 0);
+    }
+    return 0;
   }
 
   protected _resolve(
@@ -523,10 +659,24 @@ abstract class Instrument {
   // ---------------------------------------------------------------------------
 
   private _finish() {
-    if (!this._retired || this._finished || this._scheduled.size > 0) return;
+    if (
+      this._finished ||
+      this._scheduled.size > 0 ||
+      (!this._retired && !this._destroyed)
+    ) {
+      return;
+    }
     this._finished = true;
     this._cleanupLfos();
+    if (this._destroyed) this._disconnectOutput();
     this._finishedResolve?.();
+  }
+
+  private _disconnectOutput() {
+    if (this._outputDisconnected) return;
+    this._outputDisconnected = true;
+    this._balancingNode.disconnect();
+    this._muteNode.disconnect();
   }
 }
 
