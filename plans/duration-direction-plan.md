@@ -33,6 +33,8 @@ d.sample("tay").dur(0.1).dir("alt");
 - `duration(...input)` and `dur(...input)` on samplers;
 - mutually exclusive absolute-end and relative-duration region schemas;
 - normalized duration resolution within file and sprite entries;
+- loop windows derived from relative-duration regions;
+- rhythmic step duration as the voice and gain-envelope duration for looping samplers;
 - `direction(...)` and `dir(...)` on samplers;
 - `"forward"`, `"reverse"`, and `"alternate"` directions;
 - abbreviated direction inputs `"for"`, `"rev"`, and `"alt"`;
@@ -57,7 +59,8 @@ Do not restore or redesign:
 - transport-wide lifecycle changes;
 - monophony or voice replacement;
 - changes to existing `AudioBufferSourceNode.start()`/`stop()` conventions;
-- unrelated note, mask, detune, fit, or looping behavior.
+- unrelated note, mask, detune, or fit behavior;
+- loop lifecycle changes beyond selecting a loop window and using rhythmic step duration.
 
 If duration or direction appears to require one of these changes, stop and reassess rather than expanding the implementation.
 
@@ -71,6 +74,8 @@ If duration or direction appears to require one of these changes, stop and reass
 - Static duration values must be finite and within `0–1`, inclusive.
 - Random duration values retain existing region behavior: warn for configured ranges outside `0–1`, then clamp resolved values in the engine.
 - Zero-length and invalid windows do not create voices.
+- Sample-region duration and rhythmic voice duration are distinct for loops: the region defines the repeated material, while the note's step duration defines the gain envelope and scheduled voice lifetime.
+- A looped default sampler with one full-bar step remains audible for one bar, even when its source buffer or selected region is shorter than a bar.
 - Reverse playback uses a reversed copy and a positive playback rate, never a negative playback rate.
 - For an original buffer of duration `B` and source region `[start, end]`, reverse offset is `B - end`.
 - Reversed buffers are prepared while loading reverse-capable samplers, not during scheduling.
@@ -185,9 +190,28 @@ For a duration region:
 4. map the normalized region into the selected file or sprite entry;
 5. reject zero-length or invalid windows before constructing an audio source.
 
-Keep `sourceWindow.duration`, fit calculations, offsets, playback duration, and existing source stop behavior otherwise unchanged.
+Keep `sourceWindow.duration`, fit calculations, offsets, and non-looping playback-duration behavior otherwise unchanged.
 
-For looping samplers, use the resolved duration region as `loopStart`/`loopEnd` only if this can be added without changing when or how the source is stopped. Do not restore the reverted loop-sustain lifecycle.
+For looping samplers:
+
+- use a resolved relative-duration region as `loopStart`/`loopEnd`;
+- treat the selected source region as the material to repeat, not as the voice lifetime;
+- use `scheduledDuration` from the rhythmic step as the note context and gain-envelope duration;
+- stop the source through the existing `_scheduleVoice()` behavior after that step duration and release tail;
+- do not restore the reverted indefinite loop-sustain or controlled-voice lifecycle.
+
+The sampler-local duration choice is therefore:
+
+```ts
+const duration =
+  schema.loop || sourceWindow.isFittedChop
+    ? scheduledDuration
+    : schema.clipMode === "one-shot"
+      ? playbackDuration
+      : Math.min(scheduledDuration, playbackDuration);
+```
+
+Shared envelope scheduling and teardown remain unchanged.
 
 **Acceptance criteria:**
 
@@ -197,7 +221,11 @@ For looping samplers, use the resolved duration region as `loopStart`/`loopEnd` 
 - [ ] Sprite-relative duration maps within the sprite entry.
 - [ ] Zero duration creates no source and no voice-state side effects.
 - [ ] Existing absolute-end playback remains unchanged.
-- [ ] Existing source start and stop timing tests remain unchanged unless their selected source window intentionally changes.
+- [ ] A short full-source loop uses the rhythmic step duration for its gain envelope.
+- [ ] A relative-duration loop repeats only its selected loop window but remains active for the rhythmic step duration.
+- [ ] `d.sample("hh").loop().push()` uses its default full-bar step as the gain-envelope duration, regardless of sample length.
+- [ ] Non-looping source start and stop timing tests remain unchanged unless their selected source window intentionally changes.
+- [ ] Looping source stop timing continues to use the existing release-tail behavior after the step ends.
 
 ---
 
@@ -390,6 +418,8 @@ Restore or rewrite only tests that cover:
 - zero-duration suppression;
 - sprite-relative duration;
 - duration indexing across mask gaps;
+- short loop sources sustaining for their full rhythmic step;
+- relative-duration loop windows remaining active for their full rhythmic step;
 - reversed-buffer correctness and reuse;
 - forward/reverse region mapping;
 - alternate direction state and reset;
@@ -399,7 +429,7 @@ Do not restore tests from the reverted commit that assert:
 
 - new source stop times;
 - silent-tail timing;
-- new gain-envelope automation;
+- new gain-envelope automation machinery beyond asserting that existing automation uses the loop's rhythmic step duration;
 - controlled voice release;
 - transport fading;
 - destruction or retirement waiting for new voice handles;
@@ -485,4 +515,4 @@ d.sample("tay")
   .push();
 ```
 
-and when it selects the expected forward/reverse source windows without changing the sampler's pre-existing source scheduling, envelope, stop, retirement, destruction, or transport behavior.
+and when it selects the expected forward/reverse source windows without changing the sampler's shared source scheduling, envelope machinery, release-tail behavior, retirement, destruction, or transport behavior. Looped voices are the intentional duration exception: their selected source window repeats for the rhythmic step duration rather than limiting the gain envelope to one traversal of that window.
