@@ -229,6 +229,7 @@ describe("Sampler", () => {
   let cache: {
     resolved: Map<string, AudioBuffer>;
     promises: Map<string, Promise<AudioBuffer | null>>;
+    reversed: WeakMap<AudioBuffer, AudioBuffer>;
   };
   let createdSources: FakeBufferSourceNode[];
   let createdGains: FakeGainNode[];
@@ -243,6 +244,7 @@ describe("Sampler", () => {
     cache = {
       resolved: new Map(),
       promises: new Map(),
+      reversed: new WeakMap(),
     };
     createdSources = [];
     createdGains = [];

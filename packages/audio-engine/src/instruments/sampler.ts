@@ -52,6 +52,7 @@ class Sampler extends Instrument {
       initialVariationIndex: this._initialVariationIndex,
       initialSourceKey: this._schema.sourceKeys[0] ?? 0,
       fallbackBuffer,
+      prepareReverse: schema.direction !== "forward",
     });
     this._initLfos(schema, startingBar, barStartTime);
   }

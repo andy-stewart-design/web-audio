@@ -6,6 +6,17 @@ function makeBuffer(duration: number) {
   return { duration } as AudioBuffer;
 }
 
+function makeReversibleBuffer(values: number[]) {
+  const data = new Float32Array(values);
+  return {
+    duration: values.length,
+    numberOfChannels: 1,
+    length: values.length,
+    sampleRate: 44_100,
+    getChannelData: () => data,
+  } as unknown as AudioBuffer;
+}
+
 function makeBanks(
   url = "https://example.com/bd.wav",
 ): Record<string, BankSchema> {
@@ -23,6 +34,7 @@ describe("SampleBufferStore", () => {
   let cache: {
     resolved: Map<string, AudioBuffer>;
     promises: Map<string, Promise<AudioBuffer | null>>;
+    reversed: WeakMap<AudioBuffer, AudioBuffer>;
   };
   let warnSpy: ReturnType<typeof vi.spyOn>;
 
@@ -32,6 +44,7 @@ describe("SampleBufferStore", () => {
     cache = {
       resolved: new Map(),
       promises: new Map(),
+      reversed: new WeakMap(),
     };
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
@@ -266,6 +279,160 @@ describe("SampleBufferStore", () => {
     expect(store.fallbackBufferFor("kit", "bd")).toBe(fallback);
     expect(store.fallbackBufferFor("other", "bd")).toBeNull();
     expect(store.fallbackBufferFor("kit", "sn")).toBeNull();
+  });
+
+  it("does not prepare reversed buffers for forward-only stores", async () => {
+    const url = "https://example.com/bd.wav";
+    const buffer = makeReversibleBuffer([1, 2, 3]);
+    cache.resolved.set(url, buffer);
+    ctx.createBuffer = vi.fn();
+
+    const store = new SampleBufferStore({
+      ctx,
+      banks: makeBanks(url),
+      cache,
+      bank: "kit",
+      sample: "bd",
+      initialVariationIndex: 0,
+    });
+
+    await store.preload([0]);
+
+    expect(ctx.createBuffer).not.toHaveBeenCalled();
+    expect(cache.reversed.has(buffer)).toBe(false);
+  });
+
+  it("prepares cached buffers and returns their reversed variants", async () => {
+    const url = "https://example.com/bd.wav";
+    const original = makeReversibleBuffer([1, 2, 3]);
+    const reversed = makeReversibleBuffer([0, 0, 0]);
+    cache.resolved.set(url, original);
+    ctx.createBuffer = vi.fn(() => reversed);
+
+    const store = new SampleBufferStore({
+      ctx,
+      banks: makeBanks(url),
+      cache,
+      bank: "kit",
+      sample: "bd",
+      initialVariationIndex: 0,
+      prepareReverse: true,
+    });
+
+    await store.preload([0]);
+
+    expect(cache.reversed.get(original)).toBe(reversed);
+    expect(store.getPlaybackSource(0, 0, 0, true)?.buffer).toBe(reversed);
+    expect(Array.from(reversed.getChannelData(0))).toEqual([3, 2, 1]);
+  });
+
+  it("prepares newly decoded buffers before preload completes", async () => {
+    const original = makeReversibleBuffer([1, 2, 3]);
+    const reversed = makeReversibleBuffer([0, 0, 0]);
+    ctx.decodeAudioData = vi.fn(async () => original);
+    ctx.createBuffer = vi.fn(() => reversed);
+    globalThis.fetch = vi.fn(async () => ({
+      arrayBuffer: async () => new ArrayBuffer(8),
+    })) as unknown as typeof fetch;
+
+    const store = new SampleBufferStore({
+      ctx,
+      banks: makeBanks(),
+      cache,
+      bank: "kit",
+      sample: "bd",
+      initialVariationIndex: 0,
+      prepareReverse: true,
+    });
+
+    await store.preload([0]);
+
+    expect(cache.reversed.get(original)).toBe(reversed);
+    expect(store.getPlaybackSource(0, 0, 0, true)?.buffer).toBe(reversed);
+  });
+
+  it("prepares fallback buffers immediately", () => {
+    const fallback = makeReversibleBuffer([1, 2, 3]);
+    const reversed = makeReversibleBuffer([0, 0, 0]);
+    ctx.createBuffer = vi.fn(() => reversed);
+
+    const store = new SampleBufferStore({
+      ctx,
+      banks: makeBanks(),
+      cache,
+      bank: "kit",
+      sample: "bd",
+      initialVariationIndex: 0,
+      fallbackBuffer: fallback,
+      prepareReverse: true,
+    });
+
+    expect(cache.reversed.get(fallback)).toBe(reversed);
+    expect(store.getPlaybackSource(0, 0, 0, true)?.buffer).toBe(reversed);
+  });
+
+  it("prepares every preloaded variation and source key", async () => {
+    const urls = [
+      "https://example.com/45-0.wav",
+      "https://example.com/45-1.wav",
+      "https://example.com/57-0.wav",
+      "https://example.com/57-1.wav",
+    ];
+    const originals = urls.map((_, index) =>
+      makeReversibleBuffer([index, index + 1]),
+    );
+    urls.forEach((url, index) => cache.resolved.set(url, originals[index]));
+    ctx.createBuffer = vi.fn(() => makeReversibleBuffer([0, 0]));
+    const banks = {
+      kit: {
+        samples: {
+          piano: {
+            "45": urls
+              .slice(0, 2)
+              .map((src) => ({ type: "file" as const, src })),
+            "57": urls.slice(2).map((src) => ({ type: "file" as const, src })),
+          },
+        },
+      },
+    };
+
+    const store = new SampleBufferStore({
+      ctx,
+      banks,
+      cache,
+      bank: "kit",
+      sample: "piano",
+      initialVariationIndex: 0,
+      initialSourceKey: 45,
+      prepareReverse: true,
+    });
+
+    await store.preload([0, 1], [45, 57]);
+
+    expect(ctx.createBuffer).toHaveBeenCalledTimes(4);
+    originals.forEach((buffer) =>
+      expect(cache.reversed.has(buffer)).toBe(true),
+    );
+  });
+
+  it("warns when a requested reversed buffer was not prepared", async () => {
+    const url = "https://example.com/bd.wav";
+    cache.resolved.set(url, makeBuffer(1));
+    const store = new SampleBufferStore({
+      ctx,
+      banks: makeBanks(url),
+      cache,
+      bank: "kit",
+      sample: "bd",
+      initialVariationIndex: 0,
+    });
+
+    await store.preload([0]);
+
+    expect(store.getPlaybackSource(0, 3, 0, true)).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Sampler] "kit/bd" reverse buffer is not prepared — skipping bar 3',
+    );
   });
 
   it("falls back to variation 0 when the requested variation is out of range", async () => {
