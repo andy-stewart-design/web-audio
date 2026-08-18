@@ -107,8 +107,9 @@ recovery = 1;
 - Targets must be declared named buses.
 - Ducking `main` is rejected.
 - An instrument may duck a bus it routes or sends to; the trigger is then included in the attenuated bus mix.
-- Simultaneous polyphonic voices at one instrument onset produce one duck trigger.
+- Simultaneous polyphonic voices at one instrument onset produce one duck trigger. Their shared event duration is the maximum duration in the onset group.
 - Distinct event offsets trigger independently.
+- Trigger times are normalized to audio sample frames. Events in the same frame are simultaneous.
 - Every resolved, unmasked note event triggers ducking even if the instrument is muted or its audio source cannot be created.
 - Muting still suppresses routed and sent audio.
 - Sampler duck timing uses the scheduled pattern-event duration, not decoded sample length, playback duration, clipping, or source availability.
@@ -120,7 +121,7 @@ onsetDuration = onset * eventDuration;
 recoveryDuration = recovery * eventDuration;
 ```
 
-`onset` is the ramp-down duration. Recovery begins after the target level is reached. Both ramps apply the engine's safe minimum duration.
+`onset` is the ramp-down duration. Recovery begins after the target level is reached. Both ramps apply the engine's safe minimum duration and use exponential curves.
 
 Depth follows Strudel's perceptual curve:
 
@@ -135,14 +136,33 @@ Parameter normalization is performance-oriented:
 - clamp onset and recovery to values greater than or equal to zero;
 - treat a clamped depth of zero as a true no-op that does not alter an active duck.
 
-Overlapping triggers do not stack. A retrigger:
+Duck events are not installed while instruments are scheduled sequentially. For each bar, the graph generation:
 
-1. holds the target bus's current duck gain;
-2. cancels the remainder of the existing automation;
-3. ramps toward the new target without first raising the gain;
-4. restarts recovery from the new trigger.
+1. collects duck events from every instrument;
+2. normalizes each trigger to an integer audio sample frame;
+3. deduplicates each instrument's simultaneous events using their maximum event duration;
+4. resolves proportional onset/recovery values into absolute durations;
+5. groups requests by target bus and trigger frame;
+6. sorts each target's groups chronologically;
+7. merges equal-time requests before submitting one ordered timeline to the target bus.
 
-Because bars are scheduled ahead, gain automation that depends on the value at retrigger time must not naïvely read `AudioParam.value` while scheduling the bar. During implementation, evaluate native `cancelAndHoldAtTime()` with a compatibility fallback against a clock callback installed shortly before the trigger, as Strudel does. The chosen mechanism must be cancellable on transport stop and graph destruction.
+Equal-time requests merge independently of instrument order:
+
+```ts
+targetGain = Math.min(...targetGains);
+onsetDuration = Math.min(...onsetDurations);
+recoveryDuration = Math.max(...recoveryDurations);
+```
+
+Overlapping triggers do not stack. Duck automation maintains a software model of constant and exponential timeline segments. At a retrigger:
+
+```ts
+effectiveTarget = Math.min(gainAtTrigger, requestedTarget);
+```
+
+A shallower request therefore does not raise gain during onset. The model analytically evaluates the current exponential segment, truncates and reconstructs that segment at the trigger with the same curve, then schedules the new onset and recovery. It must not rely on `AudioParam.value` or `cancelAndHoldAtTime()` to return the held value. Automation installed for one bar must also compose correctly with recovery extending into a later bar.
+
+The software timeline is compacted at least once per scheduled bar. Segments completed before `AudioContext.currentTime` are pruned while retaining an anchor/current segment and all future segments needed for exact evaluation. Timeline storage must remain bounded by active and future automation rather than total generation lifetime.
 
 ## Canonical schema
 
@@ -192,10 +212,13 @@ Builder arrays and repeated calls are normalized into one send or duck entry per
 
 Add shared graph validation to `@web-audio/schema` and enforce it in both Fluid and AudioEngine.
 
-Fluid validates the completed graph in `getSchema()`, allowing bus forward references. AudioEngine validates before accepting or committing a direct schema. An invalid update must leave the active graph generation undisturbed.
+Fluid validates the completed graph in `getSchema()`, allowing bus forward references. `AudioEngine.update()` is also a runtime JavaScript boundary: validation must defensively check the presence and shape of `buses`, `route`, `sends`, `ducks`, and nested duck values before traversing them. It need not decode unrelated schema fields, but malformed or old graph schemas must produce structured path errors rather than incidental `TypeError`s.
+
+AudioEngine defensively validates graph-field shapes before cloning, then stores a validated `structuredClone()` snapshot rather than the caller's mutable reference. Clone failures and invalid updates must leave the pending and active graph generations undisturbed.
 
 Validate these invariants:
 
+- when present, BPM is finite and greater than zero; omitted BPM preserves the clock's current value;
 - a canonical `main` bus exists;
 - every bus key is a valid canonical name;
 - bus gain is finite and non-negative;
@@ -205,7 +228,7 @@ Validate these invariants:
 - every send amount is finite and in `[0, 1]`;
 - every duck target resolves and is not `main`;
 - duck values are finite and canonicalized into their supported ranges;
-- effect schemas are supported by their host.
+- effect arrays and discriminators are supported for both instruments and buses.
 
 Fluid trims names before producing the canonical schema. Direct schemas supplied to AudioEngine should already be canonical; shared validation should not silently mutate them.
 
@@ -219,23 +242,42 @@ Each committed schema creates a complete graph generation:
 generation
   ├─ instruments
   ├─ named buses
-  └─ generated main bus
+  ├─ generated main bus
+  └─ retirement gain
        ↓
 persistent engine output/analyser
        ↓
 AudioContext.destination
 ```
 
-Do not reconcile bus nodes by name across commits. On replacement:
+Do not reconcile bus nodes by name across commits. Generation construction is transactional. A factory or equivalent constructible resource ledger owns every node, connection, callback, and binding as soon as it is allocated. Partial construction failure cleans the ledger in reverse order and never exposes an incomplete generation.
 
-1. build the new generation;
-2. retire all instruments in the old generation;
-3. permit their already-scheduled voices and releases to finish through the old buses;
-4. destroy the old bus graph after every old instrument reports `finished`.
+A commit:
 
-The engine's final output and analyser remain persistent. With only gain and filter bus effects, no bus has an independent audio tail, so waiting for instruments is sufficient in this SOW.
+1. uses an accepted schema snapshot and derives prospective BPM/bar timing without mutating the clock;
+2. constructs the complete new generation;
+3. on failure, destroys partial resources, discards the failing pending update, reports the error without throwing through the clock scheduler, and preserves the active generation and BPM;
+4. on success, applies BPM, installs the new generation, clears pending, and retires the old generation.
 
-Encapsulate generation ownership rather than adding unrelated bus state directly to `AudioEngine`. A generation should own its instruments, buses, deferred duck callbacks, MIDI connections, scheduling, retirement, and destruction.
+Retirement uses exact constants:
+
+```ts
+FILTER_SETTLING_TIME = 0.1;
+RETIREMENT_FADE_TIME = 0.01;
+```
+
+Both values are seconds on the `AudioContext` timeline. Retirement:
+
+1. permits already-scheduled voices and releases to finish through their original buses;
+2. waits until audio time advances by `FILTER_SETTLING_TIME` after every generation instrument reports `finished`;
+3. fades a dedicated generation retirement gain to silence over `RETIREMENT_FADE_TIME`;
+4. destroys the generation only after audio time reaches the fade endpoint.
+
+A cancellable audio-time-aware scheduler drives completion. If the context is suspended and `currentTime` stops, settling and retirement pause rather than destroying an unrendered tail.
+
+A resonant filter can ring longer than this allowance, so this is bounded truncation rather than guaranteed settling. Reverb and feedback effects require formal per-effect tail contracts.
+
+The engine's final output and analyser remain persistent. Encapsulate generation ownership rather than adding unrelated bus state directly to `AudioEngine`. Instruments continue to own and track their voices; a generation coordinates the lifetime of its instruments, shared buses, duck timelines, MIDI connections, scheduling, retirement, and destruction.
 
 ### Bus graph
 
@@ -256,6 +298,7 @@ main input
   → serial effect chain
   → dedicated duck gain (kept at unity in v1)
   → output gain
+  → generation retirement gain
   → persistent engine output
 ```
 
@@ -285,7 +328,8 @@ Do not add a user-facing instrument output fader in this SOW. Existing `.gain()`
 Bus processing reuses the existing gain and filter effect schemas. Static values, parameter cycles, LFOs, MIDI CC controls, and envelopes are allowed.
 
 - Parameter cycles resolve against the transport/bar grid.
-- LFOs are persistent for the graph generation.
+- LFOs are persistent for the graph generation. Because their worklet output represents an absolute parameter value, the target `AudioParam` intrinsic value is neutralized before connection.
+- Every LFO-to-parameter edge has explicit ownership. Per-voice edges disconnect when the voice ends or is cancelled; persistent bus edges disconnect with their bus/generation.
 - MIDI bindings are owned and cleaned up by the graph generation.
 - Envelopes use one bar as their duration basis.
 
@@ -301,13 +345,14 @@ This behavior must be tested by ear during implementation. It is a proposed pers
 
 ## Transport and lifecycle behavior
 
-On transport stop:
+On transport stop, apply the following behavior to the active generation and every retiring generation:
 
-- cancel future voices as today;
-- cancel deferred future duck callbacks;
-- cancel future duck automation and restore duck gains to unity with a safe minimum ramp;
+- cancel future voices;
+- cancel future duck events and automation, then restore duck gains to unity with a safe minimum ramp;
 - cancel future bus-envelope automation and return affected parameters to their configured minima with a safe minimum ramp;
 - keep the active graph generation available for playback to resume.
+
+Every clock-driven AudioEngine callback has an error boundary, not only `prebar`. A bar-scheduling failure discards the bar-local duck collector, reports the error, rolls back newly scheduled resources where possible through a bar-scheduling ledger, and returns normally so the clock scheduler continues. No partial duck timeline is submitted.
 
 On graph destruction, cancel all callbacks, MIDI subscriptions, LFO connections, scheduled automation owned by the generation, and every audio-node connection.
 
@@ -329,31 +374,31 @@ Extend the base instrument builder with:
 
 Emit normalized routing records and the default main bus. Validate only after the complete schema has been assembled so forward references work.
 
-### 3. Runtime bus abstraction
+### 3. Runtime parameter and bus abstraction
 
-Add an AudioEngine bus abstraction that owns input, serial effects, duck gain, output gain, bar automation, MIDI/LFO state, stop/reset behavior, and destruction. Initially support existing gain and filter effects only.
+Extract shared effect-node and parameter-automation behavior from the current instrument implementation, fixing LFO intrinsic-value handling and per-voice LFO connection cleanup rather than preserving the existing defects.
 
-Extract shared effect-node and parameter-automation behavior from the current instrument implementation where practical; do not duplicate divergent effect construction logic between voices and buses.
+Add a complete AudioEngine bus abstraction that owns input, serial effects, duck gain, output gain, all accepted parameter automation, MIDI/LFO state, stop/reset behavior, and destruction. Do not permit an intermediate state where emitted bus effects use native defaults or only some parameter sources work.
 
-### 4. Graph generation abstraction
+### 4. Transactional graph generation abstraction
 
-Move active instruments and generated buses behind a graph-generation owner. Build bus graphs before instruments so route/send destinations are available. Route the generated main bus to the existing persistent engine output.
+Move active instruments and generated buses behind a graph-generation owner created through a failure-safe resource ledger. Build complete bus graphs before instruments so route/send destinations are available. Route generated main through a dedicated retirement gain into the persistent engine output.
 
-Retire and destroy complete generations as specified, preserving existing sample-cache behavior across generations.
+Commit BPM and the new generation atomically. Reject supplied BPM values unless they are finite and greater than zero; omitted BPM preserves current clock timing. Retire complete generations using exact audio-time settling/fade constants, preserving existing sample-cache behavior across generations.
 
 ### 5. Routes and sends
 
 Pass the selected primary destination and normalized send destinations into runtime instruments. Connect each instrument's post-mute output exactly once to its route and once through each send gain to each send target. Add graph-connection and lifecycle tests.
 
-### 6. Duck scheduling
+### 6. Globally ordered duck scheduling
 
-Emit deduplicated duck events from resolved instrument event onsets before audio-source availability checks. Send events to the owning graph generation/bus registry rather than coupling instruments directly to bus internals.
+Use one shared onset-normalization abstraction for synths and samplers. Collect all generation duck events for a bar before automation is installed. Normalize to sample frames, deduplicate polyphony with maximum duration, resolve absolute timings, sort per target, merge equal-frame collisions, and submit complete ordered event groups.
 
-Implement retrigger-safe gain automation, minimum ramps, depth mapping, event-duration scaling, zero-depth no-op behavior, stop cancellation, and callback cleanup. Test simultaneous polyphony, overlapping triggers, muted triggers, unavailable samples, and graph replacement.
+Implement a software-modeled exponential timeline with retrigger-safe segment truncation/reconstruction, minimum ramps, depth mapping, zero-depth no-op behavior, and stop/destruction cleanup. Test cross-instrument ordering, unsorted direct schemas, equal-time collisions, cross-bar recovery, muted triggers, unavailable samples, and graph replacement.
 
-### 7. Bus automation
+### 7. Bus automation review
 
-Schedule bus parameter cycles and bounded bar envelopes alongside each bar. Add stop/reset and generation cleanup tests. Conduct an audible browser test of repeated bar-envelope boundaries before treating the proposed envelope behavior as settled.
+Exercise the bus parameter cycles and bounded bar envelopes delivered with the runtime bus abstraction. Add stop/reset and generation cleanup tests. Conduct an audible browser test of repeated bar-envelope boundaries before treating the proposed envelope behavior as settled.
 
 ### 8. Documentation and verification
 
@@ -402,20 +447,23 @@ The schema package currently has no test script. Add one when introducing shared
 - sends branch post-mute and pre-primary-bus processing;
 - bus effects precede duck and output gain;
 - old and new generations remain isolated during retirement;
-- old buses disconnect after all old instruments finish.
+- old buses remain for `FILTER_SETTLING_TIME = 0.1`, fade through the generation retirement gain for `RETIREMENT_FADE_TIME = 0.01`, and disconnect only when audio time reaches the fade endpoint.
 
 ### Ducking
 
-- one trigger per simultaneous instrument onset;
+- shared synth/sampler deduplication produces one trigger per sample-frame onset using maximum event duration;
 - separate triggers for offset events;
+- cross-instrument events are globally sorted before automation;
+- equal-frame requests merge resolved absolute durations deterministically;
 - muted instruments trigger while their sends/routes remain silent;
 - missing sampler sources still trigger;
 - sampler timing uses pattern-event duration;
 - square-root depth mapping and clamping;
 - zero depth is a no-op;
-- overlapping triggers hold/cancel/recover without stacking;
+- software-modeled exponential segments truncate/reconstruct correctly and retrigger without stacking;
+- completed duck segments are compacted so long-running generations retain bounded timeline storage;
 - self-inclusive ducking works;
-- stop and destruction cancel callbacks and reset automation.
+- stop and destruction cancel future timeline work and reset automation.
 
 ### Bus automation
 
@@ -424,7 +472,9 @@ The schema package currently has no test script. Add one when introducing shared
 - bounded timing normalization;
 - repeated-bar retrigger behavior;
 - stop resets envelopes to minimum;
-- generation destruction cleans up automation resources.
+- generation destruction cleans up automation resources;
+- every clock callback contains errors, and failed bar scheduling submits no partial duck timeline;
+- LFO-controlled parameters neutralize intrinsic values and per-voice LFO connections disconnect at voice end.
 
 ## Explicit follow-ups
 
