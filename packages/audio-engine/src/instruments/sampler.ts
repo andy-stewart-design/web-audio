@@ -6,7 +6,7 @@ import type {
   StaticSchemaValue,
 } from "@web-audio/schema";
 import Instrument from "./instrument";
-import { SAMPLE_BASE_GAIN, SOURCE_SILENT_TAIL } from "@/constants";
+import { SAMPLE_BASE_GAIN } from "@/constants";
 import { preloadVariationIndices } from "@/utils/preload-variations";
 import SampleBufferStore, { type SampleCache } from "./sample-buffer-store";
 
@@ -70,15 +70,9 @@ class Sampler extends Instrument {
     this._nextAlternateDirection = "forward";
   }
 
-  override stopPlayback() {
-    super.stopPlayback();
-    this._releaseControlledVoices();
+  override cancelFutureNotes() {
+    super.cancelFutureNotes();
     this.resetPlaybackState();
-  }
-
-  override retire() {
-    super.retire();
-    this._releaseControlledVoices();
   }
 
   private get _initialVariationIndex() {
@@ -226,29 +220,20 @@ class Sampler extends Instrument {
 
     const fitRate = this._fitRate(sourceWindow.fitDuration);
     const playbackRate = note.value * fitRate;
+    const playbackDuration = sourceWindow.duration / playbackRate;
+    const duration =
+      this._schema.loop || sourceWindow.isFittedChop
+        ? scheduledDuration
+        : this._schema.clipMode === "one-shot"
+          ? playbackDuration
+          : Math.min(scheduledDuration, playbackDuration);
+    const endTime = startTime + duration;
+
     const detune = this._resolveDetune(
       this._schema.detune,
       barIndex,
       note.stepIndex,
     );
-    const nominalPlaybackSpeed =
-      playbackRate *
-      (detune.type === "static" ? Math.pow(2, detune.value / 1200) : 1);
-    const playbackDuration = sourceWindow.duration / nominalPlaybackSpeed;
-
-    let duration: number;
-    if (this._schema.loop || sourceWindow.isFittedChop) {
-      // Looped samples and fitted chops sustain for the scheduled note length
-      duration = scheduledDuration;
-    } else if (this._schema.clipMode === "one-shot") {
-      // One-shots play the complete source window, regardless of note length
-      duration = playbackDuration;
-    } else {
-      // In all other instances, stop when the shorter of either the note or source window ends
-      duration = Math.min(scheduledDuration, playbackDuration);
-    }
-
-    const endTime = startTime + duration;
 
     const source = new AudioBufferSourceNode(this._ctx, {
       buffer,
@@ -276,9 +261,6 @@ class Sampler extends Instrument {
       effects: this._schema.effects,
       note: noteContext,
       offset: sourceWindow.offset,
-      gateMode: this._schema.loop ? "sustain" : "release-at-end",
-      silentTail: SOURCE_SILENT_TAIL,
-      stopTime: this._schema.loop ? undefined : endTime + SOURCE_SILENT_TAIL,
     });
     return true;
   }
@@ -324,14 +306,18 @@ class Sampler extends Instrument {
       regionStart = clamp(
         this._resolve(this._schema.region.start, barIndex, stepIndex),
       );
-      const { duration, end } = this._schema.region;
-      if (duration) {
+      if (this._schema.region.duration) {
         regionEnd = Math.min(
-          regionStart + clamp(this._resolve(duration, barIndex, stepIndex)),
+          regionStart +
+            clamp(
+              this._resolve(this._schema.region.duration, barIndex, stepIndex),
+            ),
           1,
         );
-      } else if (end) {
-        regionEnd = clamp(this._resolve(end, barIndex, stepIndex));
+      } else {
+        regionEnd = clamp(
+          this._resolve(this._schema.region.end, barIndex, stepIndex),
+        );
       }
     } else if (this._schema.region?.type === "chop") {
       const { slices, sequence } = this._schema.region;
@@ -359,19 +345,13 @@ class Sampler extends Instrument {
       this._schema.region?.type === "chop"
         ? this._chopFitDuration(entryDuration * buffer.duration)
         : (normalizedEnd - normalizedStart) * buffer.duration;
-    const isDurationRegion =
-      this._schema.region?.type === "static" && !!this._schema.region.duration;
 
     const sourceStart = normalizedStart * buffer.duration;
     const sourceEnd = normalizedEnd * buffer.duration;
-    let playbackStart = sourceStart;
-    let playbackEnd = sourceEnd;
-
-    if (reversed) {
-      playbackStart = buffer.duration - sourceEnd;
-      playbackEnd = buffer.duration - sourceStart;
-    }
-
+    const playbackStart = reversed ? buffer.duration - sourceEnd : sourceStart;
+    const playbackEnd = reversed ? buffer.duration - sourceStart : sourceEnd;
+    const isDurationRegion =
+      this._schema.region?.type === "static" && !!this._schema.region.duration;
     const hasExplicitOffset =
       reversed || entry.type !== "file" || !!this._schema.region;
 

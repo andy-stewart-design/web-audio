@@ -413,21 +413,48 @@ describe("Drome", () => {
       }
     });
 
-    it("direction() and dir() accept full and abbreviated direction names", () => {
+    it("direction() accepts full and abbreviated direction names", () => {
       const d = new Drome();
-      const forward = d.sample("bd").direction("for").getSchema();
-      const reverse = d.sample("bd").dir("rev").getSchema();
-      const alternate = d.sample("bd").direction("alt").getSchema();
+
+      expect(d.sample("bd").direction("forward").getSchema().direction).toBe(
+        "forward",
+      );
+      expect(d.sample("bd").direction("reverse").getSchema().direction).toBe(
+        "reverse",
+      );
+      expect(d.sample("bd").direction("alternate").getSchema().direction).toBe(
+        "alternate",
+      );
+      expect(d.sample("bd").direction("for").getSchema().direction).toBe(
+        "forward",
+      );
+      expect(d.sample("bd").direction("rev").getSchema().direction).toBe(
+        "reverse",
+      );
+      expect(d.sample("bd").direction("alt").getSchema().direction).toBe(
+        "alternate",
+      );
+    });
+
+    it("dir() aliases direction(), including when extracted", () => {
+      const d = new Drome();
       const sampler = d.sample("bd");
       const dir = sampler.dir;
 
-      expect(forward.direction).toBe("forward");
-      expect(reverse.direction).toBe("reverse");
-      expect(alternate.direction).toBe("alternate");
       expect(dir("reverse")).toBe(sampler);
-      expect(sampler.direction("alternate").getSchema().direction).toBe(
-        "alternate",
+      expect(sampler.getSchema().direction).toBe("reverse");
+    });
+
+    it("direction() rejects invalid runtime input", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").direction("sideways" as never)).toThrow(
+        '[Sampler] direction() must be "forward", "reverse", "alternate", "for", "rev", or "alt".',
       );
+    });
+
+    it("does not expose sample direction on synthesizers", () => {
+      expect(new Drome().synth()).not.toHaveProperty("direction");
     });
 
     it("gain envelope and effects are present", () => {
@@ -594,7 +621,7 @@ describe("Drome", () => {
       }
     });
 
-    it("duration(0.15) emits a relative-duration region", () => {
+    it("duration() emits a relative-duration region", () => {
       const d = new Drome();
       const inst = d.sample("bd").start(0.4).duration(0.15).getSchema();
 
@@ -641,24 +668,24 @@ describe("Drome", () => {
       }
     });
 
-    it("duration() accepts zero and one but rejects invalid static values", () => {
+    it("duration() accepts boundary values and rejects invalid static values", () => {
       const d = new Drome();
 
       expect(() => d.sample("bd").duration(0).getSchema()).not.toThrow();
       expect(() => d.sample("bd").duration(1).getSchema()).not.toThrow();
-      expect(() => d.sample("bd").duration(-0.1).getSchema()).toThrow(
-        "[Sampler] duration() values must be finite numbers in [0, 1].",
-      );
-      expect(() => d.sample("bd").duration(1.1).getSchema()).toThrow(
-        "[Sampler] duration() values must be finite numbers in [0, 1].",
-      );
+      for (const value of [-0.1, 1.1, Number.NaN, Number.POSITIVE_INFINITY]) {
+        expect(() => d.sample("bd").duration(value).getSchema()).toThrow(
+          "[Sampler] duration() values must be finite numbers in [0, 1].",
+        );
+      }
     });
 
-    it("duration() preserves random parameters and rejects chop combinations", () => {
+    it("duration() preserves random parameters and warns for out-of-range ranges", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const d = new Drome();
       const inst = d
         .sample("bd")
-        .duration(d.rand().range(0.1, 0.2).steps(4))
+        .duration(d.rand().range(-0.1, 1.1).steps(4))
         .getSchema();
 
       expect(inst.region?.type).toBe("static");
@@ -667,7 +694,18 @@ describe("Drome", () => {
       } else {
         expect.unreachable("Expected a relative-duration region");
       }
+      expect(warn).toHaveBeenCalledWith(
+        "[Sampler] duration() random range is outside [0, 1]; resolved values will be clamped by the engine.",
+      );
+    });
+
+    it("duration() rejects chop combinations", () => {
+      const d = new Drome();
+
       expect(() => d.sample("bd").duration(0.15).chop(4).getSchema()).toThrow(
+        "[Sampler] duration() cannot be used with chop().",
+      );
+      expect(() => d.sample("bd").chop(4).duration(0.15).getSchema()).toThrow(
         "[Sampler] duration() cannot be used with chop().",
       );
     });

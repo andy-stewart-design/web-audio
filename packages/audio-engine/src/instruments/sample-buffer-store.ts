@@ -53,7 +53,7 @@ class SampleBufferStore {
     this._fallbackBuffer = fallbackBuffer;
     this._prepareReverse = prepareReverse;
     if (fallbackBuffer && prepareReverse) {
-      getReversedBuffer(this._ctx, this._cache.reversed, fallbackBuffer);
+      this._prepareReversedBuffer(fallbackBuffer);
     }
   }
 

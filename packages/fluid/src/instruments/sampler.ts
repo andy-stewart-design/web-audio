@@ -16,6 +16,7 @@ import {
   getRegion,
   getSourceKeys,
   type ChopState,
+  type RegionState,
 } from "./sampler-utils";
 import { DEFAULT_BANK } from "@/banks";
 import Instrument from "./instrument";
@@ -33,16 +34,13 @@ class Sampler extends Instrument {
   private _sample: string;
   private _variation: Parameter;
   private _fit: FitSchema | null = null;
-  private _regionStart: Parameter | null = null;
-  private _regionEnd: Parameter | null = null;
-  private _regionDuration: Parameter | null = null;
+  private _region: RegionState | null = null;
   private _chop: ChopState | null = null;
   private _explicitNotes = false;
   private _loop = false;
   private _clipMode: ClipMode = "clipped";
   private _direction: SampleDirection = "forward";
 
-  var: (...input: CycleInput) => this;
   dur: (...input: CycleInput) => this;
   dir: (direction: SampleDirectionInput) => this;
 
@@ -55,9 +53,13 @@ class Sampler extends Instrument {
     this._bank = bank;
     this._sample = sample;
     this._variation = new Parameter(0);
-    this.var = this.variation.bind(this);
     this.dur = this.duration.bind(this);
     this.dir = this.direction.bind(this);
+  }
+
+  // METHOD ALIASES
+  var(...input: CycleInput) {
+    return this.variation(...input);
   }
 
   // INSTANCE METHODS
@@ -86,19 +88,28 @@ class Sampler extends Instrument {
   }
 
   start(...input: CycleInput) {
-    this._regionStart = new Parameter(...input);
+    const start = new Parameter(...input);
+    this._region = this._region
+      ? { ...this._region, start }
+      : { start, mode: "end", end: null };
     return this;
   }
 
   end(...input: CycleInput) {
-    this._regionEnd = new Parameter(...input);
-    this._regionDuration = null;
+    this._region = {
+      start: this._region?.start ?? null,
+      mode: "end",
+      end: new Parameter(...input),
+    };
     return this;
   }
 
   duration(...input: CycleInput) {
-    this._regionDuration = new Parameter(...input);
-    this._regionEnd = null;
+    this._region = {
+      start: this._region?.start ?? null,
+      mode: "duration",
+      duration: new Parameter(...input),
+    };
     return this;
   }
 
@@ -157,9 +168,7 @@ class Sampler extends Instrument {
   }
 
   private _getGeneratedFit() {
-    const hasRegion =
-      this._regionStart || this._regionEnd || this._regionDuration;
-    const unfit = this._explicitNotes || this._chop || hasRegion;
+    const unfit = this._explicitNotes || this._chop || this._region;
     if (unfit) return null;
     return this._fit;
   }
@@ -209,9 +218,7 @@ class Sampler extends Instrument {
     const region = getRegion({
       fitSchema: this._getGeneratedFit(),
       chopState: this._chop,
-      regionStart: this._regionStart,
-      regionEnd: this._regionEnd,
-      regionDuration: this._regionDuration,
+      region: this._region,
     });
 
     return {

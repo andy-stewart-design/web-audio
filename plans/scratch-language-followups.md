@@ -2,7 +2,7 @@
 
 ## Context
 
-This document tracks all remaining work from [`scratch-language-plan.md`](scratch-language-plan.md) that was not implemented in the current pass.
+This document tracks all remaining work from [`scratch-language-plan.md`](./completed/scratch-language-plan.md) that was not implemented in the current pass.
 
 The completed work includes patterned random bars and chance, binary random-note semantics, dynamic `xox()` masks, relative sampler duration, sampler direction, reversed-buffer preparation, alternate-direction state, click-free sampler gating, transport-stop cleanup, and non-mono click-regression coverage.
 

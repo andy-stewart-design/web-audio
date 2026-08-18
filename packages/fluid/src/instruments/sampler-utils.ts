@@ -10,12 +10,14 @@ import type Drome from "@/index";
 
 type ChopState = { sliceCount: number; sequence: Parameter | null };
 
+type RegionState =
+  | { start: Parameter | null; mode: "end"; end: Parameter | null }
+  | { start: Parameter | null; mode: "duration"; duration: Parameter };
+
 type RegionOptions = {
   fitSchema: FitSchema | null;
   chopState: ChopState | null;
-  regionStart: Parameter | null;
-  regionEnd: Parameter | null;
-  regionDuration: Parameter | null;
+  region: RegionState | null;
 };
 
 function isDefaultRandomMask(schema: ParameterSchema) {
@@ -219,13 +221,7 @@ function getStaticChopBounds(start: ParameterSchema, end: ParameterSchema) {
   return { start: startValue, end: endValue, duration: endValue - startValue };
 }
 
-function getRegion({
-  fitSchema,
-  chopState,
-  regionStart,
-  regionEnd,
-  regionDuration,
-}: RegionOptions) {
+function getRegion({ fitSchema, chopState, region }: RegionOptions) {
   if (fitSchema) {
     const { bars } = fitSchema;
     return {
@@ -244,15 +240,14 @@ function getRegion({
     } satisfies RegionSchema;
   }
 
-  const start = regionStart ?? new Parameter(0);
-  const startSchema = start.getSchema();
+  const startSchema = (region?.start ?? new Parameter(0)).getSchema();
 
   if (chopState) {
-    if (regionDuration) {
+    if (region?.mode === "duration") {
       throw new Error("[Sampler] duration() cannot be used with chop().");
     }
 
-    const endSchema = (regionEnd ?? new Parameter(1)).getSchema();
+    const endSchema = (region?.end ?? new Parameter(1)).getSchema();
     const { sliceCount } = chopState;
     const sequenceSchema = getChopSequenceSchema(chopState);
     warnOutOfRangeChopIndices(sliceCount, sequenceSchema);
@@ -268,12 +263,12 @@ function getRegion({
     } satisfies RegionSchema;
   }
 
-  if (!regionStart && !regionEnd && !regionDuration) return null;
+  if (!region) return null;
 
   validateRegionParam("start", startSchema);
 
-  if (regionDuration) {
-    const durationSchema = regionDuration.getSchema();
+  if (region.mode === "duration") {
+    const durationSchema = region.duration.getSchema();
     validateRegionParam("duration", durationSchema);
 
     return {
@@ -283,7 +278,7 @@ function getRegion({
     } satisfies RegionSchema;
   }
 
-  const endSchema = (regionEnd ?? new Parameter(1)).getSchema();
+  const endSchema = (region.end ?? new Parameter(1)).getSchema();
   validateRegionParam("end", endSchema);
   validateRegionBounds(startSchema, endSchema);
 
@@ -326,4 +321,5 @@ export {
   getRegion,
   getSourceKeys,
   type ChopState,
+  type RegionState,
 };

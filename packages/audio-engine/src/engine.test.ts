@@ -13,7 +13,6 @@ vi.mock("./instruments/synthesizer", () => {
   ) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
-    this.stopPlayback = vi.fn();
     this.connectMidi = vi.fn();
     this.disconnectMidi = vi.fn();
     this.retire = vi.fn();
@@ -38,8 +37,6 @@ vi.mock("./instruments/sampler", () => {
   ) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
-    this.stopPlayback = vi.fn();
-    this.resetPlaybackState = vi.fn();
     this.connectMidi = vi.fn();
     this.disconnectMidi = vi.fn();
     this.retire = vi.fn();
@@ -200,7 +197,6 @@ function instances() {
   return vi.mocked(MockSynthesizer).mock.instances as unknown as Array<{
     scheduleBar: ReturnType<typeof vi.fn>;
     cancelFutureNotes: ReturnType<typeof vi.fn>;
-    stopPlayback: ReturnType<typeof vi.fn>;
     connectMidi: ReturnType<typeof vi.fn>;
     disconnectMidi: ReturnType<typeof vi.fn>;
     retire: ReturnType<typeof vi.fn>;
@@ -216,8 +212,6 @@ function samplerInstances() {
   return vi.mocked(MockSampler).mock.instances as unknown as Array<{
     scheduleBar: ReturnType<typeof vi.fn>;
     cancelFutureNotes: ReturnType<typeof vi.fn>;
-    stopPlayback: ReturnType<typeof vi.fn>;
-    resetPlaybackState: ReturnType<typeof vi.fn>;
     connectMidi: ReturnType<typeof vi.fn>;
     disconnectMidi: ReturnType<typeof vi.fn>;
     retire: ReturnType<typeof vi.fn>;
@@ -493,7 +487,7 @@ describe("AudioEngine", () => {
   });
 
   describe("stop event", () => {
-    it("stops playback on all active instruments", () => {
+    it("cancels future notes on all active instruments", () => {
       const clock = new FakeClock();
       clock.paused = false;
       const engine = new AudioEngine(fakeCtx, clock as never);
@@ -502,19 +496,10 @@ describe("AudioEngine", () => {
       clock.emit("prebar");
       clock.emit("stop");
 
-      instances().forEach((p) => expect(p.stopPlayback).toHaveBeenCalledOnce());
+      instances().forEach((p) =>
+        expect(p.cancelFutureNotes).toHaveBeenCalledOnce(),
+      );
     });
-  });
-
-  it("uses the sampler transport-stop lifecycle", () => {
-    const clock = new FakeClock();
-    const engine = new AudioEngine(fakeCtx, clock as never);
-
-    engine.update(makeSamplerSchema());
-    clock.emit("prebar");
-    clock.emit("stop");
-
-    expect(samplerInstances()[0].stopPlayback).toHaveBeenCalledOnce();
   });
 
   describe("destroy()", () => {

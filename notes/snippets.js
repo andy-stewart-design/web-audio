@@ -2,8 +2,6 @@
 // LFO Tests
 // ------------------------------------------------
 
-const { kickVariations } = require("./kickVariations");
-
 d.synth("saw")
   .root("c4")
   .scale("min")
@@ -302,6 +300,9 @@ d.loadSamples({
       "https://cdn.jsdelivr.net/gh/Heydon/hyperblam-docs@main/src/static/sounds/chocolate/piano.mp3",
     ],
   },
+  tay: [
+    "https://cdn.jsdelivr.net/gh/Heydon/hyperblam-docs@main/src/static/sounds/chocolate/tay.mp3",
+  ],
 });
 
 const bank = "chocolate";
@@ -362,6 +363,9 @@ d.sample("cp")
   .bank(bank)
   .hex(0x180a, 0x4118, 0x0a41)
   .var(...clapVariations)
-  .gain(1.5)
   .detune(d.rand().rib(304).range(-200, 200).steps(16))
+  .gain(1.5)
+  .bank("user")
+  .end(0, 0.375, 0, 1)
+  .detune(d.env(-1200, 0).a(0, 0.25, 0, 0.075).d(0).s(1).r(0))
   .push();

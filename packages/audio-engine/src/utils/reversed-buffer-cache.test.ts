@@ -30,6 +30,7 @@ describe("getReversedBuffer", () => {
     expect(Array.from(reversed.getChannelData(0))).toEqual([3, 2, 1]);
     expect(Array.from(reversed.getChannelData(1))).toEqual([6, 5, 4]);
     expect(Array.from(original.getChannelData(0))).toEqual([1, 2, 3]);
+    expect(Array.from(original.getChannelData(1))).toEqual([4, 5, 6]);
   });
 
   it("reuses one reversed buffer per original", () => {
