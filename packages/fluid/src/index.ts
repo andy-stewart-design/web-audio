@@ -2,6 +2,7 @@ import { RandomCycle } from "@web-audio/patterns";
 import Envelope from "./automations/envelope";
 import Lfo, { type LfoInput } from "./automations/lfo";
 import { BUILT_IN_BANKS } from "./banks";
+import Bus from "./buses/bus";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
 import Instrument from "./instruments/instrument";
@@ -13,6 +14,7 @@ import {
   normalizeSampleBank,
   resolveBank,
 } from "./utils/sample-utils";
+import { normalizeBusName } from "./utils/signal-graph";
 import type { BankSchema, FilterType } from "@web-audio/schema";
 import type {
   AudioParamInput,
@@ -27,10 +29,12 @@ class Drome {
   private _instruments: Set<Instrument>;
   private _bpm: number | undefined;
   private _banks: Record<string, BankSchema>;
+  private _buses: Map<string, Bus>;
 
   constructor() {
     this._instruments = new Set();
     this._banks = {};
+    this._buses = new Map([["main", new Bus("main")]]);
   }
 
   bpm(value: number) {
@@ -41,6 +45,16 @@ class Drome {
     }
     this._bpm = value;
     return this;
+  }
+
+  bus(name: string) {
+    const normalizedName = normalizeBusName(name);
+    const existing = this._buses.get(normalizedName);
+    if (existing) return existing;
+
+    const bus = new Bus(normalizedName);
+    this._buses.set(normalizedName, bus);
+    return bus;
   }
 
   synth(type?: WaveformAlias) {
@@ -147,12 +161,13 @@ class Drome {
     return {
       ...(this._bpm !== undefined && { bpm: this._bpm }),
       instruments,
-      buses: {
-        main: { gain: 1, effects: [] },
-      },
+      buses: Object.fromEntries(
+        Array.from(this._buses, ([name, bus]) => [name, bus.getSchema()]),
+      ),
       banks,
     };
   }
 }
 
+export { Bus };
 export default Drome;
