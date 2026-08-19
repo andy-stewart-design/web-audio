@@ -6,7 +6,8 @@ import type {
   InstrumentSchema,
 } from "@web-audio/schema";
 import ParameterManager from "@/automation/parameter-manager";
-import { SYNTH_BASE_GAIN, FILTER_TYPE_MAP } from "@/constants";
+import { SYNTH_BASE_GAIN } from "@/constants";
+import { buildEffectChain } from "@/effects/effect-chain";
 import type {
   ResolvedDetune,
   ResolvedEnvelopeSchema,
@@ -192,19 +193,19 @@ abstract class Instrument {
       }
     }
 
-    const effectNodes = effects.map((effect) =>
-      this._buildEffectNode(effect, note, midiBindings),
-    );
+    const effectNodes = buildEffectChain({
+      ctx: this._ctx,
+      input: gain,
+      output: this._balancingNode,
+      effects,
+      parameters: this._parameters,
+      context: note,
+      cleanups: midiBindings,
+    });
 
     source.connect(gain);
 
     const chain: AudioNode[] = [gain, ...effectNodes];
-    chain.reduce((src, dst) => {
-      src.connect(dst);
-      return dst;
-    });
-
-    chain[chain.length - 1].connect(this._balancingNode);
 
     if (params.offset !== undefined) {
       params.source.start(note.startTime, params.offset);
@@ -214,46 +215,6 @@ abstract class Instrument {
 
     source.stop(params.stopTime ?? note.endTime + releaseDur + 0.05);
     this._track(source, chain, note.startTime, midiBindings);
-  }
-
-  protected _buildEffectNode(
-    effect: EffectSchema,
-    note: NoteScheduleContext,
-    midiBindings: (() => void)[],
-  ) {
-    switch (effect.type) {
-      case "filter": {
-        const node = new BiquadFilterNode(this._ctx, {
-          type: FILTER_TYPE_MAP[effect.filterType],
-        });
-        for (const [param, schema] of [
-          [node.frequency, effect.frequency],
-          [node.Q, effect.q],
-          [node.detune, effect.detune],
-          [node.gain, effect.gain],
-        ] as const) {
-          this._parameters.applyParamSchema(
-            param,
-            schema,
-            note,
-            1,
-            midiBindings,
-          );
-        }
-        return node;
-      }
-      case "gain": {
-        const node = new GainNode(this._ctx);
-        this._parameters.applyParamSchema(
-          node.gain,
-          effect.gain,
-          note,
-          1,
-          midiBindings,
-        );
-        return node;
-      }
-    }
   }
 
   protected _track(
