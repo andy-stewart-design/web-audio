@@ -274,6 +274,116 @@ describe("Instrument static xox masks", () => {
   });
 });
 
+describe("Instrument signal routing", () => {
+  it("uses canonical defaults for synths and samplers", () => {
+    for (const schema of [
+      new Synthesizer().getSchema(),
+      new Sampler("kick").getSchema(),
+    ]) {
+      expect(schema.route).toBe("main");
+      expect(schema.sends).toEqual({});
+      expect(schema.ducks).toEqual({});
+    }
+  });
+
+  it("normalizes routes with last-write-wins semantics", () => {
+    const synth = new Synthesizer();
+
+    expect(synth.route(" drums ")).toBe(synth);
+    expect(synth.route(" Drum Group ").getSchema().route).toBe("Drum Group");
+  });
+
+  it("normalizes scalar, array, and chained sends into one record", () => {
+    const synth = new Synthesizer()
+      .send(" verb ", 0.1)
+      .send(["verb", " delay ", "delay"], 0.2)
+      .send("verb", 0.4);
+
+    expect(synth.getSchema().sends).toEqual({ verb: 0.4, delay: 0.2 });
+  });
+
+  it("replaces only the targeted send", () => {
+    const schema = new Sampler("kick")
+      .send(["verb", "delay"], 0.25)
+      .send("verb", 0.75)
+      .getSchema();
+
+    expect(schema.sends).toEqual({ verb: 0.75, delay: 0.25 });
+  });
+
+  it.each([-0.1, 1.1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects invalid send amount %s",
+    (amount) => {
+      expect(() => new Synthesizer().send("verb", amount)).toThrow();
+    },
+  );
+
+  it("applies duck defaults to scalar and array targets", () => {
+    const scalar = new Synthesizer().duck(" music ");
+    const array = new Synthesizer().duck([" music ", "pads"]);
+
+    expect(scalar.getSchema().ducks).toEqual({
+      music: { depth: 1, onset: 0, recovery: 1 },
+    });
+    expect(array.getSchema().ducks).toEqual({
+      music: { depth: 1, onset: 0, recovery: 1 },
+      pads: { depth: 1, onset: 0, recovery: 1 },
+    });
+  });
+
+  it("clamps duck values and preserves zero-depth configurations", () => {
+    const schema = new Synthesizer()
+      .duck("music", -1, -2, -3)
+      .duck("pads", 2, 0.25, 1.5)
+      .getSchema();
+
+    expect(schema.ducks).toEqual({
+      music: { depth: 0, onset: 0, recovery: 0 },
+      pads: { depth: 1, onset: 0.25, recovery: 1.5 },
+    });
+  });
+
+  it("uses last-write-wins duck configurations per target", () => {
+    const schema = new Sampler("kick")
+      .duck(["music", "pads"], 0.25, 0.1, 0.5)
+      .duck("music", 0.75, 0.2, 1)
+      .getSchema();
+
+    expect(schema.ducks).toEqual({
+      music: { depth: 0.75, onset: 0.2, recovery: 1 },
+      pads: { depth: 0.25, onset: 0.1, recovery: 0.5 },
+    });
+  });
+
+  it.each([
+    [Number.NaN, 0, 1],
+    [1, Number.POSITIVE_INFINITY, 1],
+    [1, 0, Number.NEGATIVE_INFINITY],
+  ])("rejects non-finite duck values", (depth, onset, recovery) => {
+    expect(() =>
+      new Synthesizer().duck("music", depth, onset, recovery),
+    ).toThrow(/must be a finite number/);
+  });
+
+  it("keeps returned schema records independent from builder state", () => {
+    const synth = new Synthesizer().send("verb", 0.5).duck("music");
+    const first = synth.getSchema();
+    first.sends.verb = 1;
+    first.ducks.music.depth = 0;
+
+    expect(synth.getSchema().sends.verb).toBe(0.5);
+    expect(synth.getSchema().ducks.music.depth).toBe(1);
+  });
+
+  it("keeps every routing method fluent", () => {
+    const synth = new Synthesizer();
+
+    expect(synth.route("main")).toBe(synth);
+    expect(synth.send("verb", 0.5)).toBe(synth);
+    expect(synth.duck("music")).toBe(synth);
+  });
+});
+
 describe("Instrument gain envelopes", () => {
   it("defaults synth gain to a faster synth envelope", () => {
     const schema = new Synthesizer().getSchema();

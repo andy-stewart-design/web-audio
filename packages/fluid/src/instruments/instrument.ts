@@ -8,6 +8,13 @@ import Filter from "@/effects/filter";
 import GainEffect from "@/effects/gain";
 import MidiNotes from "@/patterns/midi-notes";
 import Parameter from "@/patterns/parameter";
+import {
+  normalizeBusName,
+  normalizeBusTargets,
+  normalizeDuckDepth,
+  normalizeDuckTiming,
+  normalizeSendAmount,
+} from "@/utils/signal-graph";
 import { isEnvelopeTuple, isLfoTuple, isMidiCcTuple } from "@/utils/validate";
 import type {
   ADSR,
@@ -18,7 +25,11 @@ import type {
   NoteValue,
   ScaleAlias,
 } from "@/types";
-import type { SamplerSchema, SynthesizerSchema } from "@web-audio/schema";
+import type {
+  DuckSchema,
+  SamplerSchema,
+  SynthesizerSchema,
+} from "@web-audio/schema";
 import type Drome from "@/index";
 
 type NoteOrChord<T> = T | T[];
@@ -34,6 +45,9 @@ abstract class Instrument {
   protected _host: Drome | undefined;
   protected _muted = false;
   private _gainEnvelope: ADSR;
+  private _route = "main";
+  private _sends: Record<string, number> = {};
+  private _ducks: Record<string, DuckSchema> = {};
 
   constructor(
     defaultPattern: Chord,
@@ -126,6 +140,31 @@ abstract class Instrument {
     return this;
   }
 
+  route(target: string) {
+    this._route = normalizeBusName(target);
+    return this;
+  }
+
+  send(target: string | string[], amount: number) {
+    const normalizedAmount = normalizeSendAmount(amount);
+    for (const name of normalizeBusTargets(target)) {
+      this._sends[name] = normalizedAmount;
+    }
+    return this;
+  }
+
+  duck(target: string | string[], depth = 1, onset = 0, recovery = 1) {
+    const config = {
+      depth: normalizeDuckDepth(depth),
+      onset: normalizeDuckTiming(onset, "onset"),
+      recovery: normalizeDuckTiming(recovery, "recovery"),
+    };
+    for (const name of normalizeBusTargets(target)) {
+      this._ducks[name] = config;
+    }
+    return this;
+  }
+
   mute(enabled = true) {
     this._muted = enabled;
     return this;
@@ -157,9 +196,14 @@ abstract class Instrument {
 
   protected _getSignalGraphSchema() {
     return {
-      route: "main",
-      sends: {},
-      ducks: {},
+      route: this._route,
+      sends: { ...this._sends },
+      ducks: Object.fromEntries(
+        Object.entries(this._ducks).map(([target, config]) => [
+          target,
+          { ...config },
+        ]),
+      ),
     };
   }
 
