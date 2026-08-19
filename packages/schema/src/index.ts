@@ -190,6 +190,21 @@ interface GainEffectSchema {
 type EffectSchema = FilterSchema | GainEffectSchema;
 
 // ---------------------------------------------------
+// SIGNAL GRAPH --------------------------------------
+// ---------------------------------------------------
+
+interface BusSchema {
+  gain: number;
+  effects: EffectSchema[];
+}
+
+interface DuckSchema {
+  depth: number;
+  onset: number;
+  recovery: number;
+}
+
+// ---------------------------------------------------
 // INSTRUMENTS ---------------------------------------
 // ---------------------------------------------------
 
@@ -198,6 +213,9 @@ interface InstrumentSchema {
   effects: EffectSchema[];
   detune: AudioParamSchema;
   muted: boolean;
+  route: string;
+  sends: Record<string, number>;
+  ducks: Record<string, DuckSchema>;
 }
 
 interface SynthesizerSchema extends InstrumentSchema {
@@ -228,6 +246,7 @@ interface SamplerSchema extends InstrumentSchema {
 interface DromeSchema {
   bpm?: number;
   instruments: (SynthesizerSchema | SamplerSchema)[];
+  buses: Record<string, BusSchema>;
   banks: Record<string, BankSchema>;
 }
 
@@ -235,10 +254,12 @@ export type {
   AudioParamSchema,
   BankDefinition,
   BankSchema,
+  BusSchema,
   ChopRegionSchema,
   ChopSliceSchema,
   ClipMode,
   DromeSchema,
+  DuckSchema,
   EffectSchema,
   EnvelopeMode,
   EnvelopeSchema,
