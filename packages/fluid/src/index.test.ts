@@ -3,6 +3,24 @@ import Drome from "./index";
 
 describe("Drome", () => {
   describe("default schema", () => {
+    it("includes the canonical main bus", () => {
+      expect(new Drome().getSchema().buses).toEqual({
+        main: { gain: 1, effects: [] },
+      });
+    });
+
+    it("includes canonical graph defaults on every instrument", () => {
+      const d = new Drome();
+      const synth = d.synth().getSchema();
+      const sampler = d.sample("bd").getSchema();
+
+      for (const instrument of [synth, sampler]) {
+        expect(instrument.route).toBe("main");
+        expect(instrument.sends).toEqual({});
+        expect(instrument.ducks).toEqual({});
+      }
+    });
+
     it("includes a gain EnvelopeSchema with defaults when .gain() is not called", () => {
       const d = new Drome();
       d.synth("triangle").push();
@@ -250,6 +268,16 @@ describe("Drome", () => {
     it("omits bpm from schema when not set", () => {
       const d = new Drome();
       expect(d.getSchema().bpm).toBeUndefined();
+    });
+
+    it("rejects non-finite and non-positive values", () => {
+      const d = new Drome();
+
+      for (const bpm of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+        expect(() => d.bpm(bpm)).toThrow(
+          "[Drome] bpm() must be a finite number greater than zero.",
+        );
+      }
     });
 
     it("returns this for chaining", () => {

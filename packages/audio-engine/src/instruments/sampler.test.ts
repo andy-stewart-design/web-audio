@@ -176,7 +176,10 @@ function lowpassEffect(frequency = 800): FilterSchema {
   };
 }
 
-type SchemaOverrides = Omit<Partial<SamplerSchema>, "notes"> & {
+type SchemaOverrides = Omit<
+  Partial<SamplerSchema>,
+  "notes" | "route" | "sends" | "ducks"
+> & {
   notes?: ParameterSchema;
   mask?: ParameterSchema;
 };
@@ -200,6 +203,9 @@ function makeSchema(overrides: SchemaOverrides = {}): SamplerSchema {
     gain: envelope(),
     effects: [],
     muted: false,
+    route: "main",
+    sends: {},
+    ducks: {},
     loop: false,
     clipMode: "clipped",
     direction: "forward",

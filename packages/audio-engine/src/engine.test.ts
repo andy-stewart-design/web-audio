@@ -112,7 +112,17 @@ class FakeClock {
 // be valid; only the array length matters for instrument creation.
 function makeSchema(instrumentCount = 1): DromeSchema {
   return {
-    instruments: Array.from({ length: instrumentCount }, () => ({}) as never),
+    instruments: Array.from(
+      { length: instrumentCount },
+      () =>
+        ({
+          route: "main",
+          sends: {},
+          ducks: {},
+          effects: [],
+        }) as never,
+    ),
+    buses: { main: { gain: 1, effects: [] } },
     banks: {},
   };
 }
@@ -176,11 +186,15 @@ function makeSamplerSchema(): DromeSchema {
         },
         effects: [],
         muted: false,
+        route: "main",
+        sends: {},
+        ducks: {},
         loop: false,
         clipMode: "clipped",
         direction: "forward",
       },
     ],
+    buses: { main: { gain: 1, effects: [] } },
     banks: {
       kit: {
         samples: {

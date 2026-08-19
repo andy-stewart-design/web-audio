@@ -155,6 +155,14 @@ abstract class Instrument {
     return new Envelope(0, ...max).adsr(a, d, s, r);
   }
 
+  protected _getSignalGraphSchema() {
+    return {
+      route: "main",
+      sends: {},
+      ducks: {},
+    };
+  }
+
   fx(...effects: (Filter | GainEffect)[]) {
     this._effects.push(...effects);
     return this;

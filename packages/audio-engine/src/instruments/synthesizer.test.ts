@@ -93,7 +93,10 @@ function makeEnvelope(min = 0): EnvelopeSchema {
   };
 }
 
-type SchemaOverrides = Omit<Partial<SynthesizerSchema>, "notes"> & {
+type SchemaOverrides = Omit<
+  Partial<SynthesizerSchema>,
+  "notes" | "route" | "sends" | "ducks"
+> & {
   notes?: StaticSchema;
   mask?: StaticSchema | import("@web-audio/schema").RandomSchema;
 };
@@ -115,6 +118,9 @@ function makeSchema(
     gain: makeEnvelope(),
     effects: [],
     muted: false,
+    route: "main",
+    sends: {},
+    ducks: {},
     ...rest,
   };
 }

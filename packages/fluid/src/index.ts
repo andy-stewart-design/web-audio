@@ -34,6 +34,11 @@ class Drome {
   }
 
   bpm(value: number) {
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new Error(
+        "[Drome] bpm() must be a finite number greater than zero.",
+      );
+    }
     this._bpm = value;
     return this;
   }
@@ -142,6 +147,9 @@ class Drome {
     return {
       ...(this._bpm !== undefined && { bpm: this._bpm }),
       instruments,
+      buses: {
+        main: { gain: 1, effects: [] },
+      },
       banks,
     };
   }
