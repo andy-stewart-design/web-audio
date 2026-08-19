@@ -195,6 +195,8 @@ interface DromeSchema {
 }
 ```
 
+An omitted `bpm` means the sketch uses `DEFAULT_BPM = 120`. AudioEngine resolves this default when committing every schema, so a sketch never inherits BPM from the previously committed sketch. Fluid may leave an unspecified BPM absent from its schema.
+
 Fluid always emits a complete canonical schema containing at least:
 
 ```ts
@@ -218,7 +220,7 @@ AudioEngine defensively validates graph-field shapes before cloning, then stores
 
 Validate these invariants:
 
-- when present, BPM is finite and greater than zero; omitted BPM preserves the clock's current value;
+- when present, BPM is finite and greater than zero; omitted BPM resolves to `DEFAULT_BPM = 120` when the schema is committed;
 - a canonical `main` bus exists;
 - every bus key is a valid canonical name;
 - bus gain is finite and non-negative;
@@ -254,7 +256,7 @@ Do not reconcile bus nodes by name across commits. Generation construction is tr
 
 A commit:
 
-1. uses an accepted schema snapshot and derives prospective BPM/bar timing without mutating the clock;
+1. uses an accepted schema snapshot, resolves prospective BPM as `schema.bpm ?? DEFAULT_BPM`, and derives bar timing without mutating the clock;
 2. constructs the complete new generation;
 3. on failure, destroys partial resources, discards the failing pending update, reports the error without throwing through the clock scheduler, and preserves the active generation and BPM;
 4. on success, applies BPM, installs the new generation, clears pending, and retires the old generation.
@@ -384,7 +386,7 @@ Add a complete AudioEngine bus abstraction that owns input, serial effects, duck
 
 Move active instruments and generated buses behind a graph-generation owner created through a failure-safe resource ledger. Build complete bus graphs before instruments so route/send destinations are available. Route generated main through a dedicated retirement gain into the persistent engine output.
 
-Commit BPM and the new generation atomically. Reject supplied BPM values unless they are finite and greater than zero; omitted BPM preserves current clock timing. Retire complete generations using exact audio-time settling/fade constants, preserving existing sample-cache behavior across generations.
+Commit BPM and the new generation atomically. Reject supplied BPM values unless they are finite and greater than zero. Define `DEFAULT_BPM = 120` in one shared runtime constants module and resolve every omitted BPM to that default, never to the current clock timing. Retire complete generations using exact audio-time settling/fade constants, preserving existing sample-cache behavior across generations.
 
 ### 5. Routes and sends
 
@@ -427,6 +429,7 @@ The schema package currently has no test script. Add one when introducing shared
 - valid and invalid route/send/duck references;
 - rejection of main sends and main duck targets;
 - finite/range checks;
+- omitted BPM resolves to `120`, including after a previously committed schema used a different BPM;
 - invalid updates do not replace the active engine generation.
 
 ### Fluid

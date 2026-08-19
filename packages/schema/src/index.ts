@@ -1,3 +1,8 @@
+export {
+  SignalGraphValidationError,
+  validateSignalGraph,
+} from "./validate-signal-graph";
+
 // ---------------------------------------------------
 // PRIMITIVES ----------------------------------------
 // ---------------------------------------------------

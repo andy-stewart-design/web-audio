@@ -43,7 +43,7 @@ The implementation is deliberately limited to the existing gain and filter proce
 - Graph references are validated after the complete Fluid schema is assembled, so forward references work.
 - Invalid direct engine updates fail before replacing `_pending` or disturbing active playback. Accepted schemas are cloned snapshots.
 - Every commit transactionally builds a new graph generation through a failure-safe resource ledger; buses are not reconciled by name.
-- BPM must be finite and greater than zero when supplied; omitted BPM preserves current timing.
+- BPM must be finite and greater than zero when supplied; each committed schema with omitted BPM resolves to `DEFAULT_BPM = 120` rather than inheriting timing from the previous sketch.
 - BPM and generation installation commit atomically, and no clock-driven engine callback error escapes through the clock scheduler.
 - Instruments retain local voice ownership; GraphGeneration coordinates shared graph lifetime rather than creating a global voice store.
 - Retired generations use `FILTER_SETTLING_TIME = 0.1` followed by `RETIREMENT_FADE_TIME = 0.01`, both measured on the audio-context timeline.
@@ -177,7 +177,7 @@ Migrate all manually authored `DromeSchema` fixtures. Do not hide missing fields
 - [ ] Existing Fluid programs produce behaviorally unchanged schemas plus canonical graph defaults.
 - [ ] Every repository schema fixture compiles with required fields.
 - [ ] Existing engine playback still routes instruments through the current master path at this intermediate step.
-- [ ] Fluid rejects non-finite or non-positive supplied BPM while omitted BPM remains absent.
+- [ ] Fluid rejects non-finite or non-positive supplied BPM while omitted BPM remains absent for AudioEngine to resolve to `DEFAULT_BPM = 120` at commit.
 - [ ] Workspace check identifies no old-format schema construction.
 
 ---
@@ -494,7 +494,7 @@ Replace flat active/retiring instrument collections with:
 Commit is an explicit transaction:
 
 1. inspect but do not clear the latest accepted pending snapshot;
-2. derive prospective BPM, bar duration, and generation timing without mutating the clock;
+2. derive prospective BPM as `schema.bpm ?? DEFAULT_BPM`, then derive bar duration and generation timing without mutating the clock;
 3. call the failure-safe `GraphGeneration.create()`;
 4. on construction failure, clean all partial resources, discard the failing pending update, report the error through an engine error boundary, preserve current BPM/active generation, and return without throwing through the clock listener;
 5. on success, apply BPM, install the new generation, clear pending, and retire the old generation;
@@ -503,6 +503,7 @@ Commit is an explicit transaction:
 Requirements:
 
 - invalid updates throw synchronously and preserve the previous pending/active graph;
+- `DEFAULT_BPM = 120` is defined in one shared runtime constants module, and every schema with omitted BPM uses it instead of the current clock BPM;
 - prospective timing is passed explicitly into construction rather than read from a prematurely mutated clock;
 - generation construction and BPM installation behave atomically from the active graph's perspective;
 - wrap every clock-driven engine listener (`prebar`, `bar`, and `stop`, plus any future clock event subscription) in one error boundary so no callback exception prevents `AudioClock.scheduler()` from installing its next timer;
@@ -520,6 +521,7 @@ Requirements:
 
 - [ ] Invalid updates, clone failures, and caller mutation do not replace or alter an earlier valid pending snapshot or active generation.
 - [ ] Last-valid-write wins before prebar.
+- [ ] Committing a schema without BPM resets timing to `DEFAULT_BPM = 120`, including after a previous schema used a different BPM.
 - [ ] Construction failures at multiple allocation stages clean partial resources, discard only the failing update, preserve BPM/active playback, and report an error.
 - [ ] Failed prebar, bar, and stop callbacks are reported and do not halt subsequent clock scheduling.
 - [ ] A partially failed bar submits no duck timeline and rolls back ledger-owned future resources.
@@ -907,7 +909,7 @@ Treat `signal-processing-spec.md` as normative for this SOW.
 
 #### Schema and Fluid
 
-- [ ] Finite positive BPM validation and omitted-BPM preservation.
+- [ ] Finite positive BPM validation and omitted-BPM defaulting to `120` without inheriting the previous sketch's BPM.
 - [ ] Required canonical fields and implicit main emission.
 - [ ] Name trimming, empty rejection, case/internal-space preservation.
 - [ ] Bus get-or-create and effect ordering.
