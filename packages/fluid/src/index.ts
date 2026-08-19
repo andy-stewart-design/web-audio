@@ -15,6 +15,7 @@ import {
   resolveBank,
 } from "./utils/sample-utils";
 import { normalizeBusName } from "./utils/signal-graph";
+import { validateSignalGraph } from "@web-audio/schema";
 import type { BankSchema, FilterType } from "@web-audio/schema";
 import type {
   AudioParamInput,
@@ -158,7 +159,7 @@ class Drome {
       }
     }
 
-    return {
+    const schema: DromeSchema = {
       ...(this._bpm !== undefined && { bpm: this._bpm }),
       instruments,
       buses: Object.fromEntries(
@@ -166,6 +167,9 @@ class Drome {
       ),
       banks,
     };
+
+    validateSignalGraph(schema);
+    return schema;
   }
 }
 

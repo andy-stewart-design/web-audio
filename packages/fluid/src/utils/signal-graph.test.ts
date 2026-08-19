@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { SignalGraphValidationError } from "@web-audio/schema";
+import Drome from "@/index";
 import {
   normalizeBusGain,
   normalizeBusName,
@@ -134,6 +136,82 @@ describe("signal graph normalization", () => {
       ],
     ])("rejects non-finite duck %s", (_field, normalize) => {
       expect(normalize).toThrow(/must be a finite number/);
+    });
+  });
+});
+
+describe("Drome signal graph validation", () => {
+  it("allows routes to implicit main", () => {
+    const d = new Drome();
+    d.synth().route("main").push();
+
+    expect(() => d.getSchema()).not.toThrow();
+  });
+
+  it("allows forward references after the completed graph is declared", () => {
+    const d = new Drome();
+    d.sample("bd").route("drums").send("verb", 0.25).duck("music").push();
+
+    d.bus("music");
+    d.bus("verb");
+    d.bus("drums");
+
+    expect(() => d.getSchema()).not.toThrow();
+  });
+
+  it("defers missing route validation until getSchema", () => {
+    const d = new Drome();
+    expect(() => d.synth().route("missing").push()).not.toThrow();
+
+    expect(() => d.getSchema()).toThrow(SignalGraphValidationError);
+    try {
+      d.getSchema();
+    } catch (error) {
+      expect((error as SignalGraphValidationError).path).toBe(
+        "instruments[0].route",
+      );
+    }
+  });
+
+  it("reports unresolved send and duck paths", () => {
+    const sendDrome = new Drome();
+    sendDrome.synth().send("missing", 0.5).push();
+    expect(() => sendDrome.getSchema()).toThrow(
+      'instruments[0].sends["missing"]',
+    );
+
+    const duckDrome = new Drome();
+    duckDrome.synth().duck("missing").push();
+    expect(() => duckDrome.getSchema()).toThrow(
+      'instruments[0].ducks["missing"]',
+    );
+  });
+
+  it("rejects sends and ducks targeting main", () => {
+    const sendDrome = new Drome();
+    sendDrome.synth().send("main", 0.5).push();
+    expect(() => sendDrome.getSchema()).toThrow("must not target main");
+
+    const duckDrome = new Drome();
+    duckDrome.synth().duck("main").push();
+    expect(() => duckDrome.getSchema()).toThrow("must not target main");
+  });
+
+  it("does not mutate builders after failed validation", () => {
+    const d = new Drome();
+    d.synth().route("music").send("verb", 0.5).duck("pads").push();
+
+    expect(() => d.getSchema()).toThrow();
+
+    d.bus("music");
+    d.bus("verb");
+    d.bus("pads");
+
+    const schema = d.getSchema();
+    expect(schema.instruments[0].route).toBe("music");
+    expect(schema.instruments[0].sends).toEqual({ verb: 0.5 });
+    expect(schema.instruments[0].ducks).toEqual({
+      pads: { depth: 1, onset: 0, recovery: 1 },
     });
   });
 });
