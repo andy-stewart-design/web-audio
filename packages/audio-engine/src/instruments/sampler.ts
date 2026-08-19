@@ -94,7 +94,7 @@ class Sampler extends Instrument {
       return;
     }
 
-    this._updateLfoParams(barIndex, barStartTime);
+    this._parameters.updateLfoParams(barIndex, barStartTime);
 
     if (this._schema.notes.mask) {
       this._scheduleMaskedBar(barIndex, barStartTime);
@@ -124,14 +124,14 @@ class Sampler extends Instrument {
     for (const maskStep of maskBar) {
       if (
         mask.type === "random" &&
-        this._resolve(mask, barIndex, maskStep.stepIndex) === 0
+        this._parameters.resolve(mask, barIndex, maskStep.stepIndex) === 0
       ) {
         continue;
       }
 
       const noteValue = notesBar
         ? notesBar[emittedIndex++ % notesBar.length].value
-        : this._resolve(notes, barIndex, maskStep.stepIndex);
+        : this._parameters.resolve(notes, barIndex, maskStep.stepIndex);
       this._scheduleResolvedSampleNote(
         { ...maskStep, value: noteValue },
         barStartTime,
@@ -147,7 +147,7 @@ class Sampler extends Instrument {
     const steps = notes.grid.cycle[barIndex % notes.grid.cycle.length];
     steps.forEach((step, stepIndex) => {
       if (step.value === 0) return;
-      const noteValue = this._resolve(notes, barIndex, stepIndex);
+      const noteValue = this._parameters.resolve(notes, barIndex, stepIndex);
       this._scheduleResolvedSampleNote(
         { ...step, value: noteValue },
         barStartTime,
@@ -229,7 +229,7 @@ class Sampler extends Instrument {
           : Math.min(scheduledDuration, playbackDuration);
     const endTime = startTime + duration;
 
-    const detune = this._resolveDetune(
+    const detune = this._parameters.resolveDetune(
       this._schema.detune,
       barIndex,
       note.stepIndex,
@@ -257,7 +257,10 @@ class Sampler extends Instrument {
         param: source.detune,
         resolved: detune,
       },
-      gainEnvelope: this._resolveEnvelope(this._schema.gain, noteContext),
+      gainEnvelope: this._parameters.resolveEnvelope(
+        this._schema.gain,
+        noteContext,
+      ),
       effects: this._schema.effects,
       note: noteContext,
       offset: sourceWindow.offset,
@@ -304,26 +307,40 @@ class Sampler extends Instrument {
     if (this._schema.region?.type === "static") {
       const clamp = (value: number) => Math.min(1, Math.max(0, value));
       regionStart = clamp(
-        this._resolve(this._schema.region.start, barIndex, stepIndex),
+        this._parameters.resolve(
+          this._schema.region.start,
+          barIndex,
+          stepIndex,
+        ),
       );
       if (this._schema.region.duration) {
         regionEnd = Math.min(
           regionStart +
             clamp(
-              this._resolve(this._schema.region.duration, barIndex, stepIndex),
+              this._parameters.resolve(
+                this._schema.region.duration,
+                barIndex,
+                stepIndex,
+              ),
             ),
           1,
         );
       } else {
         regionEnd = clamp(
-          this._resolve(this._schema.region.end, barIndex, stepIndex),
+          this._parameters.resolve(
+            this._schema.region.end,
+            barIndex,
+            stepIndex,
+          ),
         );
       }
     } else if (this._schema.region?.type === "chop") {
       const { slices, sequence } = this._schema.region;
       if (slices.length === 0) return null;
 
-      const rawIndex = Math.trunc(this._resolve(sequence, barIndex, stepIndex));
+      const rawIndex = Math.trunc(
+        this._parameters.resolve(sequence, barIndex, stepIndex),
+      );
       const sliceIndex =
         ((rawIndex % slices.length) + slices.length) % slices.length;
       const slice = slices[sliceIndex];
@@ -377,7 +394,7 @@ class Sampler extends Instrument {
 
   private _resolveVariationIndex(barIndex: number, stepIndex: number): number {
     return Math.round(
-      this._resolve(this._schema.variation, barIndex, stepIndex),
+      this._parameters.resolve(this._schema.variation, barIndex, stepIndex),
     );
   }
 }

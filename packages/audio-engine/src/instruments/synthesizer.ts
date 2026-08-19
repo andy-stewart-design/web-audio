@@ -28,7 +28,7 @@ class Synthesizer extends Instrument {
   }
 
   scheduleBar(barIndex: number, barStartTime: number): void {
-    this._updateLfoParams(barIndex, barStartTime);
+    this._parameters.updateLfoParams(barIndex, barStartTime);
 
     if (this._schema.notes.mask) {
       this._scheduleMaskedBar(barIndex, barStartTime);
@@ -58,14 +58,14 @@ class Synthesizer extends Instrument {
     for (const maskStep of maskBar) {
       if (
         mask.type === "random" &&
-        this._resolve(mask, barIndex, maskStep.stepIndex) === 0
+        this._parameters.resolve(mask, barIndex, maskStep.stepIndex) === 0
       ) {
         continue;
       }
 
       const midiNote = notesBar
         ? notesBar[emittedIndex++ % notesBar.length].value
-        : this._resolve(notes, barIndex, maskStep.stepIndex);
+        : this._parameters.resolve(notes, barIndex, maskStep.stepIndex);
       this._scheduleSynthNote(
         { ...maskStep, value: midiNote },
         barStartTime,
@@ -81,7 +81,7 @@ class Synthesizer extends Instrument {
     const mask = notes.grid.cycle[barIndex % notes.grid.cycle.length];
     mask.forEach((step, stepIndex) => {
       if (step.value === 0) return;
-      const midiNote = this._resolve(notes, barIndex, stepIndex);
+      const midiNote = this._parameters.resolve(notes, barIndex, stepIndex);
       this._scheduleSynthNote(
         { ...step, value: midiNote },
         barStartTime,
@@ -110,7 +110,7 @@ class Synthesizer extends Instrument {
     const duration = note.duration * barDuration;
     const endTime = startTime + duration;
 
-    const detune = this._resolveDetune(
+    const detune = this._parameters.resolveDetune(
       this._schema.detune,
       barIndex,
       note.stepIndex,
@@ -128,7 +128,10 @@ class Synthesizer extends Instrument {
       duration,
       endTime,
     };
-    const gainEnvelope = this._resolveEnvelope(this._schema.gain, noteContext);
+    const gainEnvelope = this._parameters.resolveEnvelope(
+      this._schema.gain,
+      noteContext,
+    );
 
     this._scheduleVoice({
       source: osc,

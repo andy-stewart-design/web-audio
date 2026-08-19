@@ -98,7 +98,7 @@ class TestInstrument extends Instrument {
 
   applyParam(param: AudioParam, schema: MidiCcSchema) {
     const midiBindings: (() => void)[] = [];
-    this._applyParamSchema(
+    this._parameters.applyParamSchema(
       param,
       schema,
       { barIndex: 0, stepIndex: 0, startTime: 10, duration: 1, endTime: 11 },
@@ -109,7 +109,7 @@ class TestInstrument extends Instrument {
   }
 
   registerMidiBinding(bind: (midi: Midi | null) => void) {
-    return this._registerMidiBinding(bind);
+    return this._parameters.registerMidiBinding(bind);
   }
 }
 

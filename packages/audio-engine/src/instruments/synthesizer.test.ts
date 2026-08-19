@@ -59,12 +59,16 @@ class FakeAudioContext {
 }
 
 // ---------------------------------------------------------------------------
-// Concrete subclass that exposes _resolveDetune for testing
+// Concrete subclass that exposes detune resolution for testing
 // ---------------------------------------------------------------------------
 
 class TestSynthesizer extends Synthesizer {
   resolveDetune(barIndex: number, stepIndex: number) {
-    return this._resolveDetune(this._schema.detune, barIndex, stepIndex);
+    return this._parameters.resolveDetune(
+      this._schema.detune,
+      barIndex,
+      stepIndex,
+    );
   }
 }
 
@@ -147,7 +151,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("Synthesizer._resolveDetune", () => {
+describe("Synthesizer detune resolution", () => {
   it("returns { type: 'static' } with the resolved value for a ParameterSchema", () => {
     const synth = makeSynth(staticParam(12));
     const result = synth.resolveDetune(0, 0);
