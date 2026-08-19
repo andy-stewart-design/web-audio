@@ -50,6 +50,29 @@ The implementation is deliberately limited to the existing gain and filter proce
 - Existing `.gain()` remains a per-voice envelope API. This work does not add an instrument output fader.
 - The schema change is intentionally breaking. All repository fixtures migrate together.
 
+## Implementation status / next-session handoff
+
+**Current position:** Phases 1–3 are complete through **Step 3.2**. The next implementation task is **Step 4.1 — Implement the runtime Bus graph**.
+
+Completed foundations:
+
+- canonical schema fields, shared graph validation, and repository fixture migration;
+- Fluid bus, route, send, and duck builders with completed-graph validation;
+- reusable AudioEngine `ParameterManager` composition and effect-chain construction;
+- explicit LFO parameter-edge ownership and cleanup;
+- absolute-value LFO semantics, with target `AudioParam` intrinsic values neutralized to `0`.
+
+The manual LFO compatibility gate was approved after listening to existing sketches: the change did not noticeably alter their sound or violate expected code semantics. No development server was started by the coding agent.
+
+Latest focused verification at this checkpoint:
+
+- Schema: 51 tests passing;
+- Fluid: 327 tests passing, plus check/lint/build passing;
+- AudioEngine: 250 tests passing, plus check/lint/build passing;
+- workspace TypeScript check passed after the Phase 1 fixture migration.
+
+Implementation naming note: the concrete runtime abstraction originally planned as `ParameterHost` is implemented as `ParameterManager` in `packages/audio-engine/src/automation/parameter-manager.ts`, and instruments expose it internally as `protected readonly _parameters`.
+
 ---
 
 ## Phase 1: Canonical schema and shared graph validation
@@ -99,10 +122,10 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] TypeScript requires `buses` on every `DromeSchema`.
-- [ ] TypeScript requires `route`, `sends`, and `ducks` on synth and sampler schemas.
-- [ ] The schema represents one normalized configuration per send/duck target.
-- [ ] Schema check and lint pass after fixture migration in Step 1.3.
+- [x] TypeScript requires `buses` on every `DromeSchema`.
+- [x] TypeScript requires `route`, `sends`, and `ducks` on synth and sampler schemas.
+- [x] The schema represents one normalized configuration per send/duck target.
+- [x] Schema check and lint pass after fixture migration in Step 1.3.
 
 ### Step 1.2 — Implement shared graph validation
 
@@ -144,11 +167,11 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Valid main-only and named-bus schemas pass.
-- [ ] Invalid BPM, missing/malformed graph records, missing main, whitespace names, empty names, unresolved targets, main sends/ducks, unsupported bus/instrument effects, non-finite values, and invalid ranges fail with useful paths.
-- [ ] Old schemas without graph fields fail through the structured validator rather than throwing incidental traversal errors.
-- [ ] Validation leaves the input deeply unchanged.
-- [ ] Schema test, check, lint, and build-equivalent package checks pass.
+- [x] Valid main-only and named-bus schemas pass.
+- [x] Invalid BPM, missing/malformed graph records, missing main, whitespace names, empty names, unresolved targets, main sends/ducks, unsupported bus/instrument effects, non-finite values, and invalid ranges fail with useful paths.
+- [x] Old schemas without graph fields fail through the structured validator rather than throwing incidental traversal errors.
+- [x] Validation leaves the input deeply unchanged.
+- [x] Schema test, check, lint, and build-equivalent package checks pass.
 
 ### Step 1.3 — Migrate existing schema producers and fixtures to canonical defaults
 
@@ -174,11 +197,11 @@ Migrate all manually authored `DromeSchema` fixtures. Do not hide missing fields
 
 **Acceptance criteria:**
 
-- [ ] Existing Fluid programs produce behaviorally unchanged schemas plus canonical graph defaults.
-- [ ] Every repository schema fixture compiles with required fields.
-- [ ] Existing engine playback still routes instruments through the current master path at this intermediate step.
-- [ ] Fluid rejects non-finite or non-positive supplied BPM while omitted BPM remains absent for AudioEngine to resolve to `DEFAULT_BPM = 120` at commit.
-- [ ] Workspace check identifies no old-format schema construction.
+- [x] Existing Fluid programs produce behaviorally unchanged schemas plus canonical graph defaults.
+- [x] Every repository schema fixture compiles with required fields.
+- [x] Existing engine playback still routes instruments through the current master path at this intermediate step.
+- [x] Fluid rejects non-finite or non-positive supplied BPM while omitted BPM remains absent for AudioEngine to resolve to `DEFAULT_BPM = 120` at commit.
+- [x] Workspace check identifies no old-format schema construction.
 
 ---
 
@@ -208,10 +231,10 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Leading/trailing whitespace is trimmed consistently for declarations and references.
-- [ ] Empty/whitespace-only names fail.
-- [ ] Internal whitespace and case remain unchanged.
-- [ ] Duck clamping and non-finite rejection match the spec.
+- [x] Leading/trailing whitespace is trimmed consistently for declarations and references.
+- [x] Empty/whitespace-only names fail.
+- [x] Internal whitespace and case remain unchanged.
+- [x] Duck clamping and non-finite rejection match the spec.
 
 ### Step 2.2 — Add the Bus builder
 
@@ -242,11 +265,11 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] `d.bus(" main ")` configures the implicit main builder.
-- [ ] Repeated named-bus access shares scalar and effect state.
-- [ ] Gain above unity is accepted; negative and non-finite gain fails.
-- [ ] Effects preserve exact append order.
-- [ ] Empty Drome output includes default main.
+- [x] `d.bus(" main ")` configures the implicit main builder.
+- [x] Repeated named-bus access shares scalar and effect state.
+- [x] Gain above unity is accepted; negative and non-finite gain fails.
+- [x] Effects preserve exact append order.
+- [x] Empty Drome output includes default main.
 
 ### Step 2.3 — Add instrument routing APIs
 
@@ -278,11 +301,11 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Default instrument schema contains main route and empty records.
-- [ ] Array and chained forms normalize identically.
-- [ ] Later route/send/duck calls replace only their relevant target/state.
-- [ ] Duck clamping and static defaults are covered.
-- [ ] Every method remains fluent.
+- [x] Default instrument schema contains main route and empty records.
+- [x] Array and chained forms normalize identically.
+- [x] Later route/send/duck calls replace only their relevant target/state.
+- [x] Duck clamping and static defaults are covered.
+- [x] Every method remains fluent.
 
 ### Step 2.4 — Validate the completed Fluid graph
 
@@ -302,10 +325,10 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Route/send/duck forward-reference fixtures pass after declaration.
-- [ ] Missing target fixtures fail at `getSchema()`, not at fluent call time.
-- [ ] Adding a missing bus after a failed `getSchema()` permits a subsequent successful call.
-- [ ] Main send/duck rejection is covered.
+- [x] Route/send/duck forward-reference fixtures pass after declaration.
+- [x] Missing target fixtures fail at `getSchema()`, not at fluent call time.
+- [x] Adding a missing bus after a failed `getSchema()` permits a subsequent successful call.
+- [x] Main send/duck rejection is covered.
 
 ---
 
@@ -315,7 +338,7 @@ Tracer bullet: gain and filter processors can be hosted by either a voice or a p
 
 ### Step 3.1 — Extract reusable parameter resolution
 
-**Files:** `packages/audio-engine/src/automation/parameter-host.ts` (new), `packages/audio-engine/src/automation/parameter-host.test.ts` (new), `packages/audio-engine/src/instruments/instrument.ts`, related tests
+**Files:** `packages/audio-engine/src/automation/parameter-manager.ts` (new), `packages/audio-engine/src/automation/parameter-manager.test.ts` (new), `packages/audio-engine/src/instruments/instrument.ts`, related tests
 
 Extract the runtime responsibilities currently embedded in `Instrument` that are also needed by buses:
 
@@ -336,29 +359,29 @@ Requirements:
 - disconnect per-voice LFO parameter edges when a voice ends, when a future voice is cancelled, and during instrument destruction;
 - disconnect persistent bus edges during bus/generation destruction;
 - keep random resolvers scoped so repeated resolution remains deterministic;
-- let hosts register the schemas they actually use rather than hard-coding only instrument detune/effect traversal;
+- let parameter managers register the schemas they actually use rather than hard-coding only instrument detune/effect traversal;
 - retain starting-bar/bar-origin LFO phase behavior;
 - MIDI ownership must still distinguish active and retired generations later;
 - do not add explicit return types unless needed by exported contracts.
 
 **Acceptance criteria:**
 
-- [ ] Existing synth/sampler filter, gain, envelope, random, and MIDI behavior remains unchanged.
-- [ ] LFO-controlled parameters have a neutral intrinsic value and tests assert the effective value rather than only connection calls.
-- [ ] Voice-end, future-note cancellation, and destruction each disconnect incoming LFO-to-parameter edges.
-- [ ] Parameter host can initialize/update/clean up bus effect parameters independently.
-- [ ] No LFO or MIDI connections leak after voice or host destruction.
+- [x] Existing synth/sampler filter, gain, envelope, random, and MIDI behavior remains unchanged.
+- [x] LFO-controlled parameters have a neutral intrinsic value and tests assert the effective value rather than only connection calls.
+- [x] Voice-end, future-note cancellation, and destruction each disconnect incoming LFO-to-parameter edges.
+- [x] Parameter manager can initialize/update/clean up bus effect parameters independently.
+- [x] No LFO or MIDI connections leak after voice or parameter-manager destruction.
 
 > [!IMPORTANT]
 > **Manual LFO sound-compatibility gate:** Neutralizing an `AudioParam` intrinsic value changes existing LFO-controlled gain, filter-frequency, and Q behavior and may audibly change current sketches. Treat this as a potentially breaking compatibility change, not an incidental refactor. Implement it as an isolated checkpoint with before/after fixtures for gain, frequency, Q, and detune; then manually test a representative set of existing sketches at multiple LFO ranges and rates. Do not proceed to Step 3.2 or build bus automation on the new semantics until the sound is explicitly approved. Keep the intrinsic-value change easy to revert independently from the connection-lifecycle cleanup. If absolute-value semantics are rejected after listening, preserve existing sound behavior while retaining the leak fix and document the chosen compatibility semantics.
 
 **Manual gate acceptance criteria:**
 
-- [ ] Before/after fixtures make the effective parameter-value difference inspectable.
-- [ ] Existing sketches using LFO-controlled gain, frequency, Q, and detune receive focused listening tests.
-- [ ] Connection cleanup is evaluated separately from the audible intrinsic-value change.
-- [ ] The approved LFO semantics are recorded before Step 3.2 begins.
-- [ ] No development server or manual browser session is started without permission.
+- [x] Before/after fixtures make the effective parameter-value difference inspectable.
+- [x] Existing sketches using LFO-controlled gain, frequency, Q, and detune receive focused listening tests.
+- [x] Connection cleanup is evaluated separately from the audible intrinsic-value change.
+- [x] The approved LFO semantics are recorded before Step 3.2 begins.
+- [x] No development server or manual browser session is started without permission.
 
 ### Step 3.2 — Extract effect-node construction
 
@@ -373,16 +396,16 @@ Requirements:
 
 - preserve serial effect order;
 - return owned nodes so voice and bus lifecycles can disconnect them correctly;
-- route every effect parameter through the shared parameter host;
+- route every effect parameter through the shared parameter manager;
 - fail exhaustively for unsupported effect variants;
 - do not add wet/dry behavior or infer group/aux roles.
 
 **Acceptance criteria:**
 
-- [ ] Voice effect graph snapshots/mocks retain existing order and parameter values.
-- [ ] Empty chains connect input to output without a hidden duplicate path.
-- [ ] Gain and every filter parameter source use shared automation logic.
-- [ ] Unsupported effect types cannot silently produce `undefined` nodes.
+- [x] Voice effect graph snapshots/mocks retain existing order and parameter values.
+- [x] Empty chains connect input to output without a hidden duplicate path.
+- [x] Gain and every filter parameter source use shared automation logic.
+- [x] Unsupported effect types cannot silently produce `undefined` nodes.
 
 ---
 
