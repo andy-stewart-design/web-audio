@@ -1,3 +1,4 @@
+import { computeLfoOutput } from "@/utils/lfo-output";
 import { sine, triangle, sawtooth, square } from "@/utils/waveforms";
 
 type WaveformType = "sine" | "triangle" | "square" | "sawtooth";
@@ -155,11 +156,8 @@ class LfoProcessor extends AudioWorkletProcessor {
         Math.min(this._prevOutput + maxDelta, raw),
       );
       this._prevOutput = slewed;
-      let oscValue = slewed;
-      if (this._invert) oscValue = -oscValue;
-      if (this._norm) oscValue = (oscValue + 1) * 0.5;
-
-      output[i] = a + b * oscValue;
+      const oscValue = this._invert ? -slewed : slewed;
+      output[i] = computeLfoOutput(a, b, oscValue, this._norm);
 
       const speed = this._speeds[this._speedIndex];
       this._phase += speed / barSamples;
