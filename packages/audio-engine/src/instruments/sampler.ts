@@ -44,18 +44,23 @@ class Sampler extends Instrument {
       muted: schema.muted,
     });
     this._schema = schema;
-    this._bufferStore = new SampleBufferStore({
-      ctx,
-      banks,
-      cache,
-      bank: schema.bank,
-      sample: schema.sample,
-      initialVariationIndex: this._initialVariationIndex,
-      initialSourceKey: this._schema.sourceKeys[0] ?? 0,
-      fallbackBuffer,
-      prepareReverse: schema.direction !== "forward",
-    });
-    this._initLfos(schema, startingBar, barStartTime);
+    try {
+      this._bufferStore = new SampleBufferStore({
+        ctx,
+        banks,
+        cache,
+        bank: schema.bank,
+        sample: schema.sample,
+        initialVariationIndex: this._initialVariationIndex,
+        initialSourceKey: this._schema.sourceKeys[0] ?? 0,
+        fallbackBuffer,
+        prepareReverse: schema.direction !== "forward",
+      });
+      this._initLfos(schema, startingBar, barStartTime);
+    } catch (error) {
+      this.destroy();
+      throw error;
+    }
   }
 
   isReady() {

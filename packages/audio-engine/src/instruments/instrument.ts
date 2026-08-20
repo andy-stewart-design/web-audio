@@ -89,15 +89,26 @@ abstract class Instrument {
     this._ctx = ctx;
     this._clock = clock;
     this._parameters = new ParameterManager(ctx, clock);
-    this._balancingNode = ctx.createGain();
-    this._muteNode = ctx.createGain();
-    this._balancingNode.gain.value = baseGain;
-    this._muteNode.gain.value = muted ? 0 : 1;
-    this._balancingNode.connect(this._muteNode);
-    this._muteNode.connect(destination);
-    this.finished = new Promise<void>((resolve) => {
-      this._finishedResolve = resolve;
-    });
+    let balancingNode: GainNode | undefined;
+    let muteNode: GainNode | undefined;
+    try {
+      balancingNode = ctx.createGain();
+      this._balancingNode = balancingNode;
+      muteNode = ctx.createGain();
+      this._muteNode = muteNode;
+      balancingNode.gain.value = baseGain;
+      muteNode.gain.value = muted ? 0 : 1;
+      balancingNode.connect(muteNode);
+      muteNode.connect(destination);
+      this.finished = new Promise<void>((resolve) => {
+        this._finishedResolve = resolve;
+      });
+    } catch (error) {
+      this._parameters.destroy();
+      balancingNode?.disconnect();
+      muteNode?.disconnect();
+      throw error;
+    }
   }
 
   abstract scheduleBar(barIndex: number, barStartTime: number): void;

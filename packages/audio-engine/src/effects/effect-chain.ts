@@ -36,40 +36,47 @@ function buildEffectChain({
       parameters.applyParamSchema(param, schema, context, 1, cleanups);
     }
   }
-  const nodes = effects.map((effect) => {
-    switch (effect.type) {
-      case "filter": {
-        const node = new BiquadFilterNode(ctx, {
-          type: FILTER_TYPE_MAP[effect.filterType],
-        });
-        for (const [param, schema] of [
-          [node.frequency, effect.frequency],
-          [node.Q, effect.q],
-          [node.detune, effect.detune],
-          [node.gain, effect.gain],
-        ] as const) {
-          apply(param, schema);
+  const nodes: AudioNode[] = [];
+  try {
+    for (const effect of effects) {
+      switch (effect.type) {
+        case "filter": {
+          const node = new BiquadFilterNode(ctx, {
+            type: FILTER_TYPE_MAP[effect.filterType],
+          });
+          nodes.push(node);
+          for (const [param, schema] of [
+            [node.frequency, effect.frequency],
+            [node.Q, effect.q],
+            [node.detune, effect.detune],
+            [node.gain, effect.gain],
+          ] as const) {
+            apply(param, schema);
+          }
+          break;
         }
-        return node;
+        case "gain": {
+          const node = new GainNode(ctx);
+          nodes.push(node);
+          apply(node.gain, effect.gain);
+          break;
+        }
+        default:
+          unsupportedEffect(effect);
       }
-      case "gain": {
-        const node = new GainNode(ctx);
-        apply(node.gain, effect.gain);
-        return node;
-      }
-      default:
-        return unsupportedEffect(effect);
     }
-  });
 
-  let previous = input;
-  for (const node of nodes) {
-    previous.connect(node);
-    previous = node;
+    let previous = input;
+    for (const node of nodes) {
+      previous.connect(node);
+      previous = node;
+    }
+    previous.connect(output);
+    return nodes;
+  } catch (error) {
+    for (const node of nodes) node.disconnect();
+    throw error;
   }
-  previous.connect(output);
-
-  return nodes;
 }
 
 export { buildEffectChain };

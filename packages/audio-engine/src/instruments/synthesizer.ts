@@ -24,7 +24,12 @@ class Synthesizer extends Instrument {
     });
     this._schema = opts.schema;
     this._midiOutputScheduler = opts.midiOutputScheduler;
-    this._initLfos(opts.schema, opts.startingBar, opts.barStartTime);
+    try {
+      this._initLfos(opts.schema, opts.startingBar, opts.barStartTime);
+    } catch (error) {
+      this.destroy();
+      throw error;
+    }
   }
 
   scheduleBar(barIndex: number, barStartTime: number): void {

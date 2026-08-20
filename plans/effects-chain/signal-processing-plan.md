@@ -52,7 +52,7 @@ The implementation is deliberately limited to the existing gain and filter proce
 
 ## Implementation status / next-session handoff
 
-**Current position:** Phases 1–3 are complete through **Step 3.2**. The next implementation task is **Step 4.1 — Implement the runtime Bus graph**.
+**Current position:** Phases 1–3 and Phase 4 through **Step 4.2** are complete. The next implementation task is **Step 4.3 — Refactor AudioEngine around generations**.
 
 Completed foundations:
 
@@ -68,7 +68,7 @@ Latest focused verification at this checkpoint:
 
 - Schema: 51 tests passing;
 - Fluid: 327 tests passing, plus check/lint/build passing;
-- AudioEngine: 250 tests passing, plus check/lint/build passing;
+- AudioEngine: 272 tests passing, plus check/lint/build passing;
 - workspace TypeScript check passed after the Phase 1 fixture migration.
 
 Implementation naming note: the concrete runtime abstraction originally planned as `ParameterHost` is implemented as `ParameterManager` in `packages/audio-engine/src/automation/parameter-manager.ts`, and instruments expose it internally as `protected readonly _parameters`.
@@ -448,11 +448,11 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Exact node order is asserted with Web Audio mocks.
-- [ ] Empty and multi-effect buses connect once without dry duplication.
-- [ ] Duck automation never writes to output gain.
-- [ ] Static/random, LFO, MIDI, and bus-envelope parameters are initialized without native-default intermediate behavior.
-- [ ] Destruction is idempotent and disconnects all owned nodes and parameter edges.
+- [x] Exact node order is asserted with Web Audio mocks.
+- [x] Empty and multi-effect buses connect once without dry duplication.
+- [x] Duck automation never writes to output gain.
+- [x] Static/random, LFO, MIDI, and bus-envelope parameters are initialized without native-default intermediate behavior.
+- [x] Destruction is idempotent and disconnects all owned nodes and parameter edges.
 
 ### Step 4.2 — Introduce a GraphGeneration owner
 
@@ -496,11 +496,11 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Main-only schemas route through generated main and retirement gain into the existing persistent output.
-- [ ] Generation owns and destroys all generated graph objects while instruments retain local voice tracking.
-- [ ] Failure at every construction stage cleans prior ledger resources and exposes no partial generation.
-- [ ] Shared sample cache and fallback behavior survive generation replacement.
-- [ ] MIDI connections transfer to a new active generation and disconnect from retiring generations as today.
+- [x] Main-only schemas route through generated main and retirement gain into the existing persistent output.
+- [x] Generation owns and destroys all generated graph objects while instruments retain local voice tracking.
+- [x] Failure at every construction stage cleans prior ledger resources and exposes no partial generation.
+- [x] Shared sample cache and fallback behavior survive generation replacement.
+- [x] MIDI connections transfer to a new active generation and disconnect from retiring generations as today.
 
 ### Step 4.3 — Refactor AudioEngine around generations
 

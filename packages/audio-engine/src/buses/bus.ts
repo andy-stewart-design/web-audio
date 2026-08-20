@@ -62,30 +62,48 @@ class Bus {
     this._ctx = ctx;
     this._clock = clock;
     this._parameters = new ParameterManager(ctx, clock);
-    this.input = ctx.createGain();
-    this._duckNode = ctx.createGain();
-    this._outputNode = ctx.createGain();
-    this._duckNode.gain.value = 1;
-    this._outputNode.gain.value = schema.gain;
+    this._effectNodes = [];
+    let input: GainNode | undefined;
+    let duckNode: GainNode | undefined;
+    let outputNode: GainNode | undefined;
+    try {
+      input = ctx.createGain();
+      this.input = input;
+      duckNode = ctx.createGain();
+      this._duckNode = duckNode;
+      outputNode = ctx.createGain();
+      this._outputNode = outputNode;
+      duckNode.gain.value = 1;
+      outputNode.gain.value = schema.gain;
 
-    const schemas = getEffectParameters(schema.effects);
-    this._parameters.initializeLfos(schemas, startingBar, barStartTime);
-    const context = this._context(startingBar, barStartTime);
-    this._effectNodes = buildEffectChain({
-      ctx,
-      input: this.input,
-      output: this._duckNode,
-      effects: schema.effects,
-      parameters: this._parameters,
-      context,
-      cleanups: this._cleanups,
-      applyParameter: (param, parameterSchema) => {
-        this._persistentParameters.push({ param, schema: parameterSchema });
-        this._applyPersistentParameter(param, parameterSchema, context);
-      },
-    });
-    this._duckNode.connect(this._outputNode);
-    this._outputNode.connect(destination);
+      const schemas = getEffectParameters(schema.effects);
+      this._parameters.initializeLfos(schemas, startingBar, barStartTime);
+      this._parameters.updateLfoParams(startingBar, barStartTime);
+      const context = this._context(startingBar, barStartTime);
+      this._effectNodes = buildEffectChain({
+        ctx,
+        input: this.input,
+        output: this._duckNode,
+        effects: schema.effects,
+        parameters: this._parameters,
+        context,
+        cleanups: this._cleanups,
+        applyParameter: (param, parameterSchema) => {
+          this._persistentParameters.push({ param, schema: parameterSchema });
+          this._applyPersistentParameter(param, parameterSchema, context);
+        },
+      });
+      this._duckNode.connect(this._outputNode);
+      this._outputNode.connect(destination);
+    } catch (error) {
+      for (const cleanup of this._cleanups) cleanup();
+      this._parameters.destroy();
+      input?.disconnect();
+      for (const node of this._effectNodes) node.disconnect();
+      duckNode?.disconnect();
+      outputNode?.disconnect();
+      throw error;
+    }
   }
 
   scheduleBar(barIndex: number, barStartTime: number) {
