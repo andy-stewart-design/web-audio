@@ -182,10 +182,10 @@ Use non-zero fake native defaults for gain, frequency, Q, filter gain, and detun
 
 **Acceptance criteria:**
 
-- [ ] Every LFO-controlled target has intrinsic value `0` before connection.
-- [ ] Gain `d.lfo(0, 1).norm()` has an effective `0…1` range rather than `1…2`.
-- [ ] Filter `d.lfo(400, 1200).norm()` has an effective `400…1200` range rather than including native frequency offset.
-- [ ] Static, envelope, and MIDI parameter tests remain unchanged.
+- [x] Every LFO-controlled target has intrinsic value `0` before connection.
+- [x] Gain `d.lfo(0, 1).norm()` has an effective `0…1` range rather than `1…2`.
+- [x] Filter `d.lfo(400, 1200).norm()` has an effective `400…1200` range rather than including native frequency offset.
+- [x] Static, envelope, and MIDI parameter tests remain unchanged.
 
 ---
 

@@ -192,8 +192,7 @@ abstract class Instrument {
           note,
         );
       } else if (detune.resolved.type === "lfo") {
-        const lfoNode = this._lfoNodes.get(detune.resolved.schema.id);
-        if (lfoNode) lfoNode.connect(detune.param);
+        this._connectLfo(detune.param, detune.resolved.schema);
       } else if (detune.resolved.type === "midi-cc") {
         midiBindings.push(
           this._bindMidiParam(detune.param, detune.resolved.schema, 1),
@@ -290,8 +289,7 @@ abstract class Instrument {
     if (schema.type === "midi-cc") {
       midiBindings.push(this._bindMidiParam(param, schema, scale));
     } else if (schema.type === "lfo") {
-      const node = this._lfoNodes.get(schema.id);
-      if (node) node.connect(param);
+      this._connectLfo(param, schema);
     } else if (schema.type === "envelope") {
       this._scheduleParamEnvelope(
         param,
@@ -305,6 +303,16 @@ abstract class Instrument {
         note.startTime,
       );
     }
+  }
+
+  protected _connectLfo(param: AudioParam, schema: LfoSchema) {
+    const node = this._lfoNodes.get(schema.id);
+    if (!node) return;
+
+    // AudioParam inputs are summed with the intrinsic value. The LFO emits the
+    // complete target value, so leave no native-default offset in that sum.
+    param.value = 0;
+    node.connect(param);
   }
 
   protected _resolveDetune(

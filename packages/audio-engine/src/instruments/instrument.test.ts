@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CcSignal, Midi } from "@web-audio/midi";
-import type { MidiCcSchema } from "@web-audio/schema";
+import type {
+  AudioParamSchema,
+  LfoSchema,
+  MidiCcSchema,
+  StaticSchema,
+} from "@web-audio/schema";
 import Instrument from "./instrument";
 
 // ---------------------------------------------------------------------------
@@ -32,6 +37,13 @@ class FakeAudioParam {
   value = 0;
   setValueAtTime = vi.fn();
   setTargetAtTime = vi.fn();
+}
+
+class FakeLfoNode {
+  connectedIntrinsicValues: number[] = [];
+  connect = vi.fn((param: FakeAudioParam) => {
+    this.connectedIntrinsicValues.push(param.value);
+  });
 }
 
 class FakeCcSignal implements CcSignal {
@@ -96,7 +108,7 @@ class TestInstrument extends Instrument {
     );
   }
 
-  applyParam(param: AudioParam, schema: MidiCcSchema) {
+  applyParam(param: AudioParam, schema: AudioParamSchema) {
     const midiBindings: (() => void)[] = [];
     this._applyParamSchema(
       param,
@@ -111,11 +123,37 @@ class TestInstrument extends Instrument {
   registerMidiBinding(bind: (midi: Midi | null) => void) {
     return this._registerMidiBinding(bind);
   }
+
+  registerLfo(schema: LfoSchema, node: FakeLfoNode) {
+    this._lfoNodes.set(schema.id, node as unknown as AudioWorkletNode);
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Schema fixtures
 // ---------------------------------------------------------------------------
+
+function staticParam(value: number): StaticSchema {
+  return {
+    type: "static",
+    polyphonic: false,
+    cycle: [[{ value, offset: 0, duration: 1, stepIndex: 0 }]],
+  };
+}
+
+function lfo(): LfoSchema {
+  return {
+    type: "lfo",
+    id: "test-lfo",
+    outputA: staticParam(400),
+    outputB: staticParam(1200),
+    speed: [1],
+    waveform: ["sine"],
+    phase: 0,
+    norm: true,
+    invert: false,
+  };
+}
 
 function midiCc(overrides: Partial<MidiCcSchema> = {}): MidiCcSchema {
   return {
@@ -303,6 +341,62 @@ describe("Instrument output lifecycle", () => {
     expect(ctx.gains[0].disconnect).toHaveBeenCalledOnce();
     expect(ctx.gains[1].disconnect).toHaveBeenCalledOnce();
     expect(voice.disconnect).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Instrument LFO parameter values", () => {
+  it.each([
+    ["gain", 1],
+    ["filter frequency", 350],
+    ["filter Q", 1],
+    ["filter gain", 4],
+    ["detune", 100],
+  ])(
+    "neutralizes the native %s value before connecting",
+    (_target, nativeValue) => {
+      const instrument = new TestInstrument(
+        new FakeAudioContext() as unknown as AudioContext,
+        {} as never,
+      );
+      const schema = lfo();
+      const node = new FakeLfoNode();
+      const param = new FakeAudioParam();
+      param.value = nativeValue;
+      instrument.registerLfo(schema, node);
+
+      instrument.applyParam(param as unknown as AudioParam, schema);
+
+      expect(param.value).toBe(0);
+      expect(node.connect).toHaveBeenCalledWith(param);
+      expect(node.connectedIntrinsicValues).toEqual([0]);
+    },
+  );
+
+  it("does not alter a target when its LFO node is unavailable", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const param = new FakeAudioParam();
+    param.value = 350;
+
+    instrument.applyParam(param as unknown as AudioParam, lfo());
+
+    expect(param.value).toBe(350);
+  });
+
+  it("leaves non-LFO intrinsic values unchanged", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const param = new FakeAudioParam();
+    param.value = 350;
+
+    instrument.applyParam(param as unknown as AudioParam, staticParam(800));
+
+    expect(param.value).toBe(350);
+    expect(param.setValueAtTime).toHaveBeenCalledWith(800, 10);
   });
 });
 
