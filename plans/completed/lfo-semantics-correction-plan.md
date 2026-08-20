@@ -311,11 +311,11 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Before/after ranges are visible in automated fixtures.
-- [ ] A representative set of existing LFO sketches is reviewed manually.
-- [ ] Filter sweep, tremolo, Q/filter-gain modulation, and vibrato match configured ranges.
-- [ ] Stop produces no branch-specific click caused by disconnecting active LFO edges.
-- [ ] Any sketch relying on the old accidental native offset is documented as a compatibility break rather than silently preserved.
+- [x] Before/after ranges are visible in automated fixtures.
+- [x] A representative set of existing LFO sketches is reviewed manually.
+- [x] Filter sweep, tremolo, Q/filter-gain modulation, and vibrato match configured ranges.
+- [x] Stop produces no branch-specific click caused by disconnecting active LFO edges.
+- [x] Any sketch relying on the old accidental native offset is documented as a compatibility break rather than silently preserved.
 
 ---
 
@@ -338,11 +338,11 @@ Do not rewrite historical documents solely to erase prior decisions; add a corre
 
 **Acceptance criteria:**
 
-- [ ] Public examples and formulas agree.
-- [ ] No example implies that `.norm()` takes minimum plus range.
-- [ ] Lifecycle documentation distinguishes active voice completion from future-note cancellation.
-- [ ] Changed package format, test, check, lint, and build commands pass.
-- [ ] Workspace checks pass.
+- [x] Public examples and formulas agree.
+- [x] No example implies that `.norm()` takes minimum plus range.
+- [x] Lifecycle documentation distinguishes active voice completion from future-note cancellation.
+- [x] Changed package format, test, check, lint, and build commands pass.
+- [x] Workspace checks pass.
 
 ## Required focused verification
 

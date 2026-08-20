@@ -47,6 +47,29 @@ These conditions do not represent lifecycle states:
 - **MIDI connected:** the instrument has a current runtime MIDI provider.
 - **Future notes scheduled:** tracked voices exist but have not started yet.
 
+## LFO parameter semantics
+
+An LFO worklet emits the complete target parameter value. Web Audio normally sums connected signals with an `AudioParam`'s intrinsic value, so the engine sets that intrinsic value to `0` before connecting an LFO. Native defaults such as filter frequency `350` or gain `1` therefore do not shift the configured LFO range.
+
+Default LFO mode treats `outputA` as a baseline and `outputB` as a bipolar offset:
+
+```text
+output = outputA + outputB × waveform[-1…1]
+```
+
+Normalized mode treats them as minimum and maximum:
+
+```text
+output = outputA + (outputB - outputA) × waveform[0…1]
+```
+
+LFO worklet nodes are instrument-owned and free-running. Their connections to voice parameters are voice-owned:
+
+- a voice disconnects its LFO parameter edges when it ends;
+- cancelling a voice that has not started disconnects its edges;
+- transport Stop does not disconnect edges from currently audible voices;
+- terminal instrument destruction disconnects remaining voice edges before shared LFO nodes.
+
 ## Development
 
 ```bash

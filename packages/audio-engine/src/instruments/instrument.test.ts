@@ -405,6 +405,71 @@ describe("Instrument LFO parameter values", () => {
   });
 });
 
+describe("Instrument LFO effective-value compatibility", () => {
+  it.each([
+    {
+      target: "oscillator detune",
+      nativeValue: 0,
+      configuredRange: [-100, 100],
+      oldRange: [-100, 100],
+    },
+    {
+      target: "buffer-source detune",
+      nativeValue: 0,
+      configuredRange: [-100, 100],
+      oldRange: [-100, 100],
+    },
+    {
+      target: "filter frequency",
+      nativeValue: 350,
+      configuredRange: [400, 1200],
+      oldRange: [750, 1550],
+    },
+    {
+      target: "filter Q",
+      nativeValue: 1,
+      configuredRange: [0.5, 8],
+      oldRange: [1.5, 9],
+    },
+    {
+      target: "filter gain",
+      nativeValue: 0,
+      configuredRange: [-6, 6],
+      oldRange: [-6, 6],
+    },
+    {
+      target: "gain-effect gain",
+      nativeValue: 1,
+      configuredRange: [0, 1],
+      oldRange: [1, 2],
+    },
+  ])(
+    "$target changes from the inspectable old range to the configured range",
+    ({ nativeValue, configuredRange, oldRange }) => {
+      const instrument = new TestInstrument(
+        new FakeAudioContext() as unknown as AudioContext,
+        {} as never,
+      );
+      const schema = lfo();
+      const node = new FakeLfoNode();
+      const param = new FakeAudioParam();
+      param.value = nativeValue;
+      instrument.registerLfo(schema, node);
+
+      expect(configuredRange.map((value) => value + nativeValue)).toEqual(
+        oldRange,
+      );
+
+      instrument.applyParam(param as unknown as AudioParam, schema);
+      const correctedEffectiveRange = configuredRange.map(
+        (value) => value + param.value,
+      );
+
+      expect(correctedEffectiveRange).toEqual(configuredRange);
+    },
+  );
+});
+
 describe("Instrument LFO edge lifecycle", () => {
   function setupVoice(startTime: number) {
     const ctx = new FakeAudioContext();
