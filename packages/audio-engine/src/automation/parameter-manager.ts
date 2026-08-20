@@ -188,6 +188,13 @@ class ParameterManager {
     }
   }
 
+  cancelFutureLfoUpdates(time: number) {
+    for (const node of this._lfoNodes.values()) {
+      node.parameters.get("outputA")?.cancelScheduledValues(time);
+      node.parameters.get("outputB")?.cancelScheduledValues(time);
+    }
+  }
+
   destroy() {
     if (this._destroyed) return;
     this._destroyed = true;
@@ -261,10 +268,12 @@ class ParameterManager {
     const effectiveBarStart = barStartTime ?? this._ctx.currentTime;
     const barOriginTime =
       effectiveBarStart - startingBar * this._clock.barDuration;
+    const outputA = this.resolve(lfo.outputA, startingBar, 0);
+    const outputB = this.resolve(lfo.outputB, startingBar, 0);
     const node = new AudioWorkletNode(this._ctx, "lfo-processor", {
       parameterData: {
-        outputA: this.resolve(lfo.outputA, 0, 0),
-        outputB: this.resolve(lfo.outputB, 0, 0),
+        outputA,
+        outputB,
       },
       processorOptions: {
         waveform: lfo.waveform,
@@ -279,6 +288,8 @@ class ParameterManager {
       numberOfOutputs: 1,
       outputChannelCount: [1],
     });
+    node.parameters.get("outputA")?.setValueAtTime(outputA, effectiveBarStart);
+    node.parameters.get("outputB")?.setValueAtTime(outputB, effectiveBarStart);
     this._lfoNodes.set(lfo.id, node);
     this._lfoSchemas.set(lfo.id, lfo);
   }

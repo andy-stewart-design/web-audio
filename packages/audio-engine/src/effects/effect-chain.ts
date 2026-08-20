@@ -1,4 +1,4 @@
-import type { EffectSchema } from "@web-audio/schema";
+import type { AudioParamSchema, EffectSchema } from "@web-audio/schema";
 import ParameterManager, {
   type ParameterScheduleContext,
 } from "@/automation/parameter-manager";
@@ -12,6 +12,7 @@ interface EffectChainOptions {
   parameters: ParameterManager;
   context: ParameterScheduleContext;
   cleanups: (() => void)[];
+  applyParameter?: (param: AudioParam, schema: AudioParamSchema) => void;
 }
 
 function unsupportedEffect(effect: never): never {
@@ -26,7 +27,15 @@ function buildEffectChain({
   parameters,
   context,
   cleanups,
+  applyParameter,
 }: EffectChainOptions) {
+  function apply(param: AudioParam, schema: AudioParamSchema) {
+    if (applyParameter) {
+      applyParameter(param, schema);
+    } else {
+      parameters.applyParamSchema(param, schema, context, 1, cleanups);
+    }
+  }
   const nodes = effects.map((effect) => {
     switch (effect.type) {
       case "filter": {
@@ -39,19 +48,13 @@ function buildEffectChain({
           [node.detune, effect.detune],
           [node.gain, effect.gain],
         ] as const) {
-          parameters.applyParamSchema(param, schema, context, 1, cleanups);
+          apply(param, schema);
         }
         return node;
       }
       case "gain": {
         const node = new GainNode(ctx);
-        parameters.applyParamSchema(
-          node.gain,
-          effect.gain,
-          context,
-          1,
-          cleanups,
-        );
+        apply(node.gain, effect.gain);
         return node;
       }
       default:

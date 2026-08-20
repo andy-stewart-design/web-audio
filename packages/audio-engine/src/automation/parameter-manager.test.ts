@@ -27,11 +27,13 @@ class FakeAudioWorkletNode {
   }
 }
 
-function staticParam(value: number): StaticSchema {
+function staticParam(...values: number[]): StaticSchema {
   return {
     type: "static",
     polyphonic: false,
-    cycle: [[{ value, offset: 0, duration: 1, stepIndex: 0 }]],
+    cycle: values.map((value) => [
+      { value, offset: 0, duration: 1, stepIndex: 0 },
+    ]),
   };
 }
 
@@ -76,6 +78,26 @@ describe("ParameterManager LFO lifecycle", () => {
       barDuration: 2,
       barOriginTime: 4,
     });
+  });
+
+  it("initializes and schedules cycling bounds from the starting bar", () => {
+    const { manager } = createManager();
+    const schema = lfo();
+    schema.outputA = staticParam(10, 30);
+    schema.outputB = staticParam(20, 40);
+
+    manager.initializeLfos([schema], 1, 10);
+
+    const node = FakeAudioWorkletNode.instances[0];
+    expect(node.options.parameterData).toEqual({ outputA: 30, outputB: 40 });
+    expect(node.parameters.get("outputA")?.setValueAtTime).toHaveBeenCalledWith(
+      30,
+      10,
+    );
+    expect(node.parameters.get("outputB")?.setValueAtTime).toHaveBeenCalledWith(
+      40,
+      10,
+    );
   });
 
   it("updates persistent output bounds at the bar boundary", () => {

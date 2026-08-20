@@ -443,6 +443,7 @@ Requirements:
 - output gain is separate from duck automation;
 - `destroy()` disconnects input, effects, duck, output, LFOs, and MIDI bindings idempotently;
 - expose only narrow methods needed by the generation: `input`, `scheduleBar`, ordered duck timeline submission, `stop`, MIDI connect/disconnect, and `destroy`;
+- the ordered duck submission method is deliberately deferred until Step 7.1 defines the real `DuckAutomation` timeline contract; do not add a hollow placeholder API in Step 4.1;
 - initialize and schedule every accepted parameter source completely in this phase; Phase 5 is verification/refinement, not deferred basic support.
 
 **Acceptance criteria:**
