@@ -261,12 +261,12 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Voice end disconnects each LFO edge exactly once.
-- [ ] Cancelling a future voice disconnects its LFO edges exactly once.
-- [ ] Stop does not disconnect an active voice's LFO edges.
-- [ ] Destroy disconnects active and future voice edges before shared LFO nodes.
-- [ ] Retirement waits for voices, then cleans the shared LFO nodes.
-- [ ] MIDI subscription cleanup retains its existing voice lifecycle behavior except that active bindings are no longer removed by future-note cancellation.
+- [x] Voice end disconnects each LFO edge exactly once.
+- [x] Cancelling a future voice disconnects its LFO edges exactly once.
+- [x] Stop does not disconnect an active voice's LFO edges.
+- [x] Destroy disconnects active and future voice edges before shared LFO nodes.
+- [x] Retirement waits for voices, then cleans the shared LFO nodes.
+- [x] MIDI subscription cleanup retains its existing voice lifecycle behavior except that active bindings are no longer removed by future-note cancellation.
 
 ---
 

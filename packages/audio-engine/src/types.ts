@@ -8,7 +8,7 @@ import type {
 interface ScheduledNote {
   sourceNode: AudioScheduledSourceNode;
   audioNodes: AudioNode[];
-  midiBindings: (() => void)[];
+  completionCleanups: (() => void)[];
   startTime: number;
 }
 
