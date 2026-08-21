@@ -245,6 +245,54 @@ describe("AudioEngine", () => {
       expect(master.connect).toHaveBeenCalledWith(analyser);
     });
 
+    it("updates persistent main gain at commit and defaults missing buses to unity", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const master = createGainMock.mock.results[0]?.value;
+      const configured = makeSchema();
+      configured.buses = { main: { gain: 0.6, effects: [] } };
+
+      engine.update(configured);
+      expect(master.gain.value).toBe(1);
+      clock.emit("prebar");
+      expect(master.gain.value).toBe(0.6);
+
+      engine.update(makeSchema());
+      clock.emit("prebar");
+      expect(master.gain.value).toBe(1);
+      expect(createGainMock).toHaveBeenCalledOnce();
+    });
+
+    it("rejects unsupported main effects and named buses before commit", () => {
+      const engine = new AudioEngine(fakeCtx, new FakeClock() as never);
+      const withMainEffect = makeSchema();
+      withMainEffect.buses = {
+        main: { gain: 1, effects: [{ type: "gain" } as never] },
+      };
+      const withNamedBus = makeSchema();
+      withNamedBus.buses = {
+        main: { gain: 1, effects: [] },
+        drums: { gain: 1, effects: [] },
+      };
+
+      expect(() => engine.update(withMainEffect)).toThrow(
+        "[AudioEngine] Effects on main are not supported in the bus MVP.",
+      );
+      expect(() => engine.update(withNamedBus)).toThrow(
+        '[AudioEngine] Named bus "drums" is not supported until the routing slice.',
+      );
+    });
+
+    it("rejects invalid direct main gain values", () => {
+      const engine = new AudioEngine(fakeCtx, new FakeClock() as never);
+      const schema = makeSchema();
+      schema.buses = { main: { gain: Number.NaN, effects: [] } };
+
+      expect(() => engine.update(schema)).toThrow(
+        "[AudioEngine] Main gain must be a finite number greater than or equal to 0.",
+      );
+    });
+
     it("passes the master output to synthesizers instead of ctx.destination", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);

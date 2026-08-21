@@ -185,10 +185,10 @@ Do not replace `_master`; it remains connected to destination and analyser.
 
 **Acceptance criteria:**
 
-- [ ] Existing sketches with no bus schema retain unity main gain.
-- [ ] Main gain changes update the persistent master node.
-- [ ] Main effects are rejected rather than ignored.
-- [ ] No instrument, retirement, MIDI, LFO, or sampler implementation changes.
+- [x] Existing sketches with no bus schema retain unity main gain.
+- [x] Main gain changes update the persistent master node.
+- [x] Main effects are rejected rather than ignored.
+- [x] No instrument, retirement, MIDI, LFO, or sampler implementation changes.
 
 ---
 

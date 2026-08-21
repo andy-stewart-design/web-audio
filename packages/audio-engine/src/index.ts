@@ -59,6 +59,29 @@ class AudioEngine {
   }
 
   update(schema: DromeSchema): void {
+    if (schema.buses) {
+      const namedBus = Object.keys(schema.buses).find(
+        (name) => name !== "main",
+      );
+      if (namedBus) {
+        throw new Error(
+          `[AudioEngine] Named bus "${namedBus}" is not supported until the routing slice.`,
+        );
+      }
+      const main = schema.buses.main;
+      if (main) {
+        if (!Number.isFinite(main.gain) || main.gain < 0) {
+          throw new Error(
+            "[AudioEngine] Main gain must be a finite number greater than or equal to 0.",
+          );
+        }
+        if (main.effects.length > 0) {
+          throw new Error(
+            "[AudioEngine] Effects on main are not supported in the bus MVP.",
+          );
+        }
+      }
+    }
     this._pending = schema;
   }
 
@@ -124,6 +147,7 @@ class AudioEngine {
     if (this._pending.bpm !== undefined) {
       this._clock.bpm(this._pending.bpm);
     }
+    this._master.gain.value = this._pending.buses?.main?.gain ?? 1;
 
     // Retire current instruments until their existing release tails finish.
     for (const inst of this._instruments) {
