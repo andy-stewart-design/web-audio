@@ -99,12 +99,12 @@ Expected:
 
 ## Manual status
 
-- [ ] Filter frequency reviewed
-- [ ] Tremolo reviewed
-- [ ] Filter Q reviewed
-- [ ] Filter gain reviewed
-- [ ] Oscillator detune reviewed
-- [ ] Sampler detune reviewed
-- [ ] Active-voice Stop behavior reviewed
+- [x] Filter frequency reviewed
+- [x] Tremolo reviewed
+- [x] Filter Q reviewed
+- [x] Filter gain reviewed
+- [x] Oscillator detune reviewed
+- [x] Sampler detune reviewed
+- [x] Active-voice Stop behavior reviewed
 
 Do not start a development server or browser session for this review without explicit permission.

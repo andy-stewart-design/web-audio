@@ -22,6 +22,9 @@ vi.mock("./instruments/synthesizer", () => {
     this.retire = vi.fn();
     this.destroy = vi.fn();
     this._destination = opts.destination;
+    this._destinationGainAtConstruction = (
+      opts.destination as { gain?: { value: number } }
+    ).gain?.value;
     this._routing = opts.routing;
     this._midiOutputScheduler = opts.midiOutputScheduler;
     let resolve: () => void;
@@ -76,6 +79,25 @@ class FakeAudioNode {
 
 class FakeGainNode extends FakeAudioNode {
   gain = { value: 1 };
+}
+
+class FakeAudioParam {
+  value = 0;
+}
+
+class FakeFilterNode extends FakeAudioNode {
+  static instances: FakeFilterNode[] = [];
+  frequency = new FakeAudioParam();
+  Q = new FakeAudioParam();
+  detune = new FakeAudioParam();
+  gain = new FakeAudioParam();
+  type: BiquadFilterType;
+
+  constructor(_ctx: AudioContext, options: BiquadFilterOptions = {}) {
+    super();
+    this.type = options.type ?? "lowpass";
+    FakeFilterNode.instances.push(this);
+  }
 }
 
 const createAnalyserMock = vi.fn(() => new FakeAudioNode());
@@ -228,6 +250,7 @@ function instances() {
       sends: { destination: unknown; amount: number }[];
     };
     _midiOutputScheduler: unknown;
+    _destinationGainAtConstruction: number | undefined;
     _resolveFinished: () => void;
   }>;
 }
@@ -258,6 +281,8 @@ const midiInstance = () => ({}) as Midi;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  FakeFilterNode.instances = [];
+  vi.stubGlobal("BiquadFilterNode", FakeFilterNode);
 });
 
 describe("AudioEngine", () => {
@@ -284,6 +309,7 @@ describe("AudioEngine", () => {
       expect(master.gain.value).toBe(1);
       clock.emit("prebar");
       expect(master.gain.value).toBe(0.6);
+      expect(instances()[0]._destinationGainAtConstruction).toBe(0.6);
 
       engine.update(makeSchema());
       clock.emit("prebar");
@@ -422,6 +448,75 @@ describe("AudioEngine", () => {
       expect(() => engine.update(nonCanonical)).toThrow(
         '[AudioEngine] Instrument 0 route " main " is not canonical.',
       );
+    });
+
+    it("builds the reference group/send topology without dry duplication", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSchema(3);
+      schema.buses = {
+        main: { gain: 0.9, effects: [] },
+        drums: {
+          gain: 0.8,
+          effects: [
+            {
+              type: "filter",
+              filterType: "lp",
+              frequency: staticParam(8_000),
+              q: staticParam(1),
+              detune: staticParam(0),
+              gain: staticParam(0),
+            },
+          ],
+        },
+        verb: { gain: 0.5, effects: [] },
+      };
+      Object.assign(schema.instruments[0], {
+        type: "sampler",
+        route: "drums",
+        sends: { verb: 0.1 },
+      });
+      Object.assign(schema.instruments[1], {
+        type: "sampler",
+        route: "drums",
+        sends: { verb: 0.4 },
+      });
+      Object.assign(schema.instruments[2], {
+        route: "main",
+        sends: { verb: 0.2 },
+      });
+
+      engine.update(schema);
+      clock.emit("prebar");
+
+      const master = createGainMock.mock.results[0]?.value;
+      const drumsInput = createGainMock.mock.results[1]?.value;
+      const drumsOutput = createGainMock.mock.results[2]?.value;
+      const verbInput = createGainMock.mock.results[3]?.value;
+      const verbOutput = createGainMock.mock.results[4]?.value;
+      const filter = FakeFilterNode.instances[0];
+
+      expect(samplerInstances()[0]._routing).toEqual({
+        primary: drumsInput,
+        sends: [{ destination: verbInput, amount: 0.1 }],
+      });
+      expect(samplerInstances()[1]._routing).toEqual({
+        primary: drumsInput,
+        sends: [{ destination: verbInput, amount: 0.4 }],
+      });
+      expect(instances()[0]._routing).toEqual({
+        primary: master,
+        sends: [{ destination: verbInput, amount: 0.2 }],
+      });
+      expect(drumsInput.connect).toHaveBeenCalledOnce();
+      expect(drumsInput.connect).toHaveBeenCalledWith(filter);
+      expect(filter.connect).toHaveBeenCalledWith(drumsOutput);
+      expect(verbInput.connect).toHaveBeenCalledWith(verbOutput);
+      expect(drumsOutput.connect).toHaveBeenCalledWith(master);
+      expect(verbOutput.connect).toHaveBeenCalledWith(master);
+      expect(master.connect).toHaveBeenCalledWith(destinationNode);
+      expect(drumsOutput.connect).not.toHaveBeenCalledWith(destinationNode);
+      expect(verbOutput.connect).not.toHaveBeenCalledWith(destinationNode);
     });
 
     it("passes the master output to synthesizers instead of ctx.destination", () => {
@@ -609,6 +704,25 @@ describe("AudioEngine", () => {
   });
 
   describe("bus retirement", () => {
+    it("applies new global main gain while the previous graph retires", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const first = makeSchema();
+      first.buses = { main: { gain: 0.5, effects: [] } };
+      const second = makeSchema();
+      second.buses = { main: { gain: 0.8, effects: [] } };
+      const master = createGainMock.mock.results[0]?.value;
+
+      engine.update(first);
+      clock.emit("prebar");
+      engine.update(second);
+      clock.emit("prebar");
+
+      expect(instances()[0].retire).toHaveBeenCalledOnce();
+      expect(instances()[0].destroy).not.toHaveBeenCalled();
+      expect(master.gain.value).toBe(0.8);
+    });
+
     it("keeps an old named bus until every instrument in its graph finishes", async () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);
@@ -636,14 +750,20 @@ describe("AudioEngine", () => {
   });
 
   describe("construction failure", () => {
-    it("keeps the active graph when replacement bus construction fails", () => {
+    it("keeps the active graph and restores main gain when replacement bus construction fails", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);
-      engine.update(makeSchema());
+      const initial = makeSchema();
+      initial.buses = { main: { gain: 0.4, effects: [] } };
+      engine.update(initial);
       clock.emit("prebar");
       const active = instances()[0];
+      const master = createGainMock.mock.results[0]?.value;
       const replacement = makeSchema();
-      replacement.buses = { drums: { gain: 1, effects: [] } };
+      replacement.buses = {
+        main: { gain: 0.8, effects: [] },
+        drums: { gain: 1, effects: [] },
+      };
       createGainMock.mockImplementationOnce(() => {
         throw new Error("allocation failed");
       });
@@ -652,6 +772,7 @@ describe("AudioEngine", () => {
       expect(() => clock.emit("prebar")).toThrow("allocation failed");
 
       expect(active.retire).not.toHaveBeenCalled();
+      expect(master.gain.value).toBe(0.4);
       clock.emit("bar");
       expect(active.scheduleBar).toHaveBeenCalledOnce();
     });

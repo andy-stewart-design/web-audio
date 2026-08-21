@@ -204,6 +204,8 @@ class AudioEngine {
     const pending = this._pending;
     const buses = new Map<string, RuntimeBus>();
     const instruments: RuntimeInstrument[] = [];
+    const previousMainGain = this._master.gain.value;
+    this._master.gain.value = pending.buses?.main?.gain ?? 1;
     try {
       for (const [name, schema] of Object.entries(pending.buses ?? {})) {
         if (name === "main") continue;
@@ -251,11 +253,11 @@ class AudioEngine {
     } catch (error) {
       instruments.forEach((instrument) => instrument.destroy());
       buses.forEach((bus) => bus.destroy());
+      this._master.gain.value = previousMainGain;
       throw error;
     }
 
     const oldGraph = this._activeGraph;
-    this._master.gain.value = pending.buses?.main?.gain ?? 1;
     this._activeGraph = { instruments, buses };
     this._pending = null;
     this._retire(oldGraph);

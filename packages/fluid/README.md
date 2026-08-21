@@ -2,6 +2,39 @@
 
 Fluid language for constructing scheduled Web Audio schemas.
 
+## Buses, routes, and sends
+
+`main` is the persistent engine output. Its gain is configurable, but it does not support effects:
+
+```ts
+d.bus("main").gain(0.9);
+```
+
+Declare named buses for group processing and auxiliary returns. Named buses feed main automatically:
+
+```ts
+d.bus("drums").gain(0.8).fx(d.lpf(8_000));
+d.bus("verb").gain(0.5);
+```
+
+An instrument has one primary route, defaulting to main. Selecting a named route replaces the direct-main path:
+
+```ts
+d.sample("bd").route("drums").push();
+```
+
+Sends add gain-controlled parallel copies without changing the primary route:
+
+```ts
+d.sample("bd").route("drums").send("verb", 0.1).push();
+d.sample("sd").route("drums").send("verb", 0.4).push();
+d.synth().send("verb", 0.2).push();
+```
+
+Routes and sends branch after instrument balancing and mute. Sending to main is rejected because it would normally duplicate the dry signal. Repeated sends to one target use the most recent amount.
+
+Bus effects currently accept only one finite constant value for each gain/filter parameter. Cycles, random values, envelopes, LFOs, and MIDI CC remain supported on instrument effects but are not yet supported on buses. A bus named `verb` is only a name until a reverb processor is implemented.
+
 ## LFO automation
 
 Create a free-running, BPM-synchronized LFO with `d.lfo()`.

@@ -2,6 +2,23 @@
 
 Web Audio playback engine for scheduled Fluid schemas.
 
+## Bus and routing topology
+
+The engine keeps one persistent main gain connected to destination and analyser. Named buses belong to a runtime graph and feed that persistent main:
+
+```text
+instrument balancing → mute ┬→ primary route
+                             ├→ send gain → named bus
+                             └→ send gain → named bus
+
+named bus input → static gain/filter effects → output gain → persistent main
+main-routed instruments ────────────────────────────────────────────────┘
+```
+
+Each instrument has exactly one primary route. Named routes replace the default direct-main path, preventing dry duplication. Sends are independent post-mute branches with one owned gain node each.
+
+Main gain is engine-global, so a main gain update affects both active and retiring voices. Main effects, dynamic bus parameters, and bus-to-bus routing are not currently supported.
+
 ## Instrument lifecycle
 
 Engine instruments move through a one-way lifecycle:
@@ -13,7 +30,7 @@ Active ──retire()──▶ Retired ──voices end──▶ Finished ──
 
 ### Active
 
-An active instrument belongs to the engine's current instrument collection. It can schedule new bars and voices, and it may hold real-time MIDI bindings.
+An active instrument belongs to the engine's current runtime graph. It can schedule new bars and voices, and it may hold real-time MIDI bindings.
 
 An active instrument may temporarily have no scheduled voices. Being idle does not finish it because later bars may schedule more voices.
 
@@ -24,13 +41,13 @@ Schema replacement calls `retire()` and removes the instrument from active sched
 - prevents new MIDI connections;
 - removes existing MIDI bindings immediately;
 - preserves scheduled voices and their release tails;
-- keeps the instrument in the engine's retiring collection until it finishes.
+- keeps the instrument and its original named buses in a retiring runtime graph until every instrument in that graph finishes.
 
 ### Finished
 
 `finished` is a completion Promise, not a separately mutable operating mode. It resolves when an instrument is both retired and has no remaining tracked voices.
 
-The engine waits for `finished`, removes the instrument from its retiring collection, and calls `destroy()` to release the remaining graph resources.
+The engine waits for every instrument in a retiring runtime graph to finish, then destroys those instruments and their named buses.
 
 ### Destroyed
 

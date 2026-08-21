@@ -355,14 +355,14 @@ Document that `verb` is only a name until a reverb processor exists.
 
 **Acceptance criteria:**
 
-- [ ] Connection tests prove there is no dry-signal duplication.
-- [ ] Main is the only node connected directly to destination.
-- [ ] Main gain affects active and retiring voices globally.
-- [ ] Group processing does not process pre-group sends.
-- [ ] Stop reaches active and retiring instruments without disconnecting active voice modulation early.
-- [ ] Old buses disconnect after their instruments finish.
-- [ ] Schema, Fluid, AudioEngine, and workspace checks pass.
-- [ ] A focused manual topology review is completed without starting a development server unless permission is granted.
+- [x] Connection tests prove there is no dry-signal duplication.
+- [x] Main is the only node connected directly to destination.
+- [x] Main gain affects active and retiring voices globally.
+- [x] Group processing does not process pre-group sends.
+- [x] Stop reaches active and retiring instruments without disconnecting active voice modulation early.
+- [x] Old buses disconnect after their instruments finish.
+- [x] Schema, Fluid, AudioEngine, and workspace checks pass.
+- [x] A focused topology review is completed through graph assertions without starting a development server.
 
 ## Required verification after each slice
 
