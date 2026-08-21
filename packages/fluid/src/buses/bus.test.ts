@@ -31,7 +31,7 @@ describe("Bus builder", () => {
     const d = new Drome();
 
     expect(d.bus("main").gain(0)).toBe(d.bus("main"));
-    expect(d.getSchema().buses?.main.gain).toBe(0);
+    expect(d.getSchema().buses.main.gain).toBe(0);
   });
 
   it("rejects empty names and normalizes named buses", () => {

@@ -231,10 +231,10 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Schema, Fluid, AudioEngine, applications, and tests compile with required fields.
-- [ ] No production consumer still relies on absent graph fields.
-- [ ] Existing tests retain their prior behavioral assertions.
-- [ ] Repository search finds no obsolete compatibility fixtures unless explicitly testing runtime rejection.
+- [x] Schema, Fluid, AudioEngine, applications, and tests compile with required fields.
+- [x] No production consumer still relies on absent graph fields.
+- [x] Existing tests retain their prior behavioral assertions.
+- [x] Repository search finds no obsolete compatibility fixtures unless explicitly testing runtime rejection.
 
 ### Slice 3 — Shared graph validator
 

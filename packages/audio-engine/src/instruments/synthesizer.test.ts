@@ -102,7 +102,7 @@ function makeSchema(
   detune: SynthesizerSchema["detune"],
   overrides: SchemaOverrides = {},
 ): SynthesizerSchema {
-  const { notes, mask, ...rest } = overrides;
+  const { notes, mask, route = "main", sends = {}, ...rest } = overrides;
 
   return {
     type: "synthesizer",
@@ -115,6 +115,8 @@ function makeSchema(
     gain: makeEnvelope(),
     effects: [],
     muted: false,
+    route,
+    sends,
     ...rest,
   };
 }

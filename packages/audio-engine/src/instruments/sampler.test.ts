@@ -182,7 +182,7 @@ type SchemaOverrides = Omit<Partial<SamplerSchema>, "notes"> & {
 };
 
 function makeSchema(overrides: SchemaOverrides = {}): SamplerSchema {
-  const { notes, mask, ...rest } = overrides;
+  const { notes, mask, route = "main", sends = {}, ...rest } = overrides;
 
   return {
     type: "sampler",
@@ -200,6 +200,8 @@ function makeSchema(overrides: SchemaOverrides = {}): SamplerSchema {
     gain: envelope(),
     effects: [],
     muted: false,
+    route,
+    sends,
     loop: false,
     clipMode: "clipped",
     direction: "forward",

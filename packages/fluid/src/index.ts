@@ -156,13 +156,13 @@ class Drome {
       Array.from(this._buses, ([name, bus]) => [name, bus.getSchema()]),
     );
     instruments.forEach((instrument, index) => {
-      const route = instrument.route ?? "main";
+      const route = instrument.route;
       if (route !== "main" && !this._buses.has(route)) {
         throw new Error(
           `[Drome] Instrument ${index} route "${route}" does not reference a declared bus.`,
         );
       }
-      for (const target of Object.keys(instrument.sends ?? {})) {
+      for (const target of Object.keys(instrument.sends)) {
         if (!this._buses.has(target)) {
           throw new Error(
             `[Drome] Instrument ${index} send "${target}" does not reference a declared bus.`,

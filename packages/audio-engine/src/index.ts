@@ -77,7 +77,7 @@ class AudioEngine {
   }
 
   update(schema: DromeSchema): void {
-    const buses = schema.buses ?? {};
+    const buses = schema.buses;
     for (const [name, bus] of Object.entries(buses)) {
       if (name === "" || name !== name.trim()) {
         throw new Error(`[AudioEngine] Bus name "${name}" is not canonical.`);
@@ -95,7 +95,7 @@ class AudioEngine {
       validateConstantBusEffects(bus.effects, name);
     }
     schema.instruments.forEach((instrument, index) => {
-      const route = instrument.route ?? "main";
+      const route = instrument.route;
       if (route === "" || route !== route.trim()) {
         throw new Error(
           `[AudioEngine] Instrument ${index} route "${route}" is not canonical.`,
@@ -106,7 +106,7 @@ class AudioEngine {
           `[AudioEngine] Instrument ${index} route "${route}" does not reference a declared bus.`,
         );
       }
-      for (const [target, amount] of Object.entries(instrument.sends ?? {})) {
+      for (const [target, amount] of Object.entries(instrument.sends)) {
         if (target === "" || target !== target.trim()) {
           throw new Error(
             `[AudioEngine] Instrument ${index} send target "${target}" is not canonical.`,
@@ -205,20 +205,20 @@ class AudioEngine {
     const buses = new Map<string, RuntimeBus>();
     const instruments: RuntimeInstrument[] = [];
     const previousMainGain = this._master.gain.value;
-    this._master.gain.value = pending.buses?.main?.gain ?? 1;
+    this._master.gain.value = pending.buses.main?.gain ?? 1;
     try {
-      for (const [name, schema] of Object.entries(pending.buses ?? {})) {
+      for (const [name, schema] of Object.entries(pending.buses)) {
         if (name === "main") continue;
         buses.set(name, new RuntimeBus(this._ctx, name, schema, this._master));
       }
 
       for (const [index, schema] of pending.instruments.entries()) {
-        const route = schema.route ?? "main";
+        const route = schema.route;
         const destination =
           route === "main" ? this._master : buses.get(route)!.input;
         const routing = {
           primary: destination,
-          sends: Object.entries(schema.sends ?? {}).map(([target, amount]) => ({
+          sends: Object.entries(schema.sends).map(([target, amount]) => ({
             destination: buses.get(target)!.input,
             amount,
           })),

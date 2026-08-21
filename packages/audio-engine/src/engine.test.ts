@@ -154,8 +154,12 @@ function staticParam(...values: number[]): StaticSchema {
 
 function makeSchema(instrumentCount = 1): DromeSchema {
   return {
-    instruments: Array.from({ length: instrumentCount }, () => ({}) as never),
+    instruments: Array.from(
+      { length: instrumentCount },
+      () => ({ route: "main", sends: {} }) as never,
+    ),
     banks: {},
+    buses: {},
   };
 }
 
@@ -218,6 +222,8 @@ function makeSamplerSchema(): DromeSchema {
         },
         effects: [],
         muted: false,
+        route: "main",
+        sends: {},
         loop: false,
         clipMode: "clipped",
         direction: "forward",
@@ -232,6 +238,7 @@ function makeSamplerSchema(): DromeSchema {
         },
       },
     },
+    buses: {},
   };
 }
 
