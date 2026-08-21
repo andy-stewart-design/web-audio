@@ -208,6 +208,7 @@ interface InstrumentSchema {
   detune: AudioParamSchema;
   muted: boolean;
   route?: string;
+  sends?: Record<string, number>;
 }
 
 interface SynthesizerSchema extends InstrumentSchema {

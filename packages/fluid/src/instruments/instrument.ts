@@ -34,6 +34,7 @@ abstract class Instrument {
   protected _host: Drome | undefined;
   protected _muted = false;
   protected _route = "main";
+  protected _sends = new Map<string, number>();
   private _gainEnvelope: ADSR;
 
   constructor(
@@ -133,10 +134,24 @@ abstract class Instrument {
   }
 
   route(target: string) {
-    const normalized = target.trim();
-    if (normalized === "")
-      throw new Error("[Instrument] route() target cannot be empty.");
-    this._route = normalized;
+    this._route = normalizeTarget(target, "route()");
+    return this;
+  }
+
+  send(target: string | string[], amount: number) {
+    if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
+      throw new Error(
+        "[Instrument] send() amount must be a finite number in [0, 1].",
+      );
+    }
+    const targets = Array.isArray(target) ? target : [target];
+    for (const value of targets) {
+      const normalized = normalizeTarget(value, "send()");
+      if (normalized === "main") {
+        throw new Error("[Instrument] send() cannot target main.");
+      }
+      this._sends.set(normalized, amount);
+    }
     return this;
   }
 
@@ -168,6 +183,14 @@ abstract class Instrument {
     this._effects.push(...effects);
     return this;
   }
+}
+
+function normalizeTarget(target: string, method: string) {
+  const normalized = target.trim();
+  if (normalized === "") {
+    throw new Error(`[Instrument] ${method} target cannot be empty.`);
+  }
+  return normalized;
 }
 
 export default Instrument;

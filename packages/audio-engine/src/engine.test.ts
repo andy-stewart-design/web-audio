@@ -9,7 +9,11 @@ vi.mock("./instruments/synthesizer", () => {
     this: Record<string, unknown>,
     _ctx: unknown,
     _clock: unknown,
-    opts: { destination?: unknown; midiOutputScheduler?: unknown },
+    opts: {
+      destination?: unknown;
+      routing?: unknown;
+      midiOutputScheduler?: unknown;
+    },
   ) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
@@ -18,6 +22,7 @@ vi.mock("./instruments/synthesizer", () => {
     this.retire = vi.fn();
     this.destroy = vi.fn();
     this._destination = opts.destination;
+    this._routing = opts.routing;
     this._midiOutputScheduler = opts.midiOutputScheduler;
     let resolve: () => void;
     this.finished = new Promise<void>((r) => {
@@ -33,7 +38,11 @@ vi.mock("./instruments/sampler", () => {
     this: Record<string, unknown>,
     _ctx: unknown,
     _clock: unknown,
-    opts: { cache: { resolved: Map<string, unknown> }; destination?: unknown },
+    opts: {
+      cache: { resolved: Map<string, unknown> };
+      destination?: unknown;
+      routing?: unknown;
+    },
   ) {
     this.scheduleBar = vi.fn();
     this.cancelFutureNotes = vi.fn();
@@ -42,6 +51,7 @@ vi.mock("./instruments/sampler", () => {
     this.retire = vi.fn();
     this.destroy = vi.fn();
     this._destination = opts.destination;
+    this._routing = opts.routing;
     this.isReady = vi.fn(() => true);
     this.load = vi.fn();
     this.fallbackBufferFor = vi.fn(() => null);
@@ -213,6 +223,10 @@ function instances() {
     destroy: ReturnType<typeof vi.fn>;
     finished: Promise<void>;
     _destination: unknown;
+    _routing: {
+      primary: unknown;
+      sends: { destination: unknown; amount: number }[];
+    };
     _midiOutputScheduler: unknown;
     _resolveFinished: () => void;
   }>;
@@ -232,6 +246,10 @@ function samplerInstances() {
     _cache: { resolved: Map<string, unknown> };
     finished: Promise<void>;
     _destination: unknown;
+    _routing: {
+      primary: unknown;
+      sends: { destination: unknown; amount: number }[];
+    };
     _resolveFinished: () => void;
   }>;
 }
@@ -348,6 +366,47 @@ describe("AudioEngine", () => {
       const input = createGainMock.mock.results[1]?.value;
       expect(instances()[0]._destination).toBe(input);
       expect(instances()[1]._destination).toBe(input);
+    });
+
+    it("resolves primary and send destinations independently", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSchema();
+      schema.buses = {
+        drums: { gain: 1, effects: [] },
+        verb: { gain: 1, effects: [] },
+      };
+      schema.instruments[0].route = "drums";
+      schema.instruments[0].sends = { verb: 0.3 };
+
+      engine.update(schema);
+      clock.emit("prebar");
+
+      const drumsInput = createGainMock.mock.results[1]?.value;
+      const verbInput = createGainMock.mock.results[3]?.value;
+      expect(instances()[0]._routing).toEqual({
+        primary: drumsInput,
+        sends: [{ destination: verbInput, amount: 0.3 }],
+      });
+    });
+
+    it("rejects invalid direct sends", () => {
+      const engine = new AudioEngine(fakeCtx, new FakeClock() as never);
+      const schema = makeSchema();
+      schema.buses = { verb: { gain: 1, effects: [] } };
+
+      schema.instruments[0].sends = { main: 0.2 };
+      expect(() => engine.update(schema)).toThrow(
+        "[AudioEngine] Instrument 0 send cannot target main.",
+      );
+      schema.instruments[0].sends = { missing: 0.2 };
+      expect(() => engine.update(schema)).toThrow(
+        '[AudioEngine] Instrument 0 send "missing" does not reference a declared bus.',
+      );
+      schema.instruments[0].sends = { verb: 2 };
+      expect(() => engine.update(schema)).toThrow(
+        '[AudioEngine] Instrument 0 send "verb" amount must be a finite number in [0, 1].',
+      );
     });
 
     it("rejects unresolved and non-canonical direct routes", () => {

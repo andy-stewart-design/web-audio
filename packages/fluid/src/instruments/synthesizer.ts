@@ -41,6 +41,7 @@ class Synthesizer extends Instrument {
       effects: this._effects.map((e) => e.getSchema()),
       muted: this._muted,
       route: this._route,
+      sends: Object.fromEntries(this._sends),
       notesOut: this._notesOut?.getSchema(),
     };
   }

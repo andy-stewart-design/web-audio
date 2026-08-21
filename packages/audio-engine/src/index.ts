@@ -106,6 +106,28 @@ class AudioEngine {
           `[AudioEngine] Instrument ${index} route "${route}" does not reference a declared bus.`,
         );
       }
+      for (const [target, amount] of Object.entries(instrument.sends ?? {})) {
+        if (target === "" || target !== target.trim()) {
+          throw new Error(
+            `[AudioEngine] Instrument ${index} send target "${target}" is not canonical.`,
+          );
+        }
+        if (target === "main") {
+          throw new Error(
+            `[AudioEngine] Instrument ${index} send cannot target main.`,
+          );
+        }
+        if (!buses[target]) {
+          throw new Error(
+            `[AudioEngine] Instrument ${index} send "${target}" does not reference a declared bus.`,
+          );
+        }
+        if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
+          throw new Error(
+            `[AudioEngine] Instrument ${index} send "${target}" amount must be a finite number in [0, 1].`,
+          );
+        }
+      }
     });
     this._pending = schema;
   }
@@ -192,11 +214,19 @@ class AudioEngine {
         const route = schema.route ?? "main";
         const destination =
           route === "main" ? this._master : buses.get(route)!.input;
+        const routing = {
+          primary: destination,
+          sends: Object.entries(schema.sends ?? {}).map(([target, amount]) => ({
+            destination: buses.get(target)!.input,
+            amount,
+          })),
+        };
         let instrument: RuntimeInstrument;
         if (schema.type === "sampler") {
           instrument = new Sampler(this._ctx, this._clock, {
             schema,
             destination,
+            routing,
             banks: pending.banks,
             cache: this._cache,
             startingBar: upcomingBar,
@@ -209,6 +239,7 @@ class AudioEngine {
           instrument = new Synthesizer(this._ctx, this._clock, {
             schema,
             destination,
+            routing,
             startingBar: upcomingBar,
             barStartTime,
             midiOutputScheduler: this._midiOutputScheduler,

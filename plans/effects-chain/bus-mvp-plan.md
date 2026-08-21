@@ -327,13 +327,13 @@ Instrument owns its send gain nodes. Voice creation and per-voice effect constru
 
 **Acceptance criteria:**
 
-- [ ] One primary connection exists per instrument.
-- [ ] Each send has an independent gain and destination.
-- [ ] Sends branch after balancing and mute.
-- [ ] Primary named-bus effects do not process the instrument's sends.
-- [ ] Muting suppresses primary and send audio.
-- [ ] Destroy disconnects only that instrument's send nodes.
-- [ ] Old graph sends remain connected only to old graph buses.
+- [x] One primary connection exists per instrument.
+- [x] Each send has an independent gain and destination.
+- [x] Sends branch after balancing and mute.
+- [x] Primary named-bus effects do not process the instrument's sends.
+- [x] Muting suppresses primary and send audio.
+- [x] Destroy disconnects only that instrument's send nodes.
+- [x] Old graph sends remain connected only to old graph buses.
 
 ---
 

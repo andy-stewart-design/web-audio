@@ -5,7 +5,7 @@ import type {
   SampleVariationSchema,
   StaticSchemaValue,
 } from "@web-audio/schema";
-import Instrument from "./instrument";
+import Instrument, { type InstrumentRouting } from "./instrument";
 import { SAMPLE_BASE_GAIN } from "@/constants";
 import { preloadVariationIndices } from "@/utils/preload-variations";
 import SampleBufferStore, { type SampleCache } from "./sample-buffer-store";
@@ -13,6 +13,7 @@ import SampleBufferStore, { type SampleCache } from "./sample-buffer-store";
 interface SamplerOptions {
   schema: SamplerSchema;
   destination?: AudioNode;
+  routing?: InstrumentRouting;
   banks: Record<string, BankSchema>;
   cache: SampleCache;
   startingBar?: number;
@@ -31,6 +32,7 @@ class Sampler extends Instrument {
     {
       schema,
       destination,
+      routing,
       banks,
       cache,
       startingBar = 0,
@@ -40,6 +42,7 @@ class Sampler extends Instrument {
   ) {
     super(ctx, clock, {
       destination,
+      routing,
       baseGain: SAMPLE_BASE_GAIN,
       muted: schema.muted,
     });

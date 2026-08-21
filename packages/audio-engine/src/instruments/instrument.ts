@@ -20,8 +20,14 @@ import type { ScheduledNote, ResolvedEnvelopeSchema } from "@/types";
 // Types
 // -----------------------------------------------------------------------------
 
+interface InstrumentRouting {
+  primary: AudioNode;
+  sends: { destination: AudioNode; amount: number }[];
+}
+
 interface InstrumentOptions {
   destination?: AudioNode;
+  routing?: InstrumentRouting;
   baseGain?: number;
   muted?: boolean;
 }
@@ -65,6 +71,7 @@ abstract class Instrument {
   // Output graph
   protected readonly _balancingNode: GainNode;
   protected readonly _muteNode: GainNode;
+  private readonly _sendNodes: GainNode[];
 
   // Voice state
   private _scheduled: Set<ScheduledNote> = new Set();
@@ -94,6 +101,7 @@ abstract class Instrument {
     clock: AudioClock,
     {
       destination = ctx.destination,
+      routing,
       baseGain = SYNTH_BASE_GAIN,
       muted = false,
     }: InstrumentOptions = {},
@@ -105,7 +113,14 @@ abstract class Instrument {
     this._balancingNode.gain.value = baseGain;
     this._muteNode.gain.value = muted ? 0 : 1;
     this._balancingNode.connect(this._muteNode);
-    this._muteNode.connect(destination);
+    this._muteNode.connect(routing?.primary ?? destination);
+    this._sendNodes = (routing?.sends ?? []).map((send) => {
+      const node = ctx.createGain();
+      node.gain.value = send.amount;
+      this._muteNode.connect(node);
+      node.connect(send.destination);
+      return node;
+    });
     this.finished = new Promise<void>((resolve) => {
       this._finishedResolve = resolve;
     });
@@ -164,6 +179,7 @@ abstract class Instrument {
     this._cleanupLfos();
     this._balancingNode.disconnect();
     this._muteNode.disconnect();
+    this._sendNodes.forEach((node) => node.disconnect());
     this._finished = true;
     this._finishedResolve?.();
   }
@@ -559,4 +575,4 @@ abstract class Instrument {
 }
 
 export default Instrument;
-export type { ScheduledNote };
+export type { InstrumentRouting, ScheduledNote };

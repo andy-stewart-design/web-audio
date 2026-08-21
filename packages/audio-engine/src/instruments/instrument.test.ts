@@ -308,6 +308,42 @@ describe("Instrument output lifecycle", () => {
     expect(ctx.gains[1].gain.value).toBe(1);
   });
 
+  it("branches post-mute sends through independent owned gain nodes", () => {
+    const ctx = new FakeAudioContext();
+    const primary = {} as AudioNode;
+    const verb = {} as AudioNode;
+    const delay = {} as AudioNode;
+    const instrument = new TestInstrument(
+      ctx as unknown as AudioContext,
+      {} as never,
+      {
+        routing: {
+          primary,
+          sends: [
+            { destination: verb, amount: 0.2 },
+            { destination: delay, amount: 0.4 },
+          ],
+        },
+      },
+    );
+    const [balancing, mute, verbSend, delaySend] = ctx.gains;
+
+    expect(balancing.connect).toHaveBeenCalledWith(mute);
+    expect(mute.connect.mock.calls).toEqual([
+      [primary],
+      [verbSend],
+      [delaySend],
+    ]);
+    expect(verbSend.gain.value).toBe(0.2);
+    expect(delaySend.gain.value).toBe(0.4);
+    expect(verbSend.connect).toHaveBeenCalledWith(verb);
+    expect(delaySend.connect).toHaveBeenCalledWith(delay);
+
+    instrument.destroy();
+    expect(verbSend.disconnect).toHaveBeenCalledOnce();
+    expect(delaySend.disconnect).toHaveBeenCalledOnce();
+  });
+
   it("retire removes MIDI bindings while preserving the audio graph", () => {
     const ctx = new FakeAudioContext();
     const instrument = new TestInstrument(

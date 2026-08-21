@@ -301,6 +301,54 @@ describe("Drome", () => {
     });
   });
 
+  describe("instrument sends", () => {
+    it("normalizes arrays and applies last-write-wins per target", () => {
+      const d = new Drome();
+      d.bus("verb");
+      d.bus("delay");
+      const synth = d
+        .synth()
+        .send([" verb ", "delay", "verb"], 0.2)
+        .send("verb", 0.4);
+
+      expect(synth.send("delay", 0.1)).toBe(synth);
+      synth.push();
+      expect(d.getSchema().instruments[0].sends).toEqual({
+        verb: 0.4,
+        delay: 0.1,
+      });
+    });
+
+    it("supports forward declarations and rejects unresolved targets", () => {
+      const valid = new Drome();
+      valid.synth().send("verb", 0.2).push();
+      valid.bus("verb");
+      expect(() => valid.getSchema()).not.toThrow();
+
+      const invalid = new Drome();
+      invalid.synth().send("missing", 0.2).push();
+      expect(() => invalid.getSchema()).toThrow(
+        '[Drome] Instrument 0 send "missing" does not reference a declared bus.',
+      );
+    });
+
+    it("rejects main, empty targets, and invalid amounts", () => {
+      const d = new Drome();
+
+      expect(() => d.synth().send("main", 0.2)).toThrow(
+        "[Instrument] send() cannot target main.",
+      );
+      expect(() => d.synth().send(" ", 0.2)).toThrow(
+        "[Instrument] send() target cannot be empty.",
+      );
+      for (const amount of [-0.1, 1.1, Number.NaN, Number.POSITIVE_INFINITY]) {
+        expect(() => d.synth().send("verb", amount)).toThrow(
+          "[Instrument] send() amount must be a finite number in [0, 1].",
+        );
+      }
+    });
+  });
+
   describe("multiple instruments", () => {
     it("each instrument schema is independent", () => {
       const d = new Drome();

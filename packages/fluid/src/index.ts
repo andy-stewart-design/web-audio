@@ -162,6 +162,13 @@ class Drome {
           `[Drome] Instrument ${index} route "${route}" does not reference a declared bus.`,
         );
       }
+      for (const target of Object.keys(instrument.sends ?? {})) {
+        if (!this._buses.has(target)) {
+          throw new Error(
+            `[Drome] Instrument ${index} send "${target}" does not reference a declared bus.`,
+          );
+        }
+      }
     });
 
     return {
