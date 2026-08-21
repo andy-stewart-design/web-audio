@@ -22,7 +22,14 @@ class Bus {
 
   fx(...effects: (Filter | GainEffect)[]): never {
     void effects;
-    throw new Error("[Bus] Effects on main are not supported in the bus MVP.");
+    if (this.name === "main") {
+      throw new Error(
+        "[Bus] Effects on main are not supported in the bus MVP.",
+      );
+    }
+    throw new Error(
+      "[Bus] Named bus effects are not supported until the static-effects slice.",
+    );
   }
 
   getSchema(): BusSchema {

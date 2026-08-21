@@ -2,6 +2,7 @@ import type AudioClock from "@web-audio/clock";
 import type { Midi } from "@web-audio/midi";
 import type { BankSchema, DromeSchema, SamplerSchema } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
+import RuntimeBus from "./buses/runtime-bus";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import MidiOutputScheduler from "./midi-output-scheduler";
@@ -9,15 +10,22 @@ import { registerWorklets } from "./utils/register-worklets";
 import { preloadVariationIndices } from "./utils/preload-variations";
 import { resolveSampleUrl } from "./utils/resolve-sample-entry";
 
+type RuntimeInstrument = Synthesizer | Sampler;
+
+interface RuntimeGraph {
+  instruments: RuntimeInstrument[];
+  buses: Map<string, RuntimeBus>;
+}
+
 class AudioEngine {
   private _ctx: AudioContext;
   private _clock: AudioClock;
   private _master: GainNode;
   private _analyser: AnalyserNode;
-  private _instruments: (Synthesizer | Sampler)[] = [];
-  // Holds retired instruments until all their scheduled audio (including envelope
-  // release tails) has finished. Each instrument removes itself via whenDone().
-  private _retiring: Set<Synthesizer | Sampler> = new Set();
+  private _activeGraph: RuntimeGraph = { instruments: [], buses: new Map() };
+  // Retiring instruments retain their original buses until every voice in that
+  // committed graph has finished.
+  private _retiringGraphs = new Set<RuntimeGraph>();
   // Last-write-wins: if update() is called multiple times before the next
   // prebar fires, only the most recent schema is committed. Earlier schemas
   // are intentionally discarded — in a live coding context, only the latest
@@ -49,39 +57,56 @@ class AudioEngine {
     this._unsub = new Set([
       clock.on("prebar", ({ bar }, time) => this._commit(bar, time)),
       clock.on("bar", ({ bar }, time) => {
-        this._instruments.forEach((inst) => inst.scheduleBar(bar, time));
+        this._activeGraph.instruments.forEach((instrument) =>
+          instrument.scheduleBar(bar, time),
+        );
       }),
       clock.on("stop", () => {
-        this._instruments.forEach((inst) => inst.cancelFutureNotes());
+        this._activeGraph.instruments.forEach((instrument) =>
+          instrument.cancelFutureNotes(),
+        );
+        this._retiringGraphs.forEach((graph) =>
+          graph.instruments.forEach((instrument) =>
+            instrument.cancelFutureNotes(),
+          ),
+        );
         this._midiOutputScheduler.stop();
       }),
     ]);
   }
 
   update(schema: DromeSchema): void {
-    if (schema.buses) {
-      const namedBus = Object.keys(schema.buses).find(
-        (name) => name !== "main",
-      );
-      if (namedBus) {
+    const buses = schema.buses ?? {};
+    for (const [name, bus] of Object.entries(buses)) {
+      if (name === "" || name !== name.trim()) {
+        throw new Error(`[AudioEngine] Bus name "${name}" is not canonical.`);
+      }
+      if (!Number.isFinite(bus.gain) || bus.gain < 0) {
         throw new Error(
-          `[AudioEngine] Named bus "${namedBus}" is not supported until the routing slice.`,
+          `[AudioEngine] Bus "${name}" gain must be a finite number greater than or equal to 0.`,
         );
       }
-      const main = schema.buses.main;
-      if (main) {
-        if (!Number.isFinite(main.gain) || main.gain < 0) {
-          throw new Error(
-            "[AudioEngine] Main gain must be a finite number greater than or equal to 0.",
-          );
-        }
-        if (main.effects.length > 0) {
-          throw new Error(
-            "[AudioEngine] Effects on main are not supported in the bus MVP.",
-          );
-        }
+      if (bus.effects.length > 0) {
+        const message =
+          name === "main"
+            ? "Effects on main are not supported in the bus MVP."
+            : `Effects on named bus "${name}" are not supported until the static-effects slice.`;
+        throw new Error(`[AudioEngine] ${message}`);
       }
     }
+    schema.instruments.forEach((instrument, index) => {
+      const route = instrument.route ?? "main";
+      if (route === "" || route !== route.trim()) {
+        throw new Error(
+          `[AudioEngine] Instrument ${index} route "${route}" is not canonical.`,
+        );
+      }
+      if (route !== "main" && !buses[route]) {
+        throw new Error(
+          `[AudioEngine] Instrument ${index} route "${route}" does not reference a declared bus.`,
+        );
+      }
+    });
     this._pending = schema;
   }
 
@@ -90,13 +115,19 @@ class AudioEngine {
     this.disconnectMidi();
     this._midi = midi;
     this._midiOutputScheduler.connect(midi);
-    this._instruments.forEach((instrument) => instrument.connectMidi(midi));
+    this._activeGraph.instruments.forEach((instrument) =>
+      instrument.connectMidi(midi),
+    );
   }
 
   disconnectMidi() {
     if (!this._midi) return;
-    this._instruments.forEach((instrument) => instrument.disconnectMidi());
-    this._retiring.forEach((instrument) => instrument.disconnectMidi());
+    this._activeGraph.instruments.forEach((instrument) =>
+      instrument.disconnectMidi(),
+    );
+    this._retiringGraphs.forEach((graph) =>
+      graph.instruments.forEach((instrument) => instrument.disconnectMidi()),
+    );
     this._midiOutputScheduler.disconnect();
     this._midi = null;
   }
@@ -147,57 +178,76 @@ class AudioEngine {
     if (this._pending.bpm !== undefined) {
       this._clock.bpm(this._pending.bpm);
     }
-    this._master.gain.value = this._pending.buses?.main?.gain ?? 1;
 
-    // Retire current instruments until their existing release tails finish.
-    for (const inst of this._instruments) {
-      inst.retire();
-      this._retiring.add(inst);
-      inst.finished.then(() => {
-        this._retiring.delete(inst);
-        inst.destroy();
-      });
+    const pending = this._pending;
+    const buses = new Map<string, RuntimeBus>();
+    const instruments: RuntimeInstrument[] = [];
+    try {
+      for (const [name, schema] of Object.entries(pending.buses ?? {})) {
+        if (name === "main") continue;
+        buses.set(name, new RuntimeBus(this._ctx, schema, this._master));
+      }
+
+      for (const [index, schema] of pending.instruments.entries()) {
+        const route = schema.route ?? "main";
+        const destination =
+          route === "main" ? this._master : buses.get(route)!.input;
+        let instrument: RuntimeInstrument;
+        if (schema.type === "sampler") {
+          instrument = new Sampler(this._ctx, this._clock, {
+            schema,
+            destination,
+            banks: pending.banks,
+            cache: this._cache,
+            startingBar: upcomingBar,
+            barStartTime,
+            fallbackBuffer: this._fallbackBufferFor(schema, index),
+          });
+          // load() hits _cache.resolved synchronously if prepare() ran.
+          void instrument.load();
+        } else {
+          instrument = new Synthesizer(this._ctx, this._clock, {
+            schema,
+            destination,
+            startingBar: upcomingBar,
+            barStartTime,
+            midiOutputScheduler: this._midiOutputScheduler,
+          });
+        }
+        if (this._midi) instrument.connectMidi(this._midi);
+        instruments.push(instrument);
+      }
+    } catch (error) {
+      instruments.forEach((instrument) => instrument.destroy());
+      buses.forEach((bus) => bus.destroy());
+      throw error;
     }
 
-    // Create instruments with correct startingBar/barStartTime for LFO phase init
-    const banks = this._pending.banks;
-    this._instruments = this._pending.instruments.map((schema, index) => {
-      if (schema.type === "sampler") {
-        const inst = new Sampler(this._ctx, this._clock, {
-          schema,
-          destination: this._master,
-          banks,
-          cache: this._cache,
-          startingBar: upcomingBar,
-          barStartTime,
-          fallbackBuffer: this._fallbackBufferFor(schema, index),
-        });
-        // load() hits _cache.resolved synchronously if prepare() ran — no yield.
-        // If the requested sample is still loading, the sampler keeps using the
-        // previous matching buffer until the new one is decoded.
-        inst.load();
-        if (this._midi) inst.connectMidi(this._midi);
-        return inst;
-      }
-      const inst = new Synthesizer(this._ctx, this._clock, {
-        schema,
-        destination: this._master,
-        startingBar: upcomingBar,
-        barStartTime,
-        midiOutputScheduler: this._midiOutputScheduler,
-      });
-      if (this._midi) inst.connectMidi(this._midi);
-      return inst;
-    });
-
+    const oldGraph = this._activeGraph;
+    this._master.gain.value = pending.buses?.main?.gain ?? 1;
+    this._activeGraph = { instruments, buses };
     this._pending = null;
+    this._retire(oldGraph);
+  }
+
+  private _retire(graph: RuntimeGraph) {
+    if (graph.instruments.length === 0 && graph.buses.size === 0) return;
+    this._retiringGraphs.add(graph);
+    graph.instruments.forEach((instrument) => instrument.retire());
+    void Promise.all(
+      graph.instruments.map((instrument) => instrument.finished),
+    ).then(() => {
+      if (!this._retiringGraphs.delete(graph)) return;
+      graph.instruments.forEach((instrument) => instrument.destroy());
+      graph.buses.forEach((bus) => bus.destroy());
+    });
   }
 
   private _fallbackBufferFor(
     schema: SamplerSchema,
     index: number,
   ): AudioBuffer | null {
-    const previous = this._instruments[index];
+    const previous = this._activeGraph.instruments[index];
     if (!(previous instanceof Sampler)) return null;
     return previous.fallbackBufferFor(schema);
   }
@@ -225,10 +275,14 @@ class AudioEngine {
     this._unsub.forEach((fn) => fn());
     this.disconnectMidi();
     this._midiOutputScheduler.destroy();
-    this._instruments.forEach((inst) => inst.destroy());
-    this._retiring.forEach((inst) => inst.destroy());
-    this._instruments = [];
-    this._retiring.clear();
+    this._activeGraph.instruments.forEach((instrument) => instrument.destroy());
+    this._activeGraph.buses.forEach((bus) => bus.destroy());
+    this._retiringGraphs.forEach((graph) => {
+      graph.instruments.forEach((instrument) => instrument.destroy());
+      graph.buses.forEach((bus) => bus.destroy());
+    });
+    this._activeGraph = { instruments: [], buses: new Map() };
+    this._retiringGraphs.clear();
     this._pending = null;
     this._master.disconnect();
     this._analyser.disconnect();

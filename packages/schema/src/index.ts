@@ -207,6 +207,7 @@ interface InstrumentSchema {
   effects: EffectSchema[];
   detune: AudioParamSchema;
   muted: boolean;
+  route?: string;
 }
 
 interface SynthesizerSchema extends InstrumentSchema {

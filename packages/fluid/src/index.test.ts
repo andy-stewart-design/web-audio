@@ -258,6 +258,49 @@ describe("Drome", () => {
     });
   });
 
+  describe("primary routes", () => {
+    it("defaults routes to main and normalizes named targets", () => {
+      const d = new Drome();
+      d.bus("drums");
+      d.synth().push();
+      d.sample("bd").route(" drums ").push();
+
+      expect(
+        d.getSchema().instruments.map((instrument) => instrument.route),
+      ).toEqual(["main", "drums"]);
+    });
+
+    it("uses last-write-wins and remains fluent", () => {
+      const d = new Drome();
+      d.bus("drums");
+      const synth = d.synth();
+
+      expect(synth.route("main")).toBe(synth);
+      synth.route("drums").push();
+      expect(d.getSchema().instruments[0].route).toBe("drums");
+    });
+
+    it("validates forward references after the complete graph is assembled", () => {
+      const d = new Drome();
+      d.synth().route("drums").push();
+      d.bus("drums");
+
+      expect(() => d.getSchema()).not.toThrow();
+    });
+
+    it("rejects empty and unresolved route targets", () => {
+      const d = new Drome();
+
+      expect(() => d.synth().route("   ")).toThrow(
+        "[Instrument] route() target cannot be empty.",
+      );
+      d.synth().route("missing").push();
+      expect(() => d.getSchema()).toThrow(
+        '[Drome] Instrument 0 route "missing" does not reference a declared bus.',
+      );
+    });
+  });
+
   describe("multiple instruments", () => {
     it("each instrument schema is independent", () => {
       const d = new Drome();

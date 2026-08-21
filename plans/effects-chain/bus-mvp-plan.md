@@ -243,13 +243,13 @@ Construction failure handling is limited to a normal `try/catch` that destroys s
 
 **Acceptance criteria:**
 
-- [ ] Default instruments still connect directly to persistent main.
-- [ ] A named route has exactly one primary path and no direct-main duplicate.
-- [ ] Multiple instruments sum into one named bus input.
-- [ ] Named bus gain affects every routed source.
-- [ ] Old voices retain their original named bus until they finish.
-- [ ] No scheduler, retirement fade, settling delay, or generated main node exists.
-- [ ] Sample cache, fallback buffer, prepare, MIDI, analyser, and stop behavior remain covered.
+- [x] Default instruments still connect directly to persistent main.
+- [x] A named route has exactly one primary path and no direct-main duplicate.
+- [x] Multiple instruments sum into one named bus input.
+- [x] Named bus gain affects every routed source.
+- [x] Old voices retain their original named bus until they finish.
+- [x] No scheduler, retirement fade, settling delay, or generated main node exists.
+- [x] Sample cache, fallback buffer, prepare, MIDI, analyser, and stop behavior remain covered.
 
 ---
 

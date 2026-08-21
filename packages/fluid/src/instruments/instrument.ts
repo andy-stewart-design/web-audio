@@ -33,6 +33,7 @@ abstract class Instrument {
   protected _effects: (Filter | GainEffect)[] = [];
   protected _host: Drome | undefined;
   protected _muted = false;
+  protected _route = "main";
   private _gainEnvelope: ADSR;
 
   constructor(
@@ -128,6 +129,14 @@ abstract class Instrument {
 
   mute(enabled = true) {
     this._muted = enabled;
+    return this;
+  }
+
+  route(target: string) {
+    const normalized = target.trim();
+    if (normalized === "")
+      throw new Error("[Instrument] route() target cannot be empty.");
+    this._route = normalized;
     return this;
   }
 

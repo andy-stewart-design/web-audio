@@ -47,11 +47,6 @@ class Drome {
   bus(name: string) {
     const normalized = name.trim();
     if (normalized === "") throw new Error("[Bus] name cannot be empty.");
-    if (normalized !== "main") {
-      throw new Error(
-        `[Bus] Named bus "${normalized}" is not supported until the routing slice.`,
-      );
-    }
     let bus = this._buses.get(normalized);
     if (!bus) {
       bus = new Bus(normalized);
@@ -160,6 +155,14 @@ class Drome {
     const buses = Object.fromEntries(
       Array.from(this._buses, ([name, bus]) => [name, bus.getSchema()]),
     );
+    instruments.forEach((instrument, index) => {
+      const route = instrument.route ?? "main";
+      if (route !== "main" && !this._buses.has(route)) {
+        throw new Error(
+          `[Drome] Instrument ${index} route "${route}" does not reference a declared bus.`,
+        );
+      }
+    });
 
     return {
       ...(this._bpm !== undefined && { bpm: this._bpm }),

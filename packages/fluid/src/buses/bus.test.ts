@@ -34,20 +34,25 @@ describe("Bus builder", () => {
     expect(d.getSchema().buses?.main.gain).toBe(0);
   });
 
-  it("rejects empty and named buses in the main-gain slice", () => {
+  it("rejects empty names and normalizes named buses", () => {
     const d = new Drome();
 
     expect(() => d.bus("   ")).toThrow("[Bus] name cannot be empty.");
-    expect(() => d.bus("drums")).toThrow(
-      '[Bus] Named bus "drums" is not supported until the routing slice.',
-    );
+    expect(d.bus(" drums ")).toBe(d.bus("drums"));
+    expect(d.bus("drums").gain(0.75).getSchema()).toEqual({
+      gain: 0.75,
+      effects: [],
+    });
   });
 
-  it("rejects effects on main", () => {
+  it("rejects effects until their dedicated slice", () => {
     const d = new Drome();
 
     expect(() => d.bus("main").fx(d.lpf(800))).toThrow(
       "[Bus] Effects on main are not supported in the bus MVP.",
+    );
+    expect(() => d.bus("drums").fx(d.lpf(800))).toThrow(
+      "[Bus] Named bus effects are not supported until the static-effects slice.",
     );
   });
 });
