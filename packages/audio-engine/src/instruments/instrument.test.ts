@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CcSignal, Midi } from "@web-audio/midi";
-import type { MidiCcSchema } from "@web-audio/schema";
+import type {
+  AudioParamSchema,
+  LfoSchema,
+  MidiCcSchema,
+  StaticSchema,
+} from "@web-audio/schema";
 import Instrument from "./instrument";
 
 // ---------------------------------------------------------------------------
@@ -9,10 +14,10 @@ import Instrument from "./instrument";
 
 class FakeSourceNode {
   onended: (() => void) | null = null;
-  connect() {}
-  disconnect() {}
-  start() {}
-  stop() {}
+  connect = vi.fn();
+  disconnect = vi.fn();
+  start = vi.fn();
+  stop = vi.fn();
   fireEnded() {
     this.onended?.();
   }
@@ -32,6 +37,14 @@ class FakeAudioParam {
   value = 0;
   setValueAtTime = vi.fn();
   setTargetAtTime = vi.fn();
+}
+
+class FakeLfoNode {
+  connectedIntrinsicValues: number[] = [];
+  connect = vi.fn((param: FakeAudioParam) => {
+    this.connectedIntrinsicValues.push(param.value);
+  });
+  disconnect = vi.fn();
 }
 
 class FakeCcSignal implements CcSignal {
@@ -86,36 +99,62 @@ class TestInstrument extends Instrument {
     sourceNode: FakeSourceNode,
     audioNodes: FakeGainNode[],
     startTime: number,
-    midiBindings: (() => void)[] = [],
+    completionCleanups: (() => void)[] = [],
   ) {
     this._track(
       sourceNode as unknown as AudioScheduledSourceNode,
       audioNodes as unknown as AudioNode[],
       startTime,
-      midiBindings,
+      completionCleanups,
     );
   }
 
-  applyParam(param: AudioParam, schema: MidiCcSchema) {
-    const midiBindings: (() => void)[] = [];
+  applyParam(param: AudioParam, schema: AudioParamSchema) {
+    const completionCleanups: (() => void)[] = [];
     this._applyParamSchema(
       param,
       schema,
       { barIndex: 0, stepIndex: 0, startTime: 10, duration: 1, endTime: 11 },
       1,
-      midiBindings,
+      completionCleanups,
     );
-    return midiBindings;
+    return completionCleanups;
   }
 
   registerMidiBinding(bind: (midi: Midi | null) => void) {
     return this._registerMidiBinding(bind);
+  }
+
+  registerLfo(schema: LfoSchema, node: FakeLfoNode) {
+    this._lfoNodes.set(schema.id, node as unknown as AudioWorkletNode);
   }
 }
 
 // ---------------------------------------------------------------------------
 // Schema fixtures
 // ---------------------------------------------------------------------------
+
+function staticParam(value: number): StaticSchema {
+  return {
+    type: "static",
+    polyphonic: false,
+    cycle: [[{ value, offset: 0, duration: 1, stepIndex: 0 }]],
+  };
+}
+
+function lfo(): LfoSchema {
+  return {
+    type: "lfo",
+    id: "test-lfo",
+    outputA: staticParam(400),
+    outputB: staticParam(1200),
+    speed: [1],
+    waveform: ["sine"],
+    phase: 0,
+    norm: true,
+    invert: false,
+  };
+}
 
 function midiCc(overrides: Partial<MidiCcSchema> = {}): MidiCcSchema {
   return {
@@ -269,6 +308,42 @@ describe("Instrument output lifecycle", () => {
     expect(ctx.gains[1].gain.value).toBe(1);
   });
 
+  it("branches post-mute sends through independent owned gain nodes", () => {
+    const ctx = new FakeAudioContext();
+    const primary = {} as AudioNode;
+    const verb = {} as AudioNode;
+    const delay = {} as AudioNode;
+    const instrument = new TestInstrument(
+      ctx as unknown as AudioContext,
+      {} as never,
+      {
+        routing: {
+          primary,
+          sends: [
+            { destination: verb, amount: 0.2 },
+            { destination: delay, amount: 0.4 },
+          ],
+        },
+      },
+    );
+    const [balancing, mute, verbSend, delaySend] = ctx.gains;
+
+    expect(balancing.connect).toHaveBeenCalledWith(mute);
+    expect(mute.connect.mock.calls).toEqual([
+      [primary],
+      [verbSend],
+      [delaySend],
+    ]);
+    expect(verbSend.gain.value).toBe(0.2);
+    expect(delaySend.gain.value).toBe(0.4);
+    expect(verbSend.connect).toHaveBeenCalledWith(verb);
+    expect(delaySend.connect).toHaveBeenCalledWith(delay);
+
+    instrument.destroy();
+    expect(verbSend.disconnect).toHaveBeenCalledOnce();
+    expect(delaySend.disconnect).toHaveBeenCalledOnce();
+  });
+
   it("retire removes MIDI bindings while preserving the audio graph", () => {
     const ctx = new FakeAudioContext();
     const instrument = new TestInstrument(
@@ -303,6 +378,196 @@ describe("Instrument output lifecycle", () => {
     expect(ctx.gains[0].disconnect).toHaveBeenCalledOnce();
     expect(ctx.gains[1].disconnect).toHaveBeenCalledOnce();
     expect(voice.disconnect).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Instrument LFO parameter values", () => {
+  it.each([
+    ["gain", 1],
+    ["filter frequency", 350],
+    ["filter Q", 1],
+    ["filter gain", 4],
+    ["detune", 100],
+  ])(
+    "neutralizes the native %s value before connecting",
+    (_target, nativeValue) => {
+      const instrument = new TestInstrument(
+        new FakeAudioContext() as unknown as AudioContext,
+        {} as never,
+      );
+      const schema = lfo();
+      const node = new FakeLfoNode();
+      const param = new FakeAudioParam();
+      param.value = nativeValue;
+      instrument.registerLfo(schema, node);
+
+      const cleanups = instrument.applyParam(
+        param as unknown as AudioParam,
+        schema,
+      );
+
+      expect(param.value).toBe(0);
+      expect(node.connect).toHaveBeenCalledWith(param);
+      expect(node.connectedIntrinsicValues).toEqual([0]);
+      expect(cleanups).toHaveLength(1);
+    },
+  );
+
+  it("does not alter a target when its LFO node is unavailable", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const param = new FakeAudioParam();
+    param.value = 350;
+
+    instrument.applyParam(param as unknown as AudioParam, lfo());
+
+    expect(param.value).toBe(350);
+  });
+
+  it("leaves non-LFO intrinsic values unchanged", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const param = new FakeAudioParam();
+    param.value = 350;
+
+    instrument.applyParam(param as unknown as AudioParam, staticParam(800));
+
+    expect(param.value).toBe(350);
+    expect(param.setValueAtTime).toHaveBeenCalledWith(800, 10);
+  });
+});
+
+describe("Instrument LFO effective-value compatibility", () => {
+  it.each([
+    {
+      target: "oscillator detune",
+      nativeValue: 0,
+      configuredRange: [-100, 100],
+      oldRange: [-100, 100],
+    },
+    {
+      target: "buffer-source detune",
+      nativeValue: 0,
+      configuredRange: [-100, 100],
+      oldRange: [-100, 100],
+    },
+    {
+      target: "filter frequency",
+      nativeValue: 350,
+      configuredRange: [400, 1200],
+      oldRange: [750, 1550],
+    },
+    {
+      target: "filter Q",
+      nativeValue: 1,
+      configuredRange: [0.5, 8],
+      oldRange: [1.5, 9],
+    },
+    {
+      target: "filter gain",
+      nativeValue: 0,
+      configuredRange: [-6, 6],
+      oldRange: [-6, 6],
+    },
+    {
+      target: "gain-effect gain",
+      nativeValue: 1,
+      configuredRange: [0, 1],
+      oldRange: [1, 2],
+    },
+  ])(
+    "$target changes from the inspectable old range to the configured range",
+    ({ nativeValue, configuredRange, oldRange }) => {
+      const instrument = new TestInstrument(
+        new FakeAudioContext() as unknown as AudioContext,
+        {} as never,
+      );
+      const schema = lfo();
+      const node = new FakeLfoNode();
+      const param = new FakeAudioParam();
+      param.value = nativeValue;
+      instrument.registerLfo(schema, node);
+
+      expect(configuredRange.map((value) => value + nativeValue)).toEqual(
+        oldRange,
+      );
+
+      instrument.applyParam(param as unknown as AudioParam, schema);
+      const correctedEffectiveRange = configuredRange.map(
+        (value) => value + param.value,
+      );
+
+      expect(correctedEffectiveRange).toEqual(configuredRange);
+    },
+  );
+});
+
+describe("Instrument LFO edge lifecycle", () => {
+  function setupVoice(startTime: number) {
+    const ctx = new FakeAudioContext();
+    const instrument = new TestInstrument(
+      ctx as unknown as AudioContext,
+      {} as never,
+    );
+    const schema = lfo();
+    const lfoNode = new FakeLfoNode();
+    const param = new FakeAudioParam();
+    const source = new FakeSourceNode();
+    instrument.registerLfo(schema, lfoNode);
+    const cleanups = instrument.applyParam(
+      param as unknown as AudioParam,
+      schema,
+    );
+    instrument.track(source, [], startTime, cleanups);
+    return { ctx, instrument, lfoNode, param, source };
+  }
+
+  it("disconnects an LFO parameter edge once when its voice ends", () => {
+    const { lfoNode, param, source } = setupVoice(0);
+
+    source.fireEnded();
+    source.fireEnded();
+
+    expect(lfoNode.disconnect).toHaveBeenCalledOnce();
+    expect(lfoNode.disconnect).toHaveBeenCalledWith(param);
+  });
+
+  it("disconnects a future voice and its LFO edge on transport stop", () => {
+    const { instrument, lfoNode, param, source } = setupVoice(1);
+
+    instrument.cancelFutureNotes();
+    instrument.cancelFutureNotes();
+
+    expect(source.stop).toHaveBeenCalledOnce();
+    expect(source.stop).toHaveBeenCalledWith(0);
+    expect(source.disconnect).toHaveBeenCalledOnce();
+    expect(source.onended).toBeNull();
+    expect(lfoNode.disconnect).toHaveBeenCalledOnce();
+    expect(lfoNode.disconnect).toHaveBeenCalledWith(param);
+  });
+
+  it("does not disconnect an active voice LFO on transport stop", () => {
+    const { instrument, lfoNode, param, source } = setupVoice(0);
+
+    instrument.cancelFutureNotes();
+
+    expect(lfoNode.disconnect).not.toHaveBeenCalled();
+
+    source.fireEnded();
+    expect(lfoNode.disconnect).toHaveBeenCalledWith(param);
+  });
+
+  it("disconnects voice edges before shared LFO nodes on destruction", () => {
+    const { instrument, lfoNode, param } = setupVoice(0);
+
+    instrument.destroy();
+    instrument.destroy();
+
+    expect(lfoNode.disconnect.mock.calls).toEqual([[param], []]);
   });
 });
 
@@ -468,6 +733,28 @@ describe("Instrument MIDI CC parameters", () => {
 
     instrument.cancelFutureNotes();
 
+    expect(signal.subscriberCount).toBe(0);
+  });
+
+  it("preserves active voice bindings on transport stop", () => {
+    const ctx = new FakeAudioContext();
+    const instrument = new TestInstrument(
+      ctx as unknown as AudioContext,
+      {} as never,
+    );
+    const signal = new FakeCcSignal();
+    const bindings = instrument.applyParam(
+      new FakeAudioParam() as unknown as AudioParam,
+      midiCc(),
+    );
+    instrument.connectMidi(midiWithSignal(signal).midi);
+    const source = new FakeSourceNode();
+    instrument.track(source, [], 0, bindings);
+
+    instrument.cancelFutureNotes();
+
+    expect(signal.subscriberCount).toBe(1);
+    source.fireEnded();
     expect(signal.subscriberCount).toBe(0);
   });
 });

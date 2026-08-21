@@ -2,6 +2,7 @@ import { RandomCycle } from "@web-audio/patterns";
 import Envelope from "./automations/envelope";
 import Lfo, { type LfoInput } from "./automations/lfo";
 import { BUILT_IN_BANKS } from "./banks";
+import Bus from "./buses/bus";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
 import Instrument from "./instruments/instrument";
@@ -27,6 +28,7 @@ class Drome {
   private _instruments: Set<Instrument>;
   private _bpm: number | undefined;
   private _banks: Record<string, BankSchema>;
+  private _buses = new Map<string, Bus>();
 
   constructor() {
     this._instruments = new Set();
@@ -40,6 +42,17 @@ class Drome {
 
   synth(type?: WaveformAlias) {
     return new Synthesizer({ host: this, type });
+  }
+
+  bus(name: string) {
+    const normalized = name.trim();
+    if (normalized === "") throw new Error("[Bus] name cannot be empty.");
+    let bus = this._buses.get(normalized);
+    if (!bus) {
+      bus = new Bus(normalized);
+      this._buses.set(normalized, bus);
+    }
+    return bus;
   }
 
   sample(nameOrToken: string, variation?: number) {
@@ -139,10 +152,30 @@ class Drome {
       }
     }
 
+    const buses = Object.fromEntries(
+      Array.from(this._buses, ([name, bus]) => [name, bus.getSchema()]),
+    );
+    instruments.forEach((instrument, index) => {
+      const route = instrument.route ?? "main";
+      if (route !== "main" && !this._buses.has(route)) {
+        throw new Error(
+          `[Drome] Instrument ${index} route "${route}" does not reference a declared bus.`,
+        );
+      }
+      for (const target of Object.keys(instrument.sends ?? {})) {
+        if (!this._buses.has(target)) {
+          throw new Error(
+            `[Drome] Instrument ${index} send "${target}" does not reference a declared bus.`,
+          );
+        }
+      }
+    });
+
     return {
       ...(this._bpm !== undefined && { bpm: this._bpm }),
       instruments,
       banks,
+      buses: this._buses.size > 0 ? buses : undefined,
     };
   }
 }

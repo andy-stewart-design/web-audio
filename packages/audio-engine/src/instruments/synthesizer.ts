@@ -1,4 +1,4 @@
-import Instrument from "./instrument";
+import Instrument, { type InstrumentRouting } from "./instrument";
 import MidiOutputScheduler from "@/midi-output-scheduler";
 import { midiToFrequency } from "@/utils/midi-to-frequency";
 
@@ -8,6 +8,7 @@ import type AudioClock from "@web-audio/clock";
 interface SynthesizerOptions {
   schema: SynthesizerSchema;
   destination?: AudioNode;
+  routing?: InstrumentRouting;
   startingBar?: number;
   barStartTime?: number;
   midiOutputScheduler?: MidiOutputScheduler;
@@ -20,6 +21,7 @@ class Synthesizer extends Instrument {
   constructor(ctx: AudioContext, clock: AudioClock, opts: SynthesizerOptions) {
     super(ctx, clock, {
       destination: opts.destination,
+      routing: opts.routing,
       muted: opts.schema.muted,
     });
     this._schema = opts.schema;

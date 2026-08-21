@@ -20,8 +20,14 @@ import type { ScheduledNote, ResolvedEnvelopeSchema } from "@/types";
 // Types
 // -----------------------------------------------------------------------------
 
+interface InstrumentRouting {
+  primary: AudioNode;
+  sends: { destination: AudioNode; amount: number }[];
+}
+
 interface InstrumentOptions {
   destination?: AudioNode;
+  routing?: InstrumentRouting;
   baseGain?: number;
   muted?: boolean;
 }
@@ -65,6 +71,7 @@ abstract class Instrument {
   // Output graph
   protected readonly _balancingNode: GainNode;
   protected readonly _muteNode: GainNode;
+  private readonly _sendNodes: GainNode[];
 
   // Voice state
   private _scheduled: Set<ScheduledNote> = new Set();
@@ -94,6 +101,7 @@ abstract class Instrument {
     clock: AudioClock,
     {
       destination = ctx.destination,
+      routing,
       baseGain = SYNTH_BASE_GAIN,
       muted = false,
     }: InstrumentOptions = {},
@@ -105,7 +113,14 @@ abstract class Instrument {
     this._balancingNode.gain.value = baseGain;
     this._muteNode.gain.value = muted ? 0 : 1;
     this._balancingNode.connect(this._muteNode);
-    this._muteNode.connect(destination);
+    this._muteNode.connect(routing?.primary ?? destination);
+    this._sendNodes = (routing?.sends ?? []).map((send) => {
+      const node = ctx.createGain();
+      node.gain.value = send.amount;
+      this._muteNode.connect(node);
+      node.connect(send.destination);
+      return node;
+    });
     this.finished = new Promise<void>((resolve) => {
       this._finishedResolve = resolve;
     });
@@ -128,8 +143,8 @@ abstract class Instrument {
   cancelFutureNotes() {
     const now = this._ctx.currentTime;
     for (const note of this._scheduled) {
-      note.midiBindings.forEach((unbind) => unbind());
       if (note.startTime <= now) continue;
+      note.completionCleanups.forEach((cleanup) => cleanup());
       note.sourceNode.onended = null;
       note.sourceNode.stop(0);
       note.sourceNode.disconnect();
@@ -153,7 +168,7 @@ abstract class Instrument {
     this._midiBindings.clear();
 
     for (const note of this._scheduled) {
-      note.midiBindings.forEach((unbind) => unbind());
+      note.completionCleanups.forEach((cleanup) => cleanup());
       note.sourceNode.onended = null;
       note.sourceNode.stop(0);
       note.sourceNode.disconnect();
@@ -164,6 +179,7 @@ abstract class Instrument {
     this._cleanupLfos();
     this._balancingNode.disconnect();
     this._muteNode.disconnect();
+    this._sendNodes.forEach((node) => node.disconnect());
     this._finished = true;
     this._finishedResolve?.();
   }
@@ -174,7 +190,7 @@ abstract class Instrument {
 
   protected _scheduleVoice(params: ScheduleVoiceParams) {
     const { source, note, detune, gainEnvelope, effects } = params;
-    const midiBindings: (() => void)[] = [];
+    const completionCleanups: (() => void)[] = [];
 
     const gain = new GainNode(this._ctx);
 
@@ -192,17 +208,20 @@ abstract class Instrument {
           note,
         );
       } else if (detune.resolved.type === "lfo") {
-        const lfoNode = this._lfoNodes.get(detune.resolved.schema.id);
-        if (lfoNode) lfoNode.connect(detune.param);
+        this._connectLfo(
+          detune.param,
+          detune.resolved.schema,
+          completionCleanups,
+        );
       } else if (detune.resolved.type === "midi-cc") {
-        midiBindings.push(
+        completionCleanups.push(
           this._bindMidiParam(detune.param, detune.resolved.schema, 1),
         );
       }
     }
 
     const effectNodes = effects.map((effect) =>
-      this._buildEffectNode(effect, note, midiBindings),
+      this._buildEffectNode(effect, note, completionCleanups),
     );
 
     source.connect(gain);
@@ -222,13 +241,13 @@ abstract class Instrument {
     }
 
     source.stop(params.stopTime ?? note.endTime + releaseDur + 0.05);
-    this._track(source, chain, note.startTime, midiBindings);
+    this._track(source, chain, note.startTime, completionCleanups);
   }
 
   protected _buildEffectNode(
     effect: EffectSchema,
     note: NoteScheduleContext,
-    midiBindings: (() => void)[],
+    completionCleanups: (() => void)[],
   ) {
     switch (effect.type) {
       case "filter": {
@@ -241,13 +260,19 @@ abstract class Instrument {
           [node.detune, effect.detune],
           [node.gain, effect.gain],
         ] as const) {
-          this._applyParamSchema(param, schema, note, 1, midiBindings);
+          this._applyParamSchema(param, schema, note, 1, completionCleanups);
         }
         return node;
       }
       case "gain": {
         const node = new GainNode(this._ctx);
-        this._applyParamSchema(node.gain, effect.gain, note, 1, midiBindings);
+        this._applyParamSchema(
+          node.gain,
+          effect.gain,
+          note,
+          1,
+          completionCleanups,
+        );
         return node;
       }
     }
@@ -257,12 +282,12 @@ abstract class Instrument {
     sourceNode: AudioScheduledSourceNode,
     audioNodes: AudioNode[],
     startTime: number,
-    midiBindings: (() => void)[] = [],
+    completionCleanups: (() => void)[] = [],
   ) {
     const scheduled = {
       sourceNode,
       audioNodes,
-      midiBindings,
+      completionCleanups,
       startTime,
     } satisfies ScheduledNote;
     this._scheduled.add(scheduled);
@@ -270,7 +295,7 @@ abstract class Instrument {
     sourceNode.onended = () => {
       sourceNode.disconnect();
       for (const n of audioNodes) n.disconnect();
-      midiBindings.forEach((unbind) => unbind());
+      completionCleanups.forEach((cleanup) => cleanup());
       this._scheduled.delete(scheduled);
       this._finish();
     };
@@ -285,13 +310,12 @@ abstract class Instrument {
     schema: AudioParamSchema,
     note: NoteScheduleContext,
     scale = 1,
-    midiBindings: (() => void)[] = [],
+    completionCleanups: (() => void)[] = [],
   ) {
     if (schema.type === "midi-cc") {
-      midiBindings.push(this._bindMidiParam(param, schema, scale));
+      completionCleanups.push(this._bindMidiParam(param, schema, scale));
     } else if (schema.type === "lfo") {
-      const node = this._lfoNodes.get(schema.id);
-      if (node) node.connect(param);
+      this._connectLfo(param, schema, completionCleanups);
     } else if (schema.type === "envelope") {
       this._scheduleParamEnvelope(
         param,
@@ -305,6 +329,26 @@ abstract class Instrument {
         note.startTime,
       );
     }
+  }
+
+  protected _connectLfo(
+    param: AudioParam,
+    schema: LfoSchema,
+    completionCleanups: (() => void)[],
+  ) {
+    const node = this._lfoNodes.get(schema.id);
+    if (!node) return;
+
+    // AudioParam inputs are summed with the intrinsic value. The LFO emits the
+    // complete target value, so leave no native-default offset in that sum.
+    param.value = 0;
+    node.connect(param);
+    let connected = true;
+    completionCleanups.push(() => {
+      if (!connected) return;
+      connected = false;
+      node.disconnect(param);
+    });
   }
 
   protected _resolveDetune(
@@ -531,4 +575,4 @@ abstract class Instrument {
 }
 
 export default Instrument;
-export type { ScheduledNote };
+export type { InstrumentRouting, ScheduledNote };

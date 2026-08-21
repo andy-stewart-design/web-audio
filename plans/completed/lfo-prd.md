@@ -45,16 +45,24 @@ d.lfo(d.rand(600, 1000), 400);
 
 ### Output Formula
 
+> **Correction:** The original proposal defines `.norm()` arguments as minimum and maximum. The table below historically treated the second argument as a range, contradicting that contract. The corrected implementation uses min/max interpolation in normalized mode; see [`../lfo-semantics-correction-plan.md`](../lfo-semantics-correction-plan.md).
+
+Default mode:
+
 ```
-output = outputA + outputB * oscillator_value
+output = outputA + outputB * bipolar_oscillator_value
 ```
 
-Where `oscillator_value` is `-1 to 1` (default) or `0 to 1` (when `.norm()` is applied).
+Normalized mode:
 
-| Mode       | Args                     | Output Range                       |
-| ---------- | ------------------------ | ---------------------------------- |
-| Default    | `d.lfo(800, 400)`        | 800 + 400 \* [-1, 1] = [400, 1200] |
-| Normalized | `d.lfo(400, 800).norm()` | 400 + 800 \* [0, 1] = [400, 1200]  |
+```
+output = outputA + (outputB - outputA) * unipolar_oscillator_value
+```
+
+| Mode       | Args                      | Output Range                               |
+| ---------- | ------------------------- | ------------------------------------------ |
+| Default    | `d.lfo(800, 400)`         | 800 + 400 \* [-1, 1] = [400, 1200]         |
+| Normalized | `d.lfo(400, 1200).norm()` | 400 + (1200 - 400) \* [0, 1] = [400, 1200] |
 
 ---
 
@@ -97,7 +105,7 @@ gain: ParameterSchema | EnvelopeSchema | LfoSchema;
 
 // SynthesizerSchema parameters become:
 detune: ParameterSchema | EnvelopeSchema | LfoSchema;
-gain: EnvelopeSchema;  // stays envelope-only for note lifecycle (attack/release)
+gain: EnvelopeSchema; // stays envelope-only for note lifecycle (attack/release)
 
 // New GainEffectSchema:
 interface GainEffectSchema {
@@ -121,12 +129,12 @@ Location: `packages/fluid/src/automations/lfo.ts`
 
 Default values (resolved in fluid, never in engine — per the fluid-smart/engine-dumb principle):
 
-| Field      | Default  |
-| ---------- | -------- |
+| Field      | Default    |
+| ---------- | ---------- |
 | `speed`    | `[1]`      |
 | `waveform` | `["sine"]` |
-| `phase`    | `0`      |
-| `norm`     | `false`  |
+| `phase`    | `0`        |
+| `norm`     | `false`    |
 
 `outputA` and `outputB` are `ParameterSchema` (supporting static values, cycles, and random cycles), matching the flexibility of envelope ADSR parameters.
 
