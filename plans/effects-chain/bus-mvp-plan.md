@@ -275,11 +275,11 @@ Do not move `_applyParamSchema`, `_resolve`, LFO maps, MIDI bindings, or envelop
 
 **Acceptance criteria:**
 
-- [ ] Empty chains have one path and no dry duplication.
-- [ ] Gain and every filter parameter initialize from their constant value.
-- [ ] Multiple effects preserve order.
-- [ ] Dynamic bus parameters fail before replacing the active graph.
-- [ ] Instrument parameter and modulation tests remain unchanged.
+- [x] Empty chains have one path and no dry duplication.
+- [x] Gain and every filter parameter initialize from their constant value.
+- [x] Multiple effects preserve order.
+- [x] Dynamic bus parameters fail before replacing the active graph.
+- [x] Instrument parameter and modulation tests remain unchanged.
 
 ---
 

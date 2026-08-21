@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Midi } from "@web-audio/midi";
-import type { DromeSchema } from "@web-audio/schema";
+import type { DromeSchema, StaticSchema } from "@web-audio/schema";
 
 // Mock Synthesizer so tests don't need Web Audio APIs.
 // Must use a regular function (not arrow) so it's usable as a constructor.
@@ -110,6 +110,16 @@ class FakeClock {
 
 // Minimal schema fixture — Synthesizer is mocked so instruments don't need to
 // be valid; only the array length matters for instrument creation.
+function staticParam(...values: number[]): StaticSchema {
+  return {
+    type: "static",
+    polyphonic: false,
+    cycle: values.map((value) => [
+      { value, offset: 0, duration: 1, stepIndex: 0 },
+    ]),
+  };
+}
+
 function makeSchema(instrumentCount = 1): DromeSchema {
   return {
     instruments: Array.from({ length: instrumentCount }, () => ({}) as never),
@@ -263,23 +273,34 @@ describe("AudioEngine", () => {
       expect(createGainMock).toHaveBeenCalledOnce();
     });
 
-    it("rejects unsupported main and named bus effects before commit", () => {
-      const engine = new AudioEngine(fakeCtx, new FakeClock() as never);
+    it("rejects main and dynamic named-bus effects without replacing the active graph", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      engine.update(makeSchema());
+      clock.emit("prebar");
+      const active = instances()[0];
       const withMainEffect = makeSchema();
       withMainEffect.buses = {
         main: { gain: 1, effects: [{ type: "gain" } as never] },
       };
-      const withNamedEffect = makeSchema();
-      withNamedEffect.buses = {
-        drums: { gain: 1, effects: [{ type: "gain" } as never] },
+      const withDynamicNamedEffect = makeSchema();
+      withDynamicNamedEffect.buses = {
+        drums: {
+          gain: 1,
+          effects: [{ type: "gain", gain: staticParam(0.5, 1) }],
+        },
       };
 
       expect(() => engine.update(withMainEffect)).toThrow(
         "[AudioEngine] Effects on main are not supported in the bus MVP.",
       );
-      expect(() => engine.update(withNamedEffect)).toThrow(
-        '[AudioEngine] Effects on named bus "drums" are not supported until the static-effects slice.',
+      expect(() => engine.update(withDynamicNamedEffect)).toThrow(
+        '[AudioEngine] Bus "drums" effects[0].gain must be one finite constant static value.',
       );
+
+      clock.emit("bar");
+      expect(active.scheduleBar).toHaveBeenCalledOnce();
+      expect(active.retire).not.toHaveBeenCalled();
     });
 
     it("rejects invalid direct main gain values", () => {

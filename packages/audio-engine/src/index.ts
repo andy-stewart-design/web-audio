@@ -3,6 +3,7 @@ import type { Midi } from "@web-audio/midi";
 import type { BankSchema, DromeSchema, SamplerSchema } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
 import RuntimeBus from "./buses/runtime-bus";
+import { validateConstantBusEffects } from "./buses/resolve-constant-audio-param";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import MidiOutputScheduler from "./midi-output-scheduler";
@@ -86,13 +87,12 @@ class AudioEngine {
           `[AudioEngine] Bus "${name}" gain must be a finite number greater than or equal to 0.`,
         );
       }
-      if (bus.effects.length > 0) {
-        const message =
-          name === "main"
-            ? "Effects on main are not supported in the bus MVP."
-            : `Effects on named bus "${name}" are not supported until the static-effects slice.`;
-        throw new Error(`[AudioEngine] ${message}`);
+      if (name === "main" && bus.effects.length > 0) {
+        throw new Error(
+          "[AudioEngine] Effects on main are not supported in the bus MVP.",
+        );
       }
+      validateConstantBusEffects(bus.effects, name);
     }
     schema.instruments.forEach((instrument, index) => {
       const route = instrument.route ?? "main";
@@ -185,7 +185,7 @@ class AudioEngine {
     try {
       for (const [name, schema] of Object.entries(pending.buses ?? {})) {
         if (name === "main") continue;
-        buses.set(name, new RuntimeBus(this._ctx, schema, this._master));
+        buses.set(name, new RuntimeBus(this._ctx, name, schema, this._master));
       }
 
       for (const [index, schema] of pending.instruments.entries()) {

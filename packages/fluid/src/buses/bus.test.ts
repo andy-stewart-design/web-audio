@@ -45,14 +45,36 @@ describe("Bus builder", () => {
     });
   });
 
-  it("rejects effects until their dedicated slice", () => {
+  it("rejects effects on main", () => {
     const d = new Drome();
 
     expect(() => d.bus("main").fx(d.lpf(800))).toThrow(
       "[Bus] Effects on main are not supported in the bus MVP.",
     );
-    expect(() => d.bus("drums").fx(d.lpf(800))).toThrow(
-      "[Bus] Named bus effects are not supported until the static-effects slice.",
+  });
+
+  it("appends named bus effects in exact call order", () => {
+    const d = new Drome();
+    const bus = d.bus("drums").fx(d.lpf(800)).fx(d.gain(0.5), d.hpf(200));
+
+    expect(bus.getSchema().effects.map((effect) => effect.type)).toEqual([
+      "filter",
+      "gain",
+      "filter",
+    ]);
+  });
+
+  it.each([
+    ["cycling", (d: Drome) => d.lpf([400, 800])],
+    ["random", (d: Drome) => d.lpf(d.rand().range(400, 800))],
+    ["envelope", (d: Drome) => d.lpf(d.env(0, 800))],
+    ["LFO", (d: Drome) => d.lpf(d.lfo(400, 800))],
+  ])("rejects %s bus parameters at schema creation", (_label, effect) => {
+    const d = new Drome();
+    d.bus("drums").fx(effect(d));
+
+    expect(() => d.getSchema()).toThrow(
+      '[Bus] "drums".effects[0].frequency must be one finite constant static value.',
     );
   });
 });
