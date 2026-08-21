@@ -95,9 +95,9 @@ interface InstrumentSchema {
 Runtime defaults preserve every existing direct schema:
 
 ```ts
-buses ?? { main: { gain: 1, effects: [] } }
-route ?? "main"
-sends ?? {}
+buses ?? { main: { gain: 1, effects: [] } };
+route ?? "main";
+sends ?? {};
 ```
 
 Fluid should emit normalized graph fields once its builders are used, but existing manually authored schemas and fixtures do not require a mass migration.
@@ -141,8 +141,8 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Regression tests pass on current main without changing production behavior.
-- [ ] Tests would fail against the prior branch behavior that cleaned all voice resources before checking `startTime`.
+- [x] Regression tests pass on the MVP baseline without changing production behavior.
+- [x] Tests would fail against the prior branch behavior that cleaned all voice resources before checking `startTime`.
 
 ---
 

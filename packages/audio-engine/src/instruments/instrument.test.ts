@@ -14,10 +14,10 @@ import Instrument from "./instrument";
 
 class FakeSourceNode {
   onended: (() => void) | null = null;
-  connect() {}
-  disconnect() {}
-  start() {}
-  stop() {}
+  connect = vi.fn();
+  disconnect = vi.fn();
+  start = vi.fn();
+  stop = vi.fn();
   fireEnded() {
     this.onended?.();
   }
@@ -500,12 +500,16 @@ describe("Instrument LFO edge lifecycle", () => {
     expect(lfoNode.disconnect).toHaveBeenCalledWith(param);
   });
 
-  it("disconnects an LFO edge when cancelling a future voice", () => {
-    const { instrument, lfoNode, param } = setupVoice(1);
+  it("disconnects a future voice and its LFO edge on transport stop", () => {
+    const { instrument, lfoNode, param, source } = setupVoice(1);
 
     instrument.cancelFutureNotes();
     instrument.cancelFutureNotes();
 
+    expect(source.stop).toHaveBeenCalledOnce();
+    expect(source.stop).toHaveBeenCalledWith(0);
+    expect(source.disconnect).toHaveBeenCalledOnce();
+    expect(source.onended).toBeNull();
     expect(lfoNode.disconnect).toHaveBeenCalledOnce();
     expect(lfoNode.disconnect).toHaveBeenCalledWith(param);
   });
