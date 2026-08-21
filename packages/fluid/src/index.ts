@@ -175,7 +175,7 @@ class Drome {
       ...(this._bpm !== undefined && { bpm: this._bpm }),
       instruments,
       banks,
-      buses: this._buses.size > 0 ? buses : undefined,
+      buses,
     };
   }
 }

@@ -19,6 +19,8 @@ Each SOW should:
 
 ## SOW 1 — Schema hardening and canonicalization
 
+Detailed implementation plan: [`bus-schema-hardening-plan.md`](bus-schema-hardening-plan.md)
+
 ### Goal
 
 Harden the proven MVP graph format after its API and runtime behavior have stabilized.

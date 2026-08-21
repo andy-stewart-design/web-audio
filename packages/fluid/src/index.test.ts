@@ -3,6 +3,22 @@ import Drome from "./index";
 
 describe("Drome", () => {
   describe("default schema", () => {
+    it("emits canonical empty buses, main routes, and send maps", () => {
+      const d = new Drome();
+      d.synth().push();
+      d.sample("bd").push();
+
+      const schema = d.getSchema();
+
+      expect(schema.buses).toEqual({});
+      expect(
+        schema.instruments.map(({ route, sends }) => ({ route, sends })),
+      ).toEqual([
+        { route: "main", sends: {} },
+        { route: "main", sends: {} },
+      ]);
+    });
+
     it("includes a gain EnvelopeSchema with defaults when .gain() is not called", () => {
       const d = new Drome();
       d.synth("triangle").push();
