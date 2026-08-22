@@ -10,6 +10,7 @@ vi.mock("./instruments/synthesizer", () => {
     _ctx: unknown,
     _clock: unknown,
     opts: {
+      schema?: unknown;
       destination?: unknown;
       routing?: unknown;
       midiOutputScheduler?: unknown;
@@ -21,6 +22,7 @@ vi.mock("./instruments/synthesizer", () => {
     this.disconnectMidi = vi.fn();
     this.retire = vi.fn();
     this.destroy = vi.fn();
+    this._schema = opts.schema;
     this._destination = opts.destination;
     this._destinationGainAtConstruction = (
       opts.destination as { gain?: { value: number } }
@@ -42,6 +44,8 @@ vi.mock("./instruments/sampler", () => {
     _ctx: unknown,
     _clock: unknown,
     opts: {
+      schema?: unknown;
+      banks?: unknown;
       cache: { resolved: Map<string, unknown> };
       destination?: unknown;
       routing?: unknown;
@@ -53,6 +57,8 @@ vi.mock("./instruments/sampler", () => {
     this.disconnectMidi = vi.fn();
     this.retire = vi.fn();
     this.destroy = vi.fn();
+    this._schema = opts.schema;
+    this._banks = opts.banks;
     this._destination = opts.destination;
     this._routing = opts.routing;
     this.isReady = vi.fn(() => true);
@@ -123,6 +129,7 @@ class FakeClock {
   barDuration = 2;
   schedulingLeadTime = 0.1;
   schedulingInterval = 0.025;
+  beatsPerMin = 120;
   private _listeners = new Map<string, Set<EventCallback>>();
 
   on(type: string, fn: EventCallback): () => void {
@@ -133,6 +140,10 @@ class FakeClock {
 
   emit(type: string, bar = 0, time = 0) {
     this._listeners.get(type)?.forEach((cb) => cb({ beat: 0, bar }, time));
+  }
+
+  bpm(value: number) {
+    this.beatsPerMin = value;
   }
 
   audioTimeToMIDITime(time: number) {
@@ -154,13 +165,19 @@ function staticParam(...values: number[]): StaticSchema {
 
 function makeSchema(instrumentCount = 1): DromeSchema {
   return {
-    instruments: Array.from({ length: instrumentCount }, () => ({}) as never),
+    bpm: undefined,
+    instruments: Array.from(
+      { length: instrumentCount },
+      () => ({ route: "main", sends: {} }) as never,
+    ),
     banks: {},
+    buses: {},
   };
 }
 
 function makeSamplerSchema(): DromeSchema {
   return {
+    bpm: undefined,
     instruments: [
       {
         type: "sampler",
@@ -218,6 +235,8 @@ function makeSamplerSchema(): DromeSchema {
         },
         effects: [],
         muted: false,
+        route: "main",
+        sends: {},
         loop: false,
         clipMode: "clipped",
         direction: "forward",
@@ -232,6 +251,7 @@ function makeSamplerSchema(): DromeSchema {
         },
       },
     },
+    buses: {},
   };
 }
 
@@ -245,6 +265,7 @@ function instances() {
     destroy: ReturnType<typeof vi.fn>;
     finished: Promise<void>;
     _destination: unknown;
+    _schema: unknown;
     _routing: {
       primary: unknown;
       sends: { destination: unknown; amount: number }[];
@@ -266,6 +287,8 @@ function samplerInstances() {
     load: ReturnType<typeof vi.fn>;
     isReady: ReturnType<typeof vi.fn>;
     fallbackBufferFor: ReturnType<typeof vi.fn>;
+    _schema: unknown;
+    _banks: unknown;
     _cache: { resolved: Map<string, unknown> };
     finished: Promise<void>;
     _destination: unknown;
@@ -336,10 +359,10 @@ describe("AudioEngine", () => {
       };
 
       expect(() => engine.update(withMainEffect)).toThrow(
-        "[AudioEngine] Effects on main are not supported in the bus MVP.",
+        "[Schema] Effects on main are not supported in the bus MVP.",
       );
       expect(() => engine.update(withDynamicNamedEffect)).toThrow(
-        '[AudioEngine] Bus "drums" effects[0].gain must be one finite constant static value.',
+        '[Schema] Bus "drums" effects[0].gain must be one finite constant static value.',
       );
 
       clock.emit("bar");
@@ -353,7 +376,7 @@ describe("AudioEngine", () => {
       schema.buses = { main: { gain: Number.NaN, effects: [] } };
 
       expect(() => engine.update(schema)).toThrow(
-        '[AudioEngine] Bus "main" gain must be a finite number greater than or equal to 0.',
+        '[Schema] Bus "main" gain must be a finite number greater than or equal to 0.',
       );
     });
 
@@ -423,15 +446,15 @@ describe("AudioEngine", () => {
 
       schema.instruments[0].sends = { main: 0.2 };
       expect(() => engine.update(schema)).toThrow(
-        "[AudioEngine] Instrument 0 send cannot target main.",
+        "[Schema] Instrument 0 send cannot target main.",
       );
       schema.instruments[0].sends = { missing: 0.2 };
       expect(() => engine.update(schema)).toThrow(
-        '[AudioEngine] Instrument 0 send "missing" does not reference a declared bus.',
+        '[Schema] Instrument 0 send "missing" does not reference a declared bus.',
       );
       schema.instruments[0].sends = { verb: 2 };
       expect(() => engine.update(schema)).toThrow(
-        '[AudioEngine] Instrument 0 send "verb" amount must be a finite number in [0, 1].',
+        '[Schema] Instrument 0 send "verb" amount must be a finite number in [0, 1].',
       );
     });
 
@@ -443,10 +466,10 @@ describe("AudioEngine", () => {
       nonCanonical.instruments[0].route = " main ";
 
       expect(() => engine.update(unresolved)).toThrow(
-        '[AudioEngine] Instrument 0 route "drums" does not reference a declared bus.',
+        '[Schema] Instrument 0 route "drums" does not reference a declared bus.',
       );
       expect(() => engine.update(nonCanonical)).toThrow(
-        '[AudioEngine] Instrument 0 route " main " is not canonical.',
+        '[Schema] Instrument 0 route " main " is not canonical.',
       );
     });
 
@@ -555,6 +578,125 @@ describe("AudioEngine", () => {
   });
 
   describe("update() always defers to prebar", () => {
+    it("resets BPM to 120 when the next schema does not configure it", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const configured = makeSchema();
+      configured.bpm = 90;
+
+      engine.update(configured);
+      clock.emit("prebar");
+      expect(clock.beatsPerMin).toBe(90);
+
+      engine.update(makeSchema());
+      clock.emit("prebar");
+      expect(clock.beatsPerMin).toBe(120);
+    });
+
+    it("commits an isolated copy of nested graph data", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSchema();
+      schema.buses = {
+        drums: {
+          gain: 0.75,
+          effects: [
+            {
+              type: "filter",
+              filterType: "lp",
+              frequency: staticParam(800),
+              q: staticParam(1),
+              detune: staticParam(0),
+              gain: staticParam(0),
+            },
+          ],
+        },
+        verb: { gain: 0.5, effects: [] },
+      };
+      schema.instruments[0].route = "drums";
+      schema.instruments[0].sends = { verb: 0.2 };
+
+      engine.update(schema);
+      schema.buses.drums.gain = 0;
+      const effect = schema.buses.drums.effects[0];
+      if (effect.type !== "filter" || effect.frequency.type !== "static") {
+        expect.unreachable();
+      }
+      effect.frequency.cycle[0][0].value = 2_000;
+      schema.instruments[0].route = "main";
+      schema.instruments[0].sends.verb = 0.9;
+      clock.emit("prebar");
+
+      const drumsInput = createGainMock.mock.results[1]?.value;
+      const drumsOutput = createGainMock.mock.results[2]?.value;
+      const verbInput = createGainMock.mock.results[3]?.value;
+      expect(instances()[0]._routing).toEqual({
+        primary: drumsInput,
+        sends: [{ destination: verbInput, amount: 0.2 }],
+      });
+      expect(drumsOutput.gain.value).toBe(0.75);
+      expect(FakeFilterNode.instances[0].frequency.value).toBe(800);
+    });
+
+    it("isolates nested bank data from caller mutation", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSamplerSchema();
+
+      engine.update(schema);
+      schema.banks.kit.samples.bd["0"][0].src = "mutated.wav";
+      clock.emit("prebar");
+
+      expect(samplerInstances()[0]._banks).toEqual({
+        kit: {
+          samples: {
+            bd: {
+              "0": [{ type: "file", src: "https://example.com/bd.wav" }],
+            },
+          },
+        },
+      });
+    });
+
+    it("does not create pending state for an invalid update", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const invalid = makeSchema();
+      invalid.instruments[0].route = "missing";
+
+      expect(() => engine.update(invalid)).toThrow();
+      clock.emit("prebar");
+
+      expect(instances()).toHaveLength(0);
+    });
+
+    it("preserves a valid pending update when a later update is invalid", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      engine.update(makeSchema(2));
+      const invalid = makeSchema();
+      invalid.instruments[0].route = "missing";
+
+      expect(() => engine.update(invalid)).toThrow(
+        '[Schema] Instrument 0 route "missing" does not reference a declared bus.',
+      );
+      clock.emit("prebar");
+
+      expect(instances()).toHaveLength(2);
+    });
+
+    it("preserves a valid pending update when cloning fails", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      engine.update(makeSchema(2));
+      const unclonable = Object.assign(makeSchema(), { callback: () => {} });
+
+      expect(() => engine.update(unclonable)).toThrow();
+      clock.emit("prebar");
+
+      expect(instances()).toHaveLength(2);
+    });
+
     it("does not commit until prebar fires, even when paused", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);

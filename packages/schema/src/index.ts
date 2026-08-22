@@ -207,8 +207,8 @@ interface InstrumentSchema {
   effects: EffectSchema[];
   detune: AudioParamSchema;
   muted: boolean;
-  route?: string;
-  sends?: Record<string, number>;
+  route: string;
+  sends: Record<string, number>;
 }
 
 interface SynthesizerSchema extends InstrumentSchema {
@@ -237,11 +237,16 @@ interface SamplerSchema extends InstrumentSchema {
 // ---------------------------------------------------
 
 interface DromeSchema {
-  bpm?: number;
+  bpm: number | undefined;
   instruments: (SynthesizerSchema | SamplerSchema)[];
   banks: Record<string, BankSchema>;
-  buses?: Record<string, BusSchema>;
+  buses: Record<string, BusSchema>;
 }
+
+export {
+  isConstantAudioParamSchema,
+  validateDromeGraph,
+} from "./validate-graph";
 
 export type {
   AudioParamSchema,

@@ -1,7 +1,6 @@
 import type { BusSchema } from "@web-audio/schema";
 import type Filter from "@/effects/filter";
 import type GainEffect from "@/effects/gain";
-import { validateBusEffects } from "./validate-effects";
 
 class Bus {
   readonly name: string;
@@ -33,11 +32,9 @@ class Bus {
   }
 
   getSchema(): BusSchema {
-    const effects = this._effects.map((effect) => effect.getSchema());
-    validateBusEffects(effects, this.name);
     return {
       gain: this._gain,
-      effects,
+      effects: this._effects.map((effect) => effect.getSchema()),
     };
   }
 }

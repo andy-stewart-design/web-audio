@@ -3,6 +3,22 @@ import Drome from "./index";
 
 describe("Drome", () => {
   describe("default schema", () => {
+    it("emits canonical empty buses, main routes, and send maps", () => {
+      const d = new Drome();
+      d.synth().push();
+      d.sample("bd").push();
+
+      const schema = d.getSchema();
+
+      expect(schema.buses).toEqual({});
+      expect(
+        schema.instruments.map(({ route, sends }) => ({ route, sends })),
+      ).toEqual([
+        { route: "main", sends: {} },
+        { route: "main", sends: {} },
+      ]);
+    });
+
     it("includes a gain EnvelopeSchema with defaults when .gain() is not called", () => {
       const d = new Drome();
       d.synth("triangle").push();
@@ -247,7 +263,7 @@ describe("Drome", () => {
       expect(d.getSchema().bpm).toBe(145);
     });
 
-    it("omits bpm from schema when not set", () => {
+    it("sets bpm to undefined when not configured", () => {
       const d = new Drome();
       expect(d.getSchema().bpm).toBeUndefined();
     });
@@ -259,6 +275,30 @@ describe("Drome", () => {
   });
 
   describe("primary routes", () => {
+    it("serializes the reference routing graph canonically", () => {
+      const d = new Drome();
+      d.bus("main").gain(0.9);
+      d.bus("drums").gain(0.8).fx(d.lpf(8_000));
+      d.bus("verb").gain(0.5);
+      d.sample("bd").route("drums").send("verb", 0.1).push();
+      d.sample("sd").route("drums").send("verb", 0.4).push();
+      d.synth().send("verb", 0.2).push();
+
+      const schema = d.getSchema();
+
+      expect(schema.buses.main.gain).toBe(0.9);
+      expect(schema.buses.drums.gain).toBe(0.8);
+      expect(schema.buses.drums.effects).toHaveLength(1);
+      expect(schema.buses.verb.gain).toBe(0.5);
+      expect(
+        schema.instruments.map(({ route, sends }) => ({ route, sends })),
+      ).toEqual([
+        { route: "drums", sends: { verb: 0.1 } },
+        { route: "drums", sends: { verb: 0.4 } },
+        { route: "main", sends: { verb: 0.2 } },
+      ]);
+    });
+
     it("defaults routes to main and normalizes named targets", () => {
       const d = new Drome();
       d.bus("drums");
@@ -296,7 +336,7 @@ describe("Drome", () => {
       );
       d.synth().route("missing").push();
       expect(() => d.getSchema()).toThrow(
-        '[Drome] Instrument 0 route "missing" does not reference a declared bus.',
+        '[Schema] Instrument 0 route "missing" does not reference a declared bus.',
       );
     });
   });
@@ -328,7 +368,7 @@ describe("Drome", () => {
       const invalid = new Drome();
       invalid.synth().send("missing", 0.2).push();
       expect(() => invalid.getSchema()).toThrow(
-        '[Drome] Instrument 0 send "missing" does not reference a declared bus.',
+        '[Schema] Instrument 0 send "missing" does not reference a declared bus.',
       );
     });
 

@@ -31,7 +31,7 @@ describe("Bus builder", () => {
     const d = new Drome();
 
     expect(d.bus("main").gain(0)).toBe(d.bus("main"));
-    expect(d.getSchema().buses?.main.gain).toBe(0);
+    expect(d.getSchema().buses.main.gain).toBe(0);
   });
 
   it("rejects empty names and normalizes named buses", () => {
@@ -74,7 +74,7 @@ describe("Bus builder", () => {
     d.bus("drums").fx(effect(d));
 
     expect(() => d.getSchema()).toThrow(
-      '[Bus] "drums".effects[0].frequency must be one finite constant static value.',
+      '[Schema] Bus "drums" effects[0].frequency must be one finite constant static value.',
     );
   });
 });

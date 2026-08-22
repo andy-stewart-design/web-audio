@@ -57,7 +57,6 @@ function createBus(effects: EffectSchema[] = []) {
   const main = new FakeGainNode();
   const bus = new RuntimeBus(
     ctx,
-    "drums",
     { gain: 0.75, effects },
     main as unknown as AudioNode,
   );
@@ -112,7 +111,7 @@ describe("RuntimeBus", () => {
     expect(input.connect).toHaveBeenCalledOnce();
   });
 
-  it("rejects dynamic parameters with their bus effect path", () => {
+  it("guards against an unvalidated dynamic parameter", () => {
     expect(() =>
       createBus([
         {
@@ -126,9 +125,7 @@ describe("RuntimeBus", () => {
           },
         },
       ]),
-    ).toThrow(
-      '[AudioEngine] Bus "drums" effects[0].gain must be one finite constant static value.',
-    );
+    ).toThrow("[RuntimeBus] Expected a validated constant parameter.");
   });
 
   it("destroys every owned node idempotently", () => {
