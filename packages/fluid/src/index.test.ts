@@ -275,6 +275,30 @@ describe("Drome", () => {
   });
 
   describe("primary routes", () => {
+    it("serializes the reference routing graph canonically", () => {
+      const d = new Drome();
+      d.bus("main").gain(0.9);
+      d.bus("drums").gain(0.8).fx(d.lpf(8_000));
+      d.bus("verb").gain(0.5);
+      d.sample("bd").route("drums").send("verb", 0.1).push();
+      d.sample("sd").route("drums").send("verb", 0.4).push();
+      d.synth().send("verb", 0.2).push();
+
+      const schema = d.getSchema();
+
+      expect(schema.buses.main.gain).toBe(0.9);
+      expect(schema.buses.drums.gain).toBe(0.8);
+      expect(schema.buses.drums.effects).toHaveLength(1);
+      expect(schema.buses.verb.gain).toBe(0.5);
+      expect(
+        schema.instruments.map(({ route, sends }) => ({ route, sends })),
+      ).toEqual([
+        { route: "drums", sends: { verb: 0.1 } },
+        { route: "drums", sends: { verb: 0.4 } },
+        { route: "main", sends: { verb: 0.2 } },
+      ]);
+    });
+
     it("defaults routes to main and normalizes named targets", () => {
       const d = new Drome();
       d.bus("drums");

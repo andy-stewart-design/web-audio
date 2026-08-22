@@ -260,8 +260,7 @@ Requirements:
 
 **Purpose:** Isolate pending engine state from callers and failed updates.
 
-- Add a focused schema clone helper.
-- Clone before validating the candidate accepted by AudioEngine.
+- Clone the candidate with `structuredClone()` before validating it in AudioEngine.
 - Assign `_pending` only after clone and validation succeed.
 - Preserve an earlier pending schema on invalid input or clone failure.
 - Preserve the active graph in all update-boundary failure cases.
@@ -295,13 +294,13 @@ Verify both inputs produce the same canonical graph meaning and existing runtime
 
 **Acceptance criteria:**
 
-- [ ] Fluid and direct schemas pass the same shared validator.
-- [ ] Canonicalization does not introduce dry duplication or change send taps.
-- [ ] Main remains the only node connected directly to destination.
-- [ ] Caller mutation after acceptance cannot change the committed topology.
-- [ ] Invalid updates preserve the last valid pending and active state.
-- [ ] Public documentation describes required direct-schema fields and Fluid defaults.
-- [ ] Changed-package and workspace verification passes.
+- [x] Fluid and direct schemas pass the same shared validator.
+- [x] Canonicalization does not introduce dry duplication or change send taps.
+- [x] Main remains the only node connected directly to destination.
+- [x] Caller mutation after acceptance cannot change the committed topology.
+- [x] Invalid updates preserve the last valid pending and active state.
+- [x] Public documentation describes required direct-schema fields and Fluid defaults.
+- [x] Changed-package and workspace verification passes.
 
 ## Focused test matrix
 
