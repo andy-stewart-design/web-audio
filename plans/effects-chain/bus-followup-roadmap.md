@@ -50,6 +50,8 @@ Fluid and direct AudioEngine schemas share one canonical, validated graph repres
 
 ## SOW 2 — Patterned bus parameters
 
+Detailed implementation plan: [`patterned-bus-parameters-plan.md`](patterned-bus-parameters-plan.md)
+
 ### Goal
 
 Allow persistent bus effects to change values at bar boundaries without introducing continuous automation infrastructure.
