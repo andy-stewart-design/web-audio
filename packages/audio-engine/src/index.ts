@@ -77,8 +77,9 @@ class AudioEngine {
   }
 
   update(schema: DromeSchema): void {
-    validateDromeGraph(schema);
-    this._pending = schema;
+    const candidate = structuredClone(schema);
+    validateDromeGraph(candidate);
+    this._pending = candidate;
   }
 
   connectMidi(midi: Midi) {

@@ -269,13 +269,13 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Mutating the caller schema after `update()` does not alter the committed graph.
-- [ ] Nested instruments, buses, sends, effects, and banks are isolated.
-- [ ] Invalid updates throw and preserve the prior pending schema.
-- [ ] Clone failures throw and preserve the prior pending schema.
-- [ ] Invalid updates with no pending schema do not create one.
-- [ ] Valid B still replaces valid pending A.
-- [ ] Existing prebar commit and graph retirement behavior remains unchanged.
+- [x] Mutating the caller schema after `update()` does not alter the committed graph.
+- [x] Nested instruments, buses, sends, effects, and banks are isolated.
+- [x] Invalid updates throw and preserve the prior pending schema.
+- [x] Clone failures throw and preserve the prior pending schema.
+- [x] Invalid updates with no pending schema do not create one.
+- [x] Valid B still replaces valid pending A.
+- [x] Existing prebar commit and graph retirement behavior remains unchanged.
 
 ### Slice 5 — Integration and closeout
 
