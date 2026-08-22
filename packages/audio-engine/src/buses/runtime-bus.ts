@@ -1,6 +1,10 @@
-import type { BusSchema, EffectSchema } from "@web-audio/schema";
+import { isConstantAudioParamSchema } from "@web-audio/schema";
+import type {
+  AudioParamSchema,
+  BusSchema,
+  EffectSchema,
+} from "@web-audio/schema";
 import { FILTER_TYPE_MAP } from "@/constants";
-import { resolveConstantAudioParam } from "./resolve-constant-audio-param";
 
 class RuntimeBus {
   readonly input: GainNode;
@@ -8,16 +12,9 @@ class RuntimeBus {
   private readonly _output: GainNode;
   private _destroyed = false;
 
-  constructor(
-    ctx: AudioContext,
-    name: string,
-    schema: BusSchema,
-    destination: AudioNode,
-  ) {
+  constructor(ctx: AudioContext, schema: BusSchema, destination: AudioNode) {
     this.input = ctx.createGain();
-    this._effects = schema.effects.map((effect, index) =>
-      buildEffect(ctx, effect, `Bus "${name}" effects[${index}]`),
-    );
+    this._effects = schema.effects.map((effect) => buildEffect(ctx, effect));
     this._output = ctx.createGain();
     this._output.gain.value = schema.gain;
 
@@ -39,27 +36,28 @@ class RuntimeBus {
   }
 }
 
-function buildEffect(ctx: AudioContext, effect: EffectSchema, path: string) {
+function buildEffect(ctx: AudioContext, effect: EffectSchema) {
   if (effect.type === "filter") {
     const node = new BiquadFilterNode(ctx, {
       type: FILTER_TYPE_MAP[effect.filterType],
     });
-    node.frequency.value = resolveConstantAudioParam(
-      effect.frequency,
-      `${path}.frequency`,
-    );
-    node.Q.value = resolveConstantAudioParam(effect.q, `${path}.q`);
-    node.detune.value = resolveConstantAudioParam(
-      effect.detune,
-      `${path}.detune`,
-    );
-    node.gain.value = resolveConstantAudioParam(effect.gain, `${path}.gain`);
+    node.frequency.value = constantValue(effect.frequency);
+    node.Q.value = constantValue(effect.q);
+    node.detune.value = constantValue(effect.detune);
+    node.gain.value = constantValue(effect.gain);
     return node;
   }
 
   const node = new GainNode(ctx);
-  node.gain.value = resolveConstantAudioParam(effect.gain, `${path}.gain`);
+  node.gain.value = constantValue(effect.gain);
   return node;
+}
+
+function constantValue(schema: AudioParamSchema) {
+  if (!isConstantAudioParamSchema(schema)) {
+    throw new Error("[RuntimeBus] Expected a validated constant parameter.");
+  }
+  return schema.cycle[0][0].value;
 }
 
 export default RuntimeBus;

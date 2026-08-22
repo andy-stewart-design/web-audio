@@ -1,9 +1,9 @@
 import type AudioClock from "@web-audio/clock";
 import type { Midi } from "@web-audio/midi";
+import { validateDromeGraph } from "@web-audio/schema";
 import type { BankSchema, DromeSchema, SamplerSchema } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
 import RuntimeBus from "./buses/runtime-bus";
-import { validateConstantBusEffects } from "./buses/resolve-constant-audio-param";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import MidiOutputScheduler from "./midi-output-scheduler";
@@ -77,58 +77,7 @@ class AudioEngine {
   }
 
   update(schema: DromeSchema): void {
-    const buses = schema.buses;
-    for (const [name, bus] of Object.entries(buses)) {
-      if (name === "" || name !== name.trim()) {
-        throw new Error(`[AudioEngine] Bus name "${name}" is not canonical.`);
-      }
-      if (!Number.isFinite(bus.gain) || bus.gain < 0) {
-        throw new Error(
-          `[AudioEngine] Bus "${name}" gain must be a finite number greater than or equal to 0.`,
-        );
-      }
-      if (name === "main" && bus.effects.length > 0) {
-        throw new Error(
-          "[AudioEngine] Effects on main are not supported in the bus MVP.",
-        );
-      }
-      validateConstantBusEffects(bus.effects, name);
-    }
-    schema.instruments.forEach((instrument, index) => {
-      const route = instrument.route;
-      if (route === "" || route !== route.trim()) {
-        throw new Error(
-          `[AudioEngine] Instrument ${index} route "${route}" is not canonical.`,
-        );
-      }
-      if (route !== "main" && !buses[route]) {
-        throw new Error(
-          `[AudioEngine] Instrument ${index} route "${route}" does not reference a declared bus.`,
-        );
-      }
-      for (const [target, amount] of Object.entries(instrument.sends)) {
-        if (target === "" || target !== target.trim()) {
-          throw new Error(
-            `[AudioEngine] Instrument ${index} send target "${target}" is not canonical.`,
-          );
-        }
-        if (target === "main") {
-          throw new Error(
-            `[AudioEngine] Instrument ${index} send cannot target main.`,
-          );
-        }
-        if (!buses[target]) {
-          throw new Error(
-            `[AudioEngine] Instrument ${index} send "${target}" does not reference a declared bus.`,
-          );
-        }
-        if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
-          throw new Error(
-            `[AudioEngine] Instrument ${index} send "${target}" amount must be a finite number in [0, 1].`,
-          );
-        }
-      }
-    });
+    validateDromeGraph(schema);
     this._pending = schema;
   }
 
@@ -209,7 +158,7 @@ class AudioEngine {
     try {
       for (const [name, schema] of Object.entries(pending.buses)) {
         if (name === "main") continue;
-        buses.set(name, new RuntimeBus(this._ctx, name, schema, this._master));
+        buses.set(name, new RuntimeBus(this._ctx, schema, this._master));
       }
 
       for (const [index, schema] of pending.instruments.entries()) {

@@ -154,6 +154,7 @@ function staticParam(...values: number[]): StaticSchema {
 
 function makeSchema(instrumentCount = 1): DromeSchema {
   return {
+    bpm: undefined,
     instruments: Array.from(
       { length: instrumentCount },
       () => ({ route: "main", sends: {} }) as never,
@@ -165,6 +166,7 @@ function makeSchema(instrumentCount = 1): DromeSchema {
 
 function makeSamplerSchema(): DromeSchema {
   return {
+    bpm: undefined,
     instruments: [
       {
         type: "sampler",
@@ -343,10 +345,10 @@ describe("AudioEngine", () => {
       };
 
       expect(() => engine.update(withMainEffect)).toThrow(
-        "[AudioEngine] Effects on main are not supported in the bus MVP.",
+        "[Schema] Effects on main are not supported in the bus MVP.",
       );
       expect(() => engine.update(withDynamicNamedEffect)).toThrow(
-        '[AudioEngine] Bus "drums" effects[0].gain must be one finite constant static value.',
+        '[Schema] Bus "drums" effects[0].gain must be one finite constant static value.',
       );
 
       clock.emit("bar");
@@ -360,7 +362,7 @@ describe("AudioEngine", () => {
       schema.buses = { main: { gain: Number.NaN, effects: [] } };
 
       expect(() => engine.update(schema)).toThrow(
-        '[AudioEngine] Bus "main" gain must be a finite number greater than or equal to 0.',
+        '[Schema] Bus "main" gain must be a finite number greater than or equal to 0.',
       );
     });
 
@@ -430,15 +432,15 @@ describe("AudioEngine", () => {
 
       schema.instruments[0].sends = { main: 0.2 };
       expect(() => engine.update(schema)).toThrow(
-        "[AudioEngine] Instrument 0 send cannot target main.",
+        "[Schema] Instrument 0 send cannot target main.",
       );
       schema.instruments[0].sends = { missing: 0.2 };
       expect(() => engine.update(schema)).toThrow(
-        '[AudioEngine] Instrument 0 send "missing" does not reference a declared bus.',
+        '[Schema] Instrument 0 send "missing" does not reference a declared bus.',
       );
       schema.instruments[0].sends = { verb: 2 };
       expect(() => engine.update(schema)).toThrow(
-        '[AudioEngine] Instrument 0 send "verb" amount must be a finite number in [0, 1].',
+        '[Schema] Instrument 0 send "verb" amount must be a finite number in [0, 1].',
       );
     });
 
@@ -450,10 +452,10 @@ describe("AudioEngine", () => {
       nonCanonical.instruments[0].route = " main ";
 
       expect(() => engine.update(unresolved)).toThrow(
-        '[AudioEngine] Instrument 0 route "drums" does not reference a declared bus.',
+        '[Schema] Instrument 0 route "drums" does not reference a declared bus.',
       );
       expect(() => engine.update(nonCanonical)).toThrow(
-        '[AudioEngine] Instrument 0 route " main " is not canonical.',
+        '[Schema] Instrument 0 route " main " is not canonical.',
       );
     });
 

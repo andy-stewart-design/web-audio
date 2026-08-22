@@ -263,7 +263,7 @@ describe("Drome", () => {
       expect(d.getSchema().bpm).toBe(145);
     });
 
-    it("omits bpm from schema when not set", () => {
+    it("sets bpm to undefined when not configured", () => {
       const d = new Drome();
       expect(d.getSchema().bpm).toBeUndefined();
     });
@@ -312,7 +312,7 @@ describe("Drome", () => {
       );
       d.synth().route("missing").push();
       expect(() => d.getSchema()).toThrow(
-        '[Drome] Instrument 0 route "missing" does not reference a declared bus.',
+        '[Schema] Instrument 0 route "missing" does not reference a declared bus.',
       );
     });
   });
@@ -344,7 +344,7 @@ describe("Drome", () => {
       const invalid = new Drome();
       invalid.synth().send("missing", 0.2).push();
       expect(() => invalid.getSchema()).toThrow(
-        '[Drome] Instrument 0 send "missing" does not reference a declared bus.',
+        '[Schema] Instrument 0 send "missing" does not reference a declared bus.',
       );
     });
 

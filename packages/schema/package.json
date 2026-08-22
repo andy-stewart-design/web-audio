@@ -8,7 +8,8 @@
   "scripts": {
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test:ci": "vitest run"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

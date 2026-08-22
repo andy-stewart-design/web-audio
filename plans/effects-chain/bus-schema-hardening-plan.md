@@ -249,12 +249,12 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Fluid and AudioEngine reject the same malformed graph cases.
-- [ ] Error paths identify the exact bus, instrument, send, effect, and field where applicable.
-- [ ] Forward bus declarations in Fluid still work because validation occurs on the completed graph.
-- [ ] Direct AudioEngine schemas receive equivalent validation.
-- [ ] Main effects and dynamic bus parameters remain rejected.
-- [ ] No generic runtime decoding or parameter manager is introduced.
+- [x] Fluid and AudioEngine reject the same malformed graph cases.
+- [x] Error paths identify the exact bus, instrument, send, effect, and field where applicable.
+- [x] Forward bus declarations in Fluid still work because validation occurs on the completed graph.
+- [x] Direct AudioEngine schemas receive equivalent validation.
+- [x] Main effects and dynamic bus parameters remain rejected.
+- [x] No generic runtime decoding or parameter manager is introduced.
 
 ### Slice 4 — Defensive cloning and last-valid-write
 

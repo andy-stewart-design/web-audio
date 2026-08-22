@@ -74,7 +74,7 @@ describe("Bus builder", () => {
     d.bus("drums").fx(effect(d));
 
     expect(() => d.getSchema()).toThrow(
-      '[Bus] "drums".effects[0].frequency must be one finite constant static value.',
+      '[Schema] Bus "drums" effects[0].frequency must be one finite constant static value.',
     );
   });
 });

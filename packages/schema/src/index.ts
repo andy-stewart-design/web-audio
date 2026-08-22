@@ -237,11 +237,16 @@ interface SamplerSchema extends InstrumentSchema {
 // ---------------------------------------------------
 
 interface DromeSchema {
-  bpm?: number;
+  bpm: number | undefined;
   instruments: (SynthesizerSchema | SamplerSchema)[];
   banks: Record<string, BankSchema>;
   buses: Record<string, BusSchema>;
 }
+
+export {
+  isConstantAudioParamSchema,
+  validateDromeGraph,
+} from "./validate-graph";
 
 export type {
   AudioParamSchema,
