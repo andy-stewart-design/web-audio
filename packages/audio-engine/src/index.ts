@@ -4,6 +4,7 @@ import { validateDromeGraph } from "@web-audio/schema";
 import type { BankSchema, DromeSchema, SamplerSchema } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
 import RuntimeBus from "./buses/runtime-bus";
+import { DEFAULT_BPM } from "./constants";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import MidiOutputScheduler from "./midi-output-scheduler";
@@ -147,9 +148,7 @@ class AudioEngine {
   private _commit(upcomingBar = 0, barStartTime?: number): void {
     if (!this._pending) return;
 
-    if (this._pending.bpm !== undefined) {
-      this._clock.bpm(this._pending.bpm);
-    }
+    this._clock.bpm(this._pending.bpm ?? DEFAULT_BPM);
 
     const pending = this._pending;
     const buses = new Map<string, RuntimeBus>();

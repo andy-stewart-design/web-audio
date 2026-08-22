@@ -129,6 +129,7 @@ class FakeClock {
   barDuration = 2;
   schedulingLeadTime = 0.1;
   schedulingInterval = 0.025;
+  beatsPerMin = 120;
   private _listeners = new Map<string, Set<EventCallback>>();
 
   on(type: string, fn: EventCallback): () => void {
@@ -139,6 +140,10 @@ class FakeClock {
 
   emit(type: string, bar = 0, time = 0) {
     this._listeners.get(type)?.forEach((cb) => cb({ beat: 0, bar }, time));
+  }
+
+  bpm(value: number) {
+    this.beatsPerMin = value;
   }
 
   audioTimeToMIDITime(time: number) {
@@ -573,6 +578,21 @@ describe("AudioEngine", () => {
   });
 
   describe("update() always defers to prebar", () => {
+    it("resets BPM to 120 when the next schema does not configure it", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const configured = makeSchema();
+      configured.bpm = 90;
+
+      engine.update(configured);
+      clock.emit("prebar");
+      expect(clock.beatsPerMin).toBe(90);
+
+      engine.update(makeSchema());
+      clock.emit("prebar");
+      expect(clock.beatsPerMin).toBe(120);
+    });
+
     it("commits an isolated copy of nested graph data", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);

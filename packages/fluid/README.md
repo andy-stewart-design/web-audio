@@ -35,7 +35,7 @@ Routes and sends branch after instrument balancing and mute. Sending to main is 
 
 Bus effects currently accept only one finite constant value for each gain/filter parameter. Cycles, random values, envelopes, LFOs, and MIDI CC remain supported on instrument effects but are not yet supported on buses. A bus named `verb` is only a name until a reverb processor is implemented.
 
-Fluid always emits the canonical graph fields expected by AudioEngine. With no explicit routing configuration, `getSchema()` includes `buses: {}`, and each instrument includes `route: "main"` and `sends: {}`. It also emits `bpm: undefined` when BPM has not been configured. Fluid validates the completed graph, allowing buses to be declared after instruments that reference them.
+Fluid always emits the canonical graph fields expected by AudioEngine. With no explicit routing configuration, `getSchema()` includes `buses: {}`, and each instrument includes `route: "main"` and `sends: {}`. It also emits `bpm: undefined` when BPM has not been configured, which resets playback to the default 120 BPM when committed. Fluid validates the completed graph, allowing buses to be declared after instruments that reference them.
 
 ## LFO automation
 

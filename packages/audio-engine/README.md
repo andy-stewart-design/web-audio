@@ -40,6 +40,8 @@ Direct `AudioEngine.update()` callers must provide explicit graph fields. Fluid 
 
 Bus and route names must already be trimmed and non-empty. Named routes and send targets must reference declared buses; sends cannot target main and their amounts must be finite values in `[0, 1]`. Bus gain must be finite and non-negative. Named-bus effects currently accept only gain and filter processors whose parameters contain one finite static value.
 
+At commit, an undefined BPM resets the clock to the default 120 BPM rather than inheriting the previous sketch's tempo.
+
 The engine clones and validates each update before retaining it for the next prebar. Later caller mutation cannot alter pending state. A validation or clone failure throws synchronously and preserves the last valid pending update and active graph. This boundary protection does not make Web Audio graph construction transactional.
 
 ## Instrument lifecycle
