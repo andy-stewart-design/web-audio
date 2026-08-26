@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This roadmap divides features excluded from [`bus-mvp-plan.md`](bus-mvp-plan.md) into focused follow-up statements of work.
+This roadmap divides features excluded from [`completed/bus-mvp-plan.md`](completed/bus-mvp-plan.md) into focused follow-up statements of work.
 
 The sequence is intentionally incremental. Lifecycle infrastructure should be introduced alongside the first user-facing feature that requires it, not built speculatively in advance.
 
@@ -19,7 +19,7 @@ Each SOW should:
 
 ## SOW 1 — Schema hardening and canonicalization
 
-Detailed implementation plan: [`bus-schema-hardening-plan.md`](bus-schema-hardening-plan.md)
+Detailed implementation plan: [`completed/bus-schema-hardening-plan.md`](completed/bus-schema-hardening-plan.md)
 
 ### Goal
 

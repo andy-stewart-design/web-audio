@@ -2,104 +2,83 @@
 
 ## Context
 
-This plan implements SOW 2 from [`bus-followup-roadmap.md`](bus-followup-roadmap.md) as small vertical slices. Each phase adds one independently testable capability while preserving the bus/routing topology delivered by [`bus-mvp-plan.md`](bus-mvp-plan.md) and the canonical graph contract completed in [`completed/bus-schema-hardening-plan.md`](completed/bus-schema-hardening-plan.md).
+This plan implements SOW 2 from [`bus-followup-roadmap.md`](bus-followup-roadmap.md) as end-to-end vertical slices. It preserves the topology delivered by [`completed/bus-mvp-plan.md`](completed/bus-mvp-plan.md) and the canonical contract from [`completed/bus-schema-hardening-plan.md`](completed/bus-schema-hardening-plan.md).
 
-The current runtime accepts only one constant static value for each named-bus effect parameter. `RuntimeBus` applies that value when it constructs the effect node and never changes it. This SOW extends that proven path just far enough to resolve static and deterministic random values once per bar:
+The current runtime accepts one constant static value for each named-bus effect parameter. `RuntimeBus` installs that value during construction and never changes it. This SOW extends that path just far enough to resolve static and deterministic random values once per bar:
 
 ```text
-Fluid parameter → DromeSchema → shared validation → RuntimeBus binding
+Fluid authoring → DromeSchema → shared validation → RuntimeBus binding
                                                         │
 clock bar index + exact audio time ─────────────────────┘
                                                         ↓
                                             AudioParam.setValueAtTime()
 ```
 
-This is deliberately not a general automation system. Effect nodes remain persistent for the runtime graph lifetime, the engine continues to own bar dispatch, and instrument parameter behavior remains untouched. Do not extract a shared parameter manager, add a scheduler, or prepare lifecycle infrastructure for MIDI, LFOs, envelopes, patterned sends, or ducking during this plan.
+This is not a general automation system. Effect nodes remain persistent for the runtime graph lifetime, AudioEngine continues to own bar dispatch, and instrument parameter behavior remains untouched.
 
 ## Key design decisions
 
 - SOW 2 applies only to named-bus **effect parameters**. `BusSchema.gain` remains one constant number.
-- Supported bus parameter schemas are `StaticSchema` and `RandomSchema`. Envelopes, LFOs, and MIDI CC remain invalid on buses.
-- A bus parameter resolves exactly once per bar with `stepIndex = 0`.
-- Static resolution selects `cycle[barIndex % cycle.length][0].value`. Additional steps in the selected row are intentionally ignored; this SOW does not schedule intra-bar changes.
-- Random resolution reuses the existing deterministic `RandomResolver` with `(barIndex, 0)`. Do not duplicate random algorithms or seed semantics.
-- Bus effect nodes and their `AudioParam` bindings are created once and retained by `RuntimeBus` until graph destruction.
-- Values are installed with `AudioParam.setValueAtTime(value, barStartTime)` so they take effect at the exact clock boundary rather than callback execution time.
-- A newly committed graph initializes every bus parameter for `upcomingBar` at the supplied `barStartTime`. When no start time is available, it initializes the intrinsic value synchronously for the same bar.
-- Only the active runtime graph receives new bar scheduling. Retiring buses freeze at their last installed value while their existing voices finish.
-- Stop cancels future scheduled bus values and holds the value audible at the stop time. It does not disconnect buses or modulation edges and does not destroy active or retiring graphs.
-- Stop cleanup applies to both active and retiring buses because either graph may still be audible.
-- Validation remains typed semantic validation of `DromeSchema`, not a runtime decoder for arbitrary `unknown` input.
-- Invalid bus parameter schemas throw at the shared Schema boundary. Runtime resolution keeps a narrow invariant error for impossible post-validation states.
-- Main effects, patterned sends, bus output-gain patterns, envelopes, LFOs, MIDI CC, and parameter-manager extraction remain out of scope.
+- Supported bus parameter schemas are `StaticSchema` and a focused bus-resolvable subset of `RandomSchema`.
+- Envelopes, LFOs, and MIDI CC remain invalid on buses.
+- A bus parameter resolves once per bar with `stepIndex = 0`.
+- Static resolution selects `cycle[barIndex % cycle.length][0].value`.
+- Additional steps in a selected row are ignored; this SOW does not schedule intra-bar changes.
+- Random resolution reuses `RandomResolver.resolve(barIndex, 0)` without changing its algorithms or instrument behavior.
+- Bus nodes and parameter bindings persist until graph destruction.
+- Values are installed with `AudioParam.setValueAtTime(value, barStartTime)`.
+- Construction initializes a new graph for `upcomingBar`. Identical `(barIndex, startTime)` scheduling is idempotent so the following bar callback cannot install the first event twice.
+- Only active buses receive new bar scheduling. Retiring buses freeze at their last installed value.
+- Stop calls `AudioParam.cancelAndHoldAtTime(stopTime)` on active and retiring bus bindings.
+- Each scheduling call resolves and verifies every binding before applying any value.
+- Validation remains typed semantic validation, not decoding of arbitrary `unknown` input.
+- No shared parameter manager, custom scheduler, or speculative lifecycle abstraction is introduced.
 
----
+## Authoring semantics
 
-## Phase 1: Canonical bar-resolvable bus parameters
+Fluid patterns distinguish bars from steps within one bar:
 
-Tracer bullet: Fluid can emit a multi-bar static named-bus effect parameter, and the shared graph validator accepts that canonical schema while continuing to reject unsupported automation types.
+```ts
+d.lpf(400, 800); // two bars: bar 0 → 400, bar 1 → 800
+d.lpf([400, 800]); // two intra-bar steps; a bus resolves only the first
+```
 
-### Step 1.1 — Define and validate the supported schema subset
+SOW 2 adds the same parameter-input capability to gain effects:
 
-**Files:** `packages/schema/src/validate-graph.ts`, `packages/schema/src/validate-graph.test.ts`, `packages/schema/src/index.ts` if a shared type guard is warranted
+```ts
+d.gain(0.5); // constant
+d.gain(0.5, 1, 0.75); // three bars
+d.gain([0.5, 1, 0.75]); // intra-bar steps; a bus uses only 0.5
+d.gain(randomCycle); // deterministic random value by bar
+d.gain(envelope);
+d.gain(lfo);
+d.gain(midiCc);
+```
 
-Replace the constant-only bus parameter check with a focused bar-resolvable check.
+The expanded gain API preserves existing constant, envelope, LFO, and MIDI serialization. The shared bus validator still rejects envelope, LFO, and MIDI gain effects when they are placed on buses.
 
-Requirements:
+## Supported parameter surface
 
-- accept `StaticSchema` when its cycle contains at least one bar, every bar contains a step at index zero, and every value that can be selected at index zero is finite;
-- accept `RandomSchema` when its grid and configuration can deterministically produce a finite value at `stepIndex = 0` for every represented bar;
-- reject envelopes, LFOs, and MIDI CC with contextual bus/effect/parameter paths;
-- reject empty static cycles and empty selected rows before they can reach modulo or indexed access in AudioEngine;
-- reject random schemas with empty segments, empty grids, empty selected rows, non-finite ranges/value maps, or other configuration that cannot safely resolve step zero;
-- retain existing bus name, gain, main-effect, route, send, and range validation unchanged;
-- use terminology such as “bar-resolvable static or random parameter” rather than the old “one finite constant static value” error;
-- export a schema predicate only if both validation and AudioEngine need exactly the same narrowing; do not create a general decoder abstraction.
+Patterning applies to these named-bus effect fields:
 
-**Acceptance criteria:**
+- gain effect `gain`;
+- filter `frequency`;
+- filter `Q`;
+- filter `detune`;
+- filter `gain`.
 
-- [ ] Constant and multi-bar static bus effect parameters pass shared validation.
-- [ ] Deterministic random bus effect parameters pass shared validation.
-- [ ] Empty or non-finite static/random configurations fail with the exact bus effect parameter path.
-- [ ] Envelope, LFO, and MIDI CC bus parameters remain rejected.
-- [ ] Existing graph validation behavior outside bus effect parameter kinds is unchanged.
-- [ ] Schema build, check, lint, and tests pass.
+It does not apply to:
 
-### Step 1.2 — Confirm Fluid’s existing authoring path emits canonical patterns
+- `BusSchema.gain`;
+- main;
+- sends;
+- instrument parameters beyond their existing behavior.
 
-**Files:** `packages/fluid/src/buses/bus.test.ts`, `packages/fluid/src/index.test.ts`, effect tests only if existing coverage cannot express the behavior
+## Runtime design
 
-Use the existing `Parameter` and random authoring APIs rather than adding a bus-specific pattern builder.
+### Persistent bindings
 
-Requirements:
-
-- demonstrate a named bus gain effect with a multi-bar static parameter;
-- demonstrate at least one patterned filter parameter;
-- demonstrate a deterministic random parameter on a named-bus effect;
-- verify constant bus effects serialize exactly as before;
-- verify bus output `.gain()` remains a finite constant number;
-- avoid changing `GainEffect`, `Filter`, `Parameter`, or random builders unless a test exposes an actual serialization defect.
-
-**Acceptance criteria:**
-
-- [ ] Existing Fluid syntax serializes multi-bar static bus effect parameters canonically.
-- [ ] Existing Fluid syntax serializes deterministic random bus effect parameters canonically.
-- [ ] Constant bus effect and bus output-gain schemas remain unchanged.
-- [ ] Fluid build, check, lint, and tests pass.
-
----
-
-## Phase 2: Persistent runtime bindings and static bar scheduling
-
-Tracer bullet: one persistent named-bus effect node receives the correct static value at each exact bar boundary without reconstruction or instrument changes.
-
-### Step 2.1 — Retain effect parameter bindings in RuntimeBus
-
-**Files:** `packages/audio-engine/src/buses/runtime-bus.ts`, `packages/audio-engine/src/buses/runtime-bus.test.ts`
-
-Refactor effect construction so `RuntimeBus` retains the minimal relationship between each supported schema and its target `AudioParam`.
-
-A binding may be shaped locally along these lines:
+`RuntimeBus` retains a file-local binding for each supported effect parameter:
 
 ```ts
 interface BusParameterBinding {
@@ -108,251 +87,339 @@ interface BusParameterBinding {
 }
 ```
 
-Requirements:
+The binding and target node remain stable for the graph lifetime. `BusSchema.gain` is not a binding.
 
-- retain bindings for gain effect `gain` and filter `frequency`, `Q`, `detune`, and `gain`;
-- preserve effect order and the existing serial audio-node topology;
-- keep `buildEffect()` and any stateless resolution helpers file-local rather than turning them into instance methods without state;
-- initialize constant schemas to the same audible value as today;
-- do not retain bindings for `BusSchema.gain`;
-- do not introduce a parameter host, automation class hierarchy, or engine-wide registry;
-- preserve idempotent node disconnection in `destroy()`.
+### Static resolution
 
-**Acceptance criteria:**
-
-- [ ] Every supported gain/filter parameter has one retained target binding.
-- [ ] Effect node identity and serial connection order are unchanged.
-- [ ] Constant parameters initialize exactly as before.
-- [ ] Bus output gain remains constant and outside the binding list.
-- [ ] RuntimeBus destruction remains idempotent.
-
-### Step 2.2 — Resolve and schedule static values by bar
-
-**Files:** `packages/audio-engine/src/buses/runtime-bus.ts`, `packages/audio-engine/src/buses/runtime-bus.test.ts`
-
-Add a narrow method such as:
+Static values resolve as:
 
 ```ts
-scheduleBar(barIndex: number, startTime?: number): void;
+schema.cycle[barIndex % schema.cycle.length][0].value;
 ```
 
-Requirements:
+Every selected row must contain a first entry and that entry must be finite. Additional entries are valid but ignored by bus scheduling.
 
-- resolve static values from `cycle[barIndex % cycle.length][0]`;
-- always use step zero even when the selected row contains additional steps;
-- wrap multi-bar cycles deterministically;
-- when `startTime` is defined, call `setValueAtTime(value, startTime)` on every target;
-- when `startTime` is undefined during construction, assign the target’s intrinsic value synchronously;
-- initialize a new RuntimeBus for its supplied starting bar rather than assuming bar zero;
-- keep one effect node and one target `AudioParam` across every scheduled bar;
-- throw one narrow RuntimeBus invariant error if a schema bypasses validation or cannot resolve.
+### Random resolution
 
-**Acceptance criteria:**
+`RuntimeBus` owns or memoizes one `RandomResolver` per `RandomSchema` object and calls:
 
-- [ ] Static cycles select and wrap by bar index.
-- [ ] Multi-step rows resolve only `stepIndex = 0`.
-- [ ] Every value is scheduled at the exact supplied audio time.
-- [ ] Construction at a nonzero starting bar installs that bar’s value.
-- [ ] Missing construction time initializes synchronously and deterministically.
-- [ ] Scheduling never reconstructs or reconnects an effect node.
+```ts
+resolver.resolve(barIndex, 0);
+```
 
-### Step 2.3 — Dispatch active graph bars from AudioEngine
+Repeated resolution of the same schema and bar must be deterministic. This SOW does not change `RandomResolver` behavior for instruments.
 
-**Files:** `packages/audio-engine/src/index.ts`, `packages/audio-engine/src/engine.test.ts`, focused graph-generation tests if needed
+### Atomic binding application
 
-Extend the existing clock ownership rather than creating another scheduler.
+Each `scheduleBar()` call has two stages:
 
-Requirements:
+1. Resolve every binding and verify every result is finite.
+2. Only after all resolution succeeds, call `setValueAtTime()` on any target.
 
-- pass `upcomingBar` and `barStartTime` into each RuntimeBus created during commit;
-- from the existing `bar` listener, call `scheduleBar(bar, time)` for every bus in `_activeGraph`;
-- leave instrument `scheduleBar()` calls and ordering behavior unchanged;
-- never schedule a retiring graph from later bar events;
-- preserve graph replacement, routing, main gain, and last-valid-pending behavior;
-- avoid adding lifecycle methods to `RuntimeGraph`; it remains a plain ownership structure.
+If an invalid schema bypasses shared validation, `RuntimeBus` throws its narrow invariant error without partially scheduling the effect chain.
 
-**Acceptance criteria:**
+### First-bar idempotence
 
-- [ ] A committed graph initializes bus effects for the upcoming bar.
-- [ ] Active buses receive subsequent bars with the clock’s exact time.
-- [ ] Instrument scheduling behavior remains unchanged.
-- [ ] Retiring buses receive no new bar values after replacement.
-- [ ] Main remains the only node connected directly to destination.
+Construction initializes bindings for `upcomingBar` at `barStartTime`. The later clock `bar` callback may describe the same boundary.
+
+`RuntimeBus.scheduleBar()` must therefore ignore an exact duplicate `(barIndex, startTime)` request. The key includes both values so a Stop/restart at the same bar with a different audio time still schedules normally.
+
+Tests must establish:
+
+- first bar scheduled once;
+- later bars scheduled once;
+- replacement graph initialized once;
+- scheduling after Stop/restart still works.
+
+### Missing construction time
+
+If construction has no `barStartTime`, RuntimeBus resolves the supplied starting bar and initializes target intrinsic values synchronously. A later timed scheduling call is not considered a duplicate of this untimed initialization.
+
+### Replacement and retirement
+
+Only `_activeGraph.buses` receive bar callbacks. After replacement, retiring buses:
+
+- remain connected while their voices finish;
+- receive no future bar scheduling;
+- freeze at their last installed value;
+- are destroyed through existing graph retirement ownership.
+
+### Stop
+
+`RuntimeBus.stop(stopTime)` calls:
+
+```ts
+parameter.cancelAndHoldAtTime(stopTime);
+```
+
+for every binding in active and retiring buses.
+
+No compatibility fallback is required for this SOW. Add one only if supported target environments demonstrate a concrete need and its audible semantics are separately approved.
+
+Stop does not disconnect nodes, reset values, destroy graphs, or alter active-voice LFO semantics. Later bar scheduling can install values normally.
+
+## Focused bus-resolvable random contract
+
+This SOW validates only what is needed to execute random bus parameters safely. It does not globally harden every use of `RandomSchema`.
+
+### Intrinsic safety required by RandomResolver
+
+For a random schema used by a bus, reject configuration that can cause runtime failure or non-finite output, including:
+
+- missing or empty segments;
+- non-finite seeds;
+- segment lengths that are not positive finite integers where a period is required;
+- non-finite range endpoints or a non-finite numeric span;
+- reversed ranges remain valid to preserve the existing directional mapping contract;
+- zero, negative, or non-finite quantization;
+- non-finite or out-of-domain chance configuration;
+- empty or non-finite value maps;
+- value maps that can be indexed unsafely by the configured data type and mapper.
+
+### Bus-specific resolvability
+
+Additionally require:
+
+- a non-empty grid cycle;
+- every represented grid bar to contain a first entry;
+- finite first-entry grid values;
+- a finite result from `resolve(barIndex, 0)` for the finite represented configuration.
+
+An empty random row may legitimately mean silence for notes or rhythmic masks. The non-empty-row rule therefore applies only when a random schema is used as a bus effect parameter.
+
+Schema validation establishes these guarantees structurally from the declared schema. It must not import or execute AudioEngine's `RandomResolver`. Runtime resolution performs the final finite-result invariant check before applying any binding values.
+
+### Representative accepted cases
+
+- one unbounded seed segment with a valid non-empty grid;
+- multiple positive finite integer segment lengths;
+- finite ascending, equal-endpoint, or reversed float/integer ranges whose span is finite;
+- positive finite quantization;
+- non-empty finite value map with safe indexing;
+- grid rows with multiple steps, where only the first is resolved for buses.
+
+### Representative rejected cases
+
+- no segments;
+- multiple segments whose total period is zero;
+- non-finite seed;
+- zero, negative, fractional, or non-finite segment length;
+- finite range endpoints whose subtraction overflows to a non-finite span;
+- empty grid cycle or empty grid row;
+- zero/non-finite quantization;
+- non-finite range endpoint;
+- invalid chance;
+- empty or non-finite value map;
+- configuration that resolves `(barIndex, 0)` to `undefined` or a non-finite number.
+
+## Separate follow-up: global RandomSchema hardening
+
+Do not broaden this SOW into changing random behavior across instruments or globally rejecting intentionally empty rhythmic bars.
+
+Record global random hardening as separate future work spanning:
+
+- `@web-audio/patterns` builder-time validation;
+- shared Schema semantic validation;
+- direct AudioEngine input;
+- compatibility review for existing instrument note, mask, and rhythm semantics.
+
+Fluid-only validation is insufficient because direct schemas can bypass Fluid.
 
 ---
 
-## Phase 3: Deterministic random resolution
+## Phase 0 — Normalize Fluid gain-effect authoring
 
-Tracer bullet: a persistent named-bus parameter resolves the existing seeded random schema once per bar and produces the same value for the same bar regardless of callback repetition.
+**Purpose:** Make gain effects capable of expressing the same parameter inputs as filters before the static vertical slice uses them.
 
-### Step 3.1 — Reuse RandomResolver for bus bindings
+This is a planning prerequisite, not an independently releasable capability. Implement and land it together with Phase 1.
 
-**Files:** `packages/audio-engine/src/buses/runtime-bus.ts`, `packages/audio-engine/src/buses/runtime-bus.test.ts`, `packages/audio-engine/src/resolvers/random-resolver.ts` only if a demonstrated reusable API adjustment is required
+**Files:**
 
-Add per-schema random resolver ownership to `RuntimeBus`.
+- `packages/fluid/src/effects/gain.ts`
+- `packages/fluid/src/index.ts`
+- relevant public input types
+- focused Fluid tests
 
-Requirements:
+**Requirements:**
 
-- instantiate or lazily memoize one `RandomResolver` per `RandomSchema` object owned by the bus;
-- resolve with `(barIndex, 0)` for every random binding;
-- preserve current seed segments, algorithms, masks, ranges, quantization, chance, and value-map semantics;
-- repeated scheduling of the same bar must produce the same value;
-- bar order must not alter the deterministic result for a given schema and bar;
-- do not move instrument resolver maps or `_resolve()` methods into shared infrastructure;
-- do not modify random generation semantics merely to simplify bus scheduling.
+- allow static multi-bar values and intra-bar arrays through the established `AudioParamInput` conventions;
+- allow `RandomCycle` through the existing parameter source path;
+- preserve constants, envelopes, LFOs, and MIDI CC;
+- match filter parameter-input ergonomics where applicable;
+- do not create a bus-specific gain builder;
+- keep generated `GainEffectSchema` canonical.
 
 **Acceptance criteria:**
 
-- [ ] Random bus values are deterministic for a schema and bar.
+- [ ] Existing constant gain syntax and schema output are unchanged.
+- [ ] Existing envelope, LFO, and MIDI gain syntax remains unchanged.
+- [ ] Multi-bar and intra-bar static gain inputs serialize correctly.
+- [ ] Random gain inputs serialize correctly.
+- [ ] Gain and filter documentation use consistent pattern terminology.
+- [ ] Phase 0 is not landed without Phase 1 runtime support.
+
+---
+
+## Phase 1 — Static bus parameters end to end
+
+**Tracer bullet:** Fluid authors a static patterned gain/filter bus parameter, shared validation accepts it, one persistent RuntimeBus binding resolves it, and AudioEngine schedules it exactly once at each bar.
+
+All Phase 1 authoring, validation, runtime binding, and engine dispatch changes must land atomically. The numbered steps guide implementation and review; none is an independently safe merge boundary because validation must not accept schemas RuntimeBus cannot execute.
+
+### 1.1 Authoring and validation
+
+- Complete Phase 0 gain authoring changes.
+- Add Fluid serialization coverage for static gain and filter patterns.
+- Replace constant-only bus validation with static bar-resolvable validation.
+- Accept non-empty static cycles whose represented rows have finite first entries.
+- Continue rejecting random and other automation until Phase 2 is complete.
+- Preserve all graph validation outside bus effect parameter kinds.
+
+### 1.2 Persistent static bindings
+
+- Retain target/schema bindings for all supported gain/filter fields.
+- Preserve effect order, node identity, and serial topology.
+- Resolve static values by bar with fixed step zero.
+- Resolve and verify all bindings before applying any value.
+- Schedule timed values with `setValueAtTime()`.
+- Initialize untimed construction synchronously.
+- Keep `BusSchema.gain` constant and outside the bindings.
+
+### 1.3 Engine dispatch and first-bar ownership
+
+- Pass `upcomingBar` and `barStartTime` into RuntimeBus construction.
+- Dispatch active buses from the existing `bar` listener.
+- Make identical `(barIndex, startTime)` scheduling idempotent.
+- Leave instrument scheduling unchanged.
+- Do not schedule retiring buses.
+
+**Acceptance criteria:**
+
+- [ ] Static gain/filter patterns work end to end from Fluid and direct schemas.
+- [ ] Static cycles wrap by bar and always use step zero.
+- [ ] Every represented static row has a finite first value.
+- [ ] Invalid runtime input cannot partially schedule bindings.
+- [ ] First, later, and replacement bars are each installed once.
+- [ ] Replacement starts from the upcoming nonzero bar.
+- [ ] Effect nodes and routing remain unchanged across bars.
+- [ ] Random, envelope, LFO, and MIDI bus parameters remain rejected.
+- [ ] Schema, Fluid, and AudioEngine checks pass at phase closeout.
+
+---
+
+## Phase 2 — Random bus parameters end to end
+
+**Tracer bullet:** Fluid authors a deterministic random bus parameter, bus-specific shared validation accepts its safe subset, and RuntimeBus resolves it once per bar without changing instrument random behavior.
+
+All Phase 2 authoring, validation, and runtime resolution changes must land atomically. Steps 2.1 and 2.2 are not independent merge boundaries: shared validation must not accept random bus schemas until RuntimeBus can resolve them safely.
+
+### 2.1 Authoring and bus-specific validation
+
+- Add Fluid random gain/filter bus serialization tests.
+- Validate the focused intrinsic and bus-resolvability rules above.
+- Accept safe `RandomSchema` values only for bus effect parameters.
+- Keep empty-row rejection contextual to bus usage.
+- Do not alter global `RandomSchema` semantics or instrument validation.
+
+### 2.2 Runtime random resolution
+
+- Reuse `RandomResolver` without duplicating algorithms.
+- Own or memoize one resolver per random schema in RuntimeBus.
+- Resolve with `(barIndex, 0)`.
+- Verify every result is finite during the resolve-all stage.
+- Preserve atomic application across mixed static/random bindings.
+
+**Acceptance criteria:**
+
+- [ ] Safe random gain/filter patterns work end to end.
+- [ ] Same schema and bar always produce the same value.
 - [ ] Random resolution always uses step zero.
-- [ ] Segment and cycle behavior matches the existing `RandomResolver` contract.
-- [ ] Repeated scheduling does not create additional resolvers or nodes.
-- [ ] Instrument random-resolution tests remain unchanged and pass.
-
-### Step 3.2 — Cover all supported effect destinations
-
-**Files:** `packages/audio-engine/src/buses/runtime-bus.test.ts`, `packages/audio-engine/src/engine.test.ts`
-
-Exercise static and random resolution across the complete SOW 2 parameter surface.
-
-Requirements:
-
-- cover gain effect `gain`;
-- cover filter `frequency`, `Q`, `detune`, and `gain`;
-- combine constant, multi-bar static, and random bindings in one persistent chain;
-- verify scheduled values and times without asserting implementation-private collection shapes;
-- retain a focused runtime invariant test for an unvalidated unsupported parameter.
-
-**Acceptance criteria:**
-
-- [ ] Every gain/filter AudioParam supports constant, static-cycle, and random resolution.
-- [ ] Mixed parameter kinds schedule independently on the same bar.
-- [ ] Effect ordering and routing are unchanged under patterned values.
-- [ ] Invalid post-validation runtime input fails explicitly rather than partially scheduling a chain.
+- [ ] Mixed static/random chains apply atomically.
+- [ ] Empty bus random rows and unsafe configurations fail contextually.
+- [ ] Intentionally empty instrument rhythm/mask rows remain valid and unchanged.
+- [ ] Existing `RandomResolver` and instrument tests pass without semantic rewrites.
 
 ---
 
-## Phase 4: Stop semantics and lifecycle containment
+## Phase 3 — Stop behavior
 
-Tracer bullet: stopping transport cancels future bus values while active and retiring audio keeps its currently audible parameter values and graph ownership.
+**Tracer bullet:** Stop cancels future bus automation while preserving the currently audible values and all active/retiring graph connections.
 
-### Step 4.1 — Cancel future scheduled values without disconnecting buses
+### 3.1 RuntimeBus Stop
 
-**Files:** `packages/audio-engine/src/buses/runtime-bus.ts`, `packages/audio-engine/src/buses/runtime-bus.test.ts`
+- Add `stop(stopTime)`.
+- Call `cancelAndHoldAtTime(stopTime)` on every binding.
+- Keep repeated Stop safe.
+- Clear or update scheduling-idempotence state so restart at a new audio time schedules normally.
+- Do not disconnect, reset, or destroy nodes.
 
-Add a focused stop operation such as:
+### 3.2 Engine Stop dispatch
 
-```ts
-stop(time: number): void;
-```
-
-Requirements:
-
-- cancel future scheduled values for every retained target at the supplied audio time;
-- hold the value audible at that time using the appropriate Web Audio automation operation;
-- do not reset parameters to schema bar zero, an arbitrary default, or unity;
-- do not disconnect effect nodes, bus inputs, outputs, or active voice paths;
-- make repeated stop calls safe;
-- allow later `scheduleBar()` calls after restart to install new values normally;
-- keep destruction separate from transport stop.
+- Use the exact time supplied by the clock event: `clock.on("stop", (_metronome, time) => ...)`.
+- Pass that event time to every bus rather than reading `this._ctx.currentTime` independently.
+- Call bus Stop for `_activeGraph` and every retiring graph.
+- Preserve existing future-note cancellation and MIDI scheduler behavior.
+- Preserve active-voice LFO and completion semantics.
 
 **Acceptance criteria:**
 
-- [ ] Future scheduled bus values are removed at stop time.
-- [ ] The currently audible value is held without an abrupt reset.
-- [ ] Stop does not disconnect or destroy any bus node.
-- [ ] Repeated Stop and later scheduling remain safe.
-- [ ] Existing active-voice Stop/LFO regression behavior remains unchanged.
-
-### Step 4.2 — Apply Stop cleanup to active and retiring graphs
-
-**Files:** `packages/audio-engine/src/index.ts`, `packages/audio-engine/src/engine.test.ts`
-
-Extend the existing clock `stop` listener.
-
-Requirements:
-
-- call `stop(this._ctx.currentTime)` for every active bus;
-- call the same operation for every retiring bus because retiring voices may still be audible;
-- retain existing future-note cancellation and MIDI output scheduler Stop behavior;
-- do not retire, destroy, or disconnect a graph because transport stopped;
-- preserve active-voice completion cleanup and graph replacement isolation.
-
-**Acceptance criteria:**
-
-- [ ] Active and retiring buses cancel future parameter values on Stop.
-- [ ] Active and retiring instruments retain their existing Stop behavior.
-- [ ] Stop does not alter graph retirement ownership.
-- [ ] Destroy still cleans active and retiring graphs exactly once.
+- [ ] Active and retiring buses cancel future values at the supplied time.
+- [ ] Currently audible values are held rather than reset.
+- [ ] Stop does not disconnect or destroy bus nodes.
+- [ ] Repeated Stop is safe.
+- [ ] Stop/restart can schedule the same bar at a new time.
+- [ ] Existing active-voice Stop/LFO regression tests remain valid.
 
 ---
 
-## Phase 5: Integration, documentation, and closeout
+## Phase 4 — Integration, documentation, and closeout
 
-Tracer bullet: the same Fluid-authored and direct-schema reference graph evolves gain/filter parameters deterministically by bar without changing routes, sends, main ownership, or instrument behavior.
+### 4.1 Canonical integration coverage
 
-### Step 5.1 — Add canonical end-to-end coverage
-
-**Files:** `packages/fluid/src/index.test.ts`, `packages/audio-engine/src/engine.test.ts`, `packages/audio-engine/src/graph-generation.test.ts` only where topology assertions already belong
-
-Use one compact reference graph with:
+Use equivalent Fluid and direct schemas containing:
 
 - a named primary-route bus;
 - a named send bus;
-- a multi-bar static gain or filter parameter;
-- a deterministic random gain or filter parameter;
-- at least one instrument routed directly to main;
-- more than one bar of scheduling;
-- graph replacement and Stop.
+- static gain/filter patterns;
+- a deterministic random gain/filter parameter;
+- an instrument routed directly to main;
+- multiple bars;
+- graph replacement at a nonzero bar;
+- Stop and restart.
 
-Requirements:
+Verify:
 
-- verify Fluid output passes the same validator as direct schema input;
-- verify values change at exact bar times;
-- verify the same bar resolves identically from Fluid and direct schemas;
-- verify primary routes remain exclusive and sends remain post-mute;
-- verify no named bus connects directly to destination;
-- verify replacement freezes retiring bus parameters and new buses begin at the upcoming bar;
-- verify caller mutation and invalid-update behavior from SOW 1 remain intact.
+- first and later boundaries schedule once;
+- direct and Fluid schemas resolve equivalently;
+- retiring buses freeze after replacement;
+- primary routes remain exclusive;
+- sends remain post-mute;
+- main remains the only destination-connected node;
+- caller-mutation and last-valid-write guarantees remain intact.
 
-**Acceptance criteria:**
-
-- [ ] Fluid and direct schemas produce equivalent patterned bus behavior.
-- [ ] Multi-bar static and seeded random values resolve correctly across replacement.
-- [ ] Canonicalization introduces no dry duplication or send-tap change.
-- [ ] Main remains the only node connected directly to destination.
-- [ ] Pending-state cloning and last-valid-write behavior remain intact.
-
-### Step 5.2 — Document the supported behavior and explicit limits
-
-**Files:** `packages/fluid/README.md`, `packages/audio-engine/README.md`, `plans/effects-chain/bus-followup-roadmap.md`
+### 4.2 Documentation
 
 Document:
 
-- named-bus effect parameters may use static cycles and deterministic random patterns;
-- values resolve once per bar with step zero;
-- extra intra-bar steps are ignored for bus parameters;
-- exact-time scheduling and persistent effect-node behavior;
-- bus output gain remains constant;
-- retiring buses freeze at their last value;
-- Stop holds current values and cancels future values;
-- envelopes, LFOs, MIDI CC, patterned sends, and main effects remain unsupported;
-- direct schemas are subject to shared semantic validation.
+- static and deterministic random named-bus effect parameters;
+- bar-level versus intra-bar Fluid syntax;
+- fixed step-zero bus resolution;
+- exact-time scheduling and first-bar idempotence;
+- persistent nodes and frozen retiring buses;
+- `cancelAndHoldAtTime()` Stop behavior;
+- constant bus output gain;
+- unsupported envelopes, LFOs, MIDI CC, patterned sends, and main effects;
+- the separate global random-hardening follow-up.
 
-Link this detailed plan from SOW 2 in the roadmap. After closeout, move this file to `plans/effects-chain/completed/` and update the roadmap link rather than leaving completion status ambiguous.
+After closeout, move this plan to `plans/effects-chain/completed/` and update the roadmap link.
 
-**Acceptance criteria:**
+### 4.3 Automated verification
 
-- [ ] Fluid documentation explains authoring syntax and bar-level resolution.
-- [ ] AudioEngine documentation explains scheduling, Stop, and retirement semantics.
-- [ ] Unsupported automation kinds are explicit.
-- [ ] The roadmap points to this implementation plan.
+Run changed-package formatting before final checks:
 
-### Step 5.3 — Required automated verification
-
-Run after all slices are complete:
-
-- [ ] `pnpm --filter @web-audio/schema build`
+- [ ] `pnpm --filter @web-audio/schema format`
+- [ ] `pnpm --filter @web-audio/fluid format`
+- [ ] `pnpm --filter @web-audio/audio-engine format`
 - [ ] `pnpm --filter @web-audio/schema check`
 - [ ] `pnpm --filter @web-audio/schema lint`
 - [ ] `pnpm --filter @web-audio/schema test:ci`
@@ -368,35 +435,59 @@ Run after all slices are complete:
 - [ ] `pnpm lint`
 - [ ] `pnpm test`
 
-### Step 5.4 — Required focused manual review
+### 4.4 Focused manual review
 
-Use a short sketch with an obvious alternating filter cutoff or gain pattern and a seeded random parameter.
+Use a short sketch with obvious alternating gain/filter values and a seeded random parameter.
 
-- [ ] Values change on bar boundaries rather than callback execution time.
+- [ ] Changes occur on audio bar boundaries rather than callback execution time.
 - [ ] Static cycles wrap at the expected bar.
-- [ ] Seeded random behavior repeats after replay/reconstruction.
-- [ ] No click or dry duplication is introduced by parameter changes at ordinary values.
-- [ ] Stopping before a scheduled boundary does not allow the future value to arrive afterward.
+- [ ] Seeded random behavior repeats after reconstruction.
+- [ ] Ordinary value changes introduce no unexpected click or dry duplication.
+- [ ] Stop before a future boundary prevents that value from arriving.
 - [ ] Existing voices remain audible through Stop according to current semantics.
-- [ ] Replacing a sketch does not continue evolving the retiring bus.
+- [ ] Replacing a sketch freezes the retiring bus.
 - [ ] Instrument effects, envelopes, LFOs, MIDI, routes, and sends sound unchanged.
 
----
+## Explicit non-goals
 
-## Closeout constraints
+- Patterned `BusSchema.gain`
+- Patterned sends
+- Intra-bar bus automation
+- Bus envelopes, LFOs, or MIDI CC
+- Global RandomSchema hardening
+- Changes to intentionally empty instrument rhythm or mask rows
+- Parameter-manager extraction
+- Shared parameter-host abstraction
+- Custom scheduling infrastructure
+- Instrument parameter refactors
+- Routing or send-tap changes
+- Tail-aware retirement
+- Main effects
+- Ducking
 
-This SOW is complete only when named-bus gain/filter effect parameters evolve deterministically once per bar and all existing topology and instrument semantics remain intact.
+## Reassessment gates
 
-Do not expand closeout to include:
+Pause and split or revise the SOW if implementation starts requiring:
 
-- intra-bar bus automation;
-- patterned bus output gain;
-- patterned sends;
-- shared parameter-manager extraction;
-- envelopes, LFOs, or MIDI CC on buses;
-- retirement fades or tail infrastructure;
-- main effects;
-- bus-to-bus routing;
-- broad engine commit or clock refactors.
+- changes to instrument parameter or random semantics;
+- globally rejecting empty rhythmic rows;
+- a generalized parameter host or manager;
+- a custom scheduler;
+- changes to routing, send taps, or main ownership;
+- advancing retiring buses after replacement;
+- continuous or intra-bar bus automation;
+- graph retirement or active-voice lifecycle changes;
+- a compatibility fallback for `cancelAndHoldAtTime()` without demonstrated target need.
 
-If implementation requires changing unrelated voice, sampler, MIDI, LFO, transport, or routing behavior, stop and split that work into a separately approved plan rather than enlarging this SOW.
+## Completion criteria
+
+This SOW is complete when:
+
+- Fluid gain effects support the established static/random parameter-input capability without breaking existing automation inputs;
+- named-bus gain/filter effects accept safe static and deterministic random patterns;
+- all values resolve with `stepIndex = 0` and apply atomically at exact bar boundaries;
+- first-bar scheduling is idempotent;
+- replacement starts new buses from the upcoming bar and freezes retiring buses;
+- Stop cancels future values while holding current values;
+- instrument random, parameter, LFO, MIDI, voice, and routing behavior remains unchanged;
+- package and workspace verification passes.
