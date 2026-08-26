@@ -231,7 +231,7 @@ Fluid-only validation is insufficient because direct schemas can bypass Fluid.
 
 **Purpose:** Make gain effects capable of expressing the same parameter inputs as filters before the static vertical slice uses them.
 
-This is a planning prerequisite, not an independently releasable capability. Implement and land it together with Phase 1.
+This is an independently releasable Fluid authoring correction because instrument gain effects already execute static and random parameter schemas. Bus validation continues rejecting patterned gain effects until Phase 1 or Phase 2 adds the matching bus runtime capability.
 
 **Files:**
 
@@ -242,8 +242,9 @@ This is a planning prerequisite, not an independently releasable capability. Imp
 
 **Requirements:**
 
-- allow static multi-bar values and intra-bar arrays through the established `AudioParamInput` conventions;
-- allow `RandomCycle` through the existing parameter source path;
+- correct the stale public typing for already-working intra-bar arrays and `RandomCycle` inputs;
+- make `d.gain()` and `GainEffect` variadic so multi-bar static values are forwarded rather than discarded;
+- use the established `AudioParamInput` and parameter source conventions;
 - preserve constants, envelopes, LFOs, and MIDI CC;
 - match filter parameter-input ergonomics where applicable;
 - do not create a bus-specific gain builder;
@@ -251,12 +252,12 @@ This is a planning prerequisite, not an independently releasable capability. Imp
 
 **Acceptance criteria:**
 
-- [ ] Existing constant gain syntax and schema output are unchanged.
-- [ ] Existing envelope, LFO, and MIDI gain syntax remains unchanged.
-- [ ] Multi-bar and intra-bar static gain inputs serialize correctly.
-- [ ] Random gain inputs serialize correctly.
-- [ ] Gain and filter documentation use consistent pattern terminology.
-- [ ] Phase 0 is not landed without Phase 1 runtime support.
+- [x] Existing constant gain syntax and schema output are unchanged.
+- [x] Existing envelope, LFO, and MIDI gain syntax remains unchanged.
+- [x] Multi-bar and intra-bar static gain inputs serialize correctly.
+- [x] Random gain inputs serialize correctly.
+- [x] Gain and filter use the same established pattern-input terminology.
+- [x] Phase 0 remains safe independently because bus validation still rejects patterned parameters.
 
 ---
 
@@ -264,7 +265,7 @@ This is a planning prerequisite, not an independently releasable capability. Imp
 
 **Tracer bullet:** Fluid authors a static patterned gain/filter bus parameter, shared validation accepts it, one persistent RuntimeBus binding resolves it, and AudioEngine schedules it exactly once at each bar.
 
-All Phase 1 authoring, validation, runtime binding, and engine dispatch changes must land atomically. The numbered steps guide implementation and review; none is an independently safe merge boundary because validation must not accept schemas RuntimeBus cannot execute.
+All Phase 1 bus validation, runtime binding, and engine dispatch changes must land atomically. The numbered steps guide implementation and review; none is an independently safe merge boundary because validation must not accept schemas RuntimeBus cannot execute.
 
 ### 1.1 Authoring and validation
 

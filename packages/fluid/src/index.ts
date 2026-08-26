@@ -6,7 +6,7 @@ import Bus from "./buses/bus";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
 import Instrument from "./instruments/instrument";
-import { MidiBuilders, MidiCc } from "./midi";
+import { MidiBuilders } from "./midi";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import {
@@ -111,8 +111,8 @@ class Drome {
     return new Lfo(outputA, outputB);
   }
 
-  gain(input: number | Envelope | Lfo | MidiCc) {
-    return new GainEffect(input);
+  gain(...input: AudioParamInput) {
+    return new GainEffect(...input);
   }
 
   filter(type: FilterType, ...frequency: AudioParamInput) {
