@@ -354,7 +354,7 @@ describe("AudioEngine", () => {
       withDynamicNamedEffect.buses = {
         drums: {
           gain: 1,
-          effects: [{ type: "gain", gain: staticParam(0.5, 1) }],
+          effects: [{ type: "gain", gain: { type: "random" } as never }],
         },
       };
 
@@ -362,7 +362,7 @@ describe("AudioEngine", () => {
         "[Schema] Effects on main are not supported in the bus MVP.",
       );
       expect(() => engine.update(withDynamicNamedEffect)).toThrow(
-        '[Schema] Bus "drums" effects[0].gain must be one finite constant static value.',
+        '[Schema] Bus "drums" effects[0].gain must be a finite bar-resolvable static parameter.',
       );
 
       clock.emit("bar");

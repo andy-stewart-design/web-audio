@@ -1,18 +1,42 @@
-import { isConstantAudioParamSchema } from "@web-audio/schema";
 import type {
   AudioParamSchema,
   BusSchema,
   EffectSchema,
+  ParameterSchema,
 } from "@web-audio/schema";
 import { FILTER_TYPE_MAP } from "@/constants";
 
+interface BusParameterBinding {
+  target: AudioParam;
+  schema: ParameterSchema;
+}
+
+interface RuntimeEffect {
+  node: AudioNode;
+  bindings: BusParameterBinding[];
+}
+
+interface RuntimeBusOptions {
+  startingBar: number;
+  barStartTime: number | undefined;
+}
+
 class RuntimeBus {
   readonly input: GainNode;
-  private readonly _effects: AudioNode[];
+  private readonly _effects: RuntimeEffect[];
   private readonly _output: GainNode;
+  private _lastSchedule: { barIndex: number; startTime: number } | null = null;
   private _destroyed = false;
 
-  constructor(ctx: AudioContext, schema: BusSchema, destination: AudioNode) {
+  constructor(
+    ctx: AudioContext,
+    schema: BusSchema,
+    destination: AudioNode,
+    options: RuntimeBusOptions = {
+      startingBar: 0,
+      barStartTime: undefined,
+    },
+  ) {
     this.input = ctx.createGain();
     this._effects = schema.effects.map((effect) => buildEffect(ctx, effect));
     this._output = ctx.createGain();
@@ -20,18 +44,48 @@ class RuntimeBus {
 
     let previous: AudioNode = this.input;
     for (const effect of this._effects) {
-      previous.connect(effect);
-      previous = effect;
+      previous.connect(effect.node);
+      previous = effect.node;
     }
     previous.connect(this._output);
     this._output.connect(destination);
+
+    this.scheduleBar(options.startingBar, options.barStartTime);
+  }
+
+  scheduleBar(barIndex: number, startTime?: number) {
+    if (
+      startTime !== undefined &&
+      this._lastSchedule?.barIndex === barIndex &&
+      this._lastSchedule.startTime === startTime
+    ) {
+      return;
+    }
+
+    const resolved = this._effects.flatMap(({ bindings }) =>
+      bindings.map(({ target, schema }) => ({
+        target,
+        value: resolveStaticValue(schema, barIndex),
+      })),
+    );
+
+    resolved.forEach(({ target, value }) => {
+      if (startTime === undefined) {
+        target.value = value;
+      } else {
+        target.setValueAtTime(value, startTime);
+      }
+    });
+
+    this._lastSchedule =
+      startTime === undefined ? null : { barIndex, startTime };
   }
 
   destroy() {
     if (this._destroyed) return;
     this._destroyed = true;
     this.input.disconnect();
-    this._effects.forEach((effect) => effect.disconnect());
+    this._effects.forEach((effect) => effect.node.disconnect());
     this._output.disconnect();
   }
 }
@@ -41,23 +95,41 @@ function buildEffect(ctx: AudioContext, effect: EffectSchema) {
     const node = new BiquadFilterNode(ctx, {
       type: FILTER_TYPE_MAP[effect.filterType],
     });
-    node.frequency.value = constantValue(effect.frequency);
-    node.Q.value = constantValue(effect.q);
-    node.detune.value = constantValue(effect.detune);
-    node.gain.value = constantValue(effect.gain);
-    return node;
+    return {
+      node,
+      bindings: [
+        binding(node.frequency, effect.frequency),
+        binding(node.Q, effect.q),
+        binding(node.detune, effect.detune),
+        binding(node.gain, effect.gain),
+      ],
+    };
   }
 
   const node = new GainNode(ctx);
-  node.gain.value = constantValue(effect.gain);
-  return node;
+  return {
+    node,
+    bindings: [binding(node.gain, effect.gain)],
+  };
 }
 
-function constantValue(schema: AudioParamSchema) {
-  if (!isConstantAudioParamSchema(schema)) {
-    throw new Error("[RuntimeBus] Expected a validated constant parameter.");
+function binding(target: AudioParam, schema: AudioParamSchema) {
+  if (schema.type !== "static") {
+    throw new Error("[RuntimeBus] Expected a validated static parameter.");
   }
-  return schema.cycle[0][0].value;
+  return { target, schema };
+}
+
+function resolveStaticValue(schema: ParameterSchema, barIndex: number) {
+  if (schema.type !== "static" || schema.cycle.length === 0) {
+    throw new Error("[RuntimeBus] Expected a validated static parameter.");
+  }
+  const bar = schema.cycle[barIndex % schema.cycle.length];
+  const value = bar?.[0]?.value;
+  if (!Number.isFinite(value)) {
+    throw new Error("[RuntimeBus] Expected a validated static parameter.");
+  }
+  return value;
 }
 
 export default RuntimeBus;

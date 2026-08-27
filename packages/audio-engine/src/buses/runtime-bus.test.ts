@@ -4,6 +4,7 @@ import RuntimeBus from "./runtime-bus";
 
 class FakeAudioParam {
   value = 99;
+  setValueAtTime = vi.fn();
 }
 
 class FakeGainNode {
@@ -45,7 +46,10 @@ function staticParam(value: number): StaticSchema {
   };
 }
 
-function createBus(effects: EffectSchema[] = []) {
+function createBus(
+  effects: EffectSchema[] = [],
+  options?: { startingBar: number; barStartTime: number | undefined },
+) {
   const gains: FakeGainNode[] = [];
   const ctx = {
     createGain: () => {
@@ -59,6 +63,7 @@ function createBus(effects: EffectSchema[] = []) {
     ctx,
     { gain: 0.75, effects },
     main as unknown as AudioNode,
+    options,
   );
   return { bus, gains, main };
 }
@@ -111,21 +116,95 @@ describe("RuntimeBus", () => {
     expect(input.connect).toHaveBeenCalledOnce();
   });
 
-  it("guards against an unvalidated dynamic parameter", () => {
+  it("initializes the requested starting bar without rebuilding nodes", () => {
+    const gain = {
+      ...staticParam(0.5),
+      cycle: [
+        [{ value: 0.5, offset: 0, duration: 1, stepIndex: 0 }],
+        [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
+      ],
+    };
+    createBus([{ type: "gain", gain }], {
+      startingBar: 3,
+      barStartTime: undefined,
+    });
+
+    expect(FakeEffectGainNode.instances).toHaveLength(1);
+    expect(FakeEffectGainNode.instances[0].gain.value).toBe(1);
+  });
+
+  it("schedules static cycles at exact bar times using step zero", () => {
+    const gain = {
+      ...staticParam(0.5),
+      cycle: [
+        [
+          { value: 0.5, offset: 0, duration: 0.5, stepIndex: 0 },
+          { value: 99, offset: 0.5, duration: 0.5, stepIndex: 1 },
+        ],
+        [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
+      ],
+    };
+    const { bus } = createBus([{ type: "gain", gain }]);
+    const target = FakeEffectGainNode.instances[0].gain;
+
+    bus.scheduleBar(1, 12);
+    bus.scheduleBar(2, 14);
+
+    expect(target.setValueAtTime.mock.calls).toEqual([
+      [1, 12],
+      [0.5, 14],
+    ]);
+    expect(FakeEffectGainNode.instances).toHaveLength(1);
+  });
+
+  it("does not schedule an identical bar and time twice", () => {
+    const { bus } = createBus([{ type: "gain", gain: staticParam(0.5) }], {
+      startingBar: 2,
+      barStartTime: 10,
+    });
+    const target = FakeEffectGainNode.instances[0].gain;
+
+    bus.scheduleBar(2, 10);
+    bus.scheduleBar(3, 12);
+
+    expect(target.setValueAtTime.mock.calls).toEqual([
+      [0.5, 10],
+      [0.5, 12],
+    ]);
+  });
+
+  it("resolves every binding before scheduling any target", () => {
+    const valid = staticParam(0.5);
+    const invalid = staticParam(800);
+    const { bus } = createBus([
+      { type: "gain", gain: valid },
+      {
+        type: "filter",
+        filterType: "lp",
+        frequency: invalid,
+        q: staticParam(1),
+        detune: staticParam(0),
+        gain: staticParam(0),
+      },
+    ]);
+    const gainTarget = FakeEffectGainNode.instances[0].gain;
+    invalid.cycle = [];
+
+    expect(() => bus.scheduleBar(1, 12)).toThrow(
+      "[RuntimeBus] Expected a validated static parameter.",
+    );
+    expect(gainTarget.setValueAtTime).not.toHaveBeenCalled();
+  });
+
+  it("guards against an unvalidated unsupported parameter", () => {
     expect(() =>
       createBus([
         {
           type: "gain",
-          gain: {
-            ...staticParam(0.5),
-            cycle: [
-              [{ value: 0.5, offset: 0, duration: 1, stepIndex: 0 }],
-              [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
-            ],
-          },
+          gain: { type: "random" } as never,
         },
       ]),
-    ).toThrow("[RuntimeBus] Expected a validated constant parameter.");
+    ).toThrow("[RuntimeBus] Expected a validated static parameter.");
   });
 
   it("destroys every owned node idempotently", () => {
