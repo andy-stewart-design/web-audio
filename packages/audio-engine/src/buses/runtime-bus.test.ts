@@ -5,6 +5,7 @@ import RuntimeBus from "./runtime-bus";
 class FakeAudioParam {
   value = 99;
   setValueAtTime = vi.fn();
+  linearRampToValueAtTime = vi.fn();
 }
 
 class FakeGainNode {
@@ -38,11 +39,13 @@ class FakeFilterNode {
   }
 }
 
-function staticParam(value: number): StaticSchema {
+function staticParam(...values: number[]): StaticSchema {
   return {
     type: "static",
     polyphonic: false,
-    cycle: [[{ value, offset: 0, duration: 1, stepIndex: 0 }]],
+    cycle: values.map((value) => [
+      { value, offset: 0, duration: 1, stepIndex: 0 },
+    ]),
   };
 }
 
@@ -52,6 +55,7 @@ function createBus(
 ) {
   const gains: FakeGainNode[] = [];
   const ctx = {
+    currentTime: 0,
     createGain: () => {
       const gain = new FakeGainNode();
       gains.push(gain);
@@ -151,8 +155,12 @@ describe("RuntimeBus", () => {
     bus.scheduleBar(2, 14);
 
     expect(target.setValueAtTime.mock.calls).toEqual([
-      [1, 12],
-      [0.5, 14],
+      [0.5, 12],
+      [1, 14],
+    ]);
+    expect(target.linearRampToValueAtTime.mock.calls).toEqual([
+      [1, 12.005],
+      [0.5, 14.005],
     ]);
     expect(FakeEffectGainNode.instances).toHaveLength(1);
   });
@@ -167,10 +175,18 @@ describe("RuntimeBus", () => {
     bus.scheduleBar(2, 10);
     bus.scheduleBar(3, 12);
 
-    expect(target.setValueAtTime.mock.calls).toEqual([
-      [0.5, 10],
-      [0.5, 12],
-    ]);
+    expect(target.setValueAtTime.mock.calls).toEqual([[0.5, 10]]);
+    expect(target.linearRampToValueAtTime).not.toHaveBeenCalled();
+  });
+
+  it("uses a full minimum ramp when scheduling arrives late", () => {
+    const { bus } = createBus([{ type: "gain", gain: staticParam(1, 0.5) }]);
+    const target = FakeEffectGainNode.instances[0].gain;
+
+    bus.scheduleBar(1, -1);
+
+    expect(target.setValueAtTime).toHaveBeenCalledWith(1, 0);
+    expect(target.linearRampToValueAtTime).toHaveBeenCalledWith(0.5, 0.005);
   });
 
   it("resolves every binding before scheduling any target", () => {

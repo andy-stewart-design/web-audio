@@ -4,11 +4,12 @@ import type {
   EffectSchema,
   ParameterSchema,
 } from "@web-audio/schema";
-import { FILTER_TYPE_MAP } from "@/constants";
+import { FILTER_TYPE_MAP, MIN_RAMP } from "@/constants";
 
 interface BusParameterBinding {
   target: AudioParam;
   schema: ParameterSchema;
+  value: number | undefined;
 }
 
 interface RuntimeEffect {
@@ -23,6 +24,7 @@ interface RuntimeBusOptions {
 
 class RuntimeBus {
   readonly input: GainNode;
+  private readonly _ctx: AudioContext;
   private readonly _effects: RuntimeEffect[];
   private readonly _output: GainNode;
   private _lastSchedule: { barIndex: number; startTime: number } | null = null;
@@ -37,6 +39,7 @@ class RuntimeBus {
       barStartTime: undefined,
     },
   ) {
+    this._ctx = ctx;
     this.input = ctx.createGain();
     this._effects = schema.effects.map((effect) => buildEffect(ctx, effect));
     this._output = ctx.createGain();
@@ -63,18 +66,27 @@ class RuntimeBus {
     }
 
     const resolved = this._effects.flatMap(({ bindings }) =>
-      bindings.map(({ target, schema }) => ({
-        target,
-        value: resolveStaticValue(schema, barIndex),
+      bindings.map((binding) => ({
+        binding,
+        nextValue: resolveStaticValue(binding.schema, barIndex),
       })),
     );
 
-    resolved.forEach(({ target, value }) => {
-      if (startTime === undefined) {
-        target.value = value;
-      } else {
-        target.setValueAtTime(value, startTime);
+    resolved.forEach(({ binding, nextValue }) => {
+      const { target, value: previousValue } = binding;
+      if (startTime === undefined || previousValue === undefined) {
+        if (startTime === undefined) {
+          target.value = nextValue;
+        } else {
+          target.setValueAtTime(nextValue, startTime);
+        }
+      } else if (previousValue !== nextValue) {
+        const rampStart = Math.max(this._ctx.currentTime, startTime);
+        const rampEnd = rampStart + MIN_RAMP * 2;
+        target.setValueAtTime(previousValue, rampStart);
+        target.linearRampToValueAtTime(nextValue, rampEnd);
       }
+      binding.value = nextValue;
     });
 
     this._lastSchedule =
@@ -117,7 +129,7 @@ function binding(target: AudioParam, schema: AudioParamSchema) {
   if (schema.type !== "static") {
     throw new Error("[RuntimeBus] Expected a validated static parameter.");
   }
-  return { target, schema };
+  return { target, schema, value: undefined };
 }
 
 function resolveStaticValue(schema: ParameterSchema, barIndex: number) {

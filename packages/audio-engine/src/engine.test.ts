@@ -90,6 +90,7 @@ class FakeGainNode extends FakeAudioNode {
 class FakeAudioParam {
   value = 0;
   setValueAtTime = vi.fn();
+  linearRampToValueAtTime = vi.fn();
 }
 
 class FakeFilterNode extends FakeAudioNode {
@@ -412,8 +413,12 @@ describe("AudioEngine", () => {
       clock.emit("bar", 6, 12);
       expect(frequency.setValueAtTime.mock.calls).toEqual([
         [800, 10],
-        [400, 12],
+        [800, 12],
       ]);
+      expect(frequency.linearRampToValueAtTime).toHaveBeenCalledWith(
+        400,
+        12.005,
+      );
     });
 
     it("does not advance retiring bus effects after replacement", () => {

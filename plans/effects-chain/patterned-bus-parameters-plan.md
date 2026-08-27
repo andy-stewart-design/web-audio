@@ -11,7 +11,7 @@ Fluid authoring → DromeSchema → shared validation → RuntimeBus binding
                                                         │
 clock bar index + exact audio time ─────────────────────┘
                                                         ↓
-                                            AudioParam.setValueAtTime()
+                                      minimum linear smoothing ramp
 ```
 
 This is not a general automation system. Effect nodes remain persistent for the runtime graph lifetime, AudioEngine continues to own bar dispatch, and instrument parameter behavior remains untouched.
@@ -26,7 +26,7 @@ This is not a general automation system. Effect nodes remain persistent for the 
 - Additional steps in a selected row are ignored; this SOW does not schedule intra-bar changes.
 - Random resolution reuses `RandomResolver.resolve(barIndex, 0)` without changing its algorithms or instrument behavior.
 - Bus nodes and parameter bindings persist until graph destruction.
-- Values are installed with `AudioParam.setValueAtTime(value, barStartTime)`.
+- After first initialization, values begin a `MIN_RAMP * 2` linear transition at the exact bar boundary and reach their target 5 ms later; hard parameter jumps are unacceptable.
 - Construction initializes a new graph for `upcomingBar`. Identical `(barIndex, startTime)` scheduling is idempotent so the following bar callback cannot install the first event twice.
 - Only active buses receive new bar scheduling. Retiring buses freeze at their last installed value.
 - Stop calls `AudioParam.cancelAndHoldAtTime(stopTime)` on active and retiring bus bindings.
@@ -114,7 +114,7 @@ Repeated resolution of the same schema and bar must be deterministic. This SOW d
 Each `scheduleBar()` call has two stages:
 
 1. Resolve every binding and verify every result is finite.
-2. Only after all resolution succeeds, call `setValueAtTime()` on any target.
+2. Only after all resolution succeeds, initialize or schedule any target.
 
 If an invalid schema bypasses shared validation, `RuntimeBus` throws its narrow invariant error without partially scheduling the effect chain.
 
@@ -282,7 +282,9 @@ All Phase 1 bus validation, runtime binding, and engine dispatch changes must la
 - Preserve effect order, node identity, and serial topology.
 - Resolve static values by bar with fixed step zero.
 - Resolve and verify all bindings before applying any value.
-- Schedule timed values with `setValueAtTime()`.
+- Initialize the first timed value with `setValueAtTime()` while the new graph is silent.
+- Hold the prior value through the boundary, then smooth subsequent changes over `MIN_RAMP * 2`.
+- If scheduling arrives late, begin at the current audio time and preserve the full 5 ms ramp rather than introducing a hard jump.
 - Initialize untimed construction synchronously.
 - Keep `BusSchema.gain` constant and outside the bindings.
 
@@ -405,7 +407,7 @@ Document:
 - static and deterministic random named-bus effect parameters;
 - bar-level versus intra-bar Fluid syntax;
 - fixed step-zero bus resolution;
-- exact-time scheduling and first-bar idempotence;
+- click-free 5 ms smoothing beginning at the exact boundary, plus first-bar idempotence;
 - persistent nodes and frozen retiring buses;
 - `cancelAndHoldAtTime()` Stop behavior;
 - constant bus output gain;
@@ -486,7 +488,7 @@ This SOW is complete when:
 
 - Fluid gain effects support the established static/random parameter-input capability without breaking existing automation inputs;
 - named-bus gain/filter effects accept safe static and deterministic random patterns;
-- all values resolve with `stepIndex = 0` and apply atomically at exact bar boundaries;
+- all values resolve with `stepIndex = 0`, resolve atomically, and transition without hard parameter jumps;
 - first-bar scheduling is idempotent;
 - replacement starts new buses from the upcoming bar and freezes retiring buses;
 - Stop cancels future values while holding current values;
