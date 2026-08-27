@@ -296,15 +296,15 @@ All Phase 1 bus validation, runtime binding, and engine dispatch changes must la
 
 **Acceptance criteria:**
 
-- [ ] Static gain/filter patterns work end to end from Fluid and direct schemas.
-- [ ] Static cycles wrap by bar and always use step zero.
-- [ ] Every represented static row has a finite first value.
-- [ ] Invalid runtime input cannot partially schedule bindings.
-- [ ] First, later, and replacement bars are each installed once.
-- [ ] Replacement starts from the upcoming nonzero bar.
-- [ ] Effect nodes and routing remain unchanged across bars.
-- [ ] Random, envelope, LFO, and MIDI bus parameters remain rejected.
-- [ ] Schema, Fluid, and AudioEngine checks pass at phase closeout.
+- [x] Static gain/filter patterns work end to end from Fluid and direct schemas.
+- [x] Static cycles wrap by bar and always use step zero.
+- [x] Every represented static row has a finite first value.
+- [x] Invalid runtime input cannot partially schedule bindings.
+- [x] First, later, and replacement bars are each installed once.
+- [x] Replacement starts from the upcoming nonzero bar.
+- [x] Effect nodes and routing remain unchanged across bars.
+- [x] Random, envelope, LFO, and MIDI bus parameters remain rejected.
+- [x] Schema, Fluid, and AudioEngine checks pass at phase closeout.
 
 ---
 

@@ -89,6 +89,7 @@ class FakeGainNode extends FakeAudioNode {
 
 class FakeAudioParam {
   value = 0;
+  setValueAtTime = vi.fn();
 }
 
 class FakeFilterNode extends FakeAudioNode {
@@ -380,6 +381,74 @@ describe("AudioEngine", () => {
       );
     });
 
+    it("initializes and schedules active bus effects at exact bar boundaries", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSchema();
+      schema.buses = {
+        drums: {
+          gain: 1,
+          effects: [
+            {
+              type: "filter",
+              filterType: "lp",
+              frequency: staticParam(400, 800),
+              q: staticParam(1),
+              detune: staticParam(0),
+              gain: staticParam(0),
+            },
+          ],
+        },
+      };
+
+      engine.update(schema);
+      clock.emit("prebar", 5, 10);
+      const frequency = FakeFilterNode.instances[0].frequency;
+      expect(frequency.setValueAtTime.mock.calls).toEqual([[800, 10]]);
+
+      clock.emit("bar", 5, 10);
+      expect(frequency.setValueAtTime.mock.calls).toEqual([[800, 10]]);
+
+      clock.emit("bar", 6, 12);
+      expect(frequency.setValueAtTime.mock.calls).toEqual([
+        [800, 10],
+        [400, 12],
+      ]);
+    });
+
+    it("does not advance retiring bus effects after replacement", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const patterned = makeSchema();
+      patterned.buses = {
+        drums: {
+          gain: 1,
+          effects: [
+            {
+              type: "filter",
+              filterType: "lp",
+              frequency: staticParam(400, 800),
+              q: staticParam(1),
+              detune: staticParam(0),
+              gain: staticParam(0),
+            },
+          ],
+        },
+      };
+
+      engine.update(patterned);
+      clock.emit("prebar", 0, 10);
+      const retiringFrequency = FakeFilterNode.instances[0].frequency;
+
+      engine.update(patterned);
+      clock.emit("prebar", 1, 12);
+      const activeFrequency = FakeFilterNode.instances[1].frequency;
+      clock.emit("bar", 1, 12);
+
+      expect(retiringFrequency.setValueAtTime.mock.calls).toEqual([[400, 10]]);
+      expect(activeFrequency.setValueAtTime.mock.calls).toEqual([[800, 12]]);
+    });
+
     it("routes an instrument exclusively to a named bus feeding main", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);
@@ -635,7 +704,9 @@ describe("AudioEngine", () => {
         sends: [{ destination: verbInput, amount: 0.2 }],
       });
       expect(drumsOutput.gain.value).toBe(0.75);
-      expect(FakeFilterNode.instances[0].frequency.value).toBe(800);
+      expect(
+        FakeFilterNode.instances[0].frequency.setValueAtTime,
+      ).toHaveBeenCalledWith(800, 0);
     });
 
     it("isolates nested bank data from caller mutation", () => {

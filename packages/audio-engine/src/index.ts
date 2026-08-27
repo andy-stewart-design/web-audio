@@ -62,6 +62,7 @@ class AudioEngine {
         this._activeGraph.instruments.forEach((instrument) =>
           instrument.scheduleBar(bar, time),
         );
+        this._activeGraph.buses.forEach((bus) => bus.scheduleBar(bar, time));
       }),
       clock.on("stop", () => {
         this._activeGraph.instruments.forEach((instrument) =>
@@ -158,7 +159,13 @@ class AudioEngine {
     try {
       for (const [name, schema] of Object.entries(pending.buses)) {
         if (name === "main") continue;
-        buses.set(name, new RuntimeBus(this._ctx, schema, this._master));
+        buses.set(
+          name,
+          new RuntimeBus(this._ctx, schema, this._master, {
+            startingBar: upcomingBar,
+            barStartTime,
+          }),
+        );
       }
 
       for (const [index, schema] of pending.instruments.entries()) {
