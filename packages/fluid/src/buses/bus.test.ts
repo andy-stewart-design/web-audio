@@ -64,8 +64,39 @@ describe("Bus builder", () => {
     ]);
   });
 
+  it("serializes multi-bar static gain and filter parameters", () => {
+    const d = new Drome();
+    d.bus("drums").fx(d.gain(1, 0.5), d.lpf(400, 800));
+
+    const [gain, filter] = d.getSchema().buses.drums.effects;
+    expect(gain.type).toBe("gain");
+    if (gain.type === "gain" && gain.gain.type === "static") {
+      expect(gain.gain.cycle.map((bar) => bar[0].value)).toEqual([1, 0.5]);
+    }
+    expect(filter.type).toBe("filter");
+    if (filter.type === "filter" && filter.frequency.type === "static") {
+      expect(filter.frequency.cycle.map((bar) => bar[0].value)).toEqual([
+        400, 800,
+      ]);
+    }
+  });
+
+  it("accepts intra-bar static steps while preserving their schema", () => {
+    const d = new Drome();
+    d.bus("drums").fx(d.gain([1, 0.5]), d.lpf([400, 800]));
+
+    const [gain, filter] = d.getSchema().buses.drums.effects;
+    if (gain.type === "gain" && gain.gain.type === "static") {
+      expect(gain.gain.cycle[0].map((step) => step.value)).toEqual([1, 0.5]);
+    }
+    if (filter.type === "filter" && filter.frequency.type === "static") {
+      expect(filter.frequency.cycle[0].map((step) => step.value)).toEqual([
+        400, 800,
+      ]);
+    }
+  });
+
   it.each([
-    ["cycling", (d: Drome) => d.lpf([400, 800])],
     ["random", (d: Drome) => d.lpf(d.rand().range(400, 800))],
     ["envelope", (d: Drome) => d.lpf(d.env(0, 800))],
     ["LFO", (d: Drome) => d.lpf(d.lfo(400, 800))],
@@ -74,7 +105,7 @@ describe("Bus builder", () => {
     d.bus("drums").fx(effect(d));
 
     expect(() => d.getSchema()).toThrow(
-      '[Schema] Bus "drums" effects[0].frequency must be one finite constant static value.',
+      '[Schema] Bus "drums" effects[0].frequency must be a finite bar-resolvable static parameter.',
     );
   });
 });

@@ -76,16 +76,64 @@ describe("validateDromeGraph", () => {
     ).toThrow("[Schema] Effects on main are not supported in the bus MVP.");
   });
 
-  it("rejects non-constant bus effect parameters with a precise path", () => {
+  it("accepts multi-bar and multi-step static bus effect parameters", () => {
     const effect: EffectSchema = {
       type: "gain",
-      gain: { ...staticParam(1), cycle: [[], []] },
+      gain: {
+        ...staticParam(1),
+        cycle: [
+          [
+            { value: 1, offset: 0, duration: 0.5, stepIndex: 0 },
+            { value: 0.5, offset: 0.5, duration: 0.5, stepIndex: 1 },
+          ],
+          [{ value: 0.25, offset: 0, duration: 1, stepIndex: 0 }],
+        ],
+      },
+    };
+
+    expect(() =>
+      validateDromeGraph(schema({ drums: { gain: 1, effects: [effect] } })),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ["empty cycle", []],
+    ["empty row", [[]]],
+    [
+      "non-finite first value",
+      [[{ value: Number.NaN, offset: 0, duration: 1, stepIndex: 0 }]],
+    ],
+  ])("rejects a static bus parameter with %s", (_label, cycle) => {
+    const effect: EffectSchema = {
+      type: "gain",
+      gain: { ...staticParam(1), cycle },
     };
 
     expect(() =>
       validateDromeGraph(schema({ drums: { gain: 1, effects: [effect] } })),
     ).toThrow(
-      '[Schema] Bus "drums" effects[0].gain must be one finite constant static value.',
+      '[Schema] Bus "drums" effects[0].gain must be a finite bar-resolvable static parameter.',
+    );
+  });
+
+  it("continues to reject random bus parameters", () => {
+    const effect: EffectSchema = {
+      type: "gain",
+      gain: {
+        type: "random",
+        dataType: "float",
+        segments: [{ seed: 0 }],
+        quantValue: undefined,
+        range: undefined,
+        algorithm: "xor",
+        grid: staticParam(1),
+      },
+    };
+
+    expect(() =>
+      validateDromeGraph(schema({ drums: { gain: 1, effects: [effect] } })),
+    ).toThrow(
+      '[Schema] Bus "drums" effects[0].gain must be a finite bar-resolvable static parameter.',
     );
   });
 

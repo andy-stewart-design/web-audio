@@ -1,9 +1,4 @@
-import type {
-  AudioParamSchema,
-  DromeSchema,
-  EffectSchema,
-  StaticSchema,
-} from "./index";
+import type { AudioParamSchema, DromeSchema, EffectSchema } from "./index";
 
 function validateDromeGraph(schema: DromeSchema) {
   for (const [name, bus] of Object.entries(schema.buses)) {
@@ -68,33 +63,28 @@ function validateBusEffects(effects: EffectSchema[], busName: string) {
   effects.forEach((effect, index) => {
     const base = `Bus "${busName}" effects[${index}]`;
     if (effect.type === "filter") {
-      validateConstantBusAudioParam(effect.frequency, `${base}.frequency`);
-      validateConstantBusAudioParam(effect.q, `${base}.q`);
-      validateConstantBusAudioParam(effect.detune, `${base}.detune`);
-      validateConstantBusAudioParam(effect.gain, `${base}.gain`);
+      validateStaticBusAudioParam(effect.frequency, `${base}.frequency`);
+      validateStaticBusAudioParam(effect.q, `${base}.q`);
+      validateStaticBusAudioParam(effect.detune, `${base}.detune`);
+      validateStaticBusAudioParam(effect.gain, `${base}.gain`);
     } else {
-      validateConstantBusAudioParam(effect.gain, `${base}.gain`);
+      validateStaticBusAudioParam(effect.gain, `${base}.gain`);
     }
   });
 }
 
-function validateConstantBusAudioParam(schema: AudioParamSchema, path: string) {
-  if (!isConstantAudioParamSchema(schema)) {
+function validateStaticBusAudioParam(schema: AudioParamSchema, path: string) {
+  if (
+    schema.type !== "static" ||
+    schema.cycle.length === 0 ||
+    schema.cycle.some(
+      (bar) => bar.length === 0 || !Number.isFinite(bar[0].value),
+    )
+  ) {
     throw new Error(
-      `[Schema] ${path} must be one finite constant static value.`,
+      `[Schema] ${path} must be a finite bar-resolvable static parameter.`,
     );
   }
 }
 
-function isConstantAudioParamSchema(
-  schema: AudioParamSchema,
-): schema is StaticSchema {
-  return (
-    schema.type === "static" &&
-    schema.cycle.length === 1 &&
-    schema.cycle[0]?.length === 1 &&
-    Number.isFinite(schema.cycle[0][0].value)
-  );
-}
-
-export { isConstantAudioParamSchema, validateDromeGraph };
+export { validateDromeGraph };

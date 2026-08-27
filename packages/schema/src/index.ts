@@ -243,10 +243,7 @@ interface DromeSchema {
   buses: Record<string, BusSchema>;
 }
 
-export {
-  isConstantAudioParamSchema,
-  validateDromeGraph,
-} from "./validate-graph";
+export { validateDromeGraph } from "./validate-graph";
 
 export type {
   AudioParamSchema,
