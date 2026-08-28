@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { EffectSchema, StaticSchema } from "@web-audio/schema";
+import type {
+  EffectSchema,
+  RandomSchema,
+  StaticSchema,
+} from "@web-audio/schema";
 import RuntimeBus from "./runtime-bus";
 
 class FakeAudioParam {
@@ -46,6 +50,19 @@ function staticParam(...values: number[]): StaticSchema {
     cycle: values.map((value) => [
       { value, offset: 0, duration: 1, stepIndex: 0 },
     ]),
+  };
+}
+
+function randomParam(overrides: Partial<RandomSchema> = {}): RandomSchema {
+  return {
+    type: "random",
+    dataType: "float",
+    segments: [{ seed: 42 }],
+    quantValue: undefined,
+    range: { min: 0.25, max: 0.75 },
+    algorithm: "mulberry",
+    grid: staticParam(1),
+    ...overrides,
   };
 }
 
@@ -207,9 +224,56 @@ describe("RuntimeBus", () => {
     invalid.cycle = [];
 
     expect(() => bus.scheduleBar(1, 12)).toThrow(
-      "[RuntimeBus] Expected a validated static parameter.",
+      "[RuntimeBus] Expected a validated bus parameter.",
     );
     expect(gainTarget.setValueAtTime).not.toHaveBeenCalled();
+  });
+
+  it("resolves deterministic random values by bar using step zero", () => {
+    const schema = randomParam({
+      grid: {
+        ...staticParam(1),
+        cycle: [
+          [
+            { value: 0, offset: 0, duration: 0.5, stepIndex: 0 },
+            { value: 1, offset: 0.5, duration: 0.5, stepIndex: 1 },
+          ],
+          [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
+        ],
+      },
+    });
+    const first = createBus([{ type: "gain", gain: schema }]);
+    const firstTarget = FakeEffectGainNode.instances[0].gain;
+
+    expect(firstTarget.value).toBe(0);
+    first.bus.scheduleBar(1, 10);
+    const resolved = firstTarget.linearRampToValueAtTime.mock.calls[0][0];
+    expect(resolved).toBeGreaterThanOrEqual(0.25);
+    expect(resolved).toBeLessThanOrEqual(0.75);
+
+    createBus([{ type: "gain", gain: structuredClone(schema) }], {
+      startingBar: 1,
+      barStartTime: undefined,
+    });
+    expect(FakeEffectGainNode.instances[1].gain.value).toBe(resolved);
+  });
+
+  it("does not partially initialize a mixed static and invalid random chain", () => {
+    expect(() =>
+      createBus([
+        { type: "gain", gain: staticParam(0.5) },
+        {
+          type: "filter",
+          filterType: "lp",
+          frequency: randomParam({ valueMap: [] }),
+          q: staticParam(1),
+          detune: staticParam(0),
+          gain: staticParam(0),
+        },
+      ]),
+    ).toThrow("[RuntimeBus] Expected a validated bus parameter.");
+
+    expect(FakeEffectGainNode.instances[0].gain.value).toBe(99);
   });
 
   it("guards against an unvalidated unsupported parameter", () => {
@@ -217,10 +281,10 @@ describe("RuntimeBus", () => {
       createBus([
         {
           type: "gain",
-          gain: { type: "random" } as never,
+          gain: { type: "lfo" } as never,
         },
       ]),
-    ).toThrow("[RuntimeBus] Expected a validated static parameter.");
+    ).toThrow("[RuntimeBus] Expected a validated bus parameter.");
   });
 
   it("destroys every owned node idempotently", () => {

@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Midi } from "@web-audio/midi";
-import type { DromeSchema, StaticSchema } from "@web-audio/schema";
+import type {
+  DromeSchema,
+  RandomSchema,
+  StaticSchema,
+} from "@web-audio/schema";
 
 // Mock Synthesizer so tests don't need Web Audio APIs.
 // Must use a regular function (not arrow) so it's usable as a constructor.
@@ -162,6 +166,19 @@ function staticParam(...values: number[]): StaticSchema {
     cycle: values.map((value) => [
       { value, offset: 0, duration: 1, stepIndex: 0 },
     ]),
+  };
+}
+
+function randomParam(overrides: Partial<RandomSchema> = {}): RandomSchema {
+  return {
+    type: "random",
+    dataType: "float",
+    segments: [{ seed: 42 }],
+    quantValue: undefined,
+    range: { min: 400, max: 800 },
+    algorithm: "mulberry",
+    grid: staticParam(1),
+    ...overrides,
   };
 }
 
@@ -419,6 +436,39 @@ describe("AudioEngine", () => {
         400,
         12.005,
       );
+    });
+
+    it("resolves deterministic random bus effects by bar", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSchema();
+      schema.buses = {
+        drums: {
+          gain: 1,
+          effects: [
+            {
+              type: "filter",
+              filterType: "lp",
+              frequency: randomParam(),
+              q: staticParam(1),
+              detune: staticParam(0),
+              gain: staticParam(0),
+            },
+          ],
+        },
+      };
+
+      engine.update(schema);
+      clock.emit("prebar", 0, 10);
+      const frequency = FakeFilterNode.instances[0].frequency;
+      const first = frequency.setValueAtTime.mock.calls[0][0];
+      expect(first).toBeGreaterThanOrEqual(400);
+      expect(first).toBeLessThanOrEqual(800);
+
+      clock.emit("bar", 1, 12);
+      const second = frequency.linearRampToValueAtTime.mock.calls[0][0];
+      expect(second).toBeGreaterThanOrEqual(400);
+      expect(second).toBeLessThanOrEqual(800);
     });
 
     it("does not advance retiring bus effects after replacement", () => {

@@ -334,13 +334,13 @@ All Phase 2 authoring, validation, and runtime resolution changes must land atom
 
 **Acceptance criteria:**
 
-- [ ] Safe random gain/filter patterns work end to end.
-- [ ] Same schema and bar always produce the same value.
-- [ ] Random resolution always uses step zero.
-- [ ] Mixed static/random chains apply atomically.
-- [ ] Empty bus random rows and unsafe configurations fail contextually.
-- [ ] Intentionally empty instrument rhythm/mask rows remain valid and unchanged.
-- [ ] Existing `RandomResolver` and instrument tests pass without semantic rewrites.
+- [x] Safe random gain/filter patterns work end to end.
+- [x] Same schema and bar always produce the same value.
+- [x] Random resolution always uses step zero.
+- [x] Mixed static/random chains apply atomically.
+- [x] Empty bus random rows and unsafe configurations fail contextually.
+- [x] Intentionally empty instrument rhythm/mask rows remain valid and unchanged.
+- [x] Existing `RandomResolver` and instrument tests pass without semantic rewrites.
 
 ---
 

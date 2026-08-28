@@ -3,8 +3,10 @@ import type {
   BusSchema,
   EffectSchema,
   ParameterSchema,
+  RandomSchema,
 } from "@web-audio/schema";
 import { FILTER_TYPE_MAP, MIN_RAMP } from "@/constants";
+import RandomResolver from "@/resolvers/random-resolver";
 
 interface BusParameterBinding {
   target: AudioParam;
@@ -27,6 +29,7 @@ class RuntimeBus {
   private readonly _ctx: AudioContext;
   private readonly _effects: RuntimeEffect[];
   private readonly _output: GainNode;
+  private readonly _randomResolvers = new Map<RandomSchema, RandomResolver>();
   private _lastSchedule: { barIndex: number; startTime: number } | null = null;
   private _destroyed = false;
 
@@ -68,7 +71,11 @@ class RuntimeBus {
     const resolved = this._effects.flatMap(({ bindings }) =>
       bindings.map((binding) => ({
         binding,
-        nextValue: resolveStaticValue(binding.schema, barIndex),
+        nextValue: resolveValue(
+          binding.schema,
+          barIndex,
+          this._randomResolvers,
+        ),
       })),
     );
 
@@ -82,7 +89,7 @@ class RuntimeBus {
         }
       } else if (previousValue !== nextValue) {
         const rampStart = Math.max(this._ctx.currentTime, startTime);
-        const rampEnd = rampStart + MIN_RAMP * 2;
+        const rampEnd = rampStart + MIN_RAMP * 4;
         target.setValueAtTime(previousValue, rampStart);
         target.linearRampToValueAtTime(nextValue, rampEnd);
       }
@@ -126,22 +133,37 @@ function buildEffect(ctx: AudioContext, effect: EffectSchema) {
 }
 
 function binding(target: AudioParam, schema: AudioParamSchema) {
-  if (schema.type !== "static") {
-    throw new Error("[RuntimeBus] Expected a validated static parameter.");
+  if (schema.type !== "static" && schema.type !== "random") {
+    throw new Error("[RuntimeBus] Expected a validated bus parameter.");
   }
   return { target, schema, value: undefined };
 }
 
-function resolveStaticValue(schema: ParameterSchema, barIndex: number) {
-  if (schema.type !== "static" || schema.cycle.length === 0) {
-    throw new Error("[RuntimeBus] Expected a validated static parameter.");
-  }
-  const bar = schema.cycle[barIndex % schema.cycle.length];
-  const value = bar?.[0]?.value;
+function resolveValue(
+  schema: ParameterSchema,
+  barIndex: number,
+  randomResolvers: Map<RandomSchema, RandomResolver>,
+) {
+  const value =
+    schema.type === "random"
+      ? randomResolver(schema, randomResolvers).resolve(barIndex, 0)
+      : schema.cycle[barIndex % schema.cycle.length]?.[0]?.value;
   if (!Number.isFinite(value)) {
-    throw new Error("[RuntimeBus] Expected a validated static parameter.");
+    throw new Error("[RuntimeBus] Expected a validated bus parameter.");
   }
   return value;
+}
+
+function randomResolver(
+  schema: RandomSchema,
+  resolvers: Map<RandomSchema, RandomResolver>,
+) {
+  let resolver = resolvers.get(schema);
+  if (!resolver) {
+    resolver = new RandomResolver(schema);
+    resolvers.set(schema, resolver);
+  }
+  return resolver;
 }
 
 export default RuntimeBus;
