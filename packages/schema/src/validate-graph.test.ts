@@ -3,6 +3,7 @@ import type {
   DromeSchema,
   EffectSchema,
   InstrumentSchema,
+  RandomSchema,
   StaticSchema,
 } from "./index";
 import { validateDromeGraph } from "./validate-graph";
@@ -12,6 +13,19 @@ function staticParam(value: number): StaticSchema {
     type: "static",
     polyphonic: false,
     cycle: [[{ value, offset: 0, duration: 1, stepIndex: 0 }]],
+  };
+}
+
+function randomParam(overrides: Partial<RandomSchema> = {}): RandomSchema {
+  return {
+    type: "random",
+    dataType: "float",
+    segments: [{ seed: 0 }],
+    quantValue: undefined,
+    range: undefined,
+    algorithm: "xor",
+    grid: staticParam(1),
+    ...overrides,
   };
 }
 
@@ -112,29 +126,75 @@ describe("validateDromeGraph", () => {
     expect(() =>
       validateDromeGraph(schema({ drums: { gain: 1, effects: [effect] } })),
     ).toThrow(
-      '[Schema] Bus "drums" effects[0].gain must be a finite bar-resolvable static parameter.',
+      '[Schema] Bus "drums" effects[0].gain must be a finite bar-resolvable static or random parameter.',
     );
   });
 
-  it("continues to reject random bus parameters", () => {
+  it("accepts structurally safe random bus parameters, including reversed ranges", () => {
     const effect: EffectSchema = {
       type: "gain",
-      gain: {
-        type: "random",
-        dataType: "float",
-        segments: [{ seed: 0 }],
-        quantValue: undefined,
-        range: undefined,
-        algorithm: "xor",
-        grid: staticParam(1),
-      },
+      gain: randomParam({
+        segments: [
+          { seed: 1, len: 2 },
+          { seed: 2, len: 3 },
+        ],
+        range: { min: 1, max: -1 },
+        quantValue: 0.25,
+      }),
     };
 
     expect(() =>
       validateDromeGraph(schema({ drums: { gain: 1, effects: [effect] } })),
-    ).toThrow(
-      '[Schema] Bus "drums" effects[0].gain must be a finite bar-resolvable static parameter.',
-    );
+    ).not.toThrow();
+  });
+
+  it.each([
+    [
+      "empty segments",
+      randomParam({ segments: [] }),
+      "random segments cannot be empty",
+    ],
+    [
+      "non-finite seed",
+      randomParam({ segments: [{ seed: Number.NaN }] }),
+      "random seeds must be finite",
+    ],
+    [
+      "fractional segment length",
+      randomParam({ segments: [{ seed: 1, len: 1.5 }] }),
+      "random segment lengths must be positive finite integers",
+    ],
+    [
+      "non-finite range span",
+      randomParam({ range: { min: -Number.MAX_VALUE, max: Number.MAX_VALUE } }),
+      "random range endpoints and span must be finite",
+    ],
+    [
+      "zero quantization",
+      randomParam({ quantValue: 0 }),
+      "random quantization must be a positive finite number",
+    ],
+    [
+      "non-binary chance",
+      randomParam({ chance: 0.5 }),
+      "random chance must be a finite number in [0, 1] on a binary parameter",
+    ],
+    [
+      "empty value map",
+      randomParam({ valueMap: [] }),
+      "random value map must contain finite, safely indexable values",
+    ],
+    [
+      "empty grid row",
+      randomParam({ grid: { ...staticParam(1), cycle: [[]] } }),
+      "random grid must have a finite first value in every bar",
+    ],
+  ])("rejects random bus parameters with %s", (_label, gain, message) => {
+    const effect: EffectSchema = { type: "gain", gain };
+
+    expect(() =>
+      validateDromeGraph(schema({ drums: { gain: 1, effects: [effect] } })),
+    ).toThrow(`[Schema] Bus "drums" effects[0].gain ${message}.`);
   });
 
   it("rejects unresolved and non-canonical routes", () => {

@@ -96,8 +96,25 @@ describe("Bus builder", () => {
     }
   });
 
+  it("serializes deterministic random gain and filter parameters", () => {
+    const d = new Drome();
+    d.bus("drums").fx(
+      d.gain(d.rand().range(0.25, 0.75).rib(1, 2)),
+      d.lpf(d.rand().range(400, 800).rib(2, 3)),
+    );
+
+    const [gain, filter] = d.getSchema().buses.drums.effects;
+    if (gain.type === "gain" && gain.gain.type === "random") {
+      expect(gain.gain.range).toEqual({ min: 0.25, max: 0.75 });
+      expect(gain.gain.segments).toEqual([{ seed: 1, len: 2 }]);
+    }
+    if (filter.type === "filter" && filter.frequency.type === "random") {
+      expect(filter.frequency.range).toEqual({ min: 400, max: 800 });
+      expect(filter.frequency.segments).toEqual([{ seed: 2, len: 3 }]);
+    }
+  });
+
   it.each([
-    ["random", (d: Drome) => d.lpf(d.rand().range(400, 800))],
     ["envelope", (d: Drome) => d.lpf(d.env(0, 800))],
     ["LFO", (d: Drome) => d.lpf(d.lfo(400, 800))],
   ])("rejects %s bus parameters at schema creation", (_label, effect) => {
@@ -105,7 +122,7 @@ describe("Bus builder", () => {
     d.bus("drums").fx(effect(d));
 
     expect(() => d.getSchema()).toThrow(
-      '[Schema] Bus "drums" effects[0].frequency must be a finite bar-resolvable static parameter.',
+      '[Schema] Bus "drums" effects[0].frequency must be a finite bar-resolvable static or random parameter.',
     );
   });
 });
