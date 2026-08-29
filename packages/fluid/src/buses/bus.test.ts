@@ -14,7 +14,7 @@ describe("Bus builder", () => {
     d.bus("main").gain(0.5).gain(1.25);
 
     expect(d.getSchema().buses).toEqual({
-      main: { gain: 1.25, effects: [] },
+      main: { gain: 1.25, transition: 0, effects: [] },
     });
   });
 
@@ -34,6 +34,31 @@ describe("Bus builder", () => {
     expect(d.getSchema().buses.main.gain).toBe(0);
   });
 
+  it("configures transition as a fraction of a bar", () => {
+    const d = new Drome();
+    const bus = d.bus("drums");
+
+    expect(bus.transition(0.25)).toBe(bus);
+    expect(bus.getSchema().transition).toBe(0.25);
+  });
+
+  it("provides an extracted-safe trans() alias", () => {
+    const bus = new Drome().bus("drums");
+    const trans = bus.trans;
+
+    expect(trans(0.5)).toBe(bus);
+    expect(bus.getSchema().transition).toBe(0.5);
+  });
+
+  it.each([-0.1, 1.1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects invalid transition %s",
+    (value) => {
+      expect(() => new Drome().bus("drums").transition(value)).toThrow(
+        "[Bus] transition() must be a finite number in [0, 1].",
+      );
+    },
+  );
+
   it("rejects empty names and normalizes named buses", () => {
     const d = new Drome();
 
@@ -41,6 +66,7 @@ describe("Bus builder", () => {
     expect(d.bus(" drums ")).toBe(d.bus("drums"));
     expect(d.bus("drums").gain(0.75).getSchema()).toEqual({
       gain: 0.75,
+      transition: 0,
       effects: [],
     });
   });

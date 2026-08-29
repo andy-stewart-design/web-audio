@@ -33,7 +33,20 @@ d.synth().send("verb", 0.2).push();
 
 Routes and sends branch after instrument balancing and mute. Sending to main is rejected because it would normally duplicate the dry signal. Repeated sends to one target use the most recent amount.
 
-Bus effects currently accept only one finite constant value for each gain/filter parameter. Cycles, random values, envelopes, LFOs, and MIDI CC remain supported on instrument effects but are not yet supported on buses. A bus named `verb` is only a name until a reverb processor is implemented.
+Named-bus gain and filter effect parameters accept static cycles and deterministic random values. They resolve once per bar using the first step in each represented bar:
+
+```ts
+d.bus("filter").fx(d.lpf(8_000, 400));
+```
+
+By default, parameter changes use a mandatory 10 ms anti-pop transition. Configure a longer transition as a fraction of one bar with `transition()` or its extracted-safe `trans()` alias:
+
+```ts
+d.bus("filter").transition(0.25).fx(d.lpf(8_000, 400));
+d.bus("gain").trans(0.5).fx(d.gain(1, 0.2));
+```
+
+Transitions begin at the bar boundary. Their duration is the greater of 10 ms and the configured bar fraction. Envelopes, LFOs, MIDI CC, patterned sends, and patterned bus output gain remain unsupported. A bus named `verb` is only a name until a reverb processor is implemented.
 
 Fluid always emits the canonical graph fields expected by AudioEngine. With no explicit routing configuration, `getSchema()` includes `buses: {}`, and each instrument includes `route: "main"` and `sends: {}`. It also emits `bpm: undefined` when BPM has not been configured, which resets playback to the default 120 BPM when committed. Fluid validates the completed graph, allowing buses to be declared after instruments that reference them.
 
