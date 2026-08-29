@@ -72,7 +72,9 @@ describe("validateDromeGraph", () => {
     "rejects invalid bus gain %s",
     (gain) => {
       expect(() =>
-        validateDromeGraph(schema({ drums: { gain, transition: 0, effects: [] } })),
+        validateDromeGraph(
+          schema({ drums: { gain, transition: 0, effects: [] } }),
+        ),
       ).toThrow(
         '[Schema] Bus "drums" gain must be a finite number greater than or equal to 0.',
       );

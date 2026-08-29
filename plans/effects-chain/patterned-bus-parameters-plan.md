@@ -25,8 +25,8 @@ This is not a general automation system. Effect nodes remain persistent for the 
 - Clock event callbacks now provide `barDuration` as their third argument; AudioEngine forwards the `bar` event duration directly to RuntimeBus.
 - Mandatory smoothing is currently 10 ms and audible transition behavior has passed focused manual testing.
 - Phase 3 is complete: RuntimeBus holds exact in-progress values at Stop, and AudioEngine forwards the clock event time to every active and retiring bus while preserving existing instrument and MIDI Stop behavior.
-- Phase 4 integration closeout and its checklist are the next work.
-- Current package and workspace checks, lint, tests, and builds pass; Phase 4 verification remains unchecked until final closeout.
+- Phase 4 canonical coverage, documentation, and automated verification are complete.
+- Focused audible review remains the final closeout gate; the plan stays active until that review is completed.
 
 ## Key design decisions
 
@@ -96,9 +96,12 @@ It does not apply to:
 `RuntimeBus` retains a file-local binding for each supported effect parameter:
 
 ```ts
+type BindingState = number | ActiveTransition | undefined;
+
 interface BusParameterBinding {
   target: AudioParam;
   schema: ParameterSchema;
+  state: BindingState;
 }
 ```
 
@@ -438,23 +441,23 @@ After closeout, move this plan to `plans/effects-chain/completed/` and update th
 
 Run changed-package formatting before final checks:
 
-- [ ] `pnpm --filter @web-audio/schema format`
-- [ ] `pnpm --filter @web-audio/fluid format`
-- [ ] `pnpm --filter @web-audio/audio-engine format`
-- [ ] `pnpm --filter @web-audio/schema check`
-- [ ] `pnpm --filter @web-audio/schema lint`
-- [ ] `pnpm --filter @web-audio/schema test:ci`
-- [ ] `pnpm --filter @web-audio/fluid build`
-- [ ] `pnpm --filter @web-audio/fluid check`
-- [ ] `pnpm --filter @web-audio/fluid lint`
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine build`
-- [ ] `pnpm --filter @web-audio/audio-engine check`
-- [ ] `pnpm --filter @web-audio/audio-engine lint`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
-- [ ] `pnpm check`
-- [ ] `pnpm lint`
-- [ ] `pnpm test`
+- [x] `pnpm --filter @web-audio/schema format`
+- [x] `pnpm --filter @web-audio/fluid format`
+- [x] `pnpm --filter @web-audio/audio-engine format`
+- [x] `pnpm --filter @web-audio/schema check`
+- [x] `pnpm --filter @web-audio/schema lint`
+- [x] `pnpm --filter @web-audio/schema test:ci`
+- [x] `pnpm --filter @web-audio/fluid build`
+- [x] `pnpm --filter @web-audio/fluid check`
+- [x] `pnpm --filter @web-audio/fluid lint`
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine build`
+- [x] `pnpm --filter @web-audio/audio-engine check`
+- [x] `pnpm --filter @web-audio/audio-engine lint`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] `pnpm check`
+- [x] `pnpm lint`
+- [x] `pnpm test`
 
 ### 4.4 Focused manual review
 
