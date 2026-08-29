@@ -80,9 +80,13 @@ class AudioClock {
   private fireBeforeCallbacks(beat: number, bar: number, time: number) {
     const m = { beat, bar };
     if (beat === 0) {
-      this.listeners.get("prebar")?.forEach((cb) => cb(m, time));
+      this.listeners
+        .get("prebar")
+        ?.forEach((cb) => cb(m, time, this.barDuration));
     }
-    this.listeners.get("prebeat")?.forEach((cb) => cb(m, time));
+    this.listeners
+      .get("prebeat")
+      ?.forEach((cb) => cb(m, time, this.barDuration));
   }
 
   private fireOnCallbacks(beat: number, bar: number, time: number) {
@@ -91,9 +95,9 @@ class AudioClock {
     const m = { ...this.metronome };
     if (beat === 0) {
       this._barStart = time;
-      this.listeners.get("bar")?.forEach((cb) => cb(m, time));
+      this.listeners.get("bar")?.forEach((cb) => cb(m, time, this.barDuration));
     }
-    this.listeners.get("beat")?.forEach((cb) => cb(m, time));
+    this.listeners.get("beat")?.forEach((cb) => cb(m, time, this.barDuration));
   }
 
   private advanceBefore() {
@@ -140,13 +144,15 @@ class AudioClock {
 
     this.listeners
       .get("start")
-      ?.forEach((cb) => cb({ ...this.metronome }, startTime));
+      ?.forEach((cb) => cb({ ...this.metronome }, startTime, this.barDuration));
   }
 
   public stop() {
     this.listeners
       .get("stop")
-      ?.forEach((cb) => cb({ ...this.metronome }, this.ctx.currentTime));
+      ?.forEach((cb) =>
+        cb({ ...this.metronome }, this.ctx.currentTime, this.barDuration),
+      );
     this._running = false;
     if (this._timerId) {
       clearTimeout(this._timerId);

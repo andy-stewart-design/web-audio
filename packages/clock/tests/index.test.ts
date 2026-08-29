@@ -27,6 +27,21 @@ describe("AudioClock scheduling lead", () => {
     clock.destroy();
   });
 
+  test("includes the current bar duration in event callbacks", async () => {
+    vi.useFakeTimers();
+    const ctx = new FakeAudioContext();
+    const clock = new AudioClock(ctx as unknown as AudioContext, 120, 4);
+    const durations: number[] = [];
+    clock.on("start", (_metronome, _time, barDuration) => {
+      durations.push(barDuration);
+    });
+
+    await clock.start();
+
+    expect(durations).toEqual([2]);
+    clock.destroy();
+  });
+
   test("exposes later bars with approximately the same scheduling lead", async () => {
     vi.useFakeTimers();
     const ctx = new FakeAudioContext();
