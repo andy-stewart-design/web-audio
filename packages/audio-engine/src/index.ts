@@ -66,15 +66,17 @@ class AudioEngine {
           bus.scheduleBar(bar, time, barDuration),
         );
       }),
-      clock.on("stop", () => {
+      clock.on("stop", (_metronome, time) => {
         this._activeGraph.instruments.forEach((instrument) =>
           instrument.cancelFutureNotes(),
         );
-        this._retiringGraphs.forEach((graph) =>
+        this._activeGraph.buses.forEach((bus) => bus.stop(time));
+        this._retiringGraphs.forEach((graph) => {
           graph.instruments.forEach((instrument) =>
             instrument.cancelFutureNotes(),
-          ),
-        );
+          );
+          graph.buses.forEach((bus) => bus.stop(time));
+        });
         this._midiOutputScheduler.stop();
       }),
     ]);

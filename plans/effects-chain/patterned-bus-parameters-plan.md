@@ -24,9 +24,8 @@ This is not a general automation system. Effect nodes remain persistent for the 
 - Bus transitions are complete: `BusSchema.transition` is canonical, Fluid emits `0`, `transition()` and extracted-safe `trans()` configure a bar proportion, and runtime duration is `Math.max(MIN_RAMP * 4, barDuration * transition)`.
 - Clock event callbacks now provide `barDuration` as their third argument; AudioEngine forwards the `bar` event duration directly to RuntimeBus.
 - Mandatory smoothing is currently 10 ms and audible transition behavior has passed focused manual testing.
-- Phase 3.1 is complete: RuntimeBus tracks active ramps, evaluates and holds the exact value at Stop, clears automation state, and permits rescheduling the same bar at a new time.
-- Phase 3.2 has not started. Engine Stop dispatch to active and retiring buses is the next review chunk.
-- Phase 4 integration closeout and its checklist remain pending.
+- Phase 3 is complete: RuntimeBus holds exact in-progress values at Stop, and AudioEngine forwards the clock event time to every active and retiring bus while preserving existing instrument and MIDI Stop behavior.
+- Phase 4 integration closeout and its checklist are the next work.
 - Current package and workspace checks, lint, tests, and builds pass; Phase 4 verification remains unchecked until final closeout.
 
 ## Key design decisions
@@ -385,12 +384,12 @@ All Phase 2 authoring, validation, and runtime resolution changes must land atom
 
 **Acceptance criteria:**
 
-- [ ] Active and retiring buses cancel future values at the supplied time.
+- [x] Active and retiring buses cancel future values at the supplied time.
 - [x] Currently audible values are held rather than reset.
 - [x] Stop does not disconnect or destroy bus nodes.
 - [x] Repeated Stop is safe.
 - [x] Stop/restart can schedule the same bar at a new time.
-- [ ] Existing active-voice Stop/LFO regression tests remain valid.
+- [x] Existing active-voice Stop/LFO regression tests remain valid.
 
 ---
 

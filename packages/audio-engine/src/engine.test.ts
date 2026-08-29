@@ -95,6 +95,7 @@ class FakeAudioParam {
   value = 0;
   setValueAtTime = vi.fn();
   linearRampToValueAtTime = vi.fn();
+  cancelAndHoldAtTime = vi.fn();
 }
 
 class FakeFilterNode extends FakeAudioNode {
@@ -1140,6 +1141,46 @@ describe("AudioEngine", () => {
 
       expect(instances()[0].cancelFutureNotes).toHaveBeenCalledOnce();
       expect(instances()[1].cancelFutureNotes).toHaveBeenCalledOnce();
+    });
+
+    it("forwards the exact stop time to active and retiring buses", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSchema();
+      schema.buses = {
+        drums: {
+          gain: 1,
+          transition: 0.25,
+          effects: [
+            {
+              type: "filter",
+              filterType: "lp",
+              frequency: staticParam(400, 800),
+              q: staticParam(1),
+              detune: staticParam(0),
+              gain: staticParam(0),
+            },
+          ],
+        },
+      };
+
+      engine.update(schema);
+      clock.emit("prebar", 0, 10);
+      const retiringFrequency = FakeFilterNode.instances[0].frequency;
+
+      engine.update(schema);
+      clock.emit("prebar", 1, 12);
+      const activeFrequency = FakeFilterNode.instances[1].frequency;
+      clock.emit("bar", 2, 14);
+      expect(activeFrequency.linearRampToValueAtTime).toHaveBeenCalledWith(
+        400,
+        14.5,
+      );
+
+      clock.emit("stop", 1, 12.25);
+
+      expect(retiringFrequency.cancelAndHoldAtTime).toHaveBeenCalledWith(12.25);
+      expect(activeFrequency.cancelAndHoldAtTime).toHaveBeenCalledWith(12.25);
     });
   });
 
