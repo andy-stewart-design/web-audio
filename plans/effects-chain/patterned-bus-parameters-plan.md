@@ -16,6 +16,19 @@ clock bar index + exact audio time ───────────────
 
 This is not a general automation system. Effect nodes remain persistent for the runtime graph lifetime, AudioEngine continues to own bar dispatch, and instrument parameter behavior remains untouched.
 
+## Current implementation status
+
+- Phase 0 is complete: Fluid gain effects support variadic static cycles and existing random/automation inputs.
+- Phase 1 is complete: static bus parameters validate, bind to persistent nodes, resolve atomically by bar and step zero, and schedule only on active graphs.
+- Phase 2 is complete: safe random bus parameters validate structurally and resolve deterministically through the existing `RandomResolver`.
+- Bus transitions are complete: `BusSchema.transition` is canonical, Fluid emits `0`, `transition()` and extracted-safe `trans()` configure a bar proportion, and runtime duration is `Math.max(MIN_RAMP * 4, barDuration * transition)`.
+- Clock event callbacks now provide `barDuration` as their third argument; AudioEngine forwards the `bar` event duration directly to RuntimeBus.
+- Mandatory smoothing is currently 10 ms and audible transition behavior has passed focused manual testing.
+- Phase 3.1 is complete: RuntimeBus tracks active ramps, evaluates and holds the exact value at Stop, clears automation state, and permits rescheduling the same bar at a new time.
+- Phase 3.2 has not started. Engine Stop dispatch to active and retiring buses is the next review chunk.
+- Phase 4 integration closeout and its checklist remain pending.
+- Current package and workspace checks, lint, tests, and builds pass; Phase 4 verification remains unchecked until final closeout.
+
 ## Key design decisions
 
 - SOW 2 applies only to named-bus **effect parameters**. `BusSchema.gain` remains one constant number.
@@ -26,7 +39,10 @@ This is not a general automation system. Effect nodes remain persistent for the 
 - Additional steps in a selected row are ignored; this SOW does not schedule intra-bar changes.
 - Random resolution reuses `RandomResolver.resolve(barIndex, 0)` without changing its algorithms or instrument behavior.
 - Bus nodes and parameter bindings persist until graph destruction.
-- After first initialization, values begin a `MIN_RAMP * 2` linear transition at the exact bar boundary and reach their target 5 ms later; hard parameter jumps are unacceptable.
+- After first initialization, values begin a linear transition at the exact bar boundary; duration is `Math.max(MIN_RAMP * 4, barDuration * bus.transition)` and hard parameter jumps are unacceptable.
+- `BusSchema.transition` is a required finite bar proportion in `[0, 1]`, emitted by Fluid as `0` by default.
+- Clock callbacks include the current `barDuration` as their third argument; AudioEngine forwards the `bar` event's duration to RuntimeBus instead of reading clock state separately.
+- Fluid exposes `transition()` and the extracted-safe `trans()` alias.
 - Construction initializes a new graph for `upcomingBar`. Identical `(barIndex, startTime)` scheduling is idempotent so the following bar callback cannot install the first event twice.
 - Only active buses receive new bar scheduling. Retiring buses freeze at their last installed value.
 - Stop calls `AudioParam.cancelAndHoldAtTime(stopTime)` on active and retiring bus bindings.
@@ -283,8 +299,8 @@ All Phase 1 bus validation, runtime binding, and engine dispatch changes must la
 - Resolve static values by bar with fixed step zero.
 - Resolve and verify all bindings before applying any value.
 - Initialize the first timed value with `setValueAtTime()` while the new graph is silent.
-- Hold the prior value through the boundary, then smooth subsequent changes over `MIN_RAMP * 2`.
-- If scheduling arrives late, begin at the current audio time and preserve the full 5 ms ramp rather than introducing a hard jump.
+- Hold the prior value through the boundary, then smooth subsequent changes over the greater of `MIN_RAMP * 4` or the configured fraction of the bar.
+- If scheduling arrives late, begin at the current audio time and preserve the full transition duration rather than introducing a hard jump.
 - Initialize untimed construction synchronously.
 - Keep `BusSchema.gain` constant and outside the bindings.
 
@@ -305,7 +321,7 @@ All Phase 1 bus validation, runtime binding, and engine dispatch changes must la
 - [x] First, later, and replacement bars are each installed once.
 - [x] Replacement starts from the upcoming nonzero bar.
 - [x] Effect nodes and routing remain unchanged across bars.
-- [x] Random, envelope, LFO, and MIDI bus parameters remain rejected.
+- [x] Random bus parameters remained rejected until Phase 2; envelope, LFO, and MIDI bus parameters remain rejected.
 - [x] Schema, Fluid, and AudioEngine checks pass at phase closeout.
 
 ---
@@ -351,7 +367,10 @@ All Phase 2 authoring, validation, and runtime resolution changes must land atom
 ### 3.1 RuntimeBus Stop
 
 - Add `stop(stopTime)`.
+- Retain each binding's active linear transition metadata: source value, target value, start time, and end time.
+- Evaluate the exact in-progress linear value at `stopTime` before cancelling automation.
 - Call `cancelAndHoldAtTime(stopTime)` on every binding.
+- Store the evaluated held value in the binding and clear its active transition metadata so restart cannot jump back to the old ramp destination.
 - Keep repeated Stop safe.
 - Clear or update scheduling-idempotence state so restart at a new audio time schedules normally.
 - Do not disconnect, reset, or destroy nodes.
@@ -367,10 +386,10 @@ All Phase 2 authoring, validation, and runtime resolution changes must land atom
 **Acceptance criteria:**
 
 - [ ] Active and retiring buses cancel future values at the supplied time.
-- [ ] Currently audible values are held rather than reset.
-- [ ] Stop does not disconnect or destroy bus nodes.
-- [ ] Repeated Stop is safe.
-- [ ] Stop/restart can schedule the same bar at a new time.
+- [x] Currently audible values are held rather than reset.
+- [x] Stop does not disconnect or destroy bus nodes.
+- [x] Repeated Stop is safe.
+- [x] Stop/restart can schedule the same bar at a new time.
 - [ ] Existing active-voice Stop/LFO regression tests remain valid.
 
 ---
@@ -407,7 +426,7 @@ Document:
 - static and deterministic random named-bus effect parameters;
 - bar-level versus intra-bar Fluid syntax;
 - fixed step-zero bus resolution;
-- click-free 5 ms smoothing beginning at the exact boundary, plus first-bar idempotence;
+- click-free transitions beginning at the exact boundary, including the mandatory 10 ms minimum and configurable bar-relative slides;
 - persistent nodes and frozen retiring buses;
 - `cancelAndHoldAtTime()` Stop behavior;
 - constant bus output gain;

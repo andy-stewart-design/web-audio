@@ -58,11 +58,13 @@ class AudioEngine {
 
     this._unsub = new Set([
       clock.on("prebar", ({ bar }, time) => this._commit(bar, time)),
-      clock.on("bar", ({ bar }, time) => {
+      clock.on("bar", ({ bar }, time, barDuration) => {
         this._activeGraph.instruments.forEach((instrument) =>
           instrument.scheduleBar(bar, time),
         );
-        this._activeGraph.buses.forEach((bus) => bus.scheduleBar(bar, time));
+        this._activeGraph.buses.forEach((bus) =>
+          bus.scheduleBar(bar, time, barDuration),
+        );
       }),
       clock.on("stop", () => {
         this._activeGraph.instruments.forEach((instrument) =>

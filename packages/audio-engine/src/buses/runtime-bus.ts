@@ -8,10 +8,19 @@ import type {
 import { FILTER_TYPE_MAP, MIN_RAMP } from "@/constants";
 import RandomResolver from "@/resolvers/random-resolver";
 
+interface ActiveTransition {
+  from: number;
+  to: number;
+  startTime: number;
+  endTime: number;
+}
+
+type BindingState = number | ActiveTransition | undefined;
+
 interface BusParameterBinding {
   target: AudioParam;
   schema: ParameterSchema;
-  value: number | undefined;
+  state: BindingState;
 }
 
 interface RuntimeEffect {
@@ -30,6 +39,7 @@ class RuntimeBus {
   private readonly _effects: RuntimeEffect[];
   private readonly _output: GainNode;
   private readonly _randomResolvers = new Map<RandomSchema, RandomResolver>();
+  private readonly _transition: number;
   private _lastSchedule: { barIndex: number; startTime: number } | null = null;
   private _destroyed = false;
 
@@ -47,6 +57,7 @@ class RuntimeBus {
     this._effects = schema.effects.map((effect) => buildEffect(ctx, effect));
     this._output = ctx.createGain();
     this._output.gain.value = schema.gain;
+    this._transition = schema.transition;
 
     let previous: AudioNode = this.input;
     for (const effect of this._effects) {
@@ -59,7 +70,7 @@ class RuntimeBus {
     this.scheduleBar(options.startingBar, options.barStartTime);
   }
 
-  scheduleBar(barIndex: number, startTime?: number) {
+  scheduleBar(barIndex: number, startTime?: number, barDuration = 0) {
     if (
       startTime !== undefined &&
       this._lastSchedule?.barIndex === barIndex &&
@@ -80,24 +91,49 @@ class RuntimeBus {
     );
 
     resolved.forEach(({ binding, nextValue }) => {
-      const { target, value: previousValue } = binding;
+      const { target } = binding;
+      const previousValue = destinationOf(binding.state);
       if (startTime === undefined || previousValue === undefined) {
         if (startTime === undefined) {
           target.value = nextValue;
         } else {
           target.setValueAtTime(nextValue, startTime);
         }
+        binding.state = nextValue;
       } else if (previousValue !== nextValue) {
         const rampStart = Math.max(this._ctx.currentTime, startTime);
-        const rampEnd = rampStart + MIN_RAMP * 4;
+        const transitionDuration = Math.max(
+          MIN_RAMP * 4,
+          barDuration * this._transition,
+        );
+        const rampEnd = rampStart + transitionDuration;
         target.setValueAtTime(previousValue, rampStart);
         target.linearRampToValueAtTime(nextValue, rampEnd);
+        binding.state = {
+          from: previousValue,
+          to: nextValue,
+          startTime: rampStart,
+          endTime: rampEnd,
+        };
       }
-      binding.value = nextValue;
     });
 
     this._lastSchedule =
       startTime === undefined ? null : { barIndex, startTime };
+  }
+
+  stop(stopTime: number) {
+    this._effects.forEach(({ bindings }) => {
+      bindings.forEach((binding) => {
+        const heldValue =
+          typeof binding.state === "object"
+            ? valueAtTime(binding.state, stopTime)
+            : binding.state;
+        binding.target.cancelAndHoldAtTime(stopTime);
+        binding.state = heldValue;
+      });
+    });
+    this._lastSchedule = null;
   }
 
   destroy() {
@@ -136,7 +172,19 @@ function binding(target: AudioParam, schema: AudioParamSchema) {
   if (schema.type !== "static" && schema.type !== "random") {
     throw new Error("[RuntimeBus] Expected a validated bus parameter.");
   }
-  return { target, schema, value: undefined };
+  return { target, schema, state: undefined };
+}
+
+function destinationOf(state: BindingState) {
+  return typeof state === "object" ? state.to : state;
+}
+
+function valueAtTime(transition: ActiveTransition, time: number) {
+  if (time <= transition.startTime) return transition.from;
+  if (time >= transition.endTime) return transition.to;
+  const progress =
+    (time - transition.startTime) / (transition.endTime - transition.startTime);
+  return transition.from + (transition.to - transition.from) * progress;
 }
 
 function resolveValue(

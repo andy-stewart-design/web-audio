@@ -10,6 +10,7 @@ class FakeAudioParam {
   value = 99;
   setValueAtTime = vi.fn();
   linearRampToValueAtTime = vi.fn();
+  cancelAndHoldAtTime = vi.fn();
 }
 
 class FakeGainNode {
@@ -68,7 +69,11 @@ function randomParam(overrides: Partial<RandomSchema> = {}): RandomSchema {
 
 function createBus(
   effects: EffectSchema[] = [],
-  options?: { startingBar: number; barStartTime: number | undefined },
+  options?: {
+    startingBar: number;
+    barStartTime: number | undefined;
+  },
+  transition = 0,
 ) {
   const gains: FakeGainNode[] = [];
   const ctx = {
@@ -82,7 +87,7 @@ function createBus(
   const main = new FakeGainNode();
   const bus = new RuntimeBus(
     ctx,
-    { gain: 0.75, effects },
+    { gain: 0.75, transition, effects },
     main as unknown as AudioNode,
     options,
   );
@@ -176,8 +181,8 @@ describe("RuntimeBus", () => {
       [1, 14],
     ]);
     expect(target.linearRampToValueAtTime.mock.calls).toEqual([
-      [1, 12.005],
-      [0.5, 14.005],
+      [1, 12.01],
+      [0.5, 14.01],
     ]);
     expect(FakeEffectGainNode.instances).toHaveLength(1);
   });
@@ -203,7 +208,21 @@ describe("RuntimeBus", () => {
     bus.scheduleBar(1, -1);
 
     expect(target.setValueAtTime).toHaveBeenCalledWith(1, 0);
-    expect(target.linearRampToValueAtTime).toHaveBeenCalledWith(0.5, 0.005);
+    expect(target.linearRampToValueAtTime).toHaveBeenCalledWith(0.5, 0.01);
+  });
+
+  it("transitions over the configured fraction of a bar", () => {
+    const { bus } = createBus(
+      [{ type: "gain", gain: staticParam(1, 0.5) }],
+      { startingBar: 0, barStartTime: undefined },
+      0.25,
+    );
+    const target = FakeEffectGainNode.instances[0].gain;
+
+    bus.scheduleBar(1, 10, 2);
+
+    expect(target.setValueAtTime).toHaveBeenCalledWith(1, 10);
+    expect(target.linearRampToValueAtTime).toHaveBeenCalledWith(0.5, 10.5);
   });
 
   it("resolves every binding before scheduling any target", () => {
@@ -285,6 +304,66 @@ describe("RuntimeBus", () => {
         },
       ]),
     ).toThrow("[RuntimeBus] Expected a validated bus parameter.");
+  });
+
+  it("holds the exact in-progress value when stopped mid-transition", () => {
+    const { bus } = createBus(
+      [{ type: "gain", gain: staticParam(1, 0.5) }],
+      undefined,
+      0.25,
+    );
+    const target = FakeEffectGainNode.instances[0].gain;
+
+    bus.scheduleBar(1, 10, 2);
+    bus.stop(10.25);
+
+    expect(target.cancelAndHoldAtTime).toHaveBeenCalledWith(10.25);
+
+    bus.scheduleBar(1, 20, 2);
+
+    expect(target.setValueAtTime).toHaveBeenLastCalledWith(0.75, 20);
+    expect(target.linearRampToValueAtTime).toHaveBeenLastCalledWith(0.5, 20.5);
+  });
+
+  it("holds the source value when stopped before a future transition", () => {
+    const { bus } = createBus(
+      [{ type: "gain", gain: staticParam(1, 0.5) }],
+      undefined,
+      0.25,
+    );
+    const target = FakeEffectGainNode.instances[0].gain;
+
+    bus.scheduleBar(1, 10, 2);
+    bus.stop(9);
+    bus.scheduleBar(1, 20, 2);
+
+    expect(target.cancelAndHoldAtTime).toHaveBeenCalledWith(9);
+    expect(target.setValueAtTime).toHaveBeenLastCalledWith(1, 20);
+  });
+
+  it("stops every binding repeatedly without disconnecting nodes", () => {
+    const { bus, gains } = createBus([
+      {
+        type: "filter",
+        filterType: "lp",
+        frequency: staticParam(800),
+        q: staticParam(1),
+        detune: staticParam(0),
+        gain: staticParam(0),
+      },
+    ]);
+    const filter = FakeFilterNode.instances[0];
+    const targets = [filter.frequency, filter.Q, filter.detune, filter.gain];
+
+    bus.stop(4);
+    bus.stop(5);
+
+    targets.forEach((target) => {
+      expect(target.cancelAndHoldAtTime.mock.calls).toEqual([[4], [5]]);
+    });
+    expect(gains[0].disconnect).not.toHaveBeenCalled();
+    expect(filter.disconnect).not.toHaveBeenCalled();
+    expect(gains[1].disconnect).not.toHaveBeenCalled();
   });
 
   it("destroys every owned node idempotently", () => {
