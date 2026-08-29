@@ -50,7 +50,7 @@ Fluid and direct AudioEngine schemas share one canonical, validated graph repres
 
 ## SOW 2 — Patterned bus parameters
 
-Detailed implementation plan: [`patterned-bus-parameters-plan.md`](patterned-bus-parameters-plan.md)
+Detailed implementation plan: [`completed/patterned-bus-parameters-plan.md`](completed/patterned-bus-parameters-plan.md)
 
 ### Goal
 

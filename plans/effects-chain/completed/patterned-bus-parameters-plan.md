@@ -2,7 +2,7 @@
 
 ## Context
 
-This plan implements SOW 2 from [`bus-followup-roadmap.md`](bus-followup-roadmap.md) as end-to-end vertical slices. It preserves the topology delivered by [`completed/bus-mvp-plan.md`](completed/bus-mvp-plan.md) and the canonical contract from [`completed/bus-schema-hardening-plan.md`](completed/bus-schema-hardening-plan.md).
+This plan implements SOW 2 from [`bus-followup-roadmap.md`](../bus-followup-roadmap.md) as end-to-end vertical slices. It preserves the topology delivered by [`bus-mvp-plan.md`](bus-mvp-plan.md) and the canonical contract from [`bus-schema-hardening-plan.md`](bus-schema-hardening-plan.md).
 
 The current runtime accepts one constant static value for each named-bus effect parameter. `RuntimeBus` installs that value during construction and never changes it. This SOW extends that path just far enough to resolve static and deterministic random values once per bar:
 
@@ -25,8 +25,8 @@ This is not a general automation system. Effect nodes remain persistent for the 
 - Clock event callbacks now provide `barDuration` as their third argument; AudioEngine forwards the `bar` event duration directly to RuntimeBus.
 - Mandatory smoothing is currently 10 ms and audible transition behavior has passed focused manual testing.
 - Phase 3 is complete: RuntimeBus holds exact in-progress values at Stop, and AudioEngine forwards the clock event time to every active and retiring bus while preserving existing instrument and MIDI Stop behavior.
-- Phase 4 canonical coverage, documentation, and automated verification are complete.
-- Focused audible review remains the final closeout gate; the plan stays active until that review is completed.
+- Phase 4 canonical coverage, documentation, automated verification, and focused audible review are complete.
+- The SOW is complete.
 
 ## Key design decisions
 
@@ -463,14 +463,14 @@ Run changed-package formatting before final checks:
 
 Use a short sketch with obvious alternating gain/filter values and a seeded random parameter.
 
-- [ ] Changes occur on audio bar boundaries rather than callback execution time.
-- [ ] Static cycles wrap at the expected bar.
-- [ ] Seeded random behavior repeats after reconstruction.
-- [ ] Ordinary value changes introduce no unexpected click or dry duplication.
-- [ ] Stop before a future boundary prevents that value from arriving.
-- [ ] Existing voices remain audible through Stop according to current semantics.
-- [ ] Replacing a sketch freezes the retiring bus.
-- [ ] Instrument effects, envelopes, LFOs, MIDI, routes, and sends sound unchanged.
+- [x] Changes occur on audio bar boundaries rather than callback execution time.
+- [x] Static cycles wrap at the expected bar.
+- [x] Seeded random behavior repeats after reconstruction.
+- [x] Ordinary value changes introduce no unexpected click or dry duplication.
+- [x] Stop before a future boundary prevents that value from arriving.
+- [x] Existing voices remain audible through Stop according to current semantics.
+- [x] Replacing a sketch freezes the retiring bus.
+- [x] Instrument effects, envelopes, LFOs, MIDI, routes, and sends sound unchanged.
 
 ## Explicit non-goals
 
