@@ -51,8 +51,8 @@ describe("validateDromeGraph", () => {
       validateDromeGraph(
         schema(
           {
-            drums: { gain: 0.8, effects: [] },
-            verb: { gain: 0.5, effects: [] },
+            drums: { gain: 0.8, transition: 0, effects: [] },
+            verb: { gain: 0.5, transition: 0, effects: [] },
           },
           [instrument("drums", { verb: 0.2 })],
         ),
@@ -62,7 +62,9 @@ describe("validateDromeGraph", () => {
 
   it.each(["", " drums "])("rejects non-canonical bus name %j", (name) => {
     expect(() =>
-      validateDromeGraph(schema({ [name]: { gain: 1, effects: [] } })),
+      validateDromeGraph(
+        schema({ [name]: { gain: 1, transition: 0, effects: [] } }),
+      ),
     ).toThrow(`[Schema] Bus name "${name}" is not canonical.`);
   });
 
@@ -70,9 +72,22 @@ describe("validateDromeGraph", () => {
     "rejects invalid bus gain %s",
     (gain) => {
       expect(() =>
-        validateDromeGraph(schema({ drums: { gain, effects: [] } })),
+        validateDromeGraph(schema({ drums: { gain, transition: 0, effects: [] } })),
       ).toThrow(
         '[Schema] Bus "drums" gain must be a finite number greater than or equal to 0.',
+      );
+    },
+  );
+
+  it.each([-0.1, 1.1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects invalid bus transition %s",
+    (transition) => {
+      expect(() =>
+        validateDromeGraph(
+          schema({ drums: { gain: 1, transition, effects: [] } }),
+        ),
+      ).toThrow(
+        '[Schema] Bus "drums" transition must be a finite number in [0, 1].',
       );
     },
   );
@@ -83,6 +98,7 @@ describe("validateDromeGraph", () => {
         schema({
           main: {
             gain: 1,
+            transition: 0,
             effects: [{ type: "gain", gain: staticParam(1) }],
           },
         }),
@@ -106,7 +122,9 @@ describe("validateDromeGraph", () => {
     };
 
     expect(() =>
-      validateDromeGraph(schema({ drums: { gain: 1, effects: [effect] } })),
+      validateDromeGraph(
+        schema({ drums: { gain: 1, transition: 0, effects: [effect] } }),
+      ),
     ).not.toThrow();
   });
 
@@ -124,7 +142,9 @@ describe("validateDromeGraph", () => {
     };
 
     expect(() =>
-      validateDromeGraph(schema({ drums: { gain: 1, effects: [effect] } })),
+      validateDromeGraph(
+        schema({ drums: { gain: 1, transition: 0, effects: [effect] } }),
+      ),
     ).toThrow(
       '[Schema] Bus "drums" effects[0].gain must be a finite bar-resolvable static or random parameter.',
     );
@@ -144,7 +164,9 @@ describe("validateDromeGraph", () => {
     };
 
     expect(() =>
-      validateDromeGraph(schema({ drums: { gain: 1, effects: [effect] } })),
+      validateDromeGraph(
+        schema({ drums: { gain: 1, transition: 0, effects: [effect] } }),
+      ),
     ).not.toThrow();
   });
 
@@ -193,7 +215,9 @@ describe("validateDromeGraph", () => {
     const effect: EffectSchema = { type: "gain", gain };
 
     expect(() =>
-      validateDromeGraph(schema({ drums: { gain: 1, effects: [effect] } })),
+      validateDromeGraph(
+        schema({ drums: { gain: 1, transition: 0, effects: [effect] } }),
+      ),
     ).toThrow(`[Schema] Bus "drums" effects[0].gain ${message}.`);
   });
 
@@ -217,14 +241,14 @@ describe("validateDromeGraph", () => {
     );
     expect(() =>
       validateDromeGraph(
-        schema({ verb: { gain: 1, effects: [] } }, [
+        schema({ verb: { gain: 1, transition: 0, effects: [] } }, [
           instrument("main", { " verb ": 0.2 }),
         ]),
       ),
     ).toThrow('[Schema] Instrument 0 send target " verb " is not canonical.');
     expect(() =>
       validateDromeGraph(
-        schema({ verb: { gain: 1, effects: [] } }, [
+        schema({ verb: { gain: 1, transition: 0, effects: [] } }, [
           instrument("main", { verb: 2 }),
         ]),
       ),

@@ -195,6 +195,7 @@ type EffectSchema = FilterSchema | GainEffectSchema;
 
 interface BusSchema {
   gain: number;
+  transition: number;
   effects: EffectSchema[];
 }
 

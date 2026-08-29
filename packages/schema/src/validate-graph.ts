@@ -10,6 +10,15 @@ function validateDromeGraph(schema: DromeSchema) {
         `[Schema] Bus "${name}" gain must be a finite number greater than or equal to 0.`,
       );
     }
+    if (
+      !Number.isFinite(bus.transition) ||
+      bus.transition < 0 ||
+      bus.transition > 1
+    ) {
+      throw new Error(
+        `[Schema] Bus "${name}" transition must be a finite number in [0, 1].`,
+      );
+    }
     if (name === "main" && bus.effects.length > 0) {
       throw new Error(
         "[Schema] Effects on main are not supported in the bus MVP.",
