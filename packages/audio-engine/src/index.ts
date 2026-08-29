@@ -58,20 +58,25 @@ class AudioEngine {
 
     this._unsub = new Set([
       clock.on("prebar", ({ bar }, time) => this._commit(bar, time)),
-      clock.on("bar", ({ bar }, time) => {
+      clock.on("bar", ({ bar }, time, barDuration) => {
         this._activeGraph.instruments.forEach((instrument) =>
           instrument.scheduleBar(bar, time),
         );
+        this._activeGraph.buses.forEach((bus) =>
+          bus.scheduleBar(bar, time, barDuration),
+        );
       }),
-      clock.on("stop", () => {
+      clock.on("stop", (_metronome, time) => {
         this._activeGraph.instruments.forEach((instrument) =>
           instrument.cancelFutureNotes(),
         );
-        this._retiringGraphs.forEach((graph) =>
+        this._activeGraph.buses.forEach((bus) => bus.stop(time));
+        this._retiringGraphs.forEach((graph) => {
           graph.instruments.forEach((instrument) =>
             instrument.cancelFutureNotes(),
-          ),
-        );
+          );
+          graph.buses.forEach((bus) => bus.stop(time));
+        });
         this._midiOutputScheduler.stop();
       }),
     ]);
@@ -158,7 +163,13 @@ class AudioEngine {
     try {
       for (const [name, schema] of Object.entries(pending.buses)) {
         if (name === "main") continue;
-        buses.set(name, new RuntimeBus(this._ctx, schema, this._master));
+        buses.set(
+          name,
+          new RuntimeBus(this._ctx, schema, this._master, {
+            startingBar: upcomingBar,
+            barStartTime,
+          }),
+        );
       }
 
       for (const [index, schema] of pending.instruments.entries()) {

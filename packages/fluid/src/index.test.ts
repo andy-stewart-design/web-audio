@@ -1839,6 +1839,49 @@ describe("Drome", () => {
       }
     });
 
+    it("gain effect accepts values across bars", () => {
+      const effect = new Drome().gain(1, 0.5, 0.25).getSchema();
+
+      expect(effect.gain.type).toBe("static");
+      if (effect.gain.type === "static") {
+        expect(
+          effect.gain.cycle.map((bar) => bar.map((step) => step.value)),
+        ).toEqual([[1], [0.5], [0.25]]);
+      }
+    });
+
+    it("gain effect preserves values within one bar", () => {
+      const effect = new Drome().gain([1, 0.5, 0.25]).getSchema();
+
+      expect(effect.gain.type).toBe("static");
+      if (effect.gain.type === "static") {
+        expect(effect.gain.cycle[0].map((step) => step.value)).toEqual([
+          1, 0.5, 0.25,
+        ]);
+      }
+    });
+
+    it("gain effect accepts a RandomCycle", () => {
+      const d = new Drome();
+      const effect = d.gain(d.rand().range(0.25, 0.75)).getSchema();
+
+      expect(effect.gain.type).toBe("random");
+      if (effect.gain.type === "random") {
+        expect(effect.gain.range).toEqual({ min: 0.25, max: 0.75 });
+      }
+    });
+
+    it("gain effect preserves envelope input", () => {
+      const d = new Drome();
+      const effect = d.gain(d.env(0, 0.75).mode("bounded")).getSchema();
+
+      expect(effect.gain.type).toBe("envelope");
+      if (effect.gain.type === "envelope") {
+        expect(effect.gain.min).toBe(0);
+        expect(effect.gain.mode).toBe("bounded");
+      }
+    });
+
     it("synth with mixed effects (filter + gain)", () => {
       const d = new Drome();
       d.synth("triangle")

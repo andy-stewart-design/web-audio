@@ -6,4 +6,8 @@ export type ClockEventType =
   | "prebar"
   | "beat"
   | "bar";
-export type ClockEventCallback = (m: Metronome, time: number) => void;
+export type ClockEventCallback = (
+  metronome: Metronome,
+  time: number,
+  barDuration: number,
+) => void;

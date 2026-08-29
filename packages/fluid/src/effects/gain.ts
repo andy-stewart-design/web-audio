@@ -1,22 +1,16 @@
 import type { GainEffectSchema } from "@web-audio/schema";
-import Envelope from "@/automations/envelope";
-import Lfo from "@/automations/lfo";
 import Parameter from "@/patterns/parameter";
-import { MidiCc } from "@/midi";
-import type { AudioParamSource } from "@/types";
+import type { AudioParamInput, AudioParamSource } from "@/types";
+import { isEnvelopeTuple, isLfoTuple, isMidiCcTuple } from "@/utils/validate";
 
 class GainEffect {
   private _gain: AudioParamSource;
 
-  constructor(input: number | Envelope | Lfo | MidiCc) {
-    if (
-      input instanceof Envelope ||
-      input instanceof Lfo ||
-      input instanceof MidiCc
-    ) {
-      this._gain = input;
+  constructor(...input: AudioParamInput) {
+    if (isEnvelopeTuple(input) || isLfoTuple(input) || isMidiCcTuple(input)) {
+      this._gain = input[0];
     } else {
-      this._gain = new Parameter(input);
+      this._gain = new Parameter(...input);
     }
   }
 

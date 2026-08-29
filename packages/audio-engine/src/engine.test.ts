@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Midi } from "@web-audio/midi";
-import type { DromeSchema, StaticSchema } from "@web-audio/schema";
+import type {
+  DromeSchema,
+  RandomSchema,
+  StaticSchema,
+} from "@web-audio/schema";
 
 // Mock Synthesizer so tests don't need Web Audio APIs.
 // Must use a regular function (not arrow) so it's usable as a constructor.
@@ -89,6 +93,9 @@ class FakeGainNode extends FakeAudioNode {
 
 class FakeAudioParam {
   value = 0;
+  setValueAtTime = vi.fn();
+  linearRampToValueAtTime = vi.fn();
+  cancelAndHoldAtTime = vi.fn();
 }
 
 class FakeFilterNode extends FakeAudioNode {
@@ -120,7 +127,11 @@ const fakeCtx = {
   createGain: createGainMock,
 } as unknown as AudioContext;
 
-type EventCallback = (m: { beat: number; bar: number }, time: number) => void;
+type EventCallback = (
+  m: { beat: number; bar: number },
+  time: number,
+  barDuration: number,
+) => void;
 
 // Controllable clock stub — lets tests fire events manually
 class FakeClock {
@@ -139,7 +150,9 @@ class FakeClock {
   }
 
   emit(type: string, bar = 0, time = 0) {
-    this._listeners.get(type)?.forEach((cb) => cb({ beat: 0, bar }, time));
+    this._listeners
+      .get(type)
+      ?.forEach((cb) => cb({ beat: 0, bar }, time, this.barDuration));
   }
 
   bpm(value: number) {
@@ -160,6 +173,19 @@ function staticParam(...values: number[]): StaticSchema {
     cycle: values.map((value) => [
       { value, offset: 0, duration: 1, stepIndex: 0 },
     ]),
+  };
+}
+
+function randomParam(overrides: Partial<RandomSchema> = {}): RandomSchema {
+  return {
+    type: "random",
+    dataType: "float",
+    segments: [{ seed: 42 }],
+    quantValue: undefined,
+    range: { min: 400, max: 800 },
+    algorithm: "mulberry",
+    grid: staticParam(1),
+    ...overrides,
   };
 }
 
@@ -326,7 +352,7 @@ describe("AudioEngine", () => {
       const engine = new AudioEngine(fakeCtx, clock as never);
       const master = createGainMock.mock.results[0]?.value;
       const configured = makeSchema();
-      configured.buses = { main: { gain: 0.6, effects: [] } };
+      configured.buses = { main: { gain: 0.6, transition: 0, effects: [] } };
 
       engine.update(configured);
       expect(master.gain.value).toBe(1);
@@ -348,13 +374,14 @@ describe("AudioEngine", () => {
       const active = instances()[0];
       const withMainEffect = makeSchema();
       withMainEffect.buses = {
-        main: { gain: 1, effects: [{ type: "gain" } as never] },
+        main: { gain: 1, transition: 0, effects: [{ type: "gain" } as never] },
       };
       const withDynamicNamedEffect = makeSchema();
       withDynamicNamedEffect.buses = {
         drums: {
           gain: 1,
-          effects: [{ type: "gain", gain: staticParam(0.5, 1) }],
+          transition: 0,
+          effects: [{ type: "gain", gain: { type: "lfo" } as never }],
         },
       };
 
@@ -362,7 +389,7 @@ describe("AudioEngine", () => {
         "[Schema] Effects on main are not supported in the bus MVP.",
       );
       expect(() => engine.update(withDynamicNamedEffect)).toThrow(
-        '[Schema] Bus "drums" effects[0].gain must be one finite constant static value.',
+        '[Schema] Bus "drums" effects[0].gain must be a finite bar-resolvable static or random parameter.',
       );
 
       clock.emit("bar");
@@ -373,18 +400,123 @@ describe("AudioEngine", () => {
     it("rejects invalid direct main gain values", () => {
       const engine = new AudioEngine(fakeCtx, new FakeClock() as never);
       const schema = makeSchema();
-      schema.buses = { main: { gain: Number.NaN, effects: [] } };
+      schema.buses = { main: { gain: Number.NaN, transition: 0, effects: [] } };
 
       expect(() => engine.update(schema)).toThrow(
         '[Schema] Bus "main" gain must be a finite number greater than or equal to 0.',
       );
     });
 
+    it("initializes and schedules active bus effects at exact bar boundaries", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSchema();
+      schema.buses = {
+        drums: {
+          gain: 1,
+          transition: 0.25,
+          effects: [
+            {
+              type: "filter",
+              filterType: "lp",
+              frequency: staticParam(400, 800),
+              q: staticParam(1),
+              detune: staticParam(0),
+              gain: staticParam(0),
+            },
+          ],
+        },
+      };
+
+      engine.update(schema);
+      clock.emit("prebar", 5, 10);
+      const frequency = FakeFilterNode.instances[0].frequency;
+      expect(frequency.setValueAtTime.mock.calls).toEqual([[800, 10]]);
+
+      clock.emit("bar", 5, 10);
+      expect(frequency.setValueAtTime.mock.calls).toEqual([[800, 10]]);
+
+      clock.emit("bar", 6, 12);
+      expect(frequency.setValueAtTime.mock.calls).toEqual([
+        [800, 10],
+        [800, 12],
+      ]);
+      expect(frequency.linearRampToValueAtTime).toHaveBeenCalledWith(400, 12.5);
+    });
+
+    it("resolves deterministic random bus effects by bar", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSchema();
+      schema.buses = {
+        drums: {
+          gain: 1,
+          transition: 0,
+          effects: [
+            {
+              type: "filter",
+              filterType: "lp",
+              frequency: randomParam(),
+              q: staticParam(1),
+              detune: staticParam(0),
+              gain: staticParam(0),
+            },
+          ],
+        },
+      };
+
+      engine.update(schema);
+      clock.emit("prebar", 0, 10);
+      const frequency = FakeFilterNode.instances[0].frequency;
+      const first = frequency.setValueAtTime.mock.calls[0][0];
+      expect(first).toBeGreaterThanOrEqual(400);
+      expect(first).toBeLessThanOrEqual(800);
+
+      clock.emit("bar", 1, 12);
+      const second = frequency.linearRampToValueAtTime.mock.calls[0][0];
+      expect(second).toBeGreaterThanOrEqual(400);
+      expect(second).toBeLessThanOrEqual(800);
+    });
+
+    it("does not advance retiring bus effects after replacement", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const patterned = makeSchema();
+      patterned.buses = {
+        drums: {
+          gain: 1,
+          transition: 0,
+          effects: [
+            {
+              type: "filter",
+              filterType: "lp",
+              frequency: staticParam(400, 800),
+              q: staticParam(1),
+              detune: staticParam(0),
+              gain: staticParam(0),
+            },
+          ],
+        },
+      };
+
+      engine.update(patterned);
+      clock.emit("prebar", 0, 10);
+      const retiringFrequency = FakeFilterNode.instances[0].frequency;
+
+      engine.update(patterned);
+      clock.emit("prebar", 1, 12);
+      const activeFrequency = FakeFilterNode.instances[1].frequency;
+      clock.emit("bar", 1, 12);
+
+      expect(retiringFrequency.setValueAtTime.mock.calls).toEqual([[400, 10]]);
+      expect(activeFrequency.setValueAtTime.mock.calls).toEqual([[800, 12]]);
+    });
+
     it("routes an instrument exclusively to a named bus feeding main", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);
       const schema = makeSchema();
-      schema.buses = { drums: { gain: 0.75, effects: [] } };
+      schema.buses = { drums: { gain: 0.75, transition: 0, effects: [] } };
       schema.instruments[0].route = "drums";
       const master = createGainMock.mock.results[0]?.value;
 
@@ -404,7 +536,7 @@ describe("AudioEngine", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);
       const schema = makeSchema(2);
-      schema.buses = { drums: { gain: 1, effects: [] } };
+      schema.buses = { drums: { gain: 1, transition: 0, effects: [] } };
       schema.instruments.forEach((instrument) => {
         instrument.route = "drums";
       });
@@ -422,8 +554,8 @@ describe("AudioEngine", () => {
       const engine = new AudioEngine(fakeCtx, clock as never);
       const schema = makeSchema();
       schema.buses = {
-        drums: { gain: 1, effects: [] },
-        verb: { gain: 1, effects: [] },
+        drums: { gain: 1, transition: 0, effects: [] },
+        verb: { gain: 1, transition: 0, effects: [] },
       };
       schema.instruments[0].route = "drums";
       schema.instruments[0].sends = { verb: 0.3 };
@@ -442,7 +574,7 @@ describe("AudioEngine", () => {
     it("rejects invalid direct sends", () => {
       const engine = new AudioEngine(fakeCtx, new FakeClock() as never);
       const schema = makeSchema();
-      schema.buses = { verb: { gain: 1, effects: [] } };
+      schema.buses = { verb: { gain: 1, transition: 0, effects: [] } };
 
       schema.instruments[0].sends = { main: 0.2 };
       expect(() => engine.update(schema)).toThrow(
@@ -478,9 +610,10 @@ describe("AudioEngine", () => {
       const engine = new AudioEngine(fakeCtx, clock as never);
       const schema = makeSchema(3);
       schema.buses = {
-        main: { gain: 0.9, effects: [] },
+        main: { gain: 0.9, transition: 0, effects: [] },
         drums: {
           gain: 0.8,
+          transition: 0,
           effects: [
             {
               type: "filter",
@@ -492,7 +625,7 @@ describe("AudioEngine", () => {
             },
           ],
         },
-        verb: { gain: 0.5, effects: [] },
+        verb: { gain: 0.5, transition: 0, effects: [] },
       };
       Object.assign(schema.instruments[0], {
         type: "sampler",
@@ -600,6 +733,7 @@ describe("AudioEngine", () => {
       schema.buses = {
         drums: {
           gain: 0.75,
+          transition: 0,
           effects: [
             {
               type: "filter",
@@ -611,7 +745,7 @@ describe("AudioEngine", () => {
             },
           ],
         },
-        verb: { gain: 0.5, effects: [] },
+        verb: { gain: 0.5, transition: 0, effects: [] },
       };
       schema.instruments[0].route = "drums";
       schema.instruments[0].sends = { verb: 0.2 };
@@ -635,7 +769,9 @@ describe("AudioEngine", () => {
         sends: [{ destination: verbInput, amount: 0.2 }],
       });
       expect(drumsOutput.gain.value).toBe(0.75);
-      expect(FakeFilterNode.instances[0].frequency.value).toBe(800);
+      expect(
+        FakeFilterNode.instances[0].frequency.setValueAtTime,
+      ).toHaveBeenCalledWith(800, 0);
     });
 
     it("isolates nested bank data from caller mutation", () => {
@@ -850,9 +986,9 @@ describe("AudioEngine", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);
       const first = makeSchema();
-      first.buses = { main: { gain: 0.5, effects: [] } };
+      first.buses = { main: { gain: 0.5, transition: 0, effects: [] } };
       const second = makeSchema();
-      second.buses = { main: { gain: 0.8, effects: [] } };
+      second.buses = { main: { gain: 0.8, transition: 0, effects: [] } };
       const master = createGainMock.mock.results[0]?.value;
 
       engine.update(first);
@@ -869,7 +1005,7 @@ describe("AudioEngine", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);
       const routed = makeSchema();
-      routed.buses = { drums: { gain: 1, effects: [] } };
+      routed.buses = { drums: { gain: 1, transition: 0, effects: [] } };
       routed.instruments[0].route = "drums";
 
       engine.update(routed);
@@ -896,15 +1032,15 @@ describe("AudioEngine", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);
       const initial = makeSchema();
-      initial.buses = { main: { gain: 0.4, effects: [] } };
+      initial.buses = { main: { gain: 0.4, transition: 0, effects: [] } };
       engine.update(initial);
       clock.emit("prebar");
       const active = instances()[0];
       const master = createGainMock.mock.results[0]?.value;
       const replacement = makeSchema();
       replacement.buses = {
-        main: { gain: 0.8, effects: [] },
-        drums: { gain: 1, effects: [] },
+        main: { gain: 0.8, transition: 0, effects: [] },
+        drums: { gain: 1, transition: 0, effects: [] },
       };
       createGainMock.mockImplementationOnce(() => {
         throw new Error("allocation failed");
@@ -1005,6 +1141,46 @@ describe("AudioEngine", () => {
 
       expect(instances()[0].cancelFutureNotes).toHaveBeenCalledOnce();
       expect(instances()[1].cancelFutureNotes).toHaveBeenCalledOnce();
+    });
+
+    it("forwards the exact stop time to active and retiring buses", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSchema();
+      schema.buses = {
+        drums: {
+          gain: 1,
+          transition: 0.25,
+          effects: [
+            {
+              type: "filter",
+              filterType: "lp",
+              frequency: staticParam(400, 800),
+              q: staticParam(1),
+              detune: staticParam(0),
+              gain: staticParam(0),
+            },
+          ],
+        },
+      };
+
+      engine.update(schema);
+      clock.emit("prebar", 0, 10);
+      const retiringFrequency = FakeFilterNode.instances[0].frequency;
+
+      engine.update(schema);
+      clock.emit("prebar", 1, 12);
+      const activeFrequency = FakeFilterNode.instances[1].frequency;
+      clock.emit("bar", 2, 14);
+      expect(activeFrequency.linearRampToValueAtTime).toHaveBeenCalledWith(
+        400,
+        14.5,
+      );
+
+      clock.emit("stop", 1, 12.25);
+
+      expect(retiringFrequency.cancelAndHoldAtTime).toHaveBeenCalledWith(12.25);
+      expect(activeFrequency.cancelAndHoldAtTime).toHaveBeenCalledWith(12.25);
     });
   });
 

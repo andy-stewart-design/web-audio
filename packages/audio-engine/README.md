@@ -17,7 +17,7 @@ main-routed instruments ──────────────────�
 
 Each instrument has exactly one primary route. Named routes replace the default direct-main path, preventing dry duplication. Sends are independent post-mute branches with one owned gain node each.
 
-Main gain is engine-global, so a main gain update affects both active and retiring voices. Main effects, dynamic bus parameters, and bus-to-bus routing are not currently supported.
+Main gain is engine-global, so a main gain update affects both active and retiring voices. Named-bus gain/filter parameters may resolve from static or deterministic random patterns once per bar. Main effects, envelopes, LFOs, MIDI CC, patterned sends, and bus-to-bus routing are not currently supported.
 
 ## Canonical schema updates
 
@@ -38,7 +38,13 @@ Direct `AudioEngine.update()` callers must provide explicit graph fields. Fluid 
 }
 ```
 
-Bus and route names must already be trimmed and non-empty. Named routes and send targets must reference declared buses; sends cannot target main and their amounts must be finite values in `[0, 1]`. Bus gain must be finite and non-negative. Named-bus effects currently accept only gain and filter processors whose parameters contain one finite static value.
+Bus and route names must already be trimmed and non-empty. Named routes and send targets must reference declared buses; sends cannot target main and their amounts must be finite values in `[0, 1]`. Bus gain must be finite and non-negative. Every bus schema includes `transition`, a finite bar proportion in `[0, 1]` that defaults to `0` in Fluid. Named-bus gain and filter parameters accept safe static and deterministic random patterns and resolve once per bar using step zero.
+
+Bus parameter changes begin at the bar boundary and ramp for the greater of 10 ms or `barDuration * transition`. The mandatory minimum prevents hard parameter jumps; longer configured transitions provide audible slides without overlapping the next bar. Bus effect nodes remain persistent for their runtime graph's lifetime. Replaced buses receive no later bar scheduling and freeze while their retiring voices finish.
+
+Transport Stop calls `cancelAndHoldAtTime()` at the exact Clock event time for every effect parameter on active and retiring buses. This cancels future values while preserving the currently audible value and graph connections. A later restart can schedule the same bar at its new audio time.
+
+Bus output gain remains constant. Intra-bar bus automation, envelopes, LFOs, MIDI CC, patterned sends, main effects, and bus-to-bus routing remain unsupported. Bus random validation covers only the safely resolvable subset; global `RandomSchema` hardening is separate future work.
 
 At commit, an undefined BPM resets the clock to the default 120 BPM rather than inheriting the previous sketch's tempo.
 
