@@ -9,6 +9,7 @@ import Instrument, { type InstrumentRouting } from "./instrument";
 import { SAMPLE_BASE_GAIN } from "@/constants";
 import { preloadVariationIndices } from "@/utils/preload-variations";
 import SampleBufferStore, { type SampleCache } from "./sample-buffer-store";
+import type { EventScheduleContext } from "@/types";
 
 interface SamplerOptions {
   schema: SamplerSchema;
@@ -231,12 +232,18 @@ class Sampler extends Instrument {
           ? playbackDuration
           : Math.min(scheduledDuration, playbackDuration);
     const endTime = startTime + duration;
-
-    const detune = this._resolveDetune(
-      this._schema.detune,
+    const event = {
       barIndex,
-      note.stepIndex,
-    );
+      // Until sampler hit enumeration lands in Phase 5, preserve current value
+      // addressing by using the serialized grid index for both positions.
+      hitIndex: note.stepIndex,
+      gridStepIndex: note.stepIndex,
+      startTime,
+      duration,
+      endTime,
+    } satisfies EventScheduleContext;
+
+    const detune = this._resolveDetune(this._schema.detune, event);
 
     const source = new AudioBufferSourceNode(this._ctx, {
       buffer,
@@ -246,13 +253,6 @@ class Sampler extends Instrument {
       loopStart: sourceWindow.loopStart,
       loopEnd: sourceWindow.loopEnd,
     });
-    const noteContext = {
-      barIndex,
-      stepIndex: note.stepIndex,
-      startTime,
-      duration,
-      endTime,
-    };
 
     this._scheduleVoice({
       source,
@@ -260,9 +260,9 @@ class Sampler extends Instrument {
         param: source.detune,
         resolved: detune,
       },
-      gainEnvelope: this._resolveEnvelope(this._schema.gain, noteContext),
+      gainEnvelope: this._resolveEnvelope(this._schema.gain, event),
       effects: this._schema.effects,
-      note: noteContext,
+      event,
       offset: sourceWindow.offset,
     });
     return true;

@@ -179,11 +179,11 @@ During this phase, a subclass not yet migrated may pass the same number for both
 
 **Acceptance criteria:**
 
-- [ ] Shared voice scheduling receives both hit and grid position explicitly.
-- [ ] Event-created gain, envelope, detune, and effect resolution reads `hitIndex`.
-- [ ] No shared event method reads `StaticSchemaValue.stepIndex` as a value index.
-- [ ] Grid metadata remains available for timing/debugging without entering value resolution.
-- [ ] No public schema type changes.
+- [x] Shared voice scheduling receives both hit and grid position explicitly.
+- [x] Event-created gain, envelope, detune, and effect resolution reads `hitIndex`.
+- [x] No shared event method reads `StaticSchemaValue.stepIndex` as a value index.
+- [x] Grid metadata remains available for timing/debugging without entering value resolution.
+- [x] No public schema type changes.
 
 ### Step 2.2 — Add shared static-onset grouping support
 

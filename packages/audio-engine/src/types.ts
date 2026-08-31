@@ -12,6 +12,15 @@ interface ScheduledNote {
   startTime: number;
 }
 
+interface EventScheduleContext {
+  barIndex: number;
+  hitIndex: number;
+  gridStepIndex: number;
+  startTime: number;
+  duration: number;
+  endTime: number;
+}
+
 interface ResolvedEnvelopeSchema {
   min: number;
   max: number;
@@ -48,6 +57,7 @@ type ResolvedDetune =
 
 export type {
   EnvelopeParams,
+  EventScheduleContext,
   NormalizedADSR,
   ResolvedDetune,
   ResolvedEnvelopeSchema,

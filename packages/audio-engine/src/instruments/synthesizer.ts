@@ -4,6 +4,7 @@ import { midiToFrequency } from "@/utils/midi-to-frequency";
 
 import type { StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
 import type AudioClock from "@web-audio/clock";
+import type { EventScheduleContext } from "@/types";
 
 interface SynthesizerOptions {
   schema: SynthesizerSchema;
@@ -111,33 +112,32 @@ class Synthesizer extends Instrument {
     const startTime = barStartTime + note.offset * barDuration;
     const duration = note.duration * barDuration;
     const endTime = startTime + duration;
-
-    const detune = this._resolveDetune(
-      this._schema.detune,
+    const event = {
       barIndex,
-      note.stepIndex,
-    );
+      // Until synth hit enumeration lands in Phase 3, preserve current value
+      // addressing by using the serialized grid index for both positions.
+      hitIndex: note.stepIndex,
+      gridStepIndex: note.stepIndex,
+      startTime,
+      duration,
+      endTime,
+    } satisfies EventScheduleContext;
+
+    const detune = this._resolveDetune(this._schema.detune, event);
 
     const osc = new OscillatorNode(this._ctx, {
       type: this._schema.waveform,
       frequency: midiToFrequency(note.value),
       detune: detune.value,
     });
-    const noteContext = {
-      barIndex,
-      stepIndex: note.stepIndex,
-      startTime,
-      duration,
-      endTime,
-    };
-    const gainEnvelope = this._resolveEnvelope(this._schema.gain, noteContext);
+    const gainEnvelope = this._resolveEnvelope(this._schema.gain, event);
 
     this._scheduleVoice({
       source: osc,
       detune: { param: osc.detune, resolved: detune },
       gainEnvelope,
       effects: this._schema.effects,
-      note: noteContext,
+      event,
     });
 
     const notesOut = this._schema.notesOut;

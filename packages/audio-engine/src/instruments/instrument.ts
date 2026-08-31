@@ -10,11 +10,15 @@ import type {
   ParameterSchema,
   RandomSchema,
 } from "@web-audio/schema";
-import type { ResolvedDetune } from "@/types";
+import type {
+  EventScheduleContext,
+  ResolvedDetune,
+  ResolvedEnvelopeSchema,
+  ScheduledNote,
+} from "@/types";
 import RandomResolver from "@/resolvers/random-resolver";
 import { SYNTH_BASE_GAIN, FILTER_TYPE_MAP } from "@/constants";
 import { computeEnvelope } from "@/utils/compute-envelope";
-import type { ScheduledNote, ResolvedEnvelopeSchema } from "@/types";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -32,16 +36,8 @@ interface InstrumentOptions {
   muted?: boolean;
 }
 
-interface NoteScheduleContext {
-  barIndex: number;
-  stepIndex: number;
-  startTime: number;
-  duration: number;
-  endTime: number;
-}
-
 interface BaseScheduleVoiceParams {
-  note: NoteScheduleContext;
+  event: EventScheduleContext;
   detune?: {
     param: AudioParam;
     resolved: ResolvedDetune;
@@ -189,7 +185,7 @@ abstract class Instrument {
   // ---------------------------------------------------------------------------
 
   protected _scheduleVoice(params: ScheduleVoiceParams) {
-    const { source, note, detune, gainEnvelope, effects } = params;
+    const { source, event, detune, gainEnvelope, effects } = params;
     const completionCleanups: (() => void)[] = [];
 
     const gain = new GainNode(this._ctx);
@@ -197,15 +193,15 @@ abstract class Instrument {
     const releaseDur = this._scheduleParamEnvelope(
       gain.gain,
       gainEnvelope,
-      note,
+      event,
     );
 
     if (detune) {
       if (detune.resolved.type === "envelope") {
         this._scheduleParamEnvelope(
           detune.param,
-          this._resolveEnvelope(detune.resolved.schema, note),
-          note,
+          this._resolveEnvelope(detune.resolved.schema, event),
+          event,
         );
       } else if (detune.resolved.type === "lfo") {
         this._connectLfo(
@@ -221,7 +217,7 @@ abstract class Instrument {
     }
 
     const effectNodes = effects.map((effect) =>
-      this._buildEffectNode(effect, note, completionCleanups),
+      this._buildEffectNode(effect, event, completionCleanups),
     );
 
     source.connect(gain);
@@ -235,18 +231,18 @@ abstract class Instrument {
     chain[chain.length - 1].connect(this._balancingNode);
 
     if (params.offset !== undefined) {
-      params.source.start(note.startTime, params.offset);
+      params.source.start(event.startTime, params.offset);
     } else {
-      source.start(note.startTime);
+      source.start(event.startTime);
     }
 
-    source.stop(params.stopTime ?? note.endTime + releaseDur + 0.05);
-    this._track(source, chain, note.startTime, completionCleanups);
+    source.stop(params.stopTime ?? event.endTime + releaseDur + 0.05);
+    this._track(source, chain, event.startTime, completionCleanups);
   }
 
   protected _buildEffectNode(
     effect: EffectSchema,
-    note: NoteScheduleContext,
+    event: EventScheduleContext,
     completionCleanups: (() => void)[],
   ) {
     switch (effect.type) {
@@ -260,7 +256,7 @@ abstract class Instrument {
           [node.detune, effect.detune],
           [node.gain, effect.gain],
         ] as const) {
-          this._applyParamSchema(param, schema, note, 1, completionCleanups);
+          this._applyParamSchema(param, schema, event, 1, completionCleanups);
         }
         return node;
       }
@@ -269,7 +265,7 @@ abstract class Instrument {
         this._applyParamSchema(
           node.gain,
           effect.gain,
-          note,
+          event,
           1,
           completionCleanups,
         );
@@ -308,7 +304,7 @@ abstract class Instrument {
   protected _applyParamSchema(
     param: AudioParam,
     schema: AudioParamSchema,
-    note: NoteScheduleContext,
+    event: EventScheduleContext,
     scale = 1,
     completionCleanups: (() => void)[] = [],
   ) {
@@ -319,14 +315,14 @@ abstract class Instrument {
     } else if (schema.type === "envelope") {
       this._scheduleParamEnvelope(
         param,
-        this._resolveEnvelope(schema, note),
-        note,
+        this._resolveEnvelope(schema, event),
+        event,
         scale,
       );
     } else {
       param.setValueAtTime(
-        this._resolve(schema, note.barIndex, note.stepIndex) * scale,
-        note.startTime,
+        this._resolve(schema, event.barIndex, event.hitIndex) * scale,
+        event.startTime,
       );
     }
   }
@@ -353,8 +349,7 @@ abstract class Instrument {
 
   protected _resolveDetune(
     schema: AudioParamSchema,
-    barIndex: number,
-    stepIndex: number,
+    event: EventScheduleContext,
   ) {
     let value = 0;
     switch (schema.type) {
@@ -370,22 +365,22 @@ abstract class Instrument {
         value = schema.min;
         return { type: "envelope", schema, value } satisfies ResolvedDetune;
       default:
-        value = this._resolve(schema, barIndex, stepIndex);
+        value = this._resolve(schema, event.barIndex, event.hitIndex);
         return { type: "static", value } satisfies ResolvedDetune;
     }
   }
 
   protected _resolveEnvelope(
     envelope: EnvelopeSchema,
-    note: NoteScheduleContext,
+    event: EventScheduleContext,
   ) {
     return {
       min: envelope.min,
-      max: this._resolve(envelope.max, note.barIndex, note.stepIndex),
-      a: this._resolve(envelope.a, note.barIndex, note.stepIndex),
-      d: this._resolve(envelope.d, note.barIndex, note.stepIndex),
-      s: this._resolve(envelope.s, note.barIndex, note.stepIndex),
-      r: this._resolve(envelope.r, note.barIndex, note.stepIndex),
+      max: this._resolve(envelope.max, event.barIndex, event.hitIndex),
+      a: this._resolve(envelope.a, event.barIndex, event.hitIndex),
+      d: this._resolve(envelope.d, event.barIndex, event.hitIndex),
+      s: this._resolve(envelope.s, event.barIndex, event.hitIndex),
+      r: this._resolve(envelope.r, event.barIndex, event.hitIndex),
       mode: envelope.mode,
     } satisfies ResolvedEnvelopeSchema;
   }
@@ -393,10 +388,10 @@ abstract class Instrument {
   protected _scheduleParamEnvelope(
     param: AudioParam,
     envelope: ResolvedEnvelopeSchema,
-    note: NoteScheduleContext,
+    event: EventScheduleContext,
     scale = 1,
   ): number {
-    const env = computeEnvelope(envelope, note.duration, note.endTime, scale);
+    const env = computeEnvelope(envelope, event.duration, event.endTime, scale);
     const decay = env.startTime + env.attackDur + env.decayDur;
 
     param.setValueAtTime(env.min, env.startTime);
