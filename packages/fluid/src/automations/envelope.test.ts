@@ -78,6 +78,34 @@ describe("Envelope", () => {
     });
   });
 
+  describe(".max()", () => {
+    it("updates max without replacing the rest of the envelope", () => {
+      const schema = new Envelope()
+        .adsr(0.5, 0.25, 0.8, 0.1)
+        .mode("bounded")
+        .max(0.75)
+        .getSchema();
+
+      expect(schema.max.type).toBe("static");
+      if (schema.max.type === "static") {
+        expect(schema.max.cycle[0][0].value).toBe(0.75);
+      }
+      expect(schema.mode).toBe("bounded");
+      if (schema.a.type === "static") {
+        expect(schema.a.cycle[0][0].value).toBe(0.5);
+      }
+    });
+
+    it("resets max to 1 when called without input", () => {
+      const schema = new Envelope(0, 0.25).max().getSchema();
+
+      expect(schema.max.type).toBe("static");
+      if (schema.max.type === "static") {
+        expect(schema.max.cycle[0][0].value).toBe(1);
+      }
+    });
+  });
+
   describe(".adsr()", () => {
     it("sets all four ADSR values", () => {
       const schema = new Envelope().adsr(0.5, 0.25, 0.8, 0.1).getSchema();
@@ -162,6 +190,7 @@ describe("Envelope", () => {
   describe("chaining", () => {
     it("all methods return the Envelope instance", () => {
       const env = new Envelope();
+      expect(env.max(0.5)).toBe(env);
       expect(env.adsr(0.1, 0.1, 0.8, 0.1)).toBe(env);
       expect(env.a(0.1)).toBe(env);
       expect(env.d(0.1)).toBe(env);

@@ -47,7 +47,15 @@ Sequencing maps your musical ideas onto the clock’s grid. It determines how co
 
 ### Step
 
-A step is a subdivision of a pattern that holds one value. While beats divide time globally, steps define where values sit inside the pattern's duration. A step can contain parameter values, notes, chords, or silence.
+A step is a subdivision of a pattern's timing grid. While beats divide time globally, steps define where values and rests sit inside the pattern's duration. A step can contain parameter values, notes, chords, or silence.
+
+### Grid step
+
+A grid step is a position in final onset geometry, including its offset and duration within a bar. Rhythm and mask operations decide which grid steps become hits. Silent grid steps preserve timing but do not consume event-addressed values.
+
+### Hit
+
+A hit is an active onset that survives all rhythm and mask decisions. Hits are numbered consecutively within each bar, and event-addressed patterns advance in that hit order. Random-mask misses and rests are not hits.
 
 ### Pattern
 
@@ -63,7 +71,7 @@ Playback rate controls the speed and perceived pitch of a sample. A value of 1 i
 
 ### Quantization
 
-Quantization snaps values to a defined grid. In Drome, that grid is dynamic: it adapts to the number of steps in the current pattern. A four-step pattern divides the bar into 4 positions; a seven-step pattern divides it into 7. Drome uses this step grid to place and resolve values musically within the pattern.
+Quantization snaps values to a defined grid. In Drome, that grid is dynamic: it adapts to the number of steps in the current pattern. A four-step pattern divides the bar into 4 positions; a seven-step pattern divides it into 7. Drome uses this step grid to place values musically within the pattern. Rhythms then select active hits from that timing grid.
 
 ## Pitch & Harmony
 
@@ -95,7 +103,7 @@ A note is a single value assigned to a pattern step. In synthesizers, they repre
 
 ### Chord
 
-A chord is a group of two or more notes scheduled within a single pattern step to play simultaneously. They function as one musical event, defining the harmony at that moment.
+A chord is a group of two or more notes scheduled within a single pattern step to play simultaneously. Its voices function as one hit and share the gain, detune, variation, envelope, and effect values selected for that event.
 
 ## Instruments
 
@@ -127,11 +135,11 @@ A sample bank is a named collection of recorded sounds. It groups categories of 
 
 ### Sample name
 
-A sample name identifies a logical group of audio files within a bank, such as all kick drum samples (`bd`) or snare hits (`sd`). It serves as the base identifier for playback before a specific variation is selected.
+A sample name identifies a logical group of audio files within a bank, such as all kick drum samples (`bd`) or snare hits (`sd`). It serves as the base identifier for playback before a specific variation is selected. Future patterned sample names will resolve in active-hit order without rests consuming names.
 
 ### Sample variation
 
-A sample variation is a zero-based integer, or a sequence of integers, used to select an audio file from a given sample name and bank. It allows you to trigger one or multiple alternate recordings of the same sound without altering its harmonic role.
+A sample variation is a zero-based integer, or a sequence of integers, used to select an audio file from a given sample name and bank. It allows you to trigger alternate recordings without altering harmonic role. Patterned variations resolve in active-hit order, so rests and random-mask misses do not consume variation values.
 
 ### Fit
 
@@ -170,7 +178,7 @@ Automation changes parameter values over time instead of fixing them to static s
 
 ### Parameter
 
-Parameter is a value used to control an aspect of an instrument or effect’s sound, such as gain, frequency, or pitch. It can be set to a fixed value or pattern of values, or automated to change over time.
+Parameter is a value used to control an aspect of an instrument or effect’s sound, such as gain, frequency, or pitch. It can be fixed, patterned, or automated. Parameters used to create individual events advance in active-hit order; continuous and bar-level automation retains its own timing model.
 
 ### Envelope
 

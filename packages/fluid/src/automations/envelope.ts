@@ -21,6 +21,11 @@ class Envelope {
     this._mode = "bleed";
   }
 
+  max(...input: CycleInput) {
+    this._max = input.length > 0 ? new Parameter(...input) : new Parameter(1);
+    return this;
+  }
+
   adsr(
     a: number | number[],
     d: number | number[],

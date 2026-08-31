@@ -2,10 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { CcSignal, Midi } from "@web-audio/midi";
 import type {
   AudioParamSchema,
+  EnvelopeSchema,
   LfoSchema,
   MidiCcSchema,
   StaticSchema,
 } from "@web-audio/schema";
+import type { EventScheduleContext } from "@/types";
 import Instrument from "./instrument";
 
 // ---------------------------------------------------------------------------
@@ -109,16 +111,22 @@ class TestInstrument extends Instrument {
     );
   }
 
-  applyParam(param: AudioParam, schema: AudioParamSchema) {
+  applyParam(
+    param: AudioParam,
+    schema: AudioParamSchema,
+    event = eventContext(),
+  ) {
     const completionCleanups: (() => void)[] = [];
-    this._applyParamSchema(
-      param,
-      schema,
-      { barIndex: 0, stepIndex: 0, startTime: 10, duration: 1, endTime: 11 },
-      1,
-      completionCleanups,
-    );
+    this._applyParamSchema(param, schema, event, 1, completionCleanups);
     return completionCleanups;
+  }
+
+  resolveDetune(schema: AudioParamSchema, event: EventScheduleContext) {
+    return this._resolveDetune(schema, event);
+  }
+
+  resolveEnvelope(schema: EnvelopeSchema, event: EventScheduleContext) {
+    return this._resolveEnvelope(schema, event);
   }
 
   registerMidiBinding(bind: (midi: Midi | null) => void) {
@@ -140,6 +148,32 @@ function staticParam(value: number): StaticSchema {
     polyphonic: false,
     cycle: [[{ value, offset: 0, duration: 1, stepIndex: 0 }]],
   };
+}
+
+function staticCycle(values: number[]): StaticSchema {
+  return {
+    type: "static",
+    polyphonic: false,
+    cycle: [
+      values.map((value, stepIndex) => ({
+        value,
+        offset: stepIndex / values.length,
+        duration: 1 / values.length,
+        stepIndex,
+      })),
+    ],
+  };
+}
+
+function eventContext(overrides: Partial<EventScheduleContext> = {}) {
+  return {
+    barIndex: 0,
+    hitIndex: 0,
+    startTime: 10,
+    duration: 1,
+    endTime: 11,
+    ...overrides,
+  } satisfies EventScheduleContext;
 }
 
 function lfo(): LfoSchema {
@@ -378,6 +412,56 @@ describe("Instrument output lifecycle", () => {
     expect(ctx.gains[0].disconnect).toHaveBeenCalledOnce();
     expect(ctx.gains[1].disconnect).toHaveBeenCalledOnce();
     expect(voice.disconnect).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Instrument event schedule context", () => {
+  it("resolves static event parameters by hit index, not grid index", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const param = new FakeAudioParam();
+    const event = eventContext({ hitIndex: 1 });
+
+    instrument.applyParam(
+      param as unknown as AudioParam,
+      staticCycle([100, 200, 300]),
+      event,
+    );
+
+    expect(param.setValueAtTime).toHaveBeenCalledWith(200, 10);
+  });
+
+  it("resolves detune and every envelope component by hit index", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      {} as never,
+    );
+    const event = eventContext({ hitIndex: 1 });
+    const envelope: EnvelopeSchema = {
+      type: "envelope",
+      min: 0,
+      max: staticCycle([1, 2, 3]),
+      a: staticCycle([0.1, 0.2, 0.3]),
+      d: staticCycle([0.2, 0.3, 0.4]),
+      s: staticCycle([0.3, 0.4, 0.5]),
+      r: staticCycle([0.4, 0.5, 0.6]),
+      mode: "bleed",
+    };
+
+    expect(
+      instrument.resolveDetune(staticCycle([10, 20, 30]), event),
+    ).toMatchObject({ type: "static", value: 20 });
+    expect(instrument.resolveEnvelope(envelope, event)).toEqual({
+      min: 0,
+      max: 2,
+      a: 0.2,
+      d: 0.3,
+      s: 0.4,
+      r: 0.5,
+      mode: "bleed",
+    });
   });
 });
 

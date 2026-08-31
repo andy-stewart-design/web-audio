@@ -311,4 +311,36 @@ describe("Instrument gain envelopes", () => {
 
     expectGainADSR(schema.gain, { a: 0, d: 1, s: 0.333, r: 1 });
   });
+
+  it("composes scalar gain and ADSR in either order", () => {
+    const adsrThenGain = new Synthesizer()
+      .adsr(0, 0, 1, 1)
+      .gain(0.5)
+      .getSchema().gain;
+    const gainThenAdsr = new Synthesizer()
+      .gain(0.5)
+      .adsr(0, 0, 1, 1)
+      .getSchema().gain;
+
+    expect(adsrThenGain).toEqual(gainThenAdsr);
+    expectGainADSR(adsrThenGain, { a: 0, d: 0, s: 1, r: 1 });
+    expect(adsrThenGain.max.type).toBe("static");
+    if (adsrThenGain.max.type === "static") {
+      expect(adsrThenGain.max.cycle[0][0].value).toBe(0.5);
+    }
+  });
+
+  it("composes sampler gain and ADSR in either order", () => {
+    const adsrThenGain = new Sampler("kick")
+      .adsr(0.1, 0.2, 0.3, 0.4)
+      .gain([0.5, 0.75])
+      .getSchema().gain;
+    const gainThenAdsr = new Sampler("kick")
+      .gain([0.5, 0.75])
+      .adsr(0.1, 0.2, 0.3, 0.4)
+      .getSchema().gain;
+
+    expect(adsrThenGain).toEqual(gainThenAdsr);
+    expectGainADSR(adsrThenGain, { a: 0.1, d: 0.2, s: 0.3, r: 0.4 });
+  });
 });

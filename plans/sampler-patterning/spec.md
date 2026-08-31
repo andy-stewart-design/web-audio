@@ -10,12 +10,14 @@ This means:
 d.sample("bd").var([0, 1, 2, 3]).push();
 ```
 
-currently emits one kick per bar using variation `0`, because the sampler's implicit note pattern contains only one event at `stepIndex: 0`.
+currently emits one kick per bar using variation `0`, because the sampler's implicit note pattern contains only one hit.
 
 Sampler identity patterns should be able to provide useful implicit event geometry when the user has not authored a stronger onset pattern. This work will ship in two PRs:
 
 1. **Patterned variation as an implicit onset source.**
 2. **Patternable sample names with precedence over variation.**
+
+Both PRs build on the hit-based event resolution defined in [`hit-based-pattern-resolution-spec.md`](./hit-based-pattern-resolution-spec.md): onset authority determines event geometry, surviving onsets receive bar-local hit indices, and all event-addressed values resolve by hit index.
 
 Synthesizer behavior does not change.
 
@@ -46,12 +48,12 @@ A sampler has one **onset authority** and several independently resolved value l
 
 The onset authority determines:
 
-- how many events occur;
+- how many candidate events occur;
 - each event's offset and duration;
-- each event's `stepIndex`;
+- each event's grid `stepIndex`;
 - the bar cycle used for event geometry.
 
-At each emitted event, the engine independently resolves:
+After final mask evaluation, surviving onsets receive consecutive hit indices within the bar. At each intended hit, the engine independently resolves by `(barIndex, hitIndex)`:
 
 - note/pitch;
 - sample name;
@@ -59,7 +61,7 @@ At each emitted event, the engine independently resolves:
 - regions and chop sequence;
 - gain, detune, effects, and other event-addressed parameters.
 
-A lower-priority pattern may supply values without changing the event geometry selected by a higher-priority pattern.
+A lower-priority pattern may supply values without changing the event geometry selected by a higher-priority pattern. Grid `stepIndex` remains geometry metadata and is not used to select these values.
 
 ## Onset precedence
 
@@ -94,11 +96,11 @@ Examples:
 
 ```ts
 d.sample("bd").notes([0, 0, 0]).var([0, 1, 2, 3]).push();
-// 3 events; variation resolves at note step indices 0, 1, and 2.
+// 3 events; variation resolves at hit indices 0, 1, and 2.
 
 d.sample("bd").var([0, 1, 2, 3]).euclid(2, 4).push();
 // 2 events at the Euclidean positions.
-// Variation follows the surviving grid step indices.
+// Variation uses hit indices 0 and 1, regardless of grid gaps.
 
 d.sample("break").chop(8).var([0, 1, 2, 3]).push();
 // Existing chop-generated onset behavior wins.
@@ -190,7 +192,7 @@ Name takes precedence over variation; pattern lengths are never merged and the l
 d.sample().name(["bd", "sd"]).var([0, 1, 2, 3]).push();
 ```
 
-This emits two events. Variation is resolved against name step indices `0` and `1`, producing variation values `0` and `1`.
+This emits two events. The name onsets receive hit indices `0` and `1`, producing variation values `0` and `1`.
 
 When a lower-priority value pattern is shorter than the onset pattern, normal parameter wrapping applies:
 
@@ -200,7 +202,7 @@ d.sample().name(["bd", "sd", "bd", "sd"]).var([0, 1]).push();
 // Variations:  0,  1,  0,  1
 ```
 
-Masks retain original grid indexing. Rest positions do not compress the identity patterns.
+Masks retain their original grid geometry, but identity patterns advance only for surviving hits. Rest positions and random-mask misses do not consume sample names or variation values.
 
 ## Patterns that do not create onsets
 
@@ -297,7 +299,7 @@ A random variation with its default one-step grid still emits one event per bar.
 
 Explicit masks continue to determine active positions. Variation-derived note generation must not remove or rewrite the existing note mask.
 
-Variation must continue to resolve using the final event's original `stepIndex`, so gaps do not compress variation indexing.
+Variation resolves using the final event's bar-local hit index, so gaps do not consume or skip variation values.
 
 ## PR 1 schema and engine behavior
 
@@ -310,7 +312,7 @@ notes: NotesSchema;
 sourceKeys: number[];
 ```
 
-The audio engine continues to schedule note events and resolve variation from each note's `barIndex` and `stepIndex`.
+The audio engine continues to schedule note events and resolves variation from each note's `barIndex` and runtime-derived `hitIndex`. The serialized grid `stepIndex` remains timing metadata.
 
 Static variation preloading remains unchanged.
 
@@ -331,7 +333,7 @@ Synthesizers are unaffected.
 - `.var(0, 1, 2, 3)` emits one event per bar over a four-bar variation cycle.
 - `.notes([0, 0, 0]).var([0, 1, 2, 3])` emits three events per bar.
 - Explicit note/variation behavior is independent of call order.
-- `.euclid(2, 4).var([0, 1, 2, 3])` preserves Euclidean onset geometry and original step indexing.
+- `.euclid(2, 4).var([0, 1, 2, 3])` preserves Euclidean onset geometry and selects variations `0` then `1` by hit.
 - `.xox()`, `.hex()`, `.sequence()`, note transforms, chop, and fit retain precedence.
 - `fit()` does not gain additional retriggers from variation.
 - Patterned gain, detune, region, duration, envelopes, and effects do not create events.
@@ -415,6 +417,12 @@ Explicit notes and rhythm still win:
 ```ts
 d.sample().name(["bd", "sd", "hh", "cp"]).notes([0, 0, 0]).push();
 // 3 events; names resolve as bd, sd, hh.
+
+d.sample().name(["bd", "piano"]).euclid(2, 4).push();
+// Hits occur at grid positions 0 and 2; names resolve as bd then piano.
+
+d.sample("bd").var([0, 1]).euclid(2, 4).push();
+// Hits occur at grid positions 0 and 2; variations resolve as 0 then 1.
 ```
 
 ## Sample-name schema
@@ -519,10 +527,10 @@ When a stronger onset pattern exists, no name-derived notes are generated. The e
 
 ## Engine resolution
 
-For every emitted note event, the engine resolves in this order:
+For every intended hit, the engine resolves in this order:
 
 ```txt
-resolve sample name at barIndex + stepIndex
+resolve sample name at barIndex + hitIndex
 → get source keys for that name
 → resolve note and choose nearest source key
 → resolve variation
@@ -532,9 +540,9 @@ resolve sample name at barIndex + stepIndex
 → schedule playback
 ```
 
-Sample-name and variation patterns wrap independently using their own bar and step lengths.
+Sample-name and variation patterns wrap independently using their own bar counts and per-bar value lengths.
 
-The engine must resolve sample name from the original event `stepIndex`. Mask misses and rests must not compress name indexing.
+The engine resolves sample name from the event's bar-local `hitIndex`. Mask misses and rests do not consume sample names or variation values.
 
 Alternate direction remains global to the sampler instance and advances only when an event is successfully emitted, even when successive events use different sample names.
 
@@ -638,7 +646,7 @@ PR 2 should not retain a permanent `string | SampleNameSchema` union solely for 
 - A two-step name pattern with a four-step variation pattern schedules two events.
 - A four-step name pattern with a two-step variation pattern wraps variations as `0, 1, 0, 1`.
 - Explicit three-step notes with a four-step name pattern schedule three events and resolve the first three names.
-- Masks preserve original name and variation indexing through rests.
+- Masks preserve original onset timing while names and variations advance by surviving hit.
 - Multi-bar name and variation cycles wrap independently.
 - Per-name source-key selection works for mixed unpitched and pitched names.
 - Out-of-range variation falls back to variation `0` for the currently resolved name.
@@ -646,7 +654,7 @@ PR 2 should not retain a permanent `string | SampleNameSchema` union solely for 
 - Shared sprite/file URLs fetch and decode once.
 - Forward, reverse, and alternate direction work across changing names.
 - Regions, chop, fit, loop, clipped mode, and one-shot mode use the currently resolved sample entry.
-- Missing runtime entries warn and skip without corrupting later event indexing or alternate-direction state.
+- Missing runtime entries warn and skip without shifting later hit-resolved values or corrupting alternate-direction state.
 
 ---
 
@@ -711,6 +719,8 @@ Otherwise, an explicit sample-name pattern decides.
 Otherwise, an explicit variation pattern decides.
 Otherwise, the sampler emits one event per bar.
 
-At every event, note, name, variation, and other parameters resolve independently
-using the event's original bar and step index.
+Each surviving onset receives a consecutive hit index within its bar.
+At every hit, note, name, variation, and other event-addressed parameters
+resolve independently using the event's bar index and hit index.
+Rests and random-mask misses consume no values; grid timing remains unchanged.
 ```

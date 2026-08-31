@@ -17,6 +17,7 @@ type RegionState =
 type RegionOptions = {
   fitSchema: FitSchema | null;
   chopState: ChopState | null;
+  chopBars: number;
   region: RegionState | null;
 };
 
@@ -85,15 +86,13 @@ function validateRegionBounds(start: ParameterSchema, end: ParameterSchema) {
   }
 }
 
-function getChopSequenceSchema(chop: {
-  sliceCount: number;
-  sequence: Parameter | null;
-}) {
+function getChopSequenceSchema(chop: ChopState, generatedBars = 1) {
   const schema =
     chop.sequence?.getSchema() ??
-    new Parameter(
+    getDistributedStaticSchema(
       Array.from({ length: chop.sliceCount }, (_, i) => i),
-    ).getSchema();
+      generatedBars,
+    );
 
   if (schema.type !== "random") return schema;
   if (!isDefaultRandomMask(schema)) return schema;
@@ -159,32 +158,34 @@ function getDefaultNotesForSequence(
   } satisfies ParameterSchema;
 }
 
-function getDefaultNotes(
-  noteValue: number,
-  noteCount: number,
-  bars: number,
-  { globalStepIndex = false } = {},
-) {
+function getDistributedStaticSchema(values: number[], bars: number) {
   const cycle: StaticSchemaValue[][] = Array.from({ length: bars }, () => []);
-  const duration = bars / noteCount;
+  const duration = bars / values.length;
 
-  for (let stepIndex = 0; stepIndex < noteCount; stepIndex++) {
-    const absoluteOffset = stepIndex * duration;
+  values.forEach((value, valueIndex) => {
+    const absoluteOffset = valueIndex * duration;
     const barIndex = Math.min(bars - 1, Math.floor(absoluteOffset));
-    const localStepIndex = cycle[barIndex].length;
+    const stepIndex = cycle[barIndex].length;
     cycle[barIndex].push({
-      value: noteValue,
+      value,
       offset: absoluteOffset - barIndex,
       duration,
-      stepIndex: globalStepIndex ? stepIndex : localStepIndex,
+      stepIndex,
     });
-  }
+  });
 
   return {
     type: "static",
     polyphonic: false,
     cycle,
   } satisfies ParameterSchema;
+}
+
+function getDefaultNotes(noteValue: number, noteCount: number, bars: number) {
+  return getDistributedStaticSchema(
+    Array.from({ length: noteCount }, () => noteValue),
+    bars,
+  );
 }
 
 function getStaticChopBounds(start: ParameterSchema, end: ParameterSchema) {
@@ -221,7 +222,7 @@ function getStaticChopBounds(start: ParameterSchema, end: ParameterSchema) {
   return { start: startValue, end: endValue, duration: endValue - startValue };
 }
 
-function getRegion({ fitSchema, chopState, region }: RegionOptions) {
+function getRegion({ fitSchema, chopState, chopBars, region }: RegionOptions) {
   if (fitSchema) {
     const { bars } = fitSchema;
     return {
@@ -249,7 +250,7 @@ function getRegion({ fitSchema, chopState, region }: RegionOptions) {
 
     const endSchema = (region?.end ?? new Parameter(1)).getSchema();
     const { sliceCount } = chopState;
-    const sequenceSchema = getChopSequenceSchema(chopState);
+    const sequenceSchema = getChopSequenceSchema(chopState, chopBars);
     warnOutOfRangeChopIndices(sliceCount, sequenceSchema);
     const bounds = getStaticChopBounds(startSchema, endSchema);
 

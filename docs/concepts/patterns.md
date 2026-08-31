@@ -39,7 +39,7 @@ d.synth()
   .push();
 ```
 
-That is one step containing three notes, so all three notes play together. You can mix chords and single notes in the same pattern:
+That is one step containing three notes, so all three notes play together. A chord counts as one hit for gain, detune, variation, effects, and other event-addressed value patterns. You can mix chords and single notes in the same pattern:
 
 ```js
 d.synth()
@@ -55,7 +55,7 @@ d.synth().notes([60, null, 64, undefined]).push();
 d.synth().notes([60, , 64, 67]).push();
 ```
 
-These silent steps still take up time. They are rests, not removed steps.
+These silent steps still take up time. They are rests, not removed steps. Rests preserve the timing grid but do not consume notes, gain values, sample variations, effect values, or other values resolved for a hit.
 
 ## Patterns last one bar
 
@@ -124,12 +124,34 @@ For example:
 
 These helpers do not replace the pattern model. They are shortcuts for building step grids and deciding which steps should play.
 
+## Timing grids and active hits
+
+Rhythms and masks decide which grid positions become active **hits**. The surviving hits keep their original offsets and durations, but event-addressed value patterns advance only when a hit occurs.
+
+```js
+d.synth("saw").notes([60, 64]).gain([0.25, 1]).euclid(2, 4).push();
+```
+
+The Euclidean rhythm places hits at grid positions `0` and `2`. Those positions become hit `0` and hit `1`, so the notes are `60` then `64`, and the gain values are `0.25` then `1`. The silent grid positions do not consume values.
+
+This rule also applies to random masks: a random-mask miss is not a hit and consumes nothing. Each chord is one hit even though it creates multiple voices.
+
+Hit numbering restarts within each bar, while pattern bars continue to advance normally. These two gain forms therefore retain different meanings:
+
+```js
+.gain([0.25, 1]) // two values within each bar, selected by hit
+.gain(0.25, 1)   // one value in bar 1, then one value in bar 2
+```
+
+This active-hit behavior is intentional. Grid positions control timing; hit order controls values used to create each event.
+
 ## The core model
 
-The whole system comes down to three levels:
+The whole system comes down to four levels:
 
-1. A **step** is one subdivision of a pattern.
-2. A **pattern** is one bar of steps.
-3. A **cycle** is one or more patterns repeating.
+1. A **step** is one subdivision of a pattern's timing grid.
+2. A **hit** is an active step that survives rhythm and mask decisions.
+3. A **pattern** is one bar of steps.
+4. A **cycle** is one or more patterns repeating.
 
 Once those are clear, the rest of Drome’s sequencing tools are easier to understand. They all build on the same structure.

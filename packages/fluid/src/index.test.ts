@@ -1,5 +1,60 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { SamplerSchema } from "@web-audio/schema";
 import Drome from "./index";
+
+function getPushedSamplerSchema(drome: Drome) {
+  const [schema] = drome.getSchema().instruments;
+  if (schema?.type !== "sampler") {
+    throw new Error("Expected one pushed sampler schema");
+  }
+  return schema;
+}
+
+function getStaticChopFixture(schema: SamplerSchema) {
+  const notes = schema.notes.source;
+  const region = schema.region;
+  if (
+    notes.type !== "static" ||
+    region?.type !== "chop" ||
+    region.sequence.type !== "static"
+  ) {
+    throw new Error("Expected static notes and a static chop sequence");
+  }
+
+  const noteBars = notes.cycle.map((bar) =>
+    bar.map(({ offset, duration, stepIndex }) => ({
+      offset,
+      duration,
+      stepIndex,
+    })),
+  );
+  const sequence = region.sequence;
+  const sequenceBars = sequence.cycle.map((bar) =>
+    bar.map(({ value }) => value),
+  );
+  const resolveSliceOrder = (
+    indexForNote: (stepIndex: number, hitIndex: number) => number,
+  ) =>
+    notes.cycle.map((bar, barIndex) => {
+      const sequenceBar = sequence.cycle[barIndex % sequence.cycle.length];
+      return bar.map(({ stepIndex }, hitIndex) =>
+        sequenceBar.length === 0
+          ? null
+          : sequenceBar[indexForNote(stepIndex, hitIndex) % sequenceBar.length]
+              .value,
+      );
+    });
+
+  return {
+    noteBars,
+    sequenceBars,
+    slices: region.slices,
+    stepIndexSliceOrder: resolveSliceOrder((stepIndex) => stepIndex),
+    barLocalHitSliceOrder: resolveSliceOrder(
+      (_stepIndex, hitIndex) => hitIndex,
+    ),
+  };
+}
 
 describe("Drome", () => {
   describe("default schema", () => {
@@ -998,6 +1053,120 @@ describe("Drome", () => {
       }
     });
 
+    it.each([
+      {
+        sliceCount: 4,
+        expectedNoteBars: [
+          [
+            { offset: 0, duration: 0.5, stepIndex: 0 },
+            { offset: 0.5, duration: 0.5, stepIndex: 1 },
+          ],
+          [
+            { offset: 0, duration: 0.5, stepIndex: 0 },
+            { offset: 0.5, duration: 0.5, stepIndex: 1 },
+          ],
+        ],
+        expectedSequenceBars: [
+          [0, 1],
+          [2, 3],
+        ],
+        expectedStepIndexOrder: [
+          [0, 1],
+          [2, 3],
+        ],
+        expectedBarLocalOrder: [
+          [0, 1],
+          [2, 3],
+        ],
+      },
+      {
+        sliceCount: 8,
+        expectedNoteBars: [
+          [
+            { offset: 0, duration: 0.25, stepIndex: 0 },
+            { offset: 0.25, duration: 0.25, stepIndex: 1 },
+            { offset: 0.5, duration: 0.25, stepIndex: 2 },
+            { offset: 0.75, duration: 0.25, stepIndex: 3 },
+          ],
+          [
+            { offset: 0, duration: 0.25, stepIndex: 0 },
+            { offset: 0.25, duration: 0.25, stepIndex: 1 },
+            { offset: 0.5, duration: 0.25, stepIndex: 2 },
+            { offset: 0.75, duration: 0.25, stepIndex: 3 },
+          ],
+        ],
+        expectedSequenceBars: [
+          [0, 1, 2, 3],
+          [4, 5, 6, 7],
+        ],
+        expectedStepIndexOrder: [
+          [0, 1, 2, 3],
+          [4, 5, 6, 7],
+        ],
+        expectedBarLocalOrder: [
+          [0, 1, 2, 3],
+          [4, 5, 6, 7],
+        ],
+      },
+    ])(
+      "characterizes fit(2).chop($sliceCount) cross-bar slice addressing",
+      ({
+        sliceCount,
+        expectedNoteBars,
+        expectedSequenceBars,
+        expectedStepIndexOrder,
+        expectedBarLocalOrder,
+      }) => {
+        const d = new Drome();
+        d.sample("bd").fit(2).chop(sliceCount).push();
+        const fixture = getStaticChopFixture(getPushedSamplerSchema(d));
+
+        expect(fixture.noteBars).toEqual(expectedNoteBars);
+        expect(fixture.slices).toHaveLength(sliceCount);
+        expect(fixture.sequenceBars).toEqual(expectedSequenceBars);
+        expect(fixture.stepIndexSliceOrder).toEqual(expectedStepIndexOrder);
+        expect(fixture.barLocalHitSliceOrder).toEqual(expectedBarLocalOrder);
+      },
+    );
+
+    it("distinguishes generated natural chop timing from authored sequence timing", () => {
+      const d = new Drome();
+      const generated = getStaticChopFixture(
+        d.sample("bd").fit(2).chop(8).getSchema(),
+      );
+      const authoredOneBar = getStaticChopFixture(
+        d.sample("bd").fit(2).chop(8, [0, 2, 1, 3]).getSchema(),
+      );
+      const authoredTwoBars = getStaticChopFixture(
+        d.sample("bd").fit(2).chop(8, [0, 2], [1, 3]).getSchema(),
+      );
+
+      expect(generated.sequenceBars).toEqual([
+        [0, 1, 2, 3],
+        [4, 5, 6, 7],
+      ]);
+      expect(
+        generated.noteBars.map((bar) => bar.map((note) => note.stepIndex)),
+      ).toEqual([
+        [0, 1, 2, 3],
+        [0, 1, 2, 3],
+      ]);
+      expect(authoredOneBar.sequenceBars).toEqual([[0, 2, 1, 3]]);
+      expect(authoredOneBar.noteBars).toHaveLength(1);
+      expect(authoredTwoBars.sequenceBars).toEqual([
+        [0, 2],
+        [1, 3],
+      ]);
+      expect(
+        authoredTwoBars.noteBars.map((bar) =>
+          bar.map(({ stepIndex }) => stepIndex),
+        ),
+      ).toEqual([
+        [0, 1],
+        [0, 1],
+      ]);
+    });
+
     it("fit(2).chop(8) emits 8 generated notes over 2 bars", () => {
       const d = new Drome();
       const inst = d.sample("bd").fit(2).chop(8).getSchema();
@@ -1015,7 +1184,7 @@ describe("Drome", () => {
         ]);
         expect(
           inst.notes.source.cycle.flat().map((step) => step.stepIndex),
-        ).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+        ).toEqual([0, 1, 2, 3, 0, 1, 2, 3]);
       }
       expect(inst.region?.type).toBe("chop");
       if (inst.region?.type === "chop") {
