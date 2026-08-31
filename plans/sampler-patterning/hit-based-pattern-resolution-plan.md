@@ -678,10 +678,10 @@ Include a sparse-rhythm example with notes plus at least one non-note lane so th
 
 **Acceptance criteria:**
 
-- [ ] Public examples distinguish timing grid from value advancement.
-- [ ] No documentation implies that silent steps consume gain, variation, or effect values.
-- [ ] Chord and multi-bar semantics are explicit.
-- [ ] Compatibility-sensitive wording is presented as an intentional change.
+- [x] Public examples distinguish timing grid from value advancement.
+- [x] No documentation implies that silent steps consume gain, variation, or effect values.
+- [x] Chord and multi-bar semantics are explicit.
+- [x] Compatibility-sensitive wording is presented as an intentional change.
 
 ### Step 7.2 — Update developer terminology
 
@@ -704,9 +704,9 @@ Clarify that the engine derives hit index after final mask resolution and that i
 
 **Acceptance criteria:**
 
-- [ ] Grid and hit terminology cannot be confused in future scheduler work.
-- [ ] Resolver documentation distinguishes general index lookup from the caller's semantic choice.
-- [ ] Developer docs match internal type and variable names.
+- [x] Grid and hit terminology cannot be confused in future scheduler work.
+- [x] Resolver documentation distinguishes general index lookup from the caller's semantic choice.
+- [x] Developer docs match internal type and variable names.
 
 ### Step 7.3 — Migrate the sampler-patterning specification
 
@@ -738,10 +738,10 @@ Do not begin implementing sampler names or variation-derived onsets in this prer
 
 **Acceptance criteria:**
 
-- [ ] No sampler-patterning requirement says rests consume name or variation values.
-- [ ] `.name(["bd", "piano"]).euclid(2, 4)` specifies `bd` then `piano`.
-- [ ] `.var([0, 1]).euclid(2, 4)` specifies variations `0` then `1`.
-- [ ] The follow-on spec links to the prerequisite hit-index specification.
+- [x] No sampler-patterning requirement says rests consume name or variation values.
+- [x] `.name(["bd", "piano"]).euclid(2, 4)` specifies `bd` then `piano`.
+- [x] `.var([0, 1]).euclid(2, 4)` specifies variations `0` then `1`.
+- [x] The follow-on spec links to the prerequisite hit-index specification.
 
 ---
 
@@ -800,13 +800,15 @@ Record intentional audible changes caused by values advancing per hit. Timing, e
 
 Do not launch a browser or development server without permission.
 
+Manual compatibility review: the user ran the representative Fluid snippets covering sparse synth parameters, random masks, chords, sampler variation and regions, authored and generated chop patterns, multi-bar behavior, and failed intended hits. No onset-timing regressions were reported; observed value changes matched active-hit advancement.
+
 **Acceptance criteria:**
 
-- [ ] All focused checks pass.
-- [ ] Workspace check, lint, tests, and formatting pass.
-- [ ] `git diff --check` passes.
-- [ ] Manual review finds no onset-timing regressions.
-- [ ] Any audible differences are explained by the documented hit-index semantic change.
+- [x] All focused checks pass.
+- [x] Workspace check, lint, tests, and formatting pass.
+- [x] `git diff --check` passes.
+- [x] Manual review finds no onset-timing regressions.
+- [x] Any audible differences are explained by the documented hit-index semantic change.
 
 ## Completion criteria
 

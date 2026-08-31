@@ -23,7 +23,7 @@ The playback layer — consumes schemas and schedules Web Audio nodes; never app
 
 ### Resolver
 
-An engine-side object that generates concrete values from a `RandomSchema` for a given bar and step index.
+An engine-side object that generates concrete values from a `RandomSchema` for a given bar and value index. The caller decides whether that index represents grid selection, hit-addressed event resolution, or a bar-level lookup.
 
 ### Worklet
 
@@ -85,13 +85,33 @@ How far into the future (seconds) the clock pre-schedules audio events; this is 
 
 ## Sequencing
 
-### Step index
+### Grid Step
 
-The zero-based position of a step within its pattern; used to look up per-step parameter values.
+A position in onset geometry. A grid step carries serialized timing metadata such as `offset`, `duration`, and `stepIndex`, whether or not it ultimately becomes active.
 
-### Step Offset
+### Grid `stepIndex`
 
-A step's fractional start time within a bar, normalized from 0 to 1 (where 1 = one full bar).
+The zero-based position attached to a serialized grid step. It describes rhythmic geometry and is used during mask evaluation, visualization, and pattern transforms. It is not the index for downstream event-addressed value lanes.
+
+### Grid Step Offset
+
+A grid step's fractional start time within a bar, normalized from 0 to 1 (where 1 = one full bar).
+
+### Hit
+
+An active onset that survives final rhythm and mask evaluation. A hit exists before downstream sample lookup, source-window validation, or voice creation succeeds. A rest or random-mask miss is not a hit.
+
+### Hit Index
+
+The zero-based ordinal assigned to a surviving hit within one scheduled bar. Hit indices restart at `0` each bar. Every voice in a chord shares one hit index.
+
+### Onset Geometry
+
+The offsets, durations, and grid positions that determine where candidate events occur. Rhythms and masks finalize this geometry before the engine derives hit indices.
+
+### Event-Addressed Value Lane
+
+A note, variation, region, gain, detune, envelope, effect, or other pattern resolved once for an intended event. These lanes resolve with `(barIndex, hitIndex)`, so rests do not consume values. Continuous LFOs, MIDI CC input, routing, sends, and bar-level bus updates are not event-addressed lanes.
 
 ### Pattern Modifier
 
@@ -99,7 +119,7 @@ A rhythm function (`.euclid()`, `.xox()`, `.hex()`, etc.) applied to a cycle to 
 
 ### Pattern Mask
 
-The binary grid derived from rhythm modifiers; `1` = active step, `0` = silent.
+The static or random grid derived from rhythm modifiers. Mask eligibility is evaluated by grid position; surviving positions are then assigned consecutive hit indices.
 
 ### ValueCycle
 
