@@ -39,6 +39,32 @@ describe("BinaryCycle", () => {
       expect(schema.cycle[1]).toHaveLength(4);
     });
 
+    it.each([
+      {
+        modifier: "xox",
+        cycle: new BinaryCycle().xox("xox."),
+      },
+      {
+        modifier: "hex",
+        cycle: new BinaryCycle().hex("a"),
+      },
+    ])("preserves sparse grid indices after $modifier", ({ cycle }) => {
+      const bar = cycle.getStaticSchema().cycle[0];
+
+      expect(bar.map(({ stepIndex }) => stepIndex)).toEqual([0, 2]);
+      expect(bar.map(({ offset }) => offset)).toEqual([0, 0.5]);
+    });
+
+    it("preserves sparse grid indices across sequence bars", () => {
+      const bars = new BinaryCycle().sequence(4, 0, 2).getStaticSchema().cycle;
+
+      expect(bars.map((bar) => bar.map(({ stepIndex }) => stepIndex))).toEqual([
+        [0],
+        [2],
+      ]);
+      expect(bars.map((bar) => bar[0].offset)).toEqual([0, 0.5]);
+    });
+
     it("filters out zero-value steps", () => {
       // euclid(1, 4) => [1, 0, 0, 0]
       const bar = new BinaryCycle().euclid(1, 4).getStaticSchema().cycle[0];

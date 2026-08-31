@@ -306,9 +306,9 @@ Do not add `hitIndex` to serialized schema. It is derived from final runtime ons
 
 **Acceptance criteria:**
 
-- [ ] Schema package public types remain unchanged.
-- [ ] Pattern tests retain sparse grid `stepIndex` values after Euclidean/XOX/hex/sequence transforms.
-- [ ] Runtime hit derivation does not rewrite schema objects.
+- [x] Schema package public types remain unchanged.
+- [x] Pattern tests retain sparse grid `stepIndex` values after Euclidean/XOX/hex/sequence transforms.
+- [x] Runtime hit derivation does not rewrite schema objects.
 
 ---
 
