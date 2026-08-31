@@ -276,20 +276,19 @@ No public schema change is required.
 
 The runtime must derive hit indices from the final active onset slots. It must not permanently reinterpret serialized `stepIndex` as hit index, because sparse masks still need their original grid metadata.
 
-An internal scheduling context may distinguish the concepts explicitly:
+An internal scheduling context carries the derived hit position explicitly:
 
 ```ts
 interface EventScheduleContext {
   barIndex: number;
   hitIndex: number;
-  gridStepIndex: number;
   startTime: number;
   duration: number;
   endTime: number;
 }
 ```
 
-This is conceptual rather than a required exported type. Downstream event-addressed resolution uses `hitIndex`; grid geometry and mask evaluation use `gridStepIndex`.
+Grid geometry remains available on the serialized onset values while masks are evaluated and timing is derived. It does not need to be copied into the downstream event context. Event-addressed resolution uses `hitIndex`; random-mask eligibility uses the serialized grid `stepIndex` before a hit exists.
 
 ## Systems that remain non-hit-addressed
 

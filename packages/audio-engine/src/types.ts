@@ -15,7 +15,6 @@ interface ScheduledNote {
 interface EventScheduleContext {
   barIndex: number;
   hitIndex: number;
-  gridStepIndex: number;
   startTime: number;
   duration: number;
   endTime: number;

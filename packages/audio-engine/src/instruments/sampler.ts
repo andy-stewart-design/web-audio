@@ -194,7 +194,6 @@ class Sampler extends Instrument {
     const event = {
       barIndex,
       hitIndex: noteEvent.hitIndex,
-      gridStepIndex: noteEvent.gridStepIndex,
       startTime,
       duration,
       endTime,

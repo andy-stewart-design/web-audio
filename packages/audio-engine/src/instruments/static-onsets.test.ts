@@ -20,30 +20,21 @@ describe("groupStaticOnsets", () => {
     ]);
 
     expect(
-      groups.map(({ hitIndex, gridStepIndex, voices }) => ({
+      groups.map(({ hitIndex, voices }) => ({
         hitIndex,
-        gridStepIndex,
         values: voices.map(({ value }) => value),
       })),
     ).toEqual([
-      { hitIndex: 0, gridStepIndex: 0, values: [60] },
-      { hitIndex: 1, gridStepIndex: 1, values: [64] },
-      { hitIndex: 2, gridStepIndex: 2, values: [67] },
+      { hitIndex: 0, values: [60] },
+      { hitIndex: 1, values: [64] },
+      { hitIndex: 2, values: [67] },
     ]);
   });
 
   it("compresses sparse grid positions into consecutive hit indices", () => {
     const groups = groupStaticOnsets([voice(60, 0), voice(67, 2)]);
 
-    expect(
-      groups.map(({ hitIndex, gridStepIndex }) => ({
-        hitIndex,
-        gridStepIndex,
-      })),
-    ).toEqual([
-      { hitIndex: 0, gridStepIndex: 0 },
-      { hitIndex: 1, gridStepIndex: 2 },
-    ]);
+    expect(groups.map(({ hitIndex }) => hitIndex)).toEqual([0, 1]);
   });
 
   it("groups chord voices into one onset without changing voice order", () => {
@@ -53,11 +44,11 @@ describe("groupStaticOnsets", () => {
     const groups = groupStaticOnsets([first, second, third]);
 
     expect(groups).toHaveLength(2);
-    expect(groups[0]).toMatchObject({ hitIndex: 0, gridStepIndex: 0 });
+    expect(groups[0].hitIndex).toBe(0);
     expect(groups[0].voices).toEqual([first, second]);
     expect(groups[0].voices[0]).toBe(first);
     expect(groups[0].voices[1]).toBe(second);
-    expect(groups[1]).toMatchObject({ hitIndex: 1, gridStepIndex: 2 });
+    expect(groups[1].hitIndex).toBe(1);
     expect(groups[1].voices).toEqual([third]);
   });
 
@@ -70,7 +61,7 @@ describe("groupStaticOnsets", () => {
 
     const groups = groupStaticOnsets(bar);
 
-    expect(groups.map(({ gridStepIndex }) => gridStepIndex)).toEqual([2, 0]);
+    expect(groups.map(({ voices }) => voices[0].stepIndex)).toEqual([2, 0]);
     expect(groups[0].voices).toEqual([first, third]);
     expect(bar).toEqual(before);
     expect(bar).toEqual([first, second, third]);

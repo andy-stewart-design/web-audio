@@ -143,7 +143,7 @@ Also identify generated Fluid schemas that rely on global or sparse note `stepIn
 
 ## Phase 2 — Establish the shared runtime event model
 
-Tracer bullet: one shared note-event resolution path can turn static or dynamic note/mask schemas into bar-local hits with distinct hit and grid indices, without changing public schemas.
+Tracer bullet: one shared note-event resolution path can turn static or dynamic note/mask schemas into bar-local hits while preserving source geometry, without changing public schemas.
 
 ### Step 2.1 — Add an explicit internal event context
 
@@ -159,7 +159,6 @@ Replace the ambiguous private note context with an explicit event-position model
 interface EventScheduleContext {
   barIndex: number;
   hitIndex: number;
-  gridStepIndex: number;
   startTime: number;
   duration: number;
   endTime: number;
@@ -169,20 +168,18 @@ interface EventScheduleContext {
 Requirements:
 
 - Shared event-addressed resolution uses `hitIndex`.
-- Geometry and diagnostics may retain `gridStepIndex`.
+- Serialized grid geometry remains available while masks and timing are resolved, but is not copied into the downstream event context.
 - `_resolve()` itself remains a general pattern resolver; its caller chooses the correct index.
 - `_resolveDetune()`, `_resolveEnvelope()`, `_applyParamSchema()`, `_buildEffectNode()`, and `_scheduleVoice()` must no longer infer value index from serialized geometry.
 - LFO setup and per-bar updates remain explicitly bar-level and continue to use their existing index `0` behavior.
 - Do not export the event context from `@web-audio/schema`.
 
-During this phase, a subclass not yet migrated may pass the same number for both indices to preserve its current behavior. That compatibility is temporary and must be removed when the subclass is migrated in later phases.
-
 **Acceptance criteria:**
 
-- [x] Shared voice scheduling receives both hit and grid position explicitly.
+- [x] Shared voice scheduling receives hit position explicitly.
 - [x] Event-created gain, envelope, detune, and effect resolution reads `hitIndex`.
 - [x] No shared event method reads `StaticSchemaValue.stepIndex` as a value index.
-- [x] Grid metadata remains available for timing/debugging without entering value resolution.
+- [x] Grid metadata remains on serialized geometry without entering downstream value resolution.
 - [x] No public schema type changes.
 
 ### Step 2.2 — Add shared static-onset grouping support
@@ -240,7 +237,6 @@ Create one instrument-agnostic `resolveNoteEvents()` helper that consumes a `Not
 ```ts
 interface ResolvedNoteEvent {
   hitIndex: number;
-  gridStepIndex: number;
   offset: number;
   duration: number;
   voices: number[];
@@ -257,7 +253,7 @@ The note-event resolver owns only runtime onset/note resolution:
 - cycle static source onset groups across surviving mask hits;
 - resolve random note values by assigned hit index;
 - assign consecutive bar-local hit indices;
-- preserve grid offset, duration, and `stepIndex` metadata;
+- preserve grid-derived offset and duration while leaving serialized `stepIndex` metadata untouched;
 - return no events for empty or all-rest bars.
 
 It must not resolve:
@@ -327,7 +323,7 @@ Resolve unmasked static and random notes through the shared note-event resolver.
 
 For each resolved note event:
 
-- construct one `EventScheduleContext` from its hit index and grid geometry;
+- construct one `EventScheduleContext` from its hit index and resolved timing;
 - schedule every resolved voice with that same context;
 - retain the resolved offset and duration;
 - do not regroup notes or assign hit indices inside `Synthesizer`.
@@ -473,7 +469,7 @@ Resolve the sampler's static, random, and masked notes through the shared note-e
 
 For each resolved note event:
 
-- pass both hit and grid indices into sample-event scheduling;
+- pass its hit index and resolved timing into sample-event scheduling;
 - schedule every resolved voice with the same event context;
 - retain resolved event timing geometry;
 - do not regroup notes, resolve mask eligibility, or assign hit indices inside `Sampler`.
@@ -515,7 +511,7 @@ note/pitch
 → schedule
 ```
 
-The grid index remains available for timing and diagnostics but must not be passed into event-addressed value resolvers.
+Serialized grid geometry remains available during onset selection and timing derivation but is not carried into event-addressed value resolution.
 
 Update the existing region regression that expects values at grid indices `0` and `2`; it should expect values at hit indices `0` and `1` while preserving the same offsets.
 
@@ -642,7 +638,7 @@ Search for:
 
 Allow grid-index resolution only where justified by onset selection or non-event semantics.
 
-Audit result: the only event-time resolver call that uses serialized `stepIndex` is random-mask eligibility in `resolveNoteEvents()`, where grid geometry must be evaluated before a hit exists. `gridStepIndex` otherwise remains timing/diagnostic context, shared event lanes use `hitIndex`, and bar-level LFO bounds continue to use value index `0`. The general `_resolve()` and `RandomResolver.resolve()` parameters are named `valueIndex` so their callers, rather than the resolver API, own index policy. No compatibility flag or instrument-specific hit counter remains.
+Audit result: the only event-time resolver call that uses serialized `stepIndex` is random-mask eligibility in `resolveNoteEvents()`, where grid geometry must be evaluated before a hit exists. The grid index is not copied into resolved note events or shared event contexts; shared event lanes use `hitIndex`, while bar-level LFO bounds continue to use value index `0`. The general `_resolve()` and `RandomResolver.resolve()` parameters are named `valueIndex` so their callers, rather than the resolver API, own index policy. No compatibility flag or instrument-specific hit counter remains.
 
 **Acceptance criteria:**
 

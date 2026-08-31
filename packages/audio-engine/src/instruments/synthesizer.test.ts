@@ -91,7 +91,6 @@ class TestSynthesizer extends Synthesizer {
     return this._resolveDetune(this._schema.detune, {
       barIndex,
       hitIndex,
-      gridStepIndex: hitIndex,
       startTime: 0,
       duration: 0,
       endTime: 0,

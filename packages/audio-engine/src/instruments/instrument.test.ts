@@ -169,7 +169,6 @@ function eventContext(overrides: Partial<EventScheduleContext> = {}) {
   return {
     barIndex: 0,
     hitIndex: 0,
-    gridStepIndex: 0,
     startTime: 10,
     duration: 1,
     endTime: 11,
@@ -423,7 +422,7 @@ describe("Instrument event schedule context", () => {
       {} as never,
     );
     const param = new FakeAudioParam();
-    const event = eventContext({ hitIndex: 1, gridStepIndex: 2 });
+    const event = eventContext({ hitIndex: 1 });
 
     instrument.applyParam(
       param as unknown as AudioParam,
@@ -432,7 +431,6 @@ describe("Instrument event schedule context", () => {
     );
 
     expect(param.setValueAtTime).toHaveBeenCalledWith(200, 10);
-    expect(event.gridStepIndex).toBe(2);
   });
 
   it("resolves detune and every envelope component by hit index", () => {
@@ -440,7 +438,7 @@ describe("Instrument event schedule context", () => {
       new FakeAudioContext() as unknown as AudioContext,
       {} as never,
     );
-    const event = eventContext({ hitIndex: 1, gridStepIndex: 2 });
+    const event = eventContext({ hitIndex: 1 });
     const envelope: EnvelopeSchema = {
       type: "envelope",
       min: 0,

@@ -52,7 +52,7 @@ The implementation should begin from these existing boundaries:
   - `PatternCycle<T>` is internally generic, but its public static schema serializers are intentionally numeric.
   - Sample-name patterns should not weaken those numeric schema types or require a general pattern-language redesign.
 - `packages/audio-engine/src/instruments/sampler.ts`
-  - `resolveNoteEvents()` already supplies `hitIndex`, `gridStepIndex`, offsets, durations, and grouped chord voices.
+  - `resolveNoteEvents()` already supplies `hitIndex`, offsets, durations, and grouped chord voices.
   - Variation, region, gain, detune, and effects are already hit-addressed.
   - The runtime resolves source key before variation and is currently bound to one schema-level sample name.
   - `scheduleBar()` currently returns early when the fixed sample's initial buffer is unavailable.
@@ -1095,7 +1095,7 @@ Search for:
 - loops directly over `schema.sourceKeys`;
 - sample buffer keys missing sample name;
 - sample lookup before runtime name resolution;
-- name lookup using `gridStepIndex` or serialized `stepIndex`;
+- name lookup using serialized grid `stepIndex`;
 - `string | SampleNameSchema` compatibility unions;
 - string schemas cast through numeric `StaticSchema`;
 - comments describing variation as the only sampler identity lane.

@@ -34,15 +34,12 @@ function randomSchema(grid: StaticSchema) {
 }
 
 function summarize(events: ReturnType<typeof resolveNoteEvents>) {
-  return events.map(
-    ({ hitIndex, gridStepIndex, offset, duration, voices }) => ({
-      hitIndex,
-      gridStepIndex,
-      offset,
-      duration,
-      voices,
-    }),
-  );
+  return events.map(({ hitIndex, offset, duration, voices }) => ({
+    hitIndex,
+    offset,
+    duration,
+    voices,
+  }));
 }
 
 const unusedResolver = () => {
@@ -57,14 +54,12 @@ describe("resolveNoteEvents static sources", () => {
       expected: [
         {
           hitIndex: 0,
-          gridStepIndex: 0,
           offset: 0,
           duration: 0.5,
           voices: [60],
         },
         {
           hitIndex: 1,
-          gridStepIndex: 1,
           offset: 0.5,
           duration: 0.5,
           voices: [64],
@@ -77,14 +72,12 @@ describe("resolveNoteEvents static sources", () => {
       expected: [
         {
           hitIndex: 0,
-          gridStepIndex: 0,
           offset: 0,
           duration: 0.25,
           voices: [60],
         },
         {
           hitIndex: 1,
-          gridStepIndex: 2,
           offset: 0.5,
           duration: 0.25,
           voices: [67],
@@ -116,14 +109,12 @@ describe("resolveNoteEvents static sources", () => {
     ).toEqual([
       {
         hitIndex: 0,
-        gridStepIndex: 0,
         offset: 0,
         duration: 0.5,
         voices: [60, 64],
       },
       {
         hitIndex: 1,
-        gridStepIndex: 1,
         offset: 0.5,
         duration: 0.5,
         voices: [67],
@@ -147,21 +138,18 @@ describe("resolveNoteEvents static sources", () => {
     ).toEqual([
       {
         hitIndex: 0,
-        gridStepIndex: 0,
         offset: 0,
         duration: 0.25,
         voices: [60, 64],
       },
       {
         hitIndex: 1,
-        gridStepIndex: 2,
         offset: 0.5,
         duration: 0.25,
         voices: [67],
       },
       {
         hitIndex: 2,
-        gridStepIndex: 3,
         offset: 0.75,
         duration: 0.25,
         voices: [60, 64],
@@ -188,14 +176,12 @@ describe("resolveNoteEvents static sources", () => {
     ).toEqual([
       {
         hitIndex: 0,
-        gridStepIndex: 1,
         offset: 0.25,
         duration: 0.25,
         voices: [60],
       },
       {
         hitIndex: 1,
-        gridStepIndex: 3,
         offset: 0.75,
         duration: 0.25,
         voices: [64],
@@ -234,14 +220,12 @@ describe("resolveNoteEvents random eligibility and values", () => {
     expect(summarize(events)).toEqual([
       {
         hitIndex: 0,
-        gridStepIndex: 0,
         offset: 0,
         duration: 0.25,
         voices: [60],
       },
       {
         hitIndex: 1,
-        gridStepIndex: 2,
         offset: 0.5,
         duration: 0.25,
         voices: [64],
@@ -275,14 +259,10 @@ describe("resolveNoteEvents random eligibility and values", () => {
       });
 
       expect(
-        events.map(({ hitIndex, gridStepIndex, voices }) => ({
-          hitIndex,
-          gridStepIndex,
-          voices,
-        })),
+        events.map(({ hitIndex, voices }) => ({ hitIndex, voices })),
       ).toEqual([
-        { hitIndex: 0, gridStepIndex: 0, voices: [60] },
-        { hitIndex: 1, gridStepIndex: 2, voices: [64] },
+        { hitIndex: 0, voices: [60] },
+        { hitIndex: 1, voices: [64] },
       ]);
       expect(
         resolveValue.mock.calls
@@ -308,14 +288,10 @@ describe("resolveNoteEvents random eligibility and values", () => {
     });
 
     expect(
-      events.map(({ hitIndex, gridStepIndex, voices }) => ({
-        hitIndex,
-        gridStepIndex,
-        voices,
-      })),
+      events.map(({ hitIndex, voices }) => ({ hitIndex, voices })),
     ).toEqual([
-      { hitIndex: 0, gridStepIndex: 0, voices: [60] },
-      { hitIndex: 1, gridStepIndex: 2, voices: [64] },
+      { hitIndex: 0, voices: [60] },
+      { hitIndex: 1, voices: [64] },
     ]);
     expect(resolveValue.mock.calls.map(([, , hitIndex]) => hitIndex)).toEqual([
       0, 1,

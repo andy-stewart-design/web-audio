@@ -2,7 +2,6 @@ import type { StaticSchemaValue } from "@web-audio/schema";
 
 interface StaticOnsetGroup {
   hitIndex: number;
-  gridStepIndex: number;
   voices: StaticSchemaValue[];
 }
 
@@ -19,7 +18,6 @@ function groupStaticOnsets(bar: readonly StaticSchemaValue[]) {
 
     const group = {
       hitIndex: groups.length,
-      gridStepIndex: voice.stepIndex,
       voices: [voice],
     } satisfies StaticOnsetGroup;
     groups.push(group);

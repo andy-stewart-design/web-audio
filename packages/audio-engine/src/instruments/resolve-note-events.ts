@@ -8,7 +8,6 @@ import { getStaticOnsetForHit, groupStaticOnsets } from "./static-onsets";
 
 interface ResolvedNoteEvent {
   hitIndex: number;
-  gridStepIndex: number;
   offset: number;
   duration: number;
   voices: number[];
@@ -38,7 +37,6 @@ function resolveEvent(
 ) {
   return {
     hitIndex,
-    gridStepIndex: geometry.stepIndex,
     offset: geometry.offset,
     duration: geometry.duration,
     voices,
@@ -84,8 +82,6 @@ function resolveNoteEvents({
     }
     return events;
   }
-
-  if (sourceGroups?.length === 0) return [];
 
   const maskBar =
     mask.type === "static"

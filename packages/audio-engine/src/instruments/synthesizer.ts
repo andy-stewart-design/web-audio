@@ -52,7 +52,6 @@ class Synthesizer extends Instrument {
       const event = {
         barIndex,
         hitIndex: resolved.hitIndex,
-        gridStepIndex: resolved.gridStepIndex,
         startTime,
         duration,
         endTime: startTime + duration,
