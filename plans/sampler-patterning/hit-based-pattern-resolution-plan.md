@@ -482,11 +482,11 @@ The sampler supplies its existing `_resolve()` behavior as the note-event resolv
 
 **Acceptance criteria:**
 
-- [ ] Existing sampler static notes retain active-hit order.
-- [ ] Static and random note sources use the same hit policy.
-- [ ] Random-mask misses consume no sampler note values.
-- [ ] Sampler chords share one hit index and retain polyphonic scheduling.
-- [ ] Dense unmasked sampler timing and pitch remain unchanged.
+- [x] Existing sampler static notes retain active-hit order.
+- [x] Static and random note sources use the same hit policy.
+- [x] Random-mask misses consume no sampler note values.
+- [x] Sampler chords share one hit index and retain polyphonic scheduling.
+- [x] Dense unmasked sampler timing and pitch remain unchanged.
 
 ### Step 5.2 — Convert sampler variation and source-window values
 

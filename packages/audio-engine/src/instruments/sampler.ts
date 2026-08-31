@@ -3,13 +3,16 @@ import type {
   BankSchema,
   SamplerSchema,
   SampleVariationSchema,
-  StaticSchemaValue,
 } from "@web-audio/schema";
 import Instrument, { type InstrumentRouting } from "./instrument";
 import { SAMPLE_BASE_GAIN } from "@/constants";
 import { preloadVariationIndices } from "@/utils/preload-variations";
 import SampleBufferStore, { type SampleCache } from "./sample-buffer-store";
 import type { EventScheduleContext } from "@/types";
+import {
+  resolveNoteEvents,
+  type ResolvedNoteEvent,
+} from "./resolve-note-events";
 
 interface SamplerOptions {
   schema: SamplerSchema;
@@ -100,86 +103,41 @@ class Sampler extends Instrument {
 
     this._updateLfoParams(barIndex, barStartTime);
 
-    if (this._schema.notes.mask) {
-      this._scheduleMaskedBar(barIndex, barStartTime);
-    } else if (this._schema.notes.source.type === "random") {
-      this._scheduleRandomBar(barIndex, barStartTime);
-    } else {
-      this._scheduleSequenceBar(barIndex, barStartTime);
-    }
+    this._scheduleResolvedBar(barIndex, barStartTime);
   }
 
-  private _scheduleMaskedBar(barIndex: number, barStartTime: number) {
-    const mask = this._schema.notes.mask;
-    if (!mask) return;
+  private _scheduleResolvedBar(barIndex: number, barStartTime: number) {
+    const events = resolveNoteEvents({
+      notes: this._schema.notes,
+      barIndex,
+      resolveValue: (schema, currentBar, valueIndex) =>
+        this._resolve(schema, currentBar, valueIndex),
+    });
 
-    const maskBar =
-      mask.type === "random"
-        ? mask.grid.cycle[barIndex % mask.grid.cycle.length]
-        : mask.cycle[barIndex % mask.cycle.length];
-    const notes = this._schema.notes.source;
-    const notesBar =
-      notes.type === "static"
-        ? notes.cycle[barIndex % notes.cycle.length]
-        : undefined;
-    if (notesBar?.length === 0) return;
-
-    let emittedIndex = 0;
-    for (const maskStep of maskBar) {
-      if (
-        mask.type === "random" &&
-        this._resolve(mask, barIndex, maskStep.stepIndex) === 0
-      ) {
-        continue;
+    for (const event of events) {
+      for (const noteValue of event.voices) {
+        this._scheduleResolvedSampleNote(
+          noteValue,
+          event,
+          barStartTime,
+          barIndex,
+        );
       }
-
-      const noteValue = notesBar
-        ? notesBar[emittedIndex++ % notesBar.length].value
-        : this._resolve(notes, barIndex, maskStep.stepIndex);
-      this._scheduleResolvedSampleNote(
-        { ...maskStep, value: noteValue },
-        barStartTime,
-        barIndex,
-      );
     }
-  }
-
-  private _scheduleRandomBar(barIndex: number, barStartTime: number) {
-    const notes = this._schema.notes.source;
-    if (notes.type !== "random") return;
-
-    const steps = notes.grid.cycle[barIndex % notes.grid.cycle.length];
-    steps.forEach((step, stepIndex) => {
-      if (step.value === 0) return;
-      const noteValue = this._resolve(notes, barIndex, stepIndex);
-      this._scheduleResolvedSampleNote(
-        { ...step, value: noteValue },
-        barStartTime,
-        barIndex,
-      );
-    });
-  }
-
-  private _scheduleSequenceBar(barIndex: number, barStartTime: number) {
-    const notes = this._schema.notes.source;
-    if (notes.type !== "static") return;
-
-    const notesBar = notes.cycle[barIndex % notes.cycle.length];
-    notesBar.forEach((note) => {
-      this._scheduleResolvedSampleNote(note, barStartTime, barIndex);
-    });
   }
 
   private _scheduleResolvedSampleNote(
-    note: StaticSchemaValue,
+    noteValue: number,
+    noteEvent: ResolvedNoteEvent,
     barStartTime: number,
     barIndex: number,
   ) {
-    const sourceKey = this._nearestSourceKey(note.value);
-    const pitchRate = this._pitchRate(note.value, sourceKey);
+    const sourceKey = this._nearestSourceKey(noteValue);
+    const pitchRate = this._pitchRate(noteValue, sourceKey);
+    // Variation and source-window lanes retain grid addressing until Step 5.2.
     const variationIndex = this._resolveVariationIndex(
       barIndex,
-      note.stepIndex,
+      noteEvent.gridStepIndex,
     );
     const reversed = this._isNextHitReversed();
     const playbackSource = this._bufferStore.getPlaybackSource(
@@ -191,7 +149,8 @@ class Sampler extends Instrument {
     if (!playbackSource) return;
     const emitted = this._scheduleSampleNote(
       playbackSource,
-      { ...note, value: pitchRate },
+      pitchRate,
+      noteEvent,
       barStartTime,
       barIndex,
       reversed,
@@ -204,26 +163,27 @@ class Sampler extends Instrument {
 
   private _scheduleSampleNote(
     playbackSource: { buffer: AudioBuffer; entry: SampleVariationSchema },
-    note: StaticSchemaValue,
+    pitchRate: number,
+    noteEvent: ResolvedNoteEvent,
     barStartTime: number,
     barIndex: number,
     reversed: boolean,
   ) {
     const { buffer, entry } = playbackSource;
     const barDuration = this._clock.barDuration;
-    const startTime = barStartTime + note.offset * barDuration;
-    const scheduledDuration = note.duration * barDuration;
+    const startTime = barStartTime + noteEvent.offset * barDuration;
+    const scheduledDuration = noteEvent.duration * barDuration;
     const sourceWindow = this._resolveSourceWindow(
       buffer,
       entry,
       barIndex,
-      note.stepIndex,
+      noteEvent.gridStepIndex,
       reversed,
     );
     if (!sourceWindow) return false;
 
     const fitRate = this._fitRate(sourceWindow.fitDuration);
-    const playbackRate = note.value * fitRate;
+    const playbackRate = pitchRate * fitRate;
     const playbackDuration = sourceWindow.duration / playbackRate;
     const duration =
       this._schema.loop || sourceWindow.isFittedChop
@@ -234,10 +194,8 @@ class Sampler extends Instrument {
     const endTime = startTime + duration;
     const event = {
       barIndex,
-      // Until sampler hit enumeration lands in Phase 5, preserve current value
-      // addressing by using the serialized grid index for both positions.
-      hitIndex: note.stepIndex,
-      gridStepIndex: note.stepIndex,
+      hitIndex: noteEvent.hitIndex,
+      gridStepIndex: noteEvent.gridStepIndex,
       startTime,
       duration,
       endTime,

@@ -1872,7 +1872,7 @@ describe("Sampler", () => {
       ["static", sparseMask()],
       ["random", sparseRandomMask()],
     ])(
-      "resolves random notes at current grid indices under a %s mask",
+      "resolves random notes at consecutive hit indices under a %s mask",
       async (_maskType, mask) => {
         const url = "https://example.com/bd.wav";
         cache.resolved.set(url, makeBuffer(1));
@@ -1891,19 +1891,59 @@ describe("Sampler", () => {
         await sampler.load();
         sampler.scheduleBar(0, 8);
 
-        // Phase 5 changes the second lookup to hit index 1 while preserving
-        // the mask's offsets and durations.
         expect(
           createdSources.map(({ playbackRate }) => playbackRate.value),
         ).toEqual([
           Math.pow(2, resolver.resolve(0, 0) / 12),
-          Math.pow(2, resolver.resolve(0, 2) / 12),
+          Math.pow(2, resolver.resolve(0, 1) / 12),
         ]);
         expect(
           createdSources.map(({ start }) => start.mock.calls[0][0]),
         ).toEqual([8, 9]);
       },
     );
+
+    it("preserves polyphonic source onsets under a mask", async () => {
+      const url = "https://example.com/bd.wav";
+      cache.resolved.set(url, makeBuffer(1));
+      const notes: StaticSchema = {
+        type: "static",
+        polyphonic: true,
+        cycle: [
+          [
+            { value: 0, offset: 0, duration: 0.5, stepIndex: 0 },
+            { value: 12, offset: 0, duration: 0.5, stepIndex: 0 },
+            { value: 24, offset: 0.5, duration: 0.5, stepIndex: 1 },
+          ],
+        ],
+      };
+      const sampler = new Sampler(
+        ctx as unknown as AudioContext,
+        clock as never,
+        {
+          schema: makeSchema({
+            notes,
+            mask: sparseMask(),
+            detune: staticCycle([10, 20]),
+          }),
+          banks: makeBanks(url),
+          cache,
+        },
+      );
+
+      await sampler.load();
+      sampler.scheduleBar(0, 8);
+
+      expect(
+        createdSources.map(({ playbackRate }) => playbackRate.value),
+      ).toEqual([1, 2, 4]);
+      expect(createdSources.map(({ detune }) => detune.value)).toEqual([
+        10, 10, 20,
+      ]);
+      expect(createdSources.map(({ start }) => start.mock.calls[0][0])).toEqual(
+        [8, 8, 9],
+      );
+    });
 
     it("uses sparse grid indices for variation before the hit-index migration", async () => {
       const urls = [
