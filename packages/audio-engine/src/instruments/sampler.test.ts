@@ -205,11 +205,14 @@ function sparseRandomMask(): RandomSchema {
   };
 }
 
-function lowpassEffect(frequency = 800): FilterSchema {
+function lowpassEffect(
+  frequency: number | ParameterSchema = 800,
+): FilterSchema {
   return {
     type: "filter",
     filterType: "lp",
-    frequency: staticParam(frequency),
+    frequency:
+      typeof frequency === "number" ? staticParam(frequency) : frequency,
     q: staticParam(1),
     detune: staticParam(0),
     gain: staticParam(1),
@@ -1016,6 +1019,108 @@ describe("Sampler", () => {
     expect(createdSources[0].loopEnd).toBeCloseTo(3);
   });
 
+  it("does not compress hit values after an unavailable playback buffer", async () => {
+    const urls = [
+      "https://example.com/root-0.wav",
+      "https://example.com/root-1.wav",
+      "https://example.com/missing-0.wav",
+      "https://example.com/missing-1.wav",
+    ];
+    const buffers = [makeBuffer(1), makeBuffer(1)];
+    cache.resolved.set(urls[0], buffers[0]);
+    cache.resolved.set(urls[1], buffers[1]);
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("missing buffer");
+    }) as unknown as typeof fetch;
+    const banks = {
+      kit: {
+        samples: {
+          piano: {
+            "0": urls
+              .slice(0, 2)
+              .map((src) => ({ type: "file" as const, src })),
+            "12": urls.slice(2).map((src) => ({ type: "file" as const, src })),
+          },
+        },
+      },
+    };
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          sample: "piano",
+          sourceKeys: [0, 12],
+          notes: staticCycle([12, 0]),
+          variation: staticCycle([0, 1]),
+          detune: staticCycle([10, 20]),
+          effects: [lowpassEffect(staticCycle([100, 200]))],
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 8);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(buffers[1]);
+    expect(createdSources[0].detune.value).toBe(20);
+    expect(createdSources[0].start).toHaveBeenCalledWith(9);
+    expect(createdFilters[0].frequency.setValueAtTime).toHaveBeenCalledWith(
+      200,
+      9,
+    );
+  });
+
+  it("does not compress hit values after an invalid source window", async () => {
+    const urls = [
+      "https://example.com/loop-0.wav",
+      "https://example.com/loop-1.wav",
+    ];
+    const buffers = [makeBuffer(4), makeBuffer(4)];
+    urls.forEach((url, index) => cache.resolved.set(url, buffers[index]));
+    const banks = makeBanks(urls[0]);
+    banks.kit.samples.bd = {
+      "0": urls.map((src) => ({ type: "file" as const, src })),
+    };
+    const gain = {
+      ...envelope(),
+      max: staticCycle([0.2, 0.4]),
+    } satisfies EnvelopeSchema;
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          notes: staticCycle([0, 0]),
+          variation: staticCycle([0, 1]),
+          detune: staticCycle([10, 20]),
+          gain,
+          region: {
+            type: "static",
+            start: staticCycle([0.75, 0]),
+            end: staticCycle([0.25, 0.5]),
+          },
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 8);
+
+    expect(createdSources).toHaveLength(1);
+    expect(createdSources[0].buffer).toBe(buffers[1]);
+    expect(createdSources[0].detune.value).toBe(20);
+    expect(createdSources[0].start).toHaveBeenCalledWith(9, 0);
+    expect(createdGains[0].gain.linearRampToValueAtTime.mock.calls[0][0]).toBe(
+      0.4,
+    );
+  });
+
   it("alternate direction starts forward and toggles after emitted hits", async () => {
     const url = "https://example.com/loop.wav";
     const original = makeBuffer(4);
@@ -1147,6 +1252,76 @@ describe("Sampler", () => {
     expect(createdSources.map((source) => source.buffer)).toEqual([
       original,
       reversed,
+    ]);
+  });
+
+  it("keeps hit values and alternate state independent after a missing reverse buffer", async () => {
+    const urls = [
+      "https://example.com/loop-0.wav",
+      "https://example.com/loop-1.wav",
+    ];
+    const originals = [makeBuffer(4), makeBuffer(4)];
+    const reversed = [makeBuffer(4), makeBuffer(4)];
+    urls.forEach((url, index) => cache.resolved.set(url, originals[index]));
+    originals.forEach((buffer, index) =>
+      cache.reversed.set(buffer, reversed[index]),
+    );
+    const banks = makeBanks(urls[0]);
+    banks.kit.samples.bd = {
+      "0": urls.map((src) => ({ type: "file" as const, src })),
+    };
+    const notes: StaticSchema = {
+      type: "static",
+      polyphonic: false,
+      cycle: [
+        [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
+        [
+          { value: 0, offset: 0, duration: 0.5, stepIndex: 0 },
+          { value: 0, offset: 0.5, duration: 0.5, stepIndex: 1 },
+        ],
+      ],
+    };
+    const variation: StaticSchema = {
+      type: "static",
+      polyphonic: false,
+      cycle: [staticCycle([0]).cycle[0], staticCycle([0, 1]).cycle[0]],
+    };
+    const detune: StaticSchema = {
+      type: "static",
+      polyphonic: false,
+      cycle: [staticCycle([10]).cycle[0], staticCycle([30, 40]).cycle[0]],
+    };
+    const sampler = new Sampler(
+      ctx as unknown as AudioContext,
+      clock as never,
+      {
+        schema: makeSchema({
+          direction: "alternate",
+          notes,
+          variation,
+          detune,
+        }),
+        banks,
+        cache,
+      },
+    );
+
+    await sampler.load();
+    sampler.scheduleBar(0, 10);
+    cache.reversed.delete(originals[0]);
+    sampler.scheduleBar(1, 12);
+    sampler.scheduleBar(2, 14);
+
+    expect(createdSources.map(({ buffer }) => buffer)).toEqual([
+      originals[0],
+      reversed[1],
+      originals[0],
+    ]);
+    expect(createdSources.map(({ detune: param }) => param.value)).toEqual([
+      10, 40, 10,
+    ]);
+    expect(createdSources.map(({ start }) => start.mock.calls[0][0])).toEqual([
+      10, 13, 14,
     ]);
   });
 
@@ -1941,6 +2116,111 @@ describe("Sampler", () => {
       expect(createdSources.map(({ start }) => start.mock.calls[0][0])).toEqual(
         [8, 8, 9],
       );
+    });
+
+    it("resolves shared sampler parameters by hit index", async () => {
+      const url = "https://example.com/bd.wav";
+      cache.resolved.set(url, makeBuffer(1));
+      const gain: EnvelopeSchema = {
+        min: 0,
+        max: staticCycle([0.2, 0.4, 0.6]),
+        a: staticCycle([0.1, 0.2, 0.3]),
+        d: staticCycle([0.1, 0.2, 0.3]),
+        s: staticCycle([0.5, 0.6, 0.7]),
+        r: staticCycle([0.1, 0.2, 0.3]),
+        mode: "bleed",
+        type: "envelope",
+      };
+      const filter: FilterSchema = {
+        type: "filter",
+        filterType: "lp",
+        frequency: staticCycle([100, 200, 300]),
+        q: staticCycle([1, 2, 3]),
+        detune: staticCycle([4, 5, 6]),
+        gain: staticCycle([7, 8, 9]),
+      };
+      const sampler = new Sampler(
+        ctx as unknown as AudioContext,
+        clock as never,
+        {
+          schema: makeSchema({
+            notes: staticCycle([0, 0]),
+            mask: sparseMask(),
+            detune: staticCycle([10, 20, 30]),
+            gain,
+            effects: [
+              filter,
+              { type: "gain", gain: staticCycle([0.25, 0.5, 0.75]) },
+            ],
+          }),
+          banks: makeBanks(url),
+          cache,
+        },
+      );
+
+      await sampler.load();
+      sampler.scheduleBar(0, 8);
+
+      expect(createdSources.map(({ detune }) => detune.value)).toEqual([
+        10, 20,
+      ]);
+      expect(createdSources.map(({ start }) => start.mock.calls[0][0])).toEqual(
+        [8, 9],
+      );
+      expect(createdSources.map(({ stop }) => stop.mock.calls[0][0])).toEqual([
+        expect.closeTo(8.6),
+        expect.closeTo(9.65),
+      ]);
+
+      const voiceGains = [createdGains[0], createdGains[2]];
+      expect(
+        voiceGains.map(
+          ({ gain: { linearRampToValueAtTime } }) =>
+            linearRampToValueAtTime.mock.calls[0],
+        ),
+      ).toEqual([
+        [0.2, 8.05],
+        [0.4, 9.1],
+      ]);
+      expect(
+        voiceGains.map(
+          ({ gain: { linearRampToValueAtTime } }) =>
+            linearRampToValueAtTime.mock.calls[1],
+        ),
+      ).toEqual([
+        [0.1, expect.closeTo(8.1)],
+        [0.24, expect.closeTo(9.2)],
+      ]);
+
+      expect(
+        createdFilters.map(
+          ({ frequency }) => frequency.setValueAtTime.mock.calls[0],
+        ),
+      ).toEqual([
+        [100, 8],
+        [200, 9],
+      ]);
+      expect(
+        createdFilters.map(({ Q }) => Q.setValueAtTime.mock.calls[0][0]),
+      ).toEqual([1, 2]);
+      expect(
+        createdFilters.map(
+          ({ detune }) => detune.setValueAtTime.mock.calls[0][0],
+        ),
+      ).toEqual([4, 5]);
+      expect(
+        createdFilters.map(
+          ({ gain: filterGain }) => filterGain.setValueAtTime.mock.calls[0][0],
+        ),
+      ).toEqual([7, 8]);
+      expect(
+        [createdGains[1], createdGains[3]].map(
+          ({ gain: effectGain }) => effectGain.setValueAtTime.mock.calls[0],
+        ),
+      ).toEqual([
+        [0.25, 8],
+        [0.5, 9],
+      ]);
     });
 
     it("advances variations by hit index across sparse masks", async () => {

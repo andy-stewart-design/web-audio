@@ -553,10 +553,10 @@ Do not alter:
 
 **Acceptance criteria:**
 
-- [ ] Synth and sampler use the same shared event-addressing contract.
-- [ ] Sparse sampler gain, detune, envelope, and effects patterns resolve by hit.
-- [ ] LFO and MIDI CC lifecycle tests remain unchanged.
-- [ ] No sampler-specific fallback to grid indexing remains for event-created lanes.
+- [x] Synth and sampler use the same shared event-addressing contract.
+- [x] Sparse sampler gain, detune, envelope, and effects patterns resolve by hit.
+- [x] LFO and MIDI CC lifecycle tests remain unchanged.
+- [x] No sampler-specific fallback to grid indexing remains for event-created lanes.
 
 ### Step 5.4 — Lock intended-hit failure behavior
 
@@ -582,12 +582,12 @@ Keep alternate direction independent:
 
 **Acceptance criteria:**
 
-- [ ] A failed hit does not shift later event values.
-- [ ] Invalid regions do not compress hit indexing.
-- [ ] Missing buffers do not compress hit indexing.
-- [ ] Alternate direction advances only after successful emission.
-- [ ] Cancellation/reset behavior remains unchanged.
-- [ ] Sampler tests, check, and lint pass.
+- [x] A failed hit does not shift later event values.
+- [x] Invalid regions do not compress hit indexing.
+- [x] Missing buffers do not compress hit indexing.
+- [x] Alternate direction advances only after successful emission.
+- [x] Cancellation/reset behavior remains unchanged.
+- [x] Sampler tests, check, and lint pass.
 
 ---
 
