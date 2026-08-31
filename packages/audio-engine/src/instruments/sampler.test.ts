@@ -1309,9 +1309,7 @@ describe("Sampler", () => {
     );
   });
 
-  it("relative duration uses original grid indices across mask gaps", async () => {
-    // Phase 5 intentionally changes the second duration lookup from grid index
-    // 2 (0.03) to hit index 1 (0.02), while preserving both start times.
+  it("relative duration advances by hit index across mask gaps", async () => {
     const url = "https://example.com/loop.wav";
     cache.resolved.set(url, makeBuffer(10));
     const sampler = new Sampler(
@@ -1348,7 +1346,7 @@ describe("Sampler", () => {
       10 + 0.1 / Math.pow(2, 1 / 12) + 0.0025 + 0.05,
     );
     expect(createdSources[1].stop.mock.calls[0][0]).toBeCloseTo(
-      11 + 0.3 / Math.pow(2, 1 / 12) + 0.0025 + 0.05,
+      11 + 0.2 / Math.pow(2, 1 / 12) + 0.0025 + 0.05,
     );
   });
 
@@ -1945,7 +1943,7 @@ describe("Sampler", () => {
       );
     });
 
-    it("uses sparse grid indices for variation before the hit-index migration", async () => {
+    it("advances variations by hit index across sparse masks", async () => {
       const urls = [
         "https://example.com/bd-0.wav",
         "https://example.com/bd-1.wav",
@@ -1976,14 +1974,51 @@ describe("Sampler", () => {
 
       expect(createdSources.map(({ buffer }) => buffer)).toEqual([
         buffers[0],
-        buffers[2],
+        buffers[1],
       ]);
       expect(createdSources.map(({ start }) => start.mock.calls[0][0])).toEqual(
         [8, 9],
       );
     });
 
-    it("uses sparse grid indices for static region boundaries", async () => {
+    it("falls back after selecting an out-of-range variation by hit", async () => {
+      const urls = [
+        "https://example.com/bd-0.wav",
+        "https://example.com/bd-1.wav",
+      ];
+      const buffers = urls.map(() => makeBuffer(1));
+      urls.forEach((url, index) => cache.resolved.set(url, buffers[index]));
+      const banks = makeBanks(urls[0]);
+      banks.kit.samples.bd = {
+        "0": urls.map((src) => ({ type: "file" as const, src })),
+      };
+      const sampler = new Sampler(
+        ctx as unknown as AudioContext,
+        clock as never,
+        {
+          schema: makeSchema({
+            notes: staticCycle([0, 0]),
+            mask: sparseMask(),
+            variation: staticCycle([1, 99, 0]),
+          }),
+          banks,
+          cache,
+        },
+      );
+
+      await sampler.load();
+      sampler.scheduleBar(0, 8);
+
+      expect(createdSources.map(({ buffer }) => buffer)).toEqual([
+        buffers[1],
+        buffers[0],
+      ]);
+      expect(createdSources.map(({ start }) => start.mock.calls[0][0])).toEqual(
+        [8, 9],
+      );
+    });
+
+    it("advances static region boundaries by hit index", async () => {
       const url = "https://example.com/loop.wav";
       cache.resolved.set(url, makeBuffer(10));
       const sampler = new Sampler(
@@ -2009,10 +2044,10 @@ describe("Sampler", () => {
 
       expect(createdSources).toHaveLength(2);
       expect(createdSources[0].start).toHaveBeenCalledWith(8, 0);
-      expect(createdSources[1].start).toHaveBeenCalledWith(9, 2);
+      expect(createdSources[1].start).toHaveBeenCalledWith(9, 1);
     });
 
-    it("uses sparse grid indices for chop sequence values", async () => {
+    it("advances chop sequence values by hit index", async () => {
       const url = "https://example.com/break.wav";
       cache.resolved.set(url, makeBuffer(4));
       const sampler = new Sampler(
@@ -2042,7 +2077,7 @@ describe("Sampler", () => {
 
       expect(createdSources).toHaveLength(2);
       expect(createdSources[0].start).toHaveBeenCalledWith(8, 0);
-      expect(createdSources[1].start).toHaveBeenCalledWith(9, 2);
+      expect(createdSources[1].start).toHaveBeenCalledWith(9, 1);
     });
   });
 
@@ -2989,8 +3024,8 @@ describe("Sampler", () => {
                 { value: 0, offset: 0.5, duration: 0.5, stepIndex: 1 },
               ],
               [
-                { value: 0, offset: 0, duration: 0.5, stepIndex: 2 },
-                { value: 0, offset: 0.5, duration: 0.5, stepIndex: 3 },
+                { value: 0, offset: 0, duration: 0.5, stepIndex: 0 },
+                { value: 0, offset: 0.5, duration: 0.5, stepIndex: 1 },
               ],
             ],
           },
@@ -3002,7 +3037,20 @@ describe("Sampler", () => {
               { start: 0.5, end: 0.75 },
               { start: 0.75, end: 1 },
             ],
-            sequence: staticCycle([0, 1, 2, 3]),
+            sequence: {
+              type: "static",
+              polyphonic: false,
+              cycle: [
+                [
+                  { value: 0, offset: 0, duration: 0.5, stepIndex: 0 },
+                  { value: 1, offset: 0.5, duration: 0.5, stepIndex: 1 },
+                ],
+                [
+                  { value: 2, offset: 0, duration: 0.5, stepIndex: 0 },
+                  { value: 3, offset: 0.5, duration: 0.5, stepIndex: 1 },
+                ],
+              ],
+            },
           },
         }),
         banks: makeBanks(url),

@@ -134,10 +134,9 @@ class Sampler extends Instrument {
   ) {
     const sourceKey = this._nearestSourceKey(noteValue);
     const pitchRate = this._pitchRate(noteValue, sourceKey);
-    // Variation and source-window lanes retain grid addressing until Step 5.2.
     const variationIndex = this._resolveVariationIndex(
       barIndex,
-      noteEvent.gridStepIndex,
+      noteEvent.hitIndex,
     );
     const reversed = this._isNextHitReversed();
     const playbackSource = this._bufferStore.getPlaybackSource(
@@ -177,7 +176,7 @@ class Sampler extends Instrument {
       buffer,
       entry,
       barIndex,
-      noteEvent.gridStepIndex,
+      noteEvent.hitIndex,
       reversed,
     );
     if (!sourceWindow) return false;
@@ -253,7 +252,7 @@ class Sampler extends Instrument {
     buffer: AudioBuffer,
     entry: SampleVariationSchema,
     barIndex: number,
-    stepIndex: number,
+    hitIndex: number,
     reversed: boolean,
   ) {
     const entryStart = entry.type === "sprite" ? entry.start : 0;
@@ -265,26 +264,26 @@ class Sampler extends Instrument {
     if (this._schema.region?.type === "static") {
       const clamp = (value: number) => Math.min(1, Math.max(0, value));
       regionStart = clamp(
-        this._resolve(this._schema.region.start, barIndex, stepIndex),
+        this._resolve(this._schema.region.start, barIndex, hitIndex),
       );
       if (this._schema.region.duration) {
         regionEnd = Math.min(
           regionStart +
             clamp(
-              this._resolve(this._schema.region.duration, barIndex, stepIndex),
+              this._resolve(this._schema.region.duration, barIndex, hitIndex),
             ),
           1,
         );
       } else {
         regionEnd = clamp(
-          this._resolve(this._schema.region.end, barIndex, stepIndex),
+          this._resolve(this._schema.region.end, barIndex, hitIndex),
         );
       }
     } else if (this._schema.region?.type === "chop") {
       const { slices, sequence } = this._schema.region;
       if (slices.length === 0) return null;
 
-      const rawIndex = Math.trunc(this._resolve(sequence, barIndex, stepIndex));
+      const rawIndex = Math.trunc(this._resolve(sequence, barIndex, hitIndex));
       const sliceIndex =
         ((rawIndex % slices.length) + slices.length) % slices.length;
       const slice = slices[sliceIndex];
@@ -336,9 +335,9 @@ class Sampler extends Instrument {
     return (end - start) * entrySourceDuration;
   }
 
-  private _resolveVariationIndex(barIndex: number, stepIndex: number): number {
+  private _resolveVariationIndex(barIndex: number, hitIndex: number): number {
     return Math.round(
-      this._resolve(this._schema.variation, barIndex, stepIndex),
+      this._resolve(this._schema.variation, barIndex, hitIndex),
     );
   }
 }

@@ -521,11 +521,11 @@ Update the existing region regression that expects values at grid indices `0` an
 
 **Acceptance criteria:**
 
-- [ ] A sparse two-hit mask with `.var([0, 1])` selects variations `0` then `1`.
-- [ ] Static region patterns advance through hits without rests consuming values.
-- [ ] Chop sequence values advance through hits without changing chop timing.
-- [ ] Fit playback rates and generated event counts remain unchanged.
-- [ ] Out-of-range variation fallback still applies after hit-based variation selection.
+- [x] A sparse two-hit mask with `.var([0, 1])` selects variations `0` then `1`.
+- [x] Static region patterns advance through hits without rests consuming values.
+- [x] Chop sequence values advance through hits without changing chop timing.
+- [x] Fit playback rates and generated event counts remain unchanged.
+- [x] Out-of-range variation fallback still applies after hit-based variation selection.
 
 ### Step 5.3 — Route shared sampler parameters through hit context
 
