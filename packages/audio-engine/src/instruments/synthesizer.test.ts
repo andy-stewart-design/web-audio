@@ -87,11 +87,11 @@ class FakeAudioContext {
 // ---------------------------------------------------------------------------
 
 class TestSynthesizer extends Synthesizer {
-  resolveDetune(barIndex: number, stepIndex: number) {
+  resolveDetune(barIndex: number, hitIndex: number) {
     return this._resolveDetune(this._schema.detune, {
       barIndex,
-      hitIndex: stepIndex,
-      gridStepIndex: stepIndex,
+      hitIndex,
+      gridStepIndex: hitIndex,
       startTime: 0,
       duration: 0,
       endTime: 0,
@@ -602,6 +602,48 @@ describe("Synthesizer trigger masks", () => {
     expect(
       FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
     ).toEqual([10.5, 11.75]);
+  });
+
+  it("addresses deterministic static and random lanes identically after random-mask misses", () => {
+    const mask = {
+      ...randomMask(),
+      chance: 0.5,
+      segments: [{ seed: 5 }],
+      grid: staticCycle(Array.from({ length: 8 }, () => 1)),
+    } satisfies RandomSchema;
+    const staticMask = {
+      ...mask.grid,
+      cycle: [[mask.grid.cycle[0][2], mask.grid.cycle[0][7]]],
+    } satisfies StaticSchema;
+    const randomNotes = randomValues([60, 61, 62, 63, 64, 65, 66, 67]);
+    const randomDetune = randomValues([10, 20, 30, 40, 50, 60, 70, 80]);
+    const clock = { barDuration: 2 } as AudioClock;
+    const ctx = new FakeAudioContext() as unknown as AudioContext;
+    const randomSynth = new Synthesizer(ctx, clock, {
+      schema: makeSchema(randomDetune, {
+        notes: randomNotes,
+        mask,
+      }),
+    });
+    const staticSynth = new Synthesizer(ctx, clock, {
+      schema: makeSchema(staticCycle([50, 80]), {
+        notes: staticCycle([64, 67]),
+        mask: staticMask,
+      }),
+    });
+
+    randomSynth.scheduleBar(0, 10);
+    staticSynth.scheduleBar(0, 10);
+
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.frequency),
+    ).toEqual([64, 67, 64, 67].map((midiNote) => midiToFrequency(midiNote)));
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.detune),
+    ).toEqual([50, 80, 50, 80]);
+    expect(
+      FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
+    ).toEqual([10.5, 11.75, 10.5, 11.75]);
   });
 });
 

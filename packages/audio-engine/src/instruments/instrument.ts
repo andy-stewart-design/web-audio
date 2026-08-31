@@ -406,13 +406,13 @@ abstract class Instrument {
   protected _resolve(
     schema: ParameterSchema,
     barIndex: number,
-    stepIndex: number,
+    valueIndex: number,
   ) {
     if (schema.type === "random") {
-      return this._getResolver(schema).resolve(barIndex, stepIndex);
+      return this._getResolver(schema).resolve(barIndex, valueIndex);
     }
     const bar = schema.cycle[barIndex % schema.cycle.length];
-    return bar[stepIndex % bar.length].value;
+    return bar[valueIndex % bar.length].value;
   }
 
   private _getResolver(schema: RandomSchema) {

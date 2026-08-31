@@ -95,6 +95,8 @@ function resolveNoteEvents({
 
   for (const geometry of maskBar) {
     if (geometry.value === 0) continue;
+    // Random-mask eligibility is intentionally grid-addressed: the mask must
+    // decide whether this geometric onset survives before a hit index exists.
     if (
       mask.type === "random" &&
       resolveValue(mask, barIndex, geometry.stepIndex) === 0

@@ -622,11 +622,11 @@ For random tests, assert deterministic resolved values for fixed schemas/seeds. 
 
 **Acceptance criteria:**
 
-- [ ] Static and random addressing are proven equivalent at the same hit index.
-- [ ] Multi-bar tests prove that hit indices restart while `barIndex` continues.
-- [ ] Pattern wrapping within a bar is covered.
-- [ ] Empty and all-rest bars schedule no voices and consume no values.
-- [ ] Tests assert resolved values and timing, not only event count.
+- [x] Static and random addressing are proven equivalent at the same hit index.
+- [x] Multi-bar tests prove that hit indices restart while `barIndex` continues.
+- [x] Pattern wrapping within a bar is covered.
+- [x] Empty and all-rest bars schedule no voices and consume no values.
+- [x] Tests assert resolved values and timing, not only event count.
 
 ### Step 6.2 — Search for stale event/grid conflation
 
@@ -642,12 +642,14 @@ Search for:
 
 Allow grid-index resolution only where justified by onset selection or non-event semantics.
 
+Audit result: the only event-time resolver call that uses serialized `stepIndex` is random-mask eligibility in `resolveNoteEvents()`, where grid geometry must be evaluated before a hit exists. `gridStepIndex` otherwise remains timing/diagnostic context, shared event lanes use `hitIndex`, and bar-level LFO bounds continue to use value index `0`. The general `_resolve()` and `RandomResolver.resolve()` parameters are named `valueIndex` so their callers, rather than the resolver API, own index policy. No compatibility flag or instrument-specific hit counter remains.
+
 **Acceptance criteria:**
 
-- [ ] Every remaining grid-index resolver call is intentional and documented by context.
-- [ ] No permanent compatibility flag chooses old versus new event indexing.
-- [ ] Synth and sampler scheduler structure expresses the same hit policy.
-- [ ] `git diff --check` passes.
+- [x] Every remaining grid-index resolver call is intentional and documented by context.
+- [x] No permanent compatibility flag chooses old versus new event indexing.
+- [x] Synth and sampler scheduler structure expresses the same hit policy.
+- [x] `git diff --check` passes.
 
 ---
 

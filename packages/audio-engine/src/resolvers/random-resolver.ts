@@ -23,12 +23,12 @@ class RandomResolver {
     this._mapper = this._getMapper();
   }
 
-  resolve(barIndex: number, stepIndex: number): number {
+  resolve(barIndex: number, valueIndex: number): number {
     const bar = this._generate(barIndex);
     if (bar.length === 0) {
       throw new Error("Cannot resolve a random value from an empty bar");
     }
-    return bar[stepIndex % bar.length];
+    return bar[valueIndex % bar.length];
   }
 
   private _getMapper(): RandMapper {
