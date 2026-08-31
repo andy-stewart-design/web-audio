@@ -81,13 +81,16 @@ Named bus gain/filter parameters can evolve deterministically by bar while instr
 
 ## SOW 3 — Bus MIDI automation
 
+Detailed implementation plan: [`bus-midi-automation-plan.md`](bus-midi-automation-plan.md)
+
 ### Goal
 
 Allow MIDI CC to control persistent named-bus effect parameters.
 
 ### Scope
 
-- Initialize MIDI-controlled parameters from configured defaults.
+- Extend named-bus output gain to static, deterministic random, and MIDI CC parameter schemas while keeping main gain constant.
+- Initialize MIDI-controlled parameters from configured defaults or matching cached controller values.
 - Bind and map MIDI CC values in real time.
 - Support device and channel scoping.
 - Connect MIDI to newly active runtime graphs.
