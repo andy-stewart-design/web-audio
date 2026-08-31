@@ -35,7 +35,6 @@ abstract class Instrument {
   protected _muted = false;
   protected _route = "main";
   protected _sends = new Map<string, number>();
-  private _gainEnvelope: ADSR;
 
   constructor(
     defaultPattern: Chord,
@@ -44,8 +43,8 @@ abstract class Instrument {
   ) {
     this._cycle = new MidiNotes(defaultPattern);
     this._detune = new Parameter(0);
-    this._gainEnvelope = { ...DEFAULT_GAIN_ENVELOPE, ...gainEnvelope };
-    this._gain = this._createGainEnvelope();
+    const { a, d, s, r } = { ...DEFAULT_GAIN_ENVELOPE, ...gainEnvelope };
+    this._gain = new Envelope().adsr(a, d, s, r);
     this._host = host;
   }
 
@@ -159,7 +158,7 @@ abstract class Instrument {
     if (isEnvelopeTuple(input)) {
       this._gain = input[0];
     } else {
-      this._gain = this._createGainEnvelope(...input);
+      this._gain.max(...input);
     }
     return this;
   }
@@ -172,11 +171,6 @@ abstract class Instrument {
   ) {
     this._gain.adsr(a, d, s, r);
     return this;
-  }
-
-  private _createGainEnvelope(...max: CycleInput) {
-    const { a, d, s, r } = this._gainEnvelope;
-    return new Envelope(0, ...max).adsr(a, d, s, r);
   }
 
   fx(...effects: (Filter | GainEffect)[]) {
