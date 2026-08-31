@@ -375,12 +375,12 @@ Ensure MIDI note output uses the same resolved note event and hit-addressed gain
 
 **Acceptance criteria:**
 
-- [ ] Random-mask misses consume no note or parameter values.
-- [ ] Static notes cycle across random-mask hits in active-hit order.
-- [ ] Random notes resolve from hit index under a random mask.
-- [ ] MIDI note, velocity, start time, and duration match local audio resolution.
-- [ ] Synth timing and voice count remain determined solely by the mask.
-- [ ] Audio-engine synth tests, check, and lint pass.
+- [x] Random-mask misses consume no note or parameter values.
+- [x] Static notes cycle across random-mask hits in active-hit order.
+- [x] Random notes resolve from hit index under a random mask.
+- [x] MIDI note, velocity, start time, and duration match local audio resolution.
+- [x] Synth timing and voice count remain determined solely by the mask.
+- [x] Audio-engine synth tests, check, and lint pass.
 
 ---
 

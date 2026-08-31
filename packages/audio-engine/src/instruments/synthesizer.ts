@@ -3,7 +3,7 @@ import MidiOutputScheduler from "@/midi-output-scheduler";
 import { midiToFrequency } from "@/utils/midi-to-frequency";
 import { resolveNoteEvents } from "./resolve-note-events";
 
-import type { StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
+import type { SynthesizerSchema } from "@web-audio/schema";
 import type AudioClock from "@web-audio/clock";
 import type { EventScheduleContext } from "@/types";
 
@@ -34,11 +34,7 @@ class Synthesizer extends Instrument {
   scheduleBar(barIndex: number, barStartTime: number): void {
     this._updateLfoParams(barIndex, barStartTime);
 
-    if (this._schema.notes.mask?.type === "random") {
-      this._scheduleRandomMaskedBar(barIndex, barStartTime);
-    } else {
-      this._scheduleResolvedBar(barIndex, barStartTime);
-    }
+    this._scheduleResolvedBar(barIndex, barStartTime);
   }
 
   private _scheduleResolvedBar(barIndex: number, barStartTime: number) {
@@ -49,76 +45,34 @@ class Synthesizer extends Instrument {
         this._resolve(schema, currentBar, valueIndex),
     });
 
-    for (const event of events) {
-      for (const value of event.voices) {
-        this._scheduleSynthNote(
-          {
-            value,
-            offset: event.offset,
-            duration: event.duration,
-            stepIndex: event.gridStepIndex,
-          },
-          barStartTime,
-          barIndex,
-          event.hitIndex,
-        );
+    const barDuration = this._clock.barDuration;
+    for (const resolved of events) {
+      const startTime = barStartTime + resolved.offset * barDuration;
+      const duration = resolved.duration * barDuration;
+      const event = {
+        barIndex,
+        hitIndex: resolved.hitIndex,
+        gridStepIndex: resolved.gridStepIndex,
+        startTime,
+        duration,
+        endTime: startTime + duration,
+      } satisfies EventScheduleContext;
+
+      for (const midiNote of resolved.voices) {
+        this._scheduleSynthNote(midiNote, event);
       }
     }
   }
 
-  private _scheduleRandomMaskedBar(barIndex: number, barStartTime: number) {
-    const mask = this._schema.notes.mask;
-    if (mask?.type !== "random") return;
-
-    const maskBar = mask.grid.cycle[barIndex % mask.grid.cycle.length];
-    const notes = this._schema.notes.source;
-    const notesBar =
-      notes.type === "static"
-        ? notes.cycle[barIndex % notes.cycle.length]
-        : undefined;
-    if (notesBar?.length === 0) return;
-
-    let emittedIndex = 0;
-    for (const maskStep of maskBar) {
-      if (this._resolve(mask, barIndex, maskStep.stepIndex) === 0) continue;
-
-      const midiNote = notesBar
-        ? notesBar[emittedIndex++ % notesBar.length].value
-        : this._resolve(notes, barIndex, maskStep.stepIndex);
-      this._scheduleSynthNote(
-        { ...maskStep, value: midiNote },
-        barStartTime,
-        barIndex,
-      );
-    }
-  }
-
   private _scheduleSynthNote(
-    note: StaticSchemaValue,
-    barStartTime: number,
-    barIndex: number,
-    // The random-mask scheduler keeps its existing grid-addressed fallback
-    // until Step 3.3 migrates it to the shared note-event resolver.
-    hitIndex = note.stepIndex,
+    midiNote: number,
+    event: EventScheduleContext,
   ): void {
-    const barDuration = this._clock.barDuration;
-    const startTime = barStartTime + note.offset * barDuration;
-    const duration = note.duration * barDuration;
-    const endTime = startTime + duration;
-    const event = {
-      barIndex,
-      hitIndex,
-      gridStepIndex: note.stepIndex,
-      startTime,
-      duration,
-      endTime,
-    } satisfies EventScheduleContext;
-
     const detune = this._resolveDetune(this._schema.detune, event);
 
     const osc = new OscillatorNode(this._ctx, {
       type: this._schema.waveform,
-      frequency: midiToFrequency(note.value),
+      frequency: midiToFrequency(midiNote),
       detune: detune.value,
     });
     const gainEnvelope = this._resolveEnvelope(this._schema.gain, event);
@@ -140,10 +94,10 @@ class Synthesizer extends Instrument {
     this._midiOutputScheduler.scheduleNote({
       ...(notesOut.device === undefined ? {} : { selector: notesOut.device }),
       channel: notesOut.channel,
-      note: note.value,
+      note: midiNote,
       velocity,
-      startTime,
-      endTime,
+      startTime: event.startTime,
+      endTime: event.endTime,
     });
   }
 }

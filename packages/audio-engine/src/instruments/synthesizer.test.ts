@@ -540,6 +540,69 @@ describe("Synthesizer trigger masks", () => {
 
     expect(FakeOscillatorNode.startCount).toBe(2);
   });
+
+  it("does not schedule notes or event parameters for random-mask misses", () => {
+    const scheduleNote = vi.fn();
+    const mask = {
+      ...randomMask(),
+      chance: 0,
+      grid: staticCycle([1, 1, 1]),
+    } satisfies RandomSchema;
+    const synth = new Synthesizer(
+      new FakeAudioContext() as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(randomValues([10, 20, 30]), {
+          notes: randomValues([60, 64, 67]),
+          mask,
+          effects: [lowpassEffect(staticCycle([100, 200, 300]))],
+          notesOut: { type: "midi-out", channel: 1 },
+        }),
+        midiOutputScheduler: {
+          scheduleNote,
+        } as unknown as MidiOutputScheduler,
+      },
+    );
+    const gainNodeCount = FakeGainNode.instances.length;
+
+    synth.scheduleBar(0, 10);
+
+    expect(FakeOscillatorNode.instances).toHaveLength(0);
+    expect(FakeBiquadFilterNode.instances).toHaveLength(0);
+    expect(FakeGainNode.instances).toHaveLength(gainNodeCount);
+    expect(scheduleNote).not.toHaveBeenCalled();
+  });
+
+  it("compresses note and parameter values around random-mask misses", () => {
+    const mask = {
+      ...randomMask(),
+      chance: 0.5,
+      segments: [{ seed: 5 }],
+      grid: staticCycle(Array.from({ length: 8 }, () => 1)),
+    } satisfies RandomSchema;
+    const synth = new Synthesizer(
+      new FakeAudioContext() as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(staticCycle([10, 20]), {
+          notes: staticCycle([60, 64]),
+          mask,
+        }),
+      },
+    );
+
+    synth.scheduleBar(0, 10);
+
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.frequency),
+    ).toEqual([midiToFrequency(60), midiToFrequency(64)]);
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.detune),
+    ).toEqual([10, 20]);
+    expect(
+      FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
+    ).toEqual([10.5, 11.75]);
+  });
 });
 
 describe("Synthesizer sparse-rhythm indexing characterization", () => {
@@ -589,7 +652,7 @@ describe("Synthesizer sparse-rhythm indexing characterization", () => {
     ).toEqual([10, 11]);
   });
 
-  it("retains grid-addressed random notes under a random mask before Step 3.3", () => {
+  it("resolves random notes by hit index under a random mask", () => {
     const notes = randomValues([60, 64, 67]);
     const resolver = new RandomResolver(notes);
     const synth = new Synthesizer(
@@ -606,7 +669,7 @@ describe("Synthesizer sparse-rhythm indexing characterization", () => {
       FakeOscillatorNode.instances.map(({ options }) => options.frequency),
     ).toEqual([
       midiToFrequency(resolver.resolve(0, 0)),
-      midiToFrequency(resolver.resolve(0, 2)),
+      midiToFrequency(resolver.resolve(0, 1)),
     ]);
     expect(
       FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
@@ -806,6 +869,71 @@ describe("Synthesizer MIDI output submission", () => {
       startTime: 10,
       endTime: 12,
     });
+  });
+
+  it("matches local note, gain, and mask timing under a random mask", () => {
+    const scheduleNote = vi.fn();
+    const notes = randomValues([60, 64, 67]);
+    const noteResolver = new RandomResolver(notes);
+    const gain = {
+      ...makeEnvelope(),
+      max: staticCycle([0.25, 0.75, 0.5]),
+    } satisfies EnvelopeSchema;
+    const synth = new Synthesizer(
+      new FakeAudioContext() as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(staticParam(0), {
+          notes,
+          mask: randomMask(),
+          gain,
+          notesOut: { type: "midi-out", channel: 2 },
+        }),
+        midiOutputScheduler: {
+          scheduleNote,
+        } as unknown as MidiOutputScheduler,
+      },
+    );
+
+    synth.scheduleBar(0, 10);
+
+    const resolvedNotes = [
+      noteResolver.resolve(0, 0),
+      noteResolver.resolve(0, 1),
+    ];
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.frequency),
+    ).toEqual(resolvedNotes.map(midiToFrequency));
+    expect(
+      FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
+    ).toEqual([10, 11]);
+
+    const voiceGains = FakeGainNode.instances.filter(
+      ({ gain: { linearRampToValueAtTime } }) =>
+        linearRampToValueAtTime.mock.calls.length > 0,
+    );
+    expect(
+      voiceGains.map(
+        ({ gain: { linearRampToValueAtTime } }) =>
+          linearRampToValueAtTime.mock.calls[0][0],
+      ),
+    ).toEqual([0.25, 0.75]);
+    expect(scheduleNote.mock.calls.map(([submission]) => submission)).toEqual([
+      {
+        channel: 2,
+        note: resolvedNotes[0],
+        velocity: 32,
+        startTime: 10,
+        endTime: 10.5,
+      },
+      {
+        channel: 2,
+        note: resolvedNotes[1],
+        velocity: 95,
+        startTime: 11,
+        endTime: 11.5,
+      },
+    ]);
   });
 
   it("clamps velocity and skips zero-velocity output without skipping local audio", () => {
