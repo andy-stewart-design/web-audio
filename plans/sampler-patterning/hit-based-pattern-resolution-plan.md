@@ -355,11 +355,11 @@ The note-event resolver owns mask eligibility, source-onset cycling, chord group
 
 **Acceptance criteria:**
 
-- [ ] `.notes([60, 64]).euclid(2, 4)` schedules `60` and `64` at grid positions `0` and `2`.
-- [ ] A two-step gain pattern resolves values `0` and `1` for those hits, not grid-addressed values `0` and `2`.
-- [ ] Detune, all gain-envelope components, and event-created effect parameters use the same hit index.
-- [ ] Static source onset groups wrap over longer masks.
-- [ ] Polyphonic source steps remain polyphonic under a mask.
+- [x] `.notes([60, 64]).euclid(2, 4)` schedules `60` and `64` at grid positions `0` and `2`.
+- [x] A two-step gain pattern resolves values `0` and `1` for those hits, not grid-addressed values `0` and `2`.
+- [x] Detune, all gain-envelope components, and event-created effect parameters use the same hit index.
+- [x] Static source onset groups wrap over longer masks.
+- [x] Polyphonic source steps remain polyphonic under a mask.
 
 ### Step 3.3 — Migrate random-mask scheduling and MIDI output
 

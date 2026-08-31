@@ -565,37 +565,55 @@ describe("Synthesizer sparse-rhythm indexing characterization", () => {
     ).toEqual([10, 11]);
   });
 
-  it.each([
-    ["static", sparseMask()],
-    ["random", randomMask()],
-  ])(
-    "resolves random notes at the current grid indices under a %s mask",
-    (_maskType, mask) => {
-      const notes = randomValues([60, 64, 67]);
-      const resolver = new RandomResolver(notes);
-      const synth = new Synthesizer(
-        new FakeAudioContext() as unknown as AudioContext,
-        { barDuration: 2 } as AudioClock,
-        { schema: makeSchema(staticParam(0), { notes, mask }) },
-      );
+  it("resolves random notes by hit index under a static mask", () => {
+    const notes = randomValues([60, 64, 67]);
+    const resolver = new RandomResolver(notes);
+    const synth = new Synthesizer(
+      new FakeAudioContext() as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(staticParam(0), { notes, mask: sparseMask() }),
+      },
+    );
 
-      synth.scheduleBar(0, 10);
+    synth.scheduleBar(0, 10);
 
-      // This is the pre-migration behavior. Phase 3 intentionally changes the
-      // second lookup from grid index 2 to hit index 1 without changing timing.
-      expect(
-        FakeOscillatorNode.instances.map(({ options }) => options.frequency),
-      ).toEqual([
-        midiToFrequency(resolver.resolve(0, 0)),
-        midiToFrequency(resolver.resolve(0, 2)),
-      ]);
-      expect(
-        FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
-      ).toEqual([10, 11]);
-    },
-  );
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.frequency),
+    ).toEqual([
+      midiToFrequency(resolver.resolve(0, 0)),
+      midiToFrequency(resolver.resolve(0, 1)),
+    ]);
+    expect(
+      FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
+    ).toEqual([10, 11]);
+  });
 
-  it("uses grid indices for current synth event parameters while retaining sparse timing", () => {
+  it("retains grid-addressed random notes under a random mask before Step 3.3", () => {
+    const notes = randomValues([60, 64, 67]);
+    const resolver = new RandomResolver(notes);
+    const synth = new Synthesizer(
+      new FakeAudioContext() as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(staticParam(0), { notes, mask: randomMask() }),
+      },
+    );
+
+    synth.scheduleBar(0, 10);
+
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.frequency),
+    ).toEqual([
+      midiToFrequency(resolver.resolve(0, 0)),
+      midiToFrequency(resolver.resolve(0, 2)),
+    ]);
+    expect(
+      FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
+    ).toEqual([10, 11]);
+  });
+
+  it("uses hit indices for static-masked event parameters while retaining sparse timing", () => {
     const gain: EnvelopeSchema = {
       min: 0,
       max: staticCycle([0.2, 0.4, 0.6]),
@@ -623,13 +641,13 @@ describe("Synthesizer sparse-rhythm indexing characterization", () => {
 
     expect(
       FakeOscillatorNode.instances.map(({ options }) => options.detune),
-    ).toEqual([10, 30]);
+    ).toEqual([10, 20]);
     expect(
       FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
     ).toEqual([10, 11]);
     expect(
       FakeOscillatorNode.instances.map(({ stop }) => stop.mock.calls[0][0]),
-    ).toEqual([expect.closeTo(10.6), expect.closeTo(11.7)]);
+    ).toEqual([expect.closeTo(10.6), expect.closeTo(11.65)]);
 
     const voiceGains = FakeGainNode.instances.filter(
       ({ gain: { linearRampToValueAtTime } }) =>
@@ -639,13 +657,13 @@ describe("Synthesizer sparse-rhythm indexing characterization", () => {
       voiceGains.map(({ gain }) => gain.linearRampToValueAtTime.mock.calls[0]),
     ).toEqual([
       [0.2, 10.05],
-      [0.6, 11.15],
+      [0.4, 11.1],
     ]);
     expect(
       voiceGains.map(({ gain }) => gain.linearRampToValueAtTime.mock.calls[1]),
     ).toEqual([
       [0.1, expect.closeTo(10.1)],
-      [0.42, expect.closeTo(11.3)],
+      [0.24, expect.closeTo(11.2)],
     ]);
     expect(
       FakeBiquadFilterNode.instances.map(
@@ -653,11 +671,11 @@ describe("Synthesizer sparse-rhythm indexing characterization", () => {
       ),
     ).toEqual([
       [100, 10],
-      [300, 11],
+      [200, 11],
     ]);
   });
 
-  it("selects flattened chord voices across mask hits in the current scheduler", () => {
+  it("preserves polyphonic source onsets across static mask hits", () => {
     const notes: StaticSchema = {
       type: "static",
       polyphonic: true,
@@ -669,27 +687,53 @@ describe("Synthesizer sparse-rhythm indexing characterization", () => {
         ],
       ],
     };
+    const gain = {
+      ...makeEnvelope(),
+      max: staticCycle([0.2, 0.4]),
+    } satisfies EnvelopeSchema;
     const synth = new Synthesizer(
       new FakeAudioContext() as unknown as AudioContext,
       { barDuration: 2 } as AudioClock,
       {
-        schema: makeSchema(staticParam(0), { notes, mask: sparseMask() }),
+        schema: makeSchema(staticCycle([10, 20]), {
+          notes,
+          mask: sparseMask(),
+          gain,
+          effects: [lowpassEffect(staticCycle([100, 200]))],
+        }),
       },
     );
 
     synth.scheduleBar(0, 10);
 
-    // Phase 3 intentionally changes this to preserve the first chord at hit 0
-    // and schedule 67 at hit 1. Timing remains at grid positions 0 and 2.
     expect(
       FakeOscillatorNode.instances.map(({ options }) => options.frequency),
-    ).toEqual([midiToFrequency(60), midiToFrequency(64)]);
+    ).toEqual([midiToFrequency(60), midiToFrequency(64), midiToFrequency(67)]);
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.detune),
+    ).toEqual([10, 10, 20]);
     expect(
       FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
-    ).toEqual([10, 11]);
+    ).toEqual([10, 10, 11]);
+
+    const voiceGains = FakeGainNode.instances.filter(
+      ({ gain: { linearRampToValueAtTime } }) =>
+        linearRampToValueAtTime.mock.calls.length > 0,
+    );
+    expect(
+      voiceGains.map(
+        ({ gain: { linearRampToValueAtTime } }) =>
+          linearRampToValueAtTime.mock.calls[0][0],
+      ),
+    ).toEqual([0.2, 0.2, 0.4]);
+    expect(
+      FakeBiquadFilterNode.instances.map(
+        ({ frequency }) => frequency.setValueAtTime.mock.calls[0][0],
+      ),
+    ).toEqual([100, 100, 200]);
   });
 
-  it("selects value bars by bar index and values by sparse grid index", () => {
+  it("selects value bars by bar index and values by hit index", () => {
     const mask: StaticSchema = {
       type: "static",
       polyphonic: false,
@@ -725,7 +769,7 @@ describe("Synthesizer sparse-rhythm indexing characterization", () => {
 
     expect(
       FakeOscillatorNode.instances.map(({ options }) => options.detune),
-    ).toEqual([10, 30, 50, 70]);
+    ).toEqual([10, 20, 40, 50]);
     expect(
       FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
     ).toEqual([0, 1, 2.5, 3.5]);

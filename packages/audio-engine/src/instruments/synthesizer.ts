@@ -34,14 +34,14 @@ class Synthesizer extends Instrument {
   scheduleBar(barIndex: number, barStartTime: number): void {
     this._updateLfoParams(barIndex, barStartTime);
 
-    if (this._schema.notes.mask) {
-      this._scheduleMaskedBar(barIndex, barStartTime);
+    if (this._schema.notes.mask?.type === "random") {
+      this._scheduleRandomMaskedBar(barIndex, barStartTime);
     } else {
-      this._scheduleUnmaskedBar(barIndex, barStartTime);
+      this._scheduleResolvedBar(barIndex, barStartTime);
     }
   }
 
-  private _scheduleUnmaskedBar(barIndex: number, barStartTime: number) {
+  private _scheduleResolvedBar(barIndex: number, barStartTime: number) {
     const events = resolveNoteEvents({
       notes: this._schema.notes,
       barIndex,
@@ -66,14 +66,11 @@ class Synthesizer extends Instrument {
     }
   }
 
-  private _scheduleMaskedBar(barIndex: number, barStartTime: number) {
+  private _scheduleRandomMaskedBar(barIndex: number, barStartTime: number) {
     const mask = this._schema.notes.mask;
-    if (!mask) return;
+    if (mask?.type !== "random") return;
 
-    const maskBar =
-      mask.type === "random"
-        ? mask.grid.cycle[barIndex % mask.grid.cycle.length]
-        : mask.cycle[barIndex % mask.cycle.length];
+    const maskBar = mask.grid.cycle[barIndex % mask.grid.cycle.length];
     const notes = this._schema.notes.source;
     const notesBar =
       notes.type === "static"
@@ -83,12 +80,7 @@ class Synthesizer extends Instrument {
 
     let emittedIndex = 0;
     for (const maskStep of maskBar) {
-      if (
-        mask.type === "random" &&
-        this._resolve(mask, barIndex, maskStep.stepIndex) === 0
-      ) {
-        continue;
-      }
+      if (this._resolve(mask, barIndex, maskStep.stepIndex) === 0) continue;
 
       const midiNote = notesBar
         ? notesBar[emittedIndex++ % notesBar.length].value
@@ -105,8 +97,8 @@ class Synthesizer extends Instrument {
     note: StaticSchemaValue,
     barStartTime: number,
     barIndex: number,
-    // The masked scheduler keeps its existing grid-addressed fallback until
-    // Step 3.2 migrates it to the shared note-event resolver.
+    // The random-mask scheduler keeps its existing grid-addressed fallback
+    // until Step 3.3 migrates it to the shared note-event resolver.
     hitIndex = note.stepIndex,
   ): void {
     const barDuration = this._clock.barDuration;
