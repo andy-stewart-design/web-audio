@@ -446,13 +446,15 @@ Requirements:
 - Audit whether `globalStepIndex` remains useful for geometry; remove it only if no consumer needs it after companion normalization.
 - Keep generated fit-only region behavior equivalent.
 
+Audit result: generated note geometry is fully represented by bar-local `offset`, `duration`, and `stepIndex`. After generated chop sequences were aligned to the same bars, no consumer required global note indices, so the internal `globalStepIndex` option was removed.
+
 **Acceptance criteria:**
 
-- [ ] Generated fit/chop playback selects every intended natural slice once across its generated span.
-- [ ] Value correctness no longer depends on cross-bar/global note `stepIndex` lookup.
-- [ ] Authored one-bar and multi-bar chop sequences retain their documented syntax.
-- [ ] No public sampler schema fields change.
-- [ ] Fluid tests, check, and lint pass.
+- [x] Generated fit/chop playback selects every intended natural slice once across its generated span.
+- [x] Value correctness no longer depends on cross-bar/global note `stepIndex` lookup.
+- [x] Authored one-bar and multi-bar chop sequences retain their documented syntax.
+- [x] No public sampler schema fields change.
+- [x] Fluid tests, check, and lint pass.
 
 ---
 

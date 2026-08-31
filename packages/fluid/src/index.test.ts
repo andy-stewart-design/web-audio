@@ -49,7 +49,7 @@ function getStaticChopFixture(schema: SamplerSchema) {
     noteBars,
     sequenceBars,
     slices: region.slices,
-    globalStepSliceOrder: resolveSliceOrder((stepIndex) => stepIndex),
+    stepIndexSliceOrder: resolveSliceOrder((stepIndex) => stepIndex),
     barLocalHitSliceOrder: resolveSliceOrder(
       (_stepIndex, hitIndex) => hitIndex,
     ),
@@ -1062,18 +1062,21 @@ describe("Drome", () => {
             { offset: 0.5, duration: 0.5, stepIndex: 1 },
           ],
           [
-            { offset: 0, duration: 0.5, stepIndex: 2 },
-            { offset: 0.5, duration: 0.5, stepIndex: 3 },
+            { offset: 0, duration: 0.5, stepIndex: 0 },
+            { offset: 0.5, duration: 0.5, stepIndex: 1 },
           ],
         ],
-        expectedSequence: [0, 1, 2, 3],
-        expectedGlobalOrder: [
+        expectedSequenceBars: [
+          [0, 1],
+          [2, 3],
+        ],
+        expectedStepIndexOrder: [
           [0, 1],
           [2, 3],
         ],
         expectedBarLocalOrder: [
           [0, 1],
-          [0, 1],
+          [2, 3],
         ],
       },
       {
@@ -1086,20 +1089,23 @@ describe("Drome", () => {
             { offset: 0.75, duration: 0.25, stepIndex: 3 },
           ],
           [
-            { offset: 0, duration: 0.25, stepIndex: 4 },
-            { offset: 0.25, duration: 0.25, stepIndex: 5 },
-            { offset: 0.5, duration: 0.25, stepIndex: 6 },
-            { offset: 0.75, duration: 0.25, stepIndex: 7 },
+            { offset: 0, duration: 0.25, stepIndex: 0 },
+            { offset: 0.25, duration: 0.25, stepIndex: 1 },
+            { offset: 0.5, duration: 0.25, stepIndex: 2 },
+            { offset: 0.75, duration: 0.25, stepIndex: 3 },
           ],
         ],
-        expectedSequence: [0, 1, 2, 3, 4, 5, 6, 7],
-        expectedGlobalOrder: [
+        expectedSequenceBars: [
+          [0, 1, 2, 3],
+          [4, 5, 6, 7],
+        ],
+        expectedStepIndexOrder: [
           [0, 1, 2, 3],
           [4, 5, 6, 7],
         ],
         expectedBarLocalOrder: [
           [0, 1, 2, 3],
-          [0, 1, 2, 3],
+          [4, 5, 6, 7],
         ],
       },
     ])(
@@ -1107,8 +1113,8 @@ describe("Drome", () => {
       ({
         sliceCount,
         expectedNoteBars,
-        expectedSequence,
-        expectedGlobalOrder,
+        expectedSequenceBars,
+        expectedStepIndexOrder,
         expectedBarLocalOrder,
       }) => {
         const d = new Drome();
@@ -1117,8 +1123,8 @@ describe("Drome", () => {
 
         expect(fixture.noteBars).toEqual(expectedNoteBars);
         expect(fixture.slices).toHaveLength(sliceCount);
-        expect(fixture.sequenceBars).toEqual([expectedSequence]);
-        expect(fixture.globalStepSliceOrder).toEqual(expectedGlobalOrder);
+        expect(fixture.sequenceBars).toEqual(expectedSequenceBars);
+        expect(fixture.stepIndexSliceOrder).toEqual(expectedStepIndexOrder);
         expect(fixture.barLocalHitSliceOrder).toEqual(expectedBarLocalOrder);
       },
     );
@@ -1135,12 +1141,15 @@ describe("Drome", () => {
         d.sample("bd").fit(2).chop(8, [0, 2], [1, 3]).getSchema(),
       );
 
-      expect(generated.sequenceBars).toEqual([[0, 1, 2, 3, 4, 5, 6, 7]]);
+      expect(generated.sequenceBars).toEqual([
+        [0, 1, 2, 3],
+        [4, 5, 6, 7],
+      ]);
       expect(
         generated.noteBars.map((bar) => bar.map((note) => note.stepIndex)),
       ).toEqual([
         [0, 1, 2, 3],
-        [4, 5, 6, 7],
+        [0, 1, 2, 3],
       ]);
       expect(authoredOneBar.sequenceBars).toEqual([[0, 2, 1, 3]]);
       expect(authoredOneBar.noteBars).toHaveLength(1);
@@ -1175,7 +1184,7 @@ describe("Drome", () => {
         ]);
         expect(
           inst.notes.source.cycle.flat().map((step) => step.stepIndex),
-        ).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+        ).toEqual([0, 1, 2, 3, 0, 1, 2, 3]);
       }
       expect(inst.region?.type).toBe("chop");
       if (inst.region?.type === "chop") {

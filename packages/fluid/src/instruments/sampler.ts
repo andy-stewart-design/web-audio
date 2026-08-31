@@ -195,7 +195,6 @@ class Sampler extends Instrument {
           noteValue,
           this._chop.sliceCount,
           this._fit?.bars ?? 1,
-          { globalStepIndex: true },
         );
       }
     }
@@ -218,6 +217,7 @@ class Sampler extends Instrument {
     const region = getRegion({
       fitSchema: this._getGeneratedFit(),
       chopState: this._chop,
+      chopBars: this._fit?.bars ?? 1,
       region: this._region,
     });
 
