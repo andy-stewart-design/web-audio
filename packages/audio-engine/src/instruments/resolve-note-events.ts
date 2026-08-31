@@ -6,7 +6,7 @@ import type {
 } from "@web-audio/schema";
 import { getStaticOnsetForHit, groupStaticOnsets } from "./static-onsets";
 
-interface MaterializedBarEvent {
+interface ResolvedNoteEvent {
   hitIndex: number;
   gridStepIndex: number;
   offset: number;
@@ -14,16 +14,16 @@ interface MaterializedBarEvent {
   voices: number[];
 }
 
-type ParameterResolver = (
+type ParameterValueResolver = (
   schema: ParameterSchema,
   barIndex: number,
   valueIndex: number,
 ) => number;
 
-interface MaterializeBarEventsOptions {
+interface ResolveNoteEventsOptions {
   notes: NotesSchema;
   barIndex: number;
-  resolve: ParameterResolver;
+  resolveValue: ParameterValueResolver;
 }
 
 function getBar(schema: StaticSchema, barIndex: number) {
@@ -31,7 +31,7 @@ function getBar(schema: StaticSchema, barIndex: number) {
   return schema.cycle[barIndex % schema.cycle.length] ?? [];
 }
 
-function materializeEvent(
+function resolveEvent(
   geometry: StaticSchemaValue,
   hitIndex: number,
   voices: number[],
@@ -42,14 +42,14 @@ function materializeEvent(
     offset: geometry.offset,
     duration: geometry.duration,
     voices,
-  } satisfies MaterializedBarEvent;
+  } satisfies ResolvedNoteEvent;
 }
 
-function materializeBarEvents({
+function resolveNoteEvents({
   notes,
   barIndex,
-  resolve,
-}: MaterializeBarEventsOptions) {
+  resolveValue,
+}: ResolveNoteEventsOptions) {
   const source = notes.source;
   const sourceBar =
     source.type === "static"
@@ -64,7 +64,7 @@ function materializeBarEvents({
   if (!mask) {
     if (sourceGroups) {
       return sourceGroups.map((group) =>
-        materializeEvent(
+        resolveEvent(
           group.voices[0],
           group.hitIndex,
           group.voices.map(({ value }) => value),
@@ -72,13 +72,13 @@ function materializeBarEvents({
       );
     }
 
-    const events: MaterializedBarEvent[] = [];
+    const events: ResolvedNoteEvent[] = [];
     for (const geometry of sourceBar) {
       if (geometry.value === 0) continue;
       const hitIndex = events.length;
       events.push(
-        materializeEvent(geometry, hitIndex, [
-          resolve(source, barIndex, hitIndex),
+        resolveEvent(geometry, hitIndex, [
+          resolveValue(source, barIndex, hitIndex),
         ]),
       );
     }
@@ -91,13 +91,13 @@ function materializeBarEvents({
     mask.type === "static"
       ? getBar(mask, barIndex)
       : getBar(mask.grid, barIndex);
-  const events: MaterializedBarEvent[] = [];
+  const events: ResolvedNoteEvent[] = [];
 
   for (const geometry of maskBar) {
     if (geometry.value === 0) continue;
     if (
       mask.type === "random" &&
-      resolve(mask, barIndex, geometry.stepIndex) === 0
+      resolveValue(mask, barIndex, geometry.stepIndex) === 0
     ) {
       continue;
     }
@@ -108,16 +108,16 @@ function materializeBarEvents({
       : null;
     const voices = sourceOnset
       ? sourceOnset.voices.map(({ value }) => value)
-      : [resolve(source, barIndex, hitIndex)];
-    events.push(materializeEvent(geometry, hitIndex, voices));
+      : [resolveValue(source, barIndex, hitIndex)];
+    events.push(resolveEvent(geometry, hitIndex, voices));
   }
 
   return events;
 }
 
-export { materializeBarEvents };
+export { resolveNoteEvents };
 export type {
-  MaterializedBarEvent,
-  MaterializeBarEventsOptions,
-  ParameterResolver,
+  ParameterValueResolver,
+  ResolvedNoteEvent,
+  ResolveNoteEventsOptions,
 };

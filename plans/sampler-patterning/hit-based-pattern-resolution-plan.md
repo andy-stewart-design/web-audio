@@ -143,7 +143,7 @@ Also identify generated Fluid schemas that rely on global or sparse note `stepIn
 
 ## Phase 2 — Establish the shared runtime event model
 
-Tracer bullet: one shared materialization path can turn static or dynamic note/mask schemas into bar-local hits with distinct hit and grid indices, without changing public schemas.
+Tracer bullet: one shared note-event resolution path can turn static or dynamic note/mask schemas into bar-local hits with distinct hit and grid indices, without changing public schemas.
 
 ### Step 2.1 — Add an explicit internal event context
 
@@ -226,19 +226,19 @@ For a masked static source, source onset groups must cycle across active mask hi
 - [x] Empty bars are handled without errors.
 - [x] Source onset groups can wrap across a longer active mask.
 
-### Step 2.3 — Add a shared bar-event materializer
+### Step 2.3 — Add a shared note-event resolver
 
 **Files:**
 
-- likely `packages/audio-engine/src/instruments/materialize-bar-events.ts`
-- `packages/audio-engine/src/instruments/materialize-bar-events.test.ts`
+- likely `packages/audio-engine/src/instruments/resolve-note-events.ts`
+- `packages/audio-engine/src/instruments/resolve-note-events.test.ts`
 - `packages/audio-engine/src/instruments/static-onsets.ts`
 - shared internal types only if useful
 
-Create one instrument-agnostic runtime helper that consumes a `NotesSchema`, a `barIndex`, and a supplied parameter-resolution callback. It should produce materialized onset events containing, conceptually:
+Create one instrument-agnostic `resolveNoteEvents()` helper that consumes a `NotesSchema`, a `barIndex`, and a supplied parameter-value resolver callback. It should produce resolved note events containing, conceptually:
 
 ```ts
-interface MaterializedBarEvent {
+interface ResolvedNoteEvent {
   hitIndex: number;
   gridStepIndex: number;
   offset: number;
@@ -249,7 +249,7 @@ interface MaterializedBarEvent {
 
 The exact internal shape may differ, but it must provide enough information for synth and sampler schedulers to construct `EventScheduleContext` and schedule every voice without reimplementing onset enumeration.
 
-The materializer owns only runtime onset/note materialization:
+The note-event resolver owns only runtime onset/note resolution:
 
 - select the current source and mask bars;
 - resolve random-mask eligibility through the supplied resolver;
@@ -267,27 +267,27 @@ It must not resolve:
 - LFO, MIDI CC, routing, or bus state;
 - sampler onset-authority or Fluid defaults.
 
-The supplied resolver keeps random state and schema resolution owned by the existing runtime instrument infrastructure. The materializer chooses whether to call it with grid index for mask eligibility or hit index for note values.
+The supplied value resolver keeps random state and schema resolution owned by the existing runtime instrument infrastructure. The note-event resolver chooses whether to call it with grid index for mask eligibility or hit index for note values.
 
 Requirements:
 
 - Static and random masks use the same post-eligibility hit enumeration.
 - Random-mask misses do not consume hit indices.
 - Static and random note values follow the same hit-addressing rule.
-- Chord voices share one materialized event and preserve voice order.
+- Chord voices share one resolved note event and preserve voice order.
 - The helper does not mutate source or mask schemas.
-- Synth and sampler must be able to consume the same output without instrument-specific branches inside the materializer.
+- Synth and sampler must be able to consume the same output without instrument-specific branches inside the note-event resolver.
 
 **Acceptance criteria:**
 
-- [x] Dense and sparse unmasked static notes materialize with consecutive hit indices.
-- [x] Static chords materialize as one event with multiple ordered voices.
+- [x] Dense and sparse unmasked static notes resolve with consecutive hit indices.
+- [x] Static chords resolve as one event with multiple ordered voices.
 - [x] Static masks preserve grid timing while cycling source onset groups by hit.
 - [x] Random-mask misses consume no hit indices.
 - [x] Random notes resolve by hit index under both static and random masks.
 - [x] Multi-bar source/mask selection uses `barIndex` while hit indices restart per bar.
-- [x] Empty source and mask bars materialize no events.
-- [x] Materializer tests prove schema inputs are not mutated.
+- [x] Empty source and mask bars resolve to no events.
+- [x] Note-event resolver tests prove schema inputs are not mutated.
 
 ### Step 2.4 — Preserve schema and pattern-package boundaries
 
@@ -323,24 +323,24 @@ Tracer bullet: synth notes and every event-created synth value lane advance by s
 - `packages/audio-engine/src/instruments/synthesizer.ts`
 - `packages/audio-engine/src/instruments/synthesizer.test.ts`
 
-Replace the unmasked static and random scheduling branches with consumption of the shared bar-event materializer.
+Resolve unmasked static and random notes through the shared note-event resolver.
 
-For each materialized event:
+For each resolved note event:
 
 - construct one `EventScheduleContext` from its hit index and grid geometry;
-- schedule every materialized voice with that same context;
-- retain the materialized offset and duration;
+- schedule every resolved voice with that same context;
+- retain the resolved offset and duration;
 - do not regroup notes or assign hit indices inside `Synthesizer`.
 
-The synthesizer supplies its existing `_resolve()` behavior to the materializer so random state remains instrument-owned.
+The synthesizer supplies its existing `_resolve()` behavior as the note-event resolver's value-resolution callback so random state remains instrument-owned.
 
 **Acceptance criteria:**
 
-- [ ] Dense unmasked synth output remains unchanged.
-- [ ] Sparse unmasked/custom schemas resolve event parameters by hit order rather than grid `stepIndex`.
-- [ ] Random structural rests do not consume random note or parameter values.
-- [ ] Chord voices share gain, envelope, detune, and effect values.
-- [ ] Chords advance the next hit index once, regardless of voice count.
+- [x] Dense unmasked synth output remains unchanged.
+- [x] Sparse unmasked/custom schemas resolve event parameters by hit order rather than grid `stepIndex`.
+- [x] Random structural rests do not consume random note or parameter values.
+- [x] Chord voices share gain, envelope, detune, and effect values.
+- [x] Chords advance the next hit index once, regardless of voice count.
 
 ### Step 3.2 — Migrate static-mask scheduling
 
@@ -349,9 +349,9 @@ The synthesizer supplies its existing `_resolve()` behavior to the materializer 
 - `packages/audio-engine/src/instruments/synthesizer.ts`
 - `packages/audio-engine/src/instruments/synthesizer.test.ts`
 
-Remove the synthesizer's current mixed `emittedIndex`/`maskStep.stepIndex` loop and consume the same materialized events as the unmasked path.
+Remove the synthesizer's current mixed `emittedIndex`/`maskStep.stepIndex` loop and consume the same resolved note events as the unmasked path.
 
-The materializer owns mask eligibility, source-onset cycling, chord grouping, and hit numbering. `Synthesizer` owns oscillator creation, MIDI output submission, and passing each materialized event's context into shared event-addressed parameter resolution.
+The note-event resolver owns mask eligibility, source-onset cycling, chord grouping, and hit numbering. `Synthesizer` owns oscillator creation, MIDI output submission, and passing each resolved note event's context into shared event-addressed parameter resolution.
 
 **Acceptance criteria:**
 
@@ -369,9 +369,9 @@ The materializer owns mask eligibility, source-onset cycling, chord grouping, an
 - `packages/audio-engine/src/instruments/synthesizer.test.ts`
 - `packages/audio-engine/src/midi-output-scheduler.ts` only if test plumbing requires it; no semantic redesign expected
 
-Supply the materializer with the synth's resolver callback so random-mask eligibility remains grid-addressed while random note values become hit-addressed.
+Supply the note-event resolver with the synth's value-resolution callback so random-mask eligibility remains grid-addressed while random note values become hit-addressed.
 
-Ensure MIDI note output uses the same materialized note event and hit-addressed gain as local audio. Do not add a separate MIDI indexing or onset-enumeration path.
+Ensure MIDI note output uses the same resolved note event and hit-addressed gain as local audio. Do not add a separate MIDI indexing or onset-enumeration path.
 
 **Acceptance criteria:**
 
@@ -467,16 +467,16 @@ Tracer bullet: sampler notes, variation, regions, and all shared event parameter
 - `packages/audio-engine/src/instruments/sampler.ts`
 - `packages/audio-engine/src/instruments/sampler.test.ts`
 
-Replace the sampler's static, random, and masked onset loops with consumption of the shared bar-event materializer already used by the synth.
+Resolve the sampler's static, random, and masked notes through the shared note-event resolver already used by the synth.
 
-For each materialized event:
+For each resolved note event:
 
 - pass both hit and grid indices into sample-event scheduling;
-- schedule every materialized voice with the same event context;
-- retain materialized timing geometry;
+- schedule every resolved voice with the same event context;
+- retain resolved event timing geometry;
 - do not regroup notes, resolve mask eligibility, or assign hit indices inside `Sampler`.
 
-The sampler supplies its existing `_resolve()` behavior to the materializer so random state remains instrument-owned. Do not overwrite serialized grid `stepIndex` metadata.
+The sampler supplies its existing `_resolve()` behavior as the note-event resolver's value-resolution callback so random state remains instrument-owned. Do not overwrite serialized grid `stepIndex` metadata.
 
 **Acceptance criteria:**
 
@@ -600,7 +600,7 @@ Tracer bullet: static/random, single/multi-bar, masked/unmasked, and polyphonic 
 - `packages/audio-engine/src/instruments/synthesizer.test.ts`
 - `packages/audio-engine/src/instruments/sampler.test.ts`
 - `packages/audio-engine/src/instruments/instrument.test.ts`
-- `packages/audio-engine/src/instruments/materialize-bar-events.test.ts`
+- `packages/audio-engine/src/instruments/resolve-note-events.test.ts`
 - `packages/fluid/src/index.test.ts` where generated schema is part of the case
 
 Cover the cross-product selectively rather than duplicating every lane in every mode:
@@ -823,8 +823,8 @@ This prerequisite is complete when:
 ## Recommended commit sequence
 
 1. **Characterization fixtures and index-consumer audit**
-2. **Internal event context, static-onset grouping, and bar-event materialization**
-3. **Synth consumption of materialized hit-based events**
+2. **Internal event context, static-onset grouping, and note-event resolution**
+3. **Synth consumption of resolved hit-based note events**
 4. **Fluid generated multi-bar companion normalization**
 5. **Sampler hit-based scheduling**
 6. **Random/failure/polyphony integration hardening**

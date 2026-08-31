@@ -6,7 +6,7 @@ import type {
   StaticSchema,
   StaticSchemaValue,
 } from "@web-audio/schema";
-import { materializeBarEvents } from "./materialize-bar-events";
+import { resolveNoteEvents } from "./resolve-note-events";
 
 function step(
   value: number,
@@ -33,7 +33,7 @@ function randomSchema(grid: StaticSchema) {
   } satisfies RandomSchema;
 }
 
-function summarize(events: ReturnType<typeof materializeBarEvents>) {
+function summarize(events: ReturnType<typeof resolveNoteEvents>) {
   return events.map(
     ({ hitIndex, gridStepIndex, offset, duration, voices }) => ({
       hitIndex,
@@ -49,7 +49,7 @@ const unusedResolver = () => {
   throw new Error("resolver should not be called");
 };
 
-describe("materializeBarEvents static sources", () => {
+describe("resolveNoteEvents static sources", () => {
   it.each([
     {
       label: "dense",
@@ -91,17 +91,17 @@ describe("materializeBarEvents static sources", () => {
         },
       ],
     },
-  ])("materializes $label unmasked notes", ({ bar, expected }) => {
+  ])("resolves $label unmasked notes", ({ bar, expected }) => {
     const notes = { source: staticSchema([bar]) } satisfies NotesSchema;
 
     expect(
       summarize(
-        materializeBarEvents({ notes, barIndex: 0, resolve: unusedResolver }),
+        resolveNoteEvents({ notes, barIndex: 0, resolveValue: unusedResolver }),
       ),
     ).toEqual(expected);
   });
 
-  it("materializes a chord as one ordered multi-voice event", () => {
+  it("resolves a chord as one ordered multi-voice event", () => {
     const notes = {
       source: staticSchema(
         [[step(60, 0, 0, 0.5), step(64, 0, 0, 0.5), step(67, 1, 0.5, 0.5)]],
@@ -111,7 +111,7 @@ describe("materializeBarEvents static sources", () => {
 
     expect(
       summarize(
-        materializeBarEvents({ notes, barIndex: 0, resolve: unusedResolver }),
+        resolveNoteEvents({ notes, barIndex: 0, resolveValue: unusedResolver }),
       ),
     ).toEqual([
       {
@@ -142,7 +142,7 @@ describe("materializeBarEvents static sources", () => {
 
     expect(
       summarize(
-        materializeBarEvents({ notes, barIndex: 0, resolve: unusedResolver }),
+        resolveNoteEvents({ notes, barIndex: 0, resolveValue: unusedResolver }),
       ),
     ).toEqual([
       {
@@ -183,7 +183,7 @@ describe("materializeBarEvents static sources", () => {
 
     expect(
       summarize(
-        materializeBarEvents({ notes, barIndex: 1, resolve: unusedResolver }),
+        resolveNoteEvents({ notes, barIndex: 1, resolveValue: unusedResolver }),
       ),
     ).toEqual([
       {
@@ -202,9 +202,11 @@ describe("materializeBarEvents static sources", () => {
       },
     ]);
     expect(
-      materializeBarEvents({ notes, barIndex: 3, resolve: unusedResolver }).map(
-        ({ hitIndex, voices }) => ({ hitIndex, voices }),
-      ),
+      resolveNoteEvents({
+        notes,
+        barIndex: 3,
+        resolveValue: unusedResolver,
+      }).map(({ hitIndex, voices }) => ({ hitIndex, voices })),
     ).toEqual([
       { hitIndex: 0, voices: [60] },
       { hitIndex: 1, voices: [64] },
@@ -212,21 +214,21 @@ describe("materializeBarEvents static sources", () => {
   });
 });
 
-describe("materializeBarEvents random eligibility and values", () => {
+describe("resolveNoteEvents random eligibility and values", () => {
   it("does not consume hit indices for random-mask misses", () => {
     const source = staticSchema([[step(60, 0), step(64, 1)]]);
     const mask = randomSchema(
       staticSchema([[step(1, 0), step(1, 1), step(1, 2), step(1, 3)]]),
     );
-    const resolve = vi.fn(
+    const resolveValue = vi.fn(
       (_schema: ParameterSchema, _barIndex: number, valueIndex: number) =>
         valueIndex % 2 === 0 ? 1 : 0,
     );
 
-    const events = materializeBarEvents({
+    const events = resolveNoteEvents({
       notes: { source, mask },
       barIndex: 0,
-      resolve,
+      resolveValue,
     });
 
     expect(summarize(events)).toEqual([
@@ -245,9 +247,9 @@ describe("materializeBarEvents random eligibility and values", () => {
         voices: [64],
       },
     ]);
-    expect(resolve.mock.calls.map(([, , valueIndex]) => valueIndex)).toEqual([
-      0, 1, 2, 3,
-    ]);
+    expect(
+      resolveValue.mock.calls.map(([, , valueIndex]) => valueIndex),
+    ).toEqual([0, 1, 2, 3]);
   });
 
   it.each(["static", "random"] as const)(
@@ -259,17 +261,17 @@ describe("materializeBarEvents random eligibility and values", () => {
       const staticMask = staticSchema([[step(1, 0), step(1, 2)]]);
       const mask =
         maskType === "static" ? staticMask : randomSchema(staticMask);
-      const resolve = vi.fn(
+      const resolveValue = vi.fn(
         (schema: ParameterSchema, _barIndex: number, valueIndex: number) => {
           if (schema === mask) return 1;
           return [60, 64][valueIndex];
         },
       );
 
-      const events = materializeBarEvents({
+      const events = resolveNoteEvents({
         notes: { source, mask },
         barIndex: 0,
-        resolve,
+        resolveValue,
       });
 
       expect(
@@ -283,7 +285,7 @@ describe("materializeBarEvents random eligibility and values", () => {
         { hitIndex: 1, gridStepIndex: 2, voices: [64] },
       ]);
       expect(
-        resolve.mock.calls
+        resolveValue.mock.calls
           .filter(([schema]) => schema === source)
           .map(([, , valueIndex]) => valueIndex),
       ).toEqual([0, 1]);
@@ -294,15 +296,15 @@ describe("materializeBarEvents random eligibility and values", () => {
     const source = randomSchema(
       staticSchema([[step(1, 0), step(0, 1), step(1, 2)]]),
     );
-    const resolve = vi.fn(
+    const resolveValue = vi.fn(
       (_schema: ParameterSchema, _barIndex: number, hitIndex: number) =>
         [60, 64][hitIndex],
     );
 
-    const events = materializeBarEvents({
+    const events = resolveNoteEvents({
       notes: { source },
       barIndex: 0,
-      resolve,
+      resolveValue,
     });
 
     expect(
@@ -315,30 +317,30 @@ describe("materializeBarEvents random eligibility and values", () => {
       { hitIndex: 0, gridStepIndex: 0, voices: [60] },
       { hitIndex: 1, gridStepIndex: 2, voices: [64] },
     ]);
-    expect(resolve.mock.calls.map(([, , hitIndex]) => hitIndex)).toEqual([
+    expect(resolveValue.mock.calls.map(([, , hitIndex]) => hitIndex)).toEqual([
       0, 1,
     ]);
   });
 });
 
-describe("materializeBarEvents empty bars and immutability", () => {
+describe("resolveNoteEvents empty bars and immutability", () => {
   it("returns no events for empty source or mask bars", () => {
     const source = staticSchema([[]]);
     const populatedSource = staticSchema([[step(60, 0)]]);
     const emptyMask = staticSchema([[]]);
 
     expect(
-      materializeBarEvents({
+      resolveNoteEvents({
         notes: { source },
         barIndex: 0,
-        resolve: unusedResolver,
+        resolveValue: unusedResolver,
       }),
     ).toEqual([]);
     expect(
-      materializeBarEvents({
+      resolveNoteEvents({
         notes: { source: populatedSource, mask: emptyMask },
         barIndex: 0,
-        resolve: unusedResolver,
+        resolveValue: unusedResolver,
       }),
     ).toEqual([]);
   });
@@ -349,17 +351,17 @@ describe("materializeBarEvents empty bars and immutability", () => {
     const randomSource = randomSchema(staticSchema([[step(0, 0), step(0, 1)]]));
 
     expect(
-      materializeBarEvents({
+      resolveNoteEvents({
         notes: { source, mask: allRestMask },
         barIndex: 0,
-        resolve: unusedResolver,
+        resolveValue: unusedResolver,
       }),
     ).toEqual([]);
     expect(
-      materializeBarEvents({
+      resolveNoteEvents({
         notes: { source: randomSource },
         barIndex: 0,
-        resolve: unusedResolver,
+        resolveValue: unusedResolver,
       }),
     ).toEqual([]);
   });
@@ -369,10 +371,10 @@ describe("materializeBarEvents empty bars and immutability", () => {
     const mask = staticSchema([[step(1, 0)]]);
 
     expect(
-      materializeBarEvents({
+      resolveNoteEvents({
         notes: { source, mask },
         barIndex: 0,
-        resolve: unusedResolver,
+        resolveValue: unusedResolver,
       }),
     ).toEqual([]);
   });
@@ -387,10 +389,10 @@ describe("materializeBarEvents empty bars and immutability", () => {
     } satisfies NotesSchema;
     const before = structuredClone(notes);
 
-    materializeBarEvents({
+    resolveNoteEvents({
       notes,
       barIndex: 0,
-      resolve: () => 1,
+      resolveValue: () => 1,
     });
 
     expect(notes).toEqual(before);

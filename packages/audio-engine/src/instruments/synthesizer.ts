@@ -1,6 +1,7 @@
 import Instrument, { type InstrumentRouting } from "./instrument";
 import MidiOutputScheduler from "@/midi-output-scheduler";
 import { midiToFrequency } from "@/utils/midi-to-frequency";
+import { resolveNoteEvents } from "./resolve-note-events";
 
 import type { StaticSchemaValue, SynthesizerSchema } from "@web-audio/schema";
 import type AudioClock from "@web-audio/clock";
@@ -35,10 +36,33 @@ class Synthesizer extends Instrument {
 
     if (this._schema.notes.mask) {
       this._scheduleMaskedBar(barIndex, barStartTime);
-    } else if (this._schema.notes.source.type === "random") {
-      this._scheduleRandomBar(barIndex, barStartTime);
     } else {
-      this._scheduleSequenceBar(barIndex, barStartTime);
+      this._scheduleUnmaskedBar(barIndex, barStartTime);
+    }
+  }
+
+  private _scheduleUnmaskedBar(barIndex: number, barStartTime: number) {
+    const events = resolveNoteEvents({
+      notes: this._schema.notes,
+      barIndex,
+      resolveValue: (schema, currentBar, valueIndex) =>
+        this._resolve(schema, currentBar, valueIndex),
+    });
+
+    for (const event of events) {
+      for (const value of event.voices) {
+        this._scheduleSynthNote(
+          {
+            value,
+            offset: event.offset,
+            duration: event.duration,
+            stepIndex: event.gridStepIndex,
+          },
+          barStartTime,
+          barIndex,
+          event.hitIndex,
+        );
+      }
     }
   }
 
@@ -77,36 +101,13 @@ class Synthesizer extends Instrument {
     }
   }
 
-  private _scheduleRandomBar(barIndex: number, barStartTime: number): void {
-    const notes = this._schema.notes.source;
-    if (notes.type !== "random") return;
-
-    const mask = notes.grid.cycle[barIndex % notes.grid.cycle.length];
-    mask.forEach((step, stepIndex) => {
-      if (step.value === 0) return;
-      const midiNote = this._resolve(notes, barIndex, stepIndex);
-      this._scheduleSynthNote(
-        { ...step, value: midiNote },
-        barStartTime,
-        barIndex,
-      );
-    });
-  }
-
-  private _scheduleSequenceBar(barIndex: number, barStartTime: number): void {
-    const notes = this._schema.notes.source;
-    if (notes.type !== "static") return;
-
-    const notesBar = notes.cycle[barIndex % notes.cycle.length];
-    notesBar.forEach((note) => {
-      this._scheduleSynthNote(note, barStartTime, barIndex);
-    });
-  }
-
   private _scheduleSynthNote(
     note: StaticSchemaValue,
     barStartTime: number,
     barIndex: number,
+    // The masked scheduler keeps its existing grid-addressed fallback until
+    // Step 3.2 migrates it to the shared note-event resolver.
+    hitIndex = note.stepIndex,
   ): void {
     const barDuration = this._clock.barDuration;
     const startTime = barStartTime + note.offset * barDuration;
@@ -114,9 +115,7 @@ class Synthesizer extends Instrument {
     const endTime = startTime + duration;
     const event = {
       barIndex,
-      // Until synth hit enumeration lands in Phase 3, preserve current value
-      // addressing by using the serialized grid index for both positions.
-      hitIndex: note.stepIndex,
+      hitIndex,
       gridStepIndex: note.stepIndex,
       startTime,
       duration,

@@ -266,6 +266,191 @@ describe("Synthesizer._resolveDetune", () => {
   });
 });
 
+describe("Synthesizer unmasked hit-based scheduling", () => {
+  it("addresses event parameters by hit while preserving sparse grid timing", () => {
+    const notes: StaticSchema = {
+      type: "static",
+      polyphonic: false,
+      cycle: [
+        [
+          { value: 60, offset: 0, duration: 0.25, stepIndex: 0 },
+          { value: 64, offset: 0.5, duration: 0.25, stepIndex: 2 },
+        ],
+      ],
+    };
+    const gain = {
+      ...makeEnvelope(),
+      max: staticCycle([0.2, 0.4, 0.6]),
+    } satisfies EnvelopeSchema;
+    const synth = new Synthesizer(
+      new FakeAudioContext() as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(staticCycle([10, 20, 30]), {
+          notes,
+          gain,
+          effects: [lowpassEffect(staticCycle([100, 200, 300]))],
+        }),
+      },
+    );
+
+    synth.scheduleBar(0, 10);
+
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.detune),
+    ).toEqual([10, 20]);
+    expect(
+      FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
+    ).toEqual([10, 11]);
+
+    const voiceGains = FakeGainNode.instances.filter(
+      ({ gain: { linearRampToValueAtTime } }) =>
+        linearRampToValueAtTime.mock.calls.length > 0,
+    );
+    expect(
+      voiceGains.map(
+        ({ gain: { linearRampToValueAtTime } }) =>
+          linearRampToValueAtTime.mock.calls[0][0],
+      ),
+    ).toEqual([0.2, 0.4]);
+    expect(
+      FakeBiquadFilterNode.instances.map(
+        ({ frequency }) => frequency.setValueAtTime.mock.calls[0][0],
+      ),
+    ).toEqual([100, 200]);
+  });
+
+  it("does not consume random note or parameter values for sparse structural rests", () => {
+    const notes = randomValues([60, 64, 67]);
+    notes.grid = sparseMask();
+    const resolver = new RandomResolver(notes);
+    const synth = new Synthesizer(
+      new FakeAudioContext() as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(staticCycle([10, 20, 30]), { notes }),
+      },
+    );
+
+    synth.scheduleBar(0, 10);
+
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.frequency),
+    ).toEqual([
+      midiToFrequency(resolver.resolve(0, 0)),
+      midiToFrequency(resolver.resolve(0, 1)),
+    ]);
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.detune),
+    ).toEqual([10, 20]);
+    expect(
+      FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
+    ).toEqual([10, 11]);
+  });
+
+  it("gives every chord voice the same hit index", () => {
+    const notes: StaticSchema = {
+      type: "static",
+      polyphonic: true,
+      cycle: [
+        [
+          { value: 60, offset: 0, duration: 0.5, stepIndex: 0 },
+          { value: 64, offset: 0, duration: 0.5, stepIndex: 0 },
+          { value: 67, offset: 0.5, duration: 0.5, stepIndex: 1 },
+        ],
+      ],
+    };
+    const gain = {
+      ...makeEnvelope(),
+      max: staticCycle([0.2, 0.4]),
+    } satisfies EnvelopeSchema;
+    const synth = new Synthesizer(
+      new FakeAudioContext() as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      {
+        schema: makeSchema(staticCycle([10, 20]), {
+          notes,
+          gain,
+          effects: [lowpassEffect(staticCycle([100, 200]))],
+        }),
+      },
+    );
+
+    synth.scheduleBar(0, 10);
+
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.frequency),
+    ).toEqual([midiToFrequency(60), midiToFrequency(64), midiToFrequency(67)]);
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.detune),
+    ).toEqual([10, 10, 20]);
+    expect(
+      FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
+    ).toEqual([10, 10, 11]);
+
+    const voiceGains = FakeGainNode.instances.filter(
+      ({ gain: { linearRampToValueAtTime } }) =>
+        linearRampToValueAtTime.mock.calls.length > 0,
+    );
+    expect(
+      voiceGains.map(
+        ({ gain: { linearRampToValueAtTime } }) =>
+          linearRampToValueAtTime.mock.calls[0][0],
+      ),
+    ).toEqual([0.2, 0.2, 0.4]);
+    expect(
+      FakeBiquadFilterNode.instances.map(
+        ({ frequency }) => frequency.setValueAtTime.mock.calls[0][0],
+      ),
+    ).toEqual([100, 100, 200]);
+  });
+
+  it("selects value bars independently and restarts hit indices each bar", () => {
+    const notes: StaticSchema = {
+      type: "static",
+      polyphonic: false,
+      cycle: [
+        [
+          { value: 60, offset: 0, duration: 0.25, stepIndex: 0 },
+          { value: 64, offset: 0.5, duration: 0.25, stepIndex: 2 },
+        ],
+        [
+          { value: 67, offset: 0.25, duration: 0.25, stepIndex: 1 },
+          { value: 69, offset: 0.75, duration: 0.25, stepIndex: 3 },
+        ],
+      ],
+    };
+    const detune: StaticSchema = {
+      type: "static",
+      polyphonic: false,
+      cycle: [staticCycle([10, 20]).cycle[0], staticCycle([30, 40]).cycle[0]],
+    };
+    const synth = new Synthesizer(
+      new FakeAudioContext() as unknown as AudioContext,
+      { barDuration: 2 } as AudioClock,
+      { schema: makeSchema(detune, { notes }) },
+    );
+
+    synth.scheduleBar(0, 0);
+    synth.scheduleBar(1, 2);
+
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.frequency),
+    ).toEqual([
+      midiToFrequency(60),
+      midiToFrequency(64),
+      midiToFrequency(67),
+      midiToFrequency(69),
+    ]);
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.detune),
+    ).toEqual([10, 20, 30, 40]);
+    expect(
+      FakeOscillatorNode.instances.map(({ start }) => start.mock.calls[0][0]),
+    ).toEqual([0, 1, 2.5, 3.5]);
+  });
+});
+
 describe("Synthesizer trigger masks", () => {
   it("cycles source notes across active static mask positions", () => {
     const ctx = new FakeAudioContext();
