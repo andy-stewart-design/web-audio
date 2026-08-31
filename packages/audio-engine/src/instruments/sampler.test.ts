@@ -8,6 +8,7 @@ import type {
   SamplerSchema,
   StaticSchema,
 } from "@web-audio/schema";
+import RandomResolver from "@/resolvers/random-resolver";
 import Sampler from "./sampler";
 
 class FakeAudioParam {
@@ -163,6 +164,45 @@ function randomSchema(valueMap: number[]): RandomSchema {
 
 function randomNotes(): RandomSchema {
   return randomSchema([0.5, 1.5]);
+}
+
+function randomValueCycle(valueMap: number[]): RandomSchema {
+  return {
+    type: "random",
+    dataType: "float",
+    segments: [{ seed: 42 }],
+    quantValue: undefined,
+    range: undefined,
+    algorithm: "xor",
+    valueMap,
+    grid: staticCycle(valueMap.map(() => 1)),
+  };
+}
+
+function sparseMask(): StaticSchema {
+  return {
+    type: "static",
+    polyphonic: false,
+    cycle: [
+      [
+        { value: 1, offset: 0, duration: 0.25, stepIndex: 0 },
+        { value: 1, offset: 0.5, duration: 0.25, stepIndex: 2 },
+      ],
+    ],
+  };
+}
+
+function sparseRandomMask(): RandomSchema {
+  return {
+    type: "random",
+    dataType: "binary",
+    chance: 1,
+    segments: [{ seed: 42 }],
+    quantValue: undefined,
+    range: undefined,
+    algorithm: "xor",
+    grid: sparseMask(),
+  };
 }
 
 function lowpassEffect(frequency = 800): FilterSchema {
@@ -1270,6 +1310,8 @@ describe("Sampler", () => {
   });
 
   it("relative duration uses original grid indices across mask gaps", async () => {
+    // Phase 5 intentionally changes the second duration lookup from grid index
+    // 2 (0.03) to hit index 1 (0.02), while preserving both start times.
     const url = "https://example.com/loop.wav";
     cache.resolved.set(url, makeBuffer(10));
     const sampler = new Sampler(
@@ -1796,6 +1838,172 @@ describe("Sampler", () => {
     expect(gain.gain.linearRampToValueAtTime.mock.calls[2][1]).toBeCloseTo(
       endTime + releaseDur,
     );
+  });
+
+  describe("sparse-rhythm indexing characterization", () => {
+    it("cycles static source notes across active random-mask positions", async () => {
+      const url = "https://example.com/bd.wav";
+      cache.resolved.set(url, makeBuffer(1));
+      const sampler = new Sampler(
+        ctx as unknown as AudioContext,
+        clock as never,
+        {
+          schema: makeSchema({
+            notes: staticCycle([0, 12]),
+            mask: sparseRandomMask(),
+          }),
+          banks: makeBanks(url),
+          cache,
+        },
+      );
+
+      await sampler.load();
+      sampler.scheduleBar(0, 8);
+
+      expect(
+        createdSources.map(({ playbackRate }) => playbackRate.value),
+      ).toEqual([1, 2]);
+      expect(createdSources.map(({ start }) => start.mock.calls[0][0])).toEqual(
+        [8, 9],
+      );
+    });
+
+    it.each([
+      ["static", sparseMask()],
+      ["random", sparseRandomMask()],
+    ])(
+      "resolves random notes at current grid indices under a %s mask",
+      async (_maskType, mask) => {
+        const url = "https://example.com/bd.wav";
+        cache.resolved.set(url, makeBuffer(1));
+        const notes = randomValueCycle([0, 12, 24]);
+        const resolver = new RandomResolver(notes);
+        const sampler = new Sampler(
+          ctx as unknown as AudioContext,
+          clock as never,
+          {
+            schema: makeSchema({ notes, mask }),
+            banks: makeBanks(url),
+            cache,
+          },
+        );
+
+        await sampler.load();
+        sampler.scheduleBar(0, 8);
+
+        // Phase 5 changes the second lookup to hit index 1 while preserving
+        // the mask's offsets and durations.
+        expect(
+          createdSources.map(({ playbackRate }) => playbackRate.value),
+        ).toEqual([
+          Math.pow(2, resolver.resolve(0, 0) / 12),
+          Math.pow(2, resolver.resolve(0, 2) / 12),
+        ]);
+        expect(
+          createdSources.map(({ start }) => start.mock.calls[0][0]),
+        ).toEqual([8, 9]);
+      },
+    );
+
+    it("uses sparse grid indices for variation before the hit-index migration", async () => {
+      const urls = [
+        "https://example.com/bd-0.wav",
+        "https://example.com/bd-1.wav",
+        "https://example.com/bd-2.wav",
+      ];
+      const buffers = urls.map(() => makeBuffer(1));
+      urls.forEach((url, index) => cache.resolved.set(url, buffers[index]));
+      const banks = makeBanks(urls[0]);
+      banks.kit.samples.bd = {
+        "0": urls.map((src) => ({ type: "file" as const, src })),
+      };
+      const sampler = new Sampler(
+        ctx as unknown as AudioContext,
+        clock as never,
+        {
+          schema: makeSchema({
+            notes: staticCycle([0, 0]),
+            mask: sparseMask(),
+            variation: staticCycle([0, 1, 2]),
+          }),
+          banks,
+          cache,
+        },
+      );
+
+      await sampler.load();
+      sampler.scheduleBar(0, 8);
+
+      expect(createdSources.map(({ buffer }) => buffer)).toEqual([
+        buffers[0],
+        buffers[2],
+      ]);
+      expect(createdSources.map(({ start }) => start.mock.calls[0][0])).toEqual(
+        [8, 9],
+      );
+    });
+
+    it("uses sparse grid indices for static region boundaries", async () => {
+      const url = "https://example.com/loop.wav";
+      cache.resolved.set(url, makeBuffer(10));
+      const sampler = new Sampler(
+        ctx as unknown as AudioContext,
+        clock as never,
+        {
+          schema: makeSchema({
+            mask: sparseMask(),
+            clipMode: "one-shot",
+            region: {
+              type: "static",
+              start: staticCycle([0, 0.1, 0.2]),
+              end: staticCycle([0.1, 0.4, 0.8]),
+            },
+          }),
+          banks: makeBanks(url),
+          cache,
+        },
+      );
+
+      await sampler.load();
+      sampler.scheduleBar(0, 8);
+
+      expect(createdSources).toHaveLength(2);
+      expect(createdSources[0].start).toHaveBeenCalledWith(8, 0);
+      expect(createdSources[1].start).toHaveBeenCalledWith(9, 2);
+    });
+
+    it("uses sparse grid indices for chop sequence values", async () => {
+      const url = "https://example.com/break.wav";
+      cache.resolved.set(url, makeBuffer(4));
+      const sampler = new Sampler(
+        ctx as unknown as AudioContext,
+        clock as never,
+        {
+          schema: makeSchema({
+            notes: staticCycle([0, 0]),
+            mask: sparseMask(),
+            region: {
+              type: "chop",
+              slices: [
+                { start: 0, end: 0.25 },
+                { start: 0.25, end: 0.5 },
+                { start: 0.5, end: 0.75 },
+              ],
+              sequence: staticCycle([0, 1, 2]),
+            },
+          }),
+          banks: makeBanks(url),
+          cache,
+        },
+      );
+
+      await sampler.load();
+      sampler.scheduleBar(0, 8);
+
+      expect(createdSources).toHaveLength(2);
+      expect(createdSources[0].start).toHaveBeenCalledWith(8, 0);
+      expect(createdSources[1].start).toHaveBeenCalledWith(9, 2);
+    });
   });
 
   it("cycles source notes across active static mask positions", async () => {

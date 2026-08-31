@@ -105,11 +105,11 @@ Tests added solely to characterize unchanged geometry should pass before product
 
 **Acceptance criteria:**
 
-- [ ] Existing static note hit-order behavior is explicitly covered.
-- [ ] Sparse-mask timing is asserted independently from resolved values.
-- [ ] Every currently grid-addressed event lane named in the spec has an owning test location.
-- [ ] Tests identify the existing region fixture named around “original grid indices” as an intentional expectation change.
-- [ ] Existing focused package tests pass before scheduler changes begin.
+- [x] Existing static note hit-order behavior is explicitly covered.
+- [x] Sparse-mask timing is asserted independently from resolved values.
+- [x] Every currently grid-addressed event lane named in the spec has an owning test location.
+- [x] Tests identify the existing region fixture named around “original grid indices” as an intentional expectation change.
+- [x] Existing focused package tests pass before scheduler changes begin.
 
 ### Step 1.2 — Audit all runtime index consumers
 
@@ -133,11 +133,11 @@ Also identify generated Fluid schemas that rely on global or sparse note `stepIn
 
 **Acceptance criteria:**
 
-- [ ] Every audio-engine `_resolve()` caller has an explicit intended indexing category.
-- [ ] Random-mask eligibility is marked as grid-addressed.
-- [ ] Event-created effect and envelope resolution is marked as hit-addressed.
-- [ ] LFO initialization and bar updates are marked as unchanged.
-- [ ] Generated multi-bar sampler schemas that rely on global step addressing are listed for Phase 4.
+- [x] Every audio-engine `_resolve()` caller has an explicit intended indexing category.
+- [x] Random-mask eligibility is marked as grid-addressed.
+- [x] Event-created effect and envelope resolution is marked as hit-addressed.
+- [x] LFO initialization and bar updates are marked as unchanged.
+- [x] Generated multi-bar sampler schemas that rely on global step addressing are listed for Phase 4.
 
 ---
 
