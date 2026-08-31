@@ -220,11 +220,11 @@ For a masked static source, source onset groups must cycle across active mask hi
 
 **Acceptance criteria:**
 
-- [ ] Dense monophonic events receive indices `0..n-1`.
-- [ ] Sparse serialized grid indices still receive consecutive hit indices.
-- [ ] Chord voices share one hit index.
-- [ ] Empty bars are handled without errors.
-- [ ] Source onset groups can wrap across a longer active mask.
+- [x] Dense monophonic events receive indices `0..n-1`.
+- [x] Sparse serialized grid indices still receive consecutive hit indices.
+- [x] Chord voices share one hit index.
+- [x] Empty bars are handled without errors.
+- [x] Source onset groups can wrap across a longer active mask.
 
 ### Step 2.3 — Preserve schema and pattern-package boundaries
 
