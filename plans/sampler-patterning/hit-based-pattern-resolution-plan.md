@@ -415,10 +415,10 @@ The current implicit natural chop sequence may be one bar while generated notes 
 
 **Acceptance criteria:**
 
-- [ ] `.fit(2).chop(4)` is covered end-to-end across both bars.
-- [ ] `.fit(2).chop(8)` preserves all natural slices in order.
-- [ ] Fit-only generated segmentation remains covered.
-- [ ] Authored static/cycling chop sequences are distinguished from generated natural defaults.
+- [x] `.fit(2).chop(4)` is covered end-to-end across both bars.
+- [x] `.fit(2).chop(8)` preserves all natural slices in order.
+- [x] Fit-only generated segmentation remains covered.
+- [x] Authored static/cycling chop sequences are distinguished from generated natural defaults.
 
 ### Step 4.2 — Align generated value bars with generated onset bars
 
