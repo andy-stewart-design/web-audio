@@ -2,41 +2,29 @@ import { describe, expect, it } from "vitest";
 import { BinaryCycle } from "./static-cycles";
 
 describe("BinaryCycle", () => {
-  describe("getStaticSchema", () => {
-    it("serializes the default single-step pattern", () => {
-      const bar = new BinaryCycle().getStaticSchema().cycle[0];
-      expect(bar).toEqual([{ value: 1, duration: 1, offset: 0, stepIndex: 0 }]);
-    });
-
-    it("produces one event per pulse with correct geometry after euclid()", () => {
-      // euclid(3, 8) => [1, 0, 0, 1, 0, 0, 1, 0] — pulses at steps 0, 3, 6
-      const bar = new BinaryCycle().euclid(3, 8).getStaticSchema().cycle[0];
-      expect(bar).toHaveLength(3);
-      expect(bar[0]).toEqual({
-        value: 1,
-        duration: 1 / 8,
-        offset: 0,
-        stepIndex: 0,
-      });
-      expect(bar[1]).toEqual({
-        value: 1,
-        duration: 1 / 8,
-        offset: 3 / 8,
-        stepIndex: 3,
-      });
-      expect(bar[2]).toEqual({
-        value: 1,
-        duration: 1 / 8,
-        offset: 6 / 8,
-        stepIndex: 6,
+  describe("getTimingSchema", () => {
+    it("serializes the default single-step pattern as timing only", () => {
+      expect(new BinaryCycle().getTimingSchema()).toEqual({
+        cycle: [[{ duration: 1, offset: 0 }]],
       });
     });
 
-    it("euclid([3, 4], 8) produces two bars", () => {
-      const schema = new BinaryCycle().euclid([3, 4], 8).getStaticSchema();
-      expect(schema.cycle).toHaveLength(2);
-      expect(schema.cycle[0]).toHaveLength(3);
-      expect(schema.cycle[1]).toHaveLength(4);
+    it("produces one timing step per Euclidean pulse", () => {
+      const bar = new BinaryCycle().euclid(3, 8).getTimingSchema().cycle[0];
+
+      expect(bar).toEqual([
+        { duration: 1 / 8, offset: 0 },
+        { duration: 1 / 8, offset: 3 / 8 },
+        { duration: 1 / 8, offset: 6 / 8 },
+      ]);
+    });
+
+    it("serializes multi-bar Euclidean timing", () => {
+      const bars = new BinaryCycle().euclid([3, 4], 8).getTimingSchema().cycle;
+
+      expect(bars).toHaveLength(2);
+      expect(bars[0]).toHaveLength(3);
+      expect(bars[1]).toHaveLength(4);
     });
 
     it.each([
@@ -48,42 +36,33 @@ describe("BinaryCycle", () => {
         modifier: "hex",
         cycle: new BinaryCycle().hex("a"),
       },
-    ])("preserves sparse grid indices after $modifier", ({ cycle }) => {
-      const bar = cycle.getStaticSchema().cycle[0];
-
-      expect(bar.map(({ stepIndex }) => stepIndex)).toEqual([0, 2]);
-      expect(bar.map(({ offset }) => offset)).toEqual([0, 0.5]);
-    });
-
-    it("preserves sparse grid indices across sequence bars", () => {
-      const bars = new BinaryCycle().sequence(4, 0, 2).getStaticSchema().cycle;
-
-      expect(bars.map((bar) => bar.map(({ stepIndex }) => stepIndex))).toEqual([
-        [0],
-        [2],
+    ])("preserves sparse timing after $modifier", ({ cycle }) => {
+      expect(cycle.getTimingSchema().cycle[0]).toEqual([
+        { duration: 0.25, offset: 0 },
+        { duration: 0.25, offset: 0.5 },
       ]);
-      expect(bars.map((bar) => bar[0].offset)).toEqual([0, 0.5]);
     });
 
-    it("filters out zero-value steps", () => {
-      // euclid(1, 4) => [1, 0, 0, 0]
-      const bar = new BinaryCycle().euclid(1, 4).getStaticSchema().cycle[0];
-      expect(bar).toHaveLength(1);
-      expect(bar[0].stepIndex).toBe(0);
+    it("preserves sparse timing across sequence bars", () => {
+      expect(
+        new BinaryCycle().sequence(4, 0, 2).getTimingSchema().cycle,
+      ).toEqual([
+        [{ duration: 0.25, offset: 0 }],
+        [{ duration: 0.25, offset: 0.5 }],
+      ]);
     });
 
-    it("returns polyphonic: false", () => {
-      expect(new BinaryCycle().getStaticSchema().polyphonic).toBe(false);
+    it("omits fixed rests entirely", () => {
+      expect(new BinaryCycle().xox("....").getTimingSchema().cycle).toEqual([
+        [],
+      ]);
     });
 
-    it("offset and duration are consistent with step count", () => {
-      // euclid(2, 4) => [1, 0, 1, 0]
-      const bar = new BinaryCycle().euclid(2, 4).getStaticSchema().cycle[0];
-      for (const step of bar) {
-        expect(step.duration).toBeCloseTo(1 / 4);
-      }
-      expect(bar[0].offset).toBeCloseTo(0);
-      expect(bar[1].offset).toBeCloseTo(2 / 4);
+    it("does not serialize values or grid indices", () => {
+      const [step] = new BinaryCycle().getTimingSchema().cycle[0];
+
+      expect(step).not.toHaveProperty("value");
+      expect(step).not.toHaveProperty("stepIndex");
     });
   });
 });

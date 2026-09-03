@@ -41,7 +41,11 @@ describe("RandomCycle", () => {
         .ribbon([10, 20, 30], [4])
         .getRandomSchema();
       expect(schema.segments).toHaveLength(3);
-      expect(schema.segments.every((s) => s.len === 4)).toBe(true);
+      expect(
+        schema.segments.every((segment) =>
+          "len" in segment ? segment.len === 4 : false,
+        ),
+      ).toBe(true);
     });
 
     it("wraps seeds with modulo when loop array is longer than seed array", () => {
@@ -76,21 +80,18 @@ describe("RandomCycle", () => {
 
       expect(bars).toHaveLength(3);
       expect(bars.map((bar) => bar.length)).toEqual([16, 0, 8]);
-      expect(bars[0][0]).toMatchObject({
+      expect(bars[0][0]).toEqual({
         duration: 1 / 16,
         offset: 0,
-        stepIndex: 0,
       });
-      expect(bars[0][15]).toMatchObject({
+      expect(bars[0][15]).toEqual({
         duration: 1 / 16,
         offset: 15 / 16,
-        stepIndex: 15,
       });
       expect(bars[1]).toEqual([]);
-      expect(bars[2][7]).toMatchObject({
+      expect(bars[2][7]).toEqual({
         duration: 1 / 8,
         offset: 7 / 8,
-        stepIndex: 7,
       });
     });
 
@@ -110,9 +111,10 @@ describe("RandomCycle", () => {
       // euclid(2, 4) => [1, 0, 1, 0] — pulses at steps 0 and 2
       const bar = new RandomCycle().steps(4).euclid(2, 4).getRandomSchema().grid
         .cycle[0];
-      expect(bar).toHaveLength(2);
-      expect(bar[0].stepIndex).toBe(0);
-      expect(bar[1].stepIndex).toBe(2);
+      expect(bar).toEqual([
+        { duration: 0.25, offset: 0 },
+        { duration: 0.25, offset: 0.5 },
+      ]);
     });
   });
 

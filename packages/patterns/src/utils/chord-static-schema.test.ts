@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 import { getChordStaticSchema } from "./chord-static-schema";
 
 describe("getChordStaticSchema", () => {
-  it("serializes chord values and step geometry", () => {
-    const schema = getChordStaticSchema([[[60], [64]]]);
+  it("serializes monophonic and chord hits as grouped note values", () => {
+    expect(getChordStaticSchema([[[60], [64, 67]]])).toEqual({
+      type: "static",
+      cycle: [[[60], [64, 67]]],
+    });
+  });
 
-    expect(schema).toMatchObject({ type: "static", polyphonic: true });
-    expect(schema.cycle[0]).toEqual([
-      { value: 60, offset: 0, duration: 0.5, stepIndex: 0 },
-      { value: 64, offset: 0.5, duration: 0.5, stepIndex: 1 },
+  it("preserves voice order within each chord", () => {
+    expect(getChordStaticSchema([[[67, 60, 64]]]).cycle[0]).toEqual([
+      [67, 60, 64],
     ]);
   });
 
@@ -16,19 +19,16 @@ describe("getChordStaticSchema", () => {
     const cycle = [[[60, 64]]];
 
     expect(getChordStaticSchema(cycle, (value) => value + 12).cycle[0]).toEqual(
-      [
-        { value: 72, offset: 0, duration: 1, stepIndex: 0 },
-        { value: 76, offset: 0, duration: 1, stepIndex: 0 },
-      ],
+      [[72, 76]],
     );
     expect(cycle).toEqual([[[60, 64]]]);
   });
 
-  it("omits null chord steps while retaining their timing positions", () => {
-    const schema = getChordStaticSchema([[[60], null]]);
+  it("omits rest hits from bars that contain notes", () => {
+    expect(getChordStaticSchema([[[60], null]]).cycle[0]).toEqual([[60]]);
+  });
 
-    expect(schema.cycle[0]).toEqual([
-      { value: 60, offset: 0, duration: 0.5, stepIndex: 0 },
-    ]);
+  it("represents a completely silent bar with one null value", () => {
+    expect(getChordStaticSchema([[null, undefined]]).cycle[0]).toEqual([null]);
   });
 });

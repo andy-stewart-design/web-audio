@@ -1,8 +1,10 @@
 // Schema types — re-exported from @web-audio/schema
 export type {
-  StaticSchema,
-  StaticSchemaValue,
-  RandomSchema,
+  RandomNumberPattern,
+  StaticNotePattern,
+  StaticValuePattern,
+  TimingSchema,
+  TimingStep,
 } from "@web-audio/schema";
 
 // Internal pattern types — owned by this package

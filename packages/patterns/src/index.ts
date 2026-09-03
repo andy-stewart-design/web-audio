@@ -4,10 +4,12 @@ import { getChordStaticSchema } from "./utils";
 import { MaskedCycle } from "./masked-cycle";
 import type {
   Chord,
-  RandomSchema,
+  RandomNumberPattern,
   ScheduledValue,
-  StaticSchema,
-  StaticSchemaValue,
+  StaticNotePattern,
+  StaticValuePattern,
+  TimingSchema,
+  TimingStep,
 } from "./types";
 
 export {
@@ -17,8 +19,10 @@ export {
   MaskedCycle,
   getChordStaticSchema,
   type Chord,
-  type RandomSchema,
+  type RandomNumberPattern,
   type ScheduledValue,
-  type StaticSchema,
-  type StaticSchemaValue,
+  type StaticNotePattern,
+  type StaticValuePattern,
+  type TimingSchema,
+  type TimingStep,
 };

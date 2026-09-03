@@ -1,45 +1,50 @@
 import PatternCycle from "./pattern-cycle";
-import type { StaticSchema, StaticSchemaValue } from "./types";
+import type { StaticValuePattern, TimingSchema, TimingStep } from "./types";
 
 class BinaryCycle extends PatternCycle<1 | 0> {
   constructor() {
     super([1], 0);
   }
 
-  getStaticSchema() {
+  getTimingSchema() {
     const cycle = this._cycle.map((pattern) => {
       if (pattern.length === 0) return [];
 
       const duration = 1 / pattern.length;
 
-      return pattern.reduce<StaticSchemaValue[]>((acc, value, i) => {
+      return pattern.reduce<TimingStep[]>((steps, value, index) => {
         if (value === 1) {
-          acc.push({ value, duration, offset: duration * i, stepIndex: i });
+          steps.push({ duration, offset: duration * index });
         }
-        return acc;
+        return steps;
       }, []);
     });
 
-    return { type: "static", polyphonic: false, cycle } satisfies StaticSchema;
+    return { cycle } satisfies TimingSchema;
   }
 }
 
 class ValueCycle extends PatternCycle<number> {
-  constructor(defaultPatern: number[], nullValue: number) {
-    super(defaultPatern, nullValue);
+  constructor(defaultPattern: number[], nullValue: number) {
+    super(defaultPattern, nullValue);
   }
 
   getStaticSchema() {
-    const cycle = this._cycle.map((pattern) => {
-      const duration = 1 / pattern.length;
-
-      return pattern.reduce<StaticSchemaValue[]>((acc, value, i) => {
-        acc.push({ value, duration, offset: duration * i, stepIndex: i });
-        return acc;
-      }, []);
+    const cycle = this._cycle.map((pattern, barIndex) => {
+      if (pattern.length === 0) {
+        throw new Error(
+          `[Pattern] ValueCycle cannot serialize an empty bar at cycle[${barIndex}].`,
+        );
+      }
+      if (pattern.some((value) => !Number.isFinite(value))) {
+        throw new Error(
+          `[Pattern] ValueCycle cycle[${barIndex}] must contain only finite numbers.`,
+        );
+      }
+      return [...pattern];
     });
 
-    return { type: "static", polyphonic: false, cycle } satisfies StaticSchema;
+    return { type: "static", cycle } satisfies StaticValuePattern<number>;
   }
 }
 

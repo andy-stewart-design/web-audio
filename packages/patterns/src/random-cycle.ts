@@ -1,5 +1,4 @@
 import { BinaryCycle } from "./static-cycles";
-import type { RandomSchema } from "./types";
 
 class RandomCycle extends BinaryCycle {
   private _type: "float" | "integer" | "binary" = "float";
@@ -93,14 +92,14 @@ class RandomCycle extends BinaryCycle {
     return this;
   }
 
-  getRandomSchema(): RandomSchema {
+  getRandomSchema() {
     if (this._chance !== undefined && this._type !== "binary") {
       throw new Error(
         "RandomCycle.chance() is only valid for binary random cycles",
       );
     }
 
-    const grid = this.getStaticSchema();
+    const grid = this.getTimingSchema();
 
     return {
       type: "random",

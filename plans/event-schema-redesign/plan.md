@@ -400,6 +400,8 @@ Resource availability is not a validation concern. Missing banks, sample names, 
 - `packages/patterns/src/static-cycles.ts`
 - `packages/patterns/src/value-cycle.test.ts`
 - `packages/patterns/src/binary-cycle.test.ts`
+- `packages/patterns/src/random-cycle.ts`
+- `packages/patterns/src/random-cycle.test.ts`
 - `packages/patterns/src/utils/chord-static-schema.ts`
 - `packages/patterns/src/utils/chord-static-schema.test.ts`
 
@@ -426,21 +428,21 @@ Replace `getChordStaticSchema()` with a helper that returns grouped note values:
 { type: "static", cycle: [[[60], [64, 67]]] }
 ```
 
-Do not retain timed-value serializer overloads.
+Do not retain timed-value serializer overloads. Update `RandomCycle`'s internal binary-geometry call site and characterization assertions to use timing-only steps; Step 2.2 removes its temporary `grid` wrapper and introduces the final random value/condition outputs.
 
 **Acceptance criteria:**
 
-- [ ] `ValueCycle` preserves zero and all finite numeric data.
-- [ ] Binary timing omits fixed rests entirely.
-- [ ] Chords are represented by nested values, not duplicate timed objects.
-- [ ] No patterns export references old schema types.
+- [x] `ValueCycle` preserves zero and all finite numeric data.
+- [x] Binary timing omits fixed rests entirely.
+- [x] Chords are represented by nested values, not duplicate timed objects.
+- [x] No patterns export references old schema types.
 
 **Testing:**
 
-- [ ] Single- and multi-bar numeric cycles serialize correctly.
-- [ ] Empty numeric bars have explicit validation behavior.
-- [ ] Sparse Euclidean/XOX/hex/sequence timing preserves offsets and durations without indices.
-- [ ] Chord voice order is stable.
+- [x] Single- and multi-bar numeric cycles serialize correctly.
+- [x] Empty numeric bars have explicit validation behavior.
+- [x] Sparse Euclidean/XOX/hex/sequence timing preserves offsets and durations without indices.
+- [x] Chord voice order is stable.
 
 ---
 
