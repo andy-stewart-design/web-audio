@@ -498,6 +498,8 @@ Add `order: "forward" | "reverse"` to random value output even though PR 2 compl
 
 - `packages/patterns/src/masked-cycle.ts`
 - `packages/patterns/src/masked-cycle.test.ts`
+- `packages/patterns/src/types.ts`
+- `packages/patterns/src/index.ts`
 - `packages/patterns/src/base-cycle.ts`
 - `packages/patterns/src/pattern-cycle.ts`
 
@@ -520,10 +522,10 @@ Preserve these invariants:
 
 **Acceptance criteria:**
 
-- [ ] Fluid can compile timing without reconstructing it from serialized note values.
-- [ ] Fluid can compile values without retaining timing objects.
-- [ ] No runtime engine type depends on `MaskedCycle` internals.
-- [ ] Existing pattern composition behavior has target-shape coverage.
+- [x] Fluid can compile timing without reconstructing it from serialized note values.
+- [x] Fluid can compile values without retaining timing objects.
+- [x] No runtime engine type depends on `MaskedCycle` internals.
+- [x] Existing pattern composition behavior has target-shape coverage.
 
 ---
 

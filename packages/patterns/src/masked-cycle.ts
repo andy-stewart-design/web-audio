@@ -9,12 +9,16 @@ import {
   stretch,
   xox,
 } from "./utils";
-import type { BinaryCycleData, Cycle } from "./types";
+import type {
+  BinaryCycleData,
+  Cycle,
+  SourceHitReference,
+  TimingSchema,
+  TimingStep,
+} from "./types";
 
-type ActiveStep = {
+type ActiveStep = SourceHitReference & {
   type: "active";
-  sourceBarIndex: number;
-  sourceStepIndex: number;
 };
 
 type RestStep = { type: "rest" };
@@ -32,18 +36,20 @@ class MaskedCycle<T> {
   private _grid: Cycle<MaskedStep>;
 
   constructor(source: Cycle<T>) {
-    this._source = source;
+    this._source = source.map((bar) => [...bar]);
     this._grid = source.map((bar, sourceBarIndex) =>
-      bar.map((_, sourceStepIndex) => ({
+      bar.map((_, sourceHitIndex) => ({
         type: "active",
         sourceBarIndex,
-        sourceStepIndex,
+        sourceHitIndex,
       })),
     );
   }
 
   setMask(mask: BinaryCycleData) {
-    this._grid = applyPattern(this._grid, mask, REST);
+    this._grid = applyPattern(this._grid, mask, REST).map((bar) =>
+      bar.map((step) => (step?.type === "active" ? step : REST)),
+    );
     return this;
   }
 
@@ -89,27 +95,61 @@ class MaskedCycle<T> {
     return this;
   }
 
-  get source() {
-    return this._source;
+  get sourceValues() {
+    return this._source.map((bar) => [...bar]);
   }
 
-  get mask() {
-    const hasRest = this._grid.some((bar) =>
-      bar.some((step) => step.type === "rest"),
-    );
-    if (!hasRest) return undefined;
+  get candidateTiming(): TimingSchema {
+    const cycle = this._grid.map((bar) => {
+      if (bar.length === 0) return [];
 
+      const duration = 1 / bar.length;
+      return bar.reduce<TimingStep[]>((timing, step, positionIndex) => {
+        if (step.type === "active") {
+          timing.push({ offset: duration * positionIndex, duration });
+        }
+        return timing;
+      }, []);
+    });
+
+    return { cycle };
+  }
+
+  get fixedRestFilter(): BinaryCycleData {
     return this._grid.map((bar) =>
       bar.map((step) => (step.type === "active" ? 1 : 0)),
     );
   }
 
-  get activeEvents() {
+  get activeSourceReferences(): Cycle<SourceHitReference> {
     return this._grid.map((bar) =>
-      bar.flatMap((step) => {
-        if (step.type === "rest") return [];
-        const source = this._source[step.sourceBarIndex];
-        const value = source?.[step.sourceStepIndex];
+      bar.flatMap((step) =>
+        step.type === "active"
+          ? [
+              {
+                sourceBarIndex: step.sourceBarIndex,
+                sourceHitIndex: step.sourceHitIndex,
+              },
+            ]
+          : [],
+      ),
+    );
+  }
+
+  get source() {
+    return this.sourceValues;
+  }
+
+  get mask() {
+    const filter = this.fixedRestFilter;
+    if (!filter.some((bar) => bar.includes(0))) return undefined;
+    return filter;
+  }
+
+  get activeEvents() {
+    return this.activeSourceReferences.map((bar) =>
+      bar.flatMap(({ sourceBarIndex, sourceHitIndex }) => {
+        const value = this._source[sourceBarIndex]?.[sourceHitIndex];
         return value === undefined ? [] : [value];
       }),
     );
