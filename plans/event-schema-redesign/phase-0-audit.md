@@ -22,7 +22,7 @@ The runs report existing non-failing warnings about the root `pnpm.overrides` fi
 
 ## Phase 0.2 fixture sequencing note
 
-The target schema types begin in PR 1 Phase 1, Step 1.1 and the complete target instrument/validation surface lands through Step 1.3. Therefore `packages/audio-engine/src/test-utils/schema-fixtures.ts` is intentionally a temporary baseline fixture seam at this point. It centralizes the current schema shape so repeated fixtures can be migrated in one place, but it still contains the old `StaticSchema`, `RandomSchema.grid`, `NotesSchema`, `stepIndex`, and `polyphonic` fields. The implementation plan now schedules target-schema conversion in Step 1.4, after the authoritative types and validator exist in `@web-audio/schema`; no parallel compatibility schema is being introduced.
+The target schema types begin in PR 1 Phase 1, Step 1.1 and the complete target instrument/validation surface lands through Step 1.3. Therefore `packages/audio-engine/src/test-utils/schema-fixtures.ts` is intentionally a temporary baseline fixture seam at this point. It centralizes the current schema shape so repeated fixtures can be migrated in one place, but it still contains the old `StaticSchema`, `RandomSchema.grid`, `NotesSchema`, `stepIndex`, and `polyphonic` fields. The implementation plan schedules target-schema conversion in Step 4.4 alongside the engine consumers that use the fixtures; no parallel compatibility schema is being introduced.
 
 `packages/schema/src/validate-graph.test.ts` retains local direct fixtures because it is the schema package's validation-failure suite and cannot depend on an audio-engine test utility. Behavior-specific engine fixtures also remain local where their unusual geometry is the subject of the test.
 
@@ -312,4 +312,4 @@ The following baseline behavior is intentionally not expanded during Phase 0 or 
 - [x] Reusable baseline factories cover static/random patterns, timing/chance fixtures, default instruments, and file/sprite banks.
 - [x] Repeated valid fixtures in audio-engine tests use the shared factory seam where practical.
 - [x] Specialized and validation-failure fixtures remain local where their unusual shape is the subject.
-- [x] Target-schema factory conversion is scheduled for Phase 1, Step 1.4, after the authoritative schema types and validator exist.
+- [x] Target-schema factory conversion is scheduled for Phase 4, Step 4.4, alongside target-schema engine migration.

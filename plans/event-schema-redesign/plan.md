@@ -156,7 +156,7 @@ The old shape is repeated extensively in engine tests. Before replacing authorit
 - default sampler schemas;
 - file and sprite banks.
 
-At this step the factories intentionally return valid current-schema values. Do not introduce provisional target types or a compatibility schema before `@web-audio/schema` owns the authoritative definitions. Factories must allow narrow typed overrides and avoid broad `Partial<DromeSchema>` trees that can construct invalid fixtures accidentally. Step 1.4 converts this seam to the target schema after the target instrument types and validator exist.
+At this step the factories intentionally return valid current-schema values. Do not introduce provisional target types or a compatibility schema before `@web-audio/schema` owns the authoritative definitions. Factories must allow narrow typed overrides and avoid broad `Partial<DromeSchema>` trees that can construct invalid fixtures accidentally. Step 4.4 converts this seam alongside the engine consumers that use it.
 
 **Acceptance criteria:**
 
@@ -235,16 +235,16 @@ If `ParameterSchema` is retained temporarily as a deprecated alias inside the PR
 
 **Acceptance criteria:**
 
-- [ ] Static values contain values only.
-- [ ] Random values contain `valuesPerBar` and no `grid`.
-- [ ] Timing contains only offsets, durations, and one optional condition.
-- [ ] There is no serialized `stepIndex` or `polyphonic` flag.
-- [ ] `RandomNumberPattern` cannot carry timing chance policy.
-- [ ] Target types are exported from `@web-audio/schema`.
+- [x] Static values contain values only.
+- [x] Random values contain `valuesPerBar` and no `grid`.
+- [x] Timing contains only offsets, durations, and one optional condition.
+- [x] There is no serialized `stepIndex` or `polyphonic` flag.
+- [x] `RandomNumberPattern` cannot carry timing chance policy.
+- [x] Target types are exported from `@web-audio/schema`.
 
 **Testing:**
 
-- [ ] `pnpm --filter @web-audio/schema check`
+- [x] `pnpm --filter @web-audio/schema check`
 
 ---
 
@@ -303,17 +303,17 @@ These fields use `NumberPattern`, not event timing.
 
 **Acceptance criteria:**
 
-- [ ] Synth notes remain required and default to explicit note `60`.
-- [ ] Sampler names are represented as event values even before `.name()` exists.
-- [ ] Sampler notes and variations use absence defaults.
-- [ ] Shared processing remains outside `events`.
-- [ ] `DromeSchema.instruments` uses only target synth/sampler types.
-- [ ] No schema compatibility union exists.
+- [x] Synth events require notes.
+- [x] Sampler names are represented as event values even before `.name()` exists.
+- [x] Sampler notes and variations use absence defaults.
+- [x] Shared processing remains outside `events`.
+- [x] `DromeSchema.instruments` uses only target synth/sampler types.
+- [x] No schema compatibility union exists.
 
 **Testing:**
 
-- [ ] Type-level fixtures cover synth, natural-pitch sampler, pitched sampler, static variation, random variation, region, chop, and fit schemas.
-- [ ] `pnpm --filter @web-audio/schema check`
+- [x] Type-level fixtures cover synth, natural-pitch sampler, pitched sampler, static variation, random variation, region, chop, and fit schemas.
+- [x] `pnpm --filter @web-audio/schema check`
 
 ---
 
@@ -370,54 +370,22 @@ Resource availability is not a validation concern. Missing banks, sample names, 
 
 **Acceptance criteria:**
 
-- [ ] Validation covers every schema branch, not only bus parameters.
-- [ ] Invalid direct schemas fail before graph commit.
-- [ ] Long timing durations remain valid.
-- [ ] Empty timing bars are valid.
-- [ ] Unsorted or duplicate timing offsets are rejected.
-- [ ] Invalid event/value cross-field alignment is rejected.
-- [ ] Missing external resources do not invalidate an otherwise valid graph.
-- [ ] Validation errors include precise schema paths.
+- [x] Validation covers every schema branch, not only bus parameters.
+- [x] Invalid direct schemas are rejected by the authoritative validator.
+- [x] Long timing durations remain valid.
+- [x] Empty timing bars are valid.
+- [x] Unsorted or duplicate timing offsets are rejected.
+- [x] Invalid event/value cross-field alignment is rejected.
+- [x] Missing external resources do not invalidate an otherwise valid graph.
+- [x] Validation errors include precise schema paths.
 
 **Testing:**
 
-- [ ] Positive tests cover every valid pattern and event union member.
-- [ ] Table-driven negative tests cover each invariant above.
-- [ ] `pnpm --filter @web-audio/schema test:ci`
+- [x] Positive tests cover every valid pattern and event union member.
+- [x] Table-driven negative tests cover each invariant above.
+- [x] `pnpm --filter @web-audio/schema test:ci`
 
 `AudioEngine.update()` validation-isolation coverage lands in Step 4.4 after the engine consumes the target instrument schema; do not add a temporary old/new schema bridge here.
-
----
-
-### Step 1.4 — Convert the shared fixture seam to the target schema
-
-**Files:**
-
-- `packages/schema/src/validate-graph.test.ts`
-- `packages/audio-engine/src/test-utils/schema-fixtures.ts`
-- `packages/audio-engine/src/engine.test.ts`
-- `packages/audio-engine/src/instruments/instrument.test.ts`
-- `packages/audio-engine/src/instruments/synthesizer.test.ts`
-- `packages/audio-engine/src/instruments/sampler.test.ts`
-- `packages/audio-engine/src/buses/runtime-bus.test.ts`
-
-Convert the Phase 0 baseline factories to authoritative target-schema values now that the value, timing, event, instrument, and validation types exist. Remove every old fixture-only `StaticSchema`, `RandomSchema.grid`, `NotesSchema`, `stepIndex`, and `polyphonic` field rather than retaining compatibility helpers.
-
-Factories must return valid target-schema values and allow narrow typed overrides. Keep behavior-specific fixtures local where unusual geometry is the subject of the test, and keep validation-failure fixtures local to the schema package.
-
-**Acceptance criteria:**
-
-- [ ] New tests can construct complete target schemas without casts.
-- [ ] Fixture defaults satisfy the expanded `validateDromeGraph()`.
-- [ ] Overrides remain local to the behavior under test.
-- [ ] Existing valid direct fixtures are migrated or deliberately retained because their unusual shape is under test.
-- [ ] No old-schema fixture helper or compatibility union remains.
-
-**Testing:**
-
-- [ ] `pnpm --filter @web-audio/schema test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine check`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ---
 
@@ -703,6 +671,7 @@ chop(8).fit(4) → eight events lasting half a bar
 **Acceptance criteria:**
 
 - [ ] Every Fluid instrument emits the target event shape.
+- [ ] Default synth output contains explicit note `60`.
 - [ ] No Fluid output contains old notes/mask/source/grid fields.
 - [ ] Natural-pitch samplers omit `events.notes`.
 - [ ] `.root()`/`.scale()` may cause sampler notes to serialize without changing timing ownership.
@@ -874,12 +843,18 @@ Remove onset grouping. Static polyphony is explicit in value arrays.
 
 **Files:**
 
+- `packages/audio-engine/src/test-utils/schema-fixtures.ts`
+- `packages/audio-engine/src/engine.test.ts`
+- `packages/audio-engine/src/buses/runtime-bus.test.ts`
+- `packages/audio-engine/src/instruments/instrument.ts`
+- `packages/audio-engine/src/instruments/instrument.test.ts`
 - `packages/audio-engine/src/instruments/synthesizer.ts`
 - `packages/audio-engine/src/instruments/synthesizer.test.ts`
 - `packages/audio-engine/src/instruments/sampler.ts`
 - `packages/audio-engine/src/instruments/sampler.test.ts`
-- `packages/audio-engine/src/instruments/instrument.ts`
 - `packages/audio-engine/src/midi-output-scheduler.test.ts`
+
+First convert the Phase 0 fixture seam to authoritative target-schema values. Remove every fixture-only `StaticSchema`, `RandomSchema.grid`, `NotesSchema`, `stepIndex`, and `polyphonic` field rather than retaining legacy helpers or a compatibility bridge. Factories must construct complete validated target schemas with narrow typed overrides. Keep unusual behavior-specific fixtures local where their geometry is the subject of the test.
 
 Both instruments should:
 
@@ -909,11 +884,17 @@ Sampler requirements:
 - [ ] Processing resolution is unchanged for successful events.
 - [ ] Random timing misses consume no processing values.
 - [ ] Missing sampler resources do not shift subsequent patterns.
+- [ ] Failed validation leaves pending and active engine state unchanged.
 - [ ] Existing envelopes, detune, effects, MIDI, regions, fit, loop, clip, and direction behavior remains covered.
+- [ ] Shared fixture defaults satisfy `validateDromeGraph()`.
+- [ ] Existing valid direct fixtures use the target shape or remain local only because their unusual shape is under test.
+- [ ] No old-schema fixture helper or compatibility union remains.
 
 **Testing:**
 
 - [ ] `AudioEngine.update()` tests prove failed validation leaves pending/active state unchanged.
+- [ ] `pnpm --filter @web-audio/audio-engine check`
+- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ---
 
