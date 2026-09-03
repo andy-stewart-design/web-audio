@@ -2,100 +2,239 @@ import { describe, expect, it } from "vitest";
 import RandomCycle from "./random-cycle";
 
 describe("RandomCycle", () => {
-  describe("getRandomSchema defaults", () => {
-    it("produces a single segment with the base seed when ribbon is not called", () => {
-      const schema = new RandomCycle().getRandomSchema();
-      expect(schema.segments).toEqual([{ seed: 0 }]);
+  describe("getRandomSchema", () => {
+    it("serializes the default numeric random pattern", () => {
+      expect(new RandomCycle().getRandomSchema()).toEqual({
+        type: "random-number",
+        valuesPerBar: [1],
+        dataType: "float",
+        range: undefined,
+        segments: [{ seed: 0 }],
+        algorithm: "xor",
+        quantValue: undefined,
+        order: "forward",
+      });
     });
 
-    it("defaults to float dataType", () => {
-      expect(new RandomCycle().getRandomSchema().dataType).toBe("float");
+    it("serializes multi-bar value counts including zero", () => {
+      expect(
+        new RandomCycle().steps(16, 0, 8).getRandomSchema().valuesPerBar,
+      ).toEqual([16, 0, 8]);
     });
 
-    it("defaults to xor algorithm", () => {
-      expect(new RandomCycle().getRandomSchema().algorithm).toBe("xor");
+    it("counts active positions after fixed pattern operations", () => {
+      expect(
+        new RandomCycle().steps(8).euclid(3, 8).getRandomSchema().valuesPerBar,
+      ).toEqual([3]);
     });
 
-    it("defaults to undefined range, quantValue, and chance", () => {
-      const schema = new RandomCycle().getRandomSchema();
-      expect(schema.range).toBeUndefined();
-      expect(schema.quantValue).toBeUndefined();
-      expect(schema.chance).toBeUndefined();
+    it("contains no timing grid or chance policy", () => {
+      const schema = new RandomCycle().steps(4).getRandomSchema();
+
+      expect(schema).not.toHaveProperty("grid");
+      expect(schema).not.toHaveProperty("chance");
+      expect(schema).not.toHaveProperty("condition");
+    });
+
+    it("serializes reversed bar counts and generated-value order", () => {
+      expect(
+        new RandomCycle().steps(2, 4).reverse().getRandomSchema(),
+      ).toMatchObject({
+        valuesPerBar: [4, 2],
+        order: "reverse",
+      });
+      expect(
+        new RandomCycle().steps(2, 4).reverse().reverse().getRandomSchema(),
+      ).toMatchObject({ valuesPerBar: [2, 4], order: "forward" });
+    });
+
+    it("supports binary random values when chance is not configured", () => {
+      expect(new RandomCycle().bin().getRandomSchema()).toMatchObject({
+        type: "random-number",
+        dataType: "binary",
+      });
+    });
+
+    it("rejects chance-configured cycles used as numeric values", () => {
+      expect(() =>
+        new RandomCycle().bin().chance(0.6).getRandomSchema(),
+      ).toThrow(
+        "[Pattern] RandomCycle.chance() configures event timing and cannot be serialized as a numeric value pattern.",
+      );
     });
   });
 
   describe("ribbon()", () => {
-    it("creates two segments from array seeds and array loops", () => {
-      const schema = new RandomCycle()
-        .ribbon([10, 20], [4, 8])
-        .getRandomSchema();
-      expect(schema.segments).toEqual([
+    it("serializes bounded ribbon segments", () => {
+      expect(
+        new RandomCycle().ribbon([10, 20], [4, 8]).getRandomSchema().segments,
+      ).toEqual([
         { seed: 10, len: 4 },
         { seed: 20, len: 8 },
       ]);
     });
 
-    it("wraps loop lengths with modulo when arrays have mismatched lengths", () => {
-      // seeds [10, 20, 30], loops [4] => 3 segments, all len: 4
-      const schema = new RandomCycle()
-        .ribbon([10, 20, 30], [4])
-        .getRandomSchema();
-      expect(schema.segments).toHaveLength(3);
+    it("wraps loop lengths when arrays have mismatched lengths", () => {
       expect(
-        schema.segments.every((segment) =>
-          "len" in segment ? segment.len === 4 : false,
-        ),
-      ).toBe(true);
+        new RandomCycle().ribbon([10, 20, 30], [4]).getRandomSchema().segments,
+      ).toEqual([
+        { seed: 10, len: 4 },
+        { seed: 20, len: 4 },
+        { seed: 30, len: 4 },
+      ]);
     });
 
-    it("wraps seeds with modulo when loop array is longer than seed array", () => {
-      // seeds [10], loops [4, 8] => 2 segments, seeds alternate
-      const schema = new RandomCycle().ribbon([10], [4, 8]).getRandomSchema();
-      expect(schema.segments).toEqual([
+    it("wraps seeds when the loop array is longer", () => {
+      expect(
+        new RandomCycle().ribbon([10], [4, 8]).getRandomSchema().segments,
+      ).toEqual([
         { seed: 10, len: 4 },
         { seed: 10, len: 8 },
       ]);
     });
 
-    it("omits len when loop is not provided", () => {
-      const schema = new RandomCycle().ribbon(42).getRandomSchema();
-      expect(schema.segments).toEqual([{ seed: 42 }]);
+    it("serializes an unbounded ribbon as one segment without len", () => {
+      expect(new RandomCycle().ribbon(42).getRandomSchema().segments).toEqual([
+        { seed: 42 },
+      ]);
     });
 
-    it("a scalar seed produces one segment", () => {
-      const schema = new RandomCycle().ribbon(99, 8).getRandomSchema();
-      expect(schema.segments).toEqual([{ seed: 99, len: 8 }]);
+    it("serializes a scalar bounded ribbon", () => {
+      expect(
+        new RandomCycle().ribbon(99, 8).getRandomSchema().segments,
+      ).toEqual([{ seed: 99, len: 8 }]);
     });
   });
 
-  describe("inner cycle geometry", () => {
-    it("steps(4) produces a 4-step inner cycle", () => {
-      const schema = new RandomCycle().steps(4).getRandomSchema();
-      expect(schema.grid.cycle[0]).toHaveLength(4);
-    });
+  describe("getTimingSchema", () => {
+    it("uses probability 0.5 for binary timing without explicit chance", () => {
+      const schema = new RandomCycle().bin().steps(4).getTimingSchema();
 
-    it("creates a repeating sequence of active and empty bars", () => {
-      const bars = new RandomCycle().steps(16, 0, 8).getRandomSchema()
-        .grid.cycle;
-
-      expect(bars).toHaveLength(3);
-      expect(bars.map((bar) => bar.length)).toEqual([16, 0, 8]);
-      expect(bars[0][0]).toEqual({
-        duration: 1 / 16,
-        offset: 0,
-      });
-      expect(bars[0][15]).toEqual({
-        duration: 1 / 16,
-        offset: 15 / 16,
-      });
-      expect(bars[1]).toEqual([]);
-      expect(bars[2][7]).toEqual({
-        duration: 1 / 8,
-        offset: 7 / 8,
+      expect(schema.cycle[0]).toEqual([
+        { duration: 0.25, offset: 0 },
+        { duration: 0.25, offset: 0.25 },
+        { duration: 0.25, offset: 0.5 },
+        { duration: 0.25, offset: 0.75 },
+      ]);
+      expect(schema.condition).toEqual({
+        type: "chance",
+        probability: 0.5,
+        segments: [{ seed: 0 }],
+        algorithm: "xor",
+        order: "forward",
       });
     });
 
-    it("rejects missing, negative, fractional, and non-finite step counts", () => {
+    it("serializes one fractional chance condition", () => {
+      expect(
+        new RandomCycle()
+          .chance(0.25)
+          .bin()
+          .ribbon([10, 20], [4, 8])
+          .algo("mulberry")
+          .getTimingSchema().condition,
+      ).toEqual({
+        type: "chance",
+        probability: 0.25,
+        segments: [
+          { seed: 10, len: 4 },
+          { seed: 20, len: 8 },
+        ],
+        algorithm: "mulberry",
+        order: "forward",
+      });
+    });
+
+    it("preserves reverse order in the timing condition", () => {
+      expect(
+        new RandomCycle().bin().reverse().getTimingSchema().condition?.order,
+      ).toBe("reverse");
+    });
+
+    it("uses the latest configured chance", () => {
+      expect(
+        new RandomCycle().bin().chance(0.25).chance(0.75).getTimingSchema()
+          .condition?.probability,
+      ).toBe(0.75);
+    });
+
+    it("compiles probability one as fixed timing without a condition", () => {
+      const schema = new RandomCycle()
+        .bin()
+        .chance(1)
+        .steps(2)
+        .getTimingSchema();
+
+      expect(schema).toEqual({
+        cycle: [
+          [
+            { duration: 0.5, offset: 0 },
+            { duration: 0.5, offset: 0.5 },
+          ],
+        ],
+      });
+    });
+
+    it("compiles probability zero as empty timing bars", () => {
+      expect(
+        new RandomCycle().bin().chance(0).steps(16, 0, 8).getTimingSchema(),
+      ).toEqual({ cycle: [[], [], []] });
+    });
+
+    it("preserves fixed operations in candidate timing", () => {
+      expect(
+        new RandomCycle().bin().steps(4).euclid(2, 4).getTimingSchema()
+          .cycle[0],
+      ).toEqual([
+        { duration: 0.25, offset: 0 },
+        { duration: 0.25, offset: 0.5 },
+      ]);
+    });
+
+    it("rejects non-binary random timing", () => {
+      expect(() => new RandomCycle().getTimingSchema()).toThrow(
+        "[Pattern] RandomCycle event timing requires a binary random cycle. Call .bin() before using it as timing.",
+      );
+      expect(() =>
+        new RandomCycle().bin().chance(0.5).int().getTimingSchema(),
+      ).toThrow("requires a binary random cycle");
+    });
+  });
+
+  describe("configuration", () => {
+    it("preserves data type, range, quantization, algorithm, and order", () => {
+      expect(
+        new RandomCycle()
+          .int()
+          .range(10, 20)
+          .quant(0.25)
+          .algo("mulberry")
+          .getRandomSchema(),
+      ).toMatchObject({
+        dataType: "integer",
+        range: { min: 10, max: 20 },
+        quantValue: 0.25,
+        algorithm: "mulberry",
+        order: "forward",
+      });
+    });
+
+    it("returns snapshots that cannot mutate later output", () => {
+      const cycle = new RandomCycle().steps(2).range(10, 20).ribbon(7, 4);
+      const first = cycle.getRandomSchema();
+
+      first.valuesPerBar[0] = 99;
+      first.segments[0].seed = 99;
+      if (first.range) first.range.min = 99;
+
+      expect(cycle.getRandomSchema()).toMatchObject({
+        valuesPerBar: [2],
+        segments: [{ seed: 7, len: 4 }],
+        range: { min: 10, max: 20 },
+      });
+    });
+
+    it("rejects invalid step counts", () => {
       expect(() => new RandomCycle().steps()).toThrow(
         "requires at least one step count",
       );
@@ -107,93 +246,12 @@ describe("RandomCycle", () => {
       }
     });
 
-    it("euclid filters the inner cycle events", () => {
-      // euclid(2, 4) => [1, 0, 1, 0] — pulses at steps 0 and 2
-      const bar = new RandomCycle().steps(4).euclid(2, 4).getRandomSchema().grid
-        .cycle[0];
-      expect(bar).toEqual([
-        { duration: 0.25, offset: 0 },
-        { duration: 0.25, offset: 0.5 },
-      ]);
-    });
-  });
-
-  describe("configuration methods", () => {
-    it("int() sets dataType to integer", () => {
-      expect(new RandomCycle().int().getRandomSchema().dataType).toBe(
-        "integer",
-      );
-    });
-
-    it("bin() sets dataType to binary", () => {
-      expect(new RandomCycle().bin().getRandomSchema().dataType).toBe("binary");
-    });
-
-    it("serializes binary chance regardless of whether bin() comes first", () => {
-      expect(
-        new RandomCycle().bin().chance(0.6).getRandomSchema(),
-      ).toMatchObject({
-        dataType: "binary",
-        chance: 0.6,
-      });
-      expect(
-        new RandomCycle().chance(0.6).bin().getRandomSchema(),
-      ).toMatchObject({
-        dataType: "binary",
-        chance: 0.6,
-      });
-    });
-
-    it("uses the latest configured chance", () => {
-      expect(
-        new RandomCycle().bin().chance(0.25).chance(0.75).getRandomSchema()
-          .chance,
-      ).toBe(0.75);
-    });
-
-    it("accepts chance probability boundaries", () => {
-      expect(new RandomCycle().bin().chance(0).getRandomSchema().chance).toBe(
-        0,
-      );
-      expect(new RandomCycle().bin().chance(1).getRandomSchema().chance).toBe(
-        1,
-      );
-    });
-
     it("rejects invalid chance probabilities immediately", () => {
       for (const probability of [-0.01, 1.01, Infinity, -Infinity, NaN]) {
         expect(() => new RandomCycle().chance(probability)).toThrow(
           "probability must be a finite number from 0 to 1",
         );
       }
-    });
-
-    it("rejects chance unless the final random type is binary", () => {
-      expect(() => new RandomCycle().chance(0.6).getRandomSchema()).toThrow(
-        "only valid for binary random cycles",
-      );
-      expect(() =>
-        new RandomCycle().bin().chance(0.6).int().getRandomSchema(),
-      ).toThrow("only valid for binary random cycles");
-    });
-
-    it("range() sets min and max", () => {
-      expect(new RandomCycle().range(10, 20).getRandomSchema().range).toEqual({
-        min: 10,
-        max: 20,
-      });
-    });
-
-    it("quant() sets quantValue", () => {
-      expect(new RandomCycle().quant(0.25).getRandomSchema().quantValue).toBe(
-        0.25,
-      );
-    });
-
-    it("algo() sets algorithm", () => {
-      expect(
-        new RandomCycle().algo("mulberry").getRandomSchema().algorithm,
-      ).toBe("mulberry");
     });
   });
 });

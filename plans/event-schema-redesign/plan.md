@@ -476,19 +476,19 @@ Add `order: "forward" | "reverse"` to random value output even though PR 2 compl
 
 **Acceptance criteria:**
 
-- [ ] Random value schemas contain counts only.
-- [ ] `.steps(16, 0, 8)` emits `valuesPerBar: [16, 0, 8]`.
-- [ ] Random timing extracts one specialized chance condition.
-- [ ] Numeric random output and timing chance cannot be confused.
-- [ ] Seeds, ribbons, ranges, quantization, value maps, and algorithms are preserved.
+- [x] Random value schemas contain counts only.
+- [x] `.steps(16, 0, 8)` emits `valuesPerBar: [16, 0, 8]`.
+- [x] Random timing extracts one specialized chance condition.
+- [x] Numeric random output and timing chance cannot be confused.
+- [x] Seeds, ribbons, ranges, quantization, value maps, and algorithms are preserved.
 
 **Testing:**
 
-- [ ] Default random schema.
-- [ ] Multi-bar counts including zero.
-- [ ] Bounded and unbounded ribbons.
-- [ ] Binary XOX with default, zero, one, and fractional probability.
-- [ ] Chance used outside timing fails explicitly.
+- [x] Default random schema.
+- [x] Multi-bar counts including zero.
+- [x] Bounded and unbounded ribbons.
+- [x] Binary XOX with default, zero, one, and fractional probability.
+- [x] Chance used outside timing fails explicitly.
 
 ---
 

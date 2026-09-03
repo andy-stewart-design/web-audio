@@ -1,5 +1,6 @@
 // Schema types — re-exported from @web-audio/schema
 export type {
+  ChanceCondition,
   RandomNumberPattern,
   StaticNotePattern,
   StaticValuePattern,
