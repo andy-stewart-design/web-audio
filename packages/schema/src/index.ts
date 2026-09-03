@@ -16,36 +16,48 @@ type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
 // SEQUENCING ----------------------------------------
 // ---------------------------------------------------
 
-interface StaticSchemaValue {
-  value: number;
-  offset: number;
-  duration: number;
-  stepIndex: number;
-}
-
-interface StaticSchema {
+interface StaticValuePattern<T> {
   type: "static";
-  polyphonic: boolean;
-  cycle: StaticSchemaValue[][];
+  cycle: T[][];
 }
 
-interface RandomSchema {
-  type: "random";
+interface RandomNumberPattern {
+  type: "random-number";
+  valuesPerBar: number[];
   dataType: "float" | "integer" | "binary";
   segments: { seed: number; len?: number }[];
-  quantValue: number | undefined;
-  chance?: number;
-  range: { min: number; max: number } | undefined;
+  range?: { min: number; max: number };
+  quantValue?: number;
   algorithm: "xor" | "mulberry";
-  grid: StaticSchema;
   valueMap?: number[];
+  order: "forward" | "reverse";
 }
 
-type ParameterSchema = StaticSchema | RandomSchema;
+type NumberPattern = StaticValuePattern<number> | RandomNumberPattern;
 
-interface NotesSchema {
-  source: ParameterSchema;
-  mask?: ParameterSchema;
+type StaticNotePattern = StaticValuePattern<number[] | null>;
+type NotePattern = StaticNotePattern | RandomNumberPattern;
+
+type SampleNamePattern = StaticValuePattern<string[] | null>;
+type StaticVariationIndexPattern = StaticValuePattern<number[] | null>;
+type VariationIndexPattern = StaticVariationIndexPattern | RandomNumberPattern;
+
+interface TimingStep {
+  offset: number;
+  duration: number;
+}
+
+interface ChanceCondition {
+  type: "chance";
+  probability: number;
+  segments: { seed: number; len?: number }[];
+  algorithm: "xor" | "mulberry";
+  order: "forward" | "reverse";
+}
+
+interface TimingSchema {
+  cycle: TimingStep[][];
+  condition?: ChanceCondition;
 }
 
 // ---------------------------------------------------
@@ -105,15 +117,15 @@ type NormalizedSampleSchema = Record<string, SampleVariationSchema[]>;
 
 interface StaticEndRegionSchema {
   type: "static";
-  start: ParameterSchema;
-  end: ParameterSchema;
+  start: NumberPattern;
+  end: NumberPattern;
   duration?: never;
 }
 
 interface StaticDurationRegionSchema {
   type: "static";
-  start: ParameterSchema;
-  duration: ParameterSchema;
+  start: NumberPattern;
+  duration: NumberPattern;
   end?: never;
 }
 
@@ -127,7 +139,7 @@ interface ChopSliceSchema {
 interface ChopRegionSchema {
   type: "chop";
   slices: ChopSliceSchema[];
-  sequence: ParameterSchema;
+  sequence: NumberPattern;
 }
 
 type RegionSchema = StaticRegionSchema | ChopRegionSchema;
@@ -143,19 +155,19 @@ interface BankSchema {
 interface EnvelopeSchema {
   type: "envelope";
   min: number;
-  max: ParameterSchema;
-  a: ParameterSchema;
-  d: ParameterSchema;
-  s: ParameterSchema;
-  r: ParameterSchema;
+  max: NumberPattern;
+  a: NumberPattern;
+  d: NumberPattern;
+  s: NumberPattern;
+  r: NumberPattern;
   mode: EnvelopeMode;
 }
 
 interface LfoSchema {
   type: "lfo";
   id: string;
-  outputA: ParameterSchema;
-  outputB: ParameterSchema;
+  outputA: NumberPattern;
+  outputB: NumberPattern;
   speed: number[];
   waveform: Waveform[];
   phase: number;
@@ -168,7 +180,7 @@ interface LfoSchema {
 // ---------------------------------------------------
 
 type AudioParamSchema =
-  | ParameterSchema
+  | NumberPattern
   | EnvelopeSchema
   | LfoSchema
   | MidiCcSchema;
@@ -203,7 +215,20 @@ interface BusSchema {
 // INSTRUMENTS ---------------------------------------
 // ---------------------------------------------------
 
-interface InstrumentSchema {
+interface SynthEventSchema {
+  timing: TimingSchema;
+  notes: NotePattern;
+}
+
+interface SamplerEventSchema {
+  timing: TimingSchema;
+  notes?: NotePattern;
+  sampleNames: SampleNamePattern;
+  variationIndices?: VariationIndexPattern;
+}
+
+interface InstrumentSchema<TEvents> {
+  events: TEvents;
   gain: EnvelopeSchema;
   effects: EffectSchema[];
   detune: AudioParamSchema;
@@ -212,22 +237,17 @@ interface InstrumentSchema {
   sends: Record<string, number>;
 }
 
-interface SynthesizerSchema extends InstrumentSchema {
+interface SynthesizerSchema extends InstrumentSchema<SynthEventSchema> {
   type: "synthesizer";
   waveform: Waveform;
-  notes: NotesSchema;
   notesOut?: MidiOutSchema;
 }
 
-interface SamplerSchema extends InstrumentSchema {
+interface SamplerSchema extends InstrumentSchema<SamplerEventSchema> {
   type: "sampler";
   bank: string;
-  sample: string;
-  variation: ParameterSchema;
-  notes: NotesSchema;
   fit: FitSchema | null;
   region: RegionSchema | null;
-  sourceKeys: number[];
   loop: boolean;
   clipMode: ClipMode;
   direction: SampleDirection;
@@ -263,14 +283,17 @@ export type {
   FilterType,
   FitSchema,
   GainEffectSchema,
-  InstrumentSchema,
   LfoSchema,
   MidiCcSchema,
   MidiOutSchema,
-  NotesSchema,
+  ChanceCondition,
+  InstrumentSchema,
+  SamplerEventSchema,
+  SynthEventSchema,
+  NotePattern,
   NormalizedSampleSchema,
-  ParameterSchema,
-  RandomSchema,
+  NumberPattern,
+  RandomNumberPattern,
   RegionSchema,
   SampleDirection,
   SamplerSchema,
@@ -278,9 +301,14 @@ export type {
   SpriteSampleVariationSchema,
   StaticDurationRegionSchema,
   StaticEndRegionSchema,
+  StaticNotePattern,
   StaticRegionSchema,
-  StaticSchema,
-  StaticSchemaValue,
+  StaticValuePattern,
+  StaticVariationIndexPattern,
   SynthesizerSchema,
+  SampleNamePattern,
+  TimingSchema,
+  TimingStep,
+  VariationIndexPattern,
   Waveform,
 };

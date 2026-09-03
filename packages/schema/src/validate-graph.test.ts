@@ -1,49 +1,118 @@
 import { describe, expect, it } from "vitest";
 import type {
+  BankSchema,
   DromeSchema,
   EffectSchema,
-  InstrumentSchema,
-  RandomSchema,
-  StaticSchema,
+  RandomNumberPattern,
+  SamplerSchema,
+  StaticValuePattern,
+  SynthEventSchema,
+  SynthesizerSchema,
+  TimingSchema,
 } from "./index";
 import { validateDromeGraph } from "./validate-graph";
 
-function staticParam(value: number): StaticSchema {
+function staticParam(value: number): StaticValuePattern<number> {
   return {
     type: "static",
-    polyphonic: false,
-    cycle: [[{ value, offset: 0, duration: 1, stepIndex: 0 }]],
+    cycle: [[value]],
   };
 }
 
-function randomParam(overrides: Partial<RandomSchema> = {}): RandomSchema {
+function randomParam(
+  overrides: Partial<RandomNumberPattern> = {},
+): RandomNumberPattern {
   return {
-    type: "random",
+    type: "random-number",
+    valuesPerBar: [1],
     dataType: "float",
     segments: [{ seed: 0 }],
-    quantValue: undefined,
     range: undefined,
+    quantValue: undefined,
     algorithm: "xor",
-    grid: staticParam(1),
+    order: "forward",
     ...overrides,
   };
 }
 
-function instrument(route = "main", sends: Record<string, number> = {}) {
-  return { route, sends } as InstrumentSchema;
+function timing(
+  cycle: TimingSchema["cycle"] = [[{ offset: 0, duration: 1 }]],
+): TimingSchema {
+  return { cycle };
+}
+
+function envelope() {
+  return {
+    type: "envelope" as const,
+    min: 0,
+    max: staticParam(1),
+    a: staticParam(0.01),
+    d: staticParam(0),
+    s: staticParam(1),
+    r: staticParam(0.01),
+    mode: "bleed" as const,
+  };
+}
+
+function instrument(
+  route = "main",
+  sends: Record<string, number> = {},
+  events: SynthEventSchema = {
+    timing: timing(),
+    notes: { type: "static", cycle: [[[60]]] },
+  },
+): SynthesizerSchema {
+  return {
+    type: "synthesizer",
+    waveform: "sine",
+    events,
+    gain: envelope(),
+    effects: [],
+    detune: staticParam(0),
+    muted: false,
+    route,
+    sends,
+  };
+}
+
+function sampler(
+  bank = "drums",
+  events: SamplerSchema["events"] = {
+    timing: timing(),
+    sampleNames: { type: "static", cycle: [[["bd"]]] },
+  },
+): SamplerSchema {
+  return {
+    type: "sampler",
+    bank,
+    events,
+    gain: envelope(),
+    effects: [],
+    detune: staticParam(0),
+    muted: false,
+    route: "main",
+    sends: {},
+    fit: null,
+    region: null,
+    loop: false,
+    clipMode: "clipped",
+    direction: "forward",
+  };
 }
 
 function schema(
   buses: DromeSchema["buses"] = {},
-  instruments: InstrumentSchema[] = [],
+  instruments: DromeSchema["instruments"] = [],
+  banks: DromeSchema["banks"] = {},
 ): DromeSchema {
-  return {
-    bpm: undefined,
-    buses,
-    instruments: instruments as never[],
-    banks: {},
-  };
+  return { bpm: undefined, buses, instruments, banks };
 }
+
+const validBank: BankSchema = {
+  samples: {
+    bd: { "0": [{ type: "file", src: "bd.wav" }] },
+  },
+};
 
 describe("validateDromeGraph", () => {
   it("accepts a canonical graph", () => {
@@ -113,13 +182,7 @@ describe("validateDromeGraph", () => {
       type: "gain",
       gain: {
         ...staticParam(1),
-        cycle: [
-          [
-            { value: 1, offset: 0, duration: 0.5, stepIndex: 0 },
-            { value: 0.5, offset: 0.5, duration: 0.5, stepIndex: 1 },
-          ],
-          [{ value: 0.25, offset: 0, duration: 1, stepIndex: 0 }],
-        ],
+        cycle: [[1, 0.5], [0.25]],
       },
     };
 
@@ -133,10 +196,7 @@ describe("validateDromeGraph", () => {
   it.each([
     ["empty cycle", []],
     ["empty row", [[]]],
-    [
-      "non-finite first value",
-      [[{ value: Number.NaN, offset: 0, duration: 1, stepIndex: 0 }]],
-    ],
+    ["non-finite first value", [[Number.NaN]]],
   ])("rejects a static bus parameter with %s", (_label, cycle) => {
     const effect: EffectSchema = {
       type: "gain",
@@ -147,9 +207,7 @@ describe("validateDromeGraph", () => {
       validateDromeGraph(
         schema({ drums: { gain: 1, transition: 0, effects: [effect] } }),
       ),
-    ).toThrow(
-      '[Schema] Bus "drums" effects[0].gain must be a finite bar-resolvable static or random parameter.',
-    );
+    ).toThrow(/\[Schema\] Bus "drums" effects\[0\]\.gain/);
   });
 
   it("accepts structurally safe random bus parameters, including reversed ranges", () => {
@@ -176,42 +234,42 @@ describe("validateDromeGraph", () => {
     [
       "empty segments",
       randomParam({ segments: [] }),
-      "random segments cannot be empty",
+      "segments cannot be empty",
     ],
     [
       "non-finite seed",
       randomParam({ segments: [{ seed: Number.NaN }] }),
-      "random seeds must be finite",
+      "segments seeds must be finite",
     ],
     [
       "fractional segment length",
       randomParam({ segments: [{ seed: 1, len: 1.5 }] }),
-      "random segment lengths must be positive finite integers",
+      "segments lengths must be positive finite integers",
     ],
     [
       "non-finite range span",
       randomParam({ range: { min: -Number.MAX_VALUE, max: Number.MAX_VALUE } }),
-      "random range endpoints and span must be finite",
+      "range endpoints and span must be finite",
     ],
     [
       "zero quantization",
       randomParam({ quantValue: 0 }),
-      "random quantization must be a positive finite number",
+      "quantValue must be a positive finite number",
     ],
     [
-      "non-binary chance",
-      randomParam({ chance: 0.5 }),
-      "random chance must be a finite number in [0, 1] on a binary parameter",
+      "empty values-per-bar cycle",
+      randomParam({ valuesPerBar: [] }),
+      "valuesPerBar must contain finite non-negative integers",
     ],
     [
       "empty value map",
       randomParam({ valueMap: [] }),
-      "random value map must contain finite, safely indexable values",
+      "valueMap must contain finite, safely indexable values",
     ],
     [
-      "empty grid row",
-      randomParam({ grid: { ...staticParam(1), cycle: [[]] } }),
-      "random grid must have a finite first value in every bar",
+      "negative values-per-bar count",
+      randomParam({ valuesPerBar: [-1] }),
+      "valuesPerBar must contain finite non-negative integers",
     ],
   ])("rejects random bus parameters with %s", (_label, gain, message) => {
     const effect: EffectSchema = { type: "gain", gain };
@@ -220,7 +278,7 @@ describe("validateDromeGraph", () => {
       validateDromeGraph(
         schema({ drums: { gain: 1, transition: 0, effects: [effect] } }),
       ),
-    ).toThrow(`[Schema] Bus "drums" effects[0].gain ${message}.`);
+    ).toThrow(`[Schema] Bus "drums" effects[0].gain.${message}.`);
   });
 
   it("rejects unresolved and non-canonical routes", () => {
@@ -256,6 +314,229 @@ describe("validateDromeGraph", () => {
       ),
     ).toThrow(
       '[Schema] Instrument 0 send "verb" amount must be a finite number in [0, 1].',
+    );
+  });
+
+  it("accepts complete synth and sampler plans with missing external resources", () => {
+    expect(() =>
+      validateDromeGraph(
+        schema({}, [instrument(), sampler("missing")], { drums: validBank }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("accepts empty timing bars and durations longer than one bar", () => {
+    const event = instrument(
+      "main",
+      {},
+      {
+        timing: timing([[], [{ offset: 0, duration: 4 }]]),
+        notes: { type: "static", cycle: [[[60]], [[67]]] },
+      },
+    );
+
+    expect(() => validateDromeGraph(schema({}, [event]))).not.toThrow();
+  });
+
+  it.each([
+    ["empty cycle", []],
+    ["offset below zero", [[{ offset: -0.1, duration: 1 }]]],
+    ["offset at one", [[{ offset: 1, duration: 1 }]]],
+    ["zero duration", [[{ offset: 0, duration: 0 }]]],
+    [
+      "unsorted offsets",
+      [
+        [
+          { offset: 0.5, duration: 1 },
+          { offset: 0.25, duration: 1 },
+        ],
+      ],
+    ],
+    [
+      "duplicate offsets",
+      [
+        [
+          { offset: 0.25, duration: 1 },
+          { offset: 0.25, duration: 1 },
+        ],
+      ],
+    ],
+  ])("rejects timing with %s", (_label, cycle) => {
+    const event = instrument(
+      "main",
+      {},
+      {
+        timing: timing(cycle as TimingSchema["cycle"]),
+        notes: { type: "static", cycle: [[[60]]] },
+      },
+    );
+
+    expect(() => validateDromeGraph(schema({}, [event]))).toThrow(
+      "[Schema] Instrument 0.events.timing.cycle",
+    );
+  });
+
+  it("validates a chance condition independently from event values", () => {
+    const event = instrument(
+      "main",
+      {},
+      {
+        timing: {
+          cycle: [[{ offset: 0, duration: 1 }]],
+          condition: {
+            type: "chance",
+            probability: 0.5,
+            segments: [{ seed: 42 }],
+            algorithm: "mulberry",
+            order: "reverse",
+          },
+        },
+        notes: randomParam({ valuesPerBar: [1] }),
+      },
+    );
+
+    expect(() => validateDromeGraph(schema({}, [event]))).not.toThrow();
+    expect(() =>
+      validateDromeGraph(
+        schema({}, [
+          instrument(
+            "main",
+            {},
+            {
+              ...event.events,
+              timing: {
+                ...event.events.timing,
+                condition: {
+                  ...event.events.timing.condition!,
+                  probability: 1.1,
+                },
+              },
+            },
+          ),
+        ]),
+      ),
+    ).toThrow(
+      "[Schema] Instrument 0.events.timing.condition.probability must be finite and in [0, 1].",
+    );
+  });
+
+  it("accepts valid static and random event values", () => {
+    const samplerEvent = {
+      timing: timing([[], [{ offset: 0, duration: 1 }]]),
+      sampleNames: {
+        type: "static" as const,
+        cycle: [[null], [["bd"]]],
+      },
+      notes: randomParam({ valuesPerBar: [0, 1] }),
+      variationIndices: {
+        type: "static" as const,
+        cycle: [[null], [[0, 1]]],
+      },
+    } satisfies SamplerSchema["events"];
+
+    expect(() =>
+      validateDromeGraph(schema({}, [sampler("missing", samplerEvent)])),
+    ).not.toThrow();
+  });
+
+  it("rejects event rests that do not align with timing", () => {
+    const event = sampler("missing", {
+      timing: timing([
+        [{ offset: 0, duration: 1 }],
+        [{ offset: 0, duration: 1 }],
+      ]),
+      sampleNames: {
+        type: "static",
+        cycle: [[["bd"]], [null]],
+      },
+    });
+
+    expect(() => validateDromeGraph(schema({}, [event]))).toThrow(
+      "[Schema] Instrument 0.events.sampleNames.cycle[1] silent bar must align with an empty timing bar.",
+    );
+  });
+
+  it.each([
+    ["all-silent sample names", { type: "static", cycle: [[null]] }],
+    ["empty sample voice group", { type: "static", cycle: [[[]]] }],
+    [
+      "null beside an active group",
+      { type: "static", cycle: [[["bd"], null]] },
+    ],
+  ])("rejects invalid sample-name voices: %s", (_label, sampleNames) => {
+    const event = sampler("missing", {
+      timing: timing(),
+      sampleNames: sampleNames as SamplerSchema["events"]["sampleNames"],
+    });
+
+    expect(() => validateDromeGraph(schema({}, [event]))).toThrow(
+      "[Schema] Instrument 0.events.sampleNames",
+    );
+  });
+
+  it("validates processing, region, and bank branches", () => {
+    const lfo = {
+      type: "lfo" as const,
+      id: "lfo-1",
+      outputA: staticParam(0),
+      outputB: randomParam(),
+      speed: [1, 2],
+      waveform: ["sine" as const, "triangle" as const],
+      phase: 0,
+      norm: false,
+      invert: false,
+    };
+    const midiCc = {
+      type: "midi-cc" as const,
+      cc: 74,
+      channel: 1,
+      range: { min: 0, max: 1, curve: "linear" as const },
+      default: 0.5,
+    };
+    const effect: EffectSchema = {
+      type: "filter",
+      filterType: "lp",
+      frequency: lfo,
+      q: midiCc,
+      detune: staticParam(0),
+      gain: staticParam(1),
+    };
+    const samplerSchema = {
+      ...sampler(),
+      effects: [effect],
+      region: {
+        type: "static" as const,
+        start: staticParam(0),
+        end: staticParam(1),
+      },
+    } satisfies SamplerSchema;
+
+    expect(() =>
+      validateDromeGraph(
+        schema(
+          { verb: { gain: 1, transition: 0, effects: [effect] } },
+          [{ ...instrument("verb"), effects: [effect] }, samplerSchema],
+          { drums: validBank },
+        ),
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects an empty declared bank and malformed source entries", () => {
+    expect(() =>
+      validateDromeGraph(schema({}, [], { empty: { samples: {} } })),
+    ).toThrow('[Schema] Bank "empty" must contain samples.');
+
+    expect(() =>
+      validateDromeGraph(
+        schema({}, [], {
+          drums: {
+            samples: { bd: { "0": [{ type: "file", src: "" }] } },
+          },
+        }),
+      ),
+    ).toThrow(
+      '[Schema] banks["drums"].samples["bd"]["0"][0].src must be non-empty.',
     );
   });
 });
