@@ -1,16 +1,36 @@
+import type {
+  CLIP_MODES,
+  ENVELOPE_MODES,
+  FILTER_TYPES,
+  MIDI_RANGE_CURVES,
+  PATTERN_ORDERS,
+  RANDOM_ALGORITHMS,
+  RANDOM_DATA_TYPES,
+  SAMPLE_DIRECTIONS,
+  WAVEFORMS,
+} from "./constants";
+
 // ---------------------------------------------------
 // PRIMITIVES ----------------------------------------
 // ---------------------------------------------------
 
-type Waveform = "sine" | "square" | "sawtooth" | "triangle";
+type Waveform = (typeof WAVEFORMS)[number];
 
-type EnvelopeMode = "bleed" | "bounded";
+type EnvelopeMode = (typeof ENVELOPE_MODES)[number];
 
-type ClipMode = "clipped" | "one-shot";
+type ClipMode = (typeof CLIP_MODES)[number];
 
-type SampleDirection = "forward" | "reverse" | "alternate";
+type SampleDirection = (typeof SAMPLE_DIRECTIONS)[number];
 
-type FilterType = "lp" | "hp" | "bp" | "notch" | "ap" | "pk" | "ls" | "hs";
+type FilterType = (typeof FILTER_TYPES)[number];
+
+type RandomDataType = (typeof RANDOM_DATA_TYPES)[number];
+
+type RandomAlgorithm = (typeof RANDOM_ALGORITHMS)[number];
+
+type PatternOrder = (typeof PATTERN_ORDERS)[number];
+
+type MidiRangeCurve = (typeof MIDI_RANGE_CURVES)[number];
 
 // ---------------------------------------------------
 // SEQUENCING ----------------------------------------
@@ -24,13 +44,13 @@ interface StaticValuePattern<T> {
 interface RandomNumberPattern {
   type: "random-number";
   valuesPerBar: number[];
-  dataType: "float" | "integer" | "binary";
+  dataType: RandomDataType;
   segments: { seed: number; len?: number }[];
   range?: { min: number; max: number };
   quantValue?: number;
-  algorithm: "xor" | "mulberry";
+  algorithm: RandomAlgorithm;
   valueMap?: number[];
-  order: "forward" | "reverse";
+  order: PatternOrder;
 }
 
 type NumberPattern = StaticValuePattern<number> | RandomNumberPattern;
@@ -51,8 +71,8 @@ interface ChanceCondition {
   type: "chance";
   probability: number;
   segments: { seed: number; len?: number }[];
-  algorithm: "xor" | "mulberry";
-  order: "forward" | "reverse";
+  algorithm: RandomAlgorithm;
+  order: PatternOrder;
 }
 
 interface TimingSchema {
@@ -78,7 +98,7 @@ interface MidiCcSchema {
   range: {
     min: number;
     max: number;
-    curve: "linear" | "exponential";
+    curve: MidiRangeCurve;
   };
   default: number;
 }

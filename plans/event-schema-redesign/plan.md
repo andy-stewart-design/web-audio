@@ -383,8 +383,9 @@ Resource availability is not a validation concern. Missing banks, sample names, 
 
 - [ ] Positive tests cover every valid pattern and event union member.
 - [ ] Table-driven negative tests cover each invariant above.
-- [ ] `AudioEngine.update()` tests prove failed validation leaves pending/active state unchanged.
 - [ ] `pnpm --filter @web-audio/schema test:ci`
+
+`AudioEngine.update()` validation-isolation coverage lands in Step 4.4 after the engine consumes the target instrument schema; do not add a temporary old/new schema bridge here.
 
 ---
 
@@ -909,6 +910,10 @@ Sampler requirements:
 - [ ] Random timing misses consume no processing values.
 - [ ] Missing sampler resources do not shift subsequent patterns.
 - [ ] Existing envelopes, detune, effects, MIDI, regions, fit, loop, clip, and direction behavior remains covered.
+
+**Testing:**
+
+- [ ] `AudioEngine.update()` tests prove failed validation leaves pending/active state unchanged.
 
 ---
 

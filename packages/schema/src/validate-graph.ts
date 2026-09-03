@@ -1,63 +1,86 @@
-import type {
-  AudioParamSchema,
-  BankSchema,
-  ChanceCondition,
-  DromeSchema,
-  EffectSchema,
-  EnvelopeSchema,
-  FitSchema,
-  LfoSchema,
-  MidiCcSchema,
-  MidiOutSchema,
-  NotePattern,
-  NumberPattern,
-  RandomNumberPattern,
-  RegionSchema,
-  SampleNamePattern,
-  SamplerEventSchema,
-  StaticValuePattern,
-  SynthEventSchema,
-  TimingSchema,
-} from "./index";
+import {
+  CLIP_MODES,
+  ENVELOPE_MODES,
+  FILTER_TYPES,
+  MIDI_RANGE_CURVES,
+  PATTERN_ORDERS,
+  RANDOM_ALGORITHMS,
+  RANDOM_DATA_TYPES,
+  SAMPLE_DIRECTIONS,
+  WAVEFORMS,
+  isOneOf,
+} from "./constants";
+import type { DromeSchema, TimingStep } from "./index";
+
+type TimingCycle = TimingStep[][];
+
+type VoicePatternSummary = {
+  cycleLength: number;
+  hasRealValue: boolean;
+  silentBarIndices: number[];
+};
 
 function validateDromeGraph(schema: DromeSchema) {
+  if (!isRecord(schema)) {
+    throw new Error("[Schema] graph must be an object.");
+  }
   if (
     schema.bpm !== undefined &&
-    (!Number.isFinite(schema.bpm) || schema.bpm <= 0)
+    (!isFiniteNumber(schema.bpm) || schema.bpm <= 0)
   ) {
     throw new Error("[Schema] bpm must be a finite number greater than 0.");
   }
 
   validateBanks(schema.banks);
 
+  if (!isRecord(schema.buses)) {
+    throw new Error("[Schema] buses must be an object.");
+  }
   for (const [name, bus] of Object.entries(schema.buses)) {
+    const path = `Bus "${name}"`;
     if (!isCanonicalName(name)) {
       throw new Error(`[Schema] Bus name "${name}" is not canonical.`);
     }
-    if (!Number.isFinite(bus.gain) || bus.gain < 0) {
+    if (!isRecord(bus)) {
+      throw new Error(`[Schema] ${path} must be an object.`);
+    }
+    if (!isFiniteNumber(bus.gain) || bus.gain < 0) {
       throw new Error(
-        `[Schema] Bus "${name}" gain must be a finite number greater than or equal to 0.`,
+        `[Schema] ${path} gain must be a finite number greater than or equal to 0.`,
       );
     }
     if (
-      !Number.isFinite(bus.transition) ||
+      !isFiniteNumber(bus.transition) ||
       bus.transition < 0 ||
       bus.transition > 1
     ) {
       throw new Error(
-        `[Schema] Bus "${name}" transition must be a finite number in [0, 1].`,
+        `[Schema] ${path} transition must be a finite number in [0, 1].`,
       );
+    }
+    if (!Array.isArray(bus.effects)) {
+      throw new Error(`[Schema] ${path}.effects must be an array.`);
     }
     if (name === "main" && bus.effects.length > 0) {
       throw new Error(
         "[Schema] Effects on main are not supported in the bus MVP.",
       );
     }
-    validateEffects(bus.effects, `Bus "${name}" effects`);
+    validateEffects(bus.effects, `${path} effects`);
   }
 
+  if (!Array.isArray(schema.instruments)) {
+    throw new Error("[Schema] instruments must be an array.");
+  }
   schema.instruments.forEach((instrument, index) => {
     const path = `Instrument ${index}`;
+    if (!isRecord(instrument)) {
+      throw new Error(`[Schema] ${path} must be an object.`);
+    }
+    if (instrument.type !== "synthesizer" && instrument.type !== "sampler") {
+      throw new Error(`[Schema] ${path}.type is invalid.`);
+    }
+
     validateInstrumentCommon(instrument, path, schema);
 
     if (instrument.type === "synthesizer") {
@@ -65,43 +88,38 @@ function validateDromeGraph(schema: DromeSchema) {
       if (instrument.notesOut !== undefined) {
         validateMidiOut(instrument.notesOut, `${path}.notesOut`);
       }
-      if (!isWaveform(instrument.waveform)) {
+      if (!isOneOf(WAVEFORMS, instrument.waveform)) {
         throw new Error(`[Schema] ${path}.waveform is invalid.`);
       }
       return;
     }
 
-    if (instrument.type === "sampler") {
-      if (!isNonEmptyString(instrument.bank)) {
-        throw new Error(`[Schema] ${path}.bank must be non-empty.`);
-      }
-      validateSamplerEvent(instrument.events, `${path}.events`);
-      validateFit(instrument.fit, `${path}.fit`);
-      validateRegion(instrument.region, `${path}.region`);
-      if (typeof instrument.loop !== "boolean") {
-        throw new Error(`[Schema] ${path}.loop must be a boolean.`);
-      }
-      if (!isClipMode(instrument.clipMode)) {
-        throw new Error(`[Schema] ${path}.clipMode is invalid.`);
-      }
-      if (!isSampleDirection(instrument.direction)) {
-        throw new Error(`[Schema] ${path}.direction is invalid.`);
-      }
-      return;
+    if (!isNonEmptyString(instrument.bank)) {
+      throw new Error(`[Schema] ${path}.bank must be non-empty.`);
     }
-
-    throw new Error(`[Schema] ${path}.type is invalid.`);
+    validateSamplerEvent(instrument.events, `${path}.events`);
+    validateFit(instrument.fit, `${path}.fit`);
+    validateRegion(instrument.region, `${path}.region`);
+    if (typeof instrument.loop !== "boolean") {
+      throw new Error(`[Schema] ${path}.loop must be a boolean.`);
+    }
+    if (!isOneOf(CLIP_MODES, instrument.clipMode)) {
+      throw new Error(`[Schema] ${path}.clipMode is invalid.`);
+    }
+    if (!isOneOf(SAMPLE_DIRECTIONS, instrument.direction)) {
+      throw new Error(`[Schema] ${path}.direction is invalid.`);
+    }
   });
 }
 
 function validateInstrumentCommon(
-  instrument: DromeSchema["instruments"][number],
+  instrument: Record<string, unknown>,
   path: string,
   schema: DromeSchema,
 ) {
   if (!isCanonicalName(instrument.route)) {
     throw new Error(
-      `[Schema] ${path} route "${instrument.route}" is not canonical.`,
+      `[Schema] ${path} route "${String(instrument.route)}" is not canonical.`,
     );
   }
   if (instrument.route !== "main" && !schema.buses[instrument.route]) {
@@ -114,6 +132,9 @@ function validateInstrumentCommon(
   validateAudioParam(instrument.detune, `${path}.detune`);
   validateEffects(instrument.effects, `${path}.effects`);
 
+  if (!isRecord(instrument.sends)) {
+    throw new Error(`[Schema] ${path}.sends must be an object.`);
+  }
   for (const [target, amount] of Object.entries(instrument.sends)) {
     if (!isCanonicalName(target)) {
       throw new Error(
@@ -128,7 +149,7 @@ function validateInstrumentCommon(
         `[Schema] ${path} send "${target}" does not reference a declared bus.`,
       );
     }
-    if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
+    if (!isFiniteNumber(amount) || amount < 0 || amount > 1) {
       throw new Error(
         `[Schema] ${path} send "${target}" amount must be a finite number in [0, 1].`,
       );
@@ -140,53 +161,61 @@ function validateInstrumentCommon(
   }
 }
 
-function validateBanks(banks: DromeSchema["banks"]) {
+function validateBanks(banks: unknown) {
+  if (!isRecord(banks)) {
+    throw new Error("[Schema] banks must be an object.");
+  }
   for (const [name, bank] of Object.entries(banks)) {
     if (!isNonEmptyString(name)) {
       throw new Error(`[Schema] Bank name "${name}" must be non-empty.`);
     }
+    const path = `banks["${name}"]`;
+    if (!isRecord(bank)) {
+      throw new Error(`[Schema] ${path} must be an object.`);
+    }
+    if (!isRecord(bank.samples)) {
+      throw new Error(`[Schema] ${path}.samples must be an object.`);
+    }
     if (Object.keys(bank.samples).length === 0) {
       throw new Error(`[Schema] Bank "${name}" must contain samples.`);
     }
-    validateBank(bank, `banks["${name}"]`);
+    validateBankSamples(bank.samples, path);
   }
 }
 
-function validateBank(bank: BankSchema, path: string) {
-  for (const [sampleName, sourceKeys] of Object.entries(bank.samples)) {
+function validateBankSamples(samples: Record<string, unknown>, path: string) {
+  for (const [sampleName, sourceKeys] of Object.entries(samples)) {
     if (!isNonEmptyString(sampleName)) {
       throw new Error(`[Schema] ${path}.samples has an empty sample name.`);
     }
+    const samplePath = `${path}.samples["${sampleName}"]`;
+    if (!isRecord(sourceKeys)) {
+      throw new Error(`[Schema] ${samplePath} must be an object.`);
+    }
     if (Object.keys(sourceKeys).length === 0) {
-      throw new Error(
-        `[Schema] ${path}.samples["${sampleName}"] must contain source keys.`,
-      );
+      throw new Error(`[Schema] ${samplePath} must contain source keys.`);
     }
     for (const [sourceKey, variations] of Object.entries(sourceKeys)) {
       if (!isFiniteNumericString(sourceKey)) {
         throw new Error(
-          `[Schema] ${path}.samples["${sampleName}"] source key "${sourceKey}" must be numeric.`,
+          `[Schema] ${samplePath} source key "${sourceKey}" must be numeric.`,
         );
       }
+      const sourcePath = `${samplePath}["${sourceKey}"]`;
       if (!Array.isArray(variations)) {
-        throw new Error(
-          `[Schema] ${path}.samples["${sampleName}"]["${sourceKey}"] must be an array.`,
-        );
+        throw new Error(`[Schema] ${sourcePath} must be an array.`);
       }
       variations.forEach((variation, index) =>
-        validateSampleVariation(
-          variation,
-          `${path}.samples["${sampleName}"]["${sourceKey}"][${index}]`,
-        ),
+        validateSampleVariation(variation, `${sourcePath}[${index}]`),
       );
     }
   }
 }
 
-function validateSampleVariation(
-  variation: BankSchema["samples"][string][string][number],
-  path: string,
-) {
+function validateSampleVariation(variation: unknown, path: string) {
+  if (!isRecord(variation)) {
+    throw new Error(`[Schema] ${path} must be an object.`);
+  }
   if (variation.type === "file") {
     if (!isNonEmptyString(variation.src)) {
       throw new Error(`[Schema] ${path}.src must be non-empty.`);
@@ -199,8 +228,8 @@ function validateSampleVariation(
       throw new Error(`[Schema] ${path}.src must be non-empty.`);
     }
     if (
-      !Number.isFinite(variation.start) ||
-      !Number.isFinite(variation.end) ||
+      !isFiniteNumber(variation.start) ||
+      !isFiniteNumber(variation.end) ||
       variation.start < 0 ||
       variation.start >= variation.end ||
       variation.end > 1
@@ -215,11 +244,17 @@ function validateSampleVariation(
   throw new Error(`[Schema] ${path}.type is invalid.`);
 }
 
-function validateEffects(effects: EffectSchema[], path: string) {
+function validateEffects(effects: unknown, path: string) {
+  if (!Array.isArray(effects)) {
+    throw new Error(`[Schema] ${path} must be an array.`);
+  }
   effects.forEach((effect, index) => {
     const effectPath = `${path}[${index}]`;
+    if (!isRecord(effect)) {
+      throw new Error(`[Schema] ${effectPath} must be an object.`);
+    }
     if (effect.type === "filter") {
-      if (!isFilterType(effect.filterType)) {
+      if (!isOneOf(FILTER_TYPES, effect.filterType)) {
         throw new Error(`[Schema] ${effectPath}.filterType is invalid.`);
       }
       validateAudioParam(effect.frequency, `${effectPath}.frequency`);
@@ -236,7 +271,10 @@ function validateEffects(effects: EffectSchema[], path: string) {
   });
 }
 
-function validateAudioParam(schema: AudioParamSchema, path: string) {
+function validateAudioParam(schema: unknown, path: string) {
+  if (!isRecord(schema)) {
+    throw new Error(`[Schema] ${path} must be an object.`);
+  }
   if (schema.type === "static" || schema.type === "random-number") {
     validateNumberPattern(schema, path);
     return;
@@ -256,41 +294,50 @@ function validateAudioParam(schema: AudioParamSchema, path: string) {
   throw new Error(`[Schema] ${path} has an invalid audio parameter type.`);
 }
 
-function validateNumberPattern(schema: NumberPattern, path: string) {
+function validateNumberPattern(schema: unknown, path: string) {
+  if (!isRecord(schema)) {
+    throw new Error(`[Schema] ${path} must be an object.`);
+  }
   if (schema.type === "static") {
-    if (schema.cycle.length === 0) {
-      throw new Error(`[Schema] ${path}.cycle must contain at least one bar.`);
-    }
-    schema.cycle.forEach((bar, barIndex) => {
-      if (bar.length === 0) {
-        throw new Error(`[Schema] ${path}.cycle[${barIndex}] cannot be empty.`);
-      }
-      if (bar.some((value) => !Number.isFinite(value))) {
-        throw new Error(
-          `[Schema] ${path}.cycle[${barIndex}] must contain only finite numbers.`,
-        );
-      }
-    });
+    validateStaticNumberPattern(schema, path);
     return;
   }
-
   if (schema.type === "random-number") {
     validateRandomNumberPattern(schema, path);
     return;
   }
-
   throw new Error(`[Schema] ${path}.type is invalid.`);
 }
 
-function validateRandomNumberPattern(
-  schema: RandomNumberPattern,
+function validateStaticNumberPattern(
+  schema: Record<string, unknown>,
   path: string,
 ) {
+  if (!Array.isArray(schema.cycle) || schema.cycle.length === 0) {
+    throw new Error(`[Schema] ${path}.cycle must contain at least one bar.`);
+  }
+  schema.cycle.forEach((bar, barIndex) => {
+    if (!Array.isArray(bar) || bar.length === 0) {
+      throw new Error(`[Schema] ${path}.cycle[${barIndex}] cannot be empty.`);
+    }
+    if (bar.some((value) => !isFiniteNumber(value))) {
+      throw new Error(
+        `[Schema] ${path}.cycle[${barIndex}] must contain only finite numbers.`,
+      );
+    }
+  });
+}
+
+function validateRandomNumberPattern(schema: unknown, path: string) {
+  if (!isRecord(schema) || schema.type !== "random-number") {
+    throw new Error(`[Schema] ${path}.type must be "random-number".`);
+  }
   if (
+    !Array.isArray(schema.valuesPerBar) ||
     schema.valuesPerBar.length === 0 ||
     schema.valuesPerBar.some(
       (count) =>
-        !Number.isFinite(count) || !Number.isInteger(count) || count < 0,
+        !isFiniteNumber(count) || !Number.isInteger(count) || count < 0,
     )
   ) {
     throw new Error(
@@ -304,104 +351,106 @@ function validateRandomNumberPattern(
       `[Schema] ${path} cannot contain a timing chance condition.`,
     );
   }
+
+  return schema.valuesPerBar.filter(isFiniteNumber);
 }
 
-function validateRandomSettings(
-  schema: Pick<
-    RandomNumberPattern,
-    | "segments"
-    | "range"
-    | "quantValue"
-    | "valueMap"
-    | "dataType"
-    | "algorithm"
-    | "order"
-  >,
-  path: string,
-) {
+function validateRandomSettings(schema: Record<string, unknown>, path: string) {
   validateSegments(schema.segments, path);
 
-  if (
-    schema.range !== undefined &&
-    (!Number.isFinite(schema.range.min) ||
-      !Number.isFinite(schema.range.max) ||
-      !Number.isFinite(schema.range.max - schema.range.min))
-  ) {
-    throw new Error(
-      `[Schema] ${path}.range endpoints and span must be finite.`,
-    );
+  if (schema.range !== undefined) {
+    if (
+      !isRecord(schema.range) ||
+      !isFiniteNumber(schema.range.min) ||
+      !isFiniteNumber(schema.range.max) ||
+      !Number.isFinite(schema.range.max - schema.range.min)
+    ) {
+      throw new Error(
+        `[Schema] ${path}.range endpoints and span must be finite.`,
+      );
+    }
   }
 
   if (
     schema.quantValue !== undefined &&
-    (!Number.isFinite(schema.quantValue) || schema.quantValue <= 0)
+    (!isFiniteNumber(schema.quantValue) || schema.quantValue <= 0)
   ) {
     throw new Error(
       `[Schema] ${path}.quantValue must be a positive finite number.`,
     );
   }
 
-  if (
-    schema.valueMap !== undefined &&
-    (schema.valueMap.length === 0 ||
-      schema.valueMap.some((value) => !Number.isFinite(value)) ||
-      (schema.dataType === "binary" && schema.valueMap.length < 2))
-  ) {
-    throw new Error(
-      `[Schema] ${path}.valueMap must contain finite, safely indexable values.`,
-    );
+  if (schema.valueMap !== undefined) {
+    if (
+      !Array.isArray(schema.valueMap) ||
+      schema.valueMap.length === 0 ||
+      schema.valueMap.some((value) => !isFiniteNumber(value)) ||
+      (schema.dataType === "binary" && schema.valueMap.length < 2)
+    ) {
+      throw new Error(
+        `[Schema] ${path}.valueMap must contain finite, safely indexable values.`,
+      );
+    }
   }
 
-  if (!isDataType(schema.dataType)) {
+  if (!isOneOf(RANDOM_DATA_TYPES, schema.dataType)) {
     throw new Error(`[Schema] ${path}.dataType is invalid.`);
   }
-  if (!isAlgorithm(schema.algorithm)) {
+  if (!isOneOf(RANDOM_ALGORITHMS, schema.algorithm)) {
     throw new Error(`[Schema] ${path}.algorithm is invalid.`);
   }
-  if (!isOrder(schema.order)) {
+  if (!isOneOf(PATTERN_ORDERS, schema.order)) {
     throw new Error(`[Schema] ${path}.order is invalid.`);
   }
 }
 
-function validateSegments(
-  segments: { seed: number; len?: number }[],
-  path: string,
-) {
-  if (segments.length === 0) {
+function validateSegments(segments: unknown, path: string) {
+  if (!Array.isArray(segments) || segments.length === 0) {
     throw new Error(`[Schema] ${path}.segments cannot be empty.`);
   }
-  if (segments.some(({ seed }) => !Number.isFinite(seed))) {
-    throw new Error(`[Schema] ${path}.segments seeds must be finite.`);
+
+  let unboundedCount = 0;
+  for (const segment of segments) {
+    if (!isRecord(segment) || !isFiniteNumber(segment.seed)) {
+      throw new Error(`[Schema] ${path}.segments seeds must be finite.`);
+    }
+    if (segment.len === undefined) {
+      unboundedCount += 1;
+    } else if (!isPositiveInteger(segment.len)) {
+      throw new Error(
+        `[Schema] ${path}.segments lengths must be positive finite integers.`,
+      );
+    }
   }
 
-  const unbounded = segments.filter(({ len }) => len === undefined);
-  if (unbounded.length > 0 && segments.length !== 1) {
+  if (unboundedCount > 0 && segments.length !== 1) {
     throw new Error(
       `[Schema] ${path}.segments may contain an unbounded segment only by itself.`,
     );
   }
-  if (
-    segments.some(({ len }) => len !== undefined && !isPositiveInteger(len))
-  ) {
-    throw new Error(
-      `[Schema] ${path}.segments lengths must be positive finite integers.`,
-    );
-  }
 }
 
-function validateTiming(schema: TimingSchema, path: string) {
-  if (schema.cycle.length === 0) {
+function validateTiming(schema: unknown, path: string): TimingCycle {
+  if (!isRecord(schema)) {
+    throw new Error(`[Schema] ${path} must be an object.`);
+  }
+  if (!Array.isArray(schema.cycle) || schema.cycle.length === 0) {
     throw new Error(`[Schema] ${path}.cycle must contain at least one bar.`);
   }
+
+  const cycle: TimingCycle = [];
   schema.cycle.forEach((bar, barIndex) => {
+    if (!Array.isArray(bar)) {
+      throw new Error(`[Schema] ${path}.cycle[${barIndex}] must be an array.`);
+    }
     let previousOffset: number | undefined;
+    const validatedBar: TimingCycle[number] = [];
     bar.forEach((step, stepIndex) => {
       const stepPath = `${path}.cycle[${barIndex}][${stepIndex}]`;
-      if (
-        !Number.isFinite(step.offset) ||
-        step.offset < 0 ||
-        step.offset >= 1
-      ) {
+      if (!isRecord(step)) {
+        throw new Error(`[Schema] ${stepPath} must be an object.`);
+      }
+      if (!isFiniteNumber(step.offset) || step.offset < 0 || step.offset >= 1) {
         throw new Error(
           `[Schema] ${stepPath}.offset must be finite and in [0, 1).`,
         );
@@ -411,25 +460,32 @@ function validateTiming(schema: TimingSchema, path: string) {
           `[Schema] ${stepPath}.offset must be strictly greater than the previous offset.`,
         );
       }
-      if (!Number.isFinite(step.duration) || step.duration <= 0) {
+      if (!isFiniteNumber(step.duration) || step.duration <= 0) {
         throw new Error(
           `[Schema] ${stepPath}.duration must be finite and greater than 0.`,
         );
       }
       previousOffset = step.offset;
+      validatedBar.push({ offset: step.offset, duration: step.duration });
     });
+    cycle.push(validatedBar);
   });
+
   if (schema.condition !== undefined) {
     validateChanceCondition(schema.condition, `${path}.condition`);
   }
+  return cycle;
 }
 
-function validateChanceCondition(condition: ChanceCondition, path: string) {
+function validateChanceCondition(condition: unknown, path: string) {
+  if (!isRecord(condition)) {
+    throw new Error(`[Schema] ${path} must be an object.`);
+  }
   if (condition.type !== "chance") {
     throw new Error(`[Schema] ${path}.type must be "chance".`);
   }
   if (
-    !Number.isFinite(condition.probability) ||
+    !isFiniteNumber(condition.probability) ||
     condition.probability < 0 ||
     condition.probability > 1
   ) {
@@ -438,94 +494,115 @@ function validateChanceCondition(condition: ChanceCondition, path: string) {
     );
   }
   validateSegments(condition.segments, path);
-  if (!isAlgorithm(condition.algorithm)) {
+  if (!isOneOf(RANDOM_ALGORITHMS, condition.algorithm)) {
     throw new Error(`[Schema] ${path}.algorithm is invalid.`);
   }
-  if (!isOrder(condition.order)) {
+  if (!isOneOf(PATTERN_ORDERS, condition.order)) {
     throw new Error(`[Schema] ${path}.order is invalid.`);
   }
 }
 
-function validateSynthEvent(schema: SynthEventSchema, path: string) {
-  validateTiming(schema.timing, `${path}.timing`);
-  validateNotePattern(schema.notes, `${path}.notes`, schema.timing);
+function validateSynthEvent(schema: unknown, path: string) {
+  if (!isRecord(schema)) {
+    throw new Error(`[Schema] ${path} must be an object.`);
+  }
+  const timing = validateTiming(schema.timing, `${path}.timing`);
+  validateNotePattern(schema.notes, `${path}.notes`, timing);
 }
 
-function validateSamplerEvent(schema: SamplerEventSchema, path: string) {
-  validateTiming(schema.timing, `${path}.timing`);
-  validateSampleNamePattern(
-    schema.sampleNames,
-    `${path}.sampleNames`,
-    schema.timing,
-  );
+function validateSamplerEvent(schema: unknown, path: string) {
+  if (!isRecord(schema)) {
+    throw new Error(`[Schema] ${path} must be an object.`);
+  }
+  const timing = validateTiming(schema.timing, `${path}.timing`);
+  validateSampleNamePattern(schema.sampleNames, `${path}.sampleNames`, timing);
   if (schema.notes !== undefined) {
-    validateNotePattern(schema.notes, `${path}.notes`, schema.timing);
+    validateNotePattern(schema.notes, `${path}.notes`, timing);
   }
   if (schema.variationIndices !== undefined) {
     validateVariationPattern(
       schema.variationIndices,
       `${path}.variationIndices`,
-      schema.timing,
+      timing,
     );
   }
 }
 
 function validateNotePattern(
-  schema: NotePattern,
+  schema: unknown,
   path: string,
-  timing: TimingSchema,
+  timing: TimingCycle,
 ) {
-  if (schema.type === "static") {
-    validateVoicePattern(schema, path, isFiniteNumber, "note");
-    validateStaticEventAlignment(schema, timing, path);
+  if (isRecord(schema) && schema.type === "static") {
+    const summary = validateVoicePattern(schema, path, isFiniteNumber, "note");
+    validateStaticEventAlignment(summary, timing, path);
     return;
   }
-  validateRandomNumberPattern(schema, path);
-  validateRandomTimingAlignment(schema, timing, path);
+  if (isRecord(schema) && schema.type === "random-number") {
+    const valuesPerBar = validateRandomNumberPattern(schema, path);
+    validateRandomTimingAlignment(valuesPerBar, timing, path);
+    return;
+  }
+  throw new Error(`[Schema] ${path}.type is invalid.`);
 }
 
 function validateSampleNamePattern(
-  schema: SampleNamePattern,
+  schema: unknown,
   path: string,
-  timing: TimingSchema,
+  timing: TimingCycle,
 ) {
-  const hasRealName =
-    schema.type === "static" &&
-    validateVoicePattern(schema, path, isNonEmptyString, "sample name");
-  if (!hasRealName) {
+  if (!isRecord(schema) || schema.type !== "static") {
+    throw new Error(`[Schema] ${path}.type must be "static".`);
+  }
+  const summary = validateVoicePattern(
+    schema,
+    path,
+    isNonEmptyString,
+    "sample name",
+  );
+  if (!summary.hasRealValue) {
     throw new Error(`[Schema] ${path} must contain at least one real name.`);
   }
-  validateStaticEventAlignment(schema, timing, path);
+  validateStaticEventAlignment(summary, timing, path);
 }
 
 function validateVariationPattern(
-  schema: SamplerEventSchema["variationIndices"],
+  schema: unknown,
   path: string,
-  timing: TimingSchema,
+  timing: TimingCycle,
 ) {
-  if (schema === undefined) return;
-  if (schema.type === "static") {
-    validateVoicePattern(schema, path, isFiniteNumber, "variation index");
-    validateStaticEventAlignment(schema, timing, path);
+  if (isRecord(schema) && schema.type === "static") {
+    const summary = validateVoicePattern(
+      schema,
+      path,
+      isFiniteNumber,
+      "variation index",
+    );
+    validateStaticEventAlignment(summary, timing, path);
     return;
   }
-  validateRandomNumberPattern(schema, path);
-  validateRandomTimingAlignment(schema, timing, path);
+  if (isRecord(schema) && schema.type === "random-number") {
+    const valuesPerBar = validateRandomNumberPattern(schema, path);
+    validateRandomTimingAlignment(valuesPerBar, timing, path);
+    return;
+  }
+  throw new Error(`[Schema] ${path}.type is invalid.`);
 }
 
-function validateVoicePattern<T>(
-  schema: StaticValuePattern<T[] | null>,
+function validateVoicePattern(
+  schema: Record<string, unknown>,
   path: string,
-  isValidVoice: (value: T) => boolean,
+  isValidVoice: (value: unknown) => boolean,
   label: string,
-) {
-  if (schema.cycle.length === 0) {
+): VoicePatternSummary {
+  if (!Array.isArray(schema.cycle) || schema.cycle.length === 0) {
     throw new Error(`[Schema] ${path}.cycle must contain at least one bar.`);
   }
 
   let hasRealValue = false;
+  const silentBarIndices: number[] = [];
   schema.cycle.forEach((bar, barIndex) => {
-    if (bar.length === 0) {
+    if (!Array.isArray(bar) || bar.length === 0) {
       throw new Error(`[Schema] ${path}.cycle[${barIndex}] cannot be empty.`);
     }
     bar.forEach((group, groupIndex) => {
@@ -535,6 +612,7 @@ function validateVoicePattern<T>(
             `[Schema] ${path}.cycle[${barIndex}] null must be the only value in a silent bar.`,
           );
         }
+        silentBarIndices.push(barIndex);
         return;
       }
       if (!Array.isArray(group) || group.length === 0) {
@@ -552,26 +630,28 @@ function validateVoicePattern<T>(
       });
     });
   });
-  return hasRealValue;
+
+  return {
+    cycleLength: schema.cycle.length,
+    hasRealValue,
+    silentBarIndices,
+  };
 }
 
-function validateStaticEventAlignment<T>(
-  schema: StaticValuePattern<T[] | null>,
-  timing: TimingSchema,
+function validateStaticEventAlignment(
+  summary: VoicePatternSummary,
+  timing: TimingCycle,
   path: string,
 ) {
-  const silentBars = schema.cycle
-    .map((bar, index) => ({ bar, index }))
-    .filter(({ bar }) => bar.length === 1 && bar[0] === null);
-  if (silentBars.length === 0) return;
+  if (summary.silentBarIndices.length === 0) return;
 
-  if (schema.cycle.length !== timing.cycle.length) {
+  if (summary.cycleLength !== timing.length) {
     throw new Error(
       `[Schema] ${path} silent bars must align one-to-one with the timing cycle.`,
     );
   }
-  for (const { bar, index } of silentBars) {
-    if (timing.cycle[index].length !== 0 || bar[0] !== null) {
+  for (const index of summary.silentBarIndices) {
+    if (timing[index].length !== 0) {
       throw new Error(
         `[Schema] ${path}.cycle[${index}] silent bar must align with an empty timing bar.`,
       );
@@ -580,22 +660,22 @@ function validateStaticEventAlignment<T>(
 }
 
 function validateRandomTimingAlignment(
-  schema: RandomNumberPattern,
-  timing: TimingSchema,
+  valuesPerBar: number[],
+  timing: TimingCycle,
   path: string,
 ) {
-  const zeroBars = schema.valuesPerBar
-    .map((count, index) => ({ count, index }))
-    .filter(({ count }) => count === 0);
-  if (zeroBars.length === 0) return;
+  const zeroIndices = valuesPerBar.flatMap((count, index) =>
+    count === 0 ? [index] : [],
+  );
+  if (zeroIndices.length === 0) return;
 
-  if (schema.valuesPerBar.length !== timing.cycle.length) {
+  if (valuesPerBar.length !== timing.length) {
     throw new Error(
       `[Schema] ${path}.valuesPerBar zero counts must align one-to-one with the timing cycle.`,
     );
   }
-  for (const { index } of zeroBars) {
-    if (timing.cycle[index].length !== 0) {
+  for (const index of zeroIndices) {
+    if (timing[index].length !== 0) {
       throw new Error(
         `[Schema] ${path}.valuesPerBar[${index}] must align with an empty timing bar.`,
       );
@@ -603,8 +683,14 @@ function validateRandomTimingAlignment(
   }
 }
 
-function validateEnvelope(schema: EnvelopeSchema, path: string) {
-  if (!Number.isFinite(schema.min)) {
+function validateEnvelope(schema: unknown, path: string) {
+  if (!isRecord(schema)) {
+    throw new Error(`[Schema] ${path} must be an object.`);
+  }
+  if (schema.type !== "envelope") {
+    throw new Error(`[Schema] ${path}.type must be "envelope".`);
+  }
+  if (!isFiniteNumber(schema.min)) {
     throw new Error(`[Schema] ${path}.min must be finite.`);
   }
   validateNumberPattern(schema.max, `${path}.max`);
@@ -612,30 +698,35 @@ function validateEnvelope(schema: EnvelopeSchema, path: string) {
   validateNumberPattern(schema.d, `${path}.d`);
   validateNumberPattern(schema.s, `${path}.s`);
   validateNumberPattern(schema.r, `${path}.r`);
-  if (schema.mode !== "bleed" && schema.mode !== "bounded") {
+  if (!isOneOf(ENVELOPE_MODES, schema.mode)) {
     throw new Error(`[Schema] ${path}.mode is invalid.`);
   }
 }
 
-function validateLfo(schema: LfoSchema, path: string) {
+function validateLfo(schema: Record<string, unknown>, path: string) {
+  if (schema.type !== "lfo") {
+    throw new Error(`[Schema] ${path}.type must be "lfo".`);
+  }
   if (!isNonEmptyString(schema.id)) {
     throw new Error(`[Schema] ${path}.id must be non-empty.`);
   }
   validateNumberPattern(schema.outputA, `${path}.outputA`);
   validateNumberPattern(schema.outputB, `${path}.outputB`);
   if (
+    !Array.isArray(schema.speed) ||
     schema.speed.length === 0 ||
-    schema.speed.some((speed) => !Number.isFinite(speed))
+    schema.speed.some((speed) => !isFiniteNumber(speed))
   ) {
     throw new Error(`[Schema] ${path}.speed must contain finite values.`);
   }
   if (
+    !Array.isArray(schema.waveform) ||
     schema.waveform.length === 0 ||
-    schema.waveform.some((value) => !isWaveform(value))
+    schema.waveform.some((value) => !isOneOf(WAVEFORMS, value))
   ) {
     throw new Error(`[Schema] ${path}.waveform must contain valid waveforms.`);
   }
-  if (!Number.isFinite(schema.phase)) {
+  if (!isFiniteNumber(schema.phase)) {
     throw new Error(`[Schema] ${path}.phase must be finite.`);
   }
   if (typeof schema.norm !== "boolean" || typeof schema.invert !== "boolean") {
@@ -643,38 +734,58 @@ function validateLfo(schema: LfoSchema, path: string) {
   }
 }
 
-function validateMidiCc(schema: MidiCcSchema, path: string) {
-  if (!Number.isInteger(schema.cc) || schema.cc < 0 || schema.cc > 127) {
+function validateMidiCc(schema: Record<string, unknown>, path: string) {
+  if (schema.type !== "midi-cc") {
+    throw new Error(`[Schema] ${path}.type must be "midi-cc".`);
+  }
+  if (!isIntegerInRange(schema.cc, 0, 127)) {
     throw new Error(`[Schema] ${path}.cc must be an integer in [0, 127].`);
   }
   if (
     schema.channel !== undefined &&
-    (!Number.isInteger(schema.channel) ||
-      schema.channel < 1 ||
-      schema.channel > 16)
+    !isIntegerInRange(schema.channel, 1, 16)
   ) {
     throw new Error(`[Schema] ${path}.channel must be an integer in [1, 16].`);
   }
+  if (schema.device !== undefined && !isNonEmptyString(schema.device)) {
+    throw new Error(`[Schema] ${path}.device must be non-empty when provided.`);
+  }
   if (
-    !Number.isFinite(schema.range.min) ||
-    !Number.isFinite(schema.range.max)
+    !isRecord(schema.range) ||
+    !isFiniteNumber(schema.range.min) ||
+    !isFiniteNumber(schema.range.max)
   ) {
     throw new Error(`[Schema] ${path}.range endpoints must be finite.`);
   }
-  if (schema.range.curve !== "linear" && schema.range.curve !== "exponential") {
+  if (!isOneOf(MIDI_RANGE_CURVES, schema.range.curve)) {
     throw new Error(`[Schema] ${path}.range.curve is invalid.`);
   }
-  if (!Number.isFinite(schema.default)) {
+  if (
+    schema.range.curve === "exponential" &&
+    (schema.range.min <= 0 || schema.range.max <= 0)
+  ) {
+    throw new Error(
+      `[Schema] ${path}.range exponential endpoints must be positive.`,
+    );
+  }
+  if (!isFiniteNumber(schema.default)) {
     throw new Error(`[Schema] ${path}.default must be finite.`);
+  }
+  const low = Math.min(schema.range.min, schema.range.max);
+  const high = Math.max(schema.range.min, schema.range.max);
+  if (schema.default < low || schema.default > high) {
+    throw new Error(`[Schema] ${path}.default must be within its range.`);
   }
 }
 
-function validateMidiOut(schema: MidiOutSchema, path: string) {
-  if (
-    !Number.isInteger(schema.channel) ||
-    schema.channel < 1 ||
-    schema.channel > 16
-  ) {
+function validateMidiOut(schema: unknown, path: string) {
+  if (!isRecord(schema)) {
+    throw new Error(`[Schema] ${path} must be an object.`);
+  }
+  if (schema.type !== "midi-out") {
+    throw new Error(`[Schema] ${path}.type must be "midi-out".`);
+  }
+  if (!isIntegerInRange(schema.channel, 1, 16)) {
     throw new Error(`[Schema] ${path}.channel must be an integer in [1, 16].`);
   }
   if (schema.device !== undefined && !isNonEmptyString(schema.device)) {
@@ -682,19 +793,24 @@ function validateMidiOut(schema: MidiOutSchema, path: string) {
   }
 }
 
-function validateFit(schema: FitSchema | null, path: string) {
+function validateFit(schema: unknown, path: string) {
   if (schema === null) return;
-  if (
-    schema.type !== "fit" ||
-    !Number.isInteger(schema.bars) ||
-    schema.bars <= 0
-  ) {
+  if (!isRecord(schema)) {
+    throw new Error(`[Schema] ${path} must be an object or null.`);
+  }
+  if (schema.type !== "fit") {
+    throw new Error(`[Schema] ${path}.type must be "fit".`);
+  }
+  if (!isPositiveInteger(schema.bars)) {
     throw new Error(`[Schema] ${path}.bars must be a positive integer.`);
   }
 }
 
-function validateRegion(schema: RegionSchema | null, path: string) {
+function validateRegion(schema: unknown, path: string) {
   if (schema === null) return;
+  if (!isRecord(schema)) {
+    throw new Error(`[Schema] ${path} must be an object or null.`);
+  }
   if (schema.type === "static") {
     validateNumberPattern(schema.start, `${path}.start`);
     const hasEnd = schema.end !== undefined;
@@ -711,15 +827,16 @@ function validateRegion(schema: RegionSchema | null, path: string) {
     return;
   }
   if (schema.type === "chop") {
-    if (schema.slices.length === 0) {
+    if (!Array.isArray(schema.slices) || schema.slices.length === 0) {
       throw new Error(
         `[Schema] ${path}.slices must contain at least one slice.`,
       );
     }
     schema.slices.forEach((slice, index) => {
       if (
-        !Number.isFinite(slice.start) ||
-        !Number.isFinite(slice.end) ||
+        !isRecord(slice) ||
+        !isFiniteNumber(slice.start) ||
+        !isFiniteNumber(slice.end) ||
         slice.start < 0 ||
         slice.start >= slice.end ||
         slice.end > 1
@@ -735,12 +852,16 @@ function validateRegion(schema: RegionSchema | null, path: string) {
   throw new Error(`[Schema] ${path}.type is invalid.`);
 }
 
-function isCanonicalName(name: string) {
-  return name !== "" && name === name.trim();
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isCanonicalName(value: unknown): value is string {
+  return typeof value === "string" && value !== "" && value === value.trim();
 }
 
 function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0;
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function isFiniteNumericString(value: string) {
@@ -751,43 +872,17 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function isPositiveInteger(value: number | undefined) {
-  return value !== undefined && Number.isInteger(value) && value > 0;
+function isPositiveInteger(value: unknown): value is number {
+  return isFiniteNumber(value) && Number.isInteger(value) && value > 0;
 }
 
-function isAlgorithm(value: string): value is "xor" | "mulberry" {
-  return value === "xor" || value === "mulberry";
-}
-
-function isOrder(value: string): value is "forward" | "reverse" {
-  return value === "forward" || value === "reverse";
-}
-
-function isDataType(value: string): value is "float" | "integer" | "binary" {
-  return value === "float" || value === "integer" || value === "binary";
-}
-
-function isWaveform(
-  value: string,
-): value is "sine" | "square" | "sawtooth" | "triangle" {
+function isIntegerInRange(value: unknown, min: number, max: number) {
   return (
-    value === "sine" ||
-    value === "square" ||
-    value === "sawtooth" ||
-    value === "triangle"
+    isFiniteNumber(value) &&
+    Number.isInteger(value) &&
+    value >= min &&
+    value <= max
   );
-}
-
-function isFilterType(value: string) {
-  return ["lp", "hp", "bp", "notch", "ap", "pk", "ls", "hs"].includes(value);
-}
-
-function isClipMode(value: string) {
-  return value === "clipped" || value === "one-shot";
-}
-
-function isSampleDirection(value: string) {
-  return value === "forward" || value === "reverse" || value === "alternate";
 }
 
 export { validateDromeGraph };
