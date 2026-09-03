@@ -5,10 +5,10 @@ import type {
   EnvelopeSchema,
   LfoSchema,
   MidiCcSchema,
-  StaticSchema,
 } from "@web-audio/schema";
 import type { EventScheduleContext } from "@/types";
 import Instrument from "./instrument";
+import { staticNumberPattern } from "../test-utils/schema-fixtures";
 
 // ---------------------------------------------------------------------------
 // Minimal Web Audio fakes — only what Instrument needs
@@ -142,28 +142,8 @@ class TestInstrument extends Instrument {
 // Schema fixtures
 // ---------------------------------------------------------------------------
 
-function staticParam(value: number): StaticSchema {
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle: [[{ value, offset: 0, duration: 1, stepIndex: 0 }]],
-  };
-}
-
-function staticCycle(values: number[]): StaticSchema {
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle: [
-      values.map((value, stepIndex) => ({
-        value,
-        offset: stepIndex / values.length,
-        duration: 1 / values.length,
-        stepIndex,
-      })),
-    ],
-  };
-}
+const staticParam = (value: number) => staticNumberPattern([value]);
+const staticCycle = (values: number[]) => staticNumberPattern(values);
 
 function eventContext(overrides: Partial<EventScheduleContext> = {}) {
   return {

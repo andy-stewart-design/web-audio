@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type {
-  EffectSchema,
-  RandomSchema,
-  StaticSchema,
-} from "@web-audio/schema";
+import type { EffectSchema } from "@web-audio/schema";
 import RuntimeBus from "./runtime-bus";
+import {
+  randomNumberPattern,
+  staticNumberBars,
+} from "../test-utils/schema-fixtures";
 
 class FakeAudioParam {
   value = 99;
@@ -44,27 +44,17 @@ class FakeFilterNode {
   }
 }
 
-function staticParam(...values: number[]): StaticSchema {
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle: values.map((value) => [
-      { value, offset: 0, duration: 1, stepIndex: 0 },
-    ]),
-  };
-}
+const staticParam = staticNumberBars;
 
-function randomParam(overrides: Partial<RandomSchema> = {}): RandomSchema {
-  return {
-    type: "random",
-    dataType: "float",
+function randomParam(
+  overrides: Parameters<typeof randomNumberPattern>[0] = {},
+) {
+  return randomNumberPattern({
     segments: [{ seed: 42 }],
-    quantValue: undefined,
     range: { min: 0.25, max: 0.75 },
     algorithm: "mulberry",
-    grid: staticParam(1),
     ...overrides,
-  };
+  });
 }
 
 function createBus(

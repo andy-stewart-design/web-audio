@@ -12,6 +12,10 @@ import Synthesizer from "./synthesizer";
 import type MidiOutputScheduler from "@/midi-output-scheduler";
 import RandomResolver from "@/resolvers/random-resolver";
 import { midiToFrequency } from "@/utils/midi-to-frequency";
+import {
+  randomNumberPattern,
+  staticNumberPattern,
+} from "../test-utils/schema-fixtures";
 
 // ---------------------------------------------------------------------------
 // Minimal Web Audio fakes
@@ -102,28 +106,8 @@ class TestSynthesizer extends Synthesizer {
 // Schema fixtures
 // ---------------------------------------------------------------------------
 
-function staticParam(value: number): StaticSchema {
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle: [[{ value, offset: 0, duration: 1, stepIndex: 0 }]],
-  };
-}
-
-function staticCycle(values: number[]): StaticSchema {
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle: [
-      values.map((value, stepIndex) => ({
-        value,
-        offset: stepIndex / values.length,
-        duration: 1 / values.length,
-        stepIndex,
-      })),
-    ],
-  };
-}
+const staticParam = (value: number) => staticNumberPattern([value]);
+const staticCycle = (values: number[]) => staticNumberPattern(values);
 
 function sparseMask(): StaticSchema {
   return {
@@ -139,29 +123,20 @@ function sparseMask(): StaticSchema {
 }
 
 function randomMask(): RandomSchema {
-  return {
-    type: "random",
+  return randomNumberPattern({
     dataType: "binary",
     chance: 1,
     segments: [{ seed: 42 }],
-    quantValue: undefined,
-    range: undefined,
-    algorithm: "xor",
     grid: sparseMask(),
-  };
+  });
 }
 
 function randomValues(valueMap: number[]): RandomSchema {
-  return {
-    type: "random",
-    dataType: "float",
+  return randomNumberPattern({
     segments: [{ seed: 42 }],
-    quantValue: undefined,
-    range: undefined,
-    algorithm: "xor",
     valueMap,
     grid: staticCycle(valueMap.map(() => 1)),
-  };
+  });
 }
 
 function lowpassEffect(frequency: StaticSchema): FilterSchema {

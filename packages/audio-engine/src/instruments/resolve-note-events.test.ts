@@ -272,6 +272,27 @@ describe("resolveNoteEvents random eligibility and values", () => {
     },
   );
 
+  it("preserves random note value 0 as an active voice", () => {
+    const source = randomSchema(staticSchema([[step(1, 0), step(1, 1)]]));
+    const resolveValue = vi.fn(
+      (_schema: ParameterSchema, _barIndex: number, hitIndex: number) =>
+        [0, 64][hitIndex],
+    );
+
+    const events = resolveNoteEvents({
+      notes: { source },
+      barIndex: 0,
+      resolveValue,
+    });
+
+    expect(
+      events.map(({ hitIndex, voices }) => ({ hitIndex, voices })),
+    ).toEqual([
+      { hitIndex: 0, voices: [0] },
+      { hitIndex: 1, voices: [64] },
+    ]);
+  });
+
   it("does not consume hit indices for unmasked random structural rests", () => {
     const source = randomSchema(
       staticSchema([[step(1, 0), step(0, 1), step(1, 2)]]),

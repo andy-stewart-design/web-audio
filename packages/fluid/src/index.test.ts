@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SamplerSchema } from "@web-audio/schema";
 import Drome from "./index";
+import type Sampler from "./instruments/sampler";
 
 function getPushedSamplerSchema(drome: Drome) {
   const [schema] = drome.getSchema().instruments;
@@ -1554,6 +1555,71 @@ describe("Drome", () => {
         if (inst.notes.source.type === "static") {
           expect(inst.notes.source.cycle[0].map((step) => step.value)).toEqual([
             0, 12,
+          ]);
+        }
+      }
+    });
+
+    it("keeps generated chop/fit timing exempt from fast, stretch, and reverse in either order", () => {
+      const generators = [
+        {
+          name: "fit(4)",
+          apply: (sampler: Sampler) => sampler.fit(4),
+        },
+        {
+          name: "chop(8)",
+          apply: (sampler: Sampler) => sampler.chop(8),
+        },
+      ];
+      const transforms = [
+        {
+          name: "fast(2)",
+          apply: (sampler: Sampler) => sampler.fast(2),
+        },
+        {
+          name: "stretch(2)",
+          apply: (sampler: Sampler) => sampler.stretch(2),
+        },
+        {
+          name: "reverse()",
+          apply: (sampler: Sampler) => sampler.reverse(),
+        },
+      ];
+
+      for (const generator of generators) {
+        const expected = generator.apply(new Drome().sample("bd")).getSchema();
+
+        for (const transform of transforms) {
+          expect(
+            transform
+              .apply(generator.apply(new Drome().sample("bd")))
+              .getSchema(),
+            `${generator.name} then ${transform.name}`,
+          ).toEqual(expected);
+          expect(
+            generator
+              .apply(transform.apply(new Drome().sample("bd")))
+              .getSchema(),
+            `${transform.name} then ${generator.name}`,
+          ).toEqual(expected);
+        }
+      }
+    });
+
+    it("characterizes legacy slow mask leakage into generated chop/fit timing", () => {
+      const cases = [
+        new Drome().sample("bd").fit(4).slow(2).getSchema(),
+        new Drome().sample("bd").slow(2).fit(4).getSchema(),
+        new Drome().sample("bd").chop(8).slow(2).getSchema(),
+        new Drome().sample("bd").slow(2).chop(8).getSchema(),
+      ];
+
+      for (const schema of cases) {
+        expect(schema.notes.mask?.type).toBe("static");
+        if (schema.notes.mask?.type === "static") {
+          expect(schema.notes.mask.cycle).toEqual([
+            [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
+            [],
           ]);
         }
       }

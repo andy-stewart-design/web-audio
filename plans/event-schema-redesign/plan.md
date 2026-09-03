@@ -121,25 +121,24 @@ Do not preserve old schema shapes merely because a fixture asserts them.
 
 **Acceptance criteria:**
 
-- [ ] The audit identifies every old field and every producer/consumer.
-- [ ] Every behavior named above has an existing or newly added test reference.
-- [ ] Chop/fit call-order behavior is recorded explicitly.
-- [ ] Random seed/ribbon behavior is recorded separately from grid geometry.
-- [ ] The baseline package tests pass before schema work starts.
+- [x] The audit identifies every old field and every producer/consumer.
+- [x] Every behavior named above has an existing or newly added test reference.
+- [x] Chop/fit call-order behavior is recorded explicitly.
+- [x] Random seed/ribbon behavior is recorded separately from grid geometry.
+- [x] The baseline package tests pass before schema work starts.
 
 **Testing:**
 
-- [ ] `pnpm --filter @web-audio/patterns test:ci`
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] `pnpm --filter @web-audio/patterns test:ci`
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ---
 
-### Step 0.2 — Introduce reusable test schema builders
+### Step 0.2 — Introduce a reusable baseline test fixture seam
 
 **Files:**
 
-- `packages/schema/src/validate-graph.test.ts`
 - `packages/audio-engine/src/test-utils/schema-fixtures.ts` (new)
 - `packages/audio-engine/src/engine.test.ts`
 - `packages/audio-engine/src/instruments/instrument.test.ts`
@@ -147,24 +146,26 @@ Do not preserve old schema shapes merely because a fixture asserts them.
 - `packages/audio-engine/src/instruments/sampler.test.ts`
 - `packages/audio-engine/src/buses/runtime-bus.test.ts`
 
-The old shape is repeated extensively in engine tests. Add typed factories for:
+The old shape is repeated extensively in engine tests. Before replacing authoritative schema types, centralize repeated valid fixtures behind typed baseline factories for:
 
-- static numeric value patterns;
-- random numeric value patterns;
-- timing bars and timing schemas;
-- chance conditions;
+- static numeric patterns;
+- random numeric patterns;
+- timing-shaped bars and schemas;
+- chance-shaped conditions;
 - default synth schemas;
 - default sampler schemas;
 - file and sprite banks.
 
-Factories must return valid target-schema values and allow narrow typed overrides. Avoid broad `Partial<DromeSchema>` trees that can construct invalid fixtures accidentally.
+At this step the factories intentionally return valid current-schema values. Do not introduce provisional target types or a compatibility schema before `@web-audio/schema` owns the authoritative definitions. Factories must allow narrow typed overrides and avoid broad `Partial<DromeSchema>` trees that can construct invalid fixtures accidentally. Step 1.4 converts this seam to the target schema after the target instrument types and validator exist.
 
 **Acceptance criteria:**
 
-- [ ] New tests can construct complete target schemas without casts.
-- [ ] Fixture defaults satisfy `validateDromeGraph()`.
-- [ ] Overrides remain local to the behavior under test.
-- [ ] Existing direct fixtures are migrated or deliberately retained for validation-failure tests.
+- [x] New tests can construct complete current schemas without casts.
+- [x] Fixture defaults satisfy the current `validateDromeGraph()`.
+- [x] Overrides remain local to the behavior under test.
+- [x] Repeated valid engine fixtures use the shared seam where practical.
+- [x] Specialized and validation-failure fixtures are deliberately retained locally.
+- [x] No provisional target schema or compatibility union is introduced.
 
 ---
 
@@ -384,6 +385,38 @@ Resource availability is not a validation concern. Missing banks, sample names, 
 - [ ] Table-driven negative tests cover each invariant above.
 - [ ] `AudioEngine.update()` tests prove failed validation leaves pending/active state unchanged.
 - [ ] `pnpm --filter @web-audio/schema test:ci`
+
+---
+
+### Step 1.4 — Convert the shared fixture seam to the target schema
+
+**Files:**
+
+- `packages/schema/src/validate-graph.test.ts`
+- `packages/audio-engine/src/test-utils/schema-fixtures.ts`
+- `packages/audio-engine/src/engine.test.ts`
+- `packages/audio-engine/src/instruments/instrument.test.ts`
+- `packages/audio-engine/src/instruments/synthesizer.test.ts`
+- `packages/audio-engine/src/instruments/sampler.test.ts`
+- `packages/audio-engine/src/buses/runtime-bus.test.ts`
+
+Convert the Phase 0 baseline factories to authoritative target-schema values now that the value, timing, event, instrument, and validation types exist. Remove every old fixture-only `StaticSchema`, `RandomSchema.grid`, `NotesSchema`, `stepIndex`, and `polyphonic` field rather than retaining compatibility helpers.
+
+Factories must return valid target-schema values and allow narrow typed overrides. Keep behavior-specific fixtures local where unusual geometry is the subject of the test, and keep validation-failure fixtures local to the schema package.
+
+**Acceptance criteria:**
+
+- [ ] New tests can construct complete target schemas without casts.
+- [ ] Fixture defaults satisfy the expanded `validateDromeGraph()`.
+- [ ] Overrides remain local to the behavior under test.
+- [ ] Existing valid direct fixtures are migrated or deliberately retained because their unusual shape is under test.
+- [ ] No old-schema fixture helper or compatibility union remains.
+
+**Testing:**
+
+- [ ] `pnpm --filter @web-audio/schema test:ci`
+- [ ] `pnpm --filter @web-audio/audio-engine check`
+- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ---
 

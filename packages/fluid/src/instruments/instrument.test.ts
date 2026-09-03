@@ -97,6 +97,23 @@ describe("Instrument static xox masks", () => {
     }
   });
 
+  it("replaces random source content and clears its mask", () => {
+    const mask = new RandomCycle().bin().chance(0.5).steps(4);
+    const schema = new Synthesizer()
+      .notes([60, 64])
+      .xox(mask)
+      .notes([67, 71])
+      .getSchema();
+
+    expect(schema.notes.mask).toBeUndefined();
+    expect(schema.notes.source.type).toBe("static");
+    if (schema.notes.source.type === "static") {
+      expect(schema.notes.source.cycle[0].map((step) => step.value)).toEqual([
+        67, 71,
+      ]);
+    }
+  });
+
   it("preserves static modifier order after xox", () => {
     const schema = new Synthesizer()
       .notes([60, 64])

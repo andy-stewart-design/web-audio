@@ -9,6 +9,11 @@ import type {
   StaticSchema,
 } from "@web-audio/schema";
 import RandomResolver from "@/resolvers/random-resolver";
+import {
+  randomNumberPattern,
+  staticNumberPattern,
+  timingSchema,
+} from "../test-utils/schema-fixtures";
 import Sampler from "./sampler";
 
 class FakeAudioParam {
@@ -91,28 +96,8 @@ class FakeClock {
   barDuration = 2;
 }
 
-function staticParam(value: number): StaticSchema {
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle: [[{ value, offset: 0, duration: 1, stepIndex: 0 }]],
-  };
-}
-
-function staticCycle(values: number[]): StaticSchema {
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle: [
-      values.map((value, stepIndex) => ({
-        value,
-        offset: stepIndex / values.length,
-        duration: 1 / values.length,
-        stepIndex,
-      })),
-    ],
-  };
-}
+const staticParam = (value: number) => staticNumberPattern([value]);
+const staticCycle = (values: number[]) => staticNumberPattern(values);
 
 function staticPattern(
   value: number,
@@ -141,25 +126,16 @@ function envelope(max = 1, r = 0): EnvelopeSchema {
 }
 
 function randomSchema(valueMap: number[]): RandomSchema {
-  return {
-    type: "random",
-    dataType: "float",
+  return randomNumberPattern({
     segments: [{ seed: 42 }],
-    quantValue: undefined,
-    range: undefined,
-    algorithm: "xor",
     valueMap,
-    grid: {
-      type: "static",
-      polyphonic: false,
-      cycle: [
-        [
-          { value: 1, offset: 0, duration: 0.5, stepIndex: 0 },
-          { value: 0, offset: 0.5, duration: 0.5, stepIndex: 1 },
-        ],
+    grid: timingSchema([
+      [
+        { value: 1, offset: 0, duration: 0.5, stepIndex: 0 },
+        { value: 0, offset: 0.5, duration: 0.5, stepIndex: 1 },
       ],
-    },
-  };
+    ]),
+  });
 }
 
 function randomNotes(): RandomSchema {
@@ -167,42 +143,45 @@ function randomNotes(): RandomSchema {
 }
 
 function randomValueCycle(valueMap: number[]): RandomSchema {
-  return {
-    type: "random",
-    dataType: "float",
+  return randomNumberPattern({
     segments: [{ seed: 42 }],
-    quantValue: undefined,
-    range: undefined,
-    algorithm: "xor",
     valueMap,
     grid: staticCycle(valueMap.map(() => 1)),
-  };
+  });
 }
 
 function sparseMask(): StaticSchema {
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle: [
-      [
-        { value: 1, offset: 0, duration: 0.25, stepIndex: 0 },
-        { value: 1, offset: 0.5, duration: 0.25, stepIndex: 2 },
-      ],
+  return timingSchema([
+    [
+      { value: 1, offset: 0, duration: 0.25, stepIndex: 0 },
+      { value: 1, offset: 0.5, duration: 0.25, stepIndex: 2 },
     ],
-  };
+  ]);
 }
 
 function sparseRandomMask(): RandomSchema {
-  return {
-    type: "random",
+  return randomNumberPattern({
     dataType: "binary",
     chance: 1,
     segments: [{ seed: 42 }],
-    quantValue: undefined,
-    range: undefined,
-    algorithm: "xor",
     grid: sparseMask(),
-  };
+  });
+}
+
+function randomMaskWithMisses(): RandomSchema {
+  return randomNumberPattern({
+    dataType: "binary",
+    chance: 0.5,
+    segments: [{ seed: 5 }],
+    grid: timingSchema([
+      Array.from({ length: 8 }, (_, stepIndex) => ({
+        value: 1,
+        offset: stepIndex / 8,
+        duration: 1 / 8,
+        stepIndex,
+      })),
+    ]),
+  });
 }
 
 function lowpassEffect(
@@ -2258,6 +2237,44 @@ describe("Sampler", () => {
       ]);
       expect(createdSources.map(({ start }) => start.mock.calls[0][0])).toEqual(
         [8, 9],
+      );
+    });
+
+    it("resolves variations by consecutive hit after random-mask misses", async () => {
+      const urls = [
+        "https://example.com/bd-0.wav",
+        "https://example.com/bd-1.wav",
+        "https://example.com/bd-2.wav",
+      ];
+      const buffers = urls.map(() => makeBuffer(1));
+      urls.forEach((url, index) => cache.resolved.set(url, buffers[index]));
+      const banks = makeBanks(urls[0]);
+      banks.kit.samples.bd = {
+        "0": urls.map((src) => ({ type: "file" as const, src })),
+      };
+      const sampler = new Sampler(
+        ctx as unknown as AudioContext,
+        clock as never,
+        {
+          schema: makeSchema({
+            notes: staticCycle(Array.from({ length: 8 }, () => 0)),
+            mask: randomMaskWithMisses(),
+            variation: staticCycle([0, 1]),
+          }),
+          banks,
+          cache,
+        },
+      );
+
+      await sampler.load();
+      sampler.scheduleBar(0, 8);
+
+      expect(createdSources.map(({ buffer }) => buffer)).toEqual([
+        buffers[0],
+        buffers[1],
+      ]);
+      expect(createdSources.map(({ start }) => start.mock.calls[0][0])).toEqual(
+        [8.5, 9.75],
       );
     });
 

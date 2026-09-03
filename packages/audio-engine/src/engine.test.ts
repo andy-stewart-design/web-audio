@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Midi } from "@web-audio/midi";
-import type {
-  DromeSchema,
-  RandomSchema,
-  StaticSchema,
-} from "@web-audio/schema";
+import type { DromeSchema } from "@web-audio/schema";
+import {
+  defaultSamplerGraph,
+  defaultSynthSchema,
+  randomNumberPattern,
+  staticNumberBars,
+} from "./test-utils/schema-fixtures";
 
 // Mock Synthesizer so tests don't need Web Audio APIs.
 // Must use a regular function (not arrow) so it's usable as a constructor.
@@ -166,120 +168,29 @@ class FakeClock {
 
 // Minimal schema fixture — Synthesizer is mocked so instruments don't need to
 // be valid; only the array length matters for instrument creation.
-function staticParam(...values: number[]): StaticSchema {
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle: values.map((value) => [
-      { value, offset: 0, duration: 1, stepIndex: 0 },
-    ]),
-  };
-}
+const staticParam = staticNumberBars;
 
-function randomParam(overrides: Partial<RandomSchema> = {}): RandomSchema {
-  return {
-    type: "random",
-    dataType: "float",
+function randomParam(
+  overrides: Parameters<typeof randomNumberPattern>[0] = {},
+) {
+  return randomNumberPattern({
     segments: [{ seed: 42 }],
-    quantValue: undefined,
     range: { min: 400, max: 800 },
     algorithm: "mulberry",
-    grid: staticParam(1),
     ...overrides,
-  };
+  });
 }
 
 function makeSchema(instrumentCount = 1): DromeSchema {
   return {
     bpm: undefined,
-    instruments: Array.from(
-      { length: instrumentCount },
-      () => ({ route: "main", sends: {} }) as never,
-    ),
+    instruments: Array.from({ length: instrumentCount }, defaultSynthSchema),
     banks: {},
     buses: {},
   };
 }
 
-function makeSamplerSchema(): DromeSchema {
-  return {
-    bpm: undefined,
-    instruments: [
-      {
-        type: "sampler",
-        bank: "kit",
-        sample: "bd",
-        variation: {
-          type: "static",
-          polyphonic: false,
-          cycle: [[{ value: 0, offset: 0, duration: 1, stepIndex: 0 }]],
-        },
-        notes: {
-          source: {
-            type: "static",
-            polyphonic: false,
-            cycle: [[{ value: 1, offset: 0, duration: 1, stepIndex: 0 }]],
-          },
-        },
-        fit: null,
-        region: null,
-        sourceKeys: [0],
-        detune: {
-          type: "static",
-          polyphonic: false,
-          cycle: [[{ value: 0, offset: 0, duration: 1, stepIndex: 0 }]],
-        },
-        gain: {
-          type: "envelope",
-          min: 0,
-          max: {
-            type: "static",
-            polyphonic: false,
-            cycle: [[{ value: 1, offset: 0, duration: 1, stepIndex: 0 }]],
-          },
-          a: {
-            type: "static",
-            polyphonic: false,
-            cycle: [[{ value: 0, offset: 0, duration: 1, stepIndex: 0 }]],
-          },
-          d: {
-            type: "static",
-            polyphonic: false,
-            cycle: [[{ value: 0, offset: 0, duration: 1, stepIndex: 0 }]],
-          },
-          s: {
-            type: "static",
-            polyphonic: false,
-            cycle: [[{ value: 1, offset: 0, duration: 1, stepIndex: 0 }]],
-          },
-          r: {
-            type: "static",
-            polyphonic: false,
-            cycle: [[{ value: 0, offset: 0, duration: 1, stepIndex: 0 }]],
-          },
-          mode: "bleed",
-        },
-        effects: [],
-        muted: false,
-        route: "main",
-        sends: {},
-        loop: false,
-        clipMode: "clipped",
-        direction: "forward",
-      },
-    ],
-    banks: {
-      kit: {
-        samples: {
-          bd: {
-            "0": [{ type: "file", src: "https://example.com/bd.wav" }],
-          },
-        },
-      },
-    },
-    buses: {},
-  };
-}
+const makeSamplerSchema = defaultSamplerGraph;
 
 function instances() {
   return vi.mocked(MockSynthesizer).mock.instances as unknown as Array<{
