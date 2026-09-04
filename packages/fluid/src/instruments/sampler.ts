@@ -5,15 +5,15 @@ import type {
   ClipMode,
   FitSchema,
   SampleDirection,
+  SamplerEventSchema,
   SamplerSchema,
 } from "@web-audio/schema";
 import {
-  getChopSequenceSchema,
-  getDefaultNotesForSequence,
-  getDefaultNotes,
-  getNotesForChopTiming,
+  alignSamplerEventCycles,
+  getChopTiming,
+  getDistributedTiming,
   getRegion,
-  getSourceKeys,
+  getVariationIndices,
   type ChopState,
   type RegionState,
 } from "./sampler-utils";
@@ -35,7 +35,9 @@ class Sampler extends Instrument {
   private _fit: FitSchema | null = null;
   private _region: RegionState | null = null;
   private _chop: ChopState | null = null;
+  // Pitch intent controls optional note output; only explicit notes may filter timing.
   private _explicitNotes = false;
+  private _pitchIntent = false;
   private _loop = false;
   private _clipMode: ClipMode = "clipped";
   private _direction: SampleDirection = "forward";
@@ -83,7 +85,18 @@ class Sampler extends Instrument {
 
   notes(...input: Parameters<Instrument["notes"]>) {
     this._explicitNotes = true;
+    this._pitchIntent = true;
     return super.notes(...input);
+  }
+
+  root(...input: Parameters<Instrument["root"]>) {
+    this._pitchIntent = true;
+    return super.root(...input);
+  }
+
+  scale(...input: Parameters<Instrument["scale"]>) {
+    this._pitchIntent = true;
+    return super.scale(...input);
   }
 
   start(...input: CycleInput) {
@@ -172,47 +185,52 @@ class Sampler extends Instrument {
     return this._fit;
   }
 
-  private _getNotes(sourceKeys: number[]) {
+  private _getTimingOverride() {
     if (this._chop) {
-      const sequence = this._chop.sequence
-        ? getChopSequenceSchema(this._chop)
-        : null;
-      if (this._explicitNotes && sequence) {
-        const notes = this._cycle.getSchema();
-        if (notes.type === "static" && sequence.type === "static") {
-          return getNotesForChopTiming(notes, sequence);
-        }
-      }
-
-      if (!this._explicitNotes) {
-        const noteValue = sourceKeys[0] ?? 0;
-        if (sequence) {
-          return getDefaultNotesForSequence(noteValue, sequence, this._chop);
-        }
-
-        return getDefaultNotes(
-          noteValue,
-          this._chop.sliceCount,
-          this._fit?.bars ?? 1,
-        );
-      }
+      return getChopTiming(this._chop, this._fit?.bars ?? 1);
     }
 
     const generatedFit = this._getGeneratedFit();
-    if (generatedFit) {
-      return getDefaultNotes(
-        sourceKeys[0] ?? 0,
-        generatedFit.bars,
-        generatedFit.bars,
+    return generatedFit
+      ? getDistributedTiming(generatedFit.bars, generatedFit.bars)
+      : undefined;
+  }
+
+  private _getEvents(): SamplerEventSchema {
+    const timingOverride = this._getTimingOverride();
+    const noteEvents = this._cycle.getEvents(timingOverride);
+    const variationIndices = getVariationIndices(this._variation);
+
+    return alignSamplerEventCycles({
+      timing:
+        timingOverride && !this._explicitNotes
+          ? timingOverride
+          : noteEvents.timing,
+      sampleNames: { type: "static", cycle: [[[this._sample]]] },
+      notes: this._pitchIntent ? noteEvents.notes : undefined,
+      variationIndices,
+      notesFilterTiming: this._explicitNotes,
+    });
+  }
+
+  private _warnForMissingSource() {
+    if (!this._host) return;
+    const bank = this._host._resolveBank(this._bank);
+    if (!bank) {
+      console.warn(
+        `[Sampler] Bank "${this._bank}" not found — did you forget to call loadSamples()? This sampler may not produce audio.`,
+      );
+      return;
+    }
+    if (!bank.samples[this._sample]) {
+      console.warn(
+        `[Sampler] Sample "${this._sample}" not found in bank "${this._bank}". This sampler may not produce audio.`,
       );
     }
-
-    return this._cycle.getSchema();
   }
 
   getSchema(): SamplerSchema {
-    const sourceKeys = getSourceKeys(this._bank, this._sample, this._host);
-
+    this._warnForMissingSource();
     const region = getRegion({
       fitSchema: this._getGeneratedFit(),
       chopState: this._chop,
@@ -223,15 +241,9 @@ class Sampler extends Instrument {
     return {
       type: "sampler",
       bank: this._bank,
-      sample: this._sample,
-      variation: this._variation.getSchema(),
-      notes: {
-        source: this._getNotes(sourceKeys),
-        mask: this._cycle.getMask(),
-      },
+      events: this._getEvents(),
       fit: this._fit,
       region,
-      sourceKeys,
       detune: this._detune.getSchema("detune"),
       gain: this._gain.getSchema(),
       effects: this._effects.map((e) => e.getSchema()),

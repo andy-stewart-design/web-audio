@@ -1,9 +1,9 @@
 import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
-import Sampler from "./sampler";
-import Synthesizer from "./synthesizer";
 import Envelope from "@/automations/envelope";
 import type { EnvelopeSchema } from "@web-audio/schema";
+import Sampler from "./sampler";
+import Synthesizer from "./synthesizer";
 
 function staticValue(schema: EnvelopeSchema["a"]) {
   expect(schema.type).toBe("static");
@@ -21,273 +21,182 @@ function expectGainADSR(
   expect(staticValue(envelope.r)).toBe(expected.r);
 }
 
-function getStaticMaskFixture(
-  schema:
-    | ReturnType<Synthesizer["getSchema"]>
-    | ReturnType<Sampler["getSchema"]>,
-) {
-  const { source, mask } = schema.notes;
-  expect(source.type).toBe("static");
-  expect(mask?.type).toBe("static");
-  if (source.type !== "static" || mask?.type !== "static") {
-    throw new Error("Expected static source and mask schemas");
-  }
+describe("instrument event schemas", () => {
+  it("emits the default synth as explicit timing and note values", () => {
+    const schema = new Synthesizer().getSchema();
 
-  return {
-    source: source.cycle.map((bar) => bar.map((step) => step.value)),
-    mask: mask.cycle.map((bar) =>
-      bar.map(({ offset, duration, stepIndex }) => ({
-        offset,
-        duration,
-        stepIndex,
-      })),
-    ),
-  };
-}
+    expect(schema.events).toEqual({
+      timing: { cycle: [[{ offset: 0, duration: 1 }]] },
+      notes: { type: "static", cycle: [[[60]]] },
+    });
+    expect(schema).not.toHaveProperty("notes");
+  });
 
-describe("Instrument static xox masks", () => {
-  it("keeps synth source notes separate from the trigger mask", () => {
-    const schema = new Synthesizer()
+  it("compiles fixed synth rhythms into canonical event timing", () => {
+    const events = new Synthesizer()
       .notes([60, 64, 67, 71])
       .xox([1, 0, 1, 1, 1, 1, 0, 1])
-      .getSchema();
+      .getSchema().events;
 
-    expect(schema.notes.source.type).toBe("static");
-    if (schema.notes.source.type === "static") {
-      expect(schema.notes.source.cycle[0].map((step) => step.value)).toEqual([
-        60, 64, 67, 71, 60, 64,
-      ]);
-    }
-    expect(schema.notes.mask?.type).toBe("static");
-    if (schema.notes.mask?.type === "static") {
-      expect(schema.notes.mask.cycle[0].map((step) => step.stepIndex)).toEqual([
-        0, 2, 3, 4, 5, 7,
-      ]);
-    }
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [[[60], [64], [67], [71], [60], [64]]],
+    });
+    expect(events.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 0.125 },
+      { offset: 0.25, duration: 0.125 },
+      { offset: 0.375, duration: 0.125 },
+      { offset: 0.5, duration: 0.125 },
+      { offset: 0.625, duration: 0.125 },
+      { offset: 0.875, duration: 0.125 },
+    ]);
+    expect(events).not.toHaveProperty("mask");
   });
 
-  it("serializes all-active xox as an unmasked expanded source cycle", () => {
-    const schema = new Synthesizer()
-      .notes([60, 64])
-      .xox([1, 1, 1, 1])
-      .getSchema();
-
-    expect(schema.notes.mask).toBeUndefined();
-    expect(schema.notes.source.type).toBe("static");
-    if (schema.notes.source.type === "static") {
-      expect(schema.notes.source.cycle[0].map((step) => step.value)).toEqual([
-        60, 64, 60, 64,
-      ]);
-    }
-  });
-
-  it("replaces static source content and clears its mask", () => {
-    const schema = new Synthesizer()
-      .notes([60, 64])
-      .xox([1, 0, 1])
-      .notes([67, 71])
-      .getSchema();
-
-    expect(schema.notes.mask).toBeUndefined();
-    expect(schema.notes.source.type).toBe("static");
-    if (schema.notes.source.type === "static") {
-      expect(schema.notes.source.cycle[0].map((step) => step.value)).toEqual([
-        67, 71,
-      ]);
-    }
-  });
-
-  it("replaces random source content and clears its mask", () => {
-    const mask = new RandomCycle().bin().chance(0.5).steps(4);
-    const schema = new Synthesizer()
-      .notes([60, 64])
-      .xox(mask)
-      .notes([67, 71])
-      .getSchema();
-
-    expect(schema.notes.mask).toBeUndefined();
-    expect(schema.notes.source.type).toBe("static");
-    if (schema.notes.source.type === "static") {
-      expect(schema.notes.source.cycle[0].map((step) => step.value)).toEqual([
-        67, 71,
-      ]);
-    }
-  });
-
-  it("preserves static modifier order after xox", () => {
-    const schema = new Synthesizer()
-      .notes([60, 64])
-      .xox([1, 0, 1, 1])
-      .slow(2)
-      .getSchema();
-
-    expect(schema.notes.source.type).toBe("static");
-    if (schema.notes.source.type === "static") {
-      expect(
-        schema.notes.source.cycle.map((bar) => bar.map((step) => step.value)),
-      ).toEqual([[60], [64, 60]]);
-    }
-    expect(schema.notes.mask?.type).toBe("static");
-    if (schema.notes.mask?.type === "static") {
-      expect(
-        schema.notes.mask.cycle.map((bar) => bar.map((step) => step.stepIndex)),
-      ).toEqual([[0], [0, 2]]);
-    }
-  });
-
-  it("characterizes static xox modifier ordering and timing", () => {
-    const fixtures = [
-      {
-        name: "fast after xox",
-        instrument: () =>
-          new Synthesizer().notes([60, 64]).xox([1, 0, 1]).fast(2),
-        expected: [
+  it("replaces note and fixed-rhythm state when notes are replaced", () => {
+    expect(
+      new Synthesizer()
+        .notes([60, 64])
+        .xox([1, 0, 1])
+        .notes([67, 71])
+        .getSchema().events,
+    ).toEqual({
+      timing: {
+        cycle: [
           [
-            { value: 60, offset: 0, duration: 1 / 6, stepIndex: 0 },
-            { value: 64, offset: 2 / 6, duration: 1 / 6, stepIndex: 2 },
-            { value: 60, offset: 3 / 6, duration: 1 / 6, stepIndex: 3 },
-            {
-              value: 64,
-              offset: (1 / 6) * 5,
-              duration: 1 / 6,
-              stepIndex: 5,
-            },
+            { offset: 0, duration: 0.5 },
+            { offset: 0.5, duration: 0.5 },
           ],
         ],
       },
-      {
-        name: "reverse after xox",
-        instrument: () =>
-          new Synthesizer().notes([60, 64]).xox([1, 0, 1]).reverse(),
-        expected: [
-          [
-            { value: 64, offset: 0, duration: 1 / 3, stepIndex: 0 },
-            { value: 60, offset: 2 / 3, duration: 1 / 3, stepIndex: 2 },
-          ],
-        ],
-      },
-      {
-        name: "stretch after xox",
-        instrument: () =>
-          new Synthesizer().notes([60, 64]).xox([1, 0, 1]).stretch(2, 2),
-        expected: Array.from({ length: 2 }, () => [
-          { value: 60, offset: 0, duration: 1 / 6, stepIndex: 0 },
-          { value: 60, offset: 1 / 6, duration: 1 / 6, stepIndex: 1 },
-          { value: 64, offset: 4 / 6, duration: 1 / 6, stepIndex: 4 },
-          {
-            value: 64,
-            offset: (1 / 6) * 5,
-            duration: 1 / 6,
-            stepIndex: 5,
-          },
-        ]),
-      },
-      {
-        name: "euclid before xox",
-        instrument: () =>
-          new Synthesizer().notes([60, 64]).euclid(2, 4).xox([1, 0, 1, 1]),
-        expected: [
-          [
-            { value: 60, offset: 0, duration: 1 / 4, stepIndex: 0 },
-            { value: 64, offset: 3 / 4, duration: 1 / 4, stepIndex: 3 },
-          ],
-        ],
-      },
-      {
-        name: "xox before euclid",
-        instrument: () =>
-          new Synthesizer().notes([60, 64]).xox([1, 0, 1, 1]).euclid(2, 4),
-        expected: [[{ value: 60, offset: 0, duration: 1 / 4, stepIndex: 0 }]],
-      },
-      {
-        name: "hex after xox",
-        instrument: () =>
-          new Synthesizer().notes([60, 64]).xox([1, 0, 1, 1]).hex("a"),
-        expected: [[{ value: 60, offset: 0, duration: 1 / 4, stepIndex: 0 }]],
-      },
-      {
-        name: "sequence after xox",
-        instrument: () =>
-          new Synthesizer().notes([60, 64]).xox([1, 0, 1, 1]).sequence(4, 0, 2),
-        expected: [
-          [{ value: 60, offset: 0, duration: 1 / 4, stepIndex: 0 }],
-          [{ value: 60, offset: 2 / 4, duration: 1 / 4, stepIndex: 2 }],
-        ],
-      },
-    ];
-
-    for (const { name, instrument, expected } of fixtures) {
-      const fixture = getStaticMaskFixture(instrument().getSchema());
-      expect(fixture.source, name).toEqual(
-        expected.map((bar) => bar.map((step) => step.value)),
-      );
-      expect(fixture.mask, name).toEqual(
-        expected.map((bar) =>
-          bar.map(({ offset, duration, stepIndex }) => ({
-            offset,
-            duration,
-            stepIndex,
-          })),
-        ),
-      );
-    }
-  });
-
-  it("keeps sampler source notes separate from the trigger mask", () => {
-    const schema = new Sampler("kick")
-      .notes([0, 12])
-      .xox([1, 0, 1, 1])
-      .getSchema();
-
-    expect(schema.notes.source.type).toBe("static");
-    if (schema.notes.source.type === "static") {
-      expect(schema.notes.source.cycle[0].map((step) => step.value)).toEqual([
-        0, 12, 0,
-      ]);
-    }
-    expect(schema.notes.mask?.type).toBe("static");
-    if (schema.notes.mask?.type === "static") {
-      expect(schema.notes.mask.cycle[0].map((step) => step.stepIndex)).toEqual([
-        0, 2, 3,
-      ]);
-    }
-
-    expect(getStaticMaskFixture(schema)).toEqual({
-      source: [[0, 12, 0]],
-      mask: [
-        [
-          { offset: 0, duration: 1 / 4, stepIndex: 0 },
-          { offset: 2 / 4, duration: 1 / 4, stepIndex: 2 },
-          { offset: 3 / 4, duration: 1 / 4, stepIndex: 3 },
-        ],
-      ],
+      notes: { type: "static", cycle: [[[67], [71]]] },
     });
   });
 
-  it("preserves a binary random cycle as a dynamic trigger mask", () => {
-    const mask = new RandomCycle().chance(0.6).bin().steps(16, 0);
-    const schema = new Synthesizer().notes([60]).xox(mask).getSchema();
+  it("serializes random XOX as one timing condition", () => {
+    const events = new Synthesizer()
+      .notes([60])
+      .xox(new RandomCycle().chance(0.6).bin().steps(4, 0))
+      .getSchema().events;
 
-    expect(schema.notes.source.type).toBe("static");
-    expect(schema.notes.mask).toMatchObject({
-      type: "random",
-      dataType: "binary",
-      chance: 0.6,
+    expect(events.timing.cycle.map((bar) => bar.length)).toEqual([4, 0]);
+    expect(events.timing.condition).toMatchObject({
+      type: "chance",
+      probability: 0.6,
     });
-    if (schema.notes.mask?.type === "random") {
-      expect(schema.notes.mask.grid.cycle.map((bar) => bar.length)).toEqual([
-        16, 0,
-      ]);
-    }
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [[[60], [60], [60], [60]], [null]],
+    });
   });
 
-  it("rejects non-binary random trigger masks during schema construction", () => {
+  it("rejects non-binary random trigger timing", () => {
     expect(() =>
       new Synthesizer().xox(new RandomCycle().range(0, 1)).getSchema(),
     ).toThrow("Instrument.xox() random masks must be binary");
-    expect(() =>
-      new Synthesizer().xox(new RandomCycle().bin().int()).getSchema(),
-    ).toThrow("Instrument.xox() random masks must be binary");
+  });
+
+  it("emits a natural-pitch sampler without notes or default variation", () => {
+    const schema = new Sampler("kick").getSchema();
+
+    expect(schema.events).toEqual({
+      timing: { cycle: [[{ offset: 0, duration: 1 }]] },
+      sampleNames: { type: "static", cycle: [[["kick"]]] },
+    });
+    expect(schema).not.toHaveProperty("sample");
+    expect(schema).not.toHaveProperty("sourceKeys");
+    expect(schema).not.toHaveProperty("variation");
+    expect(schema).not.toHaveProperty("notes");
+  });
+
+  it("emits sampler pitch values only when pitch intent is explicit", () => {
+    const root = new Sampler("kick").root("A3").getSchema().events;
+    const scale = new Sampler("kick")
+      .root("A3")
+      .scale("min")
+      .notes([0, 2, 4])
+      .getSchema().events;
+
+    expect(root.notes).toEqual({ type: "static", cycle: [[[57]]] });
+    expect(root.timing).toEqual({
+      cycle: [[{ offset: 0, duration: 1 }]],
+    });
+    expect(scale.notes).toEqual({
+      type: "static",
+      cycle: [[[57], [60], [64]]],
+    });
+    expect(scale.timing.cycle[0]).toHaveLength(3);
+  });
+
+  it("moves explicit sampler variation values under events", () => {
+    expect(
+      new Sampler("kick").variation([0, 1, 2]).getSchema().events,
+    ).toMatchObject({
+      variationIndices: {
+        type: "static",
+        cycle: [[[0], [1], [2]]],
+      },
+    });
+    expect(
+      new Sampler("kick")
+        .variation(new RandomCycle().steps(3).int().range(0, 4))
+        .getSchema().events.variationIndices,
+    ).toMatchObject({
+      type: "random-number",
+      valuesPerBar: [3],
+      dataType: "integer",
+      range: { min: 0, max: 4 },
+    });
+  });
+
+  it.each([
+    {
+      sliceCount: 1,
+      expected: [[{ offset: 0, duration: 4 }], [], [], []],
+    },
+    {
+      sliceCount: 2,
+      expected: [
+        [{ offset: 0, duration: 2 }],
+        [],
+        [{ offset: 0, duration: 2 }],
+        [],
+      ],
+    },
+    {
+      sliceCount: 8,
+      expected: Array.from({ length: 4 }, () => [
+        { offset: 0, duration: 0.5 },
+        { offset: 0.5, duration: 0.5 },
+      ]),
+    },
+  ])(
+    "preserves chop($sliceCount).fit(4) generated timing",
+    ({ sliceCount, expected }) => {
+      const schema = new Sampler("loop").chop(sliceCount).fit(4).getSchema();
+
+      expect(schema.events.timing.cycle).toEqual(expected);
+      expect(schema.events.notes).toBeUndefined();
+    },
+  );
+
+  it("wraps explicit pitch values over authored chop timing", () => {
+    const events = new Sampler("loop")
+      .fit(2)
+      .chop(8, [0, 3, 5, 1])
+      .notes([0, 12])
+      .getSchema().events;
+
+    expect(events.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 0.25 },
+      { offset: 0.25, duration: 0.25 },
+      { offset: 0.5, duration: 0.25 },
+      { offset: 0.75, duration: 0.25 },
+    ]);
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [[[0], [12], [0], [12]]],
+    });
   });
 });
 

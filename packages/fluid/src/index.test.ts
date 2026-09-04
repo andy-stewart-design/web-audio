@@ -1,56 +1,31 @@
+import { RandomCycle } from "@web-audio/patterns";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SamplerSchema } from "@web-audio/schema";
 import Drome from "./index";
 import type Sampler from "./instruments/sampler";
 
-function getPushedSamplerSchema(drome: Drome) {
-  const [schema] = drome.getSchema().instruments;
-  if (schema?.type !== "sampler") {
-    throw new Error("Expected one pushed sampler schema");
-  }
-  return schema;
-}
-
 function getStaticChopFixture(schema: SamplerSchema) {
-  const notes = schema.notes.source;
+  const timingBars = schema.events.timing.cycle;
   const region = schema.region;
-  if (
-    notes.type !== "static" ||
-    region?.type !== "chop" ||
-    region.sequence.type !== "static"
-  ) {
-    throw new Error("Expected static notes and a static chop sequence");
+  if (region?.type !== "chop" || region.sequence.type !== "static") {
+    throw new Error("Expected static chop timing and a static sequence");
   }
 
-  const noteBars = notes.cycle.map((bar) =>
-    bar.map(({ offset, duration, stepIndex }) => ({
-      offset,
-      duration,
-      stepIndex,
-    })),
-  );
-  const sequence = region.sequence;
-  const sequenceBars = sequence.cycle;
-  const resolveSliceOrder = (
-    indexForNote: (stepIndex: number, hitIndex: number) => number,
-  ) =>
-    notes.cycle.map((bar, barIndex) => {
-      const sequenceBar = sequence.cycle[barIndex % sequence.cycle.length];
-      return bar.map(({ stepIndex }, hitIndex) =>
-        sequenceBar.length === 0
-          ? null
-          : sequenceBar[indexForNote(stepIndex, hitIndex) % sequenceBar.length],
-      );
-    });
+  const sequenceBars = region.sequence.cycle;
+  const barLocalHitSliceOrder = timingBars.map((bar, barIndex) => {
+    const sequenceBar = sequenceBars[barIndex % sequenceBars.length];
+    return bar.map((_, hitIndex) =>
+      sequenceBar.length === 0
+        ? null
+        : sequenceBar[hitIndex % sequenceBar.length],
+    );
+  });
 
   return {
-    noteBars,
+    timingBars,
     sequenceBars,
     slices: region.slices,
-    stepIndexSliceOrder: resolveSliceOrder((stepIndex) => stepIndex),
-    barLocalHitSliceOrder: resolveSliceOrder(
-      (_stepIndex, hitIndex) => hitIndex,
-    ),
+    barLocalHitSliceOrder,
   };
 }
 
@@ -459,372 +434,226 @@ describe("Drome", () => {
   });
 
   describe("sampler schema round-trip", () => {
-    it("d.sample('bd') produces a valid SamplerSchema", () => {
+    it("emits a valid natural-pitch sampler event schema", () => {
       const d = new Drome();
       d.sample("bd").push();
       const schema = d.getSchema();
       const inst = schema.instruments[0];
 
       expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.bank).toBe("tr909");
-        expect(inst.sample).toBe("bd");
-        expect(inst.sourceKeys).toEqual([0]);
-        expect(inst.loop).toBe(false);
-        expect(inst.clipMode).toBe("clipped");
-        expect(inst.direction).toBe("forward");
-        expect(inst.variation.type).toBe("static");
-        expect(inst.notes).not.toHaveProperty("type", "fit");
-        expect(inst.fit).toBeNull();
-        expect(inst.region).toBeNull();
-      }
-      expect(schema.banks).toHaveProperty("tr909");
+      if (inst.type !== "sampler") return;
+      expect(inst).toMatchObject({
+        bank: "tr909",
+        events: {
+          timing: { cycle: [[{ offset: 0, duration: 1 }]] },
+          sampleNames: { type: "static", cycle: [[["bd"]]] },
+        },
+        loop: false,
+        clipMode: "clipped",
+        direction: "forward",
+        fit: null,
+        region: null,
+      });
+      expect(inst.events.notes).toBeUndefined();
+      expect(inst.events.variationIndices).toBeUndefined();
+      expect(inst).not.toHaveProperty("sample");
+      expect(inst).not.toHaveProperty("sourceKeys");
       expect(schema.banks.tr909.samples.bd["0"][0].type).toBe("file");
-      expect(schema.banks.tr909.samples.bd["0"][0].src).toMatch(/^https?:\/\//);
     });
 
-    it("variation(1) sets the variation parameter", () => {
+    it("serializes all explicit variation forms under events", () => {
       const d = new Drome();
-      const inst = d.sample("bd").variation(1).getSchema();
+      const explicit = d.sample("bd").variation(1).getSchema();
+      const secondArg = d.sample("bd", 1).getSchema();
+      const shorthand = d.sample("bd:1").getSchema();
 
-      expect(inst.variation.type).toBe("static");
-      if (inst.variation.type === "static") {
-        expect(inst.variation.cycle[0][0].value).toBe(1);
-      }
+      expect(secondArg.events.variationIndices).toEqual(
+        explicit.events.variationIndices,
+      );
+      expect(shorthand.events.variationIndices).toEqual(
+        explicit.events.variationIndices,
+      );
+      expect(
+        d.sample("bd").variation([0, 1, 2]).getSchema().events.variationIndices,
+      ).toEqual({ type: "static", cycle: [[[0], [1], [2]]] });
+      expect(
+        d.sample("bd").variation(d.rand().int().range(0, 2)).getSchema().events
+          .variationIndices,
+      ).toMatchObject({
+        type: "random-number",
+        dataType: "integer",
+        range: { min: 0, max: 2 },
+      });
+      expect(
+        d.sample("bd").getSchema().events.variationIndices,
+      ).toBeUndefined();
     });
 
-    it("all three variation syntax forms produce identical schema output", () => {
+    it("aligns random variation zero-count bars during graph validation", () => {
       const d = new Drome();
-      const explicit = d.sample("bd").variation(1).getSchema().variation;
-      const secondArg = d.sample("bd", 1).getSchema().variation;
-      const shorthand = d.sample("bd:1").getSchema().variation;
+      d.sample("bd").variation(d.rand().steps(2, 0).int()).push();
 
-      expect(secondArg).toEqual(explicit);
-      expect(shorthand).toEqual(explicit);
+      const instrument = d.getSchema().instruments[0];
+      expect(instrument.type).toBe("sampler");
+      if (instrument.type !== "sampler") return;
+      expect(instrument.events.timing.cycle).toEqual([
+        [{ offset: 0, duration: 1 }],
+        [],
+      ]);
+      expect(instrument.events.variationIndices).toMatchObject({
+        type: "random-number",
+        valuesPerBar: [2, 0],
+      });
     });
 
-    it("variation cycles static values", () => {
+    it("keeps note and variation values independent", () => {
       const d = new Drome();
-      const inst = d.sample("bd").variation([0, 1, 2]).getSchema();
-
-      expect(inst.variation.type).toBe("static");
-      if (inst.variation.type === "static") {
-        expect(inst.variation.cycle[0].map((s) => s.value)).toEqual([0, 1, 2]);
-      }
-    });
-
-    it("variation accepts random cycles", () => {
-      const d = new Drome();
-      const inst = d
+      const staticNotes = d
         .sample("bd")
+        .notes([0, 2, 4])
         .variation(d.rand().int().range(0, 2))
-        .getSchema();
+        .getSchema().events;
+      const randomNotes = d
+        .sample("bd")
+        .notes(d.rand().int().range(0, 12))
+        .variation([0, 1])
+        .getSchema().events;
 
-      expect(inst.variation.type).toBe("random");
-      if (inst.variation.type === "random") {
-        expect(inst.variation.dataType).toBe("integer");
-        expect(inst.variation.range).toEqual({ min: 0, max: 2 });
-      }
+      expect(staticNotes.notes?.type).toBe("static");
+      expect(staticNotes.variationIndices?.type).toBe("random-number");
+      expect(randomNotes.notes?.type).toBe("random-number");
+      expect(randomNotes.variationIndices?.type).toBe("static");
     });
 
-    it("defaults variation to 0", () => {
+    it("distinguishes explicit sampler pitch intent from timing ownership", () => {
       const d = new Drome();
-      const inst = d.sample("bd").getSchema();
+      const root = d.sample("bd").root("A4").getSchema().events;
+      const scale = d
+        .sample("bd")
+        .root("A4")
+        .scale("maj")
+        .notes([0, 2, 4])
+        .getSchema().events;
 
-      expect(inst.variation.type).toBe("static");
-      if (inst.variation.type === "static") {
-        expect(inst.variation.cycle[0][0].value).toBe(0);
-      }
+      expect(root.notes).toEqual({ type: "static", cycle: [[[69]]] });
+      expect(root.timing).toEqual({
+        cycle: [[{ offset: 0, duration: 1 }]],
+      });
+      expect(scale.notes).toEqual({
+        type: "static",
+        cycle: [[[69], [73], [76]]],
+      });
+      expect(scale.timing.cycle[0]).toHaveLength(3);
     });
 
-    it("notes with root and scale produce MIDI target values", () => {
+    it("keeps root-derived notes from filtering generated fit timing", () => {
       const d = new Drome();
-      d.sample("bd").root("A4").notes([0, 3, 7]).push();
-      const inst = d.getSchema().instruments[0];
+      d.sample("bd").root("A3").slow(2).fit(4).push();
 
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler" && inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle[0].map((s) => s.value)).toEqual([
-          69, 72, 76,
-        ]);
-      }
-    });
-
-    it("fit(2).loop(true) produces FitSchema with loop flag", () => {
-      const d = new Drome();
-      d.sample("loop").fit(2).loop(true).push();
-      const inst = d.getSchema().instruments[0];
-
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
-        expect(inst.notes.source.type).toBe("static");
-        expect(inst.region?.type).toBe("chop");
-        expect(inst.loop).toBe(true);
-      }
-    });
-
-    it("clip(false) sets sampler clip mode to one-shot", () => {
-      const d = new Drome();
-      d.sample("oh").clip(false).push();
-      const inst = d.getSchema().instruments[0];
-
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.clipMode).toBe("one-shot");
-      }
-    });
-
-    it("clip() sets sampler clip mode to clipped", () => {
-      const d = new Drome();
-      d.sample("oh").clip(false).clip().push();
-      const inst = d.getSchema().instruments[0];
-
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.clipMode).toBe("clipped");
-      }
-    });
-
-    it("clip(true) sets sampler clip mode to clipped", () => {
-      const d = new Drome();
-      d.sample("oh").clip(false).clip(true).push();
-      const inst = d.getSchema().instruments[0];
-
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.clipMode).toBe("clipped");
-      }
-    });
-
-    it("direction() accepts full and abbreviated direction names", () => {
-      const d = new Drome();
-
-      expect(d.sample("bd").direction("forward").getSchema().direction).toBe(
-        "forward",
+      const instrument = d.getSchema().instruments[0];
+      expect(instrument.type).toBe("sampler");
+      if (instrument.type !== "sampler") return;
+      expect(instrument.events.timing.cycle).toEqual(
+        Array.from({ length: 4 }, () => [{ offset: 0, duration: 1 }]),
       );
-      expect(d.sample("bd").direction("reverse").getSchema().direction).toBe(
-        "reverse",
-      );
-      expect(d.sample("bd").direction("alternate").getSchema().direction).toBe(
-        "alternate",
-      );
-      expect(d.sample("bd").direction("for").getSchema().direction).toBe(
-        "forward",
-      );
-      expect(d.sample("bd").direction("rev").getSchema().direction).toBe(
-        "reverse",
-      );
-      expect(d.sample("bd").direction("alt").getSchema().direction).toBe(
-        "alternate",
-      );
+      expect(instrument.events.notes).toEqual({
+        type: "static",
+        cycle: Array.from({ length: 4 }, () => [[57]]),
+      });
     });
 
-    it("dir() aliases direction(), including when extracted", () => {
+    it("preserves clip, direction, loop, effects, and mixed graphs", () => {
       const d = new Drome();
+      d.sample("oh")
+        .clip(false)
+        .direction("alt")
+        .loop()
+        .gain(d.env(0, 1))
+        .fx(d.lpf(800))
+        .push();
+      d.synth("sine").push();
+      const [sampler, synth] = d.getSchema().instruments;
+
+      expect(sampler.type).toBe("sampler");
+      if (sampler.type === "sampler") {
+        expect(sampler.clipMode).toBe("one-shot");
+        expect(sampler.direction).toBe("alternate");
+        expect(sampler.loop).toBe(true);
+        expect(sampler.effects).toHaveLength(1);
+      }
+      expect(synth.type).toBe("synthesizer");
+    });
+
+    it("supports full and abbreviated direction names and the dir alias", () => {
+      const d = new Drome();
+      const cases = [
+        ["forward", "forward"],
+        ["reverse", "reverse"],
+        ["alternate", "alternate"],
+        ["for", "forward"],
+        ["rev", "reverse"],
+        ["alt", "alternate"],
+      ] as const;
+
+      for (const [input, expected] of cases) {
+        expect(d.sample("bd").direction(input).getSchema().direction).toBe(
+          expected,
+        );
+      }
       const sampler = d.sample("bd");
       const dir = sampler.dir;
-
       expect(dir("reverse")).toBe(sampler);
       expect(sampler.getSchema().direction).toBe("reverse");
-    });
-
-    it("direction() rejects invalid runtime input", () => {
-      const d = new Drome();
-
       expect(() => d.sample("bd").direction("sideways" as never)).toThrow(
         '[Sampler] direction() must be "forward", "reverse", "alternate", "for", "rev", or "alt".',
       );
+      expect(d.synth()).not.toHaveProperty("direction");
     });
 
-    it("does not expose sample direction on synthesizers", () => {
-      expect(new Drome().synth()).not.toHaveProperty("direction");
-    });
-
-    it("gain envelope and effects are present", () => {
-      const d = new Drome();
-      d.sample("bd").gain(d.env(0, 1)).fx(d.lpf(800)).push();
-      const inst = d.getSchema().instruments[0];
-
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.gain.type).toBe("envelope");
-        expect(inst.effects).toHaveLength(1);
-        expect(inst.effects[0].type).toBe("filter");
-      }
-    });
-
-    it("synth + sampler both appear in instruments[]", () => {
-      const d = new Drome();
-      d.synth("sine").push();
-      d.sample("sd").push();
-      const instruments = d.getSchema().instruments;
-
-      expect(instruments).toHaveLength(2);
-      expect(instruments[0].type).toBe("synthesizer");
-      expect(instruments[1].type).toBe("sampler");
-    });
-
-    it("simple samples emit sourceKeys: [0]", () => {
-      const d = new Drome();
-      d.loadSamples({ kick: ["kick.wav"] });
-      d.sample("kick").bank("user").push();
-      const inst = d.getSchema().instruments[0];
-
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.sourceKeys).toEqual([0]);
-      }
-    });
-
-    it("multisamples emit sorted sourceKeys", () => {
-      const d = new Drome();
-      d.loadSamples({
-        bank: "acoustic",
-        samples: { piano: { a3: ["a3.wav"], a2: ["a2.wav"] } },
-      });
-      d.sample("piano").bank("acoustic").push();
-      const inst = d.getSchema().instruments[0];
-
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.sourceKeys).toEqual([45, 57]);
-      }
-    });
-
-    it("pitched sprites emit sorted sourceKeys", () => {
-      const d = new Drome();
-      d.loadSamples({
-        bank: "acoustic",
-        src: "piano.wav",
-        samples: { piano: { a3: [[0.2, 0.3]], a2: [[0, 0.1]] } },
-      });
-      d.sample("piano").bank("acoustic").push();
-      const inst = d.getSchema().instruments[0];
-
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.sourceKeys).toEqual([45, 57]);
-      }
-    });
-
-    it("unknown banks warn and emit fallback sourceKeys", () => {
+    it("warns for detectable missing resources without fallback metadata", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      const d = new Drome();
-      d.sample("kick").bank("missing").push();
-      const inst = d.getSchema().instruments[0];
+      const missingBank = new Drome();
+      missingBank.sample("kick").bank("missing").push();
+      const bankSchema = missingBank.getSchema().instruments[0];
+
+      const missingSample = new Drome();
+      missingSample.loadSamples({ kick: ["kick.wav"] });
+      missingSample.sample("snare").bank("user").push();
+      const sampleSchema = missingSample.getSchema().instruments[0];
 
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining('Bank "missing" not found'),
       );
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.sourceKeys).toEqual([0]);
-      }
-    });
-
-    it("unknown samples warn and emit fallback sourceKeys", () => {
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      const d = new Drome();
-      d.loadSamples({ kick: ["kick.wav"] });
-      d.sample("snare").bank("user").push();
-      const inst = d.getSchema().instruments[0];
-
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining('Sample "snare" not found in bank "user"'),
       );
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.sourceKeys).toEqual([0]);
-      }
+      expect(warn.mock.calls.flat().join(" ")).not.toContain("sourceKeys");
+      expect(bankSchema).not.toHaveProperty("sourceKeys");
+      expect(sampleSchema).not.toHaveProperty("sourceKeys");
     });
 
-    it("static notes and random variation remain independent", () => {
+    it("serializes static end and duration regions as value patterns", () => {
       const d = new Drome();
-      d.sample("bd")
-        .notes([0, 2, 4])
-        .variation(d.rand().int().range(0, 2))
-        .push();
-      const inst = d.getSchema().instruments[0];
+      const end = d.sample("bd").start(0.25).end(0.75).getSchema().region;
+      const duration = d
+        .sample("bd")
+        .start(0.4)
+        .duration(0.15)
+        .getSchema().region;
 
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.notes.source.type).toBe("static");
-        expect(inst.variation.type).toBe("random");
-        expect(inst).not.toHaveProperty("playback");
-      }
+      expect(end).toEqual({
+        type: "static",
+        start: { type: "static", cycle: [[0.25]] },
+        end: { type: "static", cycle: [[0.75]] },
+      });
+      expect(duration).toEqual({
+        type: "static",
+        start: { type: "static", cycle: [[0.4]] },
+        duration: { type: "static", cycle: [[0.15]] },
+      });
     });
 
-    it("random notes and static variation remain independent", () => {
-      const d = new Drome();
-      d.sample("bd")
-        .notes(d.rand().int().range(0, 12))
-        .variation([0, 1])
-        .push();
-      const inst = d.getSchema().instruments[0];
-
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.notes.source.type).toBe("random");
-        expect(inst.variation.type).toBe("static");
-        expect(inst).not.toHaveProperty("playback");
-      }
-    });
-
-    it("start(0.25) emits static region with end defaulting to 1", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").start(0.25).getSchema();
-
-      expect(inst.region?.type).toBe("static");
-      if (inst.region?.type === "static" && inst.region.end) {
-        expect(inst.region.start.type).toBe("static");
-        expect(inst.region.end.type).toBe("static");
-        if (inst.region.start.type === "static") {
-          expect(inst.region.start.cycle[0][0]).toBe(0.25);
-        }
-        if (inst.region.end.type === "static") {
-          expect(inst.region.end.cycle[0][0]).toBe(1);
-        }
-      }
-    });
-
-    it("end(0.75) emits static region with start defaulting to 0", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").end(0.75).getSchema();
-
-      expect(inst.region?.type).toBe("static");
-      if (inst.region?.type === "static" && inst.region.end) {
-        expect(inst.region.start.type).toBe("static");
-        expect(inst.region.end.type).toBe("static");
-        if (inst.region.start.type === "static") {
-          expect(inst.region.start.cycle[0][0]).toBe(0);
-        }
-        if (inst.region.end.type === "static") {
-          expect(inst.region.end.cycle[0][0]).toBe(0.75);
-        }
-      }
-    });
-
-    it("duration() emits a relative-duration region", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").start(0.4).duration(0.15).getSchema();
-
-      expect(inst.region?.type).toBe("static");
-      if (inst.region?.type === "static" && inst.region.duration) {
-        expect(inst.region.start.type).toBe("static");
-        expect(inst.region.duration.type).toBe("static");
-        if (inst.region.start.type === "static") {
-          expect(inst.region.start.cycle[0][0]).toBe(0.4);
-        }
-        if (inst.region.duration.type === "static") {
-          expect(inst.region.duration.cycle[0][0]).toBe(0.15);
-        }
-      } else {
-        expect.unreachable("Expected a relative-duration region");
-      }
-    });
-
-    it("dur() aliases duration(), including when extracted", () => {
+    it("preserves region mode replacement, aliases, and validation", () => {
       const d = new Drome();
       const sampler = d.sample("bd");
       const dur = sampler.dur;
@@ -833,792 +662,235 @@ describe("Drome", () => {
       expect(sampler.getSchema()).toEqual(
         d.sample("bd").duration(0.15).getSchema(),
       );
-    });
-
-    it("end() and duration() use the most recently configured region mode", () => {
-      const d = new Drome();
-      const duration = d.sample("bd").end(0.8).duration(0.15).getSchema();
-      const end = d.sample("bd").duration(0.15).end(0.8).getSchema();
-
-      expect(duration.region?.type).toBe("static");
-      if (duration.region?.type === "static") {
-        expect(duration.region).toHaveProperty("duration");
-        expect(duration.region).not.toHaveProperty("end");
-      }
-      expect(end.region?.type).toBe("static");
-      if (end.region?.type === "static") {
-        expect(end.region).toHaveProperty("end");
-        expect(end.region).not.toHaveProperty("duration");
-      }
-    });
-
-    it("duration() accepts boundary values and rejects invalid static values", () => {
-      const d = new Drome();
-
-      expect(() => d.sample("bd").duration(0).getSchema()).not.toThrow();
-      expect(() => d.sample("bd").duration(1).getSchema()).not.toThrow();
-      for (const value of [-0.1, 1.1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(
+        d.sample("bd").end(0.8).duration(0.15).getSchema().region,
+      ).toHaveProperty("duration");
+      expect(
+        d.sample("bd").duration(0.15).end(0.8).getSchema().region,
+      ).toHaveProperty("end");
+      expect(() => d.sample("bd").start(0.75).end(0.25).getSchema()).toThrow(
+        "[Sampler] start() must be less than end().",
+      );
+      for (const value of [-0.1, 1.1]) {
         expect(() => d.sample("bd").duration(value).getSchema()).toThrow(
           "[Sampler] duration() values must be finite numbers in [0, 1].",
         );
       }
+      for (const value of [Number.NaN, Number.POSITIVE_INFINITY]) {
+        expect(() => d.sample("bd").duration(value).getSchema()).toThrow(
+          "must contain only finite numbers",
+        );
+      }
     });
 
-    it("duration() preserves random parameters and warns for out-of-range ranges", () => {
+    it("preserves random regions and warns for out-of-range ranges", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      const d = new Drome();
-      const inst = d
+      const region = new Drome()
         .sample("bd")
-        .duration(d.rand().range(-0.1, 1.1).steps(4))
-        .getSchema();
+        .duration(new RandomCycle().range(-0.1, 1.1).steps(4))
+        .getSchema().region;
 
-      expect(inst.region?.type).toBe("static");
-      if (inst.region?.type === "static" && inst.region.duration) {
-        expect(inst.region.duration.type).toBe("random-number");
-      } else {
-        expect.unreachable("Expected a relative-duration region");
-      }
+      expect(region).toMatchObject({
+        type: "static",
+        duration: { type: "random-number", valuesPerBar: [4] },
+      });
       expect(warn).toHaveBeenCalledWith(
         "[Sampler] duration() random range is outside [0, 1]; resolved values will be clamped by the engine.",
       );
     });
 
-    it("duration() rejects chop combinations", () => {
-      const d = new Drome();
+    it("builds chop slices and value-only authored sequences", () => {
+      const inst = new Drome()
+        .sample("bd")
+        .start(0.25)
+        .end(0.75)
+        .chop(4, [0, 2, 1, 3])
+        .getSchema();
 
-      expect(() => d.sample("bd").duration(0.15).chop(4).getSchema()).toThrow(
-        "[Sampler] duration() cannot be used with chop().",
-      );
-      expect(() => d.sample("bd").chop(4).duration(0.15).getSchema()).toThrow(
-        "[Sampler] duration() cannot be used with chop().",
-      );
-    });
-
-    it("start() accepts cycling values", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").start([0, 0.25]).getSchema();
-
-      expect(inst.region?.type).toBe("static");
-      if (inst.region?.type === "static") {
-        expect(inst.region.start.type).toBe("static");
-        if (inst.region.start.type === "static") {
-          expect(inst.region.start.cycle[0]).toEqual([0, 0.25]);
-        }
-      }
-    });
-
-    it("start/end scalar bounds must be ordered", () => {
-      const d = new Drome();
-      expect(() => d.sample("bd").start(0.75).end(0.25).getSchema()).toThrow(
-        "[Sampler] start() must be less than end().",
-      );
-    });
-
-    it("start/end numeric values must be in [0, 1]", () => {
-      const d = new Drome();
-
-      expect(() => d.sample("bd").start(-0.1).getSchema()).toThrow(
-        "[Sampler] start() values must be finite numbers in [0, 1].",
-      );
-      expect(() => d.sample("bd").end(1.1).getSchema()).toThrow(
-        "[Sampler] end() values must be finite numbers in [0, 1].",
-      );
-    });
-
-    it("start/end random ranges outside [0, 1] warn", () => {
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      const d = new Drome();
-      d.sample("bd").start(d.rand().range(-0.5, 0.5)).getSchema();
-
-      expect(warn).toHaveBeenCalledWith(
-        "[Sampler] start() random range is outside [0, 1]; resolved values will be clamped by the engine.",
-      );
-    });
-
-    it("chop(4) emits natural slices and default sequence", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").chop(4).getSchema();
-
-      expect(inst.region?.type).toBe("chop");
-      if (inst.region?.type === "chop") {
-        expect(inst.region.slices).toEqual([
-          { start: 0, end: 0.25 },
-          { start: 0.25, end: 0.5 },
-          { start: 0.5, end: 0.75 },
-          { start: 0.75, end: 1 },
-        ]);
-        expect(inst.region.sequence.type).toBe("static");
-        if (inst.region.sequence.type === "static") {
-          expect(inst.region.sequence.cycle[0]).toEqual([0, 1, 2, 3]);
-        }
-      }
-    });
-
-    it("chop(4, [0, 2, 1, 3]) preserves authored sequence", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").chop(4, [0, 2, 1, 3]).getSchema();
-
-      expect(inst.region?.type).toBe("chop");
-      if (inst.region?.type === "chop") {
-        expect(inst.region.sequence.type).toBe("static");
-        if (inst.region.sequence.type === "static") {
-          expect(inst.region.sequence.cycle[0]).toEqual([0, 2, 1, 3]);
-        }
-      }
-    });
-
-    it("chop() requires a positive integer slice count", () => {
-      const d = new Drome();
-
-      expect(() => d.sample("bd").chop(0)).toThrow(
-        "[Sampler] chop() sliceCount must be a positive integer.",
-      );
-      expect(() => d.sample("bd").chop(-1)).toThrow(
-        "[Sampler] chop() sliceCount must be a positive integer.",
-      );
-      expect(() => d.sample("bd").chop(1.5)).toThrow(
-        "[Sampler] chop() sliceCount must be a positive integer.",
-      );
-    });
-
-    it("chop(8) without explicit notes emits 8 default notes over 1 bar", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").chop(8).getSchema();
-
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle).toHaveLength(1);
-        expect(inst.notes.source.cycle[0]).toHaveLength(8);
-        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
-          0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875,
-        ]);
-        expect(
-          inst.notes.source.cycle[0].every((step) => step.duration === 0.125),
-        ).toBe(true);
-      }
-    });
-
-    it("chop() default notes use authored sequence step count", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").chop(8, [0, 2, 1, 3]).getSchema();
-
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle[0]).toHaveLength(4);
-        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
-          0, 0.25, 0.5, 0.75,
-        ]);
-      }
-    });
-
-    it("explicit notes override generated chop notes", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").chop(8).notes([0, 12]).getSchema();
-
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle[0].map((step) => step.value)).toEqual([
-          0, 12,
-        ]);
-      }
-    });
-
-    it("chop() warns for static out-of-range sequence values and preserves them", () => {
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      const d = new Drome();
-      const inst = d.sample("bd").chop(4, [-1, 4]).getSchema();
-
-      expect(warn).toHaveBeenCalledWith(
-        "[Sampler] chop() sequence index -1 is outside [0, 3] and will wrap in the engine.",
-      );
-      expect(warn).toHaveBeenCalledWith(
-        "[Sampler] chop() sequence index 4 is outside [0, 3] and will wrap in the engine.",
-      );
-      expect(inst.region?.type).toBe("chop");
-      if (
-        inst.region?.type === "chop" &&
-        inst.region.sequence.type === "static"
-      ) {
-        expect(inst.region.sequence.cycle[0]).toEqual([-1, 4]);
-      }
+      expect(inst.region).toEqual({
+        type: "chop",
+        slices: [
+          { start: 0.25, end: 0.375 },
+          { start: 0.375, end: 0.5 },
+          { start: 0.5, end: 0.625 },
+          { start: 0.625, end: 0.75 },
+        ],
+        sequence: { type: "static", cycle: [[0, 2, 1, 3]] },
+      });
+      expect(inst.events.timing.cycle[0]).toEqual([
+        { offset: 0, duration: 0.25 },
+        { offset: 0.25, duration: 0.25 },
+        { offset: 0.5, duration: 0.25 },
+        { offset: 0.75, duration: 0.25 },
+      ]);
+      expect(inst.events.notes).toBeUndefined();
     });
 
     it.each([
       {
-        sliceCount: 4,
-        expectedNoteBars: [
-          [
-            { offset: 0, duration: 0.5, stepIndex: 0 },
-            { offset: 0.5, duration: 0.5, stepIndex: 1 },
-          ],
-          [
-            { offset: 0, duration: 0.5, stepIndex: 0 },
-            { offset: 0.5, duration: 0.5, stepIndex: 1 },
-          ],
-        ],
-        expectedSequenceBars: [
-          [0, 1],
-          [2, 3],
-        ],
-        expectedStepIndexOrder: [
-          [0, 1],
-          [2, 3],
-        ],
-        expectedBarLocalOrder: [
-          [0, 1],
-          [2, 3],
+        sliceCount: 1,
+        expected: [[{ offset: 0, duration: 4 }], [], [], []],
+      },
+      {
+        sliceCount: 2,
+        expected: [
+          [{ offset: 0, duration: 2 }],
+          [],
+          [{ offset: 0, duration: 2 }],
+          [],
         ],
       },
       {
         sliceCount: 8,
-        expectedNoteBars: [
-          [
-            { offset: 0, duration: 0.25, stepIndex: 0 },
-            { offset: 0.25, duration: 0.25, stepIndex: 1 },
-            { offset: 0.5, duration: 0.25, stepIndex: 2 },
-            { offset: 0.75, duration: 0.25, stepIndex: 3 },
-          ],
-          [
-            { offset: 0, duration: 0.25, stepIndex: 0 },
-            { offset: 0.25, duration: 0.25, stepIndex: 1 },
-            { offset: 0.5, duration: 0.25, stepIndex: 2 },
-            { offset: 0.75, duration: 0.25, stepIndex: 3 },
-          ],
-        ],
-        expectedSequenceBars: [
-          [0, 1, 2, 3],
-          [4, 5, 6, 7],
-        ],
-        expectedStepIndexOrder: [
-          [0, 1, 2, 3],
-          [4, 5, 6, 7],
-        ],
-        expectedBarLocalOrder: [
-          [0, 1, 2, 3],
-          [4, 5, 6, 7],
-        ],
+        expected: Array.from({ length: 4 }, () => [
+          { offset: 0, duration: 0.5 },
+          { offset: 0.5, duration: 0.5 },
+        ]),
       },
     ])(
-      "characterizes fit(2).chop($sliceCount) cross-bar slice addressing",
-      ({
-        sliceCount,
-        expectedNoteBars,
-        expectedSequenceBars,
-        expectedStepIndexOrder,
-        expectedBarLocalOrder,
-      }) => {
-        const d = new Drome();
-        d.sample("bd").fit(2).chop(sliceCount).push();
-        const fixture = getStaticChopFixture(getPushedSamplerSchema(d));
-
-        expect(fixture.noteBars).toEqual(expectedNoteBars);
-        expect(fixture.slices).toHaveLength(sliceCount);
-        expect(fixture.sequenceBars).toEqual(expectedSequenceBars);
-        expect(fixture.stepIndexSliceOrder).toEqual(expectedStepIndexOrder);
-        expect(fixture.barLocalHitSliceOrder).toEqual(expectedBarLocalOrder);
+      "preserves chop($sliceCount).fit(4) timing",
+      ({ sliceCount, expected }) => {
+        const schema = new Drome()
+          .sample("bd")
+          .chop(sliceCount)
+          .fit(4)
+          .getSchema();
+        expect(schema.events.timing.cycle).toEqual(expected);
+        expect(schema.events.notes).toBeUndefined();
       },
     );
 
-    it("distinguishes generated natural chop timing from authored sequence timing", () => {
-      const d = new Drome();
-      const generated = getStaticChopFixture(
-        d.sample("bd").fit(2).chop(8).getSchema(),
-      );
-      const authoredOneBar = getStaticChopFixture(
-        d.sample("bd").fit(2).chop(8, [0, 2, 1, 3]).getSchema(),
-      );
-      const authoredTwoBars = getStaticChopFixture(
-        d.sample("bd").fit(2).chop(8, [0, 2], [1, 3]).getSchema(),
-      );
+    it("distributes generated chop values and timing over fit bars", () => {
+      const schema = new Drome().sample("bd").fit(2).chop(8).getSchema();
+      const fixture = getStaticChopFixture(schema);
 
-      expect(generated.sequenceBars).toEqual([
+      expect(fixture.sequenceBars).toEqual([
         [0, 1, 2, 3],
         [4, 5, 6, 7],
       ]);
-      expect(
-        generated.noteBars.map((bar) => bar.map((note) => note.stepIndex)),
-      ).toEqual([
+      expect(fixture.timingBars).toEqual(
+        Array.from({ length: 2 }, () => [
+          { offset: 0, duration: 0.25 },
+          { offset: 0.25, duration: 0.25 },
+          { offset: 0.5, duration: 0.25 },
+          { offset: 0.75, duration: 0.25 },
+        ]),
+      );
+      expect(fixture.barLocalHitSliceOrder).toEqual([
         [0, 1, 2, 3],
-        [0, 1, 2, 3],
-      ]);
-      expect(authoredOneBar.sequenceBars).toEqual([[0, 2, 1, 3]]);
-      expect(authoredOneBar.noteBars).toHaveLength(1);
-      expect(authoredTwoBars.sequenceBars).toEqual([
-        [0, 2],
-        [1, 3],
-      ]);
-      expect(
-        authoredTwoBars.noteBars.map((bar) =>
-          bar.map(({ stepIndex }) => stepIndex),
-        ),
-      ).toEqual([
-        [0, 1],
-        [0, 1],
+        [4, 5, 6, 7],
       ]);
     });
 
-    it("fit(2).chop(8) emits 8 generated notes over 2 bars", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").fit(2).chop(8).getSchema();
-
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle).toHaveLength(2);
-        expect(inst.notes.source.cycle[0]).toHaveLength(4);
-        expect(inst.notes.source.cycle[1]).toHaveLength(4);
-        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
-          0, 0.25, 0.5, 0.75,
-        ]);
-        expect(inst.notes.source.cycle[1].map((step) => step.offset)).toEqual([
-          0, 0.25, 0.5, 0.75,
-        ]);
-        expect(
-          inst.notes.source.cycle.flat().map((step) => step.stepIndex),
-        ).toEqual([0, 1, 2, 3, 0, 1, 2, 3]);
-      }
-      expect(inst.region?.type).toBe("chop");
-      if (inst.region?.type === "chop") {
-        expect(inst.region.slices).toHaveLength(8);
-      }
-    });
-
-    it("fit(2).chop(8, [0, 2, 1, 3]) preserves the authored one-bar pattern", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").fit(2).chop(8, [0, 2, 1, 3]).getSchema();
-
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle).toHaveLength(1);
-        expect(inst.notes.source.cycle[0]).toHaveLength(4);
-        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
-          0, 0.25, 0.5, 0.75,
-        ]);
-        expect(
-          inst.notes.source.cycle[0].map((step) => step.stepIndex),
-        ).toEqual([0, 1, 2, 3]);
-      }
-    });
-
-    it("fit(2).chop(8, [0, 2], [1, 3]) preserves the authored two-bar pattern", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").fit(2).chop(8, [0, 2], [1, 3]).getSchema();
-
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle).toHaveLength(2);
-        expect(inst.notes.source.cycle[0]).toHaveLength(2);
-        expect(inst.notes.source.cycle[1]).toHaveLength(2);
-        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
-          0, 0.5,
-        ]);
-        expect(inst.notes.source.cycle[1].map((step) => step.offset)).toEqual([
-          0, 0.5,
-        ]);
-        expect(
-          inst.notes.source.cycle[0].map((step) => step.stepIndex),
-        ).toEqual([0, 1]);
-        expect(
-          inst.notes.source.cycle[1].map((step) => step.stepIndex),
-        ).toEqual([0, 1]);
-      }
-    });
-
-    it("fit with explicit notes preserves explicit note timing and fit", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").fit(2).notes([0, 12]).getSchema();
-
-      expect(inst.fit).toEqual({ type: "fit", bars: 2 });
-      expect(inst.region).toBeNull();
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle).toHaveLength(1);
-        expect(inst.notes.source.cycle[0].map((step) => step.value)).toEqual([
-          0, 12,
-        ]);
-        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
-          0, 0.5,
-        ]);
-        expect(inst.notes.source.cycle[0].map((step) => step.duration)).toEqual(
-          [0.5, 0.5],
-        );
-      }
-    });
-
-    it("explicit notes provide pitch values over chop timing", () => {
-      const d = new Drome();
-      const inst = d
+    it("wraps explicit notes over chop timing", () => {
+      const schema = new Drome()
         .sample("bd")
         .fit(2)
         .chop(8, [0, 3, 5, 1])
         .notes([0, 12])
         .getSchema();
 
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle).toHaveLength(1);
-        expect(inst.notes.source.cycle[0].map((step) => step.value)).toEqual([
-          0, 12, 0, 12,
-        ]);
-        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
-          0, 0.25, 0.5, 0.75,
-        ]);
-        expect(inst.notes.source.cycle[0].map((step) => step.duration)).toEqual(
-          [0.25, 0.25, 0.25, 0.25],
-        );
-      }
-      expect(inst.fit).toEqual({ type: "fit", bars: 2 });
-      expect(inst.region?.type).toBe("chop");
+      expect(schema.events.notes).toEqual({
+        type: "static",
+        cycle: [[[0], [12], [0], [12]]],
+      });
+      expect(schema.events.timing.cycle[0]).toHaveLength(4);
+      expect(schema.fit).toEqual({ type: "fit", bars: 2 });
     });
 
-    it("random chop sequence without steps expands to slice count", () => {
-      const d = new Drome();
-      const inst = d
+    it("uses random chop value counts as timing geometry", () => {
+      const defaultRandom = new Drome()
         .sample("bd")
-        .chop(8, d.rand().int().range(0, 7))
+        .chop(8, new RandomCycle().int().range(0, 7))
+        .getSchema();
+      const explicitRandom = new Drome()
+        .sample("bd")
+        .chop(8, new RandomCycle().int().range(0, 7).steps(4))
         .getSchema();
 
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle[0]).toHaveLength(8);
-      }
-      expect(inst.region?.type).toBe("chop");
-      if (inst.region?.type === "chop") {
-        expect(inst.region.sequence.type).toBe("random-number");
-        if (inst.region.sequence.type === "random-number") {
-          expect(inst.region.sequence.valuesPerBar).toEqual([8]);
-        }
-      }
+      expect(defaultRandom.events.timing.cycle[0]).toHaveLength(8);
+      expect(explicitRandom.events.timing.cycle[0]).toHaveLength(4);
+      expect(defaultRandom.region).toMatchObject({
+        type: "chop",
+        sequence: { type: "random-number", valuesPerBar: [8] },
+      });
+      expect(explicitRandom.region).toMatchObject({
+        type: "chop",
+        sequence: { type: "random-number", valuesPerBar: [4] },
+      });
     });
 
-    it("random chop sequence with steps preserves explicit step count", () => {
-      const d = new Drome();
-      const inst = d
-        .sample("bd")
-        .chop(8, d.rand().int().range(0, 7).steps(4))
-        .getSchema();
-
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle[0]).toHaveLength(4);
-      }
-      expect(inst.region?.type).toBe("chop");
-      if (inst.region?.type === "chop") {
-        expect(inst.region.sequence.type).toBe("random-number");
-        if (inst.region.sequence.type === "random-number") {
-          expect(inst.region.sequence.valuesPerBar).toEqual([4]);
-        }
-      }
-    });
-
-    it("single explicit note repeats over chop timing", () => {
-      const d = new Drome();
-      const inst = d
+    it("preserves fit-only generation and explicit-note suppression", () => {
+      const generated = new Drome().sample("bd").fit(3).getSchema();
+      const explicit = new Drome()
         .sample("bd")
         .fit(2)
-        .chop(8, [0, 3, 5, 1])
-        .notes([0])
+        .notes([0, 12])
         .getSchema();
 
-      expect(inst.fit).toEqual({ type: "fit", bars: 2 });
-      expect(inst.region?.type).toBe("chop");
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle[0].map((step) => step.value)).toEqual([
-          0, 0, 0, 0,
-        ]);
-        expect(inst.notes.source.cycle[0].map((step) => step.offset)).toEqual([
-          0, 0.25, 0.5, 0.75,
-        ]);
-      }
-    });
-
-    it("start/end with chop precomputes bounded slices", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").start(0.25).end(0.75).chop(4).getSchema();
-
-      expect(inst.region?.type).toBe("chop");
-      if (inst.region?.type === "chop") {
-        expect(inst.region.slices).toEqual([
-          { start: 0.25, end: 0.375 },
-          { start: 0.375, end: 0.5 },
-          { start: 0.5, end: 0.625 },
-          { start: 0.625, end: 0.75 },
-        ]);
-      }
-    });
-
-    it("dynamic start/end are rejected with chop regardless of chaining order", () => {
-      const d = new Drome();
-
-      expect(() => d.sample("bd").start([0, 0.5]).chop(4).getSchema()).toThrow(
-        "[Sampler] start() and end() must be static numbers when used with chop().",
-      );
-      expect(() => d.sample("bd").chop(4).start([0, 0.5]).getSchema()).toThrow(
-        "[Sampler] start() and end() must be static numbers when used with chop().",
-      );
-      expect(() =>
-        d.sample("bd").start(d.rand().range(0, 0.5)).chop(4).getSchema(),
-      ).toThrow(
-        "[Sampler] start() and end() must be static numbers when used with chop().",
-      );
-    });
-
-    it("invalid static start/end bounds are rejected with chop", () => {
-      const d = new Drome();
-
-      expect(() =>
-        d.sample("bd").start(0.75).end(0.25).chop(4).getSchema(),
-      ).toThrow(
-        "[Sampler] start() and end() must satisfy 0 <= start < end <= 1 when used with chop().",
-      );
-    });
-
-    it("explicit chop suppresses implicit fit-only chop region", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").fit(2).chop(8).getSchema();
-
-      expect(inst.region?.type).toBe("chop");
-      if (inst.region?.type === "chop") {
-        expect(inst.region.slices).toHaveLength(8);
-      }
-    });
-
-    it("fit(2) without explicit notes or region emits generated notes and chop region", () => {
-      const d = new Drome();
-      d.loadSamples({ loop: ["loop.wav"] });
-      const inst = d.sample("loop").bank("user").fit(2).getSchema();
-
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle).toEqual([
-          [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
-          [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
-        ]);
-      }
-      expect(inst.region?.type).toBe("chop");
-      if (inst.region?.type === "chop") {
-        expect(inst.region.slices).toEqual([
-          { start: 0, end: 0.5 },
-          { start: 0.5, end: 1 },
-        ]);
-        expect(inst.region.sequence.type).toBe("static");
-        if (inst.region.sequence.type === "static") {
-          expect(inst.region.sequence.cycle).toEqual([[0], [1]]);
-        }
-      }
-    });
-
-    it("fit(3) without explicit notes or region emits thirds across three bars", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").fit(3).getSchema();
-
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle).toHaveLength(3);
-      }
-      expect(inst.region?.type).toBe("chop");
-      if (inst.region?.type === "chop") {
-        expect(inst.region.slices).toEqual([
-          { start: 0, end: 1 / 3 },
-          { start: 1 / 3, end: 2 / 3 },
-          { start: 2 / 3, end: 1 },
-        ]);
-      }
-    });
-
-    it("fit() generated default notes use the lowest source key", () => {
-      const d = new Drome();
-      d.loadSamples({
-        bank: "acoustic",
-        samples: { piano: { a2: ["a2.wav"], a3: ["a3.wav"] } },
+      expect(generated.events.timing.cycle).toEqual([
+        [{ offset: 0, duration: 1 }],
+        [{ offset: 0, duration: 1 }],
+        [{ offset: 0, duration: 1 }],
+      ]);
+      expect(generated.events.notes).toBeUndefined();
+      expect(generated.region).toMatchObject({
+        type: "chop",
+        sequence: { type: "static", cycle: [[0], [1], [2]] },
       });
-      const inst = d.sample("piano").bank("acoustic").fit(2).getSchema();
-
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle[0][0].value).toBe(45);
-        expect(inst.notes.source.cycle[1][0].value).toBe(45);
-      }
-    });
-
-    it("explicit notes suppress fit default notes and implicit fit region", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").fit(2).notes([0, 12]).getSchema();
-
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle[0].map((step) => step.value)).toEqual([
-          0, 12,
-        ]);
-      }
-      expect(inst.region).toBeNull();
-    });
-
-    it("explicit region suppresses implicit fit region", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").fit(2).start(0.25).getSchema();
-
-      expect(inst.region?.type).toBe("static");
-    });
-
-    it("duration() suppresses the generated fit region while retaining fit playback", () => {
-      const d = new Drome();
-      const inst = d.sample("bd").fit(2).duration(0.15).getSchema();
-
-      expect(inst.fit).toEqual({ type: "fit", bars: 2 });
-      expect(inst.region?.type).toBe("static");
-      if (inst.region?.type === "static" && inst.region.duration) {
-        expect(inst.region.duration.type).toBe("static");
-      } else {
-        expect.unreachable("Expected a relative-duration region");
-      }
-      expect(inst.notes.source.type).toBe("static");
-      if (inst.notes.source.type === "static") {
-        expect(inst.notes.source.cycle[0]).toHaveLength(1);
-      }
-    });
-
-    it("fit() succeeds for simple samples with sourceKeys [0]", () => {
-      const d = new Drome();
-      d.loadSamples({ loop: ["loop.wav"] });
-      d.sample("loop").bank("user").fit(2).push();
-      const inst = d.getSchema().instruments[0];
-
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.sourceKeys).toEqual([0]);
-        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
-        expect(inst.notes.source.type).toBe("static");
-      }
-    });
-
-    it("fit() succeeds for sprite samples with sourceKeys [0]", () => {
-      const d = new Drome();
-      d.loadSamples({
-        bank: "loops",
-        src: "loops.wav",
-        samples: { break: [[0, 0.5]] },
+      expect(explicit.events.notes).toEqual({
+        type: "static",
+        cycle: [[[0], [12]]],
       });
-      d.sample("break").bank("loops").fit(2).push();
-      const inst = d.getSchema().instruments[0];
-
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.sourceKeys).toEqual([0]);
-        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
-        expect(inst.notes.source.type).toBe("static");
-      }
+      expect(explicit.events.timing.cycle[0]).toHaveLength(2);
+      expect(explicit.region).toBeNull();
     });
 
-    it("fit() succeeds for pitched multisamples", () => {
-      const d = new Drome();
-      d.loadSamples({
-        bank: "acoustic",
-        samples: { piano: { a2: ["a2.wav"], a3: ["a3.wav"] } },
-      });
-      d.sample("piano").bank("acoustic").fit(2).push();
-      const inst = d.getSchema().instruments[0];
-
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.sourceKeys).toEqual([45, 57]);
-        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
-      }
-    });
-
-    it("notes() does not clear fit", () => {
-      const d = new Drome();
-      d.sample("bd").fit(2).notes([0, 12]).push();
-      const inst = d.getSchema().instruments[0];
-
-      expect(inst.type).toBe("sampler");
-      if (inst.type === "sampler") {
-        expect(inst.fit).toEqual({ type: "fit", bars: 2 });
-        expect(inst.notes.source.type).toBe("static");
-        if (inst.notes.source.type === "static") {
-          expect(inst.notes.source.cycle[0].map((step) => step.value)).toEqual([
-            0, 12,
-          ]);
-        }
-      }
-    });
-
-    it("keeps generated chop/fit timing exempt from fast, stretch, and reverse in either order", () => {
+    it("keeps generated chop/fit timing exempt from event transforms", () => {
       const generators = [
-        {
-          name: "fit(4)",
-          apply: (sampler: Sampler) => sampler.fit(4),
-        },
-        {
-          name: "chop(8)",
-          apply: (sampler: Sampler) => sampler.chop(8),
-        },
+        (sampler: Sampler) => sampler.fit(4),
+        (sampler: Sampler) => sampler.chop(8),
       ];
       const transforms = [
-        {
-          name: "fast(2)",
-          apply: (sampler: Sampler) => sampler.fast(2),
-        },
-        {
-          name: "stretch(2)",
-          apply: (sampler: Sampler) => sampler.stretch(2),
-        },
-        {
-          name: "reverse()",
-          apply: (sampler: Sampler) => sampler.reverse(),
-        },
+        (sampler: Sampler) => sampler.fast(2),
+        (sampler: Sampler) => sampler.slow(2),
+        (sampler: Sampler) => sampler.stretch(2),
+        (sampler: Sampler) => sampler.reverse(),
       ];
 
-      for (const generator of generators) {
-        const expected = generator.apply(new Drome().sample("bd")).getSchema();
-
+      for (const generate of generators) {
+        const expected = generate(new Drome().sample("bd")).getSchema().events
+          .timing;
         for (const transform of transforms) {
           expect(
-            transform
-              .apply(generator.apply(new Drome().sample("bd")))
-              .getSchema(),
-            `${generator.name} then ${transform.name}`,
+            transform(generate(new Drome().sample("bd"))).getSchema().events
+              .timing,
           ).toEqual(expected);
           expect(
-            generator
-              .apply(transform.apply(new Drome().sample("bd")))
-              .getSchema(),
-            `${transform.name} then ${generator.name}`,
+            generate(transform(new Drome().sample("bd"))).getSchema().events
+              .timing,
           ).toEqual(expected);
         }
       }
     });
 
-    it("characterizes legacy slow mask leakage into generated chop/fit timing", () => {
-      const cases = [
-        new Drome().sample("bd").fit(4).slow(2).getSchema(),
-        new Drome().sample("bd").slow(2).fit(4).getSchema(),
-        new Drome().sample("bd").chop(8).slow(2).getSchema(),
-        new Drome().sample("bd").slow(2).chop(8).getSchema(),
-      ];
-
-      for (const schema of cases) {
-        expect(schema.notes.mask?.type).toBe("static");
-        if (schema.notes.mask?.type === "static") {
-          expect(schema.notes.mask.cycle).toEqual([
-            [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
-            [],
-          ]);
-        }
-      }
-    });
-
-    it("fit() requires a positive integer", () => {
+    it("validates incompatible chop and fit arguments", () => {
       const d = new Drome();
-
-      expect(() => d.sample("bd").fit(1.5)).toThrow(
-        "[Sampler] fit() bars must be a positive integer.",
+      for (const count of [0, -1, 1.5]) {
+        expect(() => d.sample("bd").chop(count)).toThrow(
+          "[Sampler] chop() sliceCount must be a positive integer.",
+        );
+      }
+      for (const bars of [0, -1, 1.5]) {
+        expect(() => d.sample("bd").fit(bars)).toThrow(
+          "[Sampler] fit() bars must be a positive integer.",
+        );
+      }
+      expect(() => d.sample("bd").duration(0.15).chop(4).getSchema()).toThrow(
+        "[Sampler] duration() cannot be used with chop().",
       );
-      expect(() => d.sample("bd").fit(0)).toThrow(
-        "[Sampler] fit() bars must be a positive integer.",
-      );
-      expect(() => d.sample("bd").fit(-1)).toThrow(
-        "[Sampler] fit() bars must be a positive integer.",
+      expect(() => d.sample("bd").start([0, 0.5]).chop(4).getSchema()).toThrow(
+        "[Sampler] start() and end() must be static numbers when used with chop().",
       );
     });
   });
@@ -1967,7 +1239,10 @@ describe("Drome", () => {
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
         expect(inst.bank).toBe("user");
-        expect(inst.sample).toBe("kick");
+        expect(inst.events.sampleNames).toEqual({
+          type: "static",
+          cycle: [[["kick"]]],
+        });
       }
     });
 
@@ -1986,23 +1261,24 @@ describe("Drome", () => {
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
         expect(inst.bank).toBe("mykit");
-        expect(inst.sample).toBe("kick");
+        expect(inst.events.sampleNames).toEqual({
+          type: "static",
+          cycle: [[["kick"]]],
+        });
       }
     });
 
-    it("variation cycling round-trips as a StaticSchema", () => {
+    it("variation cycling round-trips as static event values", () => {
       const d = new Drome();
       d.sample("bd").variation([0, 1, 2]).push();
       const inst = d.getSchema().instruments[0];
 
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
-        expect(inst.variation.type).toBe("static");
-        if (inst.variation.type === "static") {
-          expect(inst.variation.cycle[0].map((step) => step.value)).toEqual([
-            0, 1, 2,
-          ]);
-        }
+        expect(inst.events.variationIndices).toEqual({
+          type: "static",
+          cycle: [[[0], [1], [2]]],
+        });
       }
     });
 

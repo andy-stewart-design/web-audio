@@ -1,13 +1,15 @@
 import Parameter from "@/patterns/parameter";
 import type {
   FitSchema,
+  NotePattern,
   NumberPattern,
   RandomNumberPattern,
   RegionSchema,
-  StaticNotePattern,
+  SamplerEventSchema,
   StaticValuePattern,
+  TimingSchema,
+  VariationIndexPattern,
 } from "@web-audio/schema";
-import type Drome from "@/index";
 
 type ChopState = { sliceCount: number; sequence: Parameter | null };
 
@@ -99,42 +101,196 @@ function getChopSequenceSchema(chop: ChopState, generatedBars = 1) {
   } satisfies NumberPattern;
 }
 
-function getNotesForChopTiming(
-  notes: StaticNotePattern,
-  sequence: StaticValuePattern<number>,
-) {
-  const noteGroups = notes.cycle
-    .flat()
-    .filter((group): group is number[] => group !== null);
-
-  const cycle = sequence.cycle.map((bar) => {
-    if (noteGroups.length === 0 || bar.length === 0) return [null];
-    return bar.map((_, hitIndex) => [
-      ...noteGroups[hitIndex % noteGroups.length],
-    ]);
-  });
-
-  return { type: "static", cycle } satisfies StaticNotePattern;
+function getTimingForPattern(pattern: NumberPattern) {
+  const counts =
+    pattern.type === "random-number"
+      ? pattern.valuesPerBar
+      : pattern.cycle.map((bar) => bar.length);
+  const cycle = counts.map((count) =>
+    Array.from({ length: count }, (_, index) => ({
+      offset: index / count,
+      duration: 1 / count,
+    })),
+  );
+  return { cycle } satisfies TimingSchema;
 }
 
-function getDefaultNotesForSequence(
-  noteValue: number,
-  sequence: NumberPattern,
-  chopSchema: ChopState | null,
-) {
-  const counts =
-    sequence.type === "random-number"
-      ? sequence.valuesPerBar.length > 0
-        ? sequence.valuesPerBar
-        : [chopSchema?.sliceCount ?? 1]
-      : sequence.cycle.map((bar) => bar.length);
+function getDistributedTiming(eventCount: number, bars: number) {
+  const cycle: TimingSchema["cycle"] = Array.from({ length: bars }, () => []);
+  const duration = bars / eventCount;
+
+  for (let index = 0; index < eventCount; index++) {
+    const absoluteOffset = index * duration;
+    const barIndex = Math.min(bars - 1, Math.floor(absoluteOffset));
+    cycle[barIndex].push({
+      offset: absoluteOffset - barIndex,
+      duration,
+    });
+  }
+
+  return { cycle } satisfies TimingSchema;
+}
+
+function getChopTiming(chop: ChopState, bars: number) {
+  if (!chop.sequence) return getDistributedTiming(chop.sliceCount, bars);
+  return getTimingForPattern(getChopSequenceSchema(chop, bars));
+}
+
+function getVariationIndices(parameter: Parameter) {
+  const pattern = parameter.getSchema();
+  if (
+    pattern.type === "static" &&
+    pattern.cycle.length === 1 &&
+    pattern.cycle[0].length === 1 &&
+    pattern.cycle[0][0] === 0
+  ) {
+    return undefined;
+  }
+  if (pattern.type === "random-number") return pattern;
 
   return {
     type: "static",
-    cycle: counts.map((count) =>
-      count === 0 ? [null] : Array.from({ length: count }, () => [noteValue]),
+    cycle: pattern.cycle.map((bar) => bar.map((value) => [value])),
+  } satisfies VariationIndexPattern;
+}
+
+function alignSamplerEventCycles({
+  notes: inputNotes,
+  variationIndices: inputVariationIndices,
+  notesFilterTiming = true,
+  ...events
+}: SamplerEventSchema & { notesFilterTiming?: boolean }) {
+  const cycleLengths = [
+    events.timing.cycle.length,
+    getEventPatternCycleLength(inputNotes),
+    getEventPatternCycleLength(inputVariationIndices),
+  ].filter((length): length is number => length !== undefined);
+  const cycleLength = cycleLengths.reduce(lowestCommonMultiple);
+  const expandedNotes = inputNotes
+    ? expandNotePattern(inputNotes, cycleLength)
+    : undefined;
+  const notes =
+    expandedNotes && !notesFilterTiming
+      ? fillUnavailableNotes(expandedNotes, events.timing, cycleLength)
+      : expandedNotes;
+  const variationIndices = inputVariationIndices
+    ? expandVariationPattern(inputVariationIndices, cycleLength)
+    : undefined;
+  const timingCycle = Array.from({ length: cycleLength }, (_, barIndex) => {
+    if (
+      isEventPatternSilent(notes, barIndex) ||
+      isEventPatternSilent(variationIndices, barIndex)
+    ) {
+      return [];
+    }
+    return events.timing.cycle[barIndex % events.timing.cycle.length].map(
+      (step) => ({ ...step }),
+    );
+  });
+
+  return {
+    ...events,
+    timing: { ...events.timing, cycle: timingCycle },
+    ...(notes && { notes }),
+    ...(variationIndices && { variationIndices }),
+  } satisfies SamplerEventSchema;
+}
+
+function getEventPatternCycleLength(
+  pattern: NotePattern | VariationIndexPattern | undefined,
+) {
+  if (!pattern) return undefined;
+  return pattern.type === "static"
+    ? pattern.cycle.length
+    : pattern.valuesPerBar.length;
+}
+
+function expandNotePattern(pattern: NotePattern, cycleLength: number) {
+  if (pattern.type === "random-number") {
+    return {
+      ...pattern,
+      valuesPerBar: repeatCycle(pattern.valuesPerBar, cycleLength),
+    } satisfies NotePattern;
+  }
+  return {
+    type: "static",
+    cycle: repeatCycle(pattern.cycle, cycleLength).map((bar) =>
+      bar.map((group) => (group === null ? null : [...group])),
     ),
-  } satisfies StaticNotePattern;
+  } satisfies NotePattern;
+}
+
+function fillUnavailableNotes(
+  pattern: NotePattern,
+  timing: TimingSchema,
+  cycleLength: number,
+): NotePattern {
+  if (pattern.type === "random-number") {
+    return {
+      ...pattern,
+      valuesPerBar: pattern.valuesPerBar.map((count, barIndex) =>
+        count === 0
+          ? timing.cycle[barIndex % timing.cycle.length].length
+          : count,
+      ),
+    };
+  }
+
+  const fallback = pattern.cycle
+    .flat()
+    .find((group): group is number[] => group !== null);
+  if (!fallback) return pattern;
+  return {
+    type: "static",
+    cycle: Array.from({ length: cycleLength }, (_, barIndex) => {
+      const bar = pattern.cycle[barIndex];
+      return bar[0] === null ? [[...fallback]] : bar;
+    }),
+  };
+}
+
+function expandVariationPattern(
+  pattern: VariationIndexPattern,
+  cycleLength: number,
+) {
+  if (pattern.type === "random-number") {
+    return {
+      ...pattern,
+      valuesPerBar: repeatCycle(pattern.valuesPerBar, cycleLength),
+    } satisfies VariationIndexPattern;
+  }
+  return {
+    type: "static",
+    cycle: repeatCycle(pattern.cycle, cycleLength).map((bar) =>
+      bar.map((group) => (group === null ? null : [...group])),
+    ),
+  } satisfies VariationIndexPattern;
+}
+
+function isEventPatternSilent(
+  pattern: NotePattern | VariationIndexPattern | undefined,
+  barIndex: number,
+) {
+  if (!pattern) return false;
+  if (pattern.type === "random-number") {
+    return pattern.valuesPerBar[barIndex] === 0;
+  }
+  return pattern.cycle[barIndex][0] === null;
+}
+
+function repeatCycle<T>(cycle: T[], cycleLength: number) {
+  return Array.from(
+    { length: cycleLength },
+    (_, index) => cycle[index % cycle.length],
+  );
+}
+
+function lowestCommonMultiple(a: number, b: number) {
+  return (a * b) / greatestCommonDivisor(a, b);
+}
+
+function greatestCommonDivisor(a: number, b: number): number {
+  return b === 0 ? a : greatestCommonDivisor(b, a % b);
 }
 
 function distributeAcrossBars<T>(values: T[], bars: number) {
@@ -157,15 +313,6 @@ function getDistributedStaticSchema(values: number[], bars: number) {
   );
 
   return { type: "static", cycle } satisfies StaticValuePattern<number>;
-}
-
-function getDefaultNotes(noteValue: number, noteCount: number, bars: number) {
-  const values = Array.from({ length: noteCount }, () => [noteValue]);
-  const cycle = distributeAcrossBars(values, bars).map((bar) =>
-    bar.length > 0 ? bar : [null],
-  );
-
-  return { type: "static", cycle } satisfies StaticNotePattern;
 }
 
 function getStaticChopBounds(start: NumberPattern, end: NumberPattern) {
@@ -267,37 +414,14 @@ function getRegion({ fitSchema, chopState, chopBars, region }: RegionOptions) {
   } satisfies RegionSchema;
 }
 
-function getSourceKeys(bank: string, sample: string, drome: Drome | undefined) {
-  const resolvedBank = drome?._resolveBank(bank);
-  if (!resolvedBank) {
-    console.warn(
-      `[Sampler] Bank "${bank}" not found — did you forget to call loadSamples()? ` +
-        "Defaulting to sourceKeys: [0]. This sampler will not produce audio.",
-    );
-    return [0];
-  }
-
-  const resolvedSample = resolvedBank.samples[sample];
-  if (!resolvedSample) {
-    console.warn(
-      `[Sampler] Sample "${sample}" not found in bank "${bank}". ` +
-        "Defaulting to sourceKeys: [0]. This sampler will not produce audio.",
-    );
-    return [0];
-  }
-
-  return Object.keys(resolvedSample)
-    .map(Number)
-    .sort((a, b) => a - b);
-}
-
 export {
+  alignSamplerEventCycles,
   getChopSequenceSchema,
-  getDefaultNotesForSequence,
-  getDefaultNotes,
-  getNotesForChopTiming,
+  getChopTiming,
+  getDistributedTiming,
   getRegion,
-  getSourceKeys,
+  getTimingForPattern,
+  getVariationIndices,
   type ChopState,
   type RegionState,
 };

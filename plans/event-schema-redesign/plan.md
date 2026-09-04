@@ -689,24 +689,24 @@ chop(8).fit(4) → eight events lasting half a bar
 
 **Acceptance criteria:**
 
-- [ ] Every Fluid instrument emits the target event shape.
-- [ ] Default synth output contains explicit note `60`.
-- [ ] No Fluid output contains old notes/mask/source/grid fields.
-- [ ] Natural-pitch samplers omit `events.notes`.
-- [ ] `.root()`/`.scale()` may cause sampler notes to serialize without changing timing ownership.
-- [ ] Default variation omits `events.variationIndices`.
-- [ ] Existing explicit variation values serialize under the new field.
-- [ ] Generated chop/fit timing is preserved.
-- [ ] `getSchema()` validates its completed graph.
+- [x] Every Fluid instrument emits the target event shape.
+- [x] Default synth output contains explicit note `60`.
+- [x] No Fluid output contains old notes/mask/source/grid fields.
+- [x] Natural-pitch samplers omit `events.notes`.
+- [x] `.root()`/`.scale()` may cause sampler notes to serialize without changing timing ownership.
+- [x] Default variation omits `events.variationIndices`.
+- [x] Existing explicit variation values serialize under the new field.
+- [x] Generated chop/fit timing is preserved.
+- [x] `getSchema()` validates its completed graph.
 
 **Testing:**
 
-- [ ] Full schema snapshots for synth and sampler variants.
-- [ ] Mixed synth/sampler graph.
-- [ ] Existing routing, sends, MIDI output, effects, and banks survive migration.
-- [ ] Unknown bank/sample warnings contain no fake source-key fallback.
-- [ ] `pnpm --filter @web-audio/fluid check`
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
+- [x] Full schema snapshots for synth and sampler variants.
+- [x] Mixed synth/sampler graph.
+- [x] Existing routing, sends, MIDI output, effects, and banks survive migration.
+- [x] Unknown bank/sample warnings contain no fake source-key fallback.
+- [x] `pnpm --filter @web-audio/fluid check`
+- [x] `pnpm --filter @web-audio/fluid test:ci`
 
 ---
 

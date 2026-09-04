@@ -2,10 +2,13 @@ import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it, vi } from "vitest";
 import Parameter from "@/patterns/parameter";
 import {
+  alignSamplerEventCycles,
   getChopSequenceSchema,
-  getDefaultNotes,
-  getDefaultNotesForSequence,
+  getChopTiming,
+  getDistributedTiming,
   getRegion,
+  getTimingForPattern,
+  getVariationIndices,
 } from "./sampler-utils";
 
 describe("sampler numeric schemas", () => {
@@ -133,20 +136,85 @@ describe("sampler numeric schemas", () => {
     });
   });
 
-  it("keeps generated note values separate from generated timing", () => {
-    expect(getDefaultNotes(45, 2, 4)).toEqual({
+  it("preserves generated chop and fit timing across bars", () => {
+    expect(getDistributedTiming(1, 4).cycle).toEqual([
+      [{ offset: 0, duration: 4 }],
+      [],
+      [],
+      [],
+    ]);
+    expect(getDistributedTiming(2, 4).cycle).toEqual([
+      [{ offset: 0, duration: 2 }],
+      [],
+      [{ offset: 0, duration: 2 }],
+      [],
+    ]);
+    expect(getDistributedTiming(8, 4).cycle).toEqual(
+      Array.from({ length: 4 }, () => [
+        { offset: 0, duration: 0.5 },
+        { offset: 0.5, duration: 0.5 },
+      ]),
+    );
+  });
+
+  it("derives authored chop timing from value counts", () => {
+    expect(
+      getTimingForPattern(new RandomCycle().steps(2, 0, 1).getRandomSchema())
+        .cycle,
+    ).toEqual([
+      [
+        { offset: 0, duration: 0.5 },
+        { offset: 0.5, duration: 0.5 },
+      ],
+      [],
+      [{ offset: 0, duration: 1 }],
+    ]);
+    expect(
+      getChopTiming(
+        {
+          sliceCount: 8,
+          sequence: new Parameter([0, 2, 1, 3]),
+        },
+        4,
+      ).cycle,
+    ).toEqual([
+      [
+        { offset: 0, duration: 0.25 },
+        { offset: 0.25, duration: 0.25 },
+        { offset: 0.5, duration: 0.25 },
+        { offset: 0.75, duration: 0.25 },
+      ],
+    ]);
+  });
+
+  it("aligns zero-count event values with empty timing bars", () => {
+    expect(
+      alignSamplerEventCycles({
+        timing: { cycle: [[{ offset: 0, duration: 1 }]] },
+        sampleNames: { type: "static", cycle: [[["kick"]]] },
+        variationIndices: new RandomCycle().steps(2, 0).int().getRandomSchema(),
+      }),
+    ).toMatchObject({
+      timing: { cycle: [[{ offset: 0, duration: 1 }], []] },
+      variationIndices: { valuesPerBar: [2, 0] },
+    });
+  });
+
+  it("omits default variation and groups explicit static values", () => {
+    expect(getVariationIndices(new Parameter(0))).toBeUndefined();
+    expect(getVariationIndices(new Parameter([0, 1, 2]))).toEqual({
       type: "static",
-      cycle: [[[45]], [null], [[45]], [null]],
+      cycle: [[[0], [1], [2]]],
     });
     expect(
-      getDefaultNotesForSequence(
-        45,
-        new RandomCycle().steps(2, 0, 1).getRandomSchema(),
-        null,
+      getVariationIndices(
+        new Parameter(new RandomCycle().steps(2).int().range(0, 4)),
       ),
-    ).toEqual({
-      type: "static",
-      cycle: [[[45], [45]], [null], [[45]]],
+    ).toMatchObject({
+      type: "random-number",
+      valuesPerBar: [2],
+      dataType: "integer",
+      range: { min: 0, max: 4 },
     });
   });
 });

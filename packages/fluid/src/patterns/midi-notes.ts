@@ -4,7 +4,11 @@ import {
   type Chord,
   type ScheduledValue,
 } from "@web-audio/patterns";
-import type { NotePattern, RandomNumberPattern } from "@web-audio/schema";
+import type {
+  NotePattern,
+  RandomNumberPattern,
+  TimingSchema,
+} from "@web-audio/schema";
 import { compileEventPatterns } from "@/instruments/event-pattern-compiler";
 import { getScale } from "@/utils/get-scale";
 import { noteStringToMidi } from "@/utils/note-string-to-midi";
@@ -120,8 +124,8 @@ class MidiNotes {
     return this;
   }
 
-  getEvents() {
-    const explicitTiming = this._getExplicitTiming();
+  getEvents(timingOverride?: TimingSchema) {
+    const explicitTiming = timingOverride ?? this._getExplicitTiming();
 
     if (isRandomCycle(this._notes)) {
       return compileEventPatterns({
