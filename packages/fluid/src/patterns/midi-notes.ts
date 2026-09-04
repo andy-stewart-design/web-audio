@@ -1,27 +1,26 @@
 import {
-  BinaryCycle,
-  getChordStaticSchema,
   MaskedCycle,
   RandomCycle,
   type Chord,
   type ScheduledValue,
 } from "@web-audio/patterns";
+import type { NotePattern, RandomNumberPattern } from "@web-audio/schema";
+import { compileEventPatterns } from "@/instruments/event-pattern-compiler";
 import { getScale } from "@/utils/get-scale";
 import { noteStringToMidi } from "@/utils/note-string-to-midi";
 import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
-import type {
-  ParameterSchema,
-  RandomSchema,
-  StaticSchema,
-} from "@web-audio/schema";
 import type { NoteName, NoteValue, ScaleAlias } from "@/types";
 
 type NoteOrChord<T> = T | T[];
 type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
+type RhythmState = { type: "fixed" } | { type: "random"; cycle: RandomCycle };
+
 class MidiNotes {
   private _notes: MaskedCycle<Chord> | RandomCycle;
-  private _randomMask: RandomCycle | undefined;
+  // Retains whether timing is inferred from notes or supplied by an explicit
+  // fixed/random rhythm, so timing priority can be resolved during compilation.
+  private _rhythmState: RhythmState | undefined;
   private _root = 0;
   private _scale: number[] | undefined;
 
@@ -29,7 +28,7 @@ class MidiNotes {
     this._notes = new MaskedCycle([[defaultPattern]]);
   }
 
-  private degreeToMidi(note: number) {
+  private _degreeToMidi(note: number) {
     if (!this._scale) return note + this._root;
 
     const len = this._scale.length;
@@ -40,7 +39,11 @@ class MidiNotes {
   }
 
   notes(...input: NoteInput<ScheduledValue> | [RandomCycle]) {
-    this._randomMask = undefined;
+    if (input.length === 0) {
+      throw new Error("[Instrument] notes() requires at least one pattern.");
+    }
+
+    this._rhythmState = undefined;
     if (isRandomCycleTuple(input)) {
       this._notes = input[0];
     } else {
@@ -71,11 +74,13 @@ class MidiNotes {
     rotation: number | number[] = 0,
   ) {
     this._notes.euclid(pulses, steps, rotation);
+    this._rhythmState = { type: "fixed" };
     return this;
   }
 
   hex(...hexes: (string | number)[]) {
     this._notes.hex(...hexes);
+    this._rhythmState = { type: "fixed" };
     return this;
   }
 
@@ -86,32 +91,18 @@ class MidiNotes {
 
   sequence(steps: number, ...pulses: (number | number[])[]) {
     this._notes.sequence(steps, ...pulses);
+    this._rhythmState = { type: "fixed" };
     return this;
   }
 
   xox(...input: (number | number[])[] | [RandomCycle]) {
     if (isRandomCycleTuple(input)) {
-      this._randomMask = input[0];
+      this._rhythmState = { type: "random", cycle: input[0] };
     } else {
-      this._randomMask = undefined;
       this._notes.xox(...input);
+      this._rhythmState = { type: "fixed" };
     }
     return this;
-  }
-
-  getMask(): ParameterSchema | undefined {
-    if (this._randomMask) {
-      const schema = this._randomMask.getRandomSchema();
-      if (schema.dataType !== "binary") {
-        throw new Error("Instrument.xox() random masks must be binary");
-      }
-      return schema;
-    }
-
-    if (isRandomCycle(this._notes) || !this._notes.mask) return undefined;
-    const mask = new BinaryCycle();
-    mask.replace(this._notes.mask);
-    return mask.getStaticSchema();
   }
 
   fast(multiplier: number) {
@@ -129,32 +120,62 @@ class MidiNotes {
     return this;
   }
 
-  getSchema(): RandomSchema | StaticSchema {
+  getEvents() {
+    const explicitTiming = this._getExplicitTiming();
+
     if (isRandomCycle(this._notes)) {
-      const schema = this._notes.getRandomSchema();
-      if (schema.dataType === "binary") {
-        schema.valueMap = [this.degreeToMidi(0), this.degreeToMidi(1)];
-        schema.range = undefined;
-      } else if (this._scale) {
-        // Use range to determine how many scale degrees to resolve.
-        // range.max is exclusive, so {min:0, max:14} → degrees 0–13 (two octaves).
-        // Defaults to one octave when no range is set.
-        const degreeMin = Math.floor(schema.range?.min ?? 0);
-        const degreeMax = Math.ceil(schema.range?.max ?? this._scale.length);
-        schema.valueMap = Array.from(
-          { length: degreeMax - degreeMin },
-          (_, i) => this.degreeToMidi(i + degreeMin),
-        );
-        // range is consumed — the engine's valueMap path ignores it
-        schema.range = undefined;
-      }
-      return schema;
+      return compileEventPatterns({
+        source: {
+          type: "random",
+          pattern: this._getRandomNotePattern(this._notes),
+          candidateTiming: this._notes.candidateTiming,
+        },
+        explicitTiming,
+      });
     }
 
-    return getChordStaticSchema(
-      this._notes.activeEvents,
-      this.degreeToMidi.bind(this),
-    );
+    return compileEventPatterns({
+      source: {
+        type: "static",
+        cycle: this._notes,
+        transform: this._degreeToMidi.bind(this),
+      },
+      explicitTiming,
+    });
+  }
+
+  getSchema(): NotePattern {
+    return this.getEvents().notes;
+  }
+
+  private _getExplicitTiming() {
+    if (this._rhythmState?.type !== "random") return undefined;
+    if (this._rhythmState.cycle.dataType !== "binary") {
+      throw new Error("Instrument.xox() random masks must be binary");
+    }
+    return this._rhythmState.cycle.getTimingSchema();
+  }
+
+  private _getRandomNotePattern(cycle: RandomCycle): RandomNumberPattern {
+    const pattern = cycle.getRandomSchema();
+    if (pattern.dataType === "binary") {
+      return {
+        ...pattern,
+        valueMap: [this._degreeToMidi(0), this._degreeToMidi(1)],
+        range: undefined,
+      };
+    }
+    if (!this._scale) return pattern;
+
+    const degreeMin = Math.floor(pattern.range?.min ?? 0);
+    const degreeMax = Math.ceil(pattern.range?.max ?? this._scale.length);
+    return {
+      ...pattern,
+      valueMap: Array.from({ length: degreeMax - degreeMin }, (_, index) =>
+        this._degreeToMidi(index + degreeMin),
+      ),
+      range: undefined,
+    };
   }
 }
 

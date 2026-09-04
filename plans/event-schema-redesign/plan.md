@@ -577,9 +577,17 @@ Ensure zero remains ordinary data. No processing serializer may filter values ba
 **Files:**
 
 - `packages/fluid/src/instruments/event-pattern-compiler.ts` (new)
+- `packages/fluid/src/instruments/event-pattern-compiler.test.ts` (new)
 - `packages/fluid/src/instruments/instrument.ts`
+- `packages/fluid/src/instruments/sampler.ts`
 - `packages/fluid/src/patterns/midi-notes.ts`
+- `packages/fluid/src/patterns/notes.test.ts`
+- `packages/fluid/src/patterns/sample-notes.test.ts`
 - `packages/fluid/src/instruments/instrument.test.ts`
+- `packages/patterns/src/static-cycles.ts`
+- `packages/patterns/src/random-cycle.ts`
+- `packages/patterns/src/utils/compile-timing-cycle.ts` (new)
+- `packages/patterns/src/random-cycle.test.ts`
 
 Create a Fluid-owned compiler that accepts the current note/rhythm state and emits:
 
@@ -604,21 +612,21 @@ Track explicit rhythm state separately from note value replacement so PR 2 can e
 
 **Acceptance criteria:**
 
-- [ ] Fixed masks do not serialize as value patterns.
-- [ ] Random masks do not serialize a duplicate random grid.
-- [ ] Static chords produce one timing entry and one note voice group.
-- [ ] Random note zero remains a playable note value.
-- [ ] Timing entries are canonical before validation.
+- [x] Fixed masks do not serialize as value patterns.
+- [x] Random masks do not serialize a duplicate random grid.
+- [x] Static chords produce one timing entry and one note voice group.
+- [x] Random note zero remains a playable note value.
+- [x] Timing entries are canonical before validation.
 
 **Testing:**
 
-- [ ] Default synth.
-- [ ] Static notes and chords.
-- [ ] Static notes with rests.
-- [ ] Random notes with fixed timing.
-- [ ] Fixed and random XOX.
-- [ ] Euclidean, hex, and sequence composition.
-- [ ] Multi-bar empty timing.
+- [x] Default synth.
+- [x] Static notes and chords.
+- [x] Static notes with rests.
+- [x] Random notes with fixed timing.
+- [x] Fixed and random XOX.
+- [x] Euclidean, hex, and sequence composition.
+- [x] Multi-bar empty timing.
 
 ---
 

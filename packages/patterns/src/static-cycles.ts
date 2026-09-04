@@ -1,5 +1,6 @@
 import PatternCycle from "./pattern-cycle";
-import type { StaticValuePattern, TimingSchema, TimingStep } from "./types";
+import compileTimingCycle from "./utils/compile-timing-cycle";
+import type { StaticValuePattern } from "./types";
 
 class BinaryCycle extends PatternCycle<1 | 0> {
   constructor() {
@@ -7,20 +8,7 @@ class BinaryCycle extends PatternCycle<1 | 0> {
   }
 
   getTimingSchema() {
-    const cycle = this._cycle.map((pattern) => {
-      if (pattern.length === 0) return [];
-
-      const duration = 1 / pattern.length;
-
-      return pattern.reduce<TimingStep[]>((steps, value, index) => {
-        if (value === 1) {
-          steps.push({ duration, offset: duration * index });
-        }
-        return steps;
-      }, []);
-    });
-
-    return { cycle } satisfies TimingSchema;
+    return compileTimingCycle(this._cycle);
   }
 }
 

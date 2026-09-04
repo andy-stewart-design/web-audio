@@ -4,7 +4,6 @@ import type { CycleInput } from "@/types";
 import type {
   ClipMode,
   FitSchema,
-  NotePattern,
   SampleDirection,
   SamplerSchema,
 } from "@web-audio/schema";
@@ -173,7 +172,7 @@ class Sampler extends Instrument {
     return this._fit;
   }
 
-  private _getNotes(sourceKeys: number[]): NotePattern {
+  private _getNotes(sourceKeys: number[]) {
     if (this._chop) {
       const sequence = this._chop.sequence
         ? getChopSequenceSchema(this._chop)

@@ -1,11 +1,12 @@
-import { BinaryCycle } from "./static-cycles";
+import PatternCycle from "./pattern-cycle";
+import compileTimingCycle from "./utils/compile-timing-cycle";
 import type {
   ChanceCondition,
   RandomNumberPattern,
   TimingSchema,
 } from "./types";
 
-class RandomCycle extends BinaryCycle {
+class RandomCycle extends PatternCycle<1 | 0> {
   private _type: RandomNumberPattern["dataType"] = "float";
   private _baseSeed: number = 0;
   private _segments: { seed: number; len: number }[] | undefined;
@@ -20,8 +21,16 @@ class RandomCycle extends BinaryCycle {
   ) => this;
 
   constructor() {
-    super();
+    super([1], 0);
     this.rib = this.ribbon.bind(this);
+  }
+
+  get candidateTiming(): TimingSchema {
+    return compileTimingCycle(this._cycle);
+  }
+
+  get dataType() {
+    return this._type;
   }
 
   steps(...counts: number[]) {
@@ -125,7 +134,7 @@ class RandomCycle extends BinaryCycle {
     };
   }
 
-  override getTimingSchema(): TimingSchema {
+  getTimingSchema(): TimingSchema {
     if (this._type !== "binary") {
       throw new Error(
         "[Pattern] RandomCycle event timing requires a binary random cycle. Call .bin() before using it as timing.",
@@ -137,7 +146,7 @@ class RandomCycle extends BinaryCycle {
       return { cycle: this._cycle.map(() => []) };
     }
 
-    const timing = super.getTimingSchema();
+    const timing = this.candidateTiming;
     if (probability === 1) return timing;
 
     return {

@@ -107,6 +107,13 @@ describe("RandomCycle", () => {
   });
 
   describe("getTimingSchema", () => {
+    it("exposes chance-free candidate timing for random values", () => {
+      const timing = new RandomCycle().steps(2, 0, 3).candidateTiming;
+
+      expect(timing.cycle.map((bar) => bar.length)).toEqual([2, 0, 3]);
+      expect(timing.condition).toBeUndefined();
+    });
+
     it("uses probability 0.5 for binary timing without explicit chance", () => {
       const schema = new RandomCycle().bin().steps(4).getTimingSchema();
 
