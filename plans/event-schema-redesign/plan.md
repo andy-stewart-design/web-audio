@@ -536,11 +536,18 @@ Preserve these invariants:
 **Files:**
 
 - `packages/fluid/src/patterns/parameter.ts`
+- `packages/fluid/src/patterns/parameter.test.ts`
 - `packages/fluid/src/automations/envelope.ts`
 - `packages/fluid/src/automations/lfo.ts`
 - `packages/fluid/src/effects/filter.ts`
 - `packages/fluid/src/effects/gain.ts`
+- `packages/fluid/src/effects/gain.test.ts`
 - `packages/fluid/src/buses/bus.ts`
+- `packages/fluid/src/instruments/sampler-utils.ts`
+- `packages/fluid/src/instruments/sampler-utils.test.ts`
+- `packages/fluid/src/instruments/sampler.ts`
+- `packages/fluid/src/instruments/instrument.test.ts`
+- `packages/fluid/src/index.test.ts`
 - associated tests
 
 Make `Parameter.getSchema()` return `NumberPattern`.
@@ -551,17 +558,17 @@ Ensure zero remains ordinary data. No processing serializer may filter values ba
 
 **Acceptance criteria:**
 
-- [ ] Static processing cycles serialize as raw numbers.
-- [ ] Random processing cycles serialize with `valuesPerBar`.
-- [ ] Envelopes, LFOs, effects, regions, buses, detune, and gain compile without timing fields.
-- [ ] Existing Fluid chaining APIs remain unchanged.
+- [x] Static processing cycles serialize as raw numbers.
+- [x] Random processing cycles serialize with `valuesPerBar`.
+- [x] Envelopes, LFOs, effects, regions, buses, detune, and gain compile without timing fields.
+- [x] Existing Fluid chaining APIs remain unchanged.
 
 **Testing:**
 
-- [ ] Static and random gain/detune/effect values.
-- [ ] Envelope max/ADSR order independence remains intact.
-- [ ] LFO bar values remain resolvable.
-- [ ] Bus values remain bar-addressed by their first value.
+- [x] Static and random gain/detune/effect values.
+- [x] Envelope max/ADSR order independence remains intact.
+- [x] LFO bar values remain resolvable.
+- [x] Bus processing patterns preserve bar boundaries for first-value resolution.
 
 ---
 

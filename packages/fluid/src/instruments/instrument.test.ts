@@ -8,7 +8,7 @@ import type { EnvelopeSchema } from "@web-audio/schema";
 function staticValue(schema: EnvelopeSchema["a"]) {
   expect(schema.type).toBe("static");
   if (schema.type !== "static") throw new Error("Expected static schema");
-  return schema.cycle[0][0].value;
+  return schema.cycle[0][0];
 }
 
 function expectGainADSR(
@@ -291,6 +291,27 @@ describe("Instrument static xox masks", () => {
   });
 });
 
+describe("Instrument numeric processing", () => {
+  it("serializes static detune values without timing fields", () => {
+    expect(new Synthesizer().detune([0, 100]).getSchema().detune).toEqual({
+      type: "static",
+      cycle: [[0, 100]],
+    });
+  });
+
+  it("serializes random detune values with per-bar counts", () => {
+    expect(
+      new Sampler("kick")
+        .detune(new RandomCycle().steps(2, 0).range(-100, 100))
+        .getSchema().detune,
+    ).toMatchObject({
+      type: "random-number",
+      valuesPerBar: [2, 0],
+      range: { min: -100, max: 100 },
+    });
+  });
+});
+
 describe("Instrument gain envelopes", () => {
   it("defaults synth gain to a faster synth envelope", () => {
     const schema = new Synthesizer().getSchema();
@@ -343,7 +364,7 @@ describe("Instrument gain envelopes", () => {
     expectGainADSR(adsrThenGain, { a: 0, d: 0, s: 1, r: 1 });
     expect(adsrThenGain.max.type).toBe("static");
     if (adsrThenGain.max.type === "static") {
-      expect(adsrThenGain.max.cycle[0][0].value).toBe(0.5);
+      expect(adsrThenGain.max.cycle[0][0]).toBe(0.5);
     }
   });
 

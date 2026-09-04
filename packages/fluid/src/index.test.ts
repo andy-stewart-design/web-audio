@@ -30,9 +30,7 @@ function getStaticChopFixture(schema: SamplerSchema) {
     })),
   );
   const sequence = region.sequence;
-  const sequenceBars = sequence.cycle.map((bar) =>
-    bar.map(({ value }) => value),
-  );
+  const sequenceBars = sequence.cycle;
   const resolveSliceOrder = (
     indexForNote: (stepIndex: number, hitIndex: number) => number,
   ) =>
@@ -41,8 +39,7 @@ function getStaticChopFixture(schema: SamplerSchema) {
       return bar.map(({ stepIndex }, hitIndex) =>
         sequenceBar.length === 0
           ? null
-          : sequenceBar[indexForNote(stepIndex, hitIndex) % sequenceBar.length]
-              .value,
+          : sequenceBar[indexForNote(stepIndex, hitIndex) % sequenceBar.length],
       );
     });
 
@@ -92,7 +89,7 @@ describe("Drome", () => {
 
       expect(gain.max.type).toBe("static");
       if (gain.max.type === "static") {
-        expect(gain.max.cycle[0][0].value).toBe(1);
+        expect(gain.max.cycle[0][0]).toBe(1);
       }
     });
 
@@ -103,7 +100,7 @@ describe("Drome", () => {
 
       expect(detune.type).toBe("static");
       if (detune.type === "static") {
-        expect(detune.cycle[0][0].value).toBe(0);
+        expect(detune.cycle[0][0]).toBe(0);
       }
     });
   });
@@ -117,7 +114,7 @@ describe("Drome", () => {
       expect(gain.type).toBe("envelope");
       expect(gain.min).toBe(0);
       if (gain.max.type === "static") {
-        expect(gain.max.cycle[0][0].value).toBe(0.75);
+        expect(gain.max.cycle[0][0]).toBe(0.75);
       }
     });
 
@@ -142,19 +139,19 @@ describe("Drome", () => {
       expect(gain.min).toBe(0);
       expect(gain.mode).toBe("bounded");
       if (gain.max.type === "static") {
-        expect(gain.max.cycle[0][0].value).toBe(0.5);
+        expect(gain.max.cycle[0][0]).toBe(0.5);
       }
       if (gain.a.type === "static") {
-        expect(gain.a.cycle[0][0].value).toBe(0.5);
+        expect(gain.a.cycle[0][0]).toBe(0.5);
       }
       if (gain.d.type === "static") {
-        expect(gain.d.cycle[0][0].value).toBe(0.25);
+        expect(gain.d.cycle[0][0]).toBe(0.25);
       }
       if (gain.s.type === "static") {
-        expect(gain.s.cycle[0][0].value).toBe(0.8);
+        expect(gain.s.cycle[0][0]).toBe(0.8);
       }
       if (gain.r.type === "static") {
-        expect(gain.r.cycle[0][0].value).toBe(0.1);
+        expect(gain.r.cycle[0][0]).toBe(0.1);
       }
     });
 
@@ -163,7 +160,7 @@ describe("Drome", () => {
       d.synth("triangle").gain(d.rand()).push();
       const { gain } = d.getSchema().instruments[0];
 
-      expect(gain.max.type).toBe("random");
+      expect(gain.max.type).toBe("random-number");
     });
   });
 
@@ -175,7 +172,7 @@ describe("Drome", () => {
 
       expect(detune.type).toBe("static");
       if (detune.type === "static") {
-        expect(detune.cycle[0][0].value).toBe(100);
+        expect(detune.cycle[0][0]).toBe(100);
       }
     });
 
@@ -189,7 +186,7 @@ describe("Drome", () => {
       if (detune.type === "envelope") {
         expect(detune.min).toBe(0);
         if (detune.max.type === "static") {
-          expect(detune.max.cycle[0][0].value).toBe(400);
+          expect(detune.max.cycle[0][0]).toBe(400);
         }
       }
     });
@@ -203,7 +200,7 @@ describe("Drome", () => {
       expect(schema.type).toBe("envelope");
       expect(schema.min).toBe(0);
       if (schema.max.type === "static") {
-        expect(schema.max.cycle[0][0].value).toBe(0.75);
+        expect(schema.max.cycle[0][0]).toBe(0.75);
       }
     });
 
@@ -213,7 +210,7 @@ describe("Drome", () => {
 
       expect(schema.min).toBe(0);
       if (schema.max.type === "static") {
-        expect(schema.max.cycle[0][0].value).toBe(1);
+        expect(schema.max.cycle[0][0]).toBe(1);
       }
     });
   });
@@ -228,7 +225,7 @@ describe("Drome", () => {
       const schema = new Drome().hpf(2400).getSchema();
       expect(schema.filterType).toBe("hp");
       if (schema.frequency.type === "static") {
-        expect(schema.frequency.cycle[0][0].value).toBe(2400);
+        expect(schema.frequency.cycle[0][0]).toBe(2400);
       }
     });
 
@@ -236,7 +233,7 @@ describe("Drome", () => {
       const schema = new Drome().bpf(1000).getSchema();
       expect(schema.filterType).toBe("bp");
       if (schema.frequency.type === "static") {
-        expect(schema.frequency.cycle[0][0].value).toBe(1000);
+        expect(schema.frequency.cycle[0][0]).toBe(1000);
       }
     });
   });
@@ -454,7 +451,7 @@ describe("Drome", () => {
       const [sine, triangle] = d.getSchema().instruments;
 
       if (sine.gain.max.type === "static") {
-        expect(sine.gain.max.cycle[0][0].value).toBe(0.5);
+        expect(sine.gain.max.cycle[0][0]).toBe(0.5);
       }
       expect(sine.gain.mode).toBe("bleed");
       expect(triangle.gain.mode).toBe("bounded");
@@ -783,10 +780,10 @@ describe("Drome", () => {
         expect(inst.region.start.type).toBe("static");
         expect(inst.region.end.type).toBe("static");
         if (inst.region.start.type === "static") {
-          expect(inst.region.start.cycle[0][0].value).toBe(0.25);
+          expect(inst.region.start.cycle[0][0]).toBe(0.25);
         }
         if (inst.region.end.type === "static") {
-          expect(inst.region.end.cycle[0][0].value).toBe(1);
+          expect(inst.region.end.cycle[0][0]).toBe(1);
         }
       }
     });
@@ -800,10 +797,10 @@ describe("Drome", () => {
         expect(inst.region.start.type).toBe("static");
         expect(inst.region.end.type).toBe("static");
         if (inst.region.start.type === "static") {
-          expect(inst.region.start.cycle[0][0].value).toBe(0);
+          expect(inst.region.start.cycle[0][0]).toBe(0);
         }
         if (inst.region.end.type === "static") {
-          expect(inst.region.end.cycle[0][0].value).toBe(0.75);
+          expect(inst.region.end.cycle[0][0]).toBe(0.75);
         }
       }
     });
@@ -817,10 +814,10 @@ describe("Drome", () => {
         expect(inst.region.start.type).toBe("static");
         expect(inst.region.duration.type).toBe("static");
         if (inst.region.start.type === "static") {
-          expect(inst.region.start.cycle[0][0].value).toBe(0.4);
+          expect(inst.region.start.cycle[0][0]).toBe(0.4);
         }
         if (inst.region.duration.type === "static") {
-          expect(inst.region.duration.cycle[0][0].value).toBe(0.15);
+          expect(inst.region.duration.cycle[0][0]).toBe(0.15);
         }
       } else {
         expect.unreachable("Expected a relative-duration region");
@@ -877,7 +874,7 @@ describe("Drome", () => {
 
       expect(inst.region?.type).toBe("static");
       if (inst.region?.type === "static" && inst.region.duration) {
-        expect(inst.region.duration.type).toBe("random");
+        expect(inst.region.duration.type).toBe("random-number");
       } else {
         expect.unreachable("Expected a relative-duration region");
       }
@@ -905,9 +902,7 @@ describe("Drome", () => {
       if (inst.region?.type === "static") {
         expect(inst.region.start.type).toBe("static");
         if (inst.region.start.type === "static") {
-          expect(inst.region.start.cycle[0].map((step) => step.value)).toEqual([
-            0, 0.25,
-          ]);
+          expect(inst.region.start.cycle[0]).toEqual([0, 0.25]);
         }
       }
     });
@@ -954,9 +949,7 @@ describe("Drome", () => {
         ]);
         expect(inst.region.sequence.type).toBe("static");
         if (inst.region.sequence.type === "static") {
-          expect(
-            inst.region.sequence.cycle[0].map((step) => step.value),
-          ).toEqual([0, 1, 2, 3]);
+          expect(inst.region.sequence.cycle[0]).toEqual([0, 1, 2, 3]);
         }
       }
     });
@@ -969,9 +962,7 @@ describe("Drome", () => {
       if (inst.region?.type === "chop") {
         expect(inst.region.sequence.type).toBe("static");
         if (inst.region.sequence.type === "static") {
-          expect(
-            inst.region.sequence.cycle[0].map((step) => step.value),
-          ).toEqual([0, 2, 1, 3]);
+          expect(inst.region.sequence.cycle[0]).toEqual([0, 2, 1, 3]);
         }
       }
     });
@@ -1048,9 +1039,7 @@ describe("Drome", () => {
         inst.region?.type === "chop" &&
         inst.region.sequence.type === "static"
       ) {
-        expect(inst.region.sequence.cycle[0].map((step) => step.value)).toEqual(
-          [-1, 4],
-        );
+        expect(inst.region.sequence.cycle[0]).toEqual([-1, 4]);
       }
     });
 
@@ -1294,12 +1283,9 @@ describe("Drome", () => {
       }
       expect(inst.region?.type).toBe("chop");
       if (inst.region?.type === "chop") {
-        expect(inst.region.sequence.type).toBe("random");
-        if (inst.region.sequence.type === "random") {
-          expect(inst.region.sequence.grid.cycle[0]).toHaveLength(8);
-          expect(
-            inst.region.sequence.grid.cycle[0].map((step) => step.stepIndex),
-          ).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+        expect(inst.region.sequence.type).toBe("random-number");
+        if (inst.region.sequence.type === "random-number") {
+          expect(inst.region.sequence.valuesPerBar).toEqual([8]);
         }
       }
     });
@@ -1317,9 +1303,9 @@ describe("Drome", () => {
       }
       expect(inst.region?.type).toBe("chop");
       if (inst.region?.type === "chop") {
-        expect(inst.region.sequence.type).toBe("random");
-        if (inst.region.sequence.type === "random") {
-          expect(inst.region.sequence.grid.cycle[0]).toHaveLength(4);
+        expect(inst.region.sequence.type).toBe("random-number");
+        if (inst.region.sequence.type === "random-number") {
+          expect(inst.region.sequence.valuesPerBar).toEqual([4]);
         }
       }
     });
@@ -1417,10 +1403,7 @@ describe("Drome", () => {
         ]);
         expect(inst.region.sequence.type).toBe("static");
         if (inst.region.sequence.type === "static") {
-          expect(inst.region.sequence.cycle).toEqual([
-            [{ value: 0, offset: 0, duration: 1, stepIndex: 0 }],
-            [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
-          ]);
+          expect(inst.region.sequence.cycle).toEqual([[0], [1]]);
         }
       }
     });
@@ -2079,9 +2062,7 @@ describe("Drome", () => {
 
       expect(effect.gain.type).toBe("static");
       if (effect.gain.type === "static") {
-        expect(
-          effect.gain.cycle.map((bar) => bar.map((step) => step.value)),
-        ).toEqual([[1], [0.5], [0.25]]);
+        expect(effect.gain.cycle).toEqual([[1], [0.5], [0.25]]);
       }
     });
 
@@ -2090,9 +2071,7 @@ describe("Drome", () => {
 
       expect(effect.gain.type).toBe("static");
       if (effect.gain.type === "static") {
-        expect(effect.gain.cycle[0].map((step) => step.value)).toEqual([
-          1, 0.5, 0.25,
-        ]);
+        expect(effect.gain.cycle[0]).toEqual([1, 0.5, 0.25]);
       }
     });
 
@@ -2100,8 +2079,8 @@ describe("Drome", () => {
       const d = new Drome();
       const effect = d.gain(d.rand().range(0.25, 0.75)).getSchema();
 
-      expect(effect.gain.type).toBe("random");
-      if (effect.gain.type === "random") {
+      expect(effect.gain.type).toBe("random-number");
+      if (effect.gain.type === "random-number") {
         expect(effect.gain.range).toEqual({ min: 0.25, max: 0.75 });
       }
     });

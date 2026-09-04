@@ -1,10 +1,11 @@
 import Parameter from "@/patterns/parameter";
 import type {
   FitSchema,
-  ParameterSchema,
+  NumberPattern,
+  RandomNumberPattern,
   RegionSchema,
-  StaticSchema,
-  StaticSchemaValue,
+  StaticNotePattern,
+  StaticValuePattern,
 } from "@web-audio/schema";
 import type Drome from "@/index";
 
@@ -21,31 +22,24 @@ type RegionOptions = {
   region: RegionState | null;
 };
 
-function isDefaultRandomMask(schema: ParameterSchema) {
-  if (schema.type !== "random") return false;
-  if (schema.grid.cycle.length !== 1) return false;
-  const pattern = schema.grid.cycle[0];
-  const [step] = pattern;
+function isDefaultRandomPattern(
+  schema: NumberPattern,
+): schema is RandomNumberPattern {
   return (
-    pattern.length === 1 &&
-    step.value === 1 &&
-    step.offset === 0 &&
-    step.duration === 1 &&
-    step.stepIndex === 0
+    schema.type === "random-number" &&
+    schema.valuesPerBar.length === 1 &&
+    schema.valuesPerBar[0] === 1
   );
 }
 
-function warnOutOfRangeChopIndices(
-  sliceCount: number,
-  schema: ParameterSchema,
-) {
+function warnOutOfRangeChopIndices(sliceCount: number, schema: NumberPattern) {
   if (schema.type !== "static") return;
 
   for (const bar of schema.cycle) {
-    for (const step of bar) {
-      if (step.value < 0 || step.value > sliceCount - 1) {
+    for (const value of bar) {
+      if (value < 0 || value > sliceCount - 1) {
         console.warn(
-          `[Sampler] chop() sequence index ${step.value} is outside [0, ${sliceCount - 1}] and will wrap in the engine.`,
+          `[Sampler] chop() sequence index ${value} is outside [0, ${sliceCount - 1}] and will wrap in the engine.`,
         );
       }
     }
@@ -54,9 +48,9 @@ function warnOutOfRangeChopIndices(
 
 function validateRegionParam(
   name: "start" | "end" | "duration",
-  schema: ParameterSchema,
+  schema: NumberPattern,
 ) {
-  if (schema.type === "random") {
+  if (schema.type === "random-number") {
     if (schema.range && (schema.range.min < 0 || schema.range.max > 1)) {
       console.warn(
         `[Sampler] ${name}() random range is outside [0, 1]; resolved values will be clamped by the engine.`,
@@ -66,8 +60,8 @@ function validateRegionParam(
   }
 
   for (const bar of schema.cycle) {
-    for (const step of bar) {
-      if (!Number.isFinite(step.value) || step.value < 0 || step.value > 1) {
+    for (const value of bar) {
+      if (!Number.isFinite(value) || value < 0 || value > 1) {
         throw new Error(
           `[Sampler] ${name}() values must be finite numbers in [0, 1].`,
         );
@@ -76,12 +70,12 @@ function validateRegionParam(
   }
 }
 
-function validateRegionBounds(start: ParameterSchema, end: ParameterSchema) {
+function validateRegionBounds(start: NumberPattern, end: NumberPattern) {
   if (start.type !== "static" || end.type !== "static") return;
   if (start.cycle.length !== 1 || end.cycle.length !== 1) return;
   if (start.cycle[0].length !== 1 || end.cycle[0].length !== 1) return;
 
-  if (start.cycle[0][0].value >= end.cycle[0][0].value) {
+  if (start.cycle[0][0] >= end.cycle[0][0]) {
     throw new Error("[Sampler] start() must be less than end().");
   }
 }
@@ -94,101 +88,87 @@ function getChopSequenceSchema(chop: ChopState, generatedBars = 1) {
       generatedBars,
     );
 
-  if (schema.type !== "random") return schema;
-  if (!isDefaultRandomMask(schema)) return schema;
+  if (!isDefaultRandomPattern(schema)) return schema;
 
   return {
     ...schema,
-    grid: {
-      type: "static",
-      polyphonic: false,
-      cycle: [
-        Array.from({ length: chop.sliceCount }, (_, stepIndex) => ({
-          value: 1,
-          offset: stepIndex / chop.sliceCount,
-          duration: 1 / chop.sliceCount,
-          stepIndex,
-        })),
-      ],
-    },
-  } satisfies ParameterSchema;
+    valuesPerBar: distributeAcrossBars(
+      Array.from({ length: chop.sliceCount }, () => 1),
+      generatedBars,
+    ).map((bar) => bar.length),
+  } satisfies NumberPattern;
 }
 
-function getNotesForChopTiming(notes: StaticSchema, sequence: StaticSchema) {
-  const noteValues = notes.cycle.flat().map((step) => step.value);
+function getNotesForChopTiming(
+  notes: StaticNotePattern,
+  sequence: StaticValuePattern<number>,
+) {
+  const noteGroups = notes.cycle
+    .flat()
+    .filter((group): group is number[] => group !== null);
 
-  return {
-    type: "static",
-    polyphonic: notes.polyphonic,
-    cycle: sequence.cycle.map((bar) =>
-      bar.map(({ offset, duration, stepIndex }) => ({
-        value: noteValues[stepIndex % noteValues.length] ?? 0,
-        offset,
-        duration,
-        stepIndex,
-      })),
-    ),
-  } satisfies ParameterSchema;
+  const cycle = sequence.cycle.map((bar) => {
+    if (noteGroups.length === 0 || bar.length === 0) return [null];
+    return bar.map((_, hitIndex) => [
+      ...noteGroups[hitIndex % noteGroups.length],
+    ]);
+  });
+
+  return { type: "static", cycle } satisfies StaticNotePattern;
 }
 
 function getDefaultNotesForSequence(
   noteValue: number,
-  sequence: ParameterSchema,
+  sequence: NumberPattern,
   chopSchema: ChopState | null,
 ) {
-  if (sequence.type === "random") {
-    return getDefaultNotes(
-      noteValue,
-      sequence.grid.cycle[0]?.length ?? chopSchema?.sliceCount ?? 1,
-      1,
-    );
-  }
+  const counts =
+    sequence.type === "random-number"
+      ? sequence.valuesPerBar.length > 0
+        ? sequence.valuesPerBar
+        : [chopSchema?.sliceCount ?? 1]
+      : sequence.cycle.map((bar) => bar.length);
 
   return {
     type: "static",
-    polyphonic: false,
-    cycle: sequence.cycle.map((bar) =>
-      bar.map(({ offset, duration, stepIndex }) => ({
-        value: noteValue,
-        offset,
-        duration,
-        stepIndex,
-      })),
+    cycle: counts.map((count) =>
+      count === 0 ? [null] : Array.from({ length: count }, () => [noteValue]),
     ),
-  } satisfies ParameterSchema;
+  } satisfies StaticNotePattern;
 }
 
-function getDistributedStaticSchema(values: number[], bars: number) {
-  const cycle: StaticSchemaValue[][] = Array.from({ length: bars }, () => []);
+function distributeAcrossBars<T>(values: T[], bars: number) {
+  const cycle: T[][] = Array.from({ length: bars }, () => []);
   const duration = bars / values.length;
 
   values.forEach((value, valueIndex) => {
     const absoluteOffset = valueIndex * duration;
     const barIndex = Math.min(bars - 1, Math.floor(absoluteOffset));
-    const stepIndex = cycle[barIndex].length;
-    cycle[barIndex].push({
-      value,
-      offset: absoluteOffset - barIndex,
-      duration,
-      stepIndex,
-    });
+    cycle[barIndex].push(value);
   });
 
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle,
-  } satisfies ParameterSchema;
+  return cycle;
+}
+
+function getDistributedStaticSchema(values: number[], bars: number) {
+  const fallback = values[0] ?? 0;
+  const cycle = distributeAcrossBars(values, bars).map((bar) =>
+    bar.length > 0 ? bar : [fallback],
+  );
+
+  return { type: "static", cycle } satisfies StaticValuePattern<number>;
 }
 
 function getDefaultNotes(noteValue: number, noteCount: number, bars: number) {
-  return getDistributedStaticSchema(
-    Array.from({ length: noteCount }, () => noteValue),
-    bars,
+  const values = Array.from({ length: noteCount }, () => [noteValue]);
+  const cycle = distributeAcrossBars(values, bars).map((bar) =>
+    bar.length > 0 ? bar : [null],
   );
+
+  return { type: "static", cycle } satisfies StaticNotePattern;
 }
 
-function getStaticChopBounds(start: ParameterSchema, end: ParameterSchema) {
+function getStaticChopBounds(start: NumberPattern, end: NumberPattern) {
   if (start.type !== "static" || end.type !== "static") {
     throw new Error(
       "[Sampler] start() and end() must be static numbers when used with chop().",
@@ -205,8 +185,8 @@ function getStaticChopBounds(start: ParameterSchema, end: ParameterSchema) {
     );
   }
 
-  const startValue = start.cycle[0][0].value;
-  const endValue = end.cycle[0][0].value;
+  const startValue = start.cycle[0][0];
+  const endValue = end.cycle[0][0];
   if (
     !Number.isFinite(startValue) ||
     !Number.isFinite(endValue) ||
@@ -233,10 +213,7 @@ function getRegion({ fitSchema, chopState, chopBars, region }: RegionOptions) {
       })),
       sequence: {
         type: "static",
-        polyphonic: false,
-        cycle: Array.from({ length: bars }, (_, i) => [
-          { value: i, offset: 0, duration: 1, stepIndex: 0 },
-        ]),
+        cycle: Array.from({ length: bars }, (_, i) => [i]),
       },
     } satisfies RegionSchema;
   }
