@@ -42,7 +42,7 @@ class Synthesizer extends Instrument {
       notes: this._schema.notes,
       barIndex,
       resolveValue: (schema, currentBar, valueIndex) =>
-        this._resolve(schema, currentBar, valueIndex),
+        this._resolveValue(schema, currentBar, valueIndex),
     });
 
     const barDuration = this._clock.barDuration;

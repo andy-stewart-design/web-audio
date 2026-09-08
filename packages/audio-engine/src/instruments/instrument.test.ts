@@ -8,7 +8,6 @@ import type {
 } from "@web-audio/schema";
 import type { EventScheduleContext } from "@/types";
 import Instrument from "./instrument";
-import { staticNumberPattern } from "../test-utils/schema-fixtures";
 
 // ---------------------------------------------------------------------------
 // Minimal Web Audio fakes — only what Instrument needs
@@ -142,8 +141,11 @@ class TestInstrument extends Instrument {
 // Schema fixtures
 // ---------------------------------------------------------------------------
 
-const staticParam = (value: number) => staticNumberPattern([value]);
-const staticCycle = (values: number[]) => staticNumberPattern(values);
+const staticCycle = (values: number[]) => ({
+  type: "static" as const,
+  cycle: [values],
+});
+const staticParam = (value: number) => staticCycle([value]);
 
 function eventContext(overrides: Partial<EventScheduleContext> = {}) {
   return {

@@ -1,47 +1,40 @@
-import type { RandomSchema } from "@web-audio/schema";
+import type { RandomNumberPattern } from "@web-audio/schema";
 import {
+  binaryMapper,
+  floatMapper,
   getSeed,
+  intMapper,
+  mulberry32,
+  quantizeMapper,
   seedToRand,
   xorwise,
-  mulberry32,
-  floatMapper,
-  intMapper,
-  binaryMapper,
-  chanceMapper,
-  quantizeMapper,
   type RandMapper,
 } from "@/utils/random";
 
 class RandomResolver {
-  private _schema: RandomSchema;
-  private _mapper: RandMapper;
-  private _cachedBar: number | null = null;
-  private _cachedResult: number[] | null = null;
+  private readonly schema: RandomNumberPattern;
+  private readonly mapper: RandMapper;
+  private cachedBar: number | null = null;
+  private cachedResult: number[] | null = null;
 
-  constructor(schema: RandomSchema) {
-    this._schema = schema;
-    this._mapper = this._getMapper();
+  constructor(schema: RandomNumberPattern) {
+    this.schema = schema;
+    this.mapper = this.getMapper();
   }
 
-  resolve(barIndex: number, valueIndex: number): number {
-    const bar = this._generate(barIndex);
+  resolve(barIndex: number, valueIndex: number) {
+    const bar = this.generate(barIndex);
     if (bar.length === 0) {
       throw new Error("Cannot resolve a random value from an empty bar");
     }
     return bar[valueIndex % bar.length];
   }
 
-  private _getMapper(): RandMapper {
-    if (
-      this._schema.dataType === "binary" &&
-      this._schema.chance !== undefined
-    ) {
-      return chanceMapper(this._schema.chance);
+  private getMapper(): RandMapper {
+    if (this.schema.quantValue !== undefined) {
+      return quantizeMapper(this.schema.quantValue);
     }
-    if (this._schema.quantValue !== undefined) {
-      return quantizeMapper(this._schema.quantValue);
-    }
-    switch (this._schema.dataType) {
+    switch (this.schema.dataType) {
       case "integer":
         return intMapper;
       case "binary":
@@ -51,71 +44,69 @@ class RandomResolver {
     }
   }
 
-  private _getSegmentInfo(barIndex: number): readonly [number, number] {
-    const segments = this._schema.segments;
+  private getSegmentInfo(barIndex: number) {
+    const segments = this.schema.segments;
 
     if (segments.length === 1 && segments[0].len === undefined) {
       return [segments[0].seed, barIndex] as const;
     }
 
-    const totalPeriod = segments.reduce((a, s) => a + (s.len ?? 0), 0);
+    const totalPeriod = segments.reduce(
+      (period, segment) => period + (segment.len ?? 0),
+      0,
+    );
     const position = barIndex % totalPeriod;
     let accumulated = 0;
 
-    for (const seg of segments) {
-      const len = seg.len ?? 0;
-      if (position < accumulated + len) {
-        return [seg.seed, position - accumulated] as const;
+    for (const segment of segments) {
+      const length = segment.len ?? 0;
+      if (position < accumulated + length) {
+        return [segment.seed, position - accumulated] as const;
       }
-      accumulated += len;
+      accumulated += length;
     }
 
     return [segments[0].seed, 0] as const;
   }
 
-  private _generate(barIndex: number): number[] {
-    if (barIndex === this._cachedBar && this._cachedResult !== null) {
-      return this._cachedResult;
+  private generate(barIndex: number) {
+    if (barIndex === this.cachedBar && this.cachedResult !== null) {
+      return this.cachedResult;
     }
 
-    const [currentSeed, seedOffset] = this._getSegmentInfo(barIndex);
+    const [currentSeed, seedOffset] = this.getSegmentInfo(barIndex);
     let seed = getSeed(currentSeed + seedOffset);
-
-    const mask =
-      this._schema.grid.cycle[barIndex % this._schema.grid.cycle.length];
-    const rangeStart = this._schema.range?.min ?? 0;
-    const rangeEnd = this._schema.range?.max ?? 1;
-
+    const valueCount =
+      this.schema.valuesPerBar[barIndex % this.schema.valuesPerBar.length];
+    const rangeStart = this.schema.range?.min ?? 0;
+    const rangeEnd = this.schema.range?.max ?? 1;
     const result: number[] = [];
 
-    for (const step of mask) {
-      if (step.value === 0) {
-        result.push(0);
+    for (let index = 0; index < valueCount; index++) {
+      let randomValue: number;
+      if (this.schema.algorithm === "mulberry") {
+        randomValue = mulberry32(seed);
+        seed = (seed + 1) | 0;
       } else {
-        let rFloat: number;
-        if (this._schema.algorithm === "mulberry") {
-          rFloat = mulberry32(seed);
-          seed = (seed + 1) | 0;
-        } else {
-          rFloat = Math.abs(seedToRand(seed));
-          seed = xorwise(seed);
-        }
-        if (this._schema.valueMap) {
-          const index =
-            this._schema.dataType === "binary"
-              ? this._mapper(rFloat, rangeStart, rangeEnd)
-              : Math.floor(rFloat * this._schema.valueMap.length);
-          result.push(this._schema.valueMap[index]);
-        } else {
-          const mapped = this._mapper(rFloat, rangeStart, rangeEnd);
-          result.push(mapped);
-        }
+        randomValue = Math.abs(seedToRand(seed));
+        seed = xorwise(seed);
+      }
+
+      if (this.schema.valueMap) {
+        const mapIndex =
+          this.schema.dataType === "binary"
+            ? this.mapper(randomValue, rangeStart, rangeEnd)
+            : Math.floor(randomValue * this.schema.valueMap.length);
+        result.push(this.schema.valueMap[mapIndex]);
+      } else {
+        result.push(this.mapper(randomValue, rangeStart, rangeEnd));
       }
     }
 
-    this._cachedBar = barIndex;
-    this._cachedResult = result;
-    return result;
+    this.cachedBar = barIndex;
+    this.cachedResult =
+      this.schema.order === "reverse" ? result.toReversed() : result;
+    return this.cachedResult;
   }
 }
 

@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { EffectSchema } from "@web-audio/schema";
+import type { EffectSchema, RandomNumberPattern } from "@web-audio/schema";
 import RuntimeBus from "./runtime-bus";
-import {
-  randomNumberPattern,
-  staticNumberBars,
-} from "../test-utils/schema-fixtures";
 
 class FakeAudioParam {
   value = 99;
@@ -44,17 +40,24 @@ class FakeFilterNode {
   }
 }
 
-const staticParam = staticNumberBars;
+function staticParam(...values: number[]) {
+  return {
+    type: "static" as const,
+    cycle: values.map((value) => [value]),
+  };
+}
 
-function randomParam(
-  overrides: Parameters<typeof randomNumberPattern>[0] = {},
-) {
-  return randomNumberPattern({
+function randomParam(overrides: Partial<RandomNumberPattern> = {}) {
+  return {
+    type: "random-number" as const,
+    valuesPerBar: [1],
+    dataType: "float" as const,
     segments: [{ seed: 42 }],
     range: { min: 0.25, max: 0.75 },
-    algorithm: "mulberry",
+    algorithm: "mulberry" as const,
+    order: "forward" as const,
     ...overrides,
-  });
+  };
 }
 
 function createBus(
@@ -135,10 +138,7 @@ describe("RuntimeBus", () => {
   it("initializes the requested starting bar without rebuilding nodes", () => {
     const gain = {
       ...staticParam(0.5),
-      cycle: [
-        [{ value: 0.5, offset: 0, duration: 1, stepIndex: 0 }],
-        [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
-      ],
+      cycle: [[0.5], [1]],
     };
     createBus([{ type: "gain", gain }], {
       startingBar: 3,
@@ -152,13 +152,7 @@ describe("RuntimeBus", () => {
   it("schedules static cycles at exact bar times using step zero", () => {
     const gain = {
       ...staticParam(0.5),
-      cycle: [
-        [
-          { value: 0.5, offset: 0, duration: 0.5, stepIndex: 0 },
-          { value: 99, offset: 0.5, duration: 0.5, stepIndex: 1 },
-        ],
-        [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
-      ],
+      cycle: [[0.5, 99], [1]],
     };
     const { bus } = createBus([{ type: "gain", gain }]);
     const target = FakeEffectGainNode.instances[0].gain;
@@ -239,22 +233,12 @@ describe("RuntimeBus", () => {
   });
 
   it("resolves deterministic random values by bar using step zero", () => {
-    const schema = randomParam({
-      grid: {
-        ...staticParam(1),
-        cycle: [
-          [
-            { value: 0, offset: 0, duration: 0.5, stepIndex: 0 },
-            { value: 1, offset: 0.5, duration: 0.5, stepIndex: 1 },
-          ],
-          [{ value: 1, offset: 0, duration: 1, stepIndex: 0 }],
-        ],
-      },
-    });
+    const schema = randomParam({ valuesPerBar: [1, 1] });
     const first = createBus([{ type: "gain", gain: schema }]);
     const firstTarget = FakeEffectGainNode.instances[0].gain;
 
-    expect(firstTarget.value).toBe(0);
+    expect(firstTarget.value).toBeGreaterThanOrEqual(0.25);
+    expect(firstTarget.value).toBeLessThanOrEqual(0.75);
     first.bus.scheduleBar(1, 10);
     const resolved = firstTarget.linearRampToValueAtTime.mock.calls[0][0];
     expect(resolved).toBeGreaterThanOrEqual(0.25);

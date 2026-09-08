@@ -111,7 +111,7 @@ class Sampler extends Instrument {
       notes: this._schema.notes,
       barIndex,
       resolveValue: (schema, currentBar, valueIndex) =>
-        this._resolve(schema, currentBar, valueIndex),
+        this._resolveValue(schema, currentBar, valueIndex),
     });
 
     for (const event of events) {
@@ -263,26 +263,32 @@ class Sampler extends Instrument {
     if (this._schema.region?.type === "static") {
       const clamp = (value: number) => Math.min(1, Math.max(0, value));
       regionStart = clamp(
-        this._resolve(this._schema.region.start, barIndex, hitIndex),
+        this._resolveValue(this._schema.region.start, barIndex, hitIndex),
       );
       if (this._schema.region.duration) {
         regionEnd = Math.min(
           regionStart +
             clamp(
-              this._resolve(this._schema.region.duration, barIndex, hitIndex),
+              this._resolveValue(
+                this._schema.region.duration,
+                barIndex,
+                hitIndex,
+              ),
             ),
           1,
         );
       } else {
         regionEnd = clamp(
-          this._resolve(this._schema.region.end, barIndex, hitIndex),
+          this._resolveValue(this._schema.region.end, barIndex, hitIndex),
         );
       }
     } else if (this._schema.region?.type === "chop") {
       const { slices, sequence } = this._schema.region;
       if (slices.length === 0) return null;
 
-      const rawIndex = Math.trunc(this._resolve(sequence, barIndex, hitIndex));
+      const rawIndex = Math.trunc(
+        this._resolveValue(sequence, barIndex, hitIndex),
+      );
       const sliceIndex =
         ((rawIndex % slices.length) + slices.length) % slices.length;
       const slice = slices[sliceIndex];
@@ -336,7 +342,7 @@ class Sampler extends Instrument {
 
   private _resolveVariationIndex(barIndex: number, hitIndex: number): number {
     return Math.round(
-      this._resolve(this._schema.variation, barIndex, hitIndex),
+      this._resolveValue(this._schema.variation, barIndex, hitIndex),
     );
   }
 }

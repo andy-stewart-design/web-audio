@@ -769,8 +769,8 @@ Do not pass source values or grid positions into this resolver.
 
 - `packages/audio-engine/src/resolvers/random-resolver.ts`
 - `packages/audio-engine/src/resolvers/random-resolver.test.ts`
-- `packages/audio-engine/src/instruments/resolve-event-value.ts` (new)
-- `packages/audio-engine/src/instruments/resolve-event-value.test.ts` (new)
+- `packages/audio-engine/src/instruments/value-pattern-resolver.ts` (new)
+- `packages/audio-engine/src/instruments/value-pattern-resolver.test.ts` (new)
 - `packages/audio-engine/src/instruments/instrument.ts`
 - `packages/audio-engine/src/buses/runtime-bus.ts`
 - `packages/audio-engine/src/buses/runtime-bus.test.ts`
@@ -790,20 +790,20 @@ Update the base instrument and runtime bus to resolve `NumberPattern` rather tha
 
 **Acceptance criteria:**
 
-- [ ] Static value lookup ignores timing offsets because none exist.
-- [ ] Random generation count comes only from `valuesPerBar`.
-- [ ] Static and random patterns wrap independently by bar and hit.
-- [ ] Random reverse affects result order within each bar.
-- [ ] Processing values resolve by final surviving hit.
-- [ ] Bus parameters continue resolving their first value per bar.
+- [x] Static value lookup ignores timing offsets because none exist.
+- [x] Random generation count comes only from `valuesPerBar`.
+- [x] Static and random patterns wrap independently by bar and hit.
+- [x] Random reverse affects result order within each bar.
+- [x] Processing values resolve by final surviving hit.
+- [x] Bus parameters continue resolving their first value per bar.
 
 **Testing:**
 
-- [ ] Static zero, negative, and fractional values.
-- [ ] Random zero-count unreachable bars.
-- [ ] Random float, integer, binary, quantized, ranged, and mapped values.
-- [ ] Ribbon progression and cache behavior.
-- [ ] Runtime bus transitions with static/random target patterns.
+- [x] Static zero, negative, and fractional values.
+- [x] Random zero-count unreachable bars.
+- [x] Random float, integer, binary, quantized, ranged, and mapped values.
+- [x] Ribbon progression and cache behavior.
+- [x] Runtime bus transitions with static/random target patterns.
 
 ---
 
@@ -2344,7 +2344,7 @@ Prefer focused unit cases over one enormous combinatorial test, but ensure every
 | File                                                              | Change                                                                                  |
 | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `packages/audio-engine/src/instruments/resolve-timing.ts`         | New fixed/chance timing resolver with final hit numbering.                              |
-| `packages/audio-engine/src/instruments/resolve-event-value.ts`    | New value-only static/random resolver helper.                                           |
+| `packages/audio-engine/src/instruments/value-pattern-resolver.ts` | New value-only static/random resolver helper.                                           |
 | `packages/audio-engine/src/instruments/resolve-synth-events.ts`   | New typed synth event resolver.                                                         |
 | `packages/audio-engine/src/instruments/resolve-sampler-events.ts` | New typed sampler event/voice resolver.                                                 |
 | `packages/audio-engine/src/instruments/resolve-note-events.ts`    | Remove after typed resolvers replace it.                                                |

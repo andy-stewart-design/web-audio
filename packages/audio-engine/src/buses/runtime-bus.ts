@@ -2,11 +2,10 @@ import type {
   AudioParamSchema,
   BusSchema,
   EffectSchema,
-  ParameterSchema,
-  RandomSchema,
+  NumberPattern,
 } from "@web-audio/schema";
 import { FILTER_TYPE_MAP, MIN_RAMP } from "@/constants";
-import RandomResolver from "@/resolvers/random-resolver";
+import ValuePatternResolver from "@/instruments/value-pattern-resolver";
 
 interface ActiveTransition {
   from: number;
@@ -19,7 +18,7 @@ type BindingState = number | ActiveTransition | undefined;
 
 interface BusParameterBinding {
   target: AudioParam;
-  schema: ParameterSchema;
+  schema: NumberPattern;
   state: BindingState;
 }
 
@@ -38,7 +37,7 @@ class RuntimeBus {
   private readonly _ctx: AudioContext;
   private readonly _effects: RuntimeEffect[];
   private readonly _output: GainNode;
-  private readonly _randomResolvers = new Map<RandomSchema, RandomResolver>();
+  private readonly _valuePatternResolver = new ValuePatternResolver();
   private readonly _transition: number;
   private _lastSchedule: { barIndex: number; startTime: number } | null = null;
   private _destroyed = false;
@@ -85,7 +84,7 @@ class RuntimeBus {
         nextValue: resolveValue(
           binding.schema,
           barIndex,
-          this._randomResolvers,
+          this._valuePatternResolver,
         ),
       })),
     );
@@ -169,7 +168,7 @@ function buildEffect(ctx: AudioContext, effect: EffectSchema) {
 }
 
 function binding(target: AudioParam, schema: AudioParamSchema) {
-  if (schema.type !== "static" && schema.type !== "random") {
+  if (schema.type !== "static" && schema.type !== "random-number") {
     throw new Error("[RuntimeBus] Expected a validated bus parameter.");
   }
   return { target, schema, state: undefined };
@@ -188,30 +187,20 @@ function valueAtTime(transition: ActiveTransition, time: number) {
 }
 
 function resolveValue(
-  schema: ParameterSchema,
+  schema: NumberPattern,
   barIndex: number,
-  randomResolvers: Map<RandomSchema, RandomResolver>,
+  resolver: ValuePatternResolver,
 ) {
-  const value =
-    schema.type === "random"
-      ? randomResolver(schema, randomResolvers).resolve(barIndex, 0)
-      : schema.cycle[barIndex % schema.cycle.length]?.[0]?.value;
+  let value: number;
+  try {
+    value = resolver.resolve(schema, barIndex, 0);
+  } catch {
+    throw new Error("[RuntimeBus] Expected a validated bus parameter.");
+  }
   if (!Number.isFinite(value)) {
     throw new Error("[RuntimeBus] Expected a validated bus parameter.");
   }
   return value;
-}
-
-function randomResolver(
-  schema: RandomSchema,
-  resolvers: Map<RandomSchema, RandomResolver>,
-) {
-  let resolver = resolvers.get(schema);
-  if (!resolver) {
-    resolver = new RandomResolver(schema);
-    resolvers.set(schema, resolver);
-  }
-  return resolver;
 }
 
 export default RuntimeBus;
