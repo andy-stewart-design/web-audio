@@ -20,6 +20,12 @@ interface EventScheduleContext {
   endTime: number;
 }
 
+interface ResolvedTimingEvent {
+  hitIndex: number;
+  offset: number;
+  duration: number;
+}
+
 interface ResolvedEnvelopeSchema {
   min: number;
   max: number;
@@ -60,5 +66,6 @@ export type {
   NormalizedADSR,
   ResolvedDetune,
   ResolvedEnvelopeSchema,
+  ResolvedTimingEvent,
   ScheduledNote,
 };

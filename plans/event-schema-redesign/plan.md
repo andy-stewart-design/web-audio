@@ -746,20 +746,20 @@ Do not pass source values or grid positions into this resolver.
 
 **Acceptance criteria:**
 
-- [ ] Fixed timing returns every candidate unchanged except for assigned hit index.
-- [ ] Chance is evaluated once per candidate event.
-- [ ] Failed candidates do not leave hit-number gaps.
-- [ ] Empty bars return no events.
-- [ ] Timing durations over one bar survive unchanged.
-- [ ] Reverse order reverses decisions inside a bar without reversing absolute seed progression.
+- [x] Fixed timing returns every candidate unchanged except for assigned hit index.
+- [x] Chance is evaluated once per candidate event.
+- [x] Failed candidates do not leave hit-number gaps.
+- [x] Empty bars return no events.
+- [x] Timing durations over one bar survive unchanged.
+- [x] Reverse order reverses decisions inside a bar without reversing absolute seed progression.
 
 **Testing:**
 
-- [ ] Fixed one- and multi-bar timing.
-- [ ] Deterministic seeded chance results.
-- [ ] Probability boundaries.
-- [ ] Empty and long-duration bars.
-- [ ] Failure-independent hit numbering.
+- [x] Fixed one- and multi-bar timing.
+- [x] Deterministic seeded chance results.
+- [x] Probability boundaries.
+- [x] Empty and long-duration bars.
+- [x] Failure-independent hit numbering.
 
 ---
 
