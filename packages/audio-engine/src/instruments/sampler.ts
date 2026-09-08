@@ -8,11 +8,12 @@ import Instrument, { type InstrumentRouting } from "./instrument";
 import { SAMPLE_BASE_GAIN } from "@/constants";
 import { preloadVariationIndices } from "@/utils/preload-variations";
 import SampleBufferStore, { type SampleCache } from "./sample-buffer-store";
-import type { EventScheduleContext } from "@/types";
-import {
-  resolveNoteEvents,
-  type ResolvedNoteEvent,
-} from "./resolve-note-events";
+import type {
+  EventScheduleContext,
+  ResolvedSamplerEvent,
+  ResolvedSamplerVoice,
+} from "@/types";
+import { resolveSamplerEvents } from "./resolve-sampler-events";
 
 interface SamplerOptions {
   schema: SamplerSchema;
@@ -83,7 +84,13 @@ class Sampler extends Instrument {
   }
 
   private get _initialVariationIndex() {
-    return this._resolveVariationIndex(0, 0);
+    return (
+      resolveSamplerEvents(
+        this._schema.events,
+        0,
+        this._valuePatternResolver,
+      )[0]?.voices[0]?.requestedVariationIndex ?? 0
+    );
   }
 
   async load(): Promise<void> {
@@ -107,40 +114,34 @@ class Sampler extends Instrument {
   }
 
   private _scheduleResolvedBar(barIndex: number, barStartTime: number) {
-    const events = resolveNoteEvents({
-      notes: this._schema.notes,
+    const events = resolveSamplerEvents(
+      this._schema.events,
       barIndex,
-      resolveValue: (schema, currentBar, valueIndex) =>
-        this._resolveValue(schema, currentBar, valueIndex),
-    });
+      this._valuePatternResolver,
+    );
 
     for (const event of events) {
-      for (const noteValue of event.voices) {
-        this._scheduleResolvedSampleNote(
-          noteValue,
-          event,
-          barStartTime,
-          barIndex,
-        );
+      for (const voice of event.voices) {
+        this._scheduleResolvedSampleNote(voice, event, barStartTime, barIndex);
       }
     }
   }
 
   private _scheduleResolvedSampleNote(
-    noteValue: number,
-    noteEvent: ResolvedNoteEvent,
+    voice: ResolvedSamplerVoice,
+    noteEvent: ResolvedSamplerEvent,
     barStartTime: number,
     barIndex: number,
   ) {
-    const sourceKey = this._nearestSourceKey(noteValue);
-    const pitchRate = this._pitchRate(noteValue, sourceKey);
-    const variationIndex = this._resolveVariationIndex(
-      barIndex,
-      noteEvent.hitIndex,
-    );
+    const sourceKey =
+      voice.note === undefined
+        ? this._schema.sourceKeys[0]
+        : this._nearestSourceKey(voice.note);
+    const pitchRate =
+      voice.note === undefined ? 1 : this._pitchRate(voice.note, sourceKey);
     const reversed = this._isNextHitReversed();
     const playbackSource = this._bufferStore.getPlaybackSource(
-      variationIndex,
+      voice.requestedVariationIndex,
       barIndex,
       sourceKey,
       reversed,
@@ -163,7 +164,7 @@ class Sampler extends Instrument {
   private _scheduleSampleNote(
     playbackSource: { buffer: AudioBuffer; entry: SampleVariationSchema },
     pitchRate: number,
-    noteEvent: ResolvedNoteEvent,
+    noteEvent: ResolvedSamplerEvent,
     barStartTime: number,
     barIndex: number,
     reversed: boolean,
@@ -338,12 +339,6 @@ class Sampler extends Instrument {
     const start = Math.min(...starts);
     const end = Math.max(...ends);
     return (end - start) * entrySourceDuration;
-  }
-
-  private _resolveVariationIndex(barIndex: number, hitIndex: number): number {
-    return Math.round(
-      this._resolveValue(this._schema.variation, barIndex, hitIndex),
-    );
   }
 }
 

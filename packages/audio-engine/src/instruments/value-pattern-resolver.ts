@@ -11,6 +11,21 @@ class ValuePatternResolver {
   >();
 
   resolve<T>(
+    pattern: StaticValuePattern<T>,
+    barIndex: number,
+    hitIndex: number,
+  ): T;
+  resolve(
+    pattern: RandomNumberPattern,
+    barIndex: number,
+    hitIndex: number,
+  ): number;
+  resolve<T>(
+    pattern: StaticValuePattern<T> | RandomNumberPattern,
+    barIndex: number,
+    hitIndex: number,
+  ): T | number;
+  resolve<T>(
     pattern: StaticValuePattern<T> | RandomNumberPattern,
     barIndex: number,
     hitIndex: number,

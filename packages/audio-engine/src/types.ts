@@ -26,6 +26,20 @@ interface ResolvedTimingEvent {
   duration: number;
 }
 
+interface ResolvedSynthEvent extends ResolvedTimingEvent {
+  notes: number[];
+}
+
+interface ResolvedSamplerVoice {
+  note?: number;
+  sampleName: string;
+  requestedVariationIndex: number;
+}
+
+interface ResolvedSamplerEvent extends ResolvedTimingEvent {
+  voices: ResolvedSamplerVoice[];
+}
+
 interface ResolvedEnvelopeSchema {
   min: number;
   max: number;
@@ -66,6 +80,9 @@ export type {
   NormalizedADSR,
   ResolvedDetune,
   ResolvedEnvelopeSchema,
+  ResolvedSamplerEvent,
+  ResolvedSamplerVoice,
+  ResolvedSynthEvent,
   ResolvedTimingEvent,
   ScheduledNote,
 };

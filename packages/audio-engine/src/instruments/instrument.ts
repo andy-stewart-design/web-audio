@@ -70,7 +70,7 @@ abstract class Instrument {
 
   // Voice state
   private _scheduled: Set<ScheduledNote> = new Set();
-  private readonly _valuePatternResolver = new ValuePatternResolver();
+  protected readonly _valuePatternResolver = new ValuePatternResolver();
 
   // LFO state
   protected _lfoNodes = new Map<string, AudioWorkletNode>();

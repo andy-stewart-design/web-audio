@@ -841,20 +841,20 @@ Remove onset grouping. Static polyphony is explicit in value arrays.
 
 **Acceptance criteria:**
 
-- [ ] Resolvers consume `TimingSchema` first.
-- [ ] Static note zero is not a rest.
-- [ ] Random note/variation scalars normalize to one-value groups.
-- [ ] Sampler absence defaults are represented without fake schema values.
-- [ ] Longest-array pairing and wrapping are deterministic.
-- [ ] No resolver reads `stepIndex`, offsets from values, or `polyphonic` flags.
+- [x] Resolvers consume `TimingSchema` first.
+- [x] Static note zero is not a rest.
+- [x] Random note/variation scalars normalize to one-value groups.
+- [x] Sampler absence defaults are represented without fake schema values.
+- [x] Longest-array pairing and wrapping are deterministic.
+- [x] No resolver reads `stepIndex`, offsets from values, or `polyphonic` flags.
 
 **Testing:**
 
-- [ ] Synth scalar, chord, and random notes.
-- [ ] Sampler natural pitch and default variation.
-- [ ] Static and random explicit variation.
-- [ ] Unequal note/name/variation group lengths.
-- [ ] Multi-bar wrapping and empty timing bars.
+- [x] Synth scalar, chord, and random notes.
+- [x] Sampler natural pitch and default variation.
+- [x] Static and random explicit variation.
+- [x] Unequal note/name/variation group lengths.
+- [x] Multi-bar wrapping and empty timing bars.
 
 ---
 
