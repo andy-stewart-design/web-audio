@@ -14,7 +14,7 @@ import {
   selectNaturalSourceKey,
   selectNearestSourceKey,
 } from "@/utils/resolve-sample-entry";
-import SampleBufferStore, { type SampleCache } from "./sample-buffer-store";
+import SampleBufferCache from "./sample-buffer-cache";
 import type {
   EventScheduleContext,
   ResolvedSamplerEvent,
@@ -27,15 +27,14 @@ interface SamplerOptions {
   destination?: AudioNode;
   routing?: InstrumentRouting;
   banks: Record<string, BankSchema>;
-  cache: SampleCache;
+  cache: SampleBufferCache;
   startingBar?: number;
   barStartTime?: number;
-  fallbackBuffer?: AudioBuffer | null;
 }
 
 class Sampler extends Instrument {
   private _schema: SamplerSchema;
-  private _bufferStore: SampleBufferStore;
+  private readonly _bufferCache: SampleBufferCache;
   private readonly _banks: Record<string, BankSchema>;
   private readonly _sampleName: string;
   private readonly _sourceKeys: readonly number[];
@@ -52,7 +51,6 @@ class Sampler extends Instrument {
       cache,
       startingBar = 0,
       barStartTime,
-      fallbackBuffer = null,
     }: SamplerOptions,
   ) {
     super(ctx, clock, {
@@ -66,29 +64,8 @@ class Sampler extends Instrument {
     this._sampleName = getFixedSampleName(schema);
     const sample = resolveSample(banks, schema.bank, this._sampleName);
     this._sourceKeys = sample ? deriveSourceKeys(sample) : [];
-    this._bufferStore = new SampleBufferStore({
-      ctx,
-      banks,
-      cache,
-      bank: schema.bank,
-      sample: this._sampleName,
-      initialVariationIndex: this._initialVariationIndex,
-      initialSourceKey: this._sourceKeys[0] ?? 0,
-      fallbackBuffer,
-      prepareReverse: schema.direction !== "forward",
-    });
+    this._bufferCache = cache;
     this._initLfos(schema, startingBar, barStartTime);
-  }
-
-  isReady() {
-    return this._bufferStore.hasInitialBuffer();
-  }
-
-  fallbackBufferFor(schema: SamplerSchema) {
-    return this._bufferStore.fallbackBufferFor(
-      schema.bank,
-      getFixedSampleName(schema),
-    );
   }
 
   resetPlaybackState() {
@@ -100,20 +77,23 @@ class Sampler extends Instrument {
     this.resetPlaybackState();
   }
 
-  private get _initialVariationIndex() {
-    return (
-      resolveSamplerEvents(
-        this._schema.events,
-        0,
-        this._valuePatternResolver,
-      )[0]?.voices[0]?.requestedVariationIndex ?? 0
-    );
-  }
-
-  async load(): Promise<void> {
-    await this._bufferStore.preload(
-      preloadVariationIndices(this._schema),
-      this._sourceKeys,
+  async load() {
+    const prepareReverse = this._schema.direction !== "forward";
+    await Promise.all(
+      this._sourceKeys.flatMap((sourceKey) =>
+        preloadVariationIndices(this._schema).map((variationIndex) => {
+          const entry = resolveSampleEntry({
+            banks: this._banks,
+            bank: this._schema.bank,
+            sample: this._sampleName,
+            sourceKey,
+            variationIndex,
+          });
+          return entry
+            ? this._bufferCache.prepare(entry.src, prepareReverse)
+            : Promise.resolve(null);
+        }),
+      ),
     );
   }
 
@@ -169,13 +149,15 @@ class Sampler extends Instrument {
       return;
     }
     const reversed = this._isNextHitReversed();
-    const playbackSource = this._bufferStore.getPlaybackSource(
-      voice.requestedVariationIndex,
-      barIndex,
-      sourceKey,
-      reversed,
-    );
-    if (!playbackSource) return;
+    const buffer = this._bufferCache.get(variation.src, reversed);
+    if (!buffer) {
+      void this._bufferCache.prepare(variation.src, reversed);
+      console.warn(
+        `[Sampler] ${variation.src} not yet loaded — skipping voice in bar ${barIndex}`,
+      );
+      return;
+    }
+    const playbackSource = { buffer, entry: variation };
     const emitted = this._scheduleSampleNote(
       playbackSource,
       pitchRate,

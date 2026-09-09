@@ -1001,22 +1001,22 @@ Prepare reverse buffers through the shared weak cache when reverse or alternate 
 
 **Acceptance criteria:**
 
-- [ ] Two logical entries with the same URL share one fetch/decode.
-- [ ] Different URLs never substitute for each other.
-- [ ] A missing variation does not block already loaded voices.
-- [ ] Failed loads are warning-producing and retryable.
-- [ ] Sprite metadata remains attached to the logical entry, not the URL cache.
-- [ ] Retiring graphs may continue using shared decoded buffers safely.
+- [x] Two logical entries with the same URL share one fetch/decode.
+- [x] Different URLs never substitute for each other.
+- [x] A missing variation does not block already loaded voices.
+- [x] Failed loads are warning-producing and retryable.
+- [x] Sprite metadata remains attached to the logical entry, not the URL cache.
+- [x] Retiring graphs may continue using shared decoded buffers safely.
 
 **Testing:**
 
-- [ ] Concurrent URL deduplication.
-- [ ] Resolved synchronous cache hit after `prepare()`.
-- [ ] Lazy miss followed by later successful playback.
-- [ ] Fetch/decode failure and retry.
-- [ ] Shared sprite URL with distinct regions.
-- [ ] Forward/reverse cache reuse.
-- [ ] No approximate hot-swap regression.
+- [x] Concurrent URL deduplication.
+- [x] Resolved synchronous cache hit after `prepare()`.
+- [x] Lazy miss followed by later successful playback.
+- [x] Fetch/decode failure and retry.
+- [x] Shared sprite URL with distinct regions.
+- [x] Forward/reverse cache reuse.
+- [x] No approximate hot-swap regression.
 
 ---
 

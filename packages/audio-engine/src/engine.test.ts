@@ -53,7 +53,7 @@ vi.mock("./instruments/sampler", () => {
     opts: {
       schema?: unknown;
       banks?: unknown;
-      cache: { resolved: Map<string, unknown> };
+      cache: unknown;
       destination?: unknown;
       routing?: unknown;
     },
@@ -68,9 +68,7 @@ vi.mock("./instruments/sampler", () => {
     this._banks = opts.banks;
     this._destination = opts.destination;
     this._routing = opts.routing;
-    this.isReady = vi.fn(() => true);
     this.load = vi.fn();
-    this.fallbackBufferFor = vi.fn(() => null);
     this._cache = opts.cache;
     let resolve: () => void;
     this.finished = new Promise<void>((r) => {
@@ -223,11 +221,9 @@ function samplerInstances() {
     retire: ReturnType<typeof vi.fn>;
     destroy: ReturnType<typeof vi.fn>;
     load: ReturnType<typeof vi.fn>;
-    isReady: ReturnType<typeof vi.fn>;
-    fallbackBufferFor: ReturnType<typeof vi.fn>;
     _schema: unknown;
     _banks: unknown;
-    _cache: { resolved: Map<string, unknown> };
+    _cache: unknown;
     finished: Promise<void>;
     _destination: unknown;
     _routing: {

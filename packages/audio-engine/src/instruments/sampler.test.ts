@@ -10,8 +10,8 @@ import {
   fileBank,
   staticNumberPattern,
 } from "../test-utils/schema-fixtures";
+import SampleBufferCache from "./sample-buffer-cache";
 import Sampler from "./sampler";
-import type { SampleCache } from "./sample-buffer-store";
 
 class FakeAudioParam {
   value = 0;
@@ -58,12 +58,15 @@ const timing = (
   cycle: TimingSchema["cycle"] = [[{ offset: 0, duration: 1 }]],
 ): TimingSchema => ({ cycle });
 
-function cache(entries: Record<string, AudioBuffer>): SampleCache {
-  return {
-    resolved: new Map(Object.entries(entries)),
-    promises: new Map(),
-    reversed: new WeakMap(),
-  };
+function cache(entries: Record<string, AudioBuffer>) {
+  const value = new SampleBufferCache(
+    new FakeAudioContext() as unknown as AudioContext,
+  );
+  vi.spyOn(value, "get").mockImplementation((url) => entries[url] ?? null);
+  vi.spyOn(value, "prepare").mockImplementation(
+    async (url) => entries[url] ?? null,
+  );
+  return value;
 }
 
 function buffer(duration = 1) {
