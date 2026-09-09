@@ -57,7 +57,10 @@ class SampleBufferStore {
     }
   }
 
-  async preload(variationIndices: number[], sourceKeys = [0]) {
+  async preload(
+    variationIndices: readonly number[],
+    sourceKeys: readonly number[] = [0],
+  ) {
     await Promise.all(
       sourceKeys.flatMap((sourceKey) =>
         variationIndices.map((index) => this._loadVariation(sourceKey, index)),

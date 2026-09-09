@@ -943,17 +943,17 @@ PR 1 may preserve current out-of-range variation fallback until PR 2 introduces 
 
 **Acceptance criteria:**
 
-- [ ] Simple samples derive `[0]` from bank data.
-- [ ] Multisamples and pitched sprites derive sorted MIDI keys.
-- [ ] Natural pitch uses the selected lowest key at pitch rate `1`.
-- [ ] Missing banks, names, keys, or entries return `null` and warn at the appropriate boundary.
-- [ ] No schema or Fluid helper returns `sourceKeys`.
+- [x] Simple samples derive `[0]` from bank data.
+- [x] Multisamples and pitched sprites derive sorted MIDI keys.
+- [x] Natural pitch uses the selected lowest key at pitch rate `1`.
+- [x] Missing banks, names, keys, or entries return `null` and warn at the appropriate boundary.
+- [x] No schema or Fluid helper returns `sourceKeys`.
 
 **Testing:**
 
-- [ ] Simple file, file variations, sprite, multisample, and pitched sprite lookup.
-- [ ] Nearest-key exact, lower, upper, and midpoint cases.
-- [ ] Missing-resource cases.
+- [x] Simple file, file variations, sprite, multisample, and pitched sprite lookup.
+- [x] Nearest-key exact, lower, upper, and midpoint cases.
+- [x] Missing-resource cases.
 
 ---
 

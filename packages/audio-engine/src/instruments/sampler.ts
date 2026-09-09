@@ -7,6 +7,13 @@ import type {
 import Instrument, { type InstrumentRouting } from "./instrument";
 import { SAMPLE_BASE_GAIN } from "@/constants";
 import { preloadVariationIndices } from "@/utils/preload-variations";
+import {
+  deriveSourceKeys,
+  resolveSample,
+  resolveSampleEntry,
+  selectNaturalSourceKey,
+  selectNearestSourceKey,
+} from "@/utils/resolve-sample-entry";
 import SampleBufferStore, { type SampleCache } from "./sample-buffer-store";
 import type {
   EventScheduleContext,
@@ -29,8 +36,9 @@ interface SamplerOptions {
 class Sampler extends Instrument {
   private _schema: SamplerSchema;
   private _bufferStore: SampleBufferStore;
+  private readonly _banks: Record<string, BankSchema>;
   private readonly _sampleName: string;
-  private readonly _sourceKeys: number[];
+  private readonly _sourceKeys: readonly number[];
   private _nextAlternateDirection: "forward" | "reverse" = "forward";
 
   constructor(
@@ -54,13 +62,10 @@ class Sampler extends Instrument {
       muted: schema.muted,
     });
     this._schema = schema;
+    this._banks = banks;
     this._sampleName = getFixedSampleName(schema);
-    this._sourceKeys = Object.keys(
-      banks[schema.bank]?.samples[this._sampleName] ?? {},
-    )
-      .map(Number)
-      .filter(Number.isFinite)
-      .sort((a, b) => a - b);
+    const sample = resolveSample(banks, schema.bank, this._sampleName);
+    this._sourceKeys = sample ? deriveSourceKeys(sample) : [];
     this._bufferStore = new SampleBufferStore({
       ctx,
       banks,
@@ -140,10 +145,29 @@ class Sampler extends Instrument {
   ) {
     const sourceKey =
       voice.note === undefined
-        ? (this._sourceKeys[0] ?? 0)
-        : this._nearestSourceKey(voice.note);
+        ? selectNaturalSourceKey(this._sourceKeys)
+        : selectNearestSourceKey(this._sourceKeys, voice.note);
+    if (sourceKey === null) {
+      console.warn(
+        `[Sampler] No source keys found for "${this._schema.bank}/${voice.sampleName}" — skipping voice`,
+      );
+      return;
+    }
     const pitchRate =
       voice.note === undefined ? 1 : this._pitchRate(voice.note, sourceKey);
+    const variation = resolveSampleEntry({
+      banks: this._banks,
+      bank: this._schema.bank,
+      sample: voice.sampleName,
+      sourceKey,
+      variationIndex: voice.requestedVariationIndex,
+    });
+    if (!variation) {
+      console.warn(
+        `[Sampler] No entry found for "${this._schema.bank}/${voice.sampleName}" source ${sourceKey} variation ${voice.requestedVariationIndex} — skipping voice`,
+      );
+      return;
+    }
     const reversed = this._isNextHitReversed();
     const playbackSource = this._bufferStore.getPlaybackSource(
       voice.requestedVariationIndex,
@@ -236,14 +260,6 @@ class Sampler extends Instrument {
       return this._nextAlternateDirection === "reverse";
     }
     return false;
-  }
-
-  private _nearestSourceKey(note: number) {
-    return this._sourceKeys.reduce(
-      (nearest, key) =>
-        Math.abs(key - note) < Math.abs(nearest - note) ? key : nearest,
-      this._sourceKeys[0] ?? 0,
-    );
   }
 
   private _pitchRate(note: number, sourceKey: number) {

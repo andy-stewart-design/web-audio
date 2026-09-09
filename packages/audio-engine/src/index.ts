@@ -10,7 +10,11 @@ import Synthesizer from "./instruments/synthesizer";
 import MidiOutputScheduler from "./midi-output-scheduler";
 import { registerWorklets } from "./utils/register-worklets";
 import { preloadVariationIndices } from "./utils/preload-variations";
-import { resolveSampleUrl } from "./utils/resolve-sample-entry";
+import {
+  deriveSourceKeys,
+  resolveSample,
+  resolveSampleUrl,
+} from "./utils/resolve-sample-entry";
 
 type RuntimeInstrument = Synthesizer | Sampler;
 
@@ -121,9 +125,8 @@ class AudioEngine {
     for (const schema of instruments) {
       if (schema.type !== "sampler") continue;
       const sampleName = this._fixedSampleName(schema);
-      const sourceKeys = Object.keys(
-        banks[schema.bank]?.samples[sampleName] ?? {},
-      ).map(Number);
+      const sample = resolveSample(banks, schema.bank, sampleName);
+      const sourceKeys = sample ? deriveSourceKeys(sample) : [];
       for (const sourceKey of sourceKeys) {
         for (const varIndex of preloadVariationIndices(schema)) {
           const url = this._resolveUrl(
