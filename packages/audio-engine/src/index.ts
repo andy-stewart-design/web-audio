@@ -120,9 +120,19 @@ class AudioEngine {
     const urls = new Set<string>();
     for (const schema of instruments) {
       if (schema.type !== "sampler") continue;
-      for (const sourceKey of schema.sourceKeys) {
+      const sampleName = this._fixedSampleName(schema);
+      const sourceKeys = Object.keys(
+        banks[schema.bank]?.samples[sampleName] ?? {},
+      ).map(Number);
+      for (const sourceKey of sourceKeys) {
         for (const varIndex of preloadVariationIndices(schema)) {
-          const url = this._resolveUrl(schema, banks, sourceKey, varIndex);
+          const url = this._resolveUrl(
+            schema,
+            banks,
+            sampleName,
+            sourceKey,
+            varIndex,
+          );
           if (url) urls.add(url);
         }
       }
@@ -248,16 +258,26 @@ class AudioEngine {
   private _resolveUrl(
     schema: SamplerSchema,
     banks: Record<string, BankSchema>,
+    sampleName: string,
     sourceKey: number,
     variationIndex: number,
   ): string | null {
     return resolveSampleUrl({
       banks,
       bank: schema.bank,
-      sample: schema.sample,
+      sample: sampleName,
       sourceKey,
       variationIndex,
     });
+  }
+
+  private _fixedSampleName(schema: SamplerSchema) {
+    for (const bar of schema.events.sampleNames.cycle) {
+      for (const group of bar) {
+        if (group?.[0]) return group[0];
+      }
+    }
+    throw new Error("[AudioEngine] Expected a validated fixed sample name.");
   }
 
   getAnalyser(): AnalyserNode {

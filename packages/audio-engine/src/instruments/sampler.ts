@@ -29,6 +29,8 @@ interface SamplerOptions {
 class Sampler extends Instrument {
   private _schema: SamplerSchema;
   private _bufferStore: SampleBufferStore;
+  private readonly _sampleName: string;
+  private readonly _sourceKeys: number[];
   private _nextAlternateDirection: "forward" | "reverse" = "forward";
 
   constructor(
@@ -52,14 +54,21 @@ class Sampler extends Instrument {
       muted: schema.muted,
     });
     this._schema = schema;
+    this._sampleName = getFixedSampleName(schema);
+    this._sourceKeys = Object.keys(
+      banks[schema.bank]?.samples[this._sampleName] ?? {},
+    )
+      .map(Number)
+      .filter(Number.isFinite)
+      .sort((a, b) => a - b);
     this._bufferStore = new SampleBufferStore({
       ctx,
       banks,
       cache,
       bank: schema.bank,
-      sample: schema.sample,
+      sample: this._sampleName,
       initialVariationIndex: this._initialVariationIndex,
-      initialSourceKey: this._schema.sourceKeys[0] ?? 0,
+      initialSourceKey: this._sourceKeys[0] ?? 0,
       fallbackBuffer,
       prepareReverse: schema.direction !== "forward",
     });
@@ -71,7 +80,10 @@ class Sampler extends Instrument {
   }
 
   fallbackBufferFor(schema: SamplerSchema) {
-    return this._bufferStore.fallbackBufferFor(schema.bank, schema.sample);
+    return this._bufferStore.fallbackBufferFor(
+      schema.bank,
+      getFixedSampleName(schema),
+    );
   }
 
   resetPlaybackState() {
@@ -96,18 +108,11 @@ class Sampler extends Instrument {
   async load(): Promise<void> {
     await this._bufferStore.preload(
       preloadVariationIndices(this._schema),
-      this._schema.sourceKeys,
+      this._sourceKeys,
     );
   }
 
   scheduleBar(barIndex: number, barStartTime: number) {
-    if (!this._bufferStore.hasInitialBuffer()) {
-      console.warn(
-        `[Sampler] "${this._schema.bank}/${this._schema.sample}" not yet loaded — skipping bar ${barIndex}`,
-      );
-      return;
-    }
-
     this._updateLfoParams(barIndex, barStartTime);
 
     this._scheduleResolvedBar(barIndex, barStartTime);
@@ -135,7 +140,7 @@ class Sampler extends Instrument {
   ) {
     const sourceKey =
       voice.note === undefined
-        ? this._schema.sourceKeys[0]
+        ? (this._sourceKeys[0] ?? 0)
         : this._nearestSourceKey(voice.note);
     const pitchRate =
       voice.note === undefined ? 1 : this._pitchRate(voice.note, sourceKey);
@@ -234,8 +239,10 @@ class Sampler extends Instrument {
   }
 
   private _nearestSourceKey(note: number) {
-    return this._schema.sourceKeys.reduce((nearest, key) =>
-      Math.abs(key - note) < Math.abs(nearest - note) ? key : nearest,
+    return this._sourceKeys.reduce(
+      (nearest, key) =>
+        Math.abs(key - note) < Math.abs(nearest - note) ? key : nearest,
+      this._sourceKeys[0] ?? 0,
     );
   }
 
@@ -340,6 +347,15 @@ class Sampler extends Instrument {
     const end = Math.max(...ends);
     return (end - start) * entrySourceDuration;
   }
+}
+
+function getFixedSampleName(schema: SamplerSchema) {
+  for (const bar of schema.events.sampleNames.cycle) {
+    for (const group of bar) {
+      if (group?.[0]) return group[0];
+    }
+  }
+  throw new Error("[Sampler] Expected a validated fixed sample name.");
 }
 
 export default Sampler;

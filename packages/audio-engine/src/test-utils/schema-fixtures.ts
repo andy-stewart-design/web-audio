@@ -1,94 +1,66 @@
 import type {
   BankSchema,
+  ChanceCondition,
   DromeSchema,
   EnvelopeSchema,
-  NotesSchema,
-  RandomSchema,
+  NotePattern,
+  RandomNumberPattern,
+  SamplerEventSchema,
   SamplerSchema,
-  StaticSchema,
-  StaticSchemaValue,
+  SynthEventSchema,
   SynthesizerSchema,
+  StaticValuePattern,
+  TimingSchema,
+  TimingStep,
 } from "@web-audio/schema";
 
-// These factories centralize the current baseline schema while PR 1 replaces
-// its representation. Behavior-specific tests should still construct unusual
-// or intentionally invalid shapes locally.
-
-function staticNumberPattern(values: number[] = [0]): StaticSchema {
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle: [
-      values.map((value, stepIndex) => ({
-        value,
-        offset: values.length === 1 ? 0 : stepIndex / values.length,
-        duration: 1 / values.length,
-        stepIndex,
-      })),
-    ],
-  };
+function staticNumberPattern(
+  values: number[] = [0],
+): StaticValuePattern<number> {
+  return { type: "static", cycle: [values] };
 }
 
-function staticNumberBars(...values: number[]): StaticSchema {
+function staticNumberBars(...values: number[]): StaticValuePattern<number> {
   return {
     type: "static",
-    polyphonic: false,
-    cycle: values.map((value) => [
-      { value, offset: 0, duration: 1, stepIndex: 0 },
-    ]),
+    cycle: values.map((value) => [value]),
   };
 }
 
 function randomNumberPattern(
-  overrides: {
-    algorithm?: RandomSchema["algorithm"];
-    chance?: RandomSchema["chance"];
-    dataType?: RandomSchema["dataType"];
-    grid?: RandomSchema["grid"];
-    quantValue?: RandomSchema["quantValue"];
-    range?: RandomSchema["range"];
-    segments?: RandomSchema["segments"];
-    valueMap?: RandomSchema["valueMap"];
-  } = {},
-): RandomSchema {
+  overrides: Partial<Omit<RandomNumberPattern, "type">> = {},
+) {
   return {
-    type: "random",
+    type: "random-number",
+    valuesPerBar: [1],
     algorithm: "xor",
     dataType: "float",
-    grid: staticNumberPattern([1]),
-    quantValue: undefined,
-    range: undefined,
     segments: [{ seed: 0 }],
+    order: "forward",
     ...overrides,
-  };
+  } satisfies RandomNumberPattern;
 }
 
-function timingBar(
-  steps: StaticSchemaValue[] = [
-    { value: 1, offset: 0, duration: 1, stepIndex: 0 },
-  ],
-) {
+function timingBar(steps: TimingStep[] = [{ offset: 0, duration: 1 }]) {
   return steps;
 }
 
-function timingSchema(bars: StaticSchemaValue[][] = [timingBar()]) {
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle: bars,
-  } satisfies StaticSchema;
+function timingSchema(bars: TimingStep[][] = [timingBar()]) {
+  return { cycle: bars } satisfies TimingSchema;
 }
 
 function chanceCondition(
   probability = 1,
-  bars: StaticSchemaValue[][] = [timingBar()],
+  overrides: Partial<Omit<ChanceCondition, "type" | "probability">> = {},
 ) {
-  return randomNumberPattern({
+  return {
+    type: "chance",
+    probability,
+    segments: [{ seed: 0 }],
     algorithm: "xor",
-    chance: probability,
-    dataType: "binary",
-    grid: timingSchema(bars),
-  });
+    order: "forward",
+    ...overrides,
+  } satisfies ChanceCondition;
 }
 
 function defaultEnvelope(): EnvelopeSchema {
@@ -104,29 +76,40 @@ function defaultEnvelope(): EnvelopeSchema {
   };
 }
 
-function defaultNotes(): NotesSchema {
+function defaultNotes(): NotePattern {
+  return { type: "static", cycle: [[[60]]] };
+}
+
+function defaultSynthEvents(
+  overrides: Partial<SynthEventSchema> = {},
+): SynthEventSchema {
   return {
-    source: staticNumberPattern([60]),
+    timing: timingSchema(),
+    notes: defaultNotes(),
+    ...overrides,
   };
 }
 
-type SynthSchemaOverrides = {
-  waveform?: SynthesizerSchema["waveform"];
-  notes?: SynthesizerSchema["notes"];
-  notesOut?: SynthesizerSchema["notesOut"];
-  detune?: SynthesizerSchema["detune"];
-  gain?: SynthesizerSchema["gain"];
-  effects?: SynthesizerSchema["effects"];
-  muted?: SynthesizerSchema["muted"];
-  route?: SynthesizerSchema["route"];
-  sends?: SynthesizerSchema["sends"];
-};
+type SynthSchemaOverrides = Partial<
+  Pick<
+    SynthesizerSchema,
+    | "waveform"
+    | "events"
+    | "notesOut"
+    | "detune"
+    | "gain"
+    | "effects"
+    | "muted"
+    | "route"
+    | "sends"
+  >
+>;
 
 function defaultSynthSchema(overrides: SynthSchemaOverrides = {}) {
   return {
     type: "synthesizer",
     waveform: "sine",
-    notes: defaultNotes(),
+    events: defaultSynthEvents(),
     detune: staticNumberPattern([0]),
     gain: defaultEnvelope(),
     effects: [],
@@ -137,37 +120,42 @@ function defaultSynthSchema(overrides: SynthSchemaOverrides = {}) {
   } satisfies SynthesizerSchema;
 }
 
-type SamplerSchemaOverrides = {
-  bank?: SamplerSchema["bank"];
-  sample?: SamplerSchema["sample"];
-  variation?: SamplerSchema["variation"];
-  notes?: SamplerSchema["notes"];
-  fit?: SamplerSchema["fit"];
-  region?: SamplerSchema["region"];
-  sourceKeys?: SamplerSchema["sourceKeys"];
-  detune?: SamplerSchema["detune"];
-  gain?: SamplerSchema["gain"];
-  effects?: SamplerSchema["effects"];
-  muted?: SamplerSchema["muted"];
-  route?: SamplerSchema["route"];
-  sends?: SamplerSchema["sends"];
-  loop?: SamplerSchema["loop"];
-  clipMode?: SamplerSchema["clipMode"];
-  direction?: SamplerSchema["direction"];
-};
+function defaultSamplerEvents(
+  overrides: Partial<SamplerEventSchema> = {},
+): SamplerEventSchema {
+  return {
+    timing: timingSchema(),
+    sampleNames: { type: "static", cycle: [[["bd"]]] },
+    ...overrides,
+  };
+}
+
+type SamplerSchemaOverrides = Partial<
+  Pick<
+    SamplerSchema,
+    | "bank"
+    | "events"
+    | "fit"
+    | "region"
+    | "detune"
+    | "gain"
+    | "effects"
+    | "muted"
+    | "route"
+    | "sends"
+    | "loop"
+    | "clipMode"
+    | "direction"
+  >
+>;
 
 function defaultSamplerSchema(overrides: SamplerSchemaOverrides = {}) {
   return {
     type: "sampler",
     bank: "kit",
-    sample: "bd",
-    variation: staticNumberPattern([0]),
-    notes: {
-      source: staticNumberPattern([0]),
-    },
+    events: defaultSamplerEvents(),
     fit: null,
     region: null,
-    sourceKeys: [0],
     detune: staticNumberPattern([0]),
     gain: defaultEnvelope(),
     effects: [],
@@ -232,8 +220,10 @@ export {
   chanceCondition,
   defaultEnvelope,
   defaultNotes,
+  defaultSamplerEvents,
   defaultSamplerGraph,
   defaultSamplerSchema,
+  defaultSynthEvents,
   defaultSynthSchema,
   fileBank,
   randomNumberPattern,

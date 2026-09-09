@@ -3,6 +3,7 @@ import type { Midi } from "@web-audio/midi";
 import type { DromeSchema } from "@web-audio/schema";
 import {
   defaultSamplerGraph,
+  defaultSamplerSchema,
   defaultSynthSchema,
   randomNumberPattern,
   staticNumberBars,
@@ -300,7 +301,7 @@ describe("AudioEngine", () => {
         "[Schema] Effects on main are not supported in the bus MVP.",
       );
       expect(() => engine.update(withDynamicNamedEffect)).toThrow(
-        '[Schema] Bus "drums" effects[0].gain must be a finite bar-resolvable static or random parameter.',
+        '[Schema] Bus "drums" effects[0].gain.id must be non-empty.',
       );
 
       clock.emit("bar");
@@ -538,13 +539,11 @@ describe("AudioEngine", () => {
         },
         verb: { gain: 0.5, transition: 0, effects: [] },
       };
-      Object.assign(schema.instruments[0], {
-        type: "sampler",
+      schema.instruments[0] = defaultSamplerSchema({
         route: "drums",
         sends: { verb: 0.1 },
       });
-      Object.assign(schema.instruments[1], {
-        type: "sampler",
+      schema.instruments[1] = defaultSamplerSchema({
         route: "drums",
         sends: { verb: 0.4 },
       });
@@ -667,7 +666,7 @@ describe("AudioEngine", () => {
       if (effect.type !== "filter" || effect.frequency.type !== "static") {
         expect.unreachable();
       }
-      effect.frequency.cycle[0][0].value = 2_000;
+      effect.frequency.cycle[0][0] = 2_000;
       schema.instruments[0].route = "main";
       schema.instruments[0].sends.verb = 0.9;
       clock.emit("prebar");
@@ -1131,17 +1130,9 @@ describe("AudioEngine", () => {
       const schema = makeSamplerSchema();
       const sampler = schema.instruments[0];
       if (sampler.type !== "sampler") expect.unreachable();
-      sampler.variation = {
+      sampler.events.variationIndices = {
         type: "static",
-        polyphonic: false,
-        cycle: [
-          [
-            { value: 0, offset: 0, duration: 0.25, stepIndex: 0 },
-            { value: 1, offset: 0.25, duration: 0.25, stepIndex: 1 },
-            { value: 2, offset: 0.5, duration: 0.25, stepIndex: 2 },
-            { value: 3, offset: 0.75, duration: 0.25, stepIndex: 3 },
-          ],
-        ],
+        cycle: [[[0], [1], [2], [3]]],
       };
       schema.banks.kit.samples.bd = {
         "0": [
@@ -1171,16 +1162,9 @@ describe("AudioEngine", () => {
       const schema = makeSamplerSchema();
       const sampler = schema.instruments[0];
       if (sampler.type !== "sampler") expect.unreachable();
-      sampler.sourceKeys = [45, 57, 69];
-      sampler.variation = {
+      sampler.events.variationIndices = {
         type: "static",
-        polyphonic: false,
-        cycle: [
-          [
-            { value: 0, offset: 0, duration: 0.5, stepIndex: 0 },
-            { value: 1, offset: 0.5, duration: 0.5, stepIndex: 1 },
-          ],
-        ],
+        cycle: [[[0], [1]]],
       };
       schema.banks.kit.samples.bd = {
         "45": [
@@ -1205,7 +1189,7 @@ describe("AudioEngine", () => {
       await engine.prepare();
 
       expect(fetchMock).toHaveBeenCalledTimes(6);
-      for (const sourceKey of sampler.sourceKeys) {
+      for (const sourceKey of [45, 57, 69]) {
         for (const variationIndex of [0, 1]) {
           expect(fetchMock).toHaveBeenCalledWith(
             `https://example.com/${sourceKey}-${variationIndex}.wav`,
@@ -1220,7 +1204,6 @@ describe("AudioEngine", () => {
       const schema = makeSamplerSchema();
       const sampler = schema.instruments[0];
       if (sampler.type !== "sampler") expect.unreachable();
-      sampler.sourceKeys = [45, 57];
       schema.banks.kit.samples.bd = {
         "45": [
           {

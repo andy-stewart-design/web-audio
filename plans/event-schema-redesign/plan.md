@@ -899,21 +899,21 @@ Sampler requirements:
 
 **Acceptance criteria:**
 
-- [ ] Synth and sampler share timing semantics.
-- [ ] Processing resolution is unchanged for successful events.
-- [ ] Random timing misses consume no processing values.
-- [ ] Missing sampler resources do not shift subsequent patterns.
-- [ ] Failed validation leaves pending and active engine state unchanged.
-- [ ] Existing envelopes, detune, effects, MIDI, regions, fit, loop, clip, and direction behavior remains covered.
-- [ ] Shared fixture defaults satisfy `validateDromeGraph()`.
-- [ ] Existing valid direct fixtures use the target shape or remain local only because their unusual shape is under test.
-- [ ] No old-schema fixture helper or compatibility union remains.
+- [x] Synth and sampler share timing semantics.
+- [x] Processing resolution is unchanged for successful events.
+- [x] Random timing misses consume no processing values.
+- [x] Missing sampler resources do not shift subsequent patterns.
+- [x] Failed validation leaves pending and active engine state unchanged.
+- [x] Existing envelopes, detune, effects, MIDI, regions, fit, loop, clip, and direction behavior remains covered.
+- [x] Shared fixture defaults satisfy `validateDromeGraph()`.
+- [x] Existing valid direct fixtures use the target shape or remain local only because their unusual shape is under test.
+- [x] No old-schema fixture helper or compatibility union remains.
 
 **Testing:**
 
-- [ ] `AudioEngine.update()` tests prove failed validation leaves pending/active state unchanged.
-- [ ] `pnpm --filter @web-audio/audio-engine check`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] `AudioEngine.update()` tests prove failed validation leaves pending/active state unchanged.
+- [x] `pnpm --filter @web-audio/audio-engine check`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
 
 ---
 
