@@ -55,7 +55,7 @@ d.synth().notes([60, null, 64, undefined]).push();
 d.synth().notes([60, , 64, 67]).push();
 ```
 
-These silent steps still take up time. They are rests, not removed steps. Rests preserve the timing grid but do not consume notes, gain values, sample variations, effect values, or other values resolved for a hit.
+These authored silent steps still take up time. They are rests, not shortened patterns. Fluid removes them from the compiled timing candidates while preserving the offsets of active steps. Rests do not consume notes, gain values, sample variations, effect values, or other values resolved for a hit.
 
 ## Patterns last one bar
 
@@ -124,15 +124,17 @@ For example:
 
 These helpers do not replace the pattern model. They are shortcuts for building step grids and deciding which steps should play.
 
-## Timing grids and active hits
+## Timing and active hits
 
-Rhythms and masks decide which grid positions become active **hits**. The surviving hits keep their original offsets and durations, but event-addressed value patterns advance only when a hit occurs.
+Authoring rhythms and masks decide which positions become compiled timing candidates. The playback schema stores only active candidate offsets and durations—never source grid positions or step indices. Fixed rests are already absent. An optional random chance condition may remove further candidates at playback.
+
+The surviving candidates become **hits**, and event-addressed value patterns advance only when a hit occurs.
 
 ```js
 d.synth("saw").notes([60, 64]).gain([0.25, 1]).euclid(2, 4).push();
 ```
 
-The Euclidean rhythm places hits at grid positions `0` and `2`. Those positions become hit `0` and hit `1`, so the notes are `60` then `64`, and the gain values are `0.25` then `1`. The silent grid positions do not consume values.
+The Euclidean rhythm authors hits at positions `0` and `2`. Fluid compiles their offsets into timing entries. They become hit `0` and hit `1`, so the notes are `60` then `64`, and the gain values are `0.25` then `1`. Silent authored positions do not consume values and are not serialized.
 
 This rule also applies to random masks: a random-mask miss is not a hit and consumes nothing. Each chord is one hit even though it creates multiple voices.
 
@@ -143,15 +145,25 @@ Hit numbering restarts within each bar, while pattern bars continue to advance n
 .gain(0.25, 1)   // one value in bar 1, then one value in bar 2
 ```
 
-This active-hit behavior is intentional. Grid positions control timing; hit order controls values used to create each event.
+This active-hit behavior is intentional. Authored positions compile into timing; final hit order controls values used to create each event.
+
+## Timing, event values, and processing values
+
+The compiled playback model has three independent parts:
+
+1. **Timing** says when candidate events occur and may include one chance condition.
+2. **Event values** provide instrument-specific notes, sample names, and variations.
+3. **Processing values** provide gain, detune, envelope, effect, and region settings.
+
+Value patterns contain no offsets or durations. Their bars and hits wrap independently and are addressed only after timing has produced final hits.
 
 ## The core model
 
 The whole system comes down to four levels:
 
-1. A **step** is one subdivision of a pattern's timing grid.
-2. A **hit** is an active step that survives rhythm and mask decisions.
-3. A **pattern** is one bar of steps.
-4. A **cycle** is one or more patterns repeating.
+1. A **step** is an authored subdivision of a pattern.
+2. A **hit** is a compiled candidate that survives all timing decisions.
+3. A **voice** is one simultaneous sound within an event, such as one chord note.
+4. A **cycle** is one or more pattern bars repeating.
 
 Once those are clear, the rest of Drome’s sequencing tools are easier to understand. They all build on the same structure.
