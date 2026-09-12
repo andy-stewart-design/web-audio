@@ -1050,18 +1050,18 @@ If rounding, later wrapping, reversed ranges, quantization, or broad random outp
 
 **Acceptance criteria:**
 
-- [ ] Preload uses bank-derived source keys.
-- [ ] Every provably possible static variation URL is included.
-- [ ] Unknown/broad random variation preloads all available entries.
-- [ ] Duplicate URLs load once across instruments and identities.
-- [ ] Missing resources warn and do not reject `prepare()`.
+- [x] Preload uses bank-derived source keys.
+- [x] Every provably possible static variation URL is included.
+- [x] Unknown/broad random variation preloads all available entries.
+- [x] Duplicate URLs load once across instruments and identities.
+- [x] Missing resources warn and do not reject `prepare()`.
 
 **Testing:**
 
-- [ ] Default, static, mapped random, finite integer random, and broad random variation plans.
-- [ ] Multiple source keys with different variation counts.
-- [ ] Shared URLs and sprites.
-- [ ] Reverse/alternate preparation.
+- [x] Default, static, mapped random, finite integer random, and broad random variation plans.
+- [x] Multiple source keys with different variation counts.
+- [x] Shared URLs and sprites.
+- [x] Reverse/alternate preparation.
 
 ---
 
@@ -1092,10 +1092,10 @@ Some authoring internals may still use local step positions. They must not reuse
 
 **Acceptance criteria:**
 
-- [ ] Repository search finds no old compiled-schema field usage.
-- [ ] No compatibility parser or union remains.
-- [ ] No unsafe cast was added to finish migration.
-- [ ] Build output exports only target schema types.
+- [x] Repository search finds no old compiled-schema field usage.
+- [x] No compatibility parser or union remains.
+- [x] No unsafe cast was added to finish migration.
+- [x] Build output exports only target schema types.
 
 ---
 
@@ -1124,9 +1124,9 @@ Do not document `.name()` or final variation timing until their PRs land.
 
 **Acceptance criteria:**
 
-- [ ] No docs show the old schema.
-- [ ] Public examples remain runnable against PR 1.
-- [ ] Terminology uses “event,” “hit,” “voice,” and “timing” consistently.
+- [x] No docs show the old schema.
+- [x] Public examples remain runnable against PR 1.
+- [x] Terminology uses “event,” “hit,” “voice,” and “timing” consistently.
 
 ---
 
@@ -1134,31 +1134,31 @@ Do not document `.name()` or final variation timing until their PRs land.
 
 **Automated verification:**
 
-- [ ] `pnpm exec prettier --check plans/event-schema-redesign/spec.md plans/event-schema-redesign/plan.md`
-- [ ] `pnpm --filter @web-audio/schema check`
-- [ ] `pnpm --filter @web-audio/schema test:ci`
-- [ ] `pnpm --filter @web-audio/patterns check`
-- [ ] `pnpm --filter @web-audio/patterns test:ci`
-- [ ] `pnpm --filter @web-audio/fluid check`
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine check`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
-- [ ] `pnpm check`
-- [ ] `pnpm lint`
-- [ ] `pnpm test`
-- [ ] `git diff --check`
+- [x] `pnpm exec prettier --check plans/event-schema-redesign/spec.md plans/event-schema-redesign/plan.md`
+- [x] `pnpm --filter @web-audio/schema check`
+- [x] `pnpm --filter @web-audio/schema test:ci`
+- [x] `pnpm --filter @web-audio/patterns check`
+- [x] `pnpm --filter @web-audio/patterns test:ci`
+- [x] `pnpm --filter @web-audio/fluid check`
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine check`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] `pnpm check`
+- [x] `pnpm lint`
+- [x] `pnpm test`
+- [x] `git diff --check`
 
 **Manual verification, only with user permission:**
 
-- [ ] Default synth and MIDI output.
-- [ ] Default sampler natural pitch.
-- [ ] Static and random rhythm masks.
-- [ ] Variation cycling.
-- [ ] Multisample pitch selection.
-- [ ] Sprite regions.
-- [ ] Chop/fit combinations.
-- [ ] Reverse and alternate playback.
-- [ ] Live update where a new exact URL skips until loaded without substituting an old buffer.
+- [x] Default synth and MIDI output.
+- [x] Default sampler natural pitch.
+- [x] Static and random rhythm masks.
+- [x] Variation cycling.
+- [x] Multisample pitch selection.
+- [x] Sprite regions.
+- [x] Chop/fit combinations.
+- [x] Reverse and alternate playback.
+- [x] Live update where a new exact URL skips until loaded without substituting an old buffer.
 
 ---
 

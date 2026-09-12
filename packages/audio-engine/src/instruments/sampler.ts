@@ -6,7 +6,7 @@ import type {
 } from "@web-audio/schema";
 import Instrument, { type InstrumentRouting } from "./instrument";
 import { SAMPLE_BASE_GAIN } from "@/constants";
-import { preloadVariationIndices } from "@/utils/preload-variations";
+import { planSamplerPreloads } from "@/utils/preload-samples";
 import {
   deriveSourceKeys,
   resolveSample,
@@ -78,21 +78,9 @@ class Sampler extends Instrument {
   }
 
   async load() {
-    const prepareReverse = this._schema.direction !== "forward";
     await Promise.all(
-      this._sourceKeys.flatMap((sourceKey) =>
-        preloadVariationIndices(this._schema).map((variationIndex) => {
-          const entry = resolveSampleEntry({
-            banks: this._banks,
-            bank: this._schema.bank,
-            sample: this._sampleName,
-            sourceKey,
-            variationIndex,
-          });
-          return entry
-            ? this._bufferCache.prepare(entry.src, prepareReverse)
-            : Promise.resolve(null);
-        }),
+      planSamplerPreloads(this._schema, this._banks).map(({ url, reverse }) =>
+        this._bufferCache.prepare(url, reverse),
       ),
     );
   }

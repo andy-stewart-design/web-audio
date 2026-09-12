@@ -1,7 +1,7 @@
 import type AudioClock from "@web-audio/clock";
 import type { Midi } from "@web-audio/midi";
 import { validateDromeGraph } from "@web-audio/schema";
-import type { DromeSchema, SamplerSchema } from "@web-audio/schema";
+import type { DromeSchema } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
 import RuntimeBus from "./buses/runtime-bus";
 import { DEFAULT_BPM } from "./constants";
@@ -10,12 +10,7 @@ import SampleBufferCache from "./instruments/sample-buffer-cache";
 import Synthesizer from "./instruments/synthesizer";
 import MidiOutputScheduler from "./midi-output-scheduler";
 import { registerWorklets } from "./utils/register-worklets";
-import { preloadVariationIndices } from "./utils/preload-variations";
-import {
-  deriveSourceKeys,
-  resolveSample,
-  resolveSampleEntry,
-} from "./utils/resolve-sample-entry";
+import { planSamplerPreloads } from "./utils/preload-samples";
 
 type RuntimeInstrument = Synthesizer | Sampler;
 
@@ -120,25 +115,8 @@ class AudioEngine {
     const urls = new Map<string, boolean>();
     for (const schema of instruments) {
       if (schema.type !== "sampler") continue;
-      const sampleName = this._fixedSampleName(schema);
-      const sample = resolveSample(banks, schema.bank, sampleName);
-      const sourceKeys = sample ? deriveSourceKeys(sample) : [];
-      for (const sourceKey of sourceKeys) {
-        for (const varIndex of preloadVariationIndices(schema)) {
-          const entry = resolveSampleEntry({
-            banks,
-            bank: schema.bank,
-            sample: sampleName,
-            sourceKey,
-            variationIndex: varIndex,
-          });
-          if (entry) {
-            urls.set(
-              entry.src,
-              urls.get(entry.src) || schema.direction !== "forward",
-            );
-          }
-        }
+      for (const { url, reverse } of planSamplerPreloads(schema, banks)) {
+        urls.set(url, urls.get(url) || reverse);
       }
     }
 
@@ -232,15 +210,6 @@ class AudioEngine {
       graph.instruments.forEach((instrument) => instrument.destroy());
       graph.buses.forEach((bus) => bus.destroy());
     });
-  }
-
-  private _fixedSampleName(schema: SamplerSchema) {
-    for (const bar of schema.events.sampleNames.cycle) {
-      for (const group of bar) {
-        if (group?.[0]) return group[0];
-      }
-    }
-    throw new Error("[AudioEngine] Expected a validated fixed sample name.");
   }
 
   getAnalyser(): AnalyserNode {
