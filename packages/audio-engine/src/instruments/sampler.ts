@@ -36,8 +36,6 @@ class Sampler extends Instrument {
   private _schema: SamplerSchema;
   private readonly _bufferCache: SampleBufferCache;
   private readonly _banks: Record<string, BankSchema>;
-  private readonly _sampleName: string;
-  private readonly _sourceKeys: readonly number[];
   private _nextAlternateDirection: "forward" | "reverse" = "forward";
 
   constructor(
@@ -61,9 +59,6 @@ class Sampler extends Instrument {
     });
     this._schema = schema;
     this._banks = banks;
-    this._sampleName = getFixedSampleName(schema);
-    const sample = resolveSample(banks, schema.bank, this._sampleName);
-    this._sourceKeys = sample ? deriveSourceKeys(sample) : [];
     this._bufferCache = cache;
     this._initLfos(schema, startingBar, barStartTime);
   }
@@ -111,10 +106,16 @@ class Sampler extends Instrument {
     barStartTime: number,
     barIndex: number,
   ) {
+    const sample = resolveSample(
+      this._banks,
+      this._schema.bank,
+      voice.sampleName,
+    );
+    const sourceKeys = sample ? deriveSourceKeys(sample) : [];
     const sourceKey =
       voice.note === undefined
-        ? selectNaturalSourceKey(this._sourceKeys)
-        : selectNearestSourceKey(this._sourceKeys, voice.note);
+        ? selectNaturalSourceKey(sourceKeys)
+        : selectNearestSourceKey(sourceKeys, voice.note);
     if (sourceKey === null) {
       console.warn(
         `[Sampler] No source keys found for "${this._schema.bank}/${voice.sampleName}" — skipping voice`,
@@ -333,15 +334,6 @@ class Sampler extends Instrument {
     const end = Math.max(...ends);
     return (end - start) * entrySourceDuration;
   }
-}
-
-function getFixedSampleName(schema: SamplerSchema) {
-  for (const bar of schema.events.sampleNames.cycle) {
-    for (const group of bar) {
-      if (group?.[0]) return group[0];
-    }
-  }
-  throw new Error("[Sampler] Expected a validated fixed sample name.");
 }
 
 export default Sampler;

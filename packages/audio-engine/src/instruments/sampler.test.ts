@@ -151,6 +151,36 @@ describe("Sampler scheduling", () => {
     );
   });
 
+  it("selects source keys independently for each resolved sample name", async () => {
+    const banks: Record<string, BankSchema> = fileBank();
+    banks.kit.samples.piano = {
+      "48": [{ type: "file", src: "https://example.com/48.wav" }],
+      "60": [{ type: "file", src: "https://example.com/60.wav" }],
+    };
+    const instance = await sampler(
+      schema({
+        events: {
+          timing: timing(),
+          notes: { type: "static", cycle: [[[0, 62]]] },
+          sampleNames: { type: "static", cycle: [[["bd", "piano"]]] },
+        },
+      }),
+      banks,
+      cache({
+        "https://example.com/bd.wav": buffer(),
+        "https://example.com/48.wav": buffer(),
+        "https://example.com/60.wav": buffer(),
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeBufferSourceNode.instances).toHaveLength(2);
+    expect(
+      FakeBufferSourceNode.instances.map(({ options }) => options.playbackRate),
+    ).toEqual([1, expect.closeTo(Math.pow(2, 2 / 12))]);
+  });
+
   it("resolves variation and processing values by final surviving hit", async () => {
     const banks = fileBank("kit", "bd", [
       "https://example.com/0.wav",
