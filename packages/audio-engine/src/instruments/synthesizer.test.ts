@@ -264,6 +264,53 @@ describe("Synthesizer scheduling", () => {
     expect(FakeGainNode.instances).toHaveLength(gainCount);
   });
 
+  it("keeps local playback when configured MIDI output is unavailable", () => {
+    const instance = synth(
+      schema({ notesOut: { type: "midi-out", channel: 1 } }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeOscillatorNode.instances).toHaveLength(1);
+  });
+
+  it("clamps MIDI velocity and suppresses zero-velocity output", () => {
+    const scheduleNote = vi.fn();
+    const loud = synth(
+      schema({
+        gain: envelope(staticNumberPattern([2])),
+        notesOut: { type: "midi-out", channel: 1 },
+      }),
+      { scheduleNote } as unknown as MidiOutputScheduler,
+    );
+    const silent = synth(
+      schema({
+        gain: envelope(staticNumberPattern([0])),
+        notesOut: { type: "midi-out", channel: 1 },
+      }),
+      { scheduleNote } as unknown as MidiOutputScheduler,
+    );
+
+    loud.scheduleBar(0, 10);
+    silent.scheduleBar(0, 10);
+
+    expect(FakeOscillatorNode.instances).toHaveLength(2);
+    expect(scheduleNote).toHaveBeenCalledTimes(1);
+    expect(scheduleNote.mock.calls[0][0].velocity).toBe(127);
+  });
+
+  it("does not submit MIDI when notesOut is absent", () => {
+    const scheduleNote = vi.fn();
+    const instance = synth(schema(), {
+      scheduleNote,
+    } as unknown as MidiOutputScheduler);
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeOscillatorNode.instances).toHaveLength(1);
+    expect(scheduleNote).not.toHaveBeenCalled();
+  });
+
   it("mirrors every audio chord voice to MIDI with gain-derived velocity", () => {
     const scheduleNote = vi.fn();
     const instance = synth(

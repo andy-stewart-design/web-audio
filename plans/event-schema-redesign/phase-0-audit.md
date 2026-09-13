@@ -20,6 +20,20 @@ pnpm --filter @web-audio/audio-engine test:ci
 
 The runs report existing non-failing warnings about the root `pnpm.overrides` field and the Fluid/audio-engine Vite `__dirname` configuration. No test failures were observed.
 
+## How to read historical coverage references
+
+This document records the repository at the start of Phase 0. Paths and test names in **Characterization coverage at baseline** and **Old compiled-schema inventory** are historical evidence, not a claim that those files remain after migration. In particular, `resolve-note-events.test.ts` and `sample-buffer-store.test.ts` were removed with the APIs they tested.
+
+Current equivalents are organized by responsibility:
+
+- `resolve-timing.test.ts` covers candidate filtering, chance misses, final hit numbering, empty bars, and long durations.
+- `resolve-synth-events.test.ts` and `resolve-sampler-events.test.ts` cover independent bar/hit wrapping, chords and layers, natural pitch defaults, variations, and event construction.
+- `value-pattern-resolver.test.ts`, `synthesizer.test.ts`, `sampler.test.ts`, and `instrument.test.ts` cover hit-addressed processing, scheduling, MIDI, resource failures, regions, sprites, chop/fit, playback modes, alternate direction, and lifecycle behavior.
+- `resolve-sample-entry.test.ts`, `preload-samples.test.ts`, `sample-buffer-cache.test.ts`, and `reversed-buffer-cache.test.ts` cover source-key selection, variation resolution, preload planning, exact-URL loading, retries, deduplication, and reverse-buffer reuse.
+- `engine.test.ts` covers graph validation, commit/update isolation, routing, preload integration, retirement, cancellation, and cleanup.
+
+The migrated suites intentionally assert target-schema behavior rather than retaining tests coupled to deleted schema fields, fallback buffers, sampler-wide readiness, or obsolete resolver/store internals.
+
 ## Phase 0.2 fixture sequencing note
 
 The target schema types begin in PR 1 Phase 1, Step 1.1 and the complete target instrument/validation surface lands through Step 1.3. Therefore `packages/audio-engine/src/test-utils/schema-fixtures.ts` is intentionally a temporary baseline fixture seam at this point. It centralizes the current schema shape so repeated fixtures can be migrated in one place, but it still contains the old `StaticSchema`, `RandomSchema.grid`, `NotesSchema`, `stepIndex`, and `polyphonic` fields. The implementation plan schedules target-schema conversion in Step 4.4 alongside the engine consumers that use the fixtures; no parallel compatibility schema is being introduced.
@@ -35,9 +49,9 @@ The labels below describe the intended disposition during PR 1:
 - **intentional change deferred to PR 2** — behavior remains out of scope until variation/event semantics land;
 - **intentional change deferred to PR 3** — behavior remains out of scope until sample-name patterning lands.
 
-## Characterization coverage
+## Characterization coverage at baseline
 
-Each behavior is listed separately so the audit remains readable on narrow screens.
+Each behavior is listed separately so the baseline audit remains readable on narrow screens. Test names and paths in this section identify the pre-migration suite; use the current-equivalents map above for the post-migration ownership.
 
 - **Static notes with no mask**
   - **Disposition:** preserve

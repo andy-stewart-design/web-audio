@@ -356,6 +356,217 @@ describe("Sampler scheduling", () => {
     );
   });
 
+  it("maps sprite and static-region windows onto the full buffer", async () => {
+    const banks: Record<string, BankSchema> = fileBank();
+    banks.kit.samples.bd = {
+      "0": [
+        {
+          type: "sprite",
+          src: "https://example.com/kit.wav",
+          start: 0.25,
+          end: 0.75,
+        },
+      ],
+    };
+    const instance = await sampler(
+      schema({
+        region: {
+          type: "static",
+          start: staticNumberPattern([0.25]),
+          end: staticNumberPattern([0.75]),
+        },
+      }),
+      banks,
+      cache({ "https://example.com/kit.wav": buffer(8) }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeBufferSourceNode.instances[0].start).toHaveBeenCalledWith(10, 3);
+    expect(FakeBufferSourceNode.instances[0].stop).toHaveBeenCalledWith(
+      expect.closeTo(12.0525),
+    );
+  });
+
+  it("maps reverse regions and loop points in forward coordinates", async () => {
+    const instance = await sampler(
+      schema({
+        direction: "reverse",
+        loop: true,
+        region: {
+          type: "static",
+          start: staticNumberPattern([0.25]),
+          duration: staticNumberPattern([0.25]),
+        },
+      }),
+      fileBank(),
+      cache({ "https://example.com/bd.wav": buffer(8) }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    const source = FakeBufferSourceNode.instances[0];
+    expect(source.start).toHaveBeenCalledWith(10, 4);
+    expect(source.options.loop).toBe(true);
+    expect(source.options.loopStart).toBe(4);
+    expect(source.options.loopEnd).toBe(6);
+  });
+
+  it("lets one-shot samples play for their resolved source duration", async () => {
+    const instance = await sampler(
+      schema({
+        events: {
+          timing: timing([[{ offset: 0, duration: 0.25 }]]),
+          sampleNames: { type: "static", cycle: [[["bd"]]] },
+        },
+        clipMode: "one-shot",
+      }),
+      fileBank(),
+      cache({ "https://example.com/bd.wav": buffer(4) }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeBufferSourceNode.instances[0].stop).toHaveBeenCalledWith(
+      expect.closeTo(14.0525),
+    );
+  });
+
+  it("uses sprite duration when fitting playback", async () => {
+    const banks: Record<string, BankSchema> = fileBank();
+    banks.kit.samples.bd = {
+      "0": [
+        {
+          type: "sprite",
+          src: "https://example.com/kit.wav",
+          start: 0.25,
+          end: 0.75,
+        },
+      ],
+    };
+    const instance = await sampler(
+      schema({ fit: { type: "fit", bars: 1 } }),
+      banks,
+      cache({ "https://example.com/kit.wav": buffer(8) }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeBufferSourceNode.instances[0].options.playbackRate).toBe(2);
+  });
+
+  it("keeps later hit values after a missing exact buffer", async () => {
+    const banks = fileBank("kit", "bd", [
+      "https://example.com/missing.wav",
+      "https://example.com/loaded.wav",
+    ]);
+    const buffers = cache({
+      "https://example.com/loaded.wav": buffer(),
+    });
+    const instance = await sampler(
+      schema({
+        events: {
+          timing: timing([
+            [
+              { offset: 0, duration: 0.5 },
+              { offset: 0.5, duration: 0.5 },
+            ],
+          ]),
+          sampleNames: { type: "static", cycle: [[["bd"], ["bd"]]] },
+          variationIndices: { type: "static", cycle: [[[0], [1]]] },
+        },
+        detune: staticNumberPattern([10, 20]),
+      }),
+      banks,
+      buffers,
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeBufferSourceNode.instances).toHaveLength(1);
+    expect(FakeBufferSourceNode.instances[0].options.detune).toBe(20);
+    expect(FakeBufferSourceNode.instances[0].start).toHaveBeenCalledWith(11);
+  });
+
+  it("skips invalid regions without compressing later hit values", async () => {
+    const instance = await sampler(
+      schema({
+        events: {
+          timing: timing([
+            [
+              { offset: 0, duration: 0.5 },
+              { offset: 0.5, duration: 0.5 },
+            ],
+          ]),
+          sampleNames: { type: "static", cycle: [[["bd"], ["bd"]]] },
+        },
+        detune: staticNumberPattern([10, 20]),
+        region: {
+          type: "static",
+          start: staticNumberPattern([0.75, 0]),
+          end: staticNumberPattern([0.25, 1]),
+        },
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeBufferSourceNode.instances).toHaveLength(1);
+    expect(FakeBufferSourceNode.instances[0].options.detune).toBe(20);
+    expect(FakeBufferSourceNode.instances[0].start).toHaveBeenCalledWith(11, 0);
+  });
+
+  it("advances alternate direction once after partial voice success", async () => {
+    const buffers = cache({ "https://example.com/bd.wav": buffer() });
+    const instance = await sampler(
+      schema({
+        events: {
+          timing: timing([
+            [
+              { offset: 0, duration: 0.5 },
+              { offset: 0.5, duration: 0.5 },
+            ],
+          ]),
+          sampleNames: {
+            type: "static",
+            cycle: [
+              [
+                ["missing", "bd"],
+                ["missing", "bd"],
+              ],
+            ],
+          },
+        },
+        direction: "alternate",
+      }),
+      fileBank(),
+      buffers,
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(
+      vi.mocked(buffers.get).mock.calls.map(([, reversed]) => reversed),
+    ).toEqual([false, true]);
+  });
+
+  it("resets alternate direction when future notes are cancelled", async () => {
+    const buffers = cache({ "https://example.com/bd.wav": buffer() });
+    const instance = await sampler(
+      schema({ direction: "alternate" }),
+      fileBank(),
+      buffers,
+    );
+
+    instance.scheduleBar(0, 10);
+    instance.cancelFutureNotes();
+    instance.scheduleBar(1, 12);
+
+    expect(
+      vi.mocked(buffers.get).mock.calls.map(([, reversed]) => reversed),
+    ).toEqual([false, false]);
+  });
+
   it("skips empty timing bars without resolving resources", async () => {
     const instance = await sampler(
       schema({
