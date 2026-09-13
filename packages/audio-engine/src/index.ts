@@ -1,16 +1,16 @@
 import type AudioClock from "@web-audio/clock";
 import type { Midi } from "@web-audio/midi";
 import { validateDromeGraph } from "@web-audio/schema";
-import type { BankSchema, DromeSchema, SamplerSchema } from "@web-audio/schema";
+import type { DromeSchema } from "@web-audio/schema";
 import { lfoProcessorSource } from "@web-audio/worklets";
 import RuntimeBus from "./buses/runtime-bus";
 import { DEFAULT_BPM } from "./constants";
 import Sampler from "./instruments/sampler";
+import SampleBufferCache from "./instruments/sample-buffer-cache";
 import Synthesizer from "./instruments/synthesizer";
 import MidiOutputScheduler from "./midi-output-scheduler";
 import { registerWorklets } from "./utils/register-worklets";
-import { preloadVariationIndices } from "./utils/preload-variations";
-import { resolveSampleUrl } from "./utils/resolve-sample-entry";
+import { planSamplerPreloads } from "./utils/preload-samples";
 
 type RuntimeInstrument = Synthesizer | Sampler;
 
@@ -36,13 +36,7 @@ class AudioEngine {
   private _midi: Midi | null = null;
   private _midiOutputScheduler: MidiOutputScheduler;
   private _unsub: Set<() => void>;
-  // Two-level cache: resolved for synchronous access in _commit(), promises
-  // for deduplicating concurrent fetches across instruments and commits.
-  private _cache = {
-    resolved: new Map<string, AudioBuffer>(),
-    promises: new Map<string, Promise<AudioBuffer | null>>(),
-    reversed: new WeakMap<AudioBuffer, AudioBuffer>(),
-  };
+  private readonly _sampleBufferCache: SampleBufferCache;
   readonly ready: Promise<void>;
 
   constructor(ctx: AudioContext, clock: AudioClock) {
@@ -53,6 +47,7 @@ class AudioEngine {
     this._master.connect(ctx.destination);
     this._master.connect(this._analyser);
     this._midiOutputScheduler = new MidiOutputScheduler(clock);
+    this._sampleBufferCache = new SampleBufferCache(ctx);
 
     this.ready = registerWorklets(this._ctx, [lfoProcessorSource]);
 
@@ -117,37 +112,19 @@ class AudioEngine {
     if (!this._pending) return;
     const { instruments, banks } = this._pending;
 
-    const urls = new Set<string>();
+    const urls = new Map<string, boolean>();
     for (const schema of instruments) {
       if (schema.type !== "sampler") continue;
-      for (const sourceKey of schema.sourceKeys) {
-        for (const varIndex of preloadVariationIndices(schema)) {
-          const url = this._resolveUrl(schema, banks, sourceKey, varIndex);
-          if (url) urls.add(url);
-        }
+      for (const { url, reverse } of planSamplerPreloads(schema, banks)) {
+        urls.set(url, urls.get(url) || reverse);
       }
     }
 
-    const loads = Array.from(urls).map((url) => {
-      if (!this._cache.promises.has(url)) {
-        this._cache.promises.set(
-          url,
-          fetch(url)
-            .then((r) => r.arrayBuffer())
-            .then((b) => this._ctx.decodeAudioData(b))
-            .catch(() => {
-              console.warn(`[Sampler] Failed to pre-load ${url}`);
-              this._cache.promises.delete(url);
-              return null;
-            }),
-        );
-      }
-      return this._cache.promises.get(url)!.then((buffer) => {
-        if (buffer) this._cache.resolved.set(url, buffer);
-      });
-    });
-
-    await Promise.all(loads);
+    await Promise.all(
+      Array.from(urls, ([url, reverse]) =>
+        this._sampleBufferCache.prepare(url, reverse),
+      ),
+    );
   }
 
   private _commit(upcomingBar = 0, barStartTime?: number): void {
@@ -172,7 +149,7 @@ class AudioEngine {
         );
       }
 
-      for (const [index, schema] of pending.instruments.entries()) {
+      for (const schema of pending.instruments) {
         const route = schema.route;
         const destination =
           route === "main" ? this._master : buses.get(route)!.input;
@@ -190,10 +167,9 @@ class AudioEngine {
             destination,
             routing,
             banks: pending.banks,
-            cache: this._cache,
+            cache: this._sampleBufferCache,
             startingBar: upcomingBar,
             barStartTime,
-            fallbackBuffer: this._fallbackBufferFor(schema, index),
           });
           // load() hits _cache.resolved synchronously if prepare() ran.
           void instrument.load();
@@ -233,30 +209,6 @@ class AudioEngine {
       if (!this._retiringGraphs.delete(graph)) return;
       graph.instruments.forEach((instrument) => instrument.destroy());
       graph.buses.forEach((bus) => bus.destroy());
-    });
-  }
-
-  private _fallbackBufferFor(
-    schema: SamplerSchema,
-    index: number,
-  ): AudioBuffer | null {
-    const previous = this._activeGraph.instruments[index];
-    if (!(previous instanceof Sampler)) return null;
-    return previous.fallbackBufferFor(schema);
-  }
-
-  private _resolveUrl(
-    schema: SamplerSchema,
-    banks: Record<string, BankSchema>,
-    sourceKey: number,
-    variationIndex: number,
-  ): string | null {
-    return resolveSampleUrl({
-      banks,
-      bank: schema.bank,
-      sample: schema.sample,
-      sourceKey,
-      variationIndex,
     });
   }
 

@@ -1,29 +1,25 @@
-import type { Chord, Cycle, StaticSchema } from "../types";
+import type { Chord, Cycle, StaticNotePattern } from "../types";
 
 function getChordStaticSchema(
   cycle: Cycle<Chord>,
   transformer?: (value: number) => number,
 ) {
   const serializedCycle = cycle.map((pattern) => {
-    const stepDuration = 1 / pattern.length;
+    const groups = pattern.flatMap((chord) => {
+      const voices = (chord ?? [])
+        .filter((value): value is number => typeof value === "number")
+        .map((value) => (transformer ? transformer(value) : value));
 
-    return pattern.flatMap((chord, stepIndex) =>
-      (chord ?? [])
-        .filter((value) => typeof value === "number")
-        .map((value) => ({
-          value: transformer ? transformer(value) : value,
-          offset: stepDuration * stepIndex,
-          duration: stepDuration,
-          stepIndex,
-        })),
-    );
+      return voices.length === 0 ? [] : [voices];
+    });
+
+    return groups.length === 0 ? [null] : groups;
   });
 
   return {
     type: "static",
-    polyphonic: true,
     cycle: serializedCycle,
-  } satisfies StaticSchema;
+  } satisfies StaticNotePattern;
 }
 
 export { getChordStaticSchema };

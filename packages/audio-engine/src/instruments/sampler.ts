@@ -6,28 +6,36 @@ import type {
 } from "@web-audio/schema";
 import Instrument, { type InstrumentRouting } from "./instrument";
 import { SAMPLE_BASE_GAIN } from "@/constants";
-import { preloadVariationIndices } from "@/utils/preload-variations";
-import SampleBufferStore, { type SampleCache } from "./sample-buffer-store";
-import type { EventScheduleContext } from "@/types";
+import { planSamplerPreloads } from "@/utils/preload-samples";
 import {
-  resolveNoteEvents,
-  type ResolvedNoteEvent,
-} from "./resolve-note-events";
+  deriveSourceKeys,
+  resolveSample,
+  resolveSampleEntry,
+  selectNaturalSourceKey,
+  selectNearestSourceKey,
+} from "@/utils/resolve-sample-entry";
+import SampleBufferCache from "./sample-buffer-cache";
+import type {
+  EventScheduleContext,
+  ResolvedSamplerEvent,
+  ResolvedSamplerVoice,
+} from "@/types";
+import { resolveSamplerEvents } from "./resolve-sampler-events";
 
 interface SamplerOptions {
   schema: SamplerSchema;
   destination?: AudioNode;
   routing?: InstrumentRouting;
   banks: Record<string, BankSchema>;
-  cache: SampleCache;
+  cache: SampleBufferCache;
   startingBar?: number;
   barStartTime?: number;
-  fallbackBuffer?: AudioBuffer | null;
 }
 
 class Sampler extends Instrument {
   private _schema: SamplerSchema;
-  private _bufferStore: SampleBufferStore;
+  private readonly _bufferCache: SampleBufferCache;
+  private readonly _banks: Record<string, BankSchema>;
   private _nextAlternateDirection: "forward" | "reverse" = "forward";
 
   constructor(
@@ -41,7 +49,6 @@ class Sampler extends Instrument {
       cache,
       startingBar = 0,
       barStartTime,
-      fallbackBuffer = null,
     }: SamplerOptions,
   ) {
     super(ctx, clock, {
@@ -51,26 +58,9 @@ class Sampler extends Instrument {
       muted: schema.muted,
     });
     this._schema = schema;
-    this._bufferStore = new SampleBufferStore({
-      ctx,
-      banks,
-      cache,
-      bank: schema.bank,
-      sample: schema.sample,
-      initialVariationIndex: this._initialVariationIndex,
-      initialSourceKey: this._schema.sourceKeys[0] ?? 0,
-      fallbackBuffer,
-      prepareReverse: schema.direction !== "forward",
-    });
+    this._banks = banks;
+    this._bufferCache = cache;
     this._initLfos(schema, startingBar, barStartTime);
-  }
-
-  isReady() {
-    return this._bufferStore.hasInitialBuffer();
-  }
-
-  fallbackBufferFor(schema: SamplerSchema) {
-    return this._bufferStore.fallbackBufferFor(schema.bank, schema.sample);
   }
 
   resetPlaybackState() {
@@ -82,70 +72,93 @@ class Sampler extends Instrument {
     this.resetPlaybackState();
   }
 
-  private get _initialVariationIndex() {
-    return this._resolveVariationIndex(0, 0);
-  }
-
-  async load(): Promise<void> {
-    await this._bufferStore.preload(
-      preloadVariationIndices(this._schema),
-      this._schema.sourceKeys,
+  async load() {
+    await Promise.all(
+      planSamplerPreloads(this._schema, this._banks).map(({ url, reverse }) =>
+        this._bufferCache.prepare(url, reverse),
+      ),
     );
   }
 
   scheduleBar(barIndex: number, barStartTime: number) {
-    if (!this._bufferStore.hasInitialBuffer()) {
-      console.warn(
-        `[Sampler] "${this._schema.bank}/${this._schema.sample}" not yet loaded — skipping bar ${barIndex}`,
-      );
-      return;
-    }
-
     this._updateLfoParams(barIndex, barStartTime);
 
     this._scheduleResolvedBar(barIndex, barStartTime);
   }
 
   private _scheduleResolvedBar(barIndex: number, barStartTime: number) {
-    const events = resolveNoteEvents({
-      notes: this._schema.notes,
+    const events = resolveSamplerEvents(
+      this._schema.events,
       barIndex,
-      resolveValue: (schema, currentBar, valueIndex) =>
-        this._resolve(schema, currentBar, valueIndex),
-    });
+      this._valuePatternResolver,
+    );
 
     for (const event of events) {
-      for (const noteValue of event.voices) {
-        this._scheduleResolvedSampleNote(
-          noteValue,
-          event,
-          barStartTime,
-          barIndex,
-        );
+      const reversed = this._isNextEventReversed();
+      let emitted = false;
+      for (const voice of event.voices) {
+        emitted =
+          this._scheduleResolvedSampleNote(
+            voice,
+            event,
+            barStartTime,
+            barIndex,
+            reversed,
+          ) || emitted;
+      }
+      if (emitted && this._schema.direction === "alternate") {
+        this._nextAlternateDirection = reversed ? "forward" : "reverse";
       }
     }
   }
 
   private _scheduleResolvedSampleNote(
-    noteValue: number,
-    noteEvent: ResolvedNoteEvent,
+    voice: ResolvedSamplerVoice,
+    noteEvent: ResolvedSamplerEvent,
     barStartTime: number,
     barIndex: number,
+    reversed: boolean,
   ) {
-    const sourceKey = this._nearestSourceKey(noteValue);
-    const pitchRate = this._pitchRate(noteValue, sourceKey);
-    const variationIndex = this._resolveVariationIndex(
-      barIndex,
-      noteEvent.hitIndex,
+    const sample = resolveSample(
+      this._banks,
+      this._schema.bank,
+      voice.sampleName,
     );
-    const reversed = this._isNextHitReversed();
-    const playbackSource = this._bufferStore.getPlaybackSource(
-      variationIndex,
-      barIndex,
+    const sourceKeys = sample ? deriveSourceKeys(sample) : [];
+    const sourceKey =
+      voice.note === undefined
+        ? selectNaturalSourceKey(sourceKeys)
+        : selectNearestSourceKey(sourceKeys, voice.note);
+    if (sourceKey === null) {
+      console.warn(
+        `[Sampler] No source keys found for "${this._schema.bank}/${voice.sampleName}" — skipping voice`,
+      );
+      return false;
+    }
+    const pitchRate =
+      voice.note === undefined ? 1 : this._pitchRate(voice.note, sourceKey);
+    const variation = resolveSampleEntry({
+      banks: this._banks,
+      bank: this._schema.bank,
+      sample: voice.sampleName,
       sourceKey,
-      reversed,
-    );
-    if (!playbackSource) return;
+      variationIndex: voice.requestedVariationIndex,
+    });
+    if (!variation) {
+      console.warn(
+        `[Sampler] No entry found for "${this._schema.bank}/${voice.sampleName}" source ${sourceKey} variation ${voice.requestedVariationIndex} — skipping voice`,
+      );
+      return false;
+    }
+    const buffer = this._bufferCache.get(variation.src, reversed);
+    if (!buffer) {
+      void this._bufferCache.prepare(variation.src, reversed);
+      console.warn(
+        `[Sampler] ${variation.src} not yet loaded — skipping voice in bar ${barIndex}`,
+      );
+      return false;
+    }
+    const playbackSource = { buffer, entry: variation };
     const emitted = this._scheduleSampleNote(
       playbackSource,
       pitchRate,
@@ -154,16 +167,13 @@ class Sampler extends Instrument {
       barIndex,
       reversed,
     );
-    if (emitted && this._schema.direction === "alternate") {
-      this._nextAlternateDirection =
-        this._nextAlternateDirection === "forward" ? "reverse" : "forward";
-    }
+    return emitted;
   }
 
   private _scheduleSampleNote(
     playbackSource: { buffer: AudioBuffer; entry: SampleVariationSchema },
     pitchRate: number,
-    noteEvent: ResolvedNoteEvent,
+    noteEvent: ResolvedSamplerEvent,
     barStartTime: number,
     barIndex: number,
     reversed: boolean,
@@ -224,18 +234,12 @@ class Sampler extends Instrument {
     return true;
   }
 
-  private _isNextHitReversed() {
+  private _isNextEventReversed() {
     if (this._schema.direction === "reverse") return true;
     if (this._schema.direction === "alternate") {
       return this._nextAlternateDirection === "reverse";
     }
     return false;
-  }
-
-  private _nearestSourceKey(note: number) {
-    return this._schema.sourceKeys.reduce((nearest, key) =>
-      Math.abs(key - note) < Math.abs(nearest - note) ? key : nearest,
-    );
   }
 
   private _pitchRate(note: number, sourceKey: number) {
@@ -263,26 +267,32 @@ class Sampler extends Instrument {
     if (this._schema.region?.type === "static") {
       const clamp = (value: number) => Math.min(1, Math.max(0, value));
       regionStart = clamp(
-        this._resolve(this._schema.region.start, barIndex, hitIndex),
+        this._resolveValue(this._schema.region.start, barIndex, hitIndex),
       );
       if (this._schema.region.duration) {
         regionEnd = Math.min(
           regionStart +
             clamp(
-              this._resolve(this._schema.region.duration, barIndex, hitIndex),
+              this._resolveValue(
+                this._schema.region.duration,
+                barIndex,
+                hitIndex,
+              ),
             ),
           1,
         );
       } else {
         regionEnd = clamp(
-          this._resolve(this._schema.region.end, barIndex, hitIndex),
+          this._resolveValue(this._schema.region.end, barIndex, hitIndex),
         );
       }
     } else if (this._schema.region?.type === "chop") {
       const { slices, sequence } = this._schema.region;
       if (slices.length === 0) return null;
 
-      const rawIndex = Math.trunc(this._resolve(sequence, barIndex, hitIndex));
+      const rawIndex = Math.trunc(
+        this._resolveValue(sequence, barIndex, hitIndex),
+      );
       const sliceIndex =
         ((rawIndex % slices.length) + slices.length) % slices.length;
       const slice = slices[sliceIndex];
@@ -332,12 +342,6 @@ class Sampler extends Instrument {
     const start = Math.min(...starts);
     const end = Math.max(...ends);
     return (end - start) * entrySourceDuration;
-  }
-
-  private _resolveVariationIndex(barIndex: number, hitIndex: number): number {
-    return Math.round(
-      this._resolve(this._schema.variation, barIndex, hitIndex),
-    );
   }
 }
 

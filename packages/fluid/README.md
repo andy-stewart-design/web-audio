@@ -2,6 +2,20 @@
 
 Fluid language for constructing scheduled Web Audio schemas.
 
+## Compiled event model
+
+Fluid separates authoring patterns into three playback concerns:
+
+- `events.timing` describes candidate offsets and durations;
+- instrument event patterns describe notes, sample names, and variations;
+- processing value patterns describe gain, detune, envelopes, effects, and regions.
+
+Fixed rhythm masks and rests are compiled into timing and do not cross the engine boundary. Random rhythm becomes one optional timing chance condition. After chance filtering, the engine numbers surviving hits consecutively and resolves all event and processing values with that final hit index. Chord voices share one hit index.
+
+Static value patterns contain raw values only; random numeric patterns contain per-bar value counts and random-generation settings. Neither carries offsets, durations, masks, or serialized step indices.
+
+In the current PR 1 sampler model, the sample name is represented under `events.sampleNames` but remains fixed to one name. Natural-pitch samplers omit `events.notes`, and variation zero is represented by an absent `events.variationIndices` field.
+
 ## Buses, routes, and sends
 
 `main` is the persistent engine output. Its gain is configurable, but it does not support effects:

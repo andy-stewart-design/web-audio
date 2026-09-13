@@ -3,17 +3,16 @@ import Drome from "@/index";
 
 describe("Bus builder", () => {
   it("normalizes main and returns one shared builder", () => {
-    const d = new Drome();
+    const drome = new Drome();
 
-    expect(d.bus(" main ")).toBe(d.bus("main"));
+    expect(drome.bus(" main ")).toBe(drome.bus("main"));
   });
 
   it("configures main gain with last-write-wins semantics", () => {
-    const d = new Drome();
+    const drome = new Drome();
+    drome.bus("main").gain(0.5).gain(1.25);
 
-    d.bus("main").gain(0.5).gain(1.25);
-
-    expect(d.getSchema().buses).toEqual({
+    expect(drome.getSchema().buses).toEqual({
       main: { gain: 1.25, transition: 0, effects: [] },
     });
   });
@@ -27,22 +26,14 @@ describe("Bus builder", () => {
     },
   );
 
-  it("accepts zero gain", () => {
-    const d = new Drome();
+  it("preserves zero bus gain", () => {
+    const bus = new Drome().bus("main");
 
-    expect(d.bus("main").gain(0)).toBe(d.bus("main"));
-    expect(d.getSchema().buses.main.gain).toBe(0);
+    expect(bus.gain(0)).toBe(bus);
+    expect(bus.getSchema().gain).toBe(0);
   });
 
-  it("configures transition as a fraction of a bar", () => {
-    const d = new Drome();
-    const bus = d.bus("drums");
-
-    expect(bus.transition(0.25)).toBe(bus);
-    expect(bus.getSchema().transition).toBe(0.25);
-  });
-
-  it("provides an extracted-safe trans() alias", () => {
+  it("configures transition and supports the extracted trans alias", () => {
     const bus = new Drome().bus("drums");
     const trans = bus.trans;
 
@@ -60,28 +51,26 @@ describe("Bus builder", () => {
   );
 
   it("rejects empty names and normalizes named buses", () => {
-    const d = new Drome();
+    const drome = new Drome();
 
-    expect(() => d.bus("   ")).toThrow("[Bus] name cannot be empty.");
-    expect(d.bus(" drums ")).toBe(d.bus("drums"));
-    expect(d.bus("drums").gain(0.75).getSchema()).toEqual({
-      gain: 0.75,
-      transition: 0,
-      effects: [],
-    });
+    expect(() => drome.bus("   ")).toThrow("[Bus] name cannot be empty.");
+    expect(drome.bus(" drums ")).toBe(drome.bus("drums"));
   });
 
   it("rejects effects on main", () => {
-    const d = new Drome();
+    const drome = new Drome();
 
-    expect(() => d.bus("main").fx(d.lpf(800))).toThrow(
+    expect(() => drome.bus("main").fx(drome.lpf(800))).toThrow(
       "[Bus] Effects on main are not supported in the bus MVP.",
     );
   });
 
-  it("appends named bus effects in exact call order", () => {
-    const d = new Drome();
-    const bus = d.bus("drums").fx(d.lpf(800)).fx(d.gain(0.5), d.hpf(200));
+  it("appends named bus effects in call order", () => {
+    const drome = new Drome();
+    const bus = drome
+      .bus("drums")
+      .fx(drome.lpf(800))
+      .fx(drome.gain(0.5), drome.hpf(200));
 
     expect(bus.getSchema().effects.map((effect) => effect.type)).toEqual([
       "filter",
@@ -90,65 +79,65 @@ describe("Bus builder", () => {
     ]);
   });
 
-  it("serializes multi-bar static gain and filter parameters", () => {
-    const d = new Drome();
-    d.bus("drums").fx(d.gain(1, 0.5), d.lpf(400, 800));
+  it("serializes static bus effect parameters as raw bar values", () => {
+    const drome = new Drome();
+    const bus = drome.bus("drums").fx(drome.gain(1, 0.5), drome.lpf(400, 800));
+    const [gain, filter] = bus.getSchema().effects;
 
-    const [gain, filter] = d.getSchema().buses.drums.effects;
-    expect(gain.type).toBe("gain");
-    if (gain.type === "gain" && gain.gain.type === "static") {
-      expect(gain.gain.cycle.map((bar) => bar[0].value)).toEqual([1, 0.5]);
-    }
-    expect(filter.type).toBe("filter");
-    if (filter.type === "filter" && filter.frequency.type === "static") {
-      expect(filter.frequency.cycle.map((bar) => bar[0].value)).toEqual([
-        400, 800,
-      ]);
-    }
+    expect(gain).toMatchObject({
+      type: "gain",
+      gain: { type: "static", cycle: [[1], [0.5]] },
+    });
+    expect(filter).toMatchObject({
+      type: "filter",
+      frequency: { type: "static", cycle: [[400], [800]] },
+    });
   });
 
-  it("accepts intra-bar static steps while preserving their schema", () => {
-    const d = new Drome();
-    d.bus("drums").fx(d.gain([1, 0.5]), d.lpf([400, 800]));
+  it("serializes intra-bar bus effect values without timing", () => {
+    const drome = new Drome();
+    const bus = drome
+      .bus("drums")
+      .fx(drome.gain([1, 0.5]), drome.lpf([400, 800]));
+    const [gain, filter] = bus.getSchema().effects;
 
-    const [gain, filter] = d.getSchema().buses.drums.effects;
-    if (gain.type === "gain" && gain.gain.type === "static") {
-      expect(gain.gain.cycle[0].map((step) => step.value)).toEqual([1, 0.5]);
-    }
-    if (filter.type === "filter" && filter.frequency.type === "static") {
-      expect(filter.frequency.cycle[0].map((step) => step.value)).toEqual([
-        400, 800,
-      ]);
-    }
+    expect(gain).toMatchObject({
+      type: "gain",
+      gain: { type: "static", cycle: [[1, 0.5]] },
+    });
+    expect(filter).toMatchObject({
+      type: "filter",
+      frequency: { type: "static", cycle: [[400, 800]] },
+    });
   });
 
-  it("serializes deterministic random gain and filter parameters", () => {
-    const d = new Drome();
-    d.bus("drums").fx(
-      d.gain(d.rand().range(0.25, 0.75).rib(1, 2)),
-      d.lpf(d.rand().range(400, 800).rib(2, 3)),
-    );
+  it("serializes deterministic random bus effect parameters", () => {
+    const drome = new Drome();
+    const bus = drome
+      .bus("drums")
+      .fx(
+        drome.gain(drome.rand().steps(2).range(0.25, 0.75).rib(1, 2)),
+        drome.lpf(drome.rand().steps(3).range(400, 800).rib(2, 3)),
+      );
+    const [gain, filter] = bus.getSchema().effects;
 
-    const [gain, filter] = d.getSchema().buses.drums.effects;
-    if (gain.type === "gain" && gain.gain.type === "random") {
-      expect(gain.gain.range).toEqual({ min: 0.25, max: 0.75 });
-      expect(gain.gain.segments).toEqual([{ seed: 1, len: 2 }]);
-    }
-    if (filter.type === "filter" && filter.frequency.type === "random") {
-      expect(filter.frequency.range).toEqual({ min: 400, max: 800 });
-      expect(filter.frequency.segments).toEqual([{ seed: 2, len: 3 }]);
-    }
-  });
-
-  it.each([
-    ["envelope", (d: Drome) => d.lpf(d.env(0, 800))],
-    ["LFO", (d: Drome) => d.lpf(d.lfo(400, 800))],
-  ])("rejects %s bus parameters at schema creation", (_label, effect) => {
-    const d = new Drome();
-    d.bus("drums").fx(effect(d));
-
-    expect(() => d.getSchema()).toThrow(
-      '[Schema] Bus "drums" effects[0].frequency must be a finite bar-resolvable static or random parameter.',
-    );
+    expect(gain).toMatchObject({
+      type: "gain",
+      gain: {
+        type: "random-number",
+        valuesPerBar: [2],
+        range: { min: 0.25, max: 0.75 },
+        segments: [{ seed: 1, len: 2 }],
+      },
+    });
+    expect(filter).toMatchObject({
+      type: "filter",
+      frequency: {
+        type: "random-number",
+        valuesPerBar: [3],
+        range: { min: 400, max: 800 },
+        segments: [{ seed: 2, len: 3 }],
+      },
+    });
   });
 });

@@ -1,6 +1,6 @@
 import { RandomCycle, ValueCycle } from "@web-audio/patterns";
 import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
-import type { RandomSchema, StaticSchema } from "@web-audio/schema";
+import type { NumberPattern } from "@web-audio/schema";
 import type { CycleInput } from "@/types";
 
 class Parameter {
@@ -15,7 +15,7 @@ class Parameter {
     }
   }
 
-  getSchema(): RandomSchema | StaticSchema {
+  getSchema(): NumberPattern {
     if (isRandomCycle(this._cycle)) {
       return this._cycle.getRandomSchema();
     } else {

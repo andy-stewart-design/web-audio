@@ -18,24 +18,26 @@ describe("Lfo", () => {
     expect(a.id).not.toBe(b.id);
   });
 
-  it("serializes static outputA and outputB", () => {
+  it("serializes static outputA and outputB as raw values", () => {
     const schema = new Lfo(800, 400).getSchema();
-    expect(schema.outputA.type).toBe("static");
-    expect(schema.outputB.type).toBe("static");
+    expect(schema.outputA).toEqual({ type: "static", cycle: [[800]] });
+    expect(schema.outputB).toEqual({ type: "static", cycle: [[400]] });
   });
 
-  it("supports array cycling on outputA", () => {
+  it("supports bar cycling on outputA", () => {
     const schema = new Lfo([600, 800], 400).getSchema();
-    expect(schema.outputA.type).toBe("static");
-    if (schema.outputA.type === "static") {
-      expect(schema.outputA.cycle).toHaveLength(2);
-    }
+    expect(schema.outputA).toEqual({
+      type: "static",
+      cycle: [[600], [800]],
+    });
   });
 
   it("supports RandomCycle on outputB", () => {
-    const rand = new RandomCycle();
-    const schema = new Lfo(800, rand).getSchema();
-    expect(schema.outputB.type).toBe("random");
+    const schema = new Lfo(800, new RandomCycle().steps(2, 4)).getSchema();
+    expect(schema.outputB).toMatchObject({
+      type: "random-number",
+      valuesPerBar: [2, 4],
+    });
   });
 
   it(".speed() sets speed array", () => {

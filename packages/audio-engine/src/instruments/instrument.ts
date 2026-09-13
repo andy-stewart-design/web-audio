@@ -7,8 +7,7 @@ import type {
   InstrumentSchema,
   LfoSchema,
   MidiCcSchema,
-  ParameterSchema,
-  RandomSchema,
+  NumberPattern,
 } from "@web-audio/schema";
 import type {
   EventScheduleContext,
@@ -16,7 +15,7 @@ import type {
   ResolvedEnvelopeSchema,
   ScheduledNote,
 } from "@/types";
-import RandomResolver from "@/resolvers/random-resolver";
+import ValuePatternResolver from "@/instruments/value-pattern-resolver";
 import { SYNTH_BASE_GAIN, FILTER_TYPE_MAP } from "@/constants";
 import { computeEnvelope } from "@/utils/compute-envelope";
 
@@ -71,7 +70,7 @@ abstract class Instrument {
 
   // Voice state
   private _scheduled: Set<ScheduledNote> = new Set();
-  private _resolvers = new Map<RandomSchema, RandomResolver>();
+  protected readonly _valuePatternResolver = new ValuePatternResolver();
 
   // LFO state
   protected _lfoNodes = new Map<string, AudioWorkletNode>();
@@ -321,7 +320,7 @@ abstract class Instrument {
       );
     } else {
       param.setValueAtTime(
-        this._resolve(schema, event.barIndex, event.hitIndex) * scale,
+        this._resolveValue(schema, event.barIndex, event.hitIndex) * scale,
         event.startTime,
       );
     }
@@ -365,7 +364,7 @@ abstract class Instrument {
         value = schema.min;
         return { type: "envelope", schema, value } satisfies ResolvedDetune;
       default:
-        value = this._resolve(schema, event.barIndex, event.hitIndex);
+        value = this._resolveValue(schema, event.barIndex, event.hitIndex);
         return { type: "static", value } satisfies ResolvedDetune;
     }
   }
@@ -376,11 +375,11 @@ abstract class Instrument {
   ) {
     return {
       min: envelope.min,
-      max: this._resolve(envelope.max, event.barIndex, event.hitIndex),
-      a: this._resolve(envelope.a, event.barIndex, event.hitIndex),
-      d: this._resolve(envelope.d, event.barIndex, event.hitIndex),
-      s: this._resolve(envelope.s, event.barIndex, event.hitIndex),
-      r: this._resolve(envelope.r, event.barIndex, event.hitIndex),
+      max: this._resolveValue(envelope.max, event.barIndex, event.hitIndex),
+      a: this._resolveValue(envelope.a, event.barIndex, event.hitIndex),
+      d: this._resolveValue(envelope.d, event.barIndex, event.hitIndex),
+      s: this._resolveValue(envelope.s, event.barIndex, event.hitIndex),
+      r: this._resolveValue(envelope.r, event.barIndex, event.hitIndex),
       mode: envelope.mode,
     } satisfies ResolvedEnvelopeSchema;
   }
@@ -403,25 +402,12 @@ abstract class Instrument {
     return env.releaseDur;
   }
 
-  protected _resolve(
-    schema: ParameterSchema,
+  protected _resolveValue(
+    schema: NumberPattern,
     barIndex: number,
     valueIndex: number,
   ) {
-    if (schema.type === "random") {
-      return this._getResolver(schema).resolve(barIndex, valueIndex);
-    }
-    const bar = schema.cycle[barIndex % schema.cycle.length];
-    return bar[valueIndex % bar.length].value;
-  }
-
-  private _getResolver(schema: RandomSchema) {
-    let resolver = this._resolvers.get(schema);
-    if (!resolver) {
-      resolver = new RandomResolver(schema);
-      this._resolvers.set(schema, resolver);
-    }
-    return resolver;
+    return this._valuePatternResolver.resolve(schema, barIndex, valueIndex);
   }
 
   // ---------------------------------------------------------------------------
@@ -486,7 +472,7 @@ abstract class Instrument {
   // ---------------------------------------------------------------------------
 
   protected _initLfos(
-    schema: InstrumentSchema,
+    schema: InstrumentSchema<unknown>,
     startingBar = 0,
     barStartTime?: number,
   ) {
@@ -501,8 +487,8 @@ abstract class Instrument {
         effectiveBarStart - startingBar * this._clock.barDuration;
       const node = new AudioWorkletNode(this._ctx, "lfo-processor", {
         parameterData: {
-          outputA: this._resolve(lfo.outputA, 0, 0),
-          outputB: this._resolve(lfo.outputB, 0, 0),
+          outputA: this._resolveValue(lfo.outputA, 0, 0),
+          outputB: this._resolveValue(lfo.outputB, 0, 0),
         },
         processorOptions: {
           waveform: lfo.waveform,
@@ -542,8 +528,8 @@ abstract class Instrument {
     for (const [id, schema] of this._lfoSchemas) {
       const node = this._lfoNodes.get(id);
       if (!node) continue;
-      const outputA = this._resolve(schema.outputA, barIndex, 0);
-      const outputB = this._resolve(schema.outputB, barIndex, 0);
+      const outputA = this._resolveValue(schema.outputA, barIndex, 0);
+      const outputB = this._resolveValue(schema.outputB, barIndex, 0);
       node.parameters.get("outputA")!.setValueAtTime(outputA, barStartTime);
       node.parameters.get("outputB")!.setValueAtTime(outputB, barStartTime);
     }

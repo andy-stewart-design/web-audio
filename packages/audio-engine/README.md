@@ -2,6 +2,28 @@
 
 Web Audio playback engine for scheduled Fluid schemas.
 
+## Playback-plan resolution
+
+Synthesizers and samplers receive explicit `events.timing` separately from their event values. For each bar, the engine:
+
+1. selects the timing-cycle bar;
+2. evaluates its optional chance condition once per candidate;
+3. removes misses and assigns consecutive hit indices;
+4. resolves note, sample-name, variation, and processing patterns by final hit;
+5. schedules every event voice with the event's offset and duration.
+
+Static patterns contain values only. Random numeric patterns use `valuesPerBar`; they do not carry timing grids or chance policy. Chords and sampler layers are explicit voice arrays, and every voice in one event shares its hit index.
+
+Sampler notes are optional. When absent, the engine selects the lowest source key derived from normalized bank data and plays it at rate `1`. An absent variation pattern means variation `0`.
+
+## Sample resources
+
+Sample entries are resolved from `bank → sample name → source key → variation`. Source keys are derived from normalized bank data rather than serialized on instruments. Pitched playback selects the nearest key, using the lower key for midpoint ties.
+
+Decoded buffers are shared by exact resolved URL. Concurrent requests for one URL share one fetch and decode; different URLs never substitute for each other. A voice whose exact URL is not loaded starts or joins a background load, warns, and skips its scheduled time. Later hits may use the completed load. Reverse buffers are shared per decoded buffer.
+
+`prepare()` builds a conservative preload plan from fixed sample names, all bank-derived source keys, and every provably possible variation. Broad random variation patterns preload every available variation. Missing external resources warn but do not invalidate an otherwise structurally valid graph.
+
 ## Bus and routing topology
 
 The engine keeps one persistent main gain connected to destination and analyser. Named buses belong to a runtime graph and feed that persistent main:
@@ -44,7 +66,7 @@ Bus parameter changes begin at the bar boundary and ramp for the greater of 10 m
 
 Transport Stop calls `cancelAndHoldAtTime()` at the exact Clock event time for every effect parameter on active and retiring buses. This cancels future values while preserving the currently audible value and graph connections. A later restart can schedule the same bar at its new audio time.
 
-Bus output gain remains constant. Intra-bar bus automation, envelopes, LFOs, MIDI CC, patterned sends, main effects, and bus-to-bus routing remain unsupported. Bus random validation covers only the safely resolvable subset; global `RandomSchema` hardening is separate future work.
+Bus output gain remains constant. Intra-bar bus automation, envelopes, LFOs, MIDI CC, patterned sends, main effects, and bus-to-bus routing remain unsupported. Bus random validation covers only the safely resolvable subset.
 
 At commit, an undefined BPM resets the clock to the default 120 BPM rather than inheriting the previous sketch's tempo.
 

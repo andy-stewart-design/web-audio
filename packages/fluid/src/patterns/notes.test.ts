@@ -1,107 +1,103 @@
+import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
-import Drome from "@/index";
+import MidiNotes from "./midi-notes";
 
-// C major: [0, 2, 4, 5, 7, 9, 11] → MIDI 60, 62, 64, 65, 67, 69, 71
 const C_MAJ_MIDI = [60, 62, 64, 65, 67, 69, 71];
-
-// C minor: [0, 2, 3, 5, 7, 8, 10] → MIDI 60, 62, 63, 65, 67, 68, 70
 const C_MIN_MIDI = [60, 62, 63, 65, 67, 68, 70];
 
-function getNotes(d: Drome) {
-  return d.getSchema().instruments[0].notes.source;
-}
+describe("random note compilation", () => {
+  it("builds a value map from all scale degrees and clears range", () => {
+    const events = new MidiNotes([60])
+      .root("c4")
+      .scale("maj")
+      .notes(new RandomCycle())
+      .getEvents();
 
-describe(".scale().notes(d.rand()) schema contract", () => {
-  it("builds a valueMap from all scale degrees and clears range", () => {
-    const d = new Drome();
-    d.synth("sine").root("c4").scale("maj").notes(d.rand()).push();
-    const notes = getNotes(d);
-
-    expect(notes.type).toBe("random");
-    if (notes.type !== "random") return;
-
-    expect(notes.valueMap).toEqual(C_MAJ_MIDI);
-    expect(notes.range).toBeUndefined();
+    expect(events.notes).toMatchObject({
+      type: "random-number",
+      valueMap: C_MAJ_MIDI,
+      range: undefined,
+    });
+    expect(events.timing.cycle).toEqual([[{ offset: 0, duration: 1 }]]);
   });
 
-  it("preserves the ribbon seed alongside the valueMap", () => {
-    const d = new Drome();
-    d.synth("sine").root("c4").scale("min").notes(d.rand().ribbon(42)).push();
-    const notes = getNotes(d);
+  it("preserves ribbon seeds alongside scale value maps", () => {
+    const notes = new MidiNotes([60])
+      .root("c4")
+      .scale("min")
+      .notes(new RandomCycle().ribbon(42))
+      .getSchema();
 
-    expect(notes.type).toBe("random");
-    if (notes.type !== "random") return;
-
-    expect(notes.valueMap).toEqual(C_MIN_MIDI);
-    expect(notes.segments[0].seed).toBe(42);
+    expect(notes).toMatchObject({
+      type: "random-number",
+      valueMap: C_MIN_MIDI,
+      segments: [{ seed: 42 }],
+    });
   });
 
-  it("range(0, 14) builds a two-octave valueMap", () => {
-    const d = new Drome();
-    d.synth("sine").root("c4").scale("maj").notes(d.rand().range(0, 14)).push();
-    const notes = getNotes(d);
+  it("uses random ranges to build multi-octave scale maps", () => {
+    const positive = new MidiNotes([60])
+      .root("c4")
+      .scale("maj")
+      .notes(new RandomCycle().range(0, 14))
+      .getSchema();
+    const negative = new MidiNotes([60])
+      .root("c4")
+      .scale("maj")
+      .notes(new RandomCycle().range(-7, 7))
+      .getSchema();
 
-    expect(notes.type).toBe("random");
-    if (notes.type !== "random") return;
-
-    expect(notes.valueMap).toHaveLength(14);
-    // First entry: C4 (degree 0), last entry: B5 (degree 13)
-    expect(notes.valueMap![0]).toBe(60);
-    expect(notes.valueMap![13]).toBe(83);
-    expect(notes.range).toBeUndefined();
+    expect(positive.type).toBe("random-number");
+    expect(negative.type).toBe("random-number");
+    if (
+      positive.type !== "random-number" ||
+      negative.type !== "random-number"
+    ) {
+      throw new Error("Expected random note patterns");
+    }
+    expect(positive.valueMap).toHaveLength(14);
+    expect(positive.valueMap?.[0]).toBe(60);
+    expect(positive.valueMap?.[13]).toBe(83);
+    expect(positive.range).toBeUndefined();
+    expect(negative.valueMap).toHaveLength(14);
+    expect(negative.valueMap?.[0]).toBe(48);
+    expect(negative.valueMap?.[7]).toBe(60);
   });
 
-  it("range(-7, 7) builds a valueMap starting one octave below the root", () => {
-    const d = new Drome();
-    d.synth("sine").root("c4").scale("maj").notes(d.rand().range(-7, 7)).push();
-    const notes = getNotes(d);
-
-    expect(notes.type).toBe("random");
-    if (notes.type !== "random") return;
-
-    expect(notes.valueMap).toHaveLength(14);
-    // First entry: C3 (degree -7), crossing through C4 (degree 0) to B4 (degree 6)
-    expect(notes.valueMap![0]).toBe(48); // C3
-    expect(notes.valueMap![7]).toBe(60); // C4
+  it("preserves ranges when no scale is configured", () => {
+    expect(
+      new MidiNotes([60]).notes(new RandomCycle().range(60, 72)).getSchema(),
+    ).toMatchObject({
+      type: "random-number",
+      valueMap: undefined,
+      range: { min: 60, max: 72 },
+    });
   });
 
-  it("without a scale, range is passed through unchanged and no valueMap is set", () => {
-    const d = new Drome();
-    d.synth("sine").notes(d.rand().range(60, 72)).push();
-    const notes = getNotes(d);
-
-    expect(notes.type).toBe("random");
-    if (notes.type !== "random") return;
-
-    expect(notes.valueMap).toBeUndefined();
-    expect(notes.range).toEqual({ min: 60, max: 72 });
-  });
-
-  it("maps binary random notes to root chromatic offsets without a scale", () => {
-    const d = new Drome();
-    d.synth("sine").root("a3").notes(d.rand().bin().steps(4)).push();
-    const notes = getNotes(d);
-
-    expect(notes.type).toBe("random");
-    if (notes.type !== "random") return;
-
-    expect(notes.valueMap).toEqual([57, 58]);
-    expect(notes.range).toBeUndefined();
+  it("maps binary random notes to chromatic root offsets", () => {
+    expect(
+      new MidiNotes([60])
+        .root("a3")
+        .notes(new RandomCycle().bin().steps(4))
+        .getSchema(),
+    ).toMatchObject({
+      type: "random-number",
+      valueMap: [57, 58],
+      range: undefined,
+    });
   });
 
   it("maps binary random notes to the first two scale degrees", () => {
-    const d = new Drome();
-    d.synth("sine")
-      .root("a3")
-      .scale("min")
-      .notes(d.rand().bin().steps(4))
-      .push();
-    const notes = getNotes(d);
-
-    expect(notes.type).toBe("random");
-    if (notes.type !== "random") return;
-
-    expect(notes.valueMap).toEqual([57, 59]);
-    expect(notes.range).toBeUndefined();
+    expect(
+      new MidiNotes([60])
+        .root("a3")
+        .scale("min")
+        .notes(new RandomCycle().bin().steps(4))
+        .getSchema(),
+    ).toMatchObject({
+      type: "random-number",
+      valueMap: [57, 59],
+      range: undefined,
+    });
   });
 });

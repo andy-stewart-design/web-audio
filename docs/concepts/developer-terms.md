@@ -23,7 +23,7 @@ The playback layer — consumes schemas and schedules Web Audio nodes; never app
 
 ### Resolver
 
-An engine-side object that generates concrete values from a `RandomSchema` for a given bar and value index. The caller decides whether that index represents grid selection, hit-addressed event resolution, or a bar-level lookup.
+An engine-side object that turns a compiled schema into concrete timing, values, events, or resources. `RandomResolver` generates values from a `RandomNumberPattern`; `ValuePatternResolver` selects static or random values by bar and final hit index.
 
 ### Worklet
 
@@ -85,57 +85,61 @@ How far into the future (seconds) the clock pre-schedules audio events; this is 
 
 ## Sequencing
 
-### Grid Step
+### Timing Schema
 
-A position in onset geometry. A grid step carries serialized timing metadata such as `offset`, `duration`, and `stepIndex`, whether or not it ultimately becomes active.
+The compiled candidate-event geometry. Each timing entry has a normalized bar offset and a positive duration. Timing may include one chance condition. It contains no values, masks, source positions, or serialized step indices.
 
-### Grid `stepIndex`
+### Timing Step
 
-The zero-based position attached to a serialized grid step. It describes rhythmic geometry and is used during mask evaluation, visualization, and pattern transforms. It is not the index for downstream event-addressed value lanes.
-
-### Grid Step Offset
-
-A grid step's fractional start time within a bar, normalized from 0 to 1 (where 1 = one full bar).
+One candidate event in a timing schema. Its offset is normalized within the bar, while its duration may extend beyond one bar.
 
 ### Hit
 
-An active onset that survives final rhythm and mask evaluation. A hit exists before downstream sample lookup, source-window validation, or voice creation succeeds. A rest or random-mask miss is not a hit.
+A timing candidate that survives its optional chance condition. A hit exists before downstream sample lookup, source-window validation, or voice creation succeeds. A fixed rest is not serialized as a candidate, and a random miss is not a hit.
 
 ### Hit Index
 
-The zero-based ordinal assigned to a surviving hit within one scheduled bar. Hit indices restart at `0` each bar. Every voice in a chord shares one hit index.
+The zero-based ordinal assigned to a surviving hit within one scheduled bar. Hit indices restart at `0` each bar. Every voice in one event shares its hit index.
 
-### Onset Geometry
+### Event
 
-The offsets, durations, and grid positions that determine where candidate events occur. Rhythms and masks finalize this geometry before the engine derives hit indices.
+One surviving timing hit combined with instrument-specific event values. A synth event contains notes. A sampler event contains one or more complete sample voices.
 
-### Event-Addressed Value Lane
+### Voice
 
-A note, variation, region, gain, detune, envelope, effect, or other pattern resolved once for an intended event. These lanes resolve with `(barIndex, hitIndex)`, so rests do not consume values. Continuous LFOs, MIDI CC input, routing, sends, and bar-level bus updates are not event-addressed lanes.
+One simultaneous sound within an event. Chord notes and sampler layers are voices; they share event timing and hit-addressed processing values.
+
+### Event Value Pattern
+
+A note, sample-name, or variation pattern resolved with `(barIndex, hitIndex)`. Static event values may contain simultaneous voice arrays. Random numeric event values resolve one scalar per hit.
+
+### Processing Value Pattern
+
+A gain, detune, envelope, effect, region, or other numeric pattern resolved for an event. Processing patterns never contribute event timing.
 
 ### Pattern Modifier
 
-A rhythm function (`.euclid()`, `.xox()`, `.hex()`, etc.) applied to a cycle to gate which steps fire.
+A Fluid rhythm function (`.euclid()`, `.xox()`, `.hex()`, etc.) applied during authoring. Fixed masks and rests are compiled away before the playback schema reaches the engine.
 
-### Pattern Mask
+### Value Pattern
 
-The static or random grid derived from rhythm modifiers. Mask eligibility is evaluated by grid position; surviving positions are then assigned consecutive hit indices.
+A static or random pattern containing values only. Static patterns store raw values by bar. Random numeric patterns store `valuesPerBar` and deterministic generation metadata. Neither shape contains timing geometry.
 
 ### ValueCycle
 
-A cycle of plain numbers (integers or floats). Used for MIDI note values and parameter values, including LFO frequency, gain amplitude, and envelope attack duration.
+A Fluid authoring cycle of plain numbers, used for MIDI values and processing parameters.
 
 ### ChordCycle
 
-A cycle of nullable number arrays where each step may hold multiple simultaneous MIDI note values.
+A Fluid authoring cycle of nullable number arrays where one authored hit may contain multiple simultaneous MIDI note values.
 
 ### BinaryCycle
 
-A cycle of `0`/`1` values used as a rhythmic mask.
+A Fluid authoring cycle of `0`/`1` values used to construct rhythm timing.
 
 ### RandomCycle
 
-A cycle whose values are generated deterministically from a seed rather than stored explicitly.
+A Fluid authoring cycle whose values are generated deterministically from seed and ribbon metadata. It compiles either to a random numeric value pattern or, for binary rhythm, a timing chance condition.
 
 ## Instruments
 

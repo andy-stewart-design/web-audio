@@ -49,13 +49,25 @@ Sequencing maps your musical ideas onto the clock’s grid. It determines how co
 
 A step is a subdivision of a pattern's timing grid. While beats divide time globally, steps define where values and rests sit inside the pattern's duration. A step can contain parameter values, notes, chords, or silence.
 
-### Grid step
+### Timing step
 
-A grid step is a position in final onset geometry, including its offset and duration within a bar. Rhythm and mask operations decide which grid steps become hits. Silent grid steps preserve timing but do not consume event-addressed values.
+A timing step is one compiled candidate event with an offset and duration. Fluid derives timing steps from authored patterns and rhythm operations. Fixed silent positions are not serialized, and the compiled schema contains no source grid index.
 
 ### Hit
 
-A hit is an active onset that survives all rhythm and mask decisions. Hits are numbered consecutively within each bar, and event-addressed patterns advance in that hit order. Random-mask misses and rests are not hits.
+A hit is a timing candidate that survives all fixed and random timing decisions. Hits are numbered consecutively within each bar, and event and processing value patterns advance in that hit order. Random misses and rests are not hits.
+
+### Event
+
+An event is one hit combined with the instrument-specific values needed for playback. Its timing is shared by every voice created for that event.
+
+### Voice
+
+A voice is one simultaneous sound within an event. The notes in a synth chord are separate voices that share one hit. Sampler layers will use the same model.
+
+### Value pattern
+
+A value pattern contains values without timing geometry. Static patterns contain authored values; random numeric patterns contain deterministic generation settings and a value count for each bar.
 
 ### Pattern
 
@@ -127,7 +139,7 @@ Sampler is an instrument that plays recorded audio instead of generating sound i
 
 ### Sample
 
-A sample is a recorded audio asset identified by its bank, name, and variation index. When a sampler schedules a note, it reads the corresponding sample from the bank to determine what sound should play.
+A sample is a recorded audio asset identified by its bank, name, source key, and variation index. The engine resolves that logical identity to an exact URL before requesting a decoded buffer.
 
 ### Sample bank
 
@@ -137,9 +149,17 @@ A sample bank is a named collection of recorded sounds. It groups categories of 
 
 A sample name identifies a logical group of audio files within a bank, such as all kick drum samples (`bd`) or snare hits (`sd`). It serves as the base identifier for playback before a specific variation is selected. Future patterned sample names will resolve in active-hit order without rests consuming names.
 
+### Source key
+
+A source key is the recorded pitch of one entry in a multisample, represented as a MIDI note number. Source keys are derived from normalized bank data. Natural-pitch playback selects the lowest key at rate `1`; pitched playback selects the nearest key and uses the lower key for midpoint ties.
+
 ### Sample variation
 
-A sample variation is a zero-based integer, or a sequence of integers, used to select an audio file from a given sample name and bank. It allows you to trigger alternate recordings without altering harmonic role. Patterned variations resolve in active-hit order, so rests and random-mask misses do not consume variation values.
+A sample variation is a zero-based number used to select an alternate recording for a sample name and source key. Patterned variations resolve in active-hit order, so rests and random misses do not consume variation values. When no variation pattern exists, the engine uses variation `0`.
+
+### Sample buffer cache
+
+The sample buffer cache stores decoded audio by exact resolved URL. Logical entries may share a decoded buffer when their URLs match, while distinct URLs never substitute for one another. An unloaded voice starts or joins a background load and skips its scheduled time rather than playing late.
 
 ### Fit
 

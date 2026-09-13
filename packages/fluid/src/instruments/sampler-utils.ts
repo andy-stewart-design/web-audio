@@ -1,12 +1,15 @@
 import Parameter from "@/patterns/parameter";
 import type {
   FitSchema,
-  ParameterSchema,
+  NotePattern,
+  NumberPattern,
+  RandomNumberPattern,
   RegionSchema,
-  StaticSchema,
-  StaticSchemaValue,
+  SamplerEventSchema,
+  StaticValuePattern,
+  TimingSchema,
+  VariationIndexPattern,
 } from "@web-audio/schema";
-import type Drome from "@/index";
 
 type ChopState = { sliceCount: number; sequence: Parameter | null };
 
@@ -21,31 +24,24 @@ type RegionOptions = {
   region: RegionState | null;
 };
 
-function isDefaultRandomMask(schema: ParameterSchema) {
-  if (schema.type !== "random") return false;
-  if (schema.grid.cycle.length !== 1) return false;
-  const pattern = schema.grid.cycle[0];
-  const [step] = pattern;
+function isDefaultRandomPattern(
+  schema: NumberPattern,
+): schema is RandomNumberPattern {
   return (
-    pattern.length === 1 &&
-    step.value === 1 &&
-    step.offset === 0 &&
-    step.duration === 1 &&
-    step.stepIndex === 0
+    schema.type === "random-number" &&
+    schema.valuesPerBar.length === 1 &&
+    schema.valuesPerBar[0] === 1
   );
 }
 
-function warnOutOfRangeChopIndices(
-  sliceCount: number,
-  schema: ParameterSchema,
-) {
+function warnOutOfRangeChopIndices(sliceCount: number, schema: NumberPattern) {
   if (schema.type !== "static") return;
 
   for (const bar of schema.cycle) {
-    for (const step of bar) {
-      if (step.value < 0 || step.value > sliceCount - 1) {
+    for (const value of bar) {
+      if (value < 0 || value > sliceCount - 1) {
         console.warn(
-          `[Sampler] chop() sequence index ${step.value} is outside [0, ${sliceCount - 1}] and will wrap in the engine.`,
+          `[Sampler] chop() sequence index ${value} is outside [0, ${sliceCount - 1}] and will wrap in the engine.`,
         );
       }
     }
@@ -54,9 +50,9 @@ function warnOutOfRangeChopIndices(
 
 function validateRegionParam(
   name: "start" | "end" | "duration",
-  schema: ParameterSchema,
+  schema: NumberPattern,
 ) {
-  if (schema.type === "random") {
+  if (schema.type === "random-number") {
     if (schema.range && (schema.range.min < 0 || schema.range.max > 1)) {
       console.warn(
         `[Sampler] ${name}() random range is outside [0, 1]; resolved values will be clamped by the engine.`,
@@ -66,8 +62,8 @@ function validateRegionParam(
   }
 
   for (const bar of schema.cycle) {
-    for (const step of bar) {
-      if (!Number.isFinite(step.value) || step.value < 0 || step.value > 1) {
+    for (const value of bar) {
+      if (!Number.isFinite(value) || value < 0 || value > 1) {
         throw new Error(
           `[Sampler] ${name}() values must be finite numbers in [0, 1].`,
         );
@@ -76,12 +72,12 @@ function validateRegionParam(
   }
 }
 
-function validateRegionBounds(start: ParameterSchema, end: ParameterSchema) {
+function validateRegionBounds(start: NumberPattern, end: NumberPattern) {
   if (start.type !== "static" || end.type !== "static") return;
   if (start.cycle.length !== 1 || end.cycle.length !== 1) return;
   if (start.cycle[0].length !== 1 || end.cycle[0].length !== 1) return;
 
-  if (start.cycle[0][0].value >= end.cycle[0][0].value) {
+  if (start.cycle[0][0] >= end.cycle[0][0]) {
     throw new Error("[Sampler] start() must be less than end().");
   }
 }
@@ -94,101 +90,232 @@ function getChopSequenceSchema(chop: ChopState, generatedBars = 1) {
       generatedBars,
     );
 
-  if (schema.type !== "random") return schema;
-  if (!isDefaultRandomMask(schema)) return schema;
+  if (!isDefaultRandomPattern(schema)) return schema;
 
   return {
     ...schema,
-    grid: {
-      type: "static",
-      polyphonic: false,
-      cycle: [
-        Array.from({ length: chop.sliceCount }, (_, stepIndex) => ({
-          value: 1,
-          offset: stepIndex / chop.sliceCount,
-          duration: 1 / chop.sliceCount,
-          stepIndex,
-        })),
-      ],
-    },
-  } satisfies ParameterSchema;
+    valuesPerBar: distributeAcrossBars(
+      Array.from({ length: chop.sliceCount }, () => 1),
+      generatedBars,
+    ).map((bar) => bar.length),
+  } satisfies NumberPattern;
 }
 
-function getNotesForChopTiming(notes: StaticSchema, sequence: StaticSchema) {
-  const noteValues = notes.cycle.flat().map((step) => step.value);
-
-  return {
-    type: "static",
-    polyphonic: notes.polyphonic,
-    cycle: sequence.cycle.map((bar) =>
-      bar.map(({ offset, duration, stepIndex }) => ({
-        value: noteValues[stepIndex % noteValues.length] ?? 0,
-        offset,
-        duration,
-        stepIndex,
-      })),
-    ),
-  } satisfies ParameterSchema;
+function getTimingForPattern(pattern: NumberPattern) {
+  const counts =
+    pattern.type === "random-number"
+      ? pattern.valuesPerBar
+      : pattern.cycle.map((bar) => bar.length);
+  const cycle = counts.map((count) =>
+    Array.from({ length: count }, (_, index) => ({
+      offset: index / count,
+      duration: 1 / count,
+    })),
+  );
+  return { cycle } satisfies TimingSchema;
 }
 
-function getDefaultNotesForSequence(
-  noteValue: number,
-  sequence: ParameterSchema,
-  chopSchema: ChopState | null,
-) {
-  if (sequence.type === "random") {
-    return getDefaultNotes(
-      noteValue,
-      sequence.grid.cycle[0]?.length ?? chopSchema?.sliceCount ?? 1,
-      1,
-    );
+function getDistributedTiming(eventCount: number, bars: number) {
+  const cycle: TimingSchema["cycle"] = Array.from({ length: bars }, () => []);
+  const duration = bars / eventCount;
+
+  for (let index = 0; index < eventCount; index++) {
+    const absoluteOffset = index * duration;
+    const barIndex = Math.min(bars - 1, Math.floor(absoluteOffset));
+    cycle[barIndex].push({
+      offset: absoluteOffset - barIndex,
+      duration,
+    });
   }
 
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle: sequence.cycle.map((bar) =>
-      bar.map(({ offset, duration, stepIndex }) => ({
-        value: noteValue,
-        offset,
-        duration,
-        stepIndex,
-      })),
-    ),
-  } satisfies ParameterSchema;
+  return { cycle } satisfies TimingSchema;
 }
 
-function getDistributedStaticSchema(values: number[], bars: number) {
-  const cycle: StaticSchemaValue[][] = Array.from({ length: bars }, () => []);
+function getChopTiming(chop: ChopState, bars: number) {
+  if (!chop.sequence) return getDistributedTiming(chop.sliceCount, bars);
+  return getTimingForPattern(getChopSequenceSchema(chop, bars));
+}
+
+function getVariationIndices(parameter: Parameter) {
+  const pattern = parameter.getSchema();
+  if (
+    pattern.type === "static" &&
+    pattern.cycle.length === 1 &&
+    pattern.cycle[0].length === 1 &&
+    pattern.cycle[0][0] === 0
+  ) {
+    return undefined;
+  }
+  if (pattern.type === "random-number") return pattern;
+
+  return {
+    type: "static",
+    cycle: pattern.cycle.map((bar) => bar.map((value) => [value])),
+  } satisfies VariationIndexPattern;
+}
+
+function alignSamplerEventCycles({
+  notes: inputNotes,
+  variationIndices: inputVariationIndices,
+  notesFilterTiming = true,
+  ...events
+}: SamplerEventSchema & { notesFilterTiming?: boolean }) {
+  const cycleLengths = [
+    events.timing.cycle.length,
+    getEventPatternCycleLength(inputNotes),
+    getEventPatternCycleLength(inputVariationIndices),
+  ].filter((length): length is number => length !== undefined);
+  const cycleLength = cycleLengths.reduce(lowestCommonMultiple);
+  const expandedNotes = inputNotes
+    ? expandNotePattern(inputNotes, cycleLength)
+    : undefined;
+  const notes =
+    expandedNotes && !notesFilterTiming
+      ? fillUnavailableNotes(expandedNotes, events.timing, cycleLength)
+      : expandedNotes;
+  const variationIndices = inputVariationIndices
+    ? expandVariationPattern(inputVariationIndices, cycleLength)
+    : undefined;
+  const timingCycle = Array.from({ length: cycleLength }, (_, barIndex) => {
+    if (
+      isEventPatternSilent(notes, barIndex) ||
+      isEventPatternSilent(variationIndices, barIndex)
+    ) {
+      return [];
+    }
+    return events.timing.cycle[barIndex % events.timing.cycle.length].map(
+      (step) => ({ ...step }),
+    );
+  });
+
+  return {
+    ...events,
+    timing: { ...events.timing, cycle: timingCycle },
+    ...(notes && { notes }),
+    ...(variationIndices && { variationIndices }),
+  } satisfies SamplerEventSchema;
+}
+
+function getEventPatternCycleLength(
+  pattern: NotePattern | VariationIndexPattern | undefined,
+) {
+  if (!pattern) return undefined;
+  return pattern.type === "static"
+    ? pattern.cycle.length
+    : pattern.valuesPerBar.length;
+}
+
+function expandNotePattern(pattern: NotePattern, cycleLength: number) {
+  if (pattern.type === "random-number") {
+    return {
+      ...pattern,
+      valuesPerBar: repeatCycle(pattern.valuesPerBar, cycleLength),
+    } satisfies NotePattern;
+  }
+  return {
+    type: "static",
+    cycle: repeatCycle(pattern.cycle, cycleLength).map((bar) =>
+      bar.map((group) => (group === null ? null : [...group])),
+    ),
+  } satisfies NotePattern;
+}
+
+function fillUnavailableNotes(
+  pattern: NotePattern,
+  timing: TimingSchema,
+  cycleLength: number,
+): NotePattern {
+  if (pattern.type === "random-number") {
+    return {
+      ...pattern,
+      valuesPerBar: pattern.valuesPerBar.map((count, barIndex) =>
+        count === 0
+          ? timing.cycle[barIndex % timing.cycle.length].length
+          : count,
+      ),
+    };
+  }
+
+  const fallback = pattern.cycle
+    .flat()
+    .find((group): group is number[] => group !== null);
+  if (!fallback) return pattern;
+  return {
+    type: "static",
+    cycle: Array.from({ length: cycleLength }, (_, barIndex) => {
+      const bar = pattern.cycle[barIndex];
+      return bar[0] === null ? [[...fallback]] : bar;
+    }),
+  };
+}
+
+function expandVariationPattern(
+  pattern: VariationIndexPattern,
+  cycleLength: number,
+) {
+  if (pattern.type === "random-number") {
+    return {
+      ...pattern,
+      valuesPerBar: repeatCycle(pattern.valuesPerBar, cycleLength),
+    } satisfies VariationIndexPattern;
+  }
+  return {
+    type: "static",
+    cycle: repeatCycle(pattern.cycle, cycleLength).map((bar) =>
+      bar.map((group) => (group === null ? null : [...group])),
+    ),
+  } satisfies VariationIndexPattern;
+}
+
+function isEventPatternSilent(
+  pattern: NotePattern | VariationIndexPattern | undefined,
+  barIndex: number,
+) {
+  if (!pattern) return false;
+  if (pattern.type === "random-number") {
+    return pattern.valuesPerBar[barIndex] === 0;
+  }
+  return pattern.cycle[barIndex][0] === null;
+}
+
+function repeatCycle<T>(cycle: T[], cycleLength: number) {
+  return Array.from(
+    { length: cycleLength },
+    (_, index) => cycle[index % cycle.length],
+  );
+}
+
+function lowestCommonMultiple(a: number, b: number) {
+  return (a * b) / greatestCommonDivisor(a, b);
+}
+
+function greatestCommonDivisor(a: number, b: number): number {
+  return b === 0 ? a : greatestCommonDivisor(b, a % b);
+}
+
+function distributeAcrossBars<T>(values: T[], bars: number) {
+  const cycle: T[][] = Array.from({ length: bars }, () => []);
   const duration = bars / values.length;
 
   values.forEach((value, valueIndex) => {
     const absoluteOffset = valueIndex * duration;
     const barIndex = Math.min(bars - 1, Math.floor(absoluteOffset));
-    const stepIndex = cycle[barIndex].length;
-    cycle[barIndex].push({
-      value,
-      offset: absoluteOffset - barIndex,
-      duration,
-      stepIndex,
-    });
+    cycle[barIndex].push(value);
   });
 
-  return {
-    type: "static",
-    polyphonic: false,
-    cycle,
-  } satisfies ParameterSchema;
+  return cycle;
 }
 
-function getDefaultNotes(noteValue: number, noteCount: number, bars: number) {
-  return getDistributedStaticSchema(
-    Array.from({ length: noteCount }, () => noteValue),
-    bars,
+function getDistributedStaticSchema(values: number[], bars: number) {
+  const fallback = values[0] ?? 0;
+  const cycle = distributeAcrossBars(values, bars).map((bar) =>
+    bar.length > 0 ? bar : [fallback],
   );
+
+  return { type: "static", cycle } satisfies StaticValuePattern<number>;
 }
 
-function getStaticChopBounds(start: ParameterSchema, end: ParameterSchema) {
+function getStaticChopBounds(start: NumberPattern, end: NumberPattern) {
   if (start.type !== "static" || end.type !== "static") {
     throw new Error(
       "[Sampler] start() and end() must be static numbers when used with chop().",
@@ -205,8 +332,8 @@ function getStaticChopBounds(start: ParameterSchema, end: ParameterSchema) {
     );
   }
 
-  const startValue = start.cycle[0][0].value;
-  const endValue = end.cycle[0][0].value;
+  const startValue = start.cycle[0][0];
+  const endValue = end.cycle[0][0];
   if (
     !Number.isFinite(startValue) ||
     !Number.isFinite(endValue) ||
@@ -233,10 +360,7 @@ function getRegion({ fitSchema, chopState, chopBars, region }: RegionOptions) {
       })),
       sequence: {
         type: "static",
-        polyphonic: false,
-        cycle: Array.from({ length: bars }, (_, i) => [
-          { value: i, offset: 0, duration: 1, stepIndex: 0 },
-        ]),
+        cycle: Array.from({ length: bars }, (_, i) => [i]),
       },
     } satisfies RegionSchema;
   }
@@ -290,37 +414,14 @@ function getRegion({ fitSchema, chopState, chopBars, region }: RegionOptions) {
   } satisfies RegionSchema;
 }
 
-function getSourceKeys(bank: string, sample: string, drome: Drome | undefined) {
-  const resolvedBank = drome?._resolveBank(bank);
-  if (!resolvedBank) {
-    console.warn(
-      `[Sampler] Bank "${bank}" not found — did you forget to call loadSamples()? ` +
-        "Defaulting to sourceKeys: [0]. This sampler will not produce audio.",
-    );
-    return [0];
-  }
-
-  const resolvedSample = resolvedBank.samples[sample];
-  if (!resolvedSample) {
-    console.warn(
-      `[Sampler] Sample "${sample}" not found in bank "${bank}". ` +
-        "Defaulting to sourceKeys: [0]. This sampler will not produce audio.",
-    );
-    return [0];
-  }
-
-  return Object.keys(resolvedSample)
-    .map(Number)
-    .sort((a, b) => a - b);
-}
-
 export {
+  alignSamplerEventCycles,
   getChopSequenceSchema,
-  getDefaultNotesForSequence,
-  getDefaultNotes,
-  getNotesForChopTiming,
+  getChopTiming,
+  getDistributedTiming,
   getRegion,
-  getSourceKeys,
+  getTimingForPattern,
+  getVariationIndices,
   type ChopState,
   type RegionState,
 };

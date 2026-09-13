@@ -9,7 +9,7 @@ class Envelope {
   private _d: Parameter;
   private _s: Parameter;
   private _r: Parameter;
-  private _mode: "bleed" | "bounded";
+  private _mode: EnvelopeSchema["mode"];
 
   constructor(min?: number, ...max: CycleInput) {
     this._min = min ?? 0;
@@ -59,7 +59,7 @@ class Envelope {
     return this;
   }
 
-  mode(m: "bleed" | "bounded") {
+  mode(m: EnvelopeSchema["mode"]) {
     this._mode = m;
     return this;
   }

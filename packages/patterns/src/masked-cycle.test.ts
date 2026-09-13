@@ -89,7 +89,7 @@ describe("MaskedCycle", () => {
     ];
 
     for (const { name, cycle, mask, events } of fixtures) {
-      expect(cycle.mask, name).toEqual(mask);
+      expect(cycle.fixedRestFilter, name).toEqual(mask);
       expect(cycle.activeEvents, name).toEqual(events);
     }
   });
@@ -102,16 +102,116 @@ describe("MaskedCycle", () => {
       .xox([1, 0, 1, 1])
       .sequence(4, 0, 2);
 
-    expect(before.mask).toEqual([[1, 0, 0, 1]]);
+    expect(before.fixedRestFilter).toEqual([[1, 0, 0, 1]]);
     expect(before.activeEvents).toEqual([[60, 64]]);
-    expect(after.mask).toEqual([[1, 0, 0, 0]]);
+    expect(after.fixedRestFilter).toEqual([[1, 0, 0, 0]]);
     expect(after.activeEvents).toEqual([[60]]);
-    expect(hexCycle.mask).toEqual([[1, 0, 0, 0]]);
+    expect(hexCycle.fixedRestFilter).toEqual([[1, 0, 0, 0]]);
     expect(hexCycle.activeEvents).toEqual([[60]]);
-    expect(sequenceCycle.mask).toEqual([
+    expect(sequenceCycle.fixedRestFilter).toEqual([
       [1, 0, 0, 0],
       [0, 0, 1, 0],
     ]);
     expect(sequenceCycle.activeEvents).toEqual([[60], [60]]);
+  });
+
+  describe("target-facing accessors", () => {
+    it("returns authored source values without exposing mutable bar arrays", () => {
+      const input = [[60, 64]];
+      const cycle = new MaskedCycle(input);
+
+      input[0][0] = 99;
+      const values = cycle.sourceValues;
+      values[0][1] = 99;
+
+      expect(cycle.sourceValues).toEqual([[60, 64]]);
+    });
+
+    it("exposes candidate timing, fixed rests, and aligned source references", () => {
+      const cycle = new MaskedCycle([[60, 64]]).setMask([[1, 0, 1, 1]]);
+
+      expect(cycle.candidateTiming).toEqual({
+        cycle: [
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+            { offset: 0.75, duration: 0.25 },
+          ],
+        ],
+      });
+      expect(cycle.fixedRestFilter).toEqual([[1, 0, 1, 1]]);
+      expect(cycle.activeSourceReferences).toEqual([
+        [
+          { sourceBarIndex: 0, sourceHitIndex: 0 },
+          { sourceBarIndex: 0, sourceHitIndex: 1 },
+          { sourceBarIndex: 0, sourceHitIndex: 0 },
+        ],
+      ]);
+    });
+
+    it("keeps source references aligned across repeated source and mask bars", () => {
+      const cycle = new MaskedCycle([[60], [64, 67]]).setMask([
+        [1, 0],
+        [0, 1, 1],
+        [1],
+      ]);
+
+      expect(cycle.activeSourceReferences).toEqual([
+        [{ sourceBarIndex: 0, sourceHitIndex: 0 }],
+        [
+          { sourceBarIndex: 1, sourceHitIndex: 0 },
+          { sourceBarIndex: 1, sourceHitIndex: 1 },
+        ],
+        [{ sourceBarIndex: 0, sourceHitIndex: 0 }],
+      ]);
+      expect(cycle.candidateTiming.cycle).toEqual([
+        [{ offset: 0, duration: 0.5 }],
+        [
+          { offset: 1 / 3, duration: 1 / 3 },
+          { offset: 2 / 3, duration: 1 / 3 },
+        ],
+        [{ offset: 0, duration: 1 }],
+      ]);
+    });
+
+    it("keeps empty bars explicit and safely treats unmatched triggers as rests", () => {
+      const cycle = new MaskedCycle<number>([[]]).setMask([[1, 0]]);
+
+      expect(cycle.sourceValues).toEqual([[]]);
+      expect(cycle.fixedRestFilter).toEqual([[0, 0]]);
+      expect(cycle.activeSourceReferences).toEqual([[]]);
+      expect(cycle.candidateTiming).toEqual({ cycle: [[]] });
+    });
+
+    it("keeps duplicate chord voices grouped behind one timing hit", () => {
+      const cycle = new MaskedCycle([[[60, 60, 64]]]);
+
+      expect(cycle.sourceValues).toEqual([[[60, 60, 64]]]);
+      expect(cycle.activeSourceReferences).toEqual([
+        [{ sourceBarIndex: 0, sourceHitIndex: 0 }],
+      ]);
+      expect(cycle.candidateTiming).toEqual({
+        cycle: [[{ offset: 0, duration: 1 }]],
+      });
+    });
+
+    it("returns accessor snapshots independently", () => {
+      const cycle = new MaskedCycle([[60]]).xox([1, 0]);
+      const filter = cycle.fixedRestFilter;
+      const references = cycle.activeSourceReferences;
+      const timing = cycle.candidateTiming;
+
+      filter[0][0] = 0;
+      references[0][0].sourceHitIndex = 99;
+      timing.cycle[0][0].offset = 0.5;
+
+      expect(cycle.fixedRestFilter).toEqual([[1, 0]]);
+      expect(cycle.activeSourceReferences).toEqual([
+        [{ sourceBarIndex: 0, sourceHitIndex: 0 }],
+      ]);
+      expect(cycle.candidateTiming).toEqual({
+        cycle: [[{ offset: 0, duration: 0.5 }]],
+      });
+    });
   });
 });

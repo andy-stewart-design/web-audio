@@ -3,11 +3,15 @@ import { BinaryCycle, ValueCycle } from "./static-cycles";
 import { getChordStaticSchema } from "./utils";
 import { MaskedCycle } from "./masked-cycle";
 import type {
+  ChanceCondition,
   Chord,
-  RandomSchema,
+  RandomNumberPattern,
   ScheduledValue,
-  StaticSchema,
-  StaticSchemaValue,
+  SourceHitReference,
+  StaticNotePattern,
+  StaticValuePattern,
+  TimingSchema,
+  TimingStep,
 } from "./types";
 
 export {
@@ -16,9 +20,13 @@ export {
   ValueCycle,
   MaskedCycle,
   getChordStaticSchema,
+  type ChanceCondition,
   type Chord,
-  type RandomSchema,
+  type RandomNumberPattern,
   type ScheduledValue,
-  type StaticSchema,
-  type StaticSchemaValue,
+  type SourceHitReference,
+  type StaticNotePattern,
+  type StaticValuePattern,
+  type TimingSchema,
+  type TimingStep,
 };

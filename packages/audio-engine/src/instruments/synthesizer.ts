@@ -1,7 +1,7 @@
 import Instrument, { type InstrumentRouting } from "./instrument";
 import MidiOutputScheduler from "@/midi-output-scheduler";
 import { midiToFrequency } from "@/utils/midi-to-frequency";
-import { resolveNoteEvents } from "./resolve-note-events";
+import { resolveSynthEvents } from "./resolve-synth-events";
 
 import type { SynthesizerSchema } from "@web-audio/schema";
 import type AudioClock from "@web-audio/clock";
@@ -38,12 +38,11 @@ class Synthesizer extends Instrument {
   }
 
   private _scheduleResolvedBar(barIndex: number, barStartTime: number) {
-    const events = resolveNoteEvents({
-      notes: this._schema.notes,
+    const events = resolveSynthEvents(
+      this._schema.events,
       barIndex,
-      resolveValue: (schema, currentBar, valueIndex) =>
-        this._resolve(schema, currentBar, valueIndex),
-    });
+      this._valuePatternResolver,
+    );
 
     const barDuration = this._clock.barDuration;
     for (const resolved of events) {
@@ -57,7 +56,7 @@ class Synthesizer extends Instrument {
         endTime: startTime + duration,
       } satisfies EventScheduleContext;
 
-      for (const midiNote of resolved.voices) {
+      for (const midiNote of resolved.notes) {
         this._scheduleSynthNote(midiNote, event);
       }
     }

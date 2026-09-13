@@ -1,22 +1,36 @@
-import { BinaryCycle } from "./static-cycles";
-import type { RandomSchema } from "./types";
+import PatternCycle from "./pattern-cycle";
+import compileTimingCycle from "./utils/compile-timing-cycle";
+import type {
+  ChanceCondition,
+  RandomNumberPattern,
+  TimingSchema,
+} from "./types";
 
-class RandomCycle extends BinaryCycle {
-  private _type: "float" | "integer" | "binary" = "float";
+class RandomCycle extends PatternCycle<1 | 0> {
+  private _type: RandomNumberPattern["dataType"] = "float";
   private _baseSeed: number = 0;
   private _segments: { seed: number; len: number }[] | undefined;
   private _range: { min: number; max: number } | undefined;
   private _quantValue: number | undefined;
   private _chance: number | undefined;
-  private _algorithm: "xor" | "mulberry" = "xor";
+  private _algorithm: RandomNumberPattern["algorithm"] = "xor";
+  private _order: RandomNumberPattern["order"] = "forward";
   public rib: (
     seed: number | number[],
     loop?: number | number[] | undefined,
   ) => this;
 
   constructor() {
-    super();
+    super([1], 0);
     this.rib = this.ribbon.bind(this);
+  }
+
+  get candidateTiming(): TimingSchema {
+    return compileTimingCycle(this._cycle);
+  }
+
+  get dataType() {
+    return this._type;
   }
 
   steps(...counts: number[]) {
@@ -88,30 +102,68 @@ class RandomCycle extends BinaryCycle {
     return this;
   }
 
-  algo(name: "xor" | "mulberry") {
+  algo(name: RandomNumberPattern["algorithm"]) {
     this._algorithm = name;
     return this;
   }
 
-  getRandomSchema(): RandomSchema {
-    if (this._chance !== undefined && this._type !== "binary") {
+  override reverse() {
+    super.reverse();
+    this._order = this._order === "forward" ? "reverse" : "forward";
+    return this;
+  }
+
+  getRandomSchema(): RandomNumberPattern {
+    if (this._chance !== undefined) {
       throw new Error(
-        "RandomCycle.chance() is only valid for binary random cycles",
+        "[Pattern] RandomCycle.chance() configures event timing and cannot be serialized as a numeric value pattern.",
       );
     }
 
-    const grid = this.getStaticSchema();
-
     return {
-      type: "random",
-      grid,
+      type: "random-number",
+      valuesPerBar: this._cycle.map(
+        (bar) => bar.filter((value) => value === 1).length,
+      ),
       dataType: this._type,
-      range: this._range,
-      segments: this._segments ?? [{ seed: this._baseSeed }],
+      range: this._range ? { ...this._range } : undefined,
+      segments: this.getSegments(),
       algorithm: this._algorithm,
       quantValue: this._quantValue,
-      chance: this._chance,
+      order: this._order,
     };
+  }
+
+  getTimingSchema(): TimingSchema {
+    if (this._type !== "binary") {
+      throw new Error(
+        "[Pattern] RandomCycle event timing requires a binary random cycle. Call .bin() before using it as timing.",
+      );
+    }
+
+    const probability = this._chance ?? 0.5;
+    if (probability === 0) {
+      return { cycle: this._cycle.map(() => []) };
+    }
+
+    const timing = this.candidateTiming;
+    if (probability === 1) return timing;
+
+    return {
+      ...timing,
+      condition: {
+        type: "chance",
+        probability,
+        segments: this.getSegments(),
+        algorithm: this._algorithm,
+        order: this._order,
+      } satisfies ChanceCondition,
+    };
+  }
+
+  private getSegments(): ChanceCondition["segments"] {
+    const segments = this._segments ?? [{ seed: this._baseSeed }];
+    return segments.map((segment) => ({ ...segment }));
   }
 }
 
