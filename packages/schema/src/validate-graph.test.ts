@@ -1026,6 +1026,46 @@ describe("validateDromeGraph", () => {
     },
   );
 
+  it.each(["01", " 60 ", "-0", "1.0", "not-a-number"])(
+    "rejects non-canonical source key %j",
+    (sourceKey) => {
+      expect(() =>
+        validateDromeGraph(
+          schema({}, [], {
+            drums: {
+              samples: {
+                bd: {
+                  [sourceKey]: [{ type: "file", src: "bd.wav" }],
+                },
+              },
+            },
+          }),
+        ),
+      ).toThrow(
+        `[Schema] banks["drums"].samples["bd"] source key "${sourceKey}" must be canonical numeric text.`,
+      );
+    },
+  );
+
+  it("accepts canonical integer, decimal, negative, and exponential source keys", () => {
+    expect(() =>
+      validateDromeGraph(
+        schema({}, [], {
+          pitched: {
+            samples: {
+              sample: {
+                "-12": [{ type: "file", src: "negative.wav" }],
+                "0": [{ type: "file", src: "zero.wav" }],
+                "1.5": [{ type: "file", src: "decimal.wav" }],
+                "1e+21": [{ type: "file", src: "large.wav" }],
+              },
+            },
+          },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
   it("rejects an empty declared bank and malformed source entries", () => {
     expect(() =>
       validateDromeGraph(schema({}, [], { empty: { samples: {} } })),

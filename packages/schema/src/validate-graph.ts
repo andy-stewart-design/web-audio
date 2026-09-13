@@ -196,9 +196,9 @@ function validateBankSamples(samples: Record<string, unknown>, path: string) {
       throw new Error(`[Schema] ${samplePath} must contain source keys.`);
     }
     for (const [sourceKey, variations] of Object.entries(sourceKeys)) {
-      if (!isFiniteNumericString(sourceKey)) {
+      if (!isCanonicalNumericString(sourceKey)) {
         throw new Error(
-          `[Schema] ${samplePath} source key "${sourceKey}" must be numeric.`,
+          `[Schema] ${samplePath} source key "${sourceKey}" must be canonical numeric text.`,
         );
       }
       const sourcePath = `${samplePath}["${sourceKey}"]`;
@@ -864,8 +864,9 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function isFiniteNumericString(value: string) {
-  return value.trim() !== "" && Number.isFinite(Number(value));
+function isCanonicalNumericString(value: string) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && String(numericValue) === value;
 }
 
 function isFiniteNumber(value: unknown): value is number {
