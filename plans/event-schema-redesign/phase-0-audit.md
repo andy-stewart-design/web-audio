@@ -32,7 +32,7 @@ Current equivalents are organized by responsibility:
 - `resolve-sample-entry.test.ts`, `preload-samples.test.ts`, `sample-buffer-cache.test.ts`, and `reversed-buffer-cache.test.ts` cover source-key selection, variation resolution, preload planning, exact-URL loading, retries, deduplication, and reverse-buffer reuse.
 - `engine.test.ts` covers graph validation, commit/update isolation, routing, preload integration, retirement, cancellation, and cleanup.
 
-The migrated suites intentionally assert target-schema behavior rather than retaining tests coupled to deleted schema fields, fallback buffers, sampler-wide readiness, or obsolete resolver/store internals.
+The migrated suites intentionally assert target-schema behavior rather than retaining tests coupled to deleted schema fields, fallback buffers, sampler-wide readiness, or obsolete resolver/store internals. See [`regression-test-disposition.md`](./regression-test-disposition.md) for the post-migration behavior-by-behavior accounting.
 
 ## Phase 0.2 fixture sequencing note
 

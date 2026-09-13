@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   defaultSamplerSchema,
   fileBank,
+  randomNumberPattern,
   staticNumberPattern,
 } from "../test-utils/schema-fixtures";
 import SampleBufferCache from "./sample-buffer-cache";
@@ -179,6 +180,104 @@ describe("Sampler scheduling", () => {
     expect(
       FakeBufferSourceNode.instances.map(({ options }) => options.playbackRate),
     ).toEqual([1, expect.closeTo(Math.pow(2, 2 / 12))]);
+  });
+
+  it("uses random notes for source-key selection and pitch rate", async () => {
+    const banks: Record<string, BankSchema> = fileBank();
+    banks.kit.samples.bd = {
+      "48": [{ type: "file", src: "https://example.com/48.wav" }],
+      "60": [{ type: "file", src: "https://example.com/60.wav" }],
+    };
+    const instance = await sampler(
+      schema({
+        events: {
+          timing: timing(),
+          notes: randomNumberPattern({
+            valuesPerBar: [1],
+            dataType: "integer",
+            valueMap: [62],
+          }),
+          sampleNames: { type: "static", cycle: [[["bd"]]] },
+        },
+      }),
+      banks,
+      cache({
+        "https://example.com/48.wav": buffer(),
+        "https://example.com/60.wav": buffer(),
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeBufferSourceNode.instances[0].options.playbackRate).toBeCloseTo(
+      Math.pow(2, 2 / 12),
+    );
+  });
+
+  it("uses random variation independently from random pitch", async () => {
+    const banks = fileBank("kit", "bd", [
+      "https://example.com/0.wav",
+      "https://example.com/1.wav",
+    ]);
+    const instance = await sampler(
+      schema({
+        events: {
+          timing: timing(),
+          notes: randomNumberPattern({
+            valuesPerBar: [1],
+            dataType: "integer",
+            valueMap: [0],
+          }),
+          sampleNames: { type: "static", cycle: [[["bd"]]] },
+          variationIndices: randomNumberPattern({
+            valuesPerBar: [1],
+            dataType: "integer",
+            valueMap: [1],
+          }),
+        },
+      }),
+      banks,
+      cache({
+        "https://example.com/0.wav": buffer(1),
+        "https://example.com/1.wav": buffer(2),
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeBufferSourceNode.instances[0].options.buffer?.duration).toBe(2);
+    expect(FakeBufferSourceNode.instances[0].options.playbackRate).toBe(1);
+  });
+
+  it("resolves variation before composing a static region", async () => {
+    const banks = fileBank("kit", "bd", [
+      "https://example.com/0.wav",
+      "https://example.com/1.wav",
+    ]);
+    const instance = await sampler(
+      schema({
+        events: {
+          timing: timing(),
+          sampleNames: { type: "static", cycle: [[["bd"]]] },
+          variationIndices: { type: "static", cycle: [[[1]]] },
+        },
+        region: {
+          type: "static",
+          start: staticNumberPattern([0.25]),
+          end: staticNumberPattern([0.75]),
+        },
+      }),
+      banks,
+      cache({
+        "https://example.com/0.wav": buffer(4),
+        "https://example.com/1.wav": buffer(8),
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeBufferSourceNode.instances[0].options.buffer?.duration).toBe(8);
+    expect(FakeBufferSourceNode.instances[0].start).toHaveBeenCalledWith(10, 2);
   });
 
   it("resolves variation and processing values by final surviving hit", async () => {
