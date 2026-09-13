@@ -94,8 +94,20 @@ class Sampler extends Instrument {
     );
 
     for (const event of events) {
+      const reversed = this._isNextEventReversed();
+      let emitted = false;
       for (const voice of event.voices) {
-        this._scheduleResolvedSampleNote(voice, event, barStartTime, barIndex);
+        emitted =
+          this._scheduleResolvedSampleNote(
+            voice,
+            event,
+            barStartTime,
+            barIndex,
+            reversed,
+          ) || emitted;
+      }
+      if (emitted && this._schema.direction === "alternate") {
+        this._nextAlternateDirection = reversed ? "forward" : "reverse";
       }
     }
   }
@@ -105,6 +117,7 @@ class Sampler extends Instrument {
     noteEvent: ResolvedSamplerEvent,
     barStartTime: number,
     barIndex: number,
+    reversed: boolean,
   ) {
     const sample = resolveSample(
       this._banks,
@@ -120,7 +133,7 @@ class Sampler extends Instrument {
       console.warn(
         `[Sampler] No source keys found for "${this._schema.bank}/${voice.sampleName}" — skipping voice`,
       );
-      return;
+      return false;
     }
     const pitchRate =
       voice.note === undefined ? 1 : this._pitchRate(voice.note, sourceKey);
@@ -135,16 +148,15 @@ class Sampler extends Instrument {
       console.warn(
         `[Sampler] No entry found for "${this._schema.bank}/${voice.sampleName}" source ${sourceKey} variation ${voice.requestedVariationIndex} — skipping voice`,
       );
-      return;
+      return false;
     }
-    const reversed = this._isNextHitReversed();
     const buffer = this._bufferCache.get(variation.src, reversed);
     if (!buffer) {
       void this._bufferCache.prepare(variation.src, reversed);
       console.warn(
         `[Sampler] ${variation.src} not yet loaded — skipping voice in bar ${barIndex}`,
       );
-      return;
+      return false;
     }
     const playbackSource = { buffer, entry: variation };
     const emitted = this._scheduleSampleNote(
@@ -155,10 +167,7 @@ class Sampler extends Instrument {
       barIndex,
       reversed,
     );
-    if (emitted && this._schema.direction === "alternate") {
-      this._nextAlternateDirection =
-        this._nextAlternateDirection === "forward" ? "reverse" : "forward";
-    }
+    return emitted;
   }
 
   private _scheduleSampleNote(
@@ -225,7 +234,7 @@ class Sampler extends Instrument {
     return true;
   }
 
-  private _isNextHitReversed() {
+  private _isNextEventReversed() {
     if (this._schema.direction === "reverse") return true;
     if (this._schema.direction === "alternate") {
       return this._nextAlternateDirection === "reverse";

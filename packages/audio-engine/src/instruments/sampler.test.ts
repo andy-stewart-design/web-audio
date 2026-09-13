@@ -249,6 +249,58 @@ describe("Sampler scheduling", () => {
     ).toEqual([25, 25]);
   });
 
+  it("shares alternate direction across voices and advances once per emitted event", async () => {
+    const buffers = cache({ "https://example.com/bd.wav": buffer() });
+    const instance = await sampler(
+      schema({
+        events: {
+          timing: timing([
+            [
+              { offset: 0, duration: 0.5 },
+              { offset: 0.5, duration: 0.5 },
+            ],
+          ]),
+          sampleNames: {
+            type: "static",
+            cycle: [
+              [
+                ["bd", "bd"],
+                ["bd", "bd"],
+              ],
+            ],
+          },
+        },
+        direction: "alternate",
+      }),
+      fileBank(),
+      buffers,
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(
+      vi.mocked(buffers.get).mock.calls.map(([, reversed]) => reversed),
+    ).toEqual([false, false, true, true]);
+  });
+
+  it("does not advance alternate direction when an event emits no voices", async () => {
+    const buffers = cache({});
+    const instance = await sampler(
+      schema({ direction: "alternate" }),
+      fileBank(),
+      buffers,
+    );
+
+    instance.scheduleBar(0, 10);
+    vi.mocked(buffers.get).mockReturnValue(buffer());
+    instance.scheduleBar(1, 12);
+
+    expect(vi.mocked(buffers.get).mock.calls).toEqual([
+      ["https://example.com/bd.wav", false],
+      ["https://example.com/bd.wav", false],
+    ]);
+  });
+
   it("preserves static region and clip duration behavior", async () => {
     const instance = await sampler(
       schema({
