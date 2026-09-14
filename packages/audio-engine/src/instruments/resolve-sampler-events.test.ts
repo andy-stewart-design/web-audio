@@ -1,10 +1,10 @@
-import type { SamplerEventSchema } from "@web-audio/schema";
+import type { SamplerEventPattern } from "@web-audio/schema";
 import { describe, expect, it } from "vitest";
 import { resolveSamplerEvents } from "./resolve-sampler-events";
 
 function events(
-  overrides: Partial<SamplerEventSchema> = {},
-): SamplerEventSchema {
+  overrides: Partial<SamplerEventPattern> = {},
+): SamplerEventPattern {
   return {
     timing: { cycle: [[{ offset: 0, duration: 1 }]] },
     sampleNames: { type: "static", cycle: [[["bd"]]] },

@@ -36,7 +36,7 @@ type MidiRangeCurve = (typeof MIDI_RANGE_CURVES)[number];
 // SEQUENCING ----------------------------------------
 // ---------------------------------------------------
 
-interface StaticValuePattern<T> {
+interface StaticPattern<T> {
   type: "static";
   cycle: T[][];
 }
@@ -53,13 +53,13 @@ interface RandomNumberPattern {
   order: PatternOrder;
 }
 
-type NumberPattern = StaticValuePattern<number> | RandomNumberPattern;
+type NumberPattern = StaticPattern<number> | RandomNumberPattern;
 
-type StaticNotePattern = StaticValuePattern<number[] | null>;
+type StaticNotePattern = StaticPattern<number[] | null>;
 type NotePattern = StaticNotePattern | RandomNumberPattern;
 
-type SampleNamePattern = StaticValuePattern<string[] | null>;
-type StaticVariationIndexPattern = StaticValuePattern<number[] | null>;
+type SampleNamePattern = StaticPattern<string[] | null>;
+type StaticVariationIndexPattern = StaticPattern<number[] | null>;
 type VariationIndexPattern = StaticVariationIndexPattern | RandomNumberPattern;
 
 interface TimingStep {
@@ -75,7 +75,7 @@ interface ChanceCondition {
   order: PatternOrder;
 }
 
-interface TimingSchema {
+interface TimingPattern {
   cycle: TimingStep[][];
   condition?: ChanceCondition;
 }
@@ -235,20 +235,22 @@ interface BusSchema {
 // INSTRUMENTS ---------------------------------------
 // ---------------------------------------------------
 
-interface SynthEventSchema {
-  timing: TimingSchema;
+interface EventPattern {
+  timing: TimingPattern;
+}
+
+interface SynthEventPattern extends EventPattern {
   notes: NotePattern;
 }
 
-interface SamplerEventSchema {
-  timing: TimingSchema;
+interface SamplerEventPattern extends EventPattern {
   notes?: NotePattern;
   sampleNames: SampleNamePattern;
   variationIndices?: VariationIndexPattern;
 }
 
-interface InstrumentSchema<TEvents> {
-  events: TEvents;
+interface InstrumentSchema<TEventPattern extends EventPattern> {
+  eventPattern: TEventPattern;
   gain: EnvelopeSchema;
   effects: EffectSchema[];
   detune: AudioParamSchema;
@@ -257,13 +259,13 @@ interface InstrumentSchema<TEvents> {
   sends: Record<string, number>;
 }
 
-interface SynthesizerSchema extends InstrumentSchema<SynthEventSchema> {
+interface SynthesizerSchema extends InstrumentSchema<SynthEventPattern> {
   type: "synthesizer";
   waveform: Waveform;
   notesOut?: MidiOutSchema;
 }
 
-interface SamplerSchema extends InstrumentSchema<SamplerEventSchema> {
+interface SamplerSchema extends InstrumentSchema<SamplerEventPattern> {
   type: "sampler";
   bank: string;
   fit: FitSchema | null;
@@ -296,6 +298,7 @@ export type {
   ClipMode,
   DromeSchema,
   EffectSchema,
+  EventPattern,
   EnvelopeMode,
   EnvelopeSchema,
   FileSampleVariationSchema,
@@ -308,8 +311,8 @@ export type {
   MidiOutSchema,
   ChanceCondition,
   InstrumentSchema,
-  SamplerEventSchema,
-  SynthEventSchema,
+  SamplerEventPattern,
+  SynthEventPattern,
   NotePattern,
   NormalizedSampleSchema,
   NumberPattern,
@@ -323,11 +326,11 @@ export type {
   StaticEndRegionSchema,
   StaticNotePattern,
   StaticRegionSchema,
-  StaticValuePattern,
+  StaticPattern,
   StaticVariationIndexPattern,
   SynthesizerSchema,
   SampleNamePattern,
-  TimingSchema,
+  TimingPattern,
   TimingStep,
   VariationIndexPattern,
   Waveform,

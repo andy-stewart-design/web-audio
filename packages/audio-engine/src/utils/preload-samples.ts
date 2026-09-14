@@ -52,7 +52,9 @@ function planSamplerPreloads(
         );
         continue;
       }
-      const requested = finiteVariationValues(schema.events.variationIndices);
+      const requested = finiteVariationValues(
+        schema.eventPattern.variationIndices,
+      );
       const entries = requested
         ? requested.map((value) => resolveVariationEntry(variations, value))
         : variations;
@@ -77,7 +79,7 @@ function planSamplerPreloads(
 
 function collectSampleNames(schema: SamplerSchema) {
   const names = new Set<string>();
-  for (const bar of schema.events.sampleNames.cycle) {
+  for (const bar of schema.eventPattern.sampleNames.cycle) {
     for (const group of bar) {
       group?.forEach((name) => names.add(name));
     }

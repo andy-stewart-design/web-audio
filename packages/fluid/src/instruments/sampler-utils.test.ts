@@ -2,13 +2,11 @@ import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it, vi } from "vitest";
 import Parameter from "@/patterns/parameter";
 import {
-  alignSamplerEventCycles,
   getChopSequenceSchema,
   getChopTiming,
   getDistributedTiming,
   getRegion,
   getTimingForPattern,
-  getVariationIndices,
 } from "./sampler-utils";
 
 describe("sampler numeric schemas", () => {
@@ -185,36 +183,5 @@ describe("sampler numeric schemas", () => {
         { offset: 0.75, duration: 0.25 },
       ],
     ]);
-  });
-
-  it("aligns zero-count event values with empty timing bars", () => {
-    expect(
-      alignSamplerEventCycles({
-        timing: { cycle: [[{ offset: 0, duration: 1 }]] },
-        sampleNames: { type: "static", cycle: [[["kick"]]] },
-        variationIndices: new RandomCycle().steps(2, 0).int().getRandomSchema(),
-      }),
-    ).toMatchObject({
-      timing: { cycle: [[{ offset: 0, duration: 1 }], []] },
-      variationIndices: { valuesPerBar: [2, 0] },
-    });
-  });
-
-  it("omits default variation and groups explicit static values", () => {
-    expect(getVariationIndices(new Parameter(0))).toBeUndefined();
-    expect(getVariationIndices(new Parameter([0, 1, 2]))).toEqual({
-      type: "static",
-      cycle: [[[0], [1], [2]]],
-    });
-    expect(
-      getVariationIndices(
-        new Parameter(new RandomCycle().steps(2).int().range(0, 4)),
-      ),
-    ).toMatchObject({
-      type: "random-number",
-      valuesPerBar: [2],
-      dataType: "integer",
-      range: { min: 0, max: 4 },
-    });
   });
 });

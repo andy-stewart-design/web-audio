@@ -39,7 +39,7 @@ class Synthesizer extends Instrument {
 
   private _scheduleResolvedBar(barIndex: number, barStartTime: number) {
     const events = resolveSynthEvents(
-      this._schema.events,
+      this._schema.eventPattern,
       barIndex,
       this._valuePatternResolver,
     );

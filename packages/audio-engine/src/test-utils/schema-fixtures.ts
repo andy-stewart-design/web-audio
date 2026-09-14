@@ -5,22 +5,20 @@ import type {
   EnvelopeSchema,
   NotePattern,
   RandomNumberPattern,
-  SamplerEventSchema,
+  SamplerEventPattern,
   SamplerSchema,
-  SynthEventSchema,
+  SynthEventPattern,
   SynthesizerSchema,
-  StaticValuePattern,
-  TimingSchema,
+  StaticPattern,
+  TimingPattern,
   TimingStep,
 } from "@web-audio/schema";
 
-function staticNumberPattern(
-  values: number[] = [0],
-): StaticValuePattern<number> {
+function staticNumberPattern(values: number[] = [0]): StaticPattern<number> {
   return { type: "static", cycle: [values] };
 }
 
-function staticNumberBars(...values: number[]): StaticValuePattern<number> {
+function staticNumberBars(...values: number[]): StaticPattern<number> {
   return {
     type: "static",
     cycle: values.map((value) => [value]),
@@ -46,7 +44,7 @@ function timingBar(steps: TimingStep[] = [{ offset: 0, duration: 1 }]) {
 }
 
 function timingSchema(bars: TimingStep[][] = [timingBar()]) {
-  return { cycle: bars } satisfies TimingSchema;
+  return { cycle: bars } satisfies TimingPattern;
 }
 
 function chanceCondition(
@@ -80,9 +78,9 @@ function defaultNotes(): NotePattern {
   return { type: "static", cycle: [[[60]]] };
 }
 
-function defaultSynthEvents(
-  overrides: Partial<SynthEventSchema> = {},
-): SynthEventSchema {
+function defaultSynthEventPattern(
+  overrides: Partial<SynthEventPattern> = {},
+): SynthEventPattern {
   return {
     timing: timingSchema(),
     notes: defaultNotes(),
@@ -94,7 +92,7 @@ type SynthSchemaOverrides = Partial<
   Pick<
     SynthesizerSchema,
     | "waveform"
-    | "events"
+    | "eventPattern"
     | "notesOut"
     | "detune"
     | "gain"
@@ -109,7 +107,7 @@ function defaultSynthSchema(overrides: SynthSchemaOverrides = {}) {
   return {
     type: "synthesizer",
     waveform: "sine",
-    events: defaultSynthEvents(),
+    eventPattern: defaultSynthEventPattern(),
     detune: staticNumberPattern([0]),
     gain: defaultEnvelope(),
     effects: [],
@@ -120,9 +118,9 @@ function defaultSynthSchema(overrides: SynthSchemaOverrides = {}) {
   } satisfies SynthesizerSchema;
 }
 
-function defaultSamplerEvents(
-  overrides: Partial<SamplerEventSchema> = {},
-): SamplerEventSchema {
+function defaultSamplerEventPattern(
+  overrides: Partial<SamplerEventPattern> = {},
+): SamplerEventPattern {
   return {
     timing: timingSchema(),
     sampleNames: { type: "static", cycle: [[["bd"]]] },
@@ -134,7 +132,7 @@ type SamplerSchemaOverrides = Partial<
   Pick<
     SamplerSchema,
     | "bank"
-    | "events"
+    | "eventPattern"
     | "fit"
     | "region"
     | "detune"
@@ -153,7 +151,7 @@ function defaultSamplerSchema(overrides: SamplerSchemaOverrides = {}) {
   return {
     type: "sampler",
     bank: "kit",
-    events: defaultSamplerEvents(),
+    eventPattern: defaultSamplerEventPattern(),
     fit: null,
     region: null,
     detune: staticNumberPattern([0]),
@@ -220,10 +218,10 @@ export {
   chanceCondition,
   defaultEnvelope,
   defaultNotes,
-  defaultSamplerEvents,
+  defaultSamplerEventPattern,
   defaultSamplerGraph,
   defaultSamplerSchema,
-  defaultSynthEvents,
+  defaultSynthEventPattern,
   defaultSynthSchema,
   fileBank,
   randomNumberPattern,

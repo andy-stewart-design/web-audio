@@ -88,7 +88,7 @@ class Sampler extends Instrument {
 
   private _scheduleResolvedBar(barIndex: number, barStartTime: number) {
     const events = resolveSamplerEvents(
-      this._schema.events,
+      this._schema.eventPattern,
       barIndex,
       this._valuePatternResolver,
     );

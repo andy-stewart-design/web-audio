@@ -13,7 +13,7 @@ import type {
   BinaryCycleData,
   Cycle,
   SourceHitReference,
-  TimingSchema,
+  TimingPattern,
   TimingStep,
 } from "./types";
 
@@ -99,7 +99,7 @@ class MaskedCycle<T> {
     return this._source.map((bar) => [...bar]);
   }
 
-  get candidateTiming(): TimingSchema {
+  get candidateTiming(): TimingPattern {
     const cycle = this._grid.map((bar) => {
       if (bar.length === 0) return [];
 

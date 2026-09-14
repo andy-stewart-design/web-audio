@@ -4,7 +4,7 @@ import SampleNotes from "./sample-notes";
 
 describe("SampleNotes static values", () => {
   it("defaults root and note to zero without treating zero as a rest", () => {
-    expect(new SampleNotes([0]).getEvents()).toEqual({
+    expect(new SampleNotes([0]).getEventPattern()).toEqual({
       timing: { cycle: [[{ offset: 0, duration: 1 }]] },
       notes: { type: "static", cycle: [[[0]]] },
     });

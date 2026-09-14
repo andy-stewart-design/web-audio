@@ -28,11 +28,12 @@ A sampler name or variation pattern may also be the clearest source of timing wh
 The new schema separates two questions:
 
 ```txt
-TimingSchema       → when can events happen?
-ValuePattern<T>    → what values do those events use?
+TimingPattern        → when candidate events can happen
+StaticPattern<T>    → repeated values addressed by event hits
+EventPattern        → timing plus an instrument's event-value patterns
 ```
 
-Fluid compiles user calls into this playback plan. The audio engine does not choose timing priority or interpret Fluid method intent.
+Fluid compiles authored values and timing intent into an event pattern. The audio engine does not choose timing priority or interpret Fluid method intent.
 
 ## Core principles
 
@@ -97,7 +98,7 @@ Names may change during implementation, but the following shapes and responsibil
 ### Static values
 
 ```ts
-interface StaticValuePattern<T> {
+interface StaticPattern<T> {
   type: "static";
   cycle: T[][];
 }
@@ -115,19 +116,19 @@ Examples:
 
 ```ts
 // Gain
-const gain: StaticValuePattern<number> = {
+const gain: StaticPattern<number> = {
   type: "static",
   cycle: [[0.5, 1]],
 };
 
 // Two note groups in one bar
-const notes: StaticValuePattern<number[]> = {
+const notes: StaticPattern<number[]> = {
   type: "static",
   cycle: [[[60], [64, 67, 71]]],
 };
 
 // Two sample-name groups in one bar
-const sampleNames: StaticValuePattern<string[]> = {
+const sampleNames: StaticPattern<string[]> = {
   type: "static",
   cycle: [[["bd", "hh"], ["sd"]]],
 };
@@ -165,7 +166,7 @@ A zero count is allowed only for a whole silent bar that cannot be reached by ti
 ### Shared numeric patterns
 
 ```ts
-type NumberPattern = StaticValuePattern<number> | RandomNumberPattern;
+type NumberPattern = StaticPattern<number> | RandomNumberPattern;
 ```
 
 Gain, envelope fields, detune, region values, effect values, and LFO bounds use value-only numeric patterns.
@@ -186,13 +187,13 @@ interface ChanceCondition {
   order: "forward" | "reverse";
 }
 
-interface TimingSchema {
+interface TimingPattern {
   cycle: TimingStep[][];
   condition?: ChanceCondition;
 }
 ```
 
-`TimingSchema.cycle` contains candidate events.
+`TimingPattern.cycle` contains candidate events.
 
 A fixed rhythm has no condition. A random XOX rhythm has one chance condition that runs once per candidate event.
 
@@ -223,13 +224,13 @@ The engine does not sort or merge timing entries.
 ### Event value patterns
 
 ```ts
-type StaticNotePattern = StaticValuePattern<number[] | null>;
+type StaticNotePattern = StaticPattern<number[] | null>;
 
 type NotePattern = StaticNotePattern | RandomNumberPattern;
 
-type SampleNamePattern = StaticValuePattern<string[] | null>;
+type SampleNamePattern = StaticPattern<string[] | null>;
 
-type StaticVariationIndexPattern = StaticValuePattern<number[] | null>;
+type StaticVariationIndexPattern = StaticPattern<number[] | null>;
 
 type VariationIndexPattern = StaticVariationIndexPattern | RandomNumberPattern;
 ```
@@ -255,16 +256,18 @@ It may not appear:
 
 A pattern containing silent bars must align one-to-one with the matching timing cycle. This avoids open-ended cross-cycle absence rules.
 
-### Instrument events
+### Instrument event patterns
 
 ```ts
-interface SynthEventSchema {
-  timing: TimingSchema;
+interface EventPattern {
+  timing: TimingPattern;
+}
+
+interface SynthEventPattern extends EventPattern {
   notes: NotePattern;
 }
 
-interface SamplerEventSchema {
-  timing: TimingSchema;
+interface SamplerEventPattern extends EventPattern {
   notes?: NotePattern;
   sampleNames: SampleNamePattern;
   variationIndices?: VariationIndexPattern;
@@ -291,8 +294,8 @@ Sample names are required. A sampler pattern must contain at least one real name
 ### Shared instrument schema
 
 ```ts
-interface InstrumentSchema<TEvents> {
-  events: TEvents;
+interface InstrumentSchema<TEventPattern extends EventPattern> {
+  eventPattern: TEventPattern;
   gain: EnvelopeSchema;
   detune: AudioParamSchema;
   effects: EffectSchema[];
@@ -301,13 +304,13 @@ interface InstrumentSchema<TEvents> {
   sends: Record<string, number>;
 }
 
-interface SynthesizerSchema extends InstrumentSchema<SynthEventSchema> {
+interface SynthesizerSchema extends InstrumentSchema<SynthEventPattern> {
   type: "synthesizer";
   waveform: Waveform;
   notesOut?: MidiOutSchema;
 }
 
-interface SamplerSchema extends InstrumentSchema<SamplerEventSchema> {
+interface SamplerSchema extends InstrumentSchema<SamplerEventPattern> {
   type: "sampler";
   bank: string;
   fit: FitSchema | null;
@@ -318,7 +321,7 @@ interface SamplerSchema extends InstrumentSchema<SamplerEventSchema> {
 }
 ```
 
-Gain, detune, effects, regions, and playback settings remain outside `events`. They are shared by every voice in one event.
+Gain, detune, effects, regions, and playback settings remain outside `eventPattern`. They are shared by every voice in one event.
 
 ### Removed schema concepts
 
@@ -972,7 +975,7 @@ Then:
 
 ```ts
 type SampleNamePattern =
-  | StaticValuePattern<string[] | null>
+  | StaticPattern<string[] | null>
   | RandomChoicePattern<string>;
 ```
 
@@ -1143,7 +1146,7 @@ Explicit rhythm chooses candidate times when present.
 Otherwise, explicit rests are preserved and the densest authored
 note, sample-name, or variation pattern supplies timing.
 
-Fluid compiles all fixed timing decisions into TimingSchema.
+Fluid compiles all fixed timing decisions into TimingPattern.
 The engine applies one optional chance condition and numbers the
 surviving events from zero within each bar.
 
@@ -1151,8 +1154,9 @@ At each hit, synths resolve note voices.
 Samplers resolve note, sample-name, and variation arrays, wrap them
 to one voice count, and then resolve each voice's source.
 
-Timing says when.
-Event patterns say what starts.
-Processing patterns say how it sounds.
+Timing says when candidate events happen.
+Event-value patterns say what each surviving event starts.
+An event pattern combines those two concerns.
+Processing patterns say how each event sounds.
 The engine does not decide authoring policy.
 ```

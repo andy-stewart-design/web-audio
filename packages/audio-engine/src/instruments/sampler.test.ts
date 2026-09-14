@@ -2,7 +2,7 @@ import type AudioClock from "@web-audio/clock";
 import type {
   BankSchema,
   SamplerSchema,
-  TimingSchema,
+  TimingPattern,
 } from "@web-audio/schema";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -56,8 +56,8 @@ class FakeAudioContext {
 }
 
 const timing = (
-  cycle: TimingSchema["cycle"] = [[{ offset: 0, duration: 1 }]],
-): TimingSchema => ({ cycle });
+  cycle: TimingPattern["cycle"] = [[{ offset: 0, duration: 1 }]],
+): TimingPattern => ({ cycle });
 
 function cache(entries: Record<string, AudioBuffer>) {
   const value = new SampleBufferCache(
@@ -132,7 +132,7 @@ describe("Sampler scheduling", () => {
     };
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing(),
           notes: { type: "static", cycle: [[[62]]] },
           sampleNames: { type: "static", cycle: [[["bd"]]] },
@@ -160,7 +160,7 @@ describe("Sampler scheduling", () => {
     };
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing(),
           notes: { type: "static", cycle: [[[0, 62]]] },
           sampleNames: { type: "static", cycle: [[["bd", "piano"]]] },
@@ -190,7 +190,7 @@ describe("Sampler scheduling", () => {
     };
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing(),
           notes: randomNumberPattern({
             valuesPerBar: [1],
@@ -221,7 +221,7 @@ describe("Sampler scheduling", () => {
     ]);
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing(),
           notes: randomNumberPattern({
             valuesPerBar: [1],
@@ -256,7 +256,7 @@ describe("Sampler scheduling", () => {
     ]);
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing(),
           sampleNames: { type: "static", cycle: [[["bd"]]] },
           variationIndices: { type: "static", cycle: [[[1]]] },
@@ -300,7 +300,7 @@ describe("Sampler scheduling", () => {
     };
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: candidateTiming,
           sampleNames: { type: "static", cycle: [[["bd"]]] },
           variationIndices: { type: "static", cycle: [[[0], [1]]] },
@@ -330,7 +330,7 @@ describe("Sampler scheduling", () => {
   it("schedules layered voices with one shared event hit", async () => {
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing(),
           notes: { type: "static", cycle: [[[60, 64]]] },
           sampleNames: { type: "static", cycle: [[["bd"]]] },
@@ -352,7 +352,7 @@ describe("Sampler scheduling", () => {
     const buffers = cache({ "https://example.com/bd.wav": buffer() });
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing([
             [
               { offset: 0, duration: 0.5 },
@@ -403,7 +403,7 @@ describe("Sampler scheduling", () => {
   it("preserves static region and clip duration behavior", async () => {
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing([[{ offset: 0.5, duration: 0.5 }]]),
           sampleNames: { type: "static", cycle: [[["bd"]]] },
         },
@@ -428,7 +428,7 @@ describe("Sampler scheduling", () => {
   it("preserves chop wrapping and fit timing", async () => {
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing([[{ offset: 0, duration: 2 }]]),
           sampleNames: { type: "static", cycle: [[["bd"]]] },
         },
@@ -514,7 +514,7 @@ describe("Sampler scheduling", () => {
   it("lets one-shot samples play for their resolved source duration", async () => {
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing([[{ offset: 0, duration: 0.25 }]]),
           sampleNames: { type: "static", cycle: [[["bd"]]] },
         },
@@ -564,7 +564,7 @@ describe("Sampler scheduling", () => {
     });
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing([
             [
               { offset: 0, duration: 0.5 },
@@ -590,7 +590,7 @@ describe("Sampler scheduling", () => {
   it("skips invalid regions without compressing later hit values", async () => {
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing([
             [
               { offset: 0, duration: 0.5 },
@@ -619,7 +619,7 @@ describe("Sampler scheduling", () => {
     const buffers = cache({ "https://example.com/bd.wav": buffer() });
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing([
             [
               { offset: 0, duration: 0.5 },
@@ -669,7 +669,7 @@ describe("Sampler scheduling", () => {
   it("skips empty timing bars without resolving resources", async () => {
     const instance = await sampler(
       schema({
-        events: {
+        eventPattern: {
           timing: timing([[], [{ offset: 0, duration: 1 }]]),
           sampleNames: { type: "static", cycle: [[null], [["bd"]]] },
         },

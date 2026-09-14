@@ -1,7 +1,4 @@
-import type {
-  RandomNumberPattern,
-  StaticValuePattern,
-} from "@web-audio/schema";
+import type { RandomNumberPattern, StaticPattern } from "@web-audio/schema";
 import RandomResolver from "@/resolvers/random-resolver";
 
 class ValuePatternResolver {
@@ -10,23 +7,19 @@ class ValuePatternResolver {
     RandomResolver
   >();
 
-  resolve<T>(
-    pattern: StaticValuePattern<T>,
-    barIndex: number,
-    hitIndex: number,
-  ): T;
+  resolve<T>(pattern: StaticPattern<T>, barIndex: number, hitIndex: number): T;
   resolve(
     pattern: RandomNumberPattern,
     barIndex: number,
     hitIndex: number,
   ): number;
   resolve<T>(
-    pattern: StaticValuePattern<T> | RandomNumberPattern,
+    pattern: StaticPattern<T> | RandomNumberPattern,
     barIndex: number,
     hitIndex: number,
   ): T | number;
   resolve<T>(
-    pattern: StaticValuePattern<T> | RandomNumberPattern,
+    pattern: StaticPattern<T> | RandomNumberPattern,
     barIndex: number,
     hitIndex: number,
   ): T | number {

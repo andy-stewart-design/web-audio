@@ -3,7 +3,7 @@ import compileTimingCycle from "./utils/compile-timing-cycle";
 import type {
   ChanceCondition,
   RandomNumberPattern,
-  TimingSchema,
+  TimingPattern,
 } from "./types";
 
 class RandomCycle extends PatternCycle<1 | 0> {
@@ -25,7 +25,7 @@ class RandomCycle extends PatternCycle<1 | 0> {
     this.rib = this.ribbon.bind(this);
   }
 
-  get candidateTiming(): TimingSchema {
+  get candidateTiming(): TimingPattern {
     return compileTimingCycle(this._cycle);
   }
 
@@ -134,7 +134,7 @@ class RandomCycle extends PatternCycle<1 | 0> {
     };
   }
 
-  getTimingSchema(): TimingSchema {
+  getTimingPattern(): TimingPattern {
     if (this._type !== "binary") {
       throw new Error(
         "[Pattern] RandomCycle event timing requires a binary random cycle. Call .bin() before using it as timing.",

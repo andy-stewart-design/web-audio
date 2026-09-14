@@ -25,7 +25,7 @@ describe("instrument event schemas", () => {
   it("emits the default synth as explicit timing and note values", () => {
     const schema = new Synthesizer().getSchema();
 
-    expect(schema.events).toEqual({
+    expect(schema.eventPattern).toEqual({
       timing: { cycle: [[{ offset: 0, duration: 1 }]] },
       notes: { type: "static", cycle: [[[60]]] },
     });
@@ -36,7 +36,7 @@ describe("instrument event schemas", () => {
     const events = new Synthesizer()
       .notes([60, 64, 67, 71])
       .xox([1, 0, 1, 1, 1, 1, 0, 1])
-      .getSchema().events;
+      .getSchema().eventPattern;
 
     expect(events.notes).toEqual({
       type: "static",
@@ -59,7 +59,7 @@ describe("instrument event schemas", () => {
         .notes([60, 64])
         .xox([1, 0, 1])
         .notes([67, 71])
-        .getSchema().events,
+        .getSchema().eventPattern,
     ).toEqual({
       timing: {
         cycle: [
@@ -77,7 +77,7 @@ describe("instrument event schemas", () => {
     const events = new Synthesizer()
       .notes([60])
       .xox(new RandomCycle().chance(0.6).bin().steps(4, 0))
-      .getSchema().events;
+      .getSchema().eventPattern;
 
     expect(events.timing.cycle.map((bar) => bar.length)).toEqual([4, 0]);
     expect(events.timing.condition).toMatchObject({
@@ -99,7 +99,7 @@ describe("instrument event schemas", () => {
   it("emits a natural-pitch sampler without notes or default variation", () => {
     const schema = new Sampler("kick").getSchema();
 
-    expect(schema.events).toEqual({
+    expect(schema.eventPattern).toEqual({
       timing: { cycle: [[{ offset: 0, duration: 1 }]] },
       sampleNames: { type: "static", cycle: [[["kick"]]] },
     });
@@ -110,12 +110,12 @@ describe("instrument event schemas", () => {
   });
 
   it("emits sampler pitch values only when pitch intent is explicit", () => {
-    const root = new Sampler("kick").root("A3").getSchema().events;
+    const root = new Sampler("kick").root("A3").getSchema().eventPattern;
     const scale = new Sampler("kick")
       .root("A3")
       .scale("min")
       .notes([0, 2, 4])
-      .getSchema().events;
+      .getSchema().eventPattern;
 
     expect(root.notes).toEqual({ type: "static", cycle: [[[57]]] });
     expect(root.timing).toEqual({
@@ -130,7 +130,7 @@ describe("instrument event schemas", () => {
 
   it("moves explicit sampler variation values under events", () => {
     expect(
-      new Sampler("kick").variation([0, 1, 2]).getSchema().events,
+      new Sampler("kick").variation([0, 1, 2]).getSchema().eventPattern,
     ).toMatchObject({
       variationIndices: {
         type: "static",
@@ -140,13 +140,113 @@ describe("instrument event schemas", () => {
     expect(
       new Sampler("kick")
         .variation(new RandomCycle().steps(3).int().range(0, 4))
-        .getSchema().events.variationIndices,
+        .getSchema().eventPattern.variationIndices,
     ).toMatchObject({
       type: "random-number",
       valuesPerBar: [3],
       dataType: "integer",
       range: { min: 0, max: 4 },
     });
+  });
+
+  it("supports variation bars, sequential hits, and simultaneous voices", () => {
+    expect(
+      new Sampler("kick").variation(0, 1, 2).getSchema().eventPattern,
+    ).toMatchObject({
+      timing: {
+        cycle: [
+          [{ offset: 0, duration: 1 }],
+          [{ offset: 0, duration: 1 }],
+          [{ offset: 0, duration: 1 }],
+        ],
+      },
+      variationIndices: {
+        type: "static",
+        cycle: [[[0]], [[1]], [[2]]],
+      },
+    });
+
+    expect(
+      new Sampler("kick").variation([[0, 1], [2], [3, 4]]).getSchema()
+        .eventPattern.variationIndices,
+    ).toEqual({
+      type: "static",
+      cycle: [[[0, 1], [2], [3, 4]]],
+    });
+
+    expect(
+      new Sampler("kick").variation(-1.5, 2.25).getSchema().eventPattern
+        .variationIndices,
+    ).toEqual({
+      type: "static",
+      cycle: [[[-1.5]], [[2.25]]],
+    });
+  });
+
+  it("preserves variation rests as silent timing gaps", () => {
+    expect(
+      new Sampler("kick").variation([0, null, 2]).getSchema().eventPattern,
+    ).toEqual({
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 1 / 3 },
+            { offset: 2 / 3, duration: 1 / 3 },
+          ],
+        ],
+      },
+      sampleNames: { type: "static", cycle: [[["kick"]]] },
+      variationIndices: { type: "static", cycle: [[[0], [2]]] },
+    });
+
+    expect(
+      new Sampler("kick").variation([], [1]).getSchema().eventPattern,
+    ).toMatchObject({
+      timing: {
+        cycle: [[], [{ offset: 0, duration: 1 }]],
+      },
+      variationIndices: { type: "static", cycle: [[null], [[1]]] },
+    });
+  });
+
+  it("aliases var() to variation() and replaces the previous pattern", () => {
+    const sampler = new Sampler("kick");
+    expect(sampler.var([0, 1])).toBe(sampler);
+    sampler.variation([2]);
+
+    expect(sampler.getSchema().eventPattern.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[2]]],
+    });
+  });
+
+  it("keeps random variation scalar per hit", () => {
+    expect(
+      new Sampler("kick").var(new RandomCycle().int().steps(4)).getSchema()
+        .eventPattern.variationIndices,
+    ).toMatchObject({
+      type: "random-number",
+      valuesPerBar: [4],
+      dataType: "integer",
+    });
+  });
+
+  it("rejects invalid variation shapes and values", () => {
+    expect(() => new Sampler("kick").variation()).toThrow(
+      "[Sampler] variation() requires at least one pattern.",
+    );
+    expect(() => {
+      // @ts-expect-error null is not valid inside a simultaneous voice group.
+      new Sampler("kick").variation([[0, null]]);
+    }).toThrow(
+      "[Sampler] variation() null is only allowed as a whole-hit rest.",
+    );
+    expect(() => new Sampler("kick").variation([[]])).toThrow(
+      "[Sampler] variation() simultaneous voice groups cannot be empty.",
+    );
+    expect(() => new Sampler("kick").variation(Number.NaN)).toThrow(
+      "[Sampler] variation() values must be finite numbers.",
+    );
   });
 
   it.each([
@@ -175,8 +275,8 @@ describe("instrument event schemas", () => {
     ({ sliceCount, expected }) => {
       const schema = new Sampler("loop").chop(sliceCount).fit(4).getSchema();
 
-      expect(schema.events.timing.cycle).toEqual(expected);
-      expect(schema.events.notes).toBeUndefined();
+      expect(schema.eventPattern.timing.cycle).toEqual(expected);
+      expect(schema.eventPattern.notes).toBeUndefined();
     },
   );
 
@@ -185,7 +285,7 @@ describe("instrument event schemas", () => {
       .fit(2)
       .chop(8, [0, 3, 5, 1])
       .notes([0, 12])
-      .getSchema().events;
+      .getSchema().eventPattern;
 
     expect(events.timing.cycle[0]).toEqual([
       { offset: 0, duration: 0.25 },

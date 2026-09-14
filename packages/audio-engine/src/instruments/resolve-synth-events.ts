@@ -1,16 +1,16 @@
-import type { SynthEventSchema } from "@web-audio/schema";
+import type { SynthEventPattern } from "@web-audio/schema";
 import type { ResolvedSynthEvent } from "@/types";
 import { resolveTiming } from "./resolve-timing";
 import ValuePatternResolver from "./value-pattern-resolver";
 
 function resolveSynthEvents(
-  events: SynthEventSchema,
+  eventPattern: SynthEventPattern,
   barIndex: number,
   valueResolver = new ValuePatternResolver(),
 ) {
-  return resolveTiming(events.timing, barIndex).map((timing) => {
+  return resolveTiming(eventPattern.timing, barIndex).map((timing) => {
     const resolvedNotes = valueResolver.resolve(
-      events.notes,
+      eventPattern.notes,
       barIndex,
       timing.hitIndex,
     );
