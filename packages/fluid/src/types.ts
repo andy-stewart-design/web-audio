@@ -11,10 +11,11 @@ import type { MidiCc } from "./midi";
 import type Parameter from "./patterns/parameter";
 import type { scaleAliasMap } from "./utils/get-scale";
 
-type CycleInput = (number | number[])[] | [RandomCycle];
+type CycleInput<T> = (T | T[])[] | [RandomCycle];
+type NullableCycleInput<T> = (T | null | (T | null | T[])[])[] | [RandomCycle];
 
 type AudioParamSource = Parameter | Envelope | Lfo | MidiCc;
-type AudioParamInput = CycleInput | [Envelope] | [Lfo] | [MidiCc];
+type AudioParamInput = CycleInput<number> | [Envelope] | [Lfo] | [MidiCc];
 
 type ADSR = { a: number; d: number; s: number; r: number };
 
@@ -59,6 +60,7 @@ export type {
   AudioParamInput,
   AudioParamSource,
   CycleInput,
+  NullableCycleInput,
   ScaleAlias,
   NoteName,
   NoteValue,

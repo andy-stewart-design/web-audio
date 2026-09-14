@@ -152,6 +152,10 @@ class MidiNotes {
     return this.getEventPattern().notes;
   }
 
+  get hasExplicitRhythm() {
+    return this._rhythmState !== undefined;
+  }
+
   private _getExplicitTiming() {
     if (this._rhythmState?.type !== "random") return undefined;
     if (this._rhythmState.cycle.dataType !== "binary") {

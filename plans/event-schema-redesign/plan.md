@@ -1213,18 +1213,18 @@ The constructor variation remains scalar in `d.sample("bd", value)` and `d.sampl
 
 **Acceptance criteria:**
 
-- [ ] `.var()` and `.variation()` are exact aliases.
-- [ ] Last setter wins for variation values.
-- [ ] Random variation remains scalar per hit.
-- [ ] Explicit silent bars survive in Fluid state for timing compilation.
-- [ ] No constructor array form type-checks.
+- [x] `.var()` and `.variation()` are exact aliases.
+- [x] Last setter wins for variation values.
+- [x] Random variation remains scalar per hit.
+- [x] Explicit silent bars survive in Fluid state for timing compilation.
+- [x] No constructor array form type-checks.
 
 **Testing:**
 
-- [ ] Every supported dimension and invalid shape.
-- [ ] Multi-bar and uneven voice counts.
-- [ ] Negative and fractional finite values remain authorable.
-- [ ] Zero is an active variation value.
+- [x] Every supported dimension and invalid shape.
+- [x] Multi-bar and uneven voice counts.
+- [x] Negative and fractional finite values remain authorable.
+- [x] Zero is an active variation value.
 
 ---
 

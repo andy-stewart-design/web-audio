@@ -6,7 +6,7 @@ import type { CycleInput } from "@/types";
 class Parameter {
   protected _cycle: ValueCycle | RandomCycle;
 
-  constructor(...input: CycleInput) {
+  constructor(...input: CycleInput<number>) {
     if (isRandomCycleTuple(input)) {
       this._cycle = input[0];
     } else {

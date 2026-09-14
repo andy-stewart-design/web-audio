@@ -11,7 +11,7 @@ class Envelope {
   private _r: Parameter;
   private _mode: EnvelopeSchema["mode"];
 
-  constructor(min?: number, ...max: CycleInput) {
+  constructor(min?: number, ...max: CycleInput<number>) {
     this._min = min ?? 0;
     this._max = max.length > 0 ? new Parameter(...max) : new Parameter(1);
     this._a = new Parameter(0.01);
@@ -21,7 +21,7 @@ class Envelope {
     this._mode = "bleed";
   }
 
-  max(...input: CycleInput) {
+  max(...input: CycleInput<number>) {
     this._max = input.length > 0 ? new Parameter(...input) : new Parameter(1);
     return this;
   }
@@ -39,22 +39,22 @@ class Envelope {
     return this;
   }
 
-  a(...input: CycleInput) {
+  a(...input: CycleInput<number>) {
     this._a = new Parameter(...input);
     return this;
   }
 
-  d(...input: CycleInput) {
+  d(...input: CycleInput<number>) {
     this._d = new Parameter(...input);
     return this;
   }
 
-  s(...input: CycleInput) {
+  s(...input: CycleInput<number>) {
     this._s = new Parameter(...input);
     return this;
   }
 
-  r(...input: CycleInput) {
+  r(...input: CycleInput<number>) {
     this._r = new Parameter(...input);
     return this;
   }
