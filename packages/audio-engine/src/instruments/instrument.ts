@@ -4,6 +4,7 @@ import type {
   AudioParamSchema,
   EffectSchema,
   EnvelopeSchema,
+  EventPattern,
   InstrumentSchema,
   LfoSchema,
   MidiCcSchema,
@@ -472,7 +473,7 @@ abstract class Instrument {
   // ---------------------------------------------------------------------------
 
   protected _initLfos(
-    schema: InstrumentSchema<unknown>,
+    schema: InstrumentSchema<EventPattern>,
     startingBar = 0,
     barStartTime?: number,
   ) {

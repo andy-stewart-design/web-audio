@@ -1126,7 +1126,7 @@ describe("AudioEngine", () => {
       const schema = makeSamplerSchema();
       const sampler = schema.instruments[0];
       if (sampler.type !== "sampler") expect.unreachable();
-      sampler.events.variationIndices = {
+      sampler.eventPattern.variationIndices = {
         type: "static",
         cycle: [[[0], [1], [2], [3]]],
       };
@@ -1158,7 +1158,7 @@ describe("AudioEngine", () => {
       const schema = makeSamplerSchema();
       const sampler = schema.instruments[0];
       if (sampler.type !== "sampler") expect.unreachable();
-      sampler.events.variationIndices = {
+      sampler.eventPattern.variationIndices = {
         type: "static",
         cycle: [[[0], [1]]],
       };

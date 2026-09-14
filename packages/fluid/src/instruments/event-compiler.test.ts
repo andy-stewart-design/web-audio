@@ -4,7 +4,7 @@ import MidiNotes from "@/patterns/midi-notes";
 
 describe("event pattern compiler", () => {
   it("compiles the default synth note and timing", () => {
-    expect(new MidiNotes([60]).getEvents()).toEqual({
+    expect(new MidiNotes([60]).getEventPattern()).toEqual({
       timing: { cycle: [[{ offset: 0, duration: 1 }]] },
       notes: { type: "static", cycle: [[[60]]] },
     });
@@ -12,7 +12,7 @@ describe("event pattern compiler", () => {
 
   it("groups chord voices, filters rests, and preserves note zero", () => {
     expect(
-      new MidiNotes([60]).notes([60, [64, 67], null, 0]).getEvents(),
+      new MidiNotes([60]).notes([60, [64, 67], null, 0]).getEventPattern(),
     ).toEqual({
       timing: {
         cycle: [
@@ -29,7 +29,7 @@ describe("event pattern compiler", () => {
 
   it("compiles fixed XOX masks as timing rather than values", () => {
     expect(
-      new MidiNotes([60]).notes([60, 64]).xox([1, 0, 1, 1]).getEvents(),
+      new MidiNotes([60]).notes([60, 64]).xox([1, 0, 1, 1]).getEventPattern(),
     ).toEqual({
       timing: {
         cycle: [
@@ -47,7 +47,7 @@ describe("event pattern compiler", () => {
   it("compiles random notes as values independently from their timing", () => {
     const events = new MidiNotes([60])
       .notes(new RandomCycle().steps(2, 0, 3).int().range(48, 72))
-      .getEvents();
+      .getEventPattern();
 
     expect(events.notes).toMatchObject({
       type: "random-number",
@@ -63,7 +63,7 @@ describe("event pattern compiler", () => {
     const events = new MidiNotes([60])
       .notes(new RandomCycle().steps(2).range(48, 72))
       .xox([1, 0, 1, 1])
-      .getEvents();
+      .getEventPattern();
 
     expect(events.notes).toMatchObject({
       type: "random-number",
@@ -85,7 +85,7 @@ describe("event pattern compiler", () => {
     const events = new MidiNotes([60])
       .notes([60, 64])
       .xox(new RandomCycle().bin().steps(4).chance(0.25).ribbon(7, 8))
-      .getEvents();
+      .getEventPattern();
 
     expect(events.timing.cycle[0]).toEqual([
       { offset: 0, duration: 0.25 },
@@ -111,7 +111,7 @@ describe("event pattern compiler", () => {
       new MidiNotes([60])
         .notes([60, 64])
         .xox(new RandomCycle().bin().steps(4, 2).chance(0))
-        .getEvents(),
+        .getEventPattern(),
     ).toEqual({
       timing: { cycle: [[], []] },
       notes: { type: "static", cycle: [[null], [null]] },
@@ -123,7 +123,7 @@ describe("event pattern compiler", () => {
       .root("c4")
       .scale("maj")
       .notes([0, 1])
-      .getEvents();
+      .getEventPattern();
 
     expect(events.notes).toEqual({
       type: "static",
@@ -144,22 +144,24 @@ describe("event pattern compiler", () => {
     const hexadecimal = new MidiNotes([60]).notes([60, 64]).hex("a");
     const sequence = new MidiNotes([60]).notes([60, 64]).sequence(4, 0, 2);
 
-    expect(euclidean.getEvents().timing.cycle[0]).toEqual([
+    expect(euclidean.getEventPattern().timing.cycle[0]).toEqual([
       { offset: 0, duration: 0.25 },
       { offset: 0.5, duration: 0.25 },
     ]);
-    expect(hexadecimal.getEvents().timing.cycle[0]).toEqual([
+    expect(hexadecimal.getEventPattern().timing.cycle[0]).toEqual([
       { offset: 0, duration: 0.25 },
       { offset: 0.5, duration: 0.25 },
     ]);
-    expect(sequence.getEvents().timing.cycle).toEqual([
+    expect(sequence.getEventPattern().timing.cycle).toEqual([
       [{ offset: 0, duration: 0.25 }],
       [{ offset: 0.5, duration: 0.25 }],
     ]);
   });
 
   it("keeps multi-bar silence explicit and aligned", () => {
-    expect(new MidiNotes([60]).notes([60], [null], [67]).getEvents()).toEqual({
+    expect(
+      new MidiNotes([60]).notes([60], [null], [67]).getEventPattern(),
+    ).toEqual({
       timing: {
         cycle: [[{ offset: 0, duration: 1 }], [], [{ offset: 0, duration: 1 }]],
       },
@@ -175,7 +177,7 @@ describe("event pattern compiler", () => {
 
   it("rejects non-binary random rhythm patterns", () => {
     expect(() =>
-      new MidiNotes([60]).xox(new RandomCycle()).getEvents(),
+      new MidiNotes([60]).xox(new RandomCycle()).getEventPattern(),
     ).toThrow("Instrument.xox() random masks must be binary");
   });
 });

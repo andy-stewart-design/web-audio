@@ -84,7 +84,10 @@ function validateDromeGraph(schema: DromeSchema) {
     validateInstrumentCommon(instrument, path, schema);
 
     if (instrument.type === "synthesizer") {
-      validateSynthEvent(instrument.events, `${path}.events`);
+      validateSynthEventPattern(
+        instrument.eventPattern,
+        `${path}.eventPattern`,
+      );
       if (instrument.notesOut !== undefined) {
         validateMidiOut(instrument.notesOut, `${path}.notesOut`);
       }
@@ -97,7 +100,10 @@ function validateDromeGraph(schema: DromeSchema) {
     if (!isNonEmptyString(instrument.bank)) {
       throw new Error(`[Schema] ${path}.bank must be non-empty.`);
     }
-    validateSamplerEvent(instrument.events, `${path}.events`);
+    validateSamplerEventPattern(
+      instrument.eventPattern,
+      `${path}.eventPattern`,
+    );
     validateFit(instrument.fit, `${path}.fit`);
     validateRegion(instrument.region, `${path}.region`);
     if (typeof instrument.loop !== "boolean") {
@@ -502,7 +508,7 @@ function validateChanceCondition(condition: unknown, path: string) {
   }
 }
 
-function validateSynthEvent(schema: unknown, path: string) {
+function validateSynthEventPattern(schema: unknown, path: string) {
   if (!isRecord(schema)) {
     throw new Error(`[Schema] ${path} must be an object.`);
   }
@@ -510,7 +516,7 @@ function validateSynthEvent(schema: unknown, path: string) {
   validateNotePattern(schema.notes, `${path}.notes`, timing);
 }
 
-function validateSamplerEvent(schema: unknown, path: string) {
+function validateSamplerEventPattern(schema: unknown, path: string) {
   if (!isRecord(schema)) {
     throw new Error(`[Schema] ${path} must be an object.`);
   }

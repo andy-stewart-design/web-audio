@@ -5,7 +5,7 @@ import type {
   ClipMode,
   FitSchema,
   SampleDirection,
-  SamplerEventSchema,
+  SamplerEventPattern,
   SamplerSchema,
 } from "@web-audio/schema";
 import {
@@ -196,9 +196,9 @@ class Sampler extends Instrument {
       : undefined;
   }
 
-  private _getEvents(): SamplerEventSchema {
+  private _getEventPattern(): SamplerEventPattern {
     const timingOverride = this._getTimingOverride();
-    const noteEvents = this._cycle.getEvents(timingOverride);
+    const noteEvents = this._cycle.getEventPattern(timingOverride);
     const variationIndices = getVariationIndices(this._variation);
 
     return alignSamplerEventCycles({
@@ -241,7 +241,7 @@ class Sampler extends Instrument {
     return {
       type: "sampler",
       bank: this._bank,
-      events: this._getEvents(),
+      eventPattern: this._getEventPattern(),
       fit: this._fit,
       region,
       detune: this._detune.getSchema("detune"),

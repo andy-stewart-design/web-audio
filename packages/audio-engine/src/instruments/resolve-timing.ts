@@ -1,8 +1,8 @@
-import type { TimingSchema } from "@web-audio/schema";
+import type { TimingPattern } from "@web-audio/schema";
 import ChanceResolver from "@/resolvers/chance-resolver";
 import type { ResolvedTimingEvent } from "@/types";
 
-function resolveTiming(timing: TimingSchema, barIndex: number) {
+function resolveTiming(timing: TimingPattern, barIndex: number) {
   const candidates = timing.cycle[barIndex % timing.cycle.length];
   const decisions = timing.condition
     ? new ChanceResolver(timing.condition).resolveBar(

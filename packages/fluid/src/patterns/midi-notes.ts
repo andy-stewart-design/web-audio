@@ -7,9 +7,9 @@ import {
 import type {
   NotePattern,
   RandomNumberPattern,
-  TimingSchema,
+  TimingPattern,
 } from "@web-audio/schema";
-import { compileEventPatterns } from "@/instruments/event-pattern-compiler";
+import { compileNoteEvents } from "@/instruments/event-compiler";
 import { getScale } from "@/utils/get-scale";
 import { noteStringToMidi } from "@/utils/note-string-to-midi";
 import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
@@ -124,11 +124,11 @@ class MidiNotes {
     return this;
   }
 
-  getEvents(timingOverride?: TimingSchema) {
+  getEventPattern(timingOverride?: TimingPattern) {
     const explicitTiming = timingOverride ?? this._getExplicitTiming();
 
     if (isRandomCycle(this._notes)) {
-      return compileEventPatterns({
+      return compileNoteEvents({
         source: {
           type: "random",
           pattern: this._getRandomNotePattern(this._notes),
@@ -138,7 +138,7 @@ class MidiNotes {
       });
     }
 
-    return compileEventPatterns({
+    return compileNoteEvents({
       source: {
         type: "static",
         cycle: this._notes,
@@ -149,7 +149,7 @@ class MidiNotes {
   }
 
   getSchema(): NotePattern {
-    return this.getEvents().notes;
+    return this.getEventPattern().notes;
   }
 
   private _getExplicitTiming() {
@@ -157,7 +157,7 @@ class MidiNotes {
     if (this._rhythmState.cycle.dataType !== "binary") {
       throw new Error("Instrument.xox() random masks must be binary");
     }
-    return this._rhythmState.cycle.getTimingSchema();
+    return this._rhythmState.cycle.getTimingPattern();
   }
 
   private _getRandomNotePattern(cycle: RandomCycle): RandomNumberPattern {

@@ -5,7 +5,7 @@ import Drome from "./index";
 import type Sampler from "./instruments/sampler";
 
 function getStaticChopFixture(schema: SamplerSchema) {
-  const timingBars = schema.events.timing.cycle;
+  const timingBars = schema.eventPattern.timing.cycle;
   const region = schema.region;
   if (region?.type !== "chop" || region.sequence.type !== "static") {
     throw new Error("Expected static chop timing and a static sequence");
@@ -444,7 +444,7 @@ describe("Drome", () => {
       if (inst.type !== "sampler") return;
       expect(inst).toMatchObject({
         bank: "tr909",
-        events: {
+        eventPattern: {
           timing: { cycle: [[{ offset: 0, duration: 1 }]] },
           sampleNames: { type: "static", cycle: [[["bd"]]] },
         },
@@ -454,8 +454,8 @@ describe("Drome", () => {
         fit: null,
         region: null,
       });
-      expect(inst.events.notes).toBeUndefined();
-      expect(inst.events.variationIndices).toBeUndefined();
+      expect(inst.eventPattern.notes).toBeUndefined();
+      expect(inst.eventPattern.variationIndices).toBeUndefined();
       expect(inst).not.toHaveProperty("sample");
       expect(inst).not.toHaveProperty("sourceKeys");
       expect(schema.banks.tr909.samples.bd["0"][0].type).toBe("file");
@@ -467,25 +467,26 @@ describe("Drome", () => {
       const secondArg = d.sample("bd", 1).getSchema();
       const shorthand = d.sample("bd:1").getSchema();
 
-      expect(secondArg.events.variationIndices).toEqual(
-        explicit.events.variationIndices,
+      expect(secondArg.eventPattern.variationIndices).toEqual(
+        explicit.eventPattern.variationIndices,
       );
-      expect(shorthand.events.variationIndices).toEqual(
-        explicit.events.variationIndices,
+      expect(shorthand.eventPattern.variationIndices).toEqual(
+        explicit.eventPattern.variationIndices,
       );
       expect(
-        d.sample("bd").variation([0, 1, 2]).getSchema().events.variationIndices,
+        d.sample("bd").variation([0, 1, 2]).getSchema().eventPattern
+          .variationIndices,
       ).toEqual({ type: "static", cycle: [[[0], [1], [2]]] });
       expect(
-        d.sample("bd").variation(d.rand().int().range(0, 2)).getSchema().events
-          .variationIndices,
+        d.sample("bd").variation(d.rand().int().range(0, 2)).getSchema()
+          .eventPattern.variationIndices,
       ).toMatchObject({
         type: "random-number",
         dataType: "integer",
         range: { min: 0, max: 2 },
       });
       expect(
-        d.sample("bd").getSchema().events.variationIndices,
+        d.sample("bd").getSchema().eventPattern.variationIndices,
       ).toBeUndefined();
     });
 
@@ -496,11 +497,11 @@ describe("Drome", () => {
       const instrument = d.getSchema().instruments[0];
       expect(instrument.type).toBe("sampler");
       if (instrument.type !== "sampler") return;
-      expect(instrument.events.timing.cycle).toEqual([
+      expect(instrument.eventPattern.timing.cycle).toEqual([
         [{ offset: 0, duration: 1 }],
         [],
       ]);
-      expect(instrument.events.variationIndices).toMatchObject({
+      expect(instrument.eventPattern.variationIndices).toMatchObject({
         type: "random-number",
         valuesPerBar: [2, 0],
       });
@@ -512,12 +513,12 @@ describe("Drome", () => {
         .sample("bd")
         .notes([0, 2, 4])
         .variation(d.rand().int().range(0, 2))
-        .getSchema().events;
+        .getSchema().eventPattern;
       const randomNotes = d
         .sample("bd")
         .notes(d.rand().int().range(0, 12))
         .variation([0, 1])
-        .getSchema().events;
+        .getSchema().eventPattern;
 
       expect(staticNotes.notes?.type).toBe("static");
       expect(staticNotes.variationIndices?.type).toBe("random-number");
@@ -527,13 +528,13 @@ describe("Drome", () => {
 
     it("distinguishes explicit sampler pitch intent from timing ownership", () => {
       const d = new Drome();
-      const root = d.sample("bd").root("A4").getSchema().events;
+      const root = d.sample("bd").root("A4").getSchema().eventPattern;
       const scale = d
         .sample("bd")
         .root("A4")
         .scale("maj")
         .notes([0, 2, 4])
-        .getSchema().events;
+        .getSchema().eventPattern;
 
       expect(root.notes).toEqual({ type: "static", cycle: [[[69]]] });
       expect(root.timing).toEqual({
@@ -553,10 +554,10 @@ describe("Drome", () => {
       const instrument = d.getSchema().instruments[0];
       expect(instrument.type).toBe("sampler");
       if (instrument.type !== "sampler") return;
-      expect(instrument.events.timing.cycle).toEqual(
+      expect(instrument.eventPattern.timing.cycle).toEqual(
         Array.from({ length: 4 }, () => [{ offset: 0, duration: 1 }]),
       );
-      expect(instrument.events.notes).toEqual({
+      expect(instrument.eventPattern.notes).toEqual({
         type: "static",
         cycle: Array.from({ length: 4 }, () => [[57]]),
       });
@@ -717,13 +718,13 @@ describe("Drome", () => {
         ],
         sequence: { type: "static", cycle: [[0, 2, 1, 3]] },
       });
-      expect(inst.events.timing.cycle[0]).toEqual([
+      expect(inst.eventPattern.timing.cycle[0]).toEqual([
         { offset: 0, duration: 0.25 },
         { offset: 0.25, duration: 0.25 },
         { offset: 0.5, duration: 0.25 },
         { offset: 0.75, duration: 0.25 },
       ]);
-      expect(inst.events.notes).toBeUndefined();
+      expect(inst.eventPattern.notes).toBeUndefined();
     });
 
     it.each([
@@ -755,8 +756,8 @@ describe("Drome", () => {
           .chop(sliceCount)
           .fit(4)
           .getSchema();
-        expect(schema.events.timing.cycle).toEqual(expected);
-        expect(schema.events.notes).toBeUndefined();
+        expect(schema.eventPattern.timing.cycle).toEqual(expected);
+        expect(schema.eventPattern.notes).toBeUndefined();
       },
     );
 
@@ -790,11 +791,11 @@ describe("Drome", () => {
         .notes([0, 12])
         .getSchema();
 
-      expect(schema.events.notes).toEqual({
+      expect(schema.eventPattern.notes).toEqual({
         type: "static",
         cycle: [[[0], [12], [0], [12]]],
       });
-      expect(schema.events.timing.cycle[0]).toHaveLength(4);
+      expect(schema.eventPattern.timing.cycle[0]).toHaveLength(4);
       expect(schema.fit).toEqual({ type: "fit", bars: 2 });
     });
 
@@ -808,8 +809,8 @@ describe("Drome", () => {
         .chop(8, new RandomCycle().int().range(0, 7).steps(4))
         .getSchema();
 
-      expect(defaultRandom.events.timing.cycle[0]).toHaveLength(8);
-      expect(explicitRandom.events.timing.cycle[0]).toHaveLength(4);
+      expect(defaultRandom.eventPattern.timing.cycle[0]).toHaveLength(8);
+      expect(explicitRandom.eventPattern.timing.cycle[0]).toHaveLength(4);
       expect(defaultRandom.region).toMatchObject({
         type: "chop",
         sequence: { type: "random-number", valuesPerBar: [8] },
@@ -828,21 +829,21 @@ describe("Drome", () => {
         .notes([0, 12])
         .getSchema();
 
-      expect(generated.events.timing.cycle).toEqual([
+      expect(generated.eventPattern.timing.cycle).toEqual([
         [{ offset: 0, duration: 1 }],
         [{ offset: 0, duration: 1 }],
         [{ offset: 0, duration: 1 }],
       ]);
-      expect(generated.events.notes).toBeUndefined();
+      expect(generated.eventPattern.notes).toBeUndefined();
       expect(generated.region).toMatchObject({
         type: "chop",
         sequence: { type: "static", cycle: [[0], [1], [2]] },
       });
-      expect(explicit.events.notes).toEqual({
+      expect(explicit.eventPattern.notes).toEqual({
         type: "static",
         cycle: [[[0], [12]]],
       });
-      expect(explicit.events.timing.cycle[0]).toHaveLength(2);
+      expect(explicit.eventPattern.timing.cycle[0]).toHaveLength(2);
       expect(explicit.region).toBeNull();
     });
 
@@ -859,16 +860,16 @@ describe("Drome", () => {
       ];
 
       for (const generate of generators) {
-        const expected = generate(new Drome().sample("bd")).getSchema().events
-          .timing;
+        const expected = generate(new Drome().sample("bd")).getSchema()
+          .eventPattern.timing;
         for (const transform of transforms) {
           expect(
-            transform(generate(new Drome().sample("bd"))).getSchema().events
-              .timing,
+            transform(generate(new Drome().sample("bd"))).getSchema()
+              .eventPattern.timing,
           ).toEqual(expected);
           expect(
-            generate(transform(new Drome().sample("bd"))).getSchema().events
-              .timing,
+            generate(transform(new Drome().sample("bd"))).getSchema()
+              .eventPattern.timing,
           ).toEqual(expected);
         }
       }
@@ -1239,7 +1240,7 @@ describe("Drome", () => {
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
         expect(inst.bank).toBe("user");
-        expect(inst.events.sampleNames).toEqual({
+        expect(inst.eventPattern.sampleNames).toEqual({
           type: "static",
           cycle: [[["kick"]]],
         });
@@ -1261,7 +1262,7 @@ describe("Drome", () => {
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
         expect(inst.bank).toBe("mykit");
-        expect(inst.events.sampleNames).toEqual({
+        expect(inst.eventPattern.sampleNames).toEqual({
           type: "static",
           cycle: [[["kick"]]],
         });
@@ -1275,7 +1276,7 @@ describe("Drome", () => {
 
       expect(inst.type).toBe("sampler");
       if (inst.type === "sampler") {
-        expect(inst.events.variationIndices).toEqual({
+        expect(inst.eventPattern.variationIndices).toEqual({
           type: "static",
           cycle: [[[0], [1], [2]]],
         });

@@ -8,12 +8,12 @@ import { defaultSamplerSchema, fileBank } from "../test-utils/schema-fixtures";
 import { planSamplerPreloads } from "./preload-samples";
 
 function schema(
-  variationIndices?: SamplerSchema["events"]["variationIndices"],
+  variationIndices?: SamplerSchema["eventPattern"]["variationIndices"],
   direction: SamplerSchema["direction"] = "forward",
 ) {
   return defaultSamplerSchema({
     direction,
-    events: {
+    eventPattern: {
       timing: { cycle: [[{ offset: 0, duration: 1 }]] },
       sampleNames: { type: "static", cycle: [[["bd"]]] },
       ...(variationIndices && { variationIndices }),

@@ -3,8 +3,8 @@ export type {
   ChanceCondition,
   RandomNumberPattern,
   StaticNotePattern,
-  StaticValuePattern,
-  TimingSchema,
+  StaticPattern,
+  TimingPattern,
   TimingStep,
 } from "@web-audio/schema";
 
