@@ -191,7 +191,7 @@ The target rule is that generated chop/fit timing is exempt from `fast`, `slow`,
 
 The legacy representation already satisfies that rule for `fast`, `stretch`, and `reverse`: each transform was characterized before and after both generated `fit(4)` and generated `chop(8)`, and the complete schema remains equal to its untransformed baseline.
 
-`slow()` exposes one legacy state leak. In either call order with generated fit or chop, the generated notes and region remain unchanged, but the transformed default source grid serializes an unrelated two-bar static mask containing one active bar followed by one empty bar. The engine treats that stale mask as authoritative timing, so every second playback bar is silent even though fit/chop generated its own timing. PR 1 must remove that mask while moving generated timing into `TimingSchema`; this is an intentional correction to legacy behavior, not behavior to preserve.
+`slow()` exposes one legacy state leak. In either call order with generated fit or chop, the generated notes and region remain unchanged, but the transformed default source grid serializes an unrelated two-bar static mask containing one active bar followed by one empty bar. The engine treats that stale mask as authoritative timing, so every second playback bar is silent even though fit/chop generated its own timing. PR 1 must remove that mask while moving generated timing into `TimingPattern`; this is an intentional correction to legacy behavior, not behavior to preserve.
 
 Coverage: `packages/fluid/src/index.test.ts` — `keeps generated chop/fit timing exempt from fast, stretch, and reverse in either order` and `characterizes legacy slow mask leakage into generated chop/fit timing`.
 
@@ -231,7 +231,7 @@ Random configuration and candidate geometry are separate baseline concerns:
 - **Candidate step geometry**
   - **Current behavior:** `steps()` creates bars and step locations; zero-count bars are explicit; Euclidean filtering changes active positions.
   - **Coverage:** `packages/patterns/src/random-cycle.test.ts` — `steps(4)`, `steps(16, 0, 8)`, and `euclid filters the inner cycle events`; `packages/patterns/src/masked-cycle.test.ts`
-  - **PR 1 disposition:** compile to `TimingSchema` candidates and/or one chance condition
+  - **PR 1 disposition:** compile to `TimingPattern` candidates and/or one chance condition
 
 - **Binary chance policy**
   - **Current behavior:** Chance is currently attached to the random schema and is valid only for binary cycles; probability boundaries are accepted.

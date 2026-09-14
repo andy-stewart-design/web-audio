@@ -106,7 +106,7 @@ describe("RandomCycle", () => {
     });
   });
 
-  describe("getTimingSchema", () => {
+  describe("getTimingPattern", () => {
     it("exposes chance-free candidate timing for random values", () => {
       const timing = new RandomCycle().steps(2, 0, 3).candidateTiming;
 
@@ -115,7 +115,7 @@ describe("RandomCycle", () => {
     });
 
     it("uses probability 0.5 for binary timing without explicit chance", () => {
-      const schema = new RandomCycle().bin().steps(4).getTimingSchema();
+      const schema = new RandomCycle().bin().steps(4).getTimingPattern();
 
       expect(schema.cycle[0]).toEqual([
         { duration: 0.25, offset: 0 },
@@ -139,7 +139,7 @@ describe("RandomCycle", () => {
           .bin()
           .ribbon([10, 20], [4, 8])
           .algo("mulberry")
-          .getTimingSchema().condition,
+          .getTimingPattern().condition,
       ).toEqual({
         type: "chance",
         probability: 0.25,
@@ -154,13 +154,13 @@ describe("RandomCycle", () => {
 
     it("preserves reverse order in the timing condition", () => {
       expect(
-        new RandomCycle().bin().reverse().getTimingSchema().condition?.order,
+        new RandomCycle().bin().reverse().getTimingPattern().condition?.order,
       ).toBe("reverse");
     });
 
     it("uses the latest configured chance", () => {
       expect(
-        new RandomCycle().bin().chance(0.25).chance(0.75).getTimingSchema()
+        new RandomCycle().bin().chance(0.25).chance(0.75).getTimingPattern()
           .condition?.probability,
       ).toBe(0.75);
     });
@@ -170,7 +170,7 @@ describe("RandomCycle", () => {
         .bin()
         .chance(1)
         .steps(2)
-        .getTimingSchema();
+        .getTimingPattern();
 
       expect(schema).toEqual({
         cycle: [
@@ -184,13 +184,13 @@ describe("RandomCycle", () => {
 
     it("compiles probability zero as empty timing bars", () => {
       expect(
-        new RandomCycle().bin().chance(0).steps(16, 0, 8).getTimingSchema(),
+        new RandomCycle().bin().chance(0).steps(16, 0, 8).getTimingPattern(),
       ).toEqual({ cycle: [[], [], []] });
     });
 
     it("preserves fixed operations in candidate timing", () => {
       expect(
-        new RandomCycle().bin().steps(4).euclid(2, 4).getTimingSchema()
+        new RandomCycle().bin().steps(4).euclid(2, 4).getTimingPattern()
           .cycle[0],
       ).toEqual([
         { duration: 0.25, offset: 0 },
@@ -199,11 +199,11 @@ describe("RandomCycle", () => {
     });
 
     it("rejects non-binary random timing", () => {
-      expect(() => new RandomCycle().getTimingSchema()).toThrow(
+      expect(() => new RandomCycle().getTimingPattern()).toThrow(
         "[Pattern] RandomCycle event timing requires a binary random cycle. Call .bin() before using it as timing.",
       );
       expect(() =>
-        new RandomCycle().bin().chance(0.5).int().getTimingSchema(),
+        new RandomCycle().bin().chance(0.5).int().getTimingPattern(),
       ).toThrow("requires a binary random cycle");
     });
   });

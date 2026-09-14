@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 import { BinaryCycle } from "./static-cycles";
 
 describe("BinaryCycle", () => {
-  describe("getTimingSchema", () => {
+  describe("getTimingPattern", () => {
     it("serializes the default single-step pattern as timing only", () => {
-      expect(new BinaryCycle().getTimingSchema()).toEqual({
+      expect(new BinaryCycle().getTimingPattern()).toEqual({
         cycle: [[{ duration: 1, offset: 0 }]],
       });
     });
 
     it("produces one timing step per Euclidean pulse", () => {
-      const bar = new BinaryCycle().euclid(3, 8).getTimingSchema().cycle[0];
+      const bar = new BinaryCycle().euclid(3, 8).getTimingPattern().cycle[0];
 
       expect(bar).toEqual([
         { duration: 1 / 8, offset: 0 },
@@ -20,7 +20,7 @@ describe("BinaryCycle", () => {
     });
 
     it("serializes multi-bar Euclidean timing", () => {
-      const bars = new BinaryCycle().euclid([3, 4], 8).getTimingSchema().cycle;
+      const bars = new BinaryCycle().euclid([3, 4], 8).getTimingPattern().cycle;
 
       expect(bars).toHaveLength(2);
       expect(bars[0]).toHaveLength(3);
@@ -37,7 +37,7 @@ describe("BinaryCycle", () => {
         cycle: new BinaryCycle().hex("a"),
       },
     ])("preserves sparse timing after $modifier", ({ cycle }) => {
-      expect(cycle.getTimingSchema().cycle[0]).toEqual([
+      expect(cycle.getTimingPattern().cycle[0]).toEqual([
         { duration: 0.25, offset: 0 },
         { duration: 0.25, offset: 0.5 },
       ]);
@@ -45,7 +45,7 @@ describe("BinaryCycle", () => {
 
     it("preserves sparse timing across sequence bars", () => {
       expect(
-        new BinaryCycle().sequence(4, 0, 2).getTimingSchema().cycle,
+        new BinaryCycle().sequence(4, 0, 2).getTimingPattern().cycle,
       ).toEqual([
         [{ duration: 0.25, offset: 0 }],
         [{ duration: 0.25, offset: 0.5 }],
@@ -53,13 +53,13 @@ describe("BinaryCycle", () => {
     });
 
     it("omits fixed rests entirely", () => {
-      expect(new BinaryCycle().xox("....").getTimingSchema().cycle).toEqual([
+      expect(new BinaryCycle().xox("....").getTimingPattern().cycle).toEqual([
         [],
       ]);
     });
 
     it("does not serialize values or grid indices", () => {
-      const [step] = new BinaryCycle().getTimingSchema().cycle[0];
+      const [step] = new BinaryCycle().getTimingPattern().cycle[0];
 
       expect(step).not.toHaveProperty("value");
       expect(step).not.toHaveProperty("stepIndex");

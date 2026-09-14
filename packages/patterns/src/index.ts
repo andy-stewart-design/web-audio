@@ -9,8 +9,8 @@ import type {
   ScheduledValue,
   SourceHitReference,
   StaticNotePattern,
-  StaticValuePattern,
-  TimingSchema,
+  StaticPattern,
+  TimingPattern,
   TimingStep,
 } from "./types";
 
@@ -26,7 +26,7 @@ export {
   type ScheduledValue,
   type SourceHitReference,
   type StaticNotePattern,
-  type StaticValuePattern,
-  type TimingSchema,
+  type StaticPattern,
+  type TimingPattern,
   type TimingStep,
 };

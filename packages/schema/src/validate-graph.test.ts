@@ -5,14 +5,14 @@ import type {
   EffectSchema,
   RandomNumberPattern,
   SamplerSchema,
-  StaticValuePattern,
-  SynthEventSchema,
+  StaticPattern,
+  SynthEventPattern,
   SynthesizerSchema,
-  TimingSchema,
+  TimingPattern,
 } from "./index";
 import { validateDromeGraph } from "./validate-graph";
 
-function staticParam(value: number): StaticValuePattern<number> {
+function staticParam(value: number): StaticPattern<number> {
   return {
     type: "static",
     cycle: [[value]],
@@ -36,8 +36,8 @@ function randomParam(
 }
 
 function timing(
-  cycle: TimingSchema["cycle"] = [[{ offset: 0, duration: 1 }]],
-): TimingSchema {
+  cycle: TimingPattern["cycle"] = [[{ offset: 0, duration: 1 }]],
+): TimingPattern {
   return { cycle };
 }
 
@@ -57,7 +57,7 @@ function envelope() {
 function instrument(
   route = "main",
   sends: Record<string, number> = {},
-  events: SynthEventSchema = {
+  eventPattern: SynthEventPattern = {
     timing: timing(),
     notes: { type: "static", cycle: [[[60]]] },
   },
@@ -65,7 +65,7 @@ function instrument(
   return {
     type: "synthesizer",
     waveform: "sine",
-    events,
+    eventPattern,
     gain: envelope(),
     effects: [],
     detune: staticParam(0),
@@ -77,7 +77,7 @@ function instrument(
 
 function sampler(
   bank = "drums",
-  events: SamplerSchema["events"] = {
+  eventPattern: SamplerSchema["eventPattern"] = {
     timing: timing(),
     sampleNames: { type: "static", cycle: [[["bd"]]] },
   },
@@ -85,7 +85,7 @@ function sampler(
   return {
     type: "sampler",
     bank,
-    events,
+    eventPattern,
     gain: envelope(),
     effects: [],
     detune: staticParam(0),
@@ -378,13 +378,13 @@ describe("validateDromeGraph", () => {
       "main",
       {},
       {
-        timing: timing(cycle as TimingSchema["cycle"]),
+        timing: timing(cycle as TimingPattern["cycle"]),
         notes: { type: "static", cycle: [[[60]]] },
       },
     );
 
     expect(() => validateDromeGraph(schema({}, [event]))).toThrow(
-      "[Schema] Instrument 0.events.timing.cycle",
+      "[Schema] Instrument 0.eventPattern.timing.cycle",
     );
   });
 
@@ -415,11 +415,11 @@ describe("validateDromeGraph", () => {
             "main",
             {},
             {
-              ...event.events,
+              ...event.eventPattern,
               timing: {
-                ...event.events.timing,
+                ...event.eventPattern.timing,
                 condition: {
-                  ...event.events.timing.condition!,
+                  ...event.eventPattern.timing.condition!,
                   probability: 1.1,
                 },
               },
@@ -428,7 +428,7 @@ describe("validateDromeGraph", () => {
         ]),
       ),
     ).toThrow(
-      "[Schema] Instrument 0.events.timing.condition.probability must be finite and in [0, 1].",
+      "[Schema] Instrument 0.eventPattern.timing.condition.probability must be finite and in [0, 1].",
     );
   });
 
@@ -444,7 +444,7 @@ describe("validateDromeGraph", () => {
         type: "static" as const,
         cycle: [[null], [[0, 1]]],
       },
-    } satisfies SamplerSchema["events"];
+    } satisfies SamplerSchema["eventPattern"];
 
     expect(() =>
       validateDromeGraph(schema({}, [sampler("missing", samplerEvent)])),
@@ -464,7 +464,7 @@ describe("validateDromeGraph", () => {
     });
 
     expect(() => validateDromeGraph(schema({}, [event]))).toThrow(
-      "[Schema] Instrument 0.events.sampleNames.cycle[1] silent bar must align with an empty timing bar.",
+      "[Schema] Instrument 0.eventPattern.sampleNames.cycle[1] silent bar must align with an empty timing bar.",
     );
   });
 
@@ -479,11 +479,11 @@ describe("validateDromeGraph", () => {
   ])("rejects invalid sample-name voices: %s", (_label, sampleNames) => {
     const event = sampler("missing", {
       timing: timing(),
-      sampleNames: sampleNames as SamplerSchema["events"]["sampleNames"],
+      sampleNames: sampleNames as SamplerSchema["eventPattern"]["sampleNames"],
     });
 
     expect(() => validateDromeGraph(schema({}, [event]))).toThrow(
-      "[Schema] Instrument 0.events.sampleNames",
+      "[Schema] Instrument 0.eventPattern.sampleNames",
     );
   });
 
@@ -672,7 +672,7 @@ describe("validateDromeGraph", () => {
     );
 
     expect(() => validateDromeGraph(schema({}, [event]))).toThrow(
-      "[Schema] Instrument 0.events.notes.valuesPerBar[0] must align with an empty timing bar.",
+      "[Schema] Instrument 0.eventPattern.notes.valuesPerBar[0] must align with an empty timing bar.",
     );
   });
 
@@ -704,9 +704,9 @@ describe("validateDromeGraph", () => {
 
   it("rejects invalid event discriminants and voice values", () => {
     const invalidNotes = instrument();
-    Object.assign(invalidNotes.events.notes, { type: "invalid" });
+    Object.assign(invalidNotes.eventPattern.notes, { type: "invalid" });
     expect(() => validateDromeGraph(schema({}, [invalidNotes]))).toThrow(
-      "[Schema] Instrument 0.events.notes.type is invalid.",
+      "[Schema] Instrument 0.eventPattern.notes.type is invalid.",
     );
 
     const invalidVariation = sampler("drums", {
@@ -714,13 +714,13 @@ describe("validateDromeGraph", () => {
       sampleNames: { type: "static", cycle: [[["bd"]]] },
       variationIndices: randomParam(),
     });
-    const variationIndices = invalidVariation.events.variationIndices;
+    const variationIndices = invalidVariation.eventPattern.variationIndices;
     if (variationIndices === undefined) {
       throw new Error("Expected variation indices in test fixture");
     }
     Object.assign(variationIndices, { type: "invalid" });
     expect(() => validateDromeGraph(schema({}, [invalidVariation]))).toThrow(
-      "[Schema] Instrument 0.events.variationIndices.type is invalid.",
+      "[Schema] Instrument 0.eventPattern.variationIndices.type is invalid.",
     );
 
     const invalidNoteVoice = instrument(
@@ -732,7 +732,7 @@ describe("validateDromeGraph", () => {
       },
     );
     expect(() => validateDromeGraph(schema({}, [invalidNoteVoice]))).toThrow(
-      "[Schema] Instrument 0.events.notes.cycle[0][0][0] is not a valid note.",
+      "[Schema] Instrument 0.eventPattern.notes.cycle[0][0][0] is not a valid note.",
     );
 
     const invalidVariationVoice = sampler("drums", {
@@ -743,7 +743,7 @@ describe("validateDromeGraph", () => {
     expect(() =>
       validateDromeGraph(schema({}, [invalidVariationVoice])),
     ).toThrow(
-      "[Schema] Instrument 0.events.variationIndices.cycle[0][0] must be a non-empty variation index voice group.",
+      "[Schema] Instrument 0.eventPattern.variationIndices.cycle[0][0] must be a non-empty variation index voice group.",
     );
   });
 
@@ -1005,19 +1005,19 @@ describe("validateDromeGraph", () => {
       "missing notes",
       () => {
         const value = instrument();
-        Object.assign(value.events, { notes: undefined });
+        Object.assign(value.eventPattern, { notes: undefined });
         return schema({}, [value]);
       },
-      "[Schema] Instrument 0.events.notes.type is invalid.",
+      "[Schema] Instrument 0.eventPattern.notes.type is invalid.",
     ],
     [
       "non-array timing cycle",
       () => {
         const value = instrument();
-        Object.assign(value.events.timing, { cycle: undefined });
+        Object.assign(value.eventPattern.timing, { cycle: undefined });
         return schema({}, [value]);
       },
-      "[Schema] Instrument 0.events.timing.cycle must contain at least one bar.",
+      "[Schema] Instrument 0.eventPattern.timing.cycle must contain at least one bar.",
     ],
   ])(
     "reports a precise path for malformed direct input: %s",

@@ -1,4 +1,4 @@
-import type { ChanceCondition, TimingSchema } from "@web-audio/schema";
+import type { ChanceCondition, TimingPattern } from "@web-audio/schema";
 import { describe, expect, it } from "vitest";
 import { resolveTiming } from "./resolve-timing";
 
@@ -36,7 +36,7 @@ describe("resolveTiming", () => {
   });
 
   it("wraps timing bars independently by playback bar", () => {
-    const timing: TimingSchema = {
+    const timing: TimingPattern = {
       cycle: [
         [{ offset: 0, duration: 1 }],
         [

@@ -1,4 +1,4 @@
-import type { Cycle, TimingSchema, TimingStep } from "../types";
+import type { Cycle, TimingPattern, TimingStep } from "../types";
 
 function compileTimingCycle(source: Cycle<1 | 0>) {
   const cycle = source.map((pattern) => {
@@ -13,7 +13,7 @@ function compileTimingCycle(source: Cycle<1 | 0>) {
     }, []);
   });
 
-  return { cycle } satisfies TimingSchema;
+  return { cycle } satisfies TimingPattern;
 }
 
 export default compileTimingCycle;

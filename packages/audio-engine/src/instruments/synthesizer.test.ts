@@ -2,7 +2,7 @@ import type AudioClock from "@web-audio/clock";
 import type {
   EnvelopeSchema,
   SynthesizerSchema,
-  TimingSchema,
+  TimingPattern,
 } from "@web-audio/schema";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type MidiOutputScheduler from "@/midi-output-scheduler";
@@ -69,8 +69,8 @@ class FakeAudioContext {
 }
 
 const timing = (
-  cycle: TimingSchema["cycle"] = [[{ offset: 0, duration: 1 }]],
-): TimingSchema => ({ cycle });
+  cycle: TimingPattern["cycle"] = [[{ offset: 0, duration: 1 }]],
+): TimingPattern => ({ cycle });
 
 function envelope(max = staticNumberPattern([1])): EnvelopeSchema {
   return {
@@ -118,7 +118,7 @@ describe("Synthesizer scheduling", () => {
   it("schedules static notes using explicit timing", () => {
     const instance = synth(
       schema({
-        events: {
+        eventPattern: {
           timing: timing([
             [
               { offset: 0, duration: 0.25 },
@@ -147,7 +147,7 @@ describe("Synthesizer scheduling", () => {
   it("gives every chord voice the same hit-addressed processing values", () => {
     const instance = synth(
       schema({
-        events: {
+        eventPattern: {
           timing: timing([
             [
               { offset: 0, duration: 0.5 },
@@ -199,7 +199,7 @@ describe("Synthesizer scheduling", () => {
     };
     const instance = synth(
       schema({
-        events: {
+        eventPattern: {
           timing: candidateTiming,
           notes: { type: "static", cycle: [[[60], [64]]] },
         },
@@ -225,7 +225,7 @@ describe("Synthesizer scheduling", () => {
     const resolver = new RandomResolver(notes);
     const instance = synth(
       schema({
-        events: {
+        eventPattern: {
           timing: timing([
             [
               { offset: 0, duration: 0.5 },
@@ -250,7 +250,7 @@ describe("Synthesizer scheduling", () => {
   it("does not resolve processing or schedule voices for an empty timing bar", () => {
     const instance = synth(
       schema({
-        events: {
+        eventPattern: {
           timing: timing([[]]),
           notes: { type: "static", cycle: [[null]] },
         },
@@ -315,7 +315,7 @@ describe("Synthesizer scheduling", () => {
     const scheduleNote = vi.fn();
     const instance = synth(
       schema({
-        events: {
+        eventPattern: {
           timing: timing([[{ offset: 0.25, duration: 0.5 }]]),
           notes: { type: "static", cycle: [[[60, 64]]] },
         },

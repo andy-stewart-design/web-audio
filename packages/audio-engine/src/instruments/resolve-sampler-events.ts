@@ -1,28 +1,32 @@
-import type { SamplerEventSchema } from "@web-audio/schema";
+import type { SamplerEventPattern } from "@web-audio/schema";
 import type { ResolvedSamplerEvent, ResolvedSamplerVoice } from "@/types";
 import { resolveTiming } from "./resolve-timing";
 import ValuePatternResolver from "./value-pattern-resolver";
 
 function resolveSamplerEvents(
-  events: SamplerEventSchema,
+  eventPattern: SamplerEventPattern,
   barIndex: number,
   valueResolver = new ValuePatternResolver(),
 ) {
-  return resolveTiming(events.timing, barIndex).map((timing) => {
-    const notes = events.notes
+  return resolveTiming(eventPattern.timing, barIndex).map((timing) => {
+    const notes = eventPattern.notes
       ? resolveNumberGroup(
-          valueResolver.resolve(events.notes, barIndex, timing.hitIndex),
+          valueResolver.resolve(eventPattern.notes, barIndex, timing.hitIndex),
           "sampler notes",
         )
       : undefined;
     const sampleNames = resolveGroup(
-      valueResolver.resolve(events.sampleNames, barIndex, timing.hitIndex),
+      valueResolver.resolve(
+        eventPattern.sampleNames,
+        barIndex,
+        timing.hitIndex,
+      ),
       "sampler sample names",
     );
-    const variationIndices = events.variationIndices
+    const variationIndices = eventPattern.variationIndices
       ? resolveNumberGroup(
           valueResolver.resolve(
-            events.variationIndices,
+            eventPattern.variationIndices,
             barIndex,
             timing.hitIndex,
           ),

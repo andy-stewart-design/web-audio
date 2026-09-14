@@ -15,9 +15,9 @@ That model now supports hit-based value resolution, but it is still optimized ar
 This plan implements [`spec.md`](./spec.md). The target model is:
 
 ```txt
-TimingSchema       → when candidate events happen
-ValuePattern<T>    → values consumed by surviving hits
-Instrument events  → instrument-specific event values
+TimingPattern        → when candidate events happen
+StaticPattern<T>    → values consumed by surviving hits
+EventPattern        → timing plus instrument-specific event-value patterns
 ```
 
 Fluid compiles authoring intent into that model. The engine resolves and schedules it mechanically.
@@ -28,7 +28,7 @@ Fluid compiles authoring intent into that model. The engine resolves and schedul
 
 - one explicit timing schema shared by synths and samplers;
 - value-only static and random numeric patterns;
-- typed synth and sampler event schemas;
+- typed synth and sampler event patterns;
 - fixed and random rhythm compilation in Fluid;
 - variation-derived and sample-name-derived timing;
 - static polyphony for notes, names, and variations;
@@ -180,7 +180,7 @@ At this step the factories intentionally return valid current-schema values. Do 
 Replace the sequencing section with the target types from the specification:
 
 ```ts
-interface StaticValuePattern<T> {
+interface StaticPattern<T> {
   type: "static";
   cycle: T[][];
 }
@@ -210,7 +210,7 @@ interface ChanceCondition {
   order: "forward" | "reverse";
 }
 
-interface TimingSchema {
+interface TimingPattern {
   cycle: TimingStep[][];
   condition?: ChanceCondition;
 }
@@ -248,7 +248,7 @@ If `ParameterSchema` is retained temporarily as a deprecated alias inside the PR
 
 ---
 
-### Step 1.2 — Add typed instrument event schemas
+### Step 1.2 — Add typed instrument event patterns
 
 **Files:**
 
@@ -257,20 +257,22 @@ If `ParameterSchema` is retained temporarily as a deprecated alias inside the PR
 Introduce:
 
 ```ts
-interface SynthEventSchema {
-  timing: TimingSchema;
+interface EventPattern {
+  timing: TimingPattern;
+}
+
+interface SynthEventPattern extends EventPattern {
   notes: NotePattern;
 }
 
-interface SamplerEventSchema {
-  timing: TimingSchema;
+interface SamplerEventPattern extends EventPattern {
   notes?: NotePattern;
   sampleNames: SampleNamePattern;
   variationIndices?: VariationIndexPattern;
 }
 
-interface InstrumentSchema<TEvents> {
-  events: TEvents;
+interface InstrumentSchema<TEventPattern extends EventPattern> {
+  eventPattern: TEventPattern;
   gain: EnvelopeSchema;
   effects: EffectSchema[];
   detune: AudioParamSchema;
@@ -280,7 +282,7 @@ interface InstrumentSchema<TEvents> {
 }
 ```
 
-Move synth and sampler event values under `events`.
+Move synth and sampler event values under `eventPattern`.
 
 PR 1 sampler rules:
 
@@ -405,7 +407,7 @@ Resource availability is not a validation concern. Missing banks, sample names, 
 - `packages/patterns/src/utils/chord-static-schema.ts`
 - `packages/patterns/src/utils/chord-static-schema.test.ts`
 
-Change `ValueCycle` serialization from timed objects to `StaticValuePattern<number>`:
+Change `ValueCycle` serialization from timed objects to `StaticPattern<number>`:
 
 ```ts
 { type: "static", cycle: [[10, 20, 30]] }
@@ -576,8 +578,8 @@ Ensure zero remains ordinary data. No processing serializer may filter values ba
 
 **Files:**
 
-- `packages/fluid/src/instruments/event-pattern-compiler.ts` (new)
-- `packages/fluid/src/instruments/event-pattern-compiler.test.ts` (new)
+- `packages/fluid/src/instruments/event-compiler.ts` (new)
+- `packages/fluid/src/instruments/event-compiler.test.ts` (new)
 - `packages/fluid/src/instruments/instrument.ts`
 - `packages/fluid/src/instruments/sampler.ts`
 - `packages/fluid/src/patterns/midi-notes.ts`
@@ -593,7 +595,7 @@ Create a Fluid-owned compiler that accepts the current note/rhythm state and emi
 
 ```ts
 {
-  timing: TimingSchema;
+  timing: TimingPattern;
   notes: NotePattern;
 }
 ```
@@ -648,7 +650,7 @@ Synth output:
 ```ts
 {
   type: "synthesizer",
-  events: { timing, notes },
+  eventPattern: { timing, notes },
   // shared fields
 }
 ```
@@ -659,7 +661,7 @@ Sampler output in PR 1:
 {
   type: "sampler",
   bank,
-  events: {
+  eventPattern: {
     timing,
     sampleNames: { type: "static", cycle: [[[sampleName]]] },
     notes?,
@@ -841,7 +843,7 @@ Remove onset grouping. Static polyphony is explicit in value arrays.
 
 **Acceptance criteria:**
 
-- [x] Resolvers consume `TimingSchema` first.
+- [x] Resolvers consume `TimingPattern` first.
 - [x] Static note zero is not a rest.
 - [x] Random note/variation scalars normalize to one-value groups.
 - [x] Sampler absence defaults are represented without fake schema values.
@@ -1232,7 +1234,7 @@ The constructor variation remains scalar in `d.sample("bd", value)` and `d.sampl
 
 - `packages/fluid/src/instruments/instrument.ts`
 - `packages/fluid/src/patterns/midi-notes.ts`
-- `packages/fluid/src/instruments/event-pattern-compiler.ts`
+- `packages/fluid/src/instruments/event-compiler.ts`
 - `packages/fluid/src/instruments/instrument.test.ts`
 
 Ensure `.notes()`, `.var()`, and later `.name()` replace only their own lane. They must not clear explicit rhythm.
@@ -1269,8 +1271,8 @@ Do not serialize authoring flags.
 
 **Files:**
 
-- `packages/fluid/src/instruments/event-pattern-compiler.ts`
-- `packages/fluid/src/instruments/event-pattern-compiler.test.ts` (new)
+- `packages/fluid/src/instruments/event-compiler.ts`
+- `packages/fluid/src/instruments/event-compiler.test.ts` (new)
 
 When no stronger chop/fit or explicit rhythm state supplies timing, compare explicitly authored notes and variations.
 
@@ -1310,8 +1312,8 @@ The compiler records only the winning timing result, not why it won.
 
 **Files:**
 
-- `packages/fluid/src/instruments/event-pattern-compiler.ts`
-- `packages/fluid/src/instruments/event-pattern-compiler.test.ts`
+- `packages/fluid/src/instruments/event-compiler.ts`
+- `packages/fluid/src/instruments/event-compiler.test.ts`
 - `packages/fluid/src/instruments/sampler.ts`
 - `packages/schema/src/validate-graph.test.ts`
 
@@ -1441,8 +1443,8 @@ Require positive finite integers for `bars` and `steps`. Remove rounding and `Ma
 
 **Files:**
 
-- `packages/fluid/src/instruments/event-pattern-compiler.ts`
-- `packages/fluid/src/instruments/event-pattern-compiler.test.ts`
+- `packages/fluid/src/instruments/event-compiler.ts`
+- `packages/fluid/src/instruments/event-compiler.test.ts`
 - `packages/fluid/src/instruments/instrument.ts`
 - `packages/fluid/src/instruments/sampler.ts`
 
@@ -1494,7 +1496,7 @@ When static cycles must be combined, expand to their least common repeating peri
 
 - `packages/patterns/src/random-cycle.ts`
 - `packages/patterns/src/random-cycle.test.ts`
-- `packages/fluid/src/instruments/event-pattern-compiler.ts`
+- `packages/fluid/src/instruments/event-compiler.ts`
 - `packages/audio-engine/src/resolvers/random-resolver.test.ts`
 - `packages/audio-engine/src/instruments/resolve-timing.test.ts`
 
@@ -1921,8 +1923,8 @@ Do not trim or rewrite URLs.
 
 **Files:**
 
-- `packages/fluid/src/instruments/event-pattern-compiler.ts`
-- `packages/fluid/src/instruments/event-pattern-compiler.test.ts`
+- `packages/fluid/src/instruments/event-compiler.ts`
+- `packages/fluid/src/instruments/event-compiler.test.ts`
 - `packages/fluid/src/instruments/sampler.ts`
 - `packages/fluid/src/index.test.ts`
 
@@ -1965,8 +1967,8 @@ Rules remain:
 
 **Files:**
 
-- `packages/fluid/src/instruments/event-pattern-compiler.ts`
-- `packages/fluid/src/instruments/event-pattern-compiler.test.ts`
+- `packages/fluid/src/instruments/event-compiler.ts`
+- `packages/fluid/src/instruments/event-compiler.test.ts`
 - `packages/fluid/src/instruments/sampler.ts`
 
 Static name/note/variation combinations move together under fast, slow, stretch, and reverse.
@@ -2325,19 +2327,19 @@ Prefer focused unit cases over one enormous combinatorial test, but ensure every
 
 ## `@web-audio/fluid`
 
-| File                                                       | Change                                                                                                           |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `packages/fluid/src/instruments/event-pattern-compiler.ts` | New Fluid-owned timing selection, rest filtering, static row combination, transform, and schema compilation.     |
-| `packages/fluid/src/instruments/instrument.ts`             | Keep explicit timing state separate from core event value lanes and route transforms through the event compiler. |
-| `packages/fluid/src/instruments/synthesizer.ts`            | Emit `SynthEventSchema`.                                                                                         |
-| `packages/fluid/src/instruments/sampler.ts`                | Emit `SamplerEventSchema`; add variation layers/rests and later `.name()`/unnamed construction.                  |
-| `packages/fluid/src/instruments/sampler-utils.ts`          | Generate timing and value-only chop/fit/region data; remove dummy notes and source keys.                         |
-| `packages/fluid/src/patterns/midi-notes.ts`                | Compile grouped note values independently from timing and retain root/scale value mapping.                       |
-| `packages/fluid/src/patterns/sample-notes.ts`              | Support optional sampler note intent without owning timing by default.                                           |
-| `packages/fluid/src/patterns/parameter.ts`                 | Emit `NumberPattern`.                                                                                            |
-| `packages/fluid/src/utils/sample-utils.ts`                 | Canonicalize bank/sample keys and reject trim collisions.                                                        |
-| `packages/fluid/src/index.ts`                              | Add optional sampler name, strict shorthand, normalized banks, and target graph output.                          |
-| `packages/fluid/src/types.ts`                              | Add typed note/name/variation pattern inputs and reject constructor pattern arrays.                              |
+| File                                               | Change                                                                                                           |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `packages/fluid/src/instruments/event-compiler.ts` | New Fluid-owned timing selection, rest filtering, static row combination, transform, and schema compilation.     |
+| `packages/fluid/src/instruments/instrument.ts`     | Keep explicit timing state separate from core event value lanes and route transforms through the event compiler. |
+| `packages/fluid/src/instruments/synthesizer.ts`    | Emit `SynthEventPattern`.                                                                                        |
+| `packages/fluid/src/instruments/sampler.ts`        | Emit `SamplerEventPattern`; add variation layers/rests and later `.name()`/unnamed construction.                 |
+| `packages/fluid/src/instruments/sampler-utils.ts`  | Generate timing and value-only chop/fit/region data; remove dummy notes and source keys.                         |
+| `packages/fluid/src/patterns/midi-notes.ts`        | Compile grouped note values independently from timing and retain root/scale value mapping.                       |
+| `packages/fluid/src/patterns/sample-notes.ts`      | Support optional sampler note intent without owning timing by default.                                           |
+| `packages/fluid/src/patterns/parameter.ts`         | Emit `NumberPattern`.                                                                                            |
+| `packages/fluid/src/utils/sample-utils.ts`         | Canonicalize bank/sample keys and reject trim collisions.                                                        |
+| `packages/fluid/src/index.ts`                      | Add optional sampler name, strict shorthand, normalized banks, and target graph output.                          |
+| `packages/fluid/src/types.ts`                      | Add typed note/name/variation pattern inputs and reject constructor pattern arrays.                              |
 
 ## `@web-audio/audio-engine`
 
@@ -2373,7 +2375,7 @@ Prefer focused unit cases over one enormous combinatorial test, but ensure every
 
 # Completion checklist
 
-- [ ] Both instruments use explicit `TimingSchema`.
+- [ ] Both instruments use explicit `TimingPattern`.
 - [ ] Static and random values contain no timing geometry.
 - [ ] Fluid compiles fixed masks and rests away.
 - [ ] Random timing uses one optional chance condition.

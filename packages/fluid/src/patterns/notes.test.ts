@@ -11,7 +11,7 @@ describe("random note compilation", () => {
       .root("c4")
       .scale("maj")
       .notes(new RandomCycle())
-      .getEvents();
+      .getEventPattern();
 
     expect(events.notes).toMatchObject({
       type: "random-number",

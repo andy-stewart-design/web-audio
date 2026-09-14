@@ -1,8 +1,8 @@
-import type { SynthEventSchema } from "@web-audio/schema";
+import type { SynthEventPattern } from "@web-audio/schema";
 import { describe, expect, it } from "vitest";
 import { resolveSynthEvents } from "./resolve-synth-events";
 
-function events(overrides: Partial<SynthEventSchema> = {}): SynthEventSchema {
+function events(overrides: Partial<SynthEventPattern> = {}): SynthEventPattern {
   return {
     timing: { cycle: [[{ offset: 0, duration: 1 }]] },
     notes: { type: "static", cycle: [[[60]]] },

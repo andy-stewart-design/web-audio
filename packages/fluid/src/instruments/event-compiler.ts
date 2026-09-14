@@ -2,7 +2,7 @@ import type {
   NotePattern,
   RandomNumberPattern,
   StaticNotePattern,
-  TimingSchema,
+  TimingPattern,
   TimingStep,
 } from "@web-audio/schema";
 import type { Chord, MaskedCycle } from "@web-audio/patterns";
@@ -16,17 +16,17 @@ type StaticNoteSource = {
 type RandomNoteSource = {
   type: "random";
   pattern: RandomNumberPattern;
-  candidateTiming: TimingSchema;
+  candidateTiming: TimingPattern;
 };
 
 type NoteSource = StaticNoteSource | RandomNoteSource;
 
 type CompilerInput = {
   source: NoteSource;
-  explicitTiming?: TimingSchema;
+  explicitTiming?: TimingPattern;
 };
 
-function compileEventPatterns({ source, explicitTiming }: CompilerInput) {
+function compileNoteEvents({ source, explicitTiming }: CompilerInput) {
   return source.type === "static"
     ? compileStaticEvents(source, explicitTiming)
     : compileRandomEvents(source, explicitTiming);
@@ -34,7 +34,7 @@ function compileEventPatterns({ source, explicitTiming }: CompilerInput) {
 
 function compileStaticEvents(
   source: StaticNoteSource,
-  explicitTiming: TimingSchema | undefined,
+  explicitTiming: TimingPattern | undefined,
 ) {
   const sourceBars = source.cycle.activeEvents.map((bar) =>
     bar.map((chord) => normalizeChord(chord, source.transform)),
@@ -45,7 +45,7 @@ function compileStaticEvents(
     timing.cycle.length,
   );
   const noteCycle: StaticNotePattern["cycle"] = [];
-  const timingCycle: TimingSchema["cycle"] = [];
+  const timingCycle: TimingPattern["cycle"] = [];
 
   for (let barIndex = 0; barIndex < cycleLength; barIndex++) {
     const sourceBar = sourceBars[barIndex % sourceBars.length];
@@ -71,12 +71,12 @@ function compileStaticEvents(
       ...(timing.condition && { condition: cloneCondition(timing.condition) }),
     },
     notes: { type: "static", cycle: noteCycle },
-  } satisfies { timing: TimingSchema; notes: NotePattern };
+  } satisfies { timing: TimingPattern; notes: NotePattern };
 }
 
 function compileRandomEvents(
   source: RandomNoteSource,
-  explicitTiming: TimingSchema | undefined,
+  explicitTiming: TimingPattern | undefined,
 ) {
   const timing = explicitTiming ?? source.candidateTiming;
   const cycleLength = repeatingCycleLength(
@@ -111,7 +111,7 @@ function compileRandomEvents(
         ? [...source.pattern.valueMap]
         : undefined,
     },
-  } satisfies { timing: TimingSchema; notes: NotePattern };
+  } satisfies { timing: TimingPattern; notes: NotePattern };
 }
 
 function normalizeChord(chord: Chord, transform: (value: number) => number) {
@@ -136,12 +136,12 @@ function greatestCommonDivisor(a: number, b: number): number {
   return b === 0 ? a : greatestCommonDivisor(b, a % b);
 }
 
-function cloneCondition(condition: NonNullable<TimingSchema["condition"]>) {
+function cloneCondition(condition: NonNullable<TimingPattern["condition"]>) {
   return {
     ...condition,
     segments: condition.segments.map((segment) => ({ ...segment })),
   };
 }
 
-export { compileEventPatterns };
+export { compileNoteEvents };
 export type { CompilerInput, NoteSource, RandomNoteSource, StaticNoteSource };

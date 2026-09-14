@@ -5,9 +5,9 @@ import type {
   NumberPattern,
   RandomNumberPattern,
   RegionSchema,
-  SamplerEventSchema,
-  StaticValuePattern,
-  TimingSchema,
+  SamplerEventPattern,
+  StaticPattern,
+  TimingPattern,
   VariationIndexPattern,
 } from "@web-audio/schema";
 
@@ -112,11 +112,11 @@ function getTimingForPattern(pattern: NumberPattern) {
       duration: 1 / count,
     })),
   );
-  return { cycle } satisfies TimingSchema;
+  return { cycle } satisfies TimingPattern;
 }
 
 function getDistributedTiming(eventCount: number, bars: number) {
-  const cycle: TimingSchema["cycle"] = Array.from({ length: bars }, () => []);
+  const cycle: TimingPattern["cycle"] = Array.from({ length: bars }, () => []);
   const duration = bars / eventCount;
 
   for (let index = 0; index < eventCount; index++) {
@@ -128,7 +128,7 @@ function getDistributedTiming(eventCount: number, bars: number) {
     });
   }
 
-  return { cycle } satisfies TimingSchema;
+  return { cycle } satisfies TimingPattern;
 }
 
 function getChopTiming(chop: ChopState, bars: number) {
@@ -158,10 +158,10 @@ function alignSamplerEventCycles({
   notes: inputNotes,
   variationIndices: inputVariationIndices,
   notesFilterTiming = true,
-  ...events
-}: SamplerEventSchema & { notesFilterTiming?: boolean }) {
+  ...eventPattern
+}: SamplerEventPattern & { notesFilterTiming?: boolean }) {
   const cycleLengths = [
-    events.timing.cycle.length,
+    eventPattern.timing.cycle.length,
     getEventPatternCycleLength(inputNotes),
     getEventPatternCycleLength(inputVariationIndices),
   ].filter((length): length is number => length !== undefined);
@@ -171,7 +171,7 @@ function alignSamplerEventCycles({
     : undefined;
   const notes =
     expandedNotes && !notesFilterTiming
-      ? fillUnavailableNotes(expandedNotes, events.timing, cycleLength)
+      ? fillUnavailableNotes(expandedNotes, eventPattern.timing, cycleLength)
       : expandedNotes;
   const variationIndices = inputVariationIndices
     ? expandVariationPattern(inputVariationIndices, cycleLength)
@@ -183,17 +183,17 @@ function alignSamplerEventCycles({
     ) {
       return [];
     }
-    return events.timing.cycle[barIndex % events.timing.cycle.length].map(
-      (step) => ({ ...step }),
-    );
+    return eventPattern.timing.cycle[
+      barIndex % eventPattern.timing.cycle.length
+    ].map((step) => ({ ...step }));
   });
 
   return {
-    ...events,
-    timing: { ...events.timing, cycle: timingCycle },
+    ...eventPattern,
+    timing: { ...eventPattern.timing, cycle: timingCycle },
     ...(notes && { notes }),
     ...(variationIndices && { variationIndices }),
-  } satisfies SamplerEventSchema;
+  } satisfies SamplerEventPattern;
 }
 
 function getEventPatternCycleLength(
@@ -222,7 +222,7 @@ function expandNotePattern(pattern: NotePattern, cycleLength: number) {
 
 function fillUnavailableNotes(
   pattern: NotePattern,
-  timing: TimingSchema,
+  timing: TimingPattern,
   cycleLength: number,
 ): NotePattern {
   if (pattern.type === "random-number") {
@@ -312,7 +312,7 @@ function getDistributedStaticSchema(values: number[], bars: number) {
     bar.length > 0 ? bar : [fallback],
   );
 
-  return { type: "static", cycle } satisfies StaticValuePattern<number>;
+  return { type: "static", cycle } satisfies StaticPattern<number>;
 }
 
 function getStaticChopBounds(start: NumberPattern, end: NumberPattern) {
