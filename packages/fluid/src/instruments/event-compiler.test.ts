@@ -1,8 +1,16 @@
 import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
 import MidiNotes from "@/patterns/midi-notes";
+import {
+  createDefaultAuthoredEventValues,
+  createAuthoredEventValues,
+} from "@/patterns/authored-event-values";
+import {
+  finalizeSamplerEvents,
+  compileVariationPattern,
+} from "./event-compiler";
 
-describe("event pattern compiler", () => {
+describe("event compiler", () => {
   it("compiles the default synth note and timing", () => {
     expect(new MidiNotes([60]).getEventPattern()).toEqual({
       timing: { cycle: [[{ offset: 0, duration: 1 }]] },
@@ -166,6 +174,46 @@ describe("event pattern compiler", () => {
         cycle: [[{ offset: 0, duration: 1 }], [], [{ offset: 0, duration: 1 }]],
       },
       notes: { type: "static", cycle: [[[60]], [null], [[67]]] },
+    });
+  });
+
+  it("aligns zero-count event values with empty timing bars", () => {
+    expect(
+      finalizeSamplerEvents({
+        timing: { cycle: [[{ offset: 0, duration: 1 }]] },
+        sampleNames: { type: "static", cycle: [[["kick"]]] },
+        variationIndices: new RandomCycle().steps(2, 0).int().getRandomSchema(),
+      }),
+    ).toMatchObject({
+      timing: { cycle: [[{ offset: 0, duration: 1 }], []] },
+      variationIndices: { valuesPerBar: [2, 0] },
+    });
+  });
+
+  it("serializes normalized variation lanes", () => {
+    expect(
+      compileVariationPattern(createDefaultAuthoredEventValues(0)),
+    ).toBeUndefined();
+    expect(
+      compileVariationPattern(createAuthoredEventValues<number>([0])),
+    ).toBeUndefined();
+    expect(
+      compileVariationPattern(createAuthoredEventValues([[0, 1, 2]])),
+    ).toEqual({
+      type: "static",
+      cycle: [[[0], [1], [2]]],
+    });
+    expect(
+      compileVariationPattern(
+        createAuthoredEventValues<number>([
+          new RandomCycle().steps(2).int().range(0, 4),
+        ]),
+      ),
+    ).toMatchObject({
+      type: "random-number",
+      valuesPerBar: [2],
+      dataType: "integer",
+      range: { min: 0, max: 4 },
     });
   });
 

@@ -1,9 +1,16 @@
+import {
+  hasAuthoredEventValueRests,
+  type AuthoredEventValues,
+} from "@/patterns/authored-event-values";
 import type {
   NotePattern,
   RandomNumberPattern,
+  SampleNamePattern,
+  SamplerEventPattern,
   StaticNotePattern,
   TimingPattern,
   TimingStep,
+  VariationIndexPattern,
 } from "@web-audio/schema";
 import type { Chord, MaskedCycle } from "@web-audio/patterns";
 
@@ -21,18 +28,60 @@ type RandomNoteSource = {
 
 type NoteSource = StaticNoteSource | RandomNoteSource;
 
-type CompilerInput = {
+type NoteEventCompilerInput = {
   source: NoteSource;
   explicitTiming?: TimingPattern;
 };
 
-function compileNoteEvents({ source, explicitTiming }: CompilerInput) {
+type CompiledNoteEvents = {
+  timing: TimingPattern;
+  notes: NotePattern;
+};
+
+type SamplerEventCompilerInput = {
+  getNoteEvents: (timingOverride?: TimingPattern) => CompiledNoteEvents;
+  timingOverride?: TimingPattern;
+  hasExplicitNotes: boolean;
+  hasExplicitRhythm: boolean;
+  includeNotes: boolean;
+  sampleNames: SampleNamePattern;
+  variation: AuthoredEventValues<number>;
+};
+
+function compileNoteEvents({ source, explicitTiming }: NoteEventCompilerInput) {
   return source.type === "static"
-    ? compileStaticEvents(source, explicitTiming)
-    : compileRandomEvents(source, explicitTiming);
+    ? compileStaticNoteEvents(source, explicitTiming)
+    : compileRandomNoteEvents(source, explicitTiming);
 }
 
-function compileStaticEvents(
+function compileSamplerEvents({
+  getNoteEvents,
+  timingOverride,
+  hasExplicitNotes,
+  hasExplicitRhythm,
+  includeNotes,
+  sampleNames,
+  variation,
+}: SamplerEventCompilerInput) {
+  const variationTiming = getVariationTimingCandidate({
+    variation,
+    hasExplicitNotes,
+    hasExplicitRhythm,
+  });
+  const selectedTiming = timingOverride ?? variationTiming;
+  const noteEvents = getNoteEvents(selectedTiming);
+
+  return finalizeSamplerEvents({
+    timing:
+      selectedTiming && !hasExplicitNotes ? selectedTiming : noteEvents.timing,
+    sampleNames,
+    notes: includeNotes ? noteEvents.notes : undefined,
+    variationIndices: compileVariationPattern(variation),
+    notesFilterTiming: hasExplicitNotes,
+  });
+}
+
+function compileStaticNoteEvents(
   source: StaticNoteSource,
   explicitTiming: TimingPattern | undefined,
 ) {
@@ -71,10 +120,10 @@ function compileStaticEvents(
       ...(timing.condition && { condition: cloneCondition(timing.condition) }),
     },
     notes: { type: "static", cycle: noteCycle },
-  } satisfies { timing: TimingPattern; notes: NotePattern };
+  } satisfies CompiledNoteEvents;
 }
 
-function compileRandomEvents(
+function compileRandomNoteEvents(
   source: RandomNoteSource,
   explicitTiming: TimingPattern | undefined,
 ) {
@@ -111,7 +160,198 @@ function compileRandomEvents(
         ? [...source.pattern.valueMap]
         : undefined,
     },
-  } satisfies { timing: TimingPattern; notes: NotePattern };
+  } satisfies CompiledNoteEvents;
+}
+
+function getVariationTimingCandidate({
+  variation,
+  hasExplicitNotes,
+  hasExplicitRhythm,
+}: Pick<
+  SamplerEventCompilerInput,
+  "variation" | "hasExplicitNotes" | "hasExplicitRhythm"
+>) {
+  if (
+    !variation.explicit ||
+    variation.source.type !== "static" ||
+    hasExplicitNotes ||
+    hasExplicitRhythm ||
+    !hasAuthoredEventValueRests(variation)
+  ) {
+    return undefined;
+  }
+
+  return compileStaticTiming(variation.source.cycle);
+}
+
+function compileStaticTiming<T>(cycle: (T[] | null)[][]) {
+  return {
+    cycle: cycle.map((bar) => {
+      const duration = 1 / bar.length;
+      return bar.flatMap((group, index) =>
+        group === null ? [] : [{ offset: index * duration, duration }],
+      );
+    }),
+  } satisfies TimingPattern;
+}
+
+function compileVariationPattern(values: AuthoredEventValues<number>) {
+  if (values.source.type === "random") {
+    return values.source.cycle.getRandomSchema();
+  }
+
+  if (isDefaultVariationValues(values)) return undefined;
+
+  return {
+    type: "static",
+    cycle: values.source.cycle.map((bar) => {
+      const activeGroups = bar.flatMap((group) =>
+        group === null ? [] : [[...group]],
+      );
+      return activeGroups.length > 0 ? activeGroups : [null];
+    }),
+  } satisfies VariationIndexPattern;
+}
+
+function isDefaultVariationValues(values: AuthoredEventValues<number>) {
+  return (
+    values.source.type === "static" &&
+    values.source.cycle.length === 1 &&
+    values.source.cycle[0].length === 1 &&
+    values.source.cycle[0][0]?.length === 1 &&
+    values.source.cycle[0][0][0] === 0
+  );
+}
+
+function finalizeSamplerEvents({
+  notes: inputNotes,
+  variationIndices: inputVariationIndices,
+  notesFilterTiming = true,
+  ...eventPattern
+}: SamplerEventPattern & { notesFilterTiming?: boolean }) {
+  const cycleLengths = [
+    eventPattern.timing.cycle.length,
+    getPatternCycleLength(inputNotes),
+    getPatternCycleLength(inputVariationIndices),
+  ].filter((length): length is number => length !== undefined);
+  const cycleLength = cycleLengths.reduce(lowestCommonMultiple);
+  const expandedNotes = inputNotes
+    ? expandNotePattern(inputNotes, cycleLength)
+    : undefined;
+  const notes =
+    expandedNotes && !notesFilterTiming
+      ? fillUnavailableNotes(expandedNotes, eventPattern.timing, cycleLength)
+      : expandedNotes;
+  const variationIndices = inputVariationIndices
+    ? expandVariationPattern(inputVariationIndices, cycleLength)
+    : undefined;
+  const timingCycle = Array.from({ length: cycleLength }, (_, barIndex) => {
+    if (
+      isPatternSilent(notes, barIndex) ||
+      isPatternSilent(variationIndices, barIndex)
+    ) {
+      return [];
+    }
+    return eventPattern.timing.cycle[
+      barIndex % eventPattern.timing.cycle.length
+    ].map((step) => ({ ...step }));
+  });
+
+  return {
+    ...eventPattern,
+    timing: { ...eventPattern.timing, cycle: timingCycle },
+    ...(notes && { notes }),
+    ...(variationIndices && { variationIndices }),
+  } satisfies SamplerEventPattern;
+}
+
+function getPatternCycleLength(
+  pattern: NotePattern | VariationIndexPattern | undefined,
+) {
+  if (!pattern) return undefined;
+  return pattern.type === "static"
+    ? pattern.cycle.length
+    : pattern.valuesPerBar.length;
+}
+
+function expandNotePattern(pattern: NotePattern, cycleLength: number) {
+  if (pattern.type === "random-number") {
+    return {
+      ...pattern,
+      valuesPerBar: repeatCycle(pattern.valuesPerBar, cycleLength),
+    } satisfies NotePattern;
+  }
+  return {
+    type: "static",
+    cycle: repeatCycle(pattern.cycle, cycleLength).map((bar) =>
+      bar.map((group) => (group === null ? null : [...group])),
+    ),
+  } satisfies NotePattern;
+}
+
+function fillUnavailableNotes(
+  pattern: NotePattern,
+  timing: TimingPattern,
+  cycleLength: number,
+): NotePattern {
+  if (pattern.type === "random-number") {
+    return {
+      ...pattern,
+      valuesPerBar: pattern.valuesPerBar.map((count, barIndex) =>
+        count === 0
+          ? timing.cycle[barIndex % timing.cycle.length].length
+          : count,
+      ),
+    } satisfies NotePattern;
+  }
+
+  const fallback = pattern.cycle
+    .flat()
+    .find((group): group is number[] => group !== null);
+  if (!fallback) return pattern;
+  return {
+    type: "static",
+    cycle: Array.from({ length: cycleLength }, (_, barIndex) => {
+      const bar = pattern.cycle[barIndex];
+      return bar[0] === null ? [[...fallback]] : bar;
+    }),
+  } satisfies NotePattern;
+}
+
+function expandVariationPattern(
+  pattern: VariationIndexPattern,
+  cycleLength: number,
+) {
+  if (pattern.type === "random-number") {
+    return {
+      ...pattern,
+      valuesPerBar: repeatCycle(pattern.valuesPerBar, cycleLength),
+    } satisfies VariationIndexPattern;
+  }
+  return {
+    type: "static",
+    cycle: repeatCycle(pattern.cycle, cycleLength).map((bar) =>
+      bar.map((group) => (group === null ? null : [...group])),
+    ),
+  } satisfies VariationIndexPattern;
+}
+
+function isPatternSilent(
+  pattern: NotePattern | VariationIndexPattern | undefined,
+  barIndex: number,
+) {
+  if (!pattern) return false;
+  if (pattern.type === "random-number") {
+    return pattern.valuesPerBar[barIndex] === 0;
+  }
+  return pattern.cycle[barIndex][0] === null;
+}
+
+function repeatCycle<T>(cycle: T[], cycleLength: number) {
+  return Array.from(
+    { length: cycleLength },
+    (_, index) => cycle[index % cycle.length],
+  );
 }
 
 function normalizeChord(chord: Chord, transform: (value: number) => number) {
@@ -143,5 +383,16 @@ function cloneCondition(condition: NonNullable<TimingPattern["condition"]>) {
   };
 }
 
-export { compileNoteEvents };
-export type { CompilerInput, NoteSource, RandomNoteSource, StaticNoteSource };
+export {
+  compileNoteEvents,
+  compileSamplerEvents,
+  finalizeSamplerEvents,
+  compileVariationPattern,
+};
+export type {
+  NoteEventCompilerInput,
+  NoteSource,
+  RandomNoteSource,
+  SamplerEventCompilerInput,
+  StaticNoteSource,
+};

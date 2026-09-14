@@ -103,7 +103,7 @@ class Drome {
     return new RandomCycle();
   }
 
-  env(min?: number, ...max: CycleInput) {
+  env(min?: number, ...max: CycleInput<number>) {
     return new Envelope(min, ...max);
   }
 

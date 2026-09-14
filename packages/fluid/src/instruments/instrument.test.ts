@@ -149,6 +149,106 @@ describe("instrument event schemas", () => {
     });
   });
 
+  it("supports variation bars, sequential hits, and simultaneous voices", () => {
+    expect(
+      new Sampler("kick").variation(0, 1, 2).getSchema().eventPattern,
+    ).toMatchObject({
+      timing: {
+        cycle: [
+          [{ offset: 0, duration: 1 }],
+          [{ offset: 0, duration: 1 }],
+          [{ offset: 0, duration: 1 }],
+        ],
+      },
+      variationIndices: {
+        type: "static",
+        cycle: [[[0]], [[1]], [[2]]],
+      },
+    });
+
+    expect(
+      new Sampler("kick").variation([[0, 1], [2], [3, 4]]).getSchema()
+        .eventPattern.variationIndices,
+    ).toEqual({
+      type: "static",
+      cycle: [[[0, 1], [2], [3, 4]]],
+    });
+
+    expect(
+      new Sampler("kick").variation(-1.5, 2.25).getSchema().eventPattern
+        .variationIndices,
+    ).toEqual({
+      type: "static",
+      cycle: [[[-1.5]], [[2.25]]],
+    });
+  });
+
+  it("preserves variation rests as silent timing gaps", () => {
+    expect(
+      new Sampler("kick").variation([0, null, 2]).getSchema().eventPattern,
+    ).toEqual({
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 1 / 3 },
+            { offset: 2 / 3, duration: 1 / 3 },
+          ],
+        ],
+      },
+      sampleNames: { type: "static", cycle: [[["kick"]]] },
+      variationIndices: { type: "static", cycle: [[[0], [2]]] },
+    });
+
+    expect(
+      new Sampler("kick").variation([], [1]).getSchema().eventPattern,
+    ).toMatchObject({
+      timing: {
+        cycle: [[], [{ offset: 0, duration: 1 }]],
+      },
+      variationIndices: { type: "static", cycle: [[null], [[1]]] },
+    });
+  });
+
+  it("aliases var() to variation() and replaces the previous pattern", () => {
+    const sampler = new Sampler("kick");
+    expect(sampler.var([0, 1])).toBe(sampler);
+    sampler.variation([2]);
+
+    expect(sampler.getSchema().eventPattern.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[2]]],
+    });
+  });
+
+  it("keeps random variation scalar per hit", () => {
+    expect(
+      new Sampler("kick").var(new RandomCycle().int().steps(4)).getSchema()
+        .eventPattern.variationIndices,
+    ).toMatchObject({
+      type: "random-number",
+      valuesPerBar: [4],
+      dataType: "integer",
+    });
+  });
+
+  it("rejects invalid variation shapes and values", () => {
+    expect(() => new Sampler("kick").variation()).toThrow(
+      "[Sampler] variation() requires at least one pattern.",
+    );
+    expect(() => {
+      // @ts-expect-error null is not valid inside a simultaneous voice group.
+      new Sampler("kick").variation([[0, null]]);
+    }).toThrow(
+      "[Sampler] variation() null is only allowed as a whole-hit rest.",
+    );
+    expect(() => new Sampler("kick").variation([[]])).toThrow(
+      "[Sampler] variation() simultaneous voice groups cannot be empty.",
+    );
+    expect(() => new Sampler("kick").variation(Number.NaN)).toThrow(
+      "[Sampler] variation() values must be finite numbers.",
+    );
+  });
+
   it.each([
     {
       sliceCount: 1,

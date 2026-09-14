@@ -154,7 +154,7 @@ abstract class Instrument {
     return this;
   }
 
-  gain(...input: CycleInput | [Envelope]) {
+  gain(...input: CycleInput<number> | [Envelope]) {
     if (isEnvelopeTuple(input)) {
       this._gain = input[0];
     } else {
