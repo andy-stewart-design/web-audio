@@ -7,8 +7,14 @@ import Envelope from "@/automations/envelope";
 import Filter from "@/effects/filter";
 import GainEffect from "@/effects/gain";
 import AuthoredPitches from "@/patterns/authored-pitches";
+import AuthoredTiming from "@/patterns/authored-timing";
 import Parameter from "@/patterns/parameter";
-import { isEnvelopeTuple, isLfoTuple, isMidiCcTuple } from "@/utils/validate";
+import {
+  isEnvelopeTuple,
+  isLfoTuple,
+  isMidiCcTuple,
+  isRandomCycleTuple,
+} from "@/utils/validate";
 import type {
   ADSR,
   AudioParamInput,
@@ -18,7 +24,11 @@ import type {
   NoteValue,
   ScaleAlias,
 } from "@/types";
-import type { SamplerSchema, SynthesizerSchema } from "@web-audio/schema";
+import type {
+  SamplerSchema,
+  SynthesizerSchema,
+  TimingPattern,
+} from "@web-audio/schema";
 import type Drome from "@/index";
 
 type NoteOrChord<T> = T | T[];
@@ -27,7 +37,8 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 const DEFAULT_GAIN_ENVELOPE = { a: 0.01, d: 0, s: 1, r: 0.01 } satisfies ADSR;
 
 abstract class Instrument {
-  protected _cycle: AuthoredPitches;
+  protected _pitches: AuthoredPitches;
+  protected _timing: AuthoredTiming;
   protected _detune: AudioParamSource;
   protected _gain: Envelope;
   protected _effects: (Filter | GainEffect)[] = [];
@@ -41,7 +52,8 @@ abstract class Instrument {
     host?: Drome,
     gainEnvelope: Partial<ADSR> = {},
   ) {
-    this._cycle = new AuthoredPitches(defaultPattern);
+    this._pitches = new AuthoredPitches(defaultPattern);
+    this._timing = new AuthoredTiming();
     this._detune = new Parameter(0);
     const { a, d, s, r } = { ...DEFAULT_GAIN_ENVELOPE, ...gainEnvelope };
     this._gain = new Envelope().adsr(a, d, s, r);
@@ -56,17 +68,17 @@ abstract class Instrument {
   }
 
   notes(...input: NoteInput<ScheduledValue> | [RandomCycle]) {
-    this._cycle.notes(...input);
+    this._pitches.notes(...input);
     return this;
   }
 
   root(n: NoteName | NoteValue | number) {
-    this._cycle.root(n);
+    this._pitches.root(n);
     return this;
   }
 
   scale(name: ScaleAlias) {
-    this._cycle.scale(name);
+    this._pitches.scale(name);
     return this;
   }
 
@@ -75,43 +87,61 @@ abstract class Instrument {
     steps: number,
     rotation: number | number[] = 0,
   ) {
-    this._cycle.euclid(pulses, steps, rotation);
+    this._timing.euclid(pulses, steps, rotation);
     return this;
   }
 
   hex(...hexes: (string | number)[]) {
-    this._cycle.hex(...hexes);
+    this._timing.hex(...hexes);
     return this;
   }
 
   reverse() {
-    this._cycle.reverse();
+    this._pitches.reverse();
+    this._timing.reverse();
     return this;
   }
 
   sequence(steps: number, ...pulses: (number | number[])[]) {
-    this._cycle.sequence(steps, ...pulses);
+    this._timing.sequence(steps, ...pulses);
     return this;
   }
 
   xox(...input: (number | number[])[] | [RandomCycle]) {
-    this._cycle.xox(...input);
+    if (isRandomCycleTuple(input)) {
+      const cycle = input[0];
+      if (cycle.dataType !== "binary") {
+        throw new Error("Instrument.xox() random masks must be binary");
+      }
+      this._timing.setRandomXox(cycle);
+    } else {
+      this._timing.xox(...input);
+    }
     return this;
   }
 
   fast(multiplier: number) {
-    this._cycle.fast(multiplier);
+    this._pitches.fast(multiplier);
+    this._timing.fast(multiplier);
     return this;
   }
 
   slow(multiplier: number) {
-    this._cycle.slow(multiplier);
+    this._pitches.slow(multiplier);
+    this._timing.slow(multiplier);
     return this;
   }
 
   stretch(bars: number, steps?: number) {
-    this._cycle.stretch(bars, steps);
+    this._pitches.stretch(bars, steps);
+    this._timing.stretch(bars, steps);
     return this;
+  }
+
+  protected _getPitchEventPattern(timingOverride?: TimingPattern) {
+    return this._pitches.getEventPattern(
+      timingOverride ?? this._timing.getTimingPattern(),
+    );
   }
 
   detune(...input: AudioParamInput) {

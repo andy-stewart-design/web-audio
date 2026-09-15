@@ -1297,20 +1297,20 @@ The compiler records only the winning timing result, not why it won.
 
 **Acceptance criteria:**
 
-- [ ] A denser variation pattern can supply timing.
-- [ ] A denser note pattern can supply timing.
-- [ ] Notes win exact density ties.
-- [ ] Explicit rests beat a denser non-rest pattern.
-- [ ] Multi-bar averages compare correctly.
-- [ ] Chord size does not affect density.
+- [x] A denser variation pattern can supply timing.
+- [x] A denser note pattern can supply timing.
+- [x] Notes win exact density ties.
+- [x] Explicit rests beat a denser non-rest pattern.
+- [x] Multi-bar averages compare correctly.
+- [x] Chord size does not affect density.
 
 **Testing:**
 
-- [ ] `notes(60).var([0,1,2])` gives three hits.
-- [ ] `notes([60,64]).var(0,1,2)` gives two hits over the combined phrase.
-- [ ] Equal-density cycles with different bar counts.
-- [ ] Silent bars and interleaved rests.
-- [ ] Chord/layer density.
+- [x] `notes(60).var([0,1,2])` gives three hits.
+- [x] `notes([60,64]).var(0,1,2)` gives two hits over the combined phrase.
+- [x] Equal-density cycles with different bar counts.
+- [x] Silent bars and interleaved rests.
+- [x] Chord/layer density.
 
 ---
 

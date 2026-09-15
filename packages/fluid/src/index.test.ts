@@ -498,7 +498,10 @@ describe("Drome", () => {
       expect(instrument.type).toBe("sampler");
       if (instrument.type !== "sampler") return;
       expect(instrument.eventPattern.timing.cycle).toEqual([
-        [{ offset: 0, duration: 1 }],
+        [
+          { offset: 0, duration: 0.5 },
+          { offset: 0.5, duration: 0.5 },
+        ],
         [],
       ]);
       expect(instrument.eventPattern.variationIndices).toMatchObject({

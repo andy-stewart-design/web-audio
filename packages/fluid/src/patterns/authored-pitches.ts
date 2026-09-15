@@ -10,7 +10,6 @@ import type {
   TimingPattern,
 } from "@web-audio/schema";
 import { compileNoteEvents } from "@/instruments/event-compiler";
-import AuthoredTiming from "@/patterns/authored-timing";
 import { getScale } from "@/utils/get-scale";
 import { noteStringToMidi } from "@/utils/note-string-to-midi";
 import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
@@ -21,9 +20,8 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class AuthoredPitches {
   private _notes: MaskedCycle<Chord> | RandomCycle;
-  // Timing intent is independent from note values, so a value setter cannot
-  // replace the explicit rhythm that owns candidate event timing.
-  private _timing = new AuthoredTiming();
+  private _hasAuthoredPitchValues = false;
+  private _hasRequestedPitches = false;
   private _root = 0;
   private _scale: number[] | undefined;
 
@@ -46,6 +44,8 @@ class AuthoredPitches {
       throw new Error("[Instrument] notes() requires at least one pattern.");
     }
 
+    this._hasAuthoredPitchValues = true;
+    this._hasRequestedPitches = true;
     if (isRandomCycleTuple(input)) {
       this._notes = input[0];
     } else {
@@ -60,75 +60,39 @@ class AuthoredPitches {
   }
 
   root(n: NoteName | NoteValue | number) {
+    this._hasRequestedPitches = true;
     if (typeof n === "number") this._root = n;
     else this._root = noteStringToMidi(n) || 0;
     return this;
   }
 
   scale(name: ScaleAlias) {
+    this._hasRequestedPitches = true;
     this._scale = getScale(name);
-    return this;
-  }
-
-  euclid(
-    pulses: number | number[],
-    steps: number,
-    rotation: number | number[] = 0,
-  ) {
-    this._timing.euclid(pulses, steps, rotation);
-    return this;
-  }
-
-  hex(...hexes: (string | number)[]) {
-    this._timing.hex(...hexes);
     return this;
   }
 
   reverse() {
     this._notes.reverse();
-    this._timing.reverse();
-    return this;
-  }
-
-  sequence(steps: number, ...pulses: (number | number[])[]) {
-    this._timing.sequence(steps, ...pulses);
-    return this;
-  }
-
-  xox(...input: (number | number[])[] | [RandomCycle]) {
-    if (isRandomCycleTuple(input)) {
-      const cycle = input[0];
-      if (cycle.dataType !== "binary") {
-        throw new Error("Instrument.xox() random masks must be binary");
-      }
-      this._timing.setRandomXox(cycle);
-    } else {
-      this._timing.xox(...input);
-    }
     return this;
   }
 
   fast(multiplier: number) {
     this._notes.fast(multiplier);
-    this._timing.fast(multiplier);
     return this;
   }
 
   slow(multiplier: number) {
     this._notes.slow(multiplier);
-    this._timing.slow(multiplier);
     return this;
   }
 
   stretch(bars: number, steps?: number) {
     this._notes.stretch(bars, steps);
-    this._timing.stretch(bars, steps);
     return this;
   }
 
   getEventPattern(timingOverride?: TimingPattern) {
-    const explicitTiming = timingOverride ?? this._timing.getTimingPattern();
-
     if (isRandomCycle(this._notes)) {
       return compileNoteEvents({
         source: {
@@ -136,7 +100,7 @@ class AuthoredPitches {
           pattern: this._getRandomNotePattern(this._notes),
           candidateTiming: this._notes.candidateTiming,
         },
-        explicitTiming,
+        explicitTiming: timingOverride,
       });
     }
 
@@ -146,7 +110,7 @@ class AuthoredPitches {
         cycle: this._notes,
         transform: this._degreeToMidi.bind(this),
       },
-      explicitTiming,
+      explicitTiming: timingOverride,
     });
   }
 
@@ -154,8 +118,26 @@ class AuthoredPitches {
     return this.getEventPattern().notes;
   }
 
-  get hasExplicitRhythm() {
-    return this._timing.isExplicit;
+  get hasAuthoredPitchValues() {
+    return this._hasAuthoredPitchValues;
+  }
+
+  get hasRequestedPitches() {
+    return this._hasRequestedPitches;
+  }
+
+  get hasAuthoredPitchRests() {
+    return (
+      !isRandomCycle(this._notes) &&
+      this._notes.sourceValues.some((bar) =>
+        bar.some(
+          (chord) =>
+            chord === null ||
+            chord === undefined ||
+            chord.every((value) => typeof value !== "number"),
+        ),
+      )
+    );
   }
 
   private _getRandomNotePattern(cycle: RandomCycle): RandomNumberPattern {

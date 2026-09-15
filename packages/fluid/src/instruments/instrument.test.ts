@@ -215,6 +215,23 @@ describe("instrument event schemas", () => {
     expect(scale.timing.cycle[0]).toHaveLength(3);
   });
 
+  it("does not let requested pitch output provide sampler timing", () => {
+    const events = new Sampler("kick")
+      .root("A3")
+      .variation([0, 1, 2])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 1 / 3 },
+      { offset: 1 / 3, duration: 1 / 3 },
+      { offset: 2 / 3, duration: 1 / 3 },
+    ]);
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [[[57], [57], [57]]],
+    });
+  });
+
   it("moves explicit sampler variation values under events", () => {
     expect(
       new Sampler("kick").variation([0, 1, 2]).getSchema().eventPattern,
@@ -234,6 +251,95 @@ describe("instrument event schemas", () => {
       dataType: "integer",
       range: { min: 0, max: 4 },
     });
+  });
+
+  it("chooses the denser explicit variation pattern for sampler timing", () => {
+    const events = new Sampler("kick")
+      .notes(60)
+      .variation([0, 1, 2])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle).toEqual([
+      [
+        { offset: 0, duration: 1 / 3 },
+        { offset: 1 / 3, duration: 1 / 3 },
+        { offset: 2 / 3, duration: 1 / 3 },
+      ],
+    ]);
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [[[60], [60], [60]]],
+    });
+  });
+
+  it("chooses the denser explicit pitch pattern for sampler timing", () => {
+    const events = new Sampler("kick")
+      .notes([60, 64])
+      .variation(0, 1, 2)
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle).toEqual([
+      [
+        { offset: 0, duration: 0.5 },
+        { offset: 0.5, duration: 0.5 },
+      ],
+      [
+        { offset: 0, duration: 0.5 },
+        { offset: 0.5, duration: 0.5 },
+      ],
+      [
+        { offset: 0, duration: 0.5 },
+        { offset: 0.5, duration: 0.5 },
+      ],
+    ]);
+  });
+
+  it("uses pitch priority when explicit timing candidates have equal density", () => {
+    const events = new Sampler("kick")
+      .notes([60], [64, 67, 69])
+      .variation([0, 1])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle).toEqual([
+      [{ offset: 0, duration: 1 }],
+      [
+        { offset: 0, duration: 1 / 3 },
+        { offset: 1 / 3, duration: 1 / 3 },
+        { offset: 2 / 3, duration: 1 / 3 },
+      ],
+    ]);
+  });
+
+  it("preserves explicit rests over a denser competing timing candidate", () => {
+    const notesOwnTiming = new Sampler("kick")
+      .notes([60, null])
+      .variation([0, 1, 2])
+      .getSchema().eventPattern;
+    const variationsOwnTiming = new Sampler("kick")
+      .notes([60, 64, 67])
+      .variation([0, null])
+      .getSchema().eventPattern;
+
+    expect(notesOwnTiming.timing.cycle).toEqual([
+      [{ offset: 0, duration: 0.5 }],
+    ]);
+    expect(variationsOwnTiming.timing.cycle).toEqual([
+      [{ offset: 0, duration: 0.5 }],
+    ]);
+  });
+
+  it("counts simultaneous pitch voices as one timing hit", () => {
+    const events = new Sampler("kick")
+      .notes([[60, 64, 67]])
+      .variation([0, 1])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle).toEqual([
+      [
+        { offset: 0, duration: 0.5 },
+        { offset: 0.5, duration: 0.5 },
+      ],
+    ]);
   });
 
   it("supports variation bars, sequential hits, and simultaneous voices", () => {

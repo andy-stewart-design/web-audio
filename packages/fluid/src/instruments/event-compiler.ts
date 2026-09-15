@@ -2,6 +2,8 @@ import {
   hasAuthoredEventValueRests,
   type AuthoredEventValues,
 } from "@/patterns/authored-event-values";
+import type AuthoredPitches from "@/patterns/authored-pitches";
+import type AuthoredTiming from "@/patterns/authored-timing";
 import type {
   NotePattern,
   RandomNumberPattern,
@@ -38,14 +40,18 @@ type CompiledNoteEvents = {
   notes: NotePattern;
 };
 
+type SamplerTimingCandidate = {
+  source: "notes" | "variation";
+  timing: TimingPattern;
+  hasRests: boolean;
+};
+
 type SamplerEventCompilerInput = {
-  getNoteEvents: (timingOverride?: TimingPattern) => CompiledNoteEvents;
-  timingOverride?: TimingPattern;
-  hasExplicitNotes: boolean;
-  hasExplicitRhythm: boolean;
-  includeNotes: boolean;
-  sampleNames: SampleNamePattern;
+  pitches: AuthoredPitches;
+  timing: AuthoredTiming;
   variation: AuthoredEventValues<number>;
+  timingOverride?: TimingPattern;
+  sampleNames: SampleNamePattern;
 };
 
 function compileNoteEvents({ source, explicitTiming }: NoteEventCompilerInput) {
@@ -55,29 +61,38 @@ function compileNoteEvents({ source, explicitTiming }: NoteEventCompilerInput) {
 }
 
 function compileSamplerEvents({
-  getNoteEvents,
-  timingOverride,
-  hasExplicitNotes,
-  hasExplicitRhythm,
-  includeNotes,
-  sampleNames,
+  pitches,
+  timing,
   variation,
+  timingOverride,
+  sampleNames,
 }: SamplerEventCompilerInput) {
-  const variationTiming = getVariationTimingCandidate({
-    variation,
-    hasExplicitNotes,
-    hasExplicitRhythm,
-  });
-  const selectedTiming = timingOverride ?? variationTiming;
-  const noteEvents = getNoteEvents(selectedTiming);
+  const initialNoteEvents = pitches.getEventPattern(
+    timingOverride ?? timing.getTimingPattern(),
+  );
+  const selectedTiming =
+    timingOverride !== undefined || timing.isExplicit
+      ? undefined
+      : selectSamplerTimingCandidate({
+          noteEvents: initialNoteEvents,
+          pitches,
+          variation,
+        });
+  const noteEvents =
+    selectedTiming?.source === "variation"
+      ? pitches.getEventPattern(selectedTiming.timing)
+      : initialNoteEvents;
 
   return finalizeSamplerEvents({
     timing:
-      selectedTiming && !hasExplicitNotes ? selectedTiming : noteEvents.timing,
+      timingOverride ??
+      (selectedTiming?.source === "variation" && !pitches.hasAuthoredPitchValues
+        ? selectedTiming.timing
+        : noteEvents.timing),
     sampleNames,
-    notes: includeNotes ? noteEvents.notes : undefined,
+    notes: pitches.hasRequestedPitches ? noteEvents.notes : undefined,
     variationIndices: compileVariationPattern(variation),
-    notesFilterTiming: hasExplicitNotes,
+    notesFilterTiming: pitches.hasAuthoredPitchValues,
   });
 }
 
@@ -163,25 +178,70 @@ function compileRandomNoteEvents(
   } satisfies CompiledNoteEvents;
 }
 
-function getVariationTimingCandidate({
+function selectSamplerTimingCandidate({
+  noteEvents,
+  pitches,
   variation,
-  hasExplicitNotes,
-  hasExplicitRhythm,
-}: Pick<
-  SamplerEventCompilerInput,
-  "variation" | "hasExplicitNotes" | "hasExplicitRhythm"
->) {
-  if (
-    !variation.explicit ||
-    variation.source.type !== "static" ||
-    hasExplicitNotes ||
-    hasExplicitRhythm ||
-    !hasAuthoredEventValueRests(variation)
-  ) {
-    return undefined;
+}: {
+  noteEvents: CompiledNoteEvents;
+  pitches: AuthoredPitches;
+  variation: AuthoredEventValues<number>;
+}) {
+  const noteCandidate = pitches.hasAuthoredPitchValues
+    ? ({
+        source: "notes",
+        timing: noteEvents.timing,
+        hasRests: pitches.hasAuthoredPitchRests,
+      } satisfies SamplerTimingCandidate)
+    : undefined;
+  const variationCandidate = getVariationTimingCandidate(variation);
+
+  if (!noteCandidate) return variationCandidate;
+  if (!variationCandidate) return noteCandidate;
+
+  if (noteCandidate.hasRests !== variationCandidate.hasRests) {
+    return noteCandidate.hasRests ? noteCandidate : variationCandidate;
+  }
+  if (noteCandidate.hasRests) return noteCandidate;
+
+  return compareTimingDensity(noteCandidate, variationCandidate) >= 0
+    ? noteCandidate
+    : variationCandidate;
+}
+
+function getVariationTimingCandidate(
+  variation: AuthoredEventValues<number>,
+): SamplerTimingCandidate | undefined {
+  if (!variation.explicit) return undefined;
+
+  if (variation.source.type === "random") {
+    return {
+      source: "variation",
+      timing: variation.source.cycle.candidateTiming,
+      hasRests: false,
+    };
   }
 
-  return compileStaticTiming(variation.source.cycle);
+  return {
+    source: "variation",
+    timing: compileStaticTiming(variation.source.cycle),
+    hasRests: hasAuthoredEventValueRests(variation),
+  };
+}
+
+function compareTimingDensity(
+  left: SamplerTimingCandidate,
+  right: SamplerTimingCandidate,
+) {
+  const leftHits = countTimingHits(left.timing);
+  const rightHits = countTimingHits(right.timing);
+  return (
+    leftHits * right.timing.cycle.length - rightHits * left.timing.cycle.length
+  );
+}
+
+function countTimingHits(timing: TimingPattern) {
+  return timing.cycle.reduce((count, bar) => count + bar.length, 0);
 }
 
 function compileStaticTiming<T>(cycle: (T[] | null)[][]) {

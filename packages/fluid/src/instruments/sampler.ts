@@ -1,4 +1,4 @@
-import SampleNotes from "@/patterns/sample-notes";
+import AuthoredPitches from "@/patterns/authored-pitches";
 import Parameter from "@/patterns/parameter";
 import type { CycleInput, NullableCycleInput } from "@/types";
 import type {
@@ -9,8 +9,8 @@ import type {
   SamplerSchema,
 } from "@web-audio/schema";
 import {
-  createDefaultAuthoredEventValues,
   createAuthoredEventValues,
+  createDefaultAuthoredEventValues,
   type AuthoredEventValues,
 } from "@/patterns/authored-event-values";
 import {
@@ -39,9 +39,6 @@ class Sampler extends Instrument {
   private _fit: FitSchema | null = null;
   private _region: RegionState | null = null;
   private _chop: ChopState | null = null;
-  // Pitch intent controls optional note output; only explicit notes may filter timing.
-  private _explicitNotes = false;
-  private _pitchIntent = false;
   private _loop = false;
   private _clipMode: ClipMode = "clipped";
   private _direction: SampleDirection = "forward";
@@ -54,7 +51,7 @@ class Sampler extends Instrument {
     { bank = DEFAULT_BANK, host }: SamplerOptions = {},
   ) {
     super([0], host, { a: 0.0025, r: 0.005 });
-    this._cycle = new SampleNotes([0]);
+    this._pitches = new AuthoredPitches([0]);
     this._bank = bank;
     this._sample = sample;
     this._variation = createDefaultAuthoredEventValues(0);
@@ -97,22 +94,6 @@ class Sampler extends Instrument {
 
     this._fit = { type: "fit", bars };
     return this;
-  }
-
-  notes(...input: Parameters<Instrument["notes"]>) {
-    this._explicitNotes = true;
-    this._pitchIntent = true;
-    return super.notes(...input);
-  }
-
-  root(...input: Parameters<Instrument["root"]>) {
-    this._pitchIntent = true;
-    return super.root(...input);
-  }
-
-  scale(...input: Parameters<Instrument["scale"]>) {
-    this._pitchIntent = true;
-    return super.scale(...input);
   }
 
   start(...input: CycleInput<number>) {
@@ -196,7 +177,8 @@ class Sampler extends Instrument {
   }
 
   private _getGeneratedFit() {
-    const unfit = this._explicitNotes || this._chop || this._region;
+    const unfit =
+      this._pitches.hasAuthoredPitchValues || this._chop || this._region;
     if (unfit) return null;
     return this._fit;
   }
@@ -214,14 +196,11 @@ class Sampler extends Instrument {
 
   private _getEventPattern(): SamplerEventPattern {
     return compileSamplerEvents({
-      getNoteEvents: (timingOverride) =>
-        this._cycle.getEventPattern(timingOverride),
-      timingOverride: this._getTimingOverride(),
-      hasExplicitNotes: this._explicitNotes,
-      hasExplicitRhythm: this._cycle.hasExplicitRhythm,
-      includeNotes: this._pitchIntent,
-      sampleNames: { type: "static", cycle: [[[this._sample]]] },
+      pitches: this._pitches,
+      timing: this._timing,
       variation: this._variation,
+      timingOverride: this._getTimingOverride(),
+      sampleNames: { type: "static", cycle: [[[this._sample]]] },
     });
   }
 

@@ -1,6 +1,7 @@
 import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
 import AuthoredPitches from "@/patterns/authored-pitches";
+import AuthoredTiming from "@/patterns/authored-timing";
 import {
   createDefaultAuthoredEventValues,
   createAuthoredEventValues,
@@ -9,6 +10,10 @@ import {
   finalizeSamplerEvents,
   compileVariationPattern,
 } from "./event-compiler";
+
+function compileWithTiming(pitches: AuthoredPitches, timing: AuthoredTiming) {
+  return pitches.getEventPattern(timing.getTimingPattern());
+}
 
 describe("event compiler", () => {
   it("compiles the default synth note and timing", () => {
@@ -39,10 +44,10 @@ describe("event compiler", () => {
 
   it("compiles fixed XOX masks as timing rather than values", () => {
     expect(
-      new AuthoredPitches([60])
-        .notes([60, 64])
-        .xox([1, 0, 1, 1])
-        .getEventPattern(),
+      compileWithTiming(
+        new AuthoredPitches([60]).notes([60, 64]),
+        new AuthoredTiming().xox([1, 0, 1, 1]),
+      ),
     ).toEqual({
       timing: {
         cycle: [
@@ -73,10 +78,10 @@ describe("event compiler", () => {
   });
 
   it("compiles random note values with fixed timing", () => {
-    const events = new AuthoredPitches([60])
-      .notes(new RandomCycle().steps(2).range(48, 72))
-      .xox([1, 0, 1, 1])
-      .getEventPattern();
+    const events = compileWithTiming(
+      new AuthoredPitches([60]).notes(new RandomCycle().steps(2).range(48, 72)),
+      new AuthoredTiming().xox([1, 0, 1, 1]),
+    );
 
     expect(events.notes).toMatchObject({
       type: "random-number",
@@ -95,10 +100,12 @@ describe("event compiler", () => {
   });
 
   it("compiles random XOX as candidate timing with one chance condition", () => {
-    const events = new AuthoredPitches([60])
-      .notes([60, 64])
-      .xox(new RandomCycle().bin().steps(4).chance(0.25).ribbon(7, 8))
-      .getEventPattern();
+    const events = compileWithTiming(
+      new AuthoredPitches([60]).notes([60, 64]),
+      new AuthoredTiming().setRandomXox(
+        new RandomCycle().bin().steps(4).chance(0.25).ribbon(7, 8),
+      ),
+    );
 
     expect(events.timing.cycle[0]).toEqual([
       { offset: 0, duration: 0.25 },
@@ -121,10 +128,12 @@ describe("event compiler", () => {
 
   it("compiles probability zero as aligned silent bars", () => {
     expect(
-      new AuthoredPitches([60])
-        .notes([60, 64])
-        .xox(new RandomCycle().bin().steps(4, 2).chance(0))
-        .getEventPattern(),
+      compileWithTiming(
+        new AuthoredPitches([60]).notes([60, 64]),
+        new AuthoredTiming().setRandomXox(
+          new RandomCycle().bin().steps(4, 2).chance(0),
+        ),
+      ),
     ).toEqual({
       timing: { cycle: [[], []] },
       notes: { type: "static", cycle: [[null], [null]] },
@@ -153,21 +162,28 @@ describe("event compiler", () => {
   });
 
   it("preserves Euclidean, hex, and sequence composition", () => {
-    const euclidean = new AuthoredPitches([60]).notes([60, 64]).euclid(2, 4);
-    const hexadecimal = new AuthoredPitches([60]).notes([60, 64]).hex("a");
-    const sequence = new AuthoredPitches([60])
-      .notes([60, 64])
-      .sequence(4, 0, 2);
+    const euclidean = compileWithTiming(
+      new AuthoredPitches([60]).notes([60, 64]),
+      new AuthoredTiming().euclid(2, 4),
+    );
+    const hexadecimal = compileWithTiming(
+      new AuthoredPitches([60]).notes([60, 64]),
+      new AuthoredTiming().hex("a"),
+    );
+    const sequence = compileWithTiming(
+      new AuthoredPitches([60]).notes([60, 64]),
+      new AuthoredTiming().sequence(4, 0, 2),
+    );
 
-    expect(euclidean.getEventPattern().timing.cycle[0]).toEqual([
+    expect(euclidean.timing.cycle[0]).toEqual([
       { offset: 0, duration: 0.25 },
       { offset: 0.5, duration: 0.25 },
     ]);
-    expect(hexadecimal.getEventPattern().timing.cycle[0]).toEqual([
+    expect(hexadecimal.timing.cycle[0]).toEqual([
       { offset: 0, duration: 0.25 },
       { offset: 0.5, duration: 0.25 },
     ]);
-    expect(sequence.getEventPattern().timing.cycle).toEqual([
+    expect(sequence.timing.cycle).toEqual([
       [{ offset: 0, duration: 0.25 }],
       [{ offset: 0.5, duration: 0.25 }],
     ]);
@@ -228,11 +244,5 @@ describe("event compiler", () => {
     expect(() => new AuthoredPitches([60]).notes()).toThrow(
       "[Instrument] notes() requires at least one pattern.",
     );
-  });
-
-  it("rejects non-binary random rhythm patterns", () => {
-    expect(() =>
-      new AuthoredPitches([60]).xox(new RandomCycle()).getEventPattern(),
-    ).toThrow("Instrument.xox() random masks must be binary");
   });
 });
