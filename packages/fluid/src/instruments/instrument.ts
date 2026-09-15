@@ -6,7 +6,7 @@ import {
 import Envelope from "@/automations/envelope";
 import Filter from "@/effects/filter";
 import GainEffect from "@/effects/gain";
-import MidiNotes from "@/patterns/midi-notes";
+import AuthoredPitches from "@/patterns/authored-pitches";
 import Parameter from "@/patterns/parameter";
 import { isEnvelopeTuple, isLfoTuple, isMidiCcTuple } from "@/utils/validate";
 import type {
@@ -27,7 +27,7 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 const DEFAULT_GAIN_ENVELOPE = { a: 0.01, d: 0, s: 1, r: 0.01 } satisfies ADSR;
 
 abstract class Instrument {
-  protected _cycle: MidiNotes;
+  protected _cycle: AuthoredPitches;
   protected _detune: AudioParamSource;
   protected _gain: Envelope;
   protected _effects: (Filter | GainEffect)[] = [];
@@ -41,7 +41,7 @@ abstract class Instrument {
     host?: Drome,
     gainEnvelope: Partial<ADSR> = {},
   ) {
-    this._cycle = new MidiNotes(defaultPattern);
+    this._cycle = new AuthoredPitches(defaultPattern);
     this._detune = new Parameter(0);
     const { a, d, s, r } = { ...DEFAULT_GAIN_ENVELOPE, ...gainEnvelope };
     this._gain = new Envelope().adsr(a, d, s, r);

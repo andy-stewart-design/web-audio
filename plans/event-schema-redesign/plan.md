@@ -583,7 +583,7 @@ Ensure zero remains ordinary data. No processing serializer may filter values ba
 - `packages/fluid/src/instruments/event-compiler.test.ts` (new)
 - `packages/fluid/src/instruments/instrument.ts`
 - `packages/fluid/src/instruments/sampler.ts`
-- `packages/fluid/src/patterns/midi-notes.ts`
+- `packages/fluid/src/patterns/authored-pitches.ts`
 - `packages/fluid/src/patterns/notes.test.ts`
 - `packages/fluid/src/patterns/sample-notes.test.ts`
 - `packages/fluid/src/instruments/instrument.test.ts`
@@ -1239,7 +1239,7 @@ The constructor variation remains scalar in `d.sample("bd", value)` and `d.sampl
 - `packages/fluid/src/patterns/authored-timing.ts`
 - `packages/fluid/src/patterns/authored-timing.test.ts`
 - `packages/fluid/src/instruments/instrument.ts`
-- `packages/fluid/src/patterns/midi-notes.ts`
+- `packages/fluid/src/patterns/authored-pitches.ts`
 - `packages/fluid/src/instruments/event-compiler.ts`
 - `packages/fluid/src/instruments/instrument.test.ts`
 
@@ -2342,7 +2342,7 @@ Prefer focused unit cases over one enormous combinatorial test, but ensure every
 | `packages/fluid/src/instruments/sampler.ts`        | Emit `SamplerEventPattern`; add variation layers/rests and later `.name()`/unnamed construction.                 |
 | `packages/fluid/src/instruments/sampler-utils.ts`  | Generate timing and value-only chop/fit/region data; remove dummy notes and source keys.                         |
 | `packages/fluid/src/patterns/authored-timing.ts`   | Retain explicit timing intent, fixed candidate geometry, and one random chance condition.                        |
-| `packages/fluid/src/patterns/midi-notes.ts`        | Compile grouped note values independently from timing and retain root/scale value mapping.                       |
+| `packages/fluid/src/patterns/authored-pitches.ts`  | Compile grouped note values independently from timing and retain root/scale value mapping.                       |
 | `packages/fluid/src/patterns/sample-notes.ts`      | Support optional sampler note intent without owning timing by default.                                           |
 | `packages/fluid/src/patterns/parameter.ts`         | Emit `NumberPattern`.                                                                                            |
 | `packages/fluid/src/utils/sample-utils.ts`         | Canonicalize bank/sample keys and reject trim collisions.                                                        |

@@ -1,10 +1,10 @@
 import type { Chord } from "@web-audio/patterns";
 import type { NoteName, NoteValue, ScaleAlias } from "@/types";
-import MidiNotes from "./midi-notes";
+import AuthoredPitches from "./authored-pitches";
 
 const DEFAULT_ROOT = 0;
 
-class SampleNotes extends MidiNotes {
+class SampleNotes extends AuthoredPitches {
   constructor(defaultPattern: Chord) {
     super(defaultPattern);
     super.root(DEFAULT_ROOT);

@@ -19,7 +19,7 @@ import type { NoteName, NoteValue, ScaleAlias } from "@/types";
 type NoteOrChord<T> = T | T[];
 type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
-class MidiNotes {
+class AuthoredPitches {
   private _notes: MaskedCycle<Chord> | RandomCycle;
   // Timing intent is independent from note values, so a value setter cannot
   // replace the explicit rhythm that owns candidate event timing.
@@ -181,4 +181,4 @@ class MidiNotes {
   }
 }
 
-export default MidiNotes;
+export default AuthoredPitches;

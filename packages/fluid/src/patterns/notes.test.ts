@@ -1,13 +1,13 @@
 import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
-import MidiNotes from "./midi-notes";
+import AuthoredPitches from "./authored-pitches";
 
 const C_MAJ_MIDI = [60, 62, 64, 65, 67, 69, 71];
 const C_MIN_MIDI = [60, 62, 63, 65, 67, 68, 70];
 
 describe("random note compilation", () => {
   it("builds a value map from all scale degrees and clears range", () => {
-    const events = new MidiNotes([60])
+    const events = new AuthoredPitches([60])
       .root("c4")
       .scale("maj")
       .notes(new RandomCycle())
@@ -22,7 +22,7 @@ describe("random note compilation", () => {
   });
 
   it("preserves ribbon seeds alongside scale value maps", () => {
-    const notes = new MidiNotes([60])
+    const notes = new AuthoredPitches([60])
       .root("c4")
       .scale("min")
       .notes(new RandomCycle().ribbon(42))
@@ -36,12 +36,12 @@ describe("random note compilation", () => {
   });
 
   it("uses random ranges to build multi-octave scale maps", () => {
-    const positive = new MidiNotes([60])
+    const positive = new AuthoredPitches([60])
       .root("c4")
       .scale("maj")
       .notes(new RandomCycle().range(0, 14))
       .getSchema();
-    const negative = new MidiNotes([60])
+    const negative = new AuthoredPitches([60])
       .root("c4")
       .scale("maj")
       .notes(new RandomCycle().range(-7, 7))
@@ -66,7 +66,9 @@ describe("random note compilation", () => {
 
   it("preserves ranges when no scale is configured", () => {
     expect(
-      new MidiNotes([60]).notes(new RandomCycle().range(60, 72)).getSchema(),
+      new AuthoredPitches([60])
+        .notes(new RandomCycle().range(60, 72))
+        .getSchema(),
     ).toMatchObject({
       type: "random-number",
       valueMap: undefined,
@@ -76,7 +78,7 @@ describe("random note compilation", () => {
 
   it("maps binary random notes to chromatic root offsets", () => {
     expect(
-      new MidiNotes([60])
+      new AuthoredPitches([60])
         .root("a3")
         .notes(new RandomCycle().bin().steps(4))
         .getSchema(),
@@ -89,7 +91,7 @@ describe("random note compilation", () => {
 
   it("maps binary random notes to the first two scale degrees", () => {
     expect(
-      new MidiNotes([60])
+      new AuthoredPitches([60])
         .root("a3")
         .scale("min")
         .notes(new RandomCycle().bin().steps(4))
