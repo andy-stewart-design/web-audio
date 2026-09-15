@@ -53,7 +53,7 @@ describe("instrument event schemas", () => {
     expect(events).not.toHaveProperty("mask");
   });
 
-  it("replaces note and fixed-rhythm state when notes are replaced", () => {
+  it("preserves fixed rhythm when notes are replaced", () => {
     expect(
       new Synthesizer()
         .notes([60, 64])
@@ -64,12 +64,26 @@ describe("instrument event schemas", () => {
       timing: {
         cycle: [
           [
-            { offset: 0, duration: 0.5 },
-            { offset: 0.5, duration: 0.5 },
+            { offset: 0, duration: 1 / 3 },
+            { offset: 2 / 3, duration: 1 / 3 },
           ],
         ],
       },
       notes: { type: "static", cycle: [[[67], [71]]] },
+    });
+  });
+
+  it("composes fixed rhythms in call order", () => {
+    expect(
+      new Synthesizer().xox([1, 1, 1, 1]).euclid(2, 4).getSchema().eventPattern
+        .timing,
+    ).toEqual({
+      cycle: [
+        [
+          { offset: 0, duration: 0.25 },
+          { offset: 0.5, duration: 0.25 },
+        ],
+      ],
     });
   });
 
@@ -87,6 +101,79 @@ describe("instrument event schemas", () => {
     expect(events.notes).toEqual({
       type: "static",
       cycle: [[[60], [60], [60], [60]], [null]],
+    });
+  });
+
+  it("keeps random XOX timing when notes or variations are replaced", () => {
+    const rhythm = new RandomCycle().bin().steps(4).chance(0.6);
+    const synth = new Synthesizer()
+      .xox(rhythm)
+      .notes([67, 71])
+      .getSchema().eventPattern;
+    const sampler = new Sampler("kick")
+      .xox(rhythm)
+      .variation([1, 2])
+      .getSchema().eventPattern;
+
+    expect(synth.timing).toMatchObject({
+      cycle: [
+        [
+          { offset: 0, duration: 0.25 },
+          { offset: 0.25, duration: 0.25 },
+          { offset: 0.5, duration: 0.25 },
+          { offset: 0.75, duration: 0.25 },
+        ],
+      ],
+      condition: { type: "chance", probability: 0.6 },
+    });
+    expect(synth.notes).toEqual({
+      type: "static",
+      cycle: [[[67], [71], [67], [71]]],
+    });
+    expect(sampler.timing).toEqual(synth.timing);
+    expect(sampler.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[1], [2]]],
+    });
+  });
+
+  it("replaces random XOX timing and preserves its one condition through fixed rhythm", () => {
+    const events = new Synthesizer()
+      .xox([1, 0])
+      .xox(new RandomCycle().bin().steps(3).chance(0.25))
+      .xox(new RandomCycle().bin().steps(4).chance(0.75))
+      .xox([1, 0, 1, 0])
+      .getSchema().eventPattern;
+
+    expect(events.timing).toMatchObject({
+      cycle: [
+        [
+          { offset: 0, duration: 0.25 },
+          { offset: 0.5, duration: 0.25 },
+        ],
+      ],
+      condition: { type: "chance", probability: 0.75 },
+    });
+  });
+
+  it("simplifies random XOX probability boundaries after fixed composition", () => {
+    const zero = new Synthesizer()
+      .xox(new RandomCycle().bin().steps(4).chance(0))
+      .xox([1, 0, 1, 0])
+      .getSchema().eventPattern;
+    const one = new Synthesizer()
+      .xox(new RandomCycle().bin().steps(4).chance(1))
+      .xox([1, 0, 1, 0])
+      .getSchema().eventPattern;
+
+    expect(zero.timing).toEqual({ cycle: [[]] });
+    expect(one.timing).toEqual({
+      cycle: [
+        [
+          { offset: 0, duration: 0.25 },
+          { offset: 0.5, duration: 0.25 },
+        ],
+      ],
     });
   });
 

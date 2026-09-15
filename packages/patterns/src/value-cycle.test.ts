@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ValueCycle } from "./static-cycles";
+import { ValueCycle } from "./value-cycle";
 
 describe("ValueCycle", () => {
   describe("getStaticSchema", () => {

@@ -132,6 +132,15 @@ describe("RandomCycle", () => {
       });
     });
 
+    it("retains probability boundaries for Fluid timing composition", () => {
+      expect(
+        new RandomCycle().bin().chance(0).getTimingCondition(),
+      ).toMatchObject({ probability: 0 });
+      expect(
+        new RandomCycle().bin().chance(1).getTimingCondition(),
+      ).toMatchObject({ probability: 1 });
+    });
+
     it("serializes one fractional chance condition", () => {
       expect(
         new RandomCycle()

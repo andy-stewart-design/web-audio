@@ -1,16 +1,5 @@
 import PatternCycle from "./pattern-cycle";
-import compileTimingCycle from "./utils/compile-timing-cycle";
 import type { StaticPattern } from "./types";
-
-class BinaryCycle extends PatternCycle<1 | 0> {
-  constructor() {
-    super([1], 0);
-  }
-
-  getTimingPattern() {
-    return compileTimingCycle(this._cycle);
-  }
-}
 
 class ValueCycle extends PatternCycle<number> {
   constructor(defaultPattern: number[], nullValue: number) {
@@ -36,4 +25,4 @@ class ValueCycle extends PatternCycle<number> {
   }
 }
 
-export { BinaryCycle, ValueCycle };
+export { ValueCycle };

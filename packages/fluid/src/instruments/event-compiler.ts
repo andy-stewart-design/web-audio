@@ -132,12 +132,12 @@ function compileRandomNoteEvents(
     source.pattern.valuesPerBar.length,
     timing.cycle.length,
   );
-  const valuesPerBar = Array.from(
-    { length: cycleLength },
-    (_, barIndex) =>
-      source.pattern.valuesPerBar[
-        barIndex % source.pattern.valuesPerBar.length
-      ],
+  const valuesPerBar = Array.from({ length: cycleLength }, (_, barIndex) =>
+    explicitTiming
+      ? timing.cycle[barIndex % timing.cycle.length].length
+      : source.pattern.valuesPerBar[
+          barIndex % source.pattern.valuesPerBar.length
+        ],
   );
   const timingCycle = Array.from({ length: cycleLength }, (_, barIndex) => {
     if (valuesPerBar[barIndex] === 0) return [];

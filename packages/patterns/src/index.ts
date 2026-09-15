@@ -1,5 +1,6 @@
+import FixedTimingCycle from "./fixed-timing-cycle";
 import RandomCycle from "./random-cycle";
-import { BinaryCycle, ValueCycle } from "./static-cycles";
+import { ValueCycle } from "./value-cycle";
 import { getChordStaticSchema } from "./utils";
 import { MaskedCycle } from "./masked-cycle";
 import type {
@@ -15,7 +16,7 @@ import type {
 } from "./types";
 
 export {
-  BinaryCycle,
+  FixedTimingCycle,
   RandomCycle,
   ValueCycle,
   MaskedCycle,

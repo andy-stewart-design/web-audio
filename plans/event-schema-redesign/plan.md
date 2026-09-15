@@ -399,9 +399,10 @@ Resource availability is not a validation concern. Missing banks, sample names, 
 
 - `packages/patterns/src/types.ts`
 - `packages/patterns/src/index.ts`
-- `packages/patterns/src/static-cycles.ts`
+- `packages/patterns/src/value-cycle.ts`
 - `packages/patterns/src/value-cycle.test.ts`
-- `packages/patterns/src/binary-cycle.test.ts`
+- `packages/patterns/src/fixed-timing-cycle.ts`
+- `packages/patterns/src/fixed-timing-cycle.test.ts`
 - `packages/patterns/src/random-cycle.ts`
 - `packages/patterns/src/random-cycle.test.ts`
 - `packages/patterns/src/utils/chord-static-schema.ts`
@@ -586,7 +587,7 @@ Ensure zero remains ordinary data. No processing serializer may filter values ba
 - `packages/fluid/src/patterns/notes.test.ts`
 - `packages/fluid/src/patterns/sample-notes.test.ts`
 - `packages/fluid/src/instruments/instrument.test.ts`
-- `packages/patterns/src/static-cycles.ts`
+- `packages/patterns/src/fixed-timing-cycle.ts`
 - `packages/patterns/src/random-cycle.ts`
 - `packages/patterns/src/utils/compile-timing-cycle.ts` (new)
 - `packages/patterns/src/random-cycle.test.ts`
@@ -1232,6 +1233,11 @@ The constructor variation remains scalar in `d.sample("bd", value)` and `d.sampl
 
 **Files:**
 
+- `packages/patterns/src/fixed-timing-cycle.ts`
+- `packages/patterns/src/fixed-timing-cycle.test.ts`
+- `packages/patterns/src/random-cycle.ts`
+- `packages/fluid/src/patterns/authored-timing.ts`
+- `packages/fluid/src/patterns/authored-timing.test.ts`
 - `packages/fluid/src/instruments/instrument.ts`
 - `packages/fluid/src/patterns/midi-notes.ts`
 - `packages/fluid/src/instruments/event-compiler.ts`
@@ -1250,18 +1256,18 @@ Do not serialize authoring flags.
 
 **Acceptance criteria:**
 
-- [ ] Notes after rhythm do not clear rhythm.
-- [ ] Variations after rhythm do not clear rhythm.
-- [ ] Repeated random XOX is last-write-wins.
-- [ ] Only one chance condition reaches the schema.
-- [ ] Fixed masks are compiled away.
+- [x] Notes after rhythm do not clear rhythm.
+- [x] Variations after rhythm do not clear rhythm.
+- [x] Repeated random XOX is last-write-wins.
+- [x] Only one chance condition reaches the schema.
+- [x] Fixed masks are compiled away.
 
 **Testing:**
 
-- [ ] Every setter/rhythm call-order pair.
-- [ ] Fixed → random → fixed composition.
-- [ ] Random → random replacement.
-- [ ] Probability zero/one simplification after composition.
+- [x] Every setter/rhythm call-order pair.
+- [x] Fixed → random → fixed composition.
+- [x] Random → random replacement.
+- [x] Probability zero/one simplification after composition.
 
 ---
 
@@ -2316,7 +2322,8 @@ Prefer focused unit cases over one enormous combinatorial test, but ensure every
 | File                                                 | Change                                                                                   |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `packages/patterns/src/types.ts`                     | Export target schema types and retain only package-owned authoring cycle types.          |
-| `packages/patterns/src/static-cycles.ts`             | Serialize raw values and fixed timing separately.                                        |
+| `packages/patterns/src/value-cycle.ts`               | Serialize raw values.                                                                    |
+| `packages/patterns/src/fixed-timing-cycle.ts`        | Own full fixed candidate-event geometry and serialize it as timing.                      |
 | `packages/patterns/src/random-cycle.ts`              | Serialize random counts/configuration and expose timing chance configuration.            |
 | `packages/patterns/src/masked-cycle.ts`              | Expose independent source values and fixed trigger geometry without schema grid indices. |
 | `packages/patterns/src/base-cycle.ts`                | Use strict transform validation and rational speed behavior.                             |
@@ -2334,6 +2341,7 @@ Prefer focused unit cases over one enormous combinatorial test, but ensure every
 | `packages/fluid/src/instruments/synthesizer.ts`    | Emit `SynthEventPattern`.                                                                                        |
 | `packages/fluid/src/instruments/sampler.ts`        | Emit `SamplerEventPattern`; add variation layers/rests and later `.name()`/unnamed construction.                 |
 | `packages/fluid/src/instruments/sampler-utils.ts`  | Generate timing and value-only chop/fit/region data; remove dummy notes and source keys.                         |
+| `packages/fluid/src/patterns/authored-timing.ts`   | Retain explicit timing intent, fixed candidate geometry, and one random chance condition.                        |
 | `packages/fluid/src/patterns/midi-notes.ts`        | Compile grouped note values independently from timing and retain root/scale value mapping.                       |
 | `packages/fluid/src/patterns/sample-notes.ts`      | Support optional sampler note intent without owning timing by default.                                           |
 | `packages/fluid/src/patterns/parameter.ts`         | Emit `NumberPattern`.                                                                                            |

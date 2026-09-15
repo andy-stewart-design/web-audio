@@ -10,6 +10,7 @@ import type {
   TimingPattern,
 } from "@web-audio/schema";
 import { compileNoteEvents } from "@/instruments/event-compiler";
+import AuthoredTiming from "@/patterns/authored-timing";
 import { getScale } from "@/utils/get-scale";
 import { noteStringToMidi } from "@/utils/note-string-to-midi";
 import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
@@ -18,13 +19,11 @@ import type { NoteName, NoteValue, ScaleAlias } from "@/types";
 type NoteOrChord<T> = T | T[];
 type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
-type RhythmState = { type: "fixed" } | { type: "random"; cycle: RandomCycle };
-
 class MidiNotes {
   private _notes: MaskedCycle<Chord> | RandomCycle;
-  // Retains whether timing is inferred from notes or supplied by an explicit
-  // fixed/random rhythm, so timing priority can be resolved during compilation.
-  private _rhythmState: RhythmState | undefined;
+  // Timing intent is independent from note values, so a value setter cannot
+  // replace the explicit rhythm that owns candidate event timing.
+  private _timing = new AuthoredTiming();
   private _root = 0;
   private _scale: number[] | undefined;
 
@@ -47,7 +46,6 @@ class MidiNotes {
       throw new Error("[Instrument] notes() requires at least one pattern.");
     }
 
-    this._rhythmState = undefined;
     if (isRandomCycleTuple(input)) {
       this._notes = input[0];
     } else {
@@ -77,55 +75,59 @@ class MidiNotes {
     steps: number,
     rotation: number | number[] = 0,
   ) {
-    this._notes.euclid(pulses, steps, rotation);
-    this._rhythmState = { type: "fixed" };
+    this._timing.euclid(pulses, steps, rotation);
     return this;
   }
 
   hex(...hexes: (string | number)[]) {
-    this._notes.hex(...hexes);
-    this._rhythmState = { type: "fixed" };
+    this._timing.hex(...hexes);
     return this;
   }
 
   reverse() {
     this._notes.reverse();
+    this._timing.reverse();
     return this;
   }
 
   sequence(steps: number, ...pulses: (number | number[])[]) {
-    this._notes.sequence(steps, ...pulses);
-    this._rhythmState = { type: "fixed" };
+    this._timing.sequence(steps, ...pulses);
     return this;
   }
 
   xox(...input: (number | number[])[] | [RandomCycle]) {
     if (isRandomCycleTuple(input)) {
-      this._rhythmState = { type: "random", cycle: input[0] };
+      const cycle = input[0];
+      if (cycle.dataType !== "binary") {
+        throw new Error("Instrument.xox() random masks must be binary");
+      }
+      this._timing.setRandomXox(cycle);
     } else {
-      this._notes.xox(...input);
-      this._rhythmState = { type: "fixed" };
+      this._timing.xox(...input);
     }
     return this;
   }
 
   fast(multiplier: number) {
     this._notes.fast(multiplier);
+    this._timing.fast(multiplier);
     return this;
   }
 
   slow(multiplier: number) {
     this._notes.slow(multiplier);
+    this._timing.slow(multiplier);
     return this;
   }
 
   stretch(bars: number, steps?: number) {
     this._notes.stretch(bars, steps);
+    this._timing.stretch(bars, steps);
     return this;
   }
 
   getEventPattern(timingOverride?: TimingPattern) {
-    const explicitTiming = timingOverride ?? this._getExplicitTiming();
+    const explicitTiming = timingOverride ?? this._timing.getTimingPattern();
 
     if (isRandomCycle(this._notes)) {
       return compileNoteEvents({
@@ -153,15 +155,7 @@ class MidiNotes {
   }
 
   get hasExplicitRhythm() {
-    return this._rhythmState !== undefined;
-  }
-
-  private _getExplicitTiming() {
-    if (this._rhythmState?.type !== "random") return undefined;
-    if (this._rhythmState.cycle.dataType !== "binary") {
-      throw new Error("Instrument.xox() random masks must be binary");
-    }
-    return this._rhythmState.cycle.getTimingPattern();
+    return this._timing.isExplicit;
   }
 
   private _getRandomNotePattern(cycle: RandomCycle): RandomNumberPattern {
