@@ -1373,10 +1373,10 @@ Required precedence:
 
 **Acceptance criteria:**
 
-- [ ] `.fit(4)` timing is unchanged by a denser variation pattern.
-- [ ] `.chop(8).var([0,1])` keeps eight chop events and wraps variation by hit.
-- [ ] Long chop/fit durations remain valid.
-- [ ] Existing explicit-note/chop behavior remains covered.
+- [x] `.fit(4)` timing is unchanged by a denser variation pattern.
+- [x] `.chop(8).var([0,1])` keeps eight chop events and wraps variation by hit.
+- [x] Long chop/fit durations remain valid.
+- [x] Existing explicit-note/chop behavior remains covered.
 
 ---
 

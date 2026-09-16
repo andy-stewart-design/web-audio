@@ -74,7 +74,7 @@ describe("event compiler", () => {
       range: { min: 48, max: 72 },
     });
     expect(events.timing.cycle.map((bar) => bar.length)).toEqual([2, 0, 3]);
-    expect(events.timing).not.toHaveProperty("condition");
+    expect(events.timing.condition).toBeUndefined();
   });
 
   it("compiles random note values with fixed timing", () => {

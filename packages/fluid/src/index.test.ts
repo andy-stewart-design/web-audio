@@ -764,6 +764,28 @@ describe("Drome", () => {
       },
     );
 
+    it("keeps generated fit timing when variations are denser", () => {
+      const schema = new Drome().sample("bd").fit(4).var([0, 1, 2]).getSchema();
+
+      expect(schema.eventPattern.timing.cycle).toEqual(
+        Array.from({ length: 4 }, () => [{ offset: 0, duration: 1 }]),
+      );
+      expect(schema.eventPattern.variationIndices).toEqual({
+        type: "static",
+        cycle: Array.from({ length: 4 }, () => [[0], [1], [2]]),
+      });
+    });
+
+    it("keeps generated chop timing while variations wrap by hit", () => {
+      const schema = new Drome().sample("bd").chop(8).var([0, 1]).getSchema();
+
+      expect(schema.eventPattern.timing.cycle[0]).toHaveLength(8);
+      expect(schema.eventPattern.variationIndices).toEqual({
+        type: "static",
+        cycle: [[[0], [1]]],
+      });
+    });
+
     it("distributes generated chop values and timing over fit bars", () => {
       const schema = new Drome().sample("bd").fit(2).chop(8).getSchema();
       const fixture = getStaticChopFixture(schema);
