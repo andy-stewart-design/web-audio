@@ -177,8 +177,7 @@ class Sampler extends Instrument {
   }
 
   private _getGeneratedFit() {
-    const unfit =
-      this._pitches.hasAuthoredPitchValues || this._chop || this._region;
+    const unfit = this._pitches.hasAuthoredValues || this._chop || this._region;
     if (unfit) return null;
     return this._fit;
   }
@@ -200,7 +199,7 @@ class Sampler extends Instrument {
       timing: this._timing,
       variation: this._variation,
       timingOverride: this._getTimingOverride(),
-      sampleNames: { type: "static", cycle: [[[this._sample]]] },
+      sampleName: this._sample,
     });
   }
 

@@ -15,7 +15,7 @@ describe("authored event values", () => {
     ]);
 
     expect(values).toEqual({
-      explicit: true,
+      hasAuthoredValues: true,
       source: {
         type: "static",
         cycle: [[[0], [1, 2], null], [null], [[3]]],
@@ -25,15 +25,15 @@ describe("authored event values", () => {
   });
 
   it("keeps the default variation distinct from an authored zero", () => {
-    expect(createDefaultAuthoredEventValues(0).explicit).toBe(false);
-    expect(createAuthoredEventValues<number>([0]).explicit).toBe(true);
+    expect(createDefaultAuthoredEventValues(0).hasAuthoredValues).toBe(false);
+    expect(createAuthoredEventValues<number>([0]).hasAuthoredValues).toBe(true);
   });
 
   it("preserves random values as scalar event sources", () => {
     const cycle = new RandomCycle().int().steps(4);
 
     expect(createAuthoredEventValues([cycle])).toEqual({
-      explicit: true,
+      hasAuthoredValues: true,
       source: { type: "random", cycle },
     });
   });

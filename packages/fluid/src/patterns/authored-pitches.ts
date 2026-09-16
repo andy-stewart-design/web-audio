@@ -20,8 +20,8 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class AuthoredPitches {
   private _notes: MaskedCycle<Chord> | RandomCycle;
-  private _hasAuthoredPitchValues = false;
-  private _hasRequestedPitches = false;
+  private _hasAuthoredValues = false;
+  private _hasPitchTransform = false;
   private _root = 0;
   private _scale: number[] | undefined;
 
@@ -44,8 +44,7 @@ class AuthoredPitches {
       throw new Error("[Instrument] notes() requires at least one pattern.");
     }
 
-    this._hasAuthoredPitchValues = true;
-    this._hasRequestedPitches = true;
+    this._hasAuthoredValues = true;
     if (isRandomCycleTuple(input)) {
       this._notes = input[0];
     } else {
@@ -60,14 +59,14 @@ class AuthoredPitches {
   }
 
   root(n: NoteName | NoteValue | number) {
-    this._hasRequestedPitches = true;
+    this._hasPitchTransform = true;
     if (typeof n === "number") this._root = n;
     else this._root = noteStringToMidi(n) || 0;
     return this;
   }
 
   scale(name: ScaleAlias) {
-    this._hasRequestedPitches = true;
+    this._hasPitchTransform = true;
     this._scale = getScale(name);
     return this;
   }
@@ -118,25 +117,35 @@ class AuthoredPitches {
     return this.getEventPattern().notes;
   }
 
-  get hasAuthoredPitchValues() {
-    return this._hasAuthoredPitchValues;
+  get hasAuthoredValues() {
+    return this._hasAuthoredValues;
   }
 
   get hasRequestedPitches() {
-    return this._hasRequestedPitches;
+    return this._hasAuthoredValues || this._hasPitchTransform;
+  }
+
+  getFixedAvailability() {
+    if (isRandomCycle(this._notes)) return undefined;
+
+    return this._notes.sourceValues.map((bar) =>
+      bar.map((chord) =>
+        Boolean(chord?.some((value) => typeof value === "number")),
+      ),
+    );
+  }
+
+  getRandomValuesPerBar() {
+    return isRandomCycle(this._notes)
+      ? this._notes.getRandomSchema().valuesPerBar
+      : undefined;
   }
 
   get hasAuthoredPitchRests() {
     return (
-      !isRandomCycle(this._notes) &&
-      this._notes.sourceValues.some((bar) =>
-        bar.some(
-          (chord) =>
-            chord === null ||
-            chord === undefined ||
-            chord.every((value) => typeof value !== "number"),
-        ),
-      )
+      this.getFixedAvailability()?.some((bar) =>
+        bar.some((available) => !available),
+      ) ?? false
     );
   }
 

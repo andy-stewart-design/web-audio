@@ -1337,19 +1337,19 @@ Rules:
 
 **Acceptance criteria:**
 
-- [ ] A rest in either lane removes the corresponding candidate.
-- [ ] Multiple rest masks combine deterministically.
-- [ ] Surviving values are re-addressed by consecutive hit number.
-- [ ] Direct schema validation catches mismatched silent bars.
-- [ ] Failure-independent hit indexing is unchanged.
+- [x] A rest in either lane removes the corresponding candidate.
+- [x] Multiple rest masks combine deterministically.
+- [x] Surviving values are re-addressed by consecutive hit number.
+- [x] Direct schema validation catches mismatched silent bars.
+- [x] Failure-independent hit indexing is unchanged.
 
 **Testing:**
 
-- [ ] Notes rests over variation timing.
-- [ ] Variation rests over note timing.
-- [ ] Both over explicit XOX/Euclidean timing.
-- [ ] Multi-bar wrapping.
-- [ ] Zero note/variation values remain active.
+- [x] Notes rests over variation timing.
+- [x] Variation rests over note timing.
+- [x] Both over explicit XOX/Euclidean timing.
+- [x] Multi-bar wrapping.
+- [x] Zero note/variation values remain active.
 
 ---
 

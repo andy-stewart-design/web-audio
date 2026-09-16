@@ -468,6 +468,30 @@ describe("validateDromeGraph", () => {
     );
   });
 
+  it("rejects note and variation silent bars that do not align with timing", () => {
+    const timingCycle = timing([
+      [{ offset: 0, duration: 1 }],
+      [{ offset: 0, duration: 1 }],
+    ]);
+    const notes = sampler("missing", {
+      timing: timingCycle,
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: { type: "static", cycle: [[[60]], [null]] },
+    });
+    const variationIndices = sampler("missing", {
+      timing: timingCycle,
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      variationIndices: { type: "static", cycle: [[[0]], [null]] },
+    });
+
+    expect(() => validateDromeGraph(schema({}, [notes]))).toThrow(
+      "[Schema] Instrument 0.eventPattern.notes.cycle[1] silent bar must align with an empty timing bar.",
+    );
+    expect(() => validateDromeGraph(schema({}, [variationIndices]))).toThrow(
+      "[Schema] Instrument 0.eventPattern.variationIndices.cycle[1] silent bar must align with an empty timing bar.",
+    );
+  });
+
   it.each([
     ["all-silent sample names", { type: "static", cycle: [[null]] }],
     ["blank sample name", { type: "static", cycle: [[[" "]]] }],

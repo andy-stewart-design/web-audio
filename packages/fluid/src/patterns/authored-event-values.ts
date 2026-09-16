@@ -13,7 +13,7 @@ type RandomAuthoredValues = {
 };
 
 type AuthoredEventValues<T> = {
-  explicit: boolean;
+  hasAuthoredValues: boolean;
   source: StaticAuthoredValues<T> | RandomAuthoredValues;
 };
 
@@ -28,7 +28,7 @@ type AuthoredEventValuesInput<T> = T | null | (T | T[] | null)[];
 
 function createDefaultAuthoredEventValues<T>(value: T): AuthoredEventValues<T> {
   return {
-    explicit: false,
+    hasAuthoredValues: false,
     source: { type: "static", cycle: [[[value]]] },
   };
 }
@@ -44,11 +44,14 @@ function createAuthoredEventValues<T>(
   }
 
   if (isRandomCycleTuple(input)) {
-    return { explicit: true, source: { type: "random", cycle: input[0] } };
+    return {
+      hasAuthoredValues: true,
+      source: { type: "random", cycle: input[0] },
+    };
   }
 
   return {
-    explicit: true,
+    hasAuthoredValues: true,
     source: {
       type: "static",
       cycle: input.map((bar) => normalizeBar(bar, options)),

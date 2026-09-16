@@ -328,6 +328,78 @@ describe("instrument event schemas", () => {
     ]);
   });
 
+  it("filters explicit XOX timing with fixed pitch and variation rests", () => {
+    const pitchRests = new Sampler("kick")
+      .notes([60, null, 64])
+      .variation([0, 1, 2, 3])
+      .xox([1, 1, 1, 1])
+      .getSchema().eventPattern;
+    const variationRests = new Sampler("kick")
+      .notes([60, 64, 67, 71])
+      .variation([0, null, 2])
+      .xox([1, 1, 1, 1])
+      .getSchema().eventPattern;
+
+    expect(pitchRests.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 0.25 },
+      { offset: 0.25, duration: 0.25 },
+      { offset: 0.75, duration: 0.25 },
+    ]);
+    expect(variationRests.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 0.25 },
+      { offset: 0.25, duration: 0.25 },
+      { offset: 0.75, duration: 0.25 },
+    ]);
+    expect(pitchRests.notes).toEqual({
+      type: "static",
+      cycle: [[[60], [64]]],
+    });
+    expect(variationRests.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[0], [2]]],
+    });
+  });
+
+  it("intersects multiple fixed rest masks over Euclidean timing", () => {
+    const events = new Sampler("kick")
+      .notes([60, null, 64])
+      .variation([0, 1, null])
+      .euclid(6, 6)
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 1 / 6 },
+      { offset: 1 / 6, duration: 1 / 6 },
+    ]);
+  });
+
+  it("preserves multi-bar rest alignment and active zero values", () => {
+    const multiBar = new Sampler("kick")
+      .notes([60, null], [64, 67])
+      .variation([0, 1], [null])
+      .xox([1, 1])
+      .getSchema().eventPattern;
+    const zeroValues = new Sampler("kick")
+      .notes([0])
+      .variation([0, null, 0])
+      .xox([1, 1, 1])
+      .getSchema().eventPattern;
+
+    expect(multiBar.timing.cycle).toEqual([[{ offset: 0, duration: 0.5 }], []]);
+    expect(zeroValues.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 1 / 3 },
+      { offset: 2 / 3, duration: 1 / 3 },
+    ]);
+    expect(zeroValues.notes).toEqual({
+      type: "static",
+      cycle: [[[0], [0]]],
+    });
+    expect(zeroValues.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[0], [0]]],
+    });
+  });
+
   it("counts simultaneous pitch voices as one timing hit", () => {
     const events = new Sampler("kick")
       .notes([[60, 64, 67]])

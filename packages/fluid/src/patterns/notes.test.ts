@@ -13,6 +13,19 @@ describe("authored pitch compilation", () => {
     });
   });
 
+  it("derives pitch output requests from authored values and transforms", () => {
+    const defaultPitches = new AuthoredPitches([0]);
+    const transformedPitches = new AuthoredPitches([0]).root("c4");
+    const authoredPitches = new AuthoredPitches([0]).notes(60);
+
+    expect(defaultPitches.hasAuthoredValues).toBe(false);
+    expect(defaultPitches.hasRequestedPitches).toBe(false);
+    expect(transformedPitches.hasAuthoredValues).toBe(false);
+    expect(transformedPitches.hasRequestedPitches).toBe(true);
+    expect(authoredPitches.hasAuthoredValues).toBe(true);
+    expect(authoredPitches.hasRequestedPitches).toBe(true);
+  });
+
   describe("random values", () => {
     it("builds a value map from all scale degrees and clears range", () => {
       const events = new AuthoredPitches([60])
