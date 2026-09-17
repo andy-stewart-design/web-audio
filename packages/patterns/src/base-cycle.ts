@@ -6,8 +6,8 @@ import {
   sequence,
   stretch,
   xox,
-  type Cycle,
 } from "./utils";
+import type { Cycle } from "./types";
 import Speed from "./utils/speed";
 
 abstract class BaseCycle<T> {

@@ -1,4 +1,3 @@
-export type { NoteInput, Cycle } from "../types";
 export { pattern } from "./pattern";
 export { arrange } from "./arrange";
 export { stretch } from "./stretch";

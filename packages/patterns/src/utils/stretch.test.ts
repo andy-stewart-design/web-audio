@@ -21,17 +21,17 @@ describe("stretch", () => {
     ]);
   });
 
-  it("clamps bars to 1 when bars < 1", () => {
-    expect(stretch([[1, 2]], 0)).toEqual([[1, 2]]);
-    expect(stretch([[1, 2]], -5)).toEqual([[1, 2]]);
-  });
+  it("rejects invalid bar and step counts", () => {
+    const invalidCounts = [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY];
 
-  it("rounds fractional values", () => {
-    expect(stretch([[1, 2]], 2.7)).toEqual([
-      [1, 2],
-      [1, 2],
-      [1, 2],
-    ]);
+    for (const count of invalidCounts) {
+      expect(() => stretch([[1, 2]], count)).toThrow(
+        "stretch() bars must be a positive finite integer",
+      );
+      expect(() => stretch([[1, 2]], 1, count)).toThrow(
+        "stretch() steps must be a positive finite integer",
+      );
+    }
   });
 
   it("uses the shared transform expansion guard", () => {

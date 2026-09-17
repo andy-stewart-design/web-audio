@@ -1439,9 +1439,9 @@ Require positive finite integers for `bars` and `steps`. Remove rounding and `Ma
 
 **Acceptance criteria:**
 
-- [ ] Valid stretch output preserves bar and hit order.
-- [ ] Zero, negative, fractional, `NaN`, and infinite values throw.
-- [ ] Errors identify the invalid argument.
+- [x] Valid stretch output preserves bar and hit order.
+- [x] Zero, negative, fractional, `NaN`, and infinite values throw.
+- [x] Errors identify the invalid argument.
 
 ---
 
