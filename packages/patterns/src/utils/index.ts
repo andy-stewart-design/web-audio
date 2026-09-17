@@ -2,7 +2,7 @@ export { pattern } from "./pattern";
 export { arrange } from "./arrange";
 export { stretch } from "./stretch";
 export { reverse } from "./reverse";
-export { assertCycleLimits } from "./cycle-limits";
+export { assertCycleBarLimit, assertCycleLimits } from "./cycle-limits";
 export { sequence } from "./sequence";
 export { xox } from "./xox";
 export { euclid } from "./euclid";

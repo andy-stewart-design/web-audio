@@ -107,6 +107,7 @@ class AuthoredPitches {
       source: {
         type: "static",
         cycle: this._notes,
+        scalar: this._getStaticScalar(),
         transform: this._degreeToMidi.bind(this),
       },
       explicitTiming: timingOverride,
@@ -147,6 +148,15 @@ class AuthoredPitches {
         bar.some((available) => !available),
       ) ?? false
     );
+  }
+
+  private _getStaticScalar() {
+    if (isRandomCycle(this._notes)) return undefined;
+
+    const source = this._notes.sourceValues;
+    return source.length === 1 && source[0].length === 1
+      ? source[0][0]
+      : undefined;
   }
 
   private _getRandomNotePattern(cycle: RandomCycle): RandomNumberPattern {

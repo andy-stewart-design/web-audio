@@ -1,7 +1,11 @@
 import FixedTimingCycle from "./fixed-timing-cycle";
 import RandomCycle from "./random-cycle";
 import { ValueCycle } from "./value-cycle";
-import { getChordStaticSchema } from "./utils";
+import {
+  assertCycleBarLimit,
+  assertCycleLimits,
+  getChordStaticSchema,
+} from "./utils";
 import { MaskedCycle } from "./masked-cycle";
 import type {
   ChanceCondition,
@@ -20,6 +24,8 @@ export {
   RandomCycle,
   ValueCycle,
   MaskedCycle,
+  assertCycleBarLimit,
+  assertCycleLimits,
   getChordStaticSchema,
   type ChanceCondition,
   type Chord,

@@ -2,13 +2,11 @@ import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
 import AuthoredPitches from "@/patterns/authored-pitches";
 import AuthoredTiming from "@/patterns/authored-timing";
+import AuthoredEventValues from "@/patterns/authored-event-values";
 import {
-  createDefaultAuthoredEventValues,
-  createAuthoredEventValues,
-} from "@/patterns/authored-event-values";
-import {
-  finalizeSamplerEvents,
+  compileSamplerEvents,
   compileVariationPattern,
+  finalizeSamplerEvents,
 } from "./event-compiler";
 
 function compileWithTiming(pitches: AuthoredPitches, timing: AuthoredTiming) {
@@ -215,20 +213,22 @@ describe("event compiler", () => {
 
   it("serializes normalized variation lanes", () => {
     expect(
-      compileVariationPattern(createDefaultAuthoredEventValues(0)),
+      compileVariationPattern(AuthoredEventValues.fromDefault<number>(0)),
     ).toBeUndefined();
     expect(
-      compileVariationPattern(createAuthoredEventValues<number>([0])),
+      compileVariationPattern(AuthoredEventValues.fromInput<number>([0])),
     ).toBeUndefined();
     expect(
-      compileVariationPattern(createAuthoredEventValues([[0, 1, 2]])),
+      compileVariationPattern(
+        AuthoredEventValues.fromInput<number>([[0, 1, 2]]),
+      ),
     ).toEqual({
       type: "static",
       cycle: [[[0], [1], [2]]],
     });
     expect(
       compileVariationPattern(
-        createAuthoredEventValues<number>([
+        AuthoredEventValues.fromInput<number>([
           new RandomCycle().steps(2).int().range(0, 4),
         ]),
       ),
@@ -238,6 +238,24 @@ describe("event compiler", () => {
       dataType: "integer",
       range: { min: 0, max: 4 },
     });
+  });
+
+  it("rejects static event combinations beyond the shared bar limit", () => {
+    const pitches = new AuthoredPitches([0]).notes(
+      ...Array.from({ length: 32 }, () => 60),
+    );
+    const variation = AuthoredEventValues.fromInput<number>(
+      Array.from({ length: 33 }, () => 0),
+    );
+
+    expect(() =>
+      compileSamplerEvents({
+        pitches,
+        timing: new AuthoredTiming(),
+        variation,
+        sampleName: "bd",
+      }),
+    ).toThrow("[Pattern] Transform produces more than 1024 bars.");
   });
 
   it("rejects empty notes setter input", () => {

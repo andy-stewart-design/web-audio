@@ -167,6 +167,16 @@ class MaskedCycle<T> {
       }),
     );
   }
+
+  get transformedValues() {
+    this.applyPendingSpeed();
+    return this._grid.map((bar) =>
+      bar.map((step) => {
+        if (step.type === "rest") return null;
+        return this._source[step.sourceBarIndex]?.[step.sourceHitIndex] ?? null;
+      }),
+    );
+  }
 }
 
 export { MaskedCycle };

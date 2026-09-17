@@ -1,7 +1,4 @@
-import {
-  hasAuthoredEventValueRests,
-  type AuthoredEventValues,
-} from "@/patterns/authored-event-values";
+import type AuthoredEventValues from "@/patterns/authored-event-values";
 import { isDefined } from "@/utils/validate";
 import type AuthoredPitches from "@/patterns/authored-pitches";
 import type AuthoredTiming from "@/patterns/authored-timing";
@@ -14,13 +11,16 @@ import type {
   TimingStep,
   VariationIndexPattern,
 } from "@web-audio/schema";
+import { assertCycleBarLimit, assertCycleLimits } from "@web-audio/patterns";
 import type { Chord, MaskedCycle } from "@web-audio/patterns";
 
-// TYPES —————————————————————————————————————————————————————————————————
+// TYPES
+// —————————————————————————————————————————————————————————————————
 
 type StaticNoteSource = {
   type: "static";
   cycle: MaskedCycle<Chord>;
+  scalar: Chord | undefined;
   transform: (value: number) => number;
 };
 
@@ -61,7 +61,8 @@ type SamplerEventCompilerInput = {
   sampleName: string;
 };
 
-// COMPILE NOTE EVENTS —————————————————————————————————————————————————————————————————
+// COMPILE NOTE EVENTS
+// —————————————————————————————————————————————————————————————————
 
 function compileNoteEvents({ source, explicitTiming }: NoteEventCompilerInput) {
   return source.type === "static"
@@ -76,6 +77,7 @@ function compileStaticNoteEvents(
   const sourceBars = source.cycle.activeEvents.map((bar) =>
     bar.map((chord) => normalizeChord(chord, source.transform)),
   );
+  const scalar = normalizeChord(source.scalar, source.transform);
   const timing = explicitTiming ?? source.cycle.candidateTiming;
   const condition = timing.condition && cloneCondition(timing.condition);
   const cycleLength = repeatingCycleLength(
@@ -93,8 +95,10 @@ function compileStaticNoteEvents(
 
     timingBar.forEach((step, hitIndex) => {
       const chord =
-        sourceBar.length === 0 ? null : sourceBar[hitIndex % sourceBar.length];
-      if (chord === null) return;
+        sourceBar.length === 0
+          ? scalar
+          : sourceBar[hitIndex % sourceBar.length];
+      if (chord === null || chord === undefined) return;
       noteBar.push(chord);
       filteredTiming.push({ ...step });
     });
@@ -103,6 +107,7 @@ function compileStaticNoteEvents(
     timingCycle.push(filteredTiming);
   }
 
+  assertCycleLimits(timingCycle);
   return {
     timing: { cycle: timingCycle, condition },
     notes: { type: "static", cycle: noteCycle },
@@ -133,6 +138,7 @@ function compileRandomNoteEvents(
     }));
   });
 
+  assertCycleLimits(timingCycle);
   return {
     timing: { cycle: timingCycle, condition },
     notes: {
@@ -158,10 +164,13 @@ function repeatingCycleLength(...lengths: number[]) {
   if (lengths.some((length) => length === 0)) {
     throw new Error("[Fluid] Event patterns must contain at least one bar.");
   }
-  return lengths.reduce(lowestCommonMultiple);
+  const cycleLength = lengths.reduce(lowestCommonMultiple);
+  assertCycleBarLimit(cycleLength);
+  return cycleLength;
 }
 
-// COMPILE SAMPLER EVENTS —————————————————————————————————————————————————————————————————
+// COMPILE SAMPLER EVENTS
+// —————————————————————————————————————————————————————————————————
 
 function compileSamplerEvents({
   pitches,
@@ -217,7 +226,11 @@ function getVariationAvailability(variation: AuthoredEventValues<number>) {
   const availability =
     variation.source.type === "random"
       ? { valuesPerBar: variation.source.cycle.getRandomSchema().valuesPerBar }
-      : { cycle: variation.source.cycle.map((bar) => bar.map(Boolean)) };
+      : variation.source.broadcastValue
+        ? undefined
+        : { cycle: variation.source.cycle.map((bar) => bar.map(Boolean)) };
+
+  if (!availability) return undefined;
 
   return availability satisfies FixedAvailability;
 }
@@ -269,7 +282,7 @@ function getVariationTimingCandidate(
   return {
     source: "variation",
     timing: compileStaticTiming(variation.source.cycle),
-    hasRests: hasAuthoredEventValueRests(variation),
+    hasRests: variation.hasRests,
   };
 }
 
@@ -302,6 +315,7 @@ function filterTimingByFixedAvailability(
   const cycleLength = [timing.cycle.length, ...availabilityCycleLengths].reduce(
     lowestCommonMultiple,
   );
+  assertCycleBarLimit(cycleLength);
 
   return {
     condition,
@@ -358,6 +372,13 @@ function compileVariationPattern(values: AuthoredEventValues<number>) {
 
   if (isDefaultVariationValues(values)) return undefined;
 
+  if (values.source.broadcastValue) {
+    return {
+      type: "static",
+      cycle: [[[...values.source.broadcastValue]]],
+    } satisfies VariationIndexPattern;
+  }
+
   return {
     type: "static",
     cycle: values.source.cycle.map((bar) => {
@@ -372,10 +393,8 @@ function compileVariationPattern(values: AuthoredEventValues<number>) {
 function isDefaultVariationValues(values: AuthoredEventValues<number>) {
   return (
     values.source.type === "static" &&
-    values.source.cycle.length === 1 &&
-    values.source.cycle[0].length === 1 &&
-    values.source.cycle[0][0]?.length === 1 &&
-    values.source.cycle[0][0][0] === 0
+    values.source.broadcastValue?.length === 1 &&
+    values.source.broadcastValue[0] === 0
   );
 }
 
@@ -391,6 +410,7 @@ function finalizeSamplerEvents({
     getPatternCycleLength(inputVariationIndices),
   ].filter(isDefined);
   const cycleLength = cycleLengths.reduce(lowestCommonMultiple);
+  assertCycleBarLimit(cycleLength);
   const expandedNotes = inputNotes
     ? expandNotePattern(inputNotes, cycleLength)
     : undefined;
@@ -413,6 +433,7 @@ function finalizeSamplerEvents({
     ].map((step) => ({ ...step }));
   });
 
+  assertCycleLimits(timingCycle);
   return {
     ...eventPattern,
     timing: { ...eventPattern.timing, cycle: timingCycle },
@@ -511,7 +532,11 @@ function repeatCycle<T>(cycle: T[], cycleLength: number) {
 }
 
 function lowestCommonMultiple(a: number, b: number) {
-  return (a * b) / greatestCommonDivisor(a, b);
+  const product = a * b;
+  if (!Number.isSafeInteger(product)) {
+    throw new Error("[Pattern] Combined cycle length exceeds safe precision.");
+  }
+  return product / greatestCommonDivisor(a, b);
 }
 
 function greatestCommonDivisor(a: number, b: number): number {

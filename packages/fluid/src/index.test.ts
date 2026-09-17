@@ -872,6 +872,135 @@ describe("Drome", () => {
       expect(explicit.region).toBeNull();
     });
 
+    it("keeps static note and variation rows paired under reverse", () => {
+      const events = new Drome()
+        .sample("bd")
+        .notes([60, 64])
+        .var([
+          [0, 1],
+          [2, 3],
+        ])
+        .reverse()
+        .getSchema().eventPattern;
+
+      expect(events.notes).toEqual({
+        type: "static",
+        cycle: [[[64], [60]]],
+      });
+      expect(events.variationIndices).toEqual({
+        type: "static",
+        cycle: [
+          [
+            [2, 3],
+            [0, 1],
+          ],
+        ],
+      });
+    });
+
+    it("preserves simultaneous voice order through every transform", () => {
+      const transforms = [
+        (sampler: Sampler) => sampler.fast(2),
+        (sampler: Sampler) => sampler.slow(2),
+        (sampler: Sampler) => sampler.stretch(2),
+        (sampler: Sampler) => sampler.reverse(),
+      ];
+
+      for (const transform of transforms) {
+        const events = transform(
+          new Drome()
+            .sample("bd")
+            .notes([
+              [60, 64],
+              [65, 67],
+            ])
+            .var([
+              [0, 1],
+              [2, 3],
+            ]),
+        ).getSchema().eventPattern;
+        if (
+          events.notes?.type !== "static" ||
+          events.variationIndices?.type !== "static"
+        ) {
+          throw new Error("Expected static note and variation patterns.");
+        }
+
+        const noteGroups = events.notes.cycle
+          .flat()
+          .filter((group): group is number[] => group !== null);
+        const variationGroups = events.variationIndices.cycle
+          .flat()
+          .filter((group): group is number[] => group !== null);
+        for (const group of [...noteGroups, ...variationGroups]) {
+          expect(group[0]).toBeLessThan(group[1]);
+        }
+      }
+    });
+
+    it("broadcasts scalar notes across transformed variation events", () => {
+      const transforms = [
+        { apply: (sampler: Sampler) => sampler.fast(2), hits: [6] },
+        { apply: (sampler: Sampler) => sampler.slow(2), hits: [2, 1] },
+        { apply: (sampler: Sampler) => sampler.stretch(2), hits: [3, 3] },
+        { apply: (sampler: Sampler) => sampler.reverse(), hits: [3] },
+      ];
+
+      for (const { apply, hits } of transforms) {
+        const events = apply(
+          new Drome().sample("bd").notes(60).var([0, 1, 2]),
+        ).getSchema().eventPattern;
+        expect(events.notes).toMatchObject({ type: "static" });
+        expect(events.variationIndices).toMatchObject({ type: "static" });
+        if (
+          events.notes?.type !== "static" ||
+          events.variationIndices?.type !== "static"
+        ) {
+          throw new Error("Expected static note and variation patterns.");
+        }
+
+        expect(events.timing.cycle.map((bar) => bar.length)).toEqual(hits);
+        expect(events.timing.cycle.map((bar) => bar.length)).toEqual(
+          events.notes.cycle.map((bar) => (bar[0] === null ? 0 : bar.length)),
+        );
+        expect(events.timing.cycle.map((bar) => bar.length)).toEqual(
+          events.variationIndices.cycle.map((bar) =>
+            bar[0] === null ? 0 : bar.length,
+          ),
+        );
+        expect(events.notes.cycle.flat().flat()).toEqual(
+          Array(events.timing.cycle.flat().length).fill(60),
+        );
+      }
+    });
+
+    it("does not transform values set after an event transform", () => {
+      const transforms = [
+        (sampler: Sampler) => sampler.fast(2),
+        (sampler: Sampler) => sampler.slow(2),
+        (sampler: Sampler) => sampler.stretch(2),
+        (sampler: Sampler) => sampler.reverse(),
+      ];
+
+      for (const transform of transforms) {
+        const events = transform(
+          new Drome().sample("bd").notes([60, 64]).var([0, 1]),
+        )
+          .notes([67, 69])
+          .var([2, 3])
+          .getSchema().eventPattern;
+
+        expect(events.notes).toEqual({
+          type: "static",
+          cycle: [[[67], [69]]],
+        });
+        expect(events.variationIndices).toEqual({
+          type: "static",
+          cycle: [[[2], [3]]],
+        });
+      }
+    });
+
     it("keeps generated chop/fit timing exempt from event transforms", () => {
       const generators = [
         (sampler: Sampler) => sampler.fit(4),

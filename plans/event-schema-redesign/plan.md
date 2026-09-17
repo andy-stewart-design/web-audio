@@ -1478,21 +1478,21 @@ When static cycles must be combined, expand to their least common repeating peri
 
 **Acceptance criteria:**
 
-- [ ] Notes and variations stay paired under reverse.
-- [ ] Scalar values remain available for every transformed event.
-- [ ] Fast compresses and slow expands complete multi-bar phrases.
-- [ ] Reverse reverses bar order and hit order.
-- [ ] Simultaneous voice order never changes.
-- [ ] Later setters are not retroactively transformed.
-- [ ] Generated chop/fit timing remains exempt.
+- [x] Notes and variations stay paired under reverse.
+- [x] Scalar values remain available for every transformed event.
+- [x] Fast compresses and slow expands complete multi-bar phrases.
+- [x] Reverse reverses bar order and hit order.
+- [x] Simultaneous voice order never changes.
+- [x] Later setters are not retroactively transformed.
+- [x] Generated chop/fit timing remains exempt.
 
 **Testing:**
 
-- [ ] Scalar note plus multi-value variation under every transform.
-- [ ] Chords plus layered variations.
-- [ ] Different finite cycle lengths and LCM guard.
-- [ ] Transform/setter call-order matrices.
-- [ ] Chop/fit exemption tests.
+- [x] Scalar note plus multi-value variation under every transform.
+- [x] Chords plus layered variations.
+- [x] Different finite cycle lengths and LCM guard.
+- [x] Transform/setter call-order matrices.
+- [x] Chop/fit exemption tests.
 
 ---
 

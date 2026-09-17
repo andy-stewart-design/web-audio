@@ -8,11 +8,7 @@ import type {
   SamplerEventPattern,
   SamplerSchema,
 } from "@web-audio/schema";
-import {
-  createAuthoredEventValues,
-  createDefaultAuthoredEventValues,
-  type AuthoredEventValues,
-} from "@/patterns/authored-event-values";
+import AuthoredEventValues from "@/patterns/authored-event-values";
 import {
   getChopTiming,
   getDistributedTiming,
@@ -54,9 +50,33 @@ class Sampler extends Instrument {
     this._pitches = new AuthoredPitches([0]);
     this._bank = bank;
     this._sample = sample;
-    this._variation = createDefaultAuthoredEventValues(0);
+    this._variation = AuthoredEventValues.fromDefault(0);
     this.dur = this.duration.bind(this);
     this.dir = this.direction.bind(this);
+  }
+
+  override reverse() {
+    super.reverse();
+    this._variation.reverse();
+    return this;
+  }
+
+  override fast(multiplier: number) {
+    super.fast(multiplier);
+    this._variation.fast(multiplier);
+    return this;
+  }
+
+  override slow(multiplier: number) {
+    super.slow(multiplier);
+    this._variation.slow(multiplier);
+    return this;
+  }
+
+  override stretch(bars: number, steps?: number) {
+    super.stretch(bars, steps);
+    this._variation.stretch(bars, steps);
+    return this;
   }
 
   // METHOD ALIASES
@@ -75,7 +95,7 @@ class Sampler extends Instrument {
       throw new Error("[Sampler] variation() requires at least one pattern.");
     }
 
-    this._variation = createAuthoredEventValues(input, {
+    this._variation = AuthoredEventValues.fromInput(input, {
       validateValue: Number.isFinite,
       invalidValueMessage:
         "[Sampler] variation() values must be finite numbers.",

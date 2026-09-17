@@ -1,51 +1,49 @@
 import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
-import {
-  createDefaultAuthoredEventValues,
-  createAuthoredEventValues,
-  hasAuthoredEventValueRests,
-} from "./authored-event-values";
+import AuthoredEventValues from "./authored-event-values";
 
 describe("authored event values", () => {
   it("normalizes bars, hits, voices, and rests without assigning timing", () => {
-    const values = createAuthoredEventValues<number>([
+    const values = AuthoredEventValues.fromInput<number>([
       [0, [1, 2], null],
       [],
       [3],
     ]);
 
-    expect(values).toEqual({
-      hasAuthoredValues: true,
-      source: {
-        type: "static",
-        cycle: [[[0], [1, 2], null], [null], [[3]]],
-      },
+    expect(values.hasAuthoredValues).toBe(true);
+    expect(values.source).toEqual({
+      type: "static",
+      cycle: [[[0], [1, 2], null], [null], [[3]]],
+      broadcastValue: undefined,
     });
-    expect(hasAuthoredEventValueRests(values)).toBe(true);
+    expect(values.hasRests).toBe(true);
   });
 
   it("keeps the default variation distinct from an authored zero", () => {
-    expect(createDefaultAuthoredEventValues(0).hasAuthoredValues).toBe(false);
-    expect(createAuthoredEventValues<number>([0]).hasAuthoredValues).toBe(true);
+    expect(AuthoredEventValues.fromDefault<number>(0).hasAuthoredValues).toBe(
+      false,
+    );
+    expect(AuthoredEventValues.fromInput<number>([0]).hasAuthoredValues).toBe(
+      true,
+    );
   });
 
   it("preserves random values as scalar event sources", () => {
     const cycle = new RandomCycle().int().steps(4);
+    const values = AuthoredEventValues.fromInput<number>([cycle]);
 
-    expect(createAuthoredEventValues([cycle])).toEqual({
-      hasAuthoredValues: true,
-      source: { type: "random", cycle },
-    });
+    expect(values.hasAuthoredValues).toBe(true);
+    expect(values.source).toEqual({ type: "random", cycle });
   });
 
   it("rejects invalid authored event values", () => {
     expect(() =>
-      createAuthoredEventValues([[[0, null]]], {
+      AuthoredEventValues.fromInput([[[0, null]]], {
         invalidRestMessage: "rest",
       }),
     ).toThrow("rest");
     expect(() =>
-      createAuthoredEventValues([[[]]], {
+      AuthoredEventValues.fromInput([[[]]], {
         invalidGroupMessage: "group",
       }),
     ).toThrow("group");
