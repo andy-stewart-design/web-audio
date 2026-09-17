@@ -1,4 +1,5 @@
 import type { Cycle } from "../types";
+import { assertCycleLimits } from "./cycle-limits";
 
 export function stretch<S>(cycle: Cycle<S>, bars: number, steps = 1) {
   bars = Math.round(bars);
@@ -14,5 +15,6 @@ export function stretch<S>(cycle: Cycle<S>, bars: number, steps = 1) {
     }
   }
 
+  assertCycleLimits(nextCycle);
   return nextCycle;
 }

@@ -11,17 +11,17 @@ class PatternCycle<T> extends BaseCycle<T> {
   /* PATTERN SETTERS
   ---------------------------------------------------------------- */
   pattern(...patterns: NoteInput<T>[]) {
-    this._cycle = pattern(...patterns);
+    this.replaceCycle(pattern(...patterns));
     return this;
   }
 
   arrange(...input: [number, NoteInput<T>][]) {
-    this._cycle = arrange(...input);
+    this.replaceCycle(arrange(...input));
     return this;
   }
 
   replace(cycle: Cycle<T>) {
-    this._cycle = cycle;
+    this.replaceCycle(cycle);
   }
 }
 

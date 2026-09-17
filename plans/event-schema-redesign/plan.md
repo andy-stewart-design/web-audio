@@ -1414,16 +1414,16 @@ Use one shared guard for all schema-expanding transforms. Do not silently trunca
 
 **Acceptance criteria:**
 
-- [ ] Whole-cycle integer behavior remains correct.
-- [ ] Supported fractional rates are exact within documented tolerance.
-- [ ] Composed rates reduce before expansion.
-- [ ] Unreasonable rates and expansions fail with actionable errors.
+- [x] Whole-cycle integer behavior remains correct.
+- [x] Supported fractional rates are exact within documented tolerance.
+- [x] Composed rates reduce before expansion.
+- [x] Unreasonable rates and expansions fail with actionable errors.
 
 **Testing:**
 
-- [ ] `2`, `0.5`, `1.5`, `4/3`-like input, and composed rates.
-- [ ] Multi-bar compression and expansion.
-- [ ] Invalid and over-limit cases.
+- [x] `2`, `0.5`, `1.5`, `4/3`-like input, and composed rates.
+- [x] Multi-bar compression and expansion.
+- [x] Invalid and over-limit cases.
 
 ---
 

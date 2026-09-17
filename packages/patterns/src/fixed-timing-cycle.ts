@@ -9,7 +9,7 @@ class FixedTimingCycle extends PatternCycle<1 | 0> {
   }
 
   getTimingPattern() {
-    return compileTimingCycle(this._cycle);
+    return compileTimingCycle(this.current);
   }
 }
 

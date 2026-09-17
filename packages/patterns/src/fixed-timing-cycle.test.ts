@@ -61,6 +61,24 @@ describe("FixedTimingCycle", () => {
       ).toEqual([[]]);
     });
 
+    it("reduces composed speeds before materializing timing", () => {
+      const fractional = new FixedTimingCycle([
+        [1],
+        [1],
+        [1],
+        [1],
+        [1],
+        [1],
+      ]).fast(1.5);
+      const composed = new FixedTimingCycle([[1], [1], [1], [1], [1], [1]])
+        .fast(3)
+        .slow(2);
+
+      expect(fractional.getTimingPattern()).toEqual(
+        composed.getTimingPattern(),
+      );
+    });
+
     it("does not serialize values or grid indices", () => {
       const [step] = new FixedTimingCycle().getTimingPattern().cycle[0];
 

@@ -7,7 +7,7 @@ class ValueCycle extends PatternCycle<number> {
   }
 
   getStaticSchema() {
-    const cycle = this._cycle.map((pattern, barIndex) => {
+    const cycle = this.current.map((pattern, barIndex) => {
       if (pattern.length === 0) {
         throw new Error(
           `[Pattern] ValueCycle cannot serialize an empty bar at cycle[${barIndex}].`,

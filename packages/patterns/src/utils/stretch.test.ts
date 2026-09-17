@@ -34,6 +34,10 @@ describe("stretch", () => {
     ]);
   });
 
+  it("uses the shared transform expansion guard", () => {
+    expect(() => stretch([[1]], 1_025)).toThrow("more than 1024 bars");
+  });
+
   it("returns an empty array for an empty cycle", () => {
     expect(stretch([], 3)).toEqual([]);
   });

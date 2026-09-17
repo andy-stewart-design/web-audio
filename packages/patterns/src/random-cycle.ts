@@ -1,5 +1,6 @@
 import FixedTimingCycle from "./fixed-timing-cycle";
 import PatternCycle from "./pattern-cycle";
+import { isNonNegativeInteger } from "./utils";
 import type {
   ChanceCondition,
   RandomNumberPattern,
@@ -26,7 +27,7 @@ class RandomCycle extends PatternCycle<1 | 0> {
   }
 
   getFixedTimingCycle() {
-    return new FixedTimingCycle(this._cycle);
+    return new FixedTimingCycle(this.current);
   }
 
   get candidateTiming(): TimingPattern {
@@ -42,18 +43,13 @@ class RandomCycle extends PatternCycle<1 | 0> {
       throw new Error("RandomCycle.steps() requires at least one step count");
     }
 
-    if (
-      counts.some(
-        (count) =>
-          !Number.isFinite(count) || count < 0 || !Number.isInteger(count),
-      )
-    ) {
+    if (counts.some((count) => !isNonNegativeInteger(count))) {
       throw new Error(
         "RandomCycle.steps() counts must be finite, non-negative integers",
       );
     }
 
-    this._cycle = counts.map((count) => Array.from({ length: count }, () => 1));
+    this.replace(counts.map((count) => Array.from({ length: count }, () => 1)));
     return this;
   }
 
@@ -126,7 +122,7 @@ class RandomCycle extends PatternCycle<1 | 0> {
 
     return {
       type: "random-number",
-      valuesPerBar: this._cycle.map(
+      valuesPerBar: this.current.map(
         (bar) => bar.filter((value) => value === 1).length,
       ),
       dataType: this._type,
@@ -158,7 +154,7 @@ class RandomCycle extends PatternCycle<1 | 0> {
     const condition = this.getTimingCondition();
     if (condition.probability === 0) {
       return {
-        cycle: this._cycle.map(() => []),
+        cycle: this.current.map(() => []),
         condition: undefined,
       } satisfies TimingPattern;
     }

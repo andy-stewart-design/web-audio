@@ -21,6 +21,15 @@ describe("ValueCycle", () => {
       ]);
     });
 
+    it("materializes pending speed before serialization", () => {
+      expect(
+        new ValueCycle([1, 2], 0).fast(1.5).getStaticSchema().cycle,
+      ).toEqual([
+        [1, 0, 2, 0, 1, 0],
+        [2, 0, 1, 0, 2, 0],
+      ]);
+    });
+
     it("retains null-value positions introduced by pattern modifiers", () => {
       expect(
         new ValueCycle([60, 64, 67], 0).euclid(1, 4).getStaticSchema().cycle[0],
