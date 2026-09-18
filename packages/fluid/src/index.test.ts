@@ -529,6 +529,59 @@ describe("Drome", () => {
       expect(randomNotes.variationIndices?.type).toBe("static");
     });
 
+    it("keeps static lanes aligned with transformed random event values", () => {
+      const randomVariation = new Drome()
+        .sample("bd")
+        .notes(60)
+        .var(new RandomCycle().int().steps(2).ribbon(7))
+        .stretch(2)
+        .getSchema().eventPattern;
+      const randomNotes = new Drome()
+        .sample("bd")
+        .notes(new RandomCycle().int().steps(2).ribbon(11))
+        .var([
+          [0, 1],
+          [2, 3],
+        ])
+        .stretch(2)
+        .getSchema().eventPattern;
+
+      expect(randomVariation.timing.cycle.map((bar) => bar.length)).toEqual([
+        2, 2,
+      ]);
+      expect(randomVariation.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[60], [60]],
+          [[60], [60]],
+        ],
+      });
+      expect(randomVariation.variationIndices).toMatchObject({
+        type: "random-number",
+        valuesPerBar: [2, 2],
+        segments: [{ seed: 7 }],
+      });
+      expect(randomNotes.timing.cycle.map((bar) => bar.length)).toEqual([2, 2]);
+      expect(randomNotes.notes).toMatchObject({
+        type: "random-number",
+        valuesPerBar: [2, 2],
+        segments: [{ seed: 11 }],
+      });
+      expect(randomNotes.variationIndices).toEqual({
+        type: "static",
+        cycle: [
+          [
+            [0, 1],
+            [2, 3],
+          ],
+          [
+            [0, 1],
+            [2, 3],
+          ],
+        ],
+      });
+    });
+
     it("distinguishes explicit sampler pitch intent from timing ownership", () => {
       const d = new Drome();
       const root = d.sample("bd").root("A4").getSchema().eventPattern;

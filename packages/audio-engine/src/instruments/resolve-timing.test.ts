@@ -1,6 +1,7 @@
 import type { ChanceCondition, TimingPattern } from "@web-audio/schema";
 import { describe, expect, it } from "vitest";
 import { resolveTiming } from "./resolve-timing";
+import RandomResolver from "@/resolvers/random-resolver";
 
 const fourSteps = [
   { offset: 0, duration: 0.25 },
@@ -87,6 +88,25 @@ describe("resolveTiming", () => {
     expect(resolveTiming({ cycle: [[{ offset: 0, duration: 4 }]] }, 0)).toEqual(
       [{ hitIndex: 0, offset: 0, duration: 4 }],
     );
+  });
+
+  it("keeps random timing decisions independent from random values", () => {
+    const timing = { cycle: [fourSteps], condition: condition() };
+    const values = new RandomResolver({
+      type: "random-number",
+      valuesPerBar: [4],
+      dataType: "float",
+      segments: [{ seed: 42 }],
+      algorithm: "xor",
+      order: "forward",
+    });
+    const before = resolveTiming(timing, 3);
+
+    for (let hitIndex = 0; hitIndex < 4; hitIndex++) {
+      values.resolve(3, hitIndex);
+    }
+
+    expect(resolveTiming(timing, 3)).toEqual(before);
   });
 
   it("reverses chance decisions without reversing candidate geometry", () => {

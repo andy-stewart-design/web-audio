@@ -39,6 +39,24 @@ describe("AuthoredTiming", () => {
     });
   });
 
+  it("keeps chance conditions aligned with transformed candidates", () => {
+    const timing = new AuthoredTiming().setRandomXox(
+      new RandomCycle().bin().steps(2, 3).chance(0.5),
+    );
+
+    timing.fast(2);
+    const fast = timing.getTimingPattern();
+    if (!fast) throw new Error("Expected explicit timing.");
+    expect(fast.cycle.map((bar) => bar.length)).toEqual([5]);
+
+    timing.reverse();
+    const reverse = timing.getTimingPattern();
+    if (!reverse || !("condition" in reverse)) {
+      throw new Error("Expected chance timing.");
+    }
+    expect(reverse.condition?.order).toBe("reverse");
+  });
+
   it("simplifies probability boundaries only when compiling", () => {
     const zero = new AuthoredTiming()
       .setRandomXox(new RandomCycle().bin().steps(4).chance(0))

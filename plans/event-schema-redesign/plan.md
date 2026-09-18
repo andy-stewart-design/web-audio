@@ -1518,17 +1518,17 @@ Static and random lanes may coexist in one event. Static rows transform together
 
 **Acceptance criteria:**
 
-- [ ] Fast random output does not repeat a pre-resolved phrase.
-- [ ] Stretch generates distinct deterministic bars for distinct playback bars.
-- [ ] Reverse is deterministic and keeps seed chronology forward.
-- [ ] Chance conditions receive the same transformed candidate shape as timing.
+- [x] Fast random output does not repeat a pre-resolved phrase.
+- [x] Stretch generates distinct deterministic bars for distinct playback bars.
+- [x] Reverse is deterministic and keeps seed chronology forward.
+- [x] Chance conditions receive the same transformed candidate shape as timing.
 
 **Testing:**
 
-- [ ] Seeded expected sequences for every transform.
-- [ ] Static name/note with random variation.
-- [ ] Random notes with static layered variation.
-- [ ] Random timing plus random values use independent resolver state.
+- [x] Seeded expected sequences for every transform.
+- [x] Static name/note with random variation.
+- [x] Random notes with static layered variation.
+- [x] Random timing plus random values use independent resolver state.
 
 ---
 

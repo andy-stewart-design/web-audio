@@ -47,6 +47,12 @@ class AuthoredTiming {
 
   reverse() {
     this._candidates.reverse();
+    if (this._condition) {
+      this._condition = {
+        ...this._condition,
+        order: this._condition.order === "forward" ? "reverse" : "forward",
+      };
+    }
     return this;
   }
 
