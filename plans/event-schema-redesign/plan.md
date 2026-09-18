@@ -1551,19 +1551,19 @@ Every resolved voice carries its own requested variation value before bank looku
 
 **Acceptance criteria:**
 
-- [ ] Static variation layers create simultaneous sampler voices.
-- [ ] Uneven note and variation groups wrap predictably.
-- [ ] Random variation broadcasts one result per event.
-- [ ] A failed voice does not prevent sibling voices from playing.
-- [ ] One chance decision gates the complete layered event.
+- [x] Static variation layers create simultaneous sampler voices.
+- [x] Uneven note and variation groups wrap predictably.
+- [x] Random variation broadcasts one result per event.
+- [x] A failed voice does not prevent sibling voices from playing.
+- [x] One chance decision gates the complete layered event.
 
 **Testing:**
 
-- [ ] One note/three variations.
-- [ ] Three notes/one variation.
-- [ ] Two notes/three variations.
-- [ ] Random variation with static chord.
-- [ ] Partial and complete resource failure.
+- [x] One note/three variations.
+- [x] Three notes/one variation.
+- [x] Two notes/three variations.
+- [x] Random variation with static chord.
+- [x] Partial and complete resource failure.
 
 ---
 

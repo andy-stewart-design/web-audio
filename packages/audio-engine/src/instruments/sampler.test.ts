@@ -348,6 +348,37 @@ describe("Sampler scheduling", () => {
     ).toEqual([25, 25]);
   });
 
+  it("schedules every static variation layer independently", async () => {
+    const banks = fileBank("kit", "bd", [
+      "https://example.com/0.wav",
+      "https://example.com/1.wav",
+      "https://example.com/2.wav",
+    ]);
+    const instance = await sampler(
+      schema({
+        eventPattern: {
+          timing: timing(),
+          sampleNames: { type: "static", cycle: [[["bd"]]] },
+          variationIndices: { type: "static", cycle: [[[0, 1, 2]]] },
+        },
+      }),
+      banks,
+      cache({
+        "https://example.com/0.wav": buffer(1),
+        "https://example.com/1.wav": buffer(2),
+        "https://example.com/2.wav": buffer(3),
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(
+      FakeBufferSourceNode.instances.map(
+        ({ options }) => options.buffer?.duration,
+      ),
+    ).toEqual([1, 2, 3]);
+  });
+
   it("shares alternate direction across voices and advances once per emitted event", async () => {
     const buffers = cache({ "https://example.com/bd.wav": buffer() });
     const instance = await sampler(
