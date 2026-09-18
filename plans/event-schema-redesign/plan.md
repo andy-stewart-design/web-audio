@@ -1588,18 +1588,18 @@ Remove fallback-to-zero behavior for out-of-range indices.
 
 **Acceptance criteria:**
 
-- [ ] Positive overflow wraps.
-- [ ] Negative indices wrap.
-- [ ] Fractional values round before wrapping.
-- [ ] Wrapping uses the selected name/key variation count.
-- [ ] Empty variation arrays skip the affected voice.
+- [x] Positive overflow wraps.
+- [x] Negative indices wrap.
+- [x] Fractional values round before wrapping.
+- [x] Wrapping uses the selected name/key variation count.
+- [x] Empty variation arrays skip the affected voice.
 
 **Testing:**
 
-- [ ] Boundary table for counts one through four.
-- [ ] Different variation counts across source keys.
-- [ ] Static and random variation values.
-- [ ] Preload and runtime use identical normalization logic.
+- [x] Boundary table for counts one through four.
+- [x] Different variation counts across source keys.
+- [x] Static and random variation values.
+- [x] Preload and runtime use identical normalization logic.
 
 ---
 

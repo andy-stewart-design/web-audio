@@ -60,6 +60,19 @@ describe("planSamplerPreloads", () => {
     ]);
   });
 
+  it("normalizes static variation indices with the runtime rule", () => {
+    const banks = fileBank("kit", "bd", ["0.wav", "1.wav", "2.wav"]);
+    const sampler = schema({
+      type: "static",
+      cycle: [[[-1], [3.6]]],
+    });
+
+    expect(urls(planSamplerPreloads(sampler, banks))).toEqual([
+      "1.wav",
+      "2.wav",
+    ]);
+  });
+
   it("narrows finite random value maps", () => {
     const banks = fileBank("kit", "bd", ["0.wav", "1.wav", "2.wav"]);
 

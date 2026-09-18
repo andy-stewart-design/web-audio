@@ -2,9 +2,11 @@ import type { BankSchema, NormalizedSampleSchema } from "@web-audio/schema";
 import { describe, expect, it } from "vitest";
 import {
   deriveSourceKeys,
+  normalizeVariationIndex,
   resolveSample,
   resolveSampleEntry,
   resolveSampleUrl,
+  resolveVariationEntry,
   selectNaturalSourceKey,
   selectNearestSourceKey,
 } from "./resolve-sample-entry";
@@ -119,16 +121,23 @@ describe("resolveSampleEntry", () => {
     ).toEqual({ type: "sprite", src: "kit.wav", start: 0.1, end: 0.2 });
   });
 
-  it("isolates PR 1 rounding and out-of-range fallback", () => {
-    expect(
-      resolveSampleEntry({
-        banks,
-        bank: "kit",
-        sample: "bd",
-        sourceKey: 0,
-        variationIndex: 0.6,
-      }),
-    ).toEqual({ type: "file", src: "bd-1.wav" });
+  it.each([
+    [1, -2.5, 0],
+    [2, -1, 1],
+    [2, 2, 0],
+    [3, 3.5, 1],
+    [4, -4.5, 0],
+    [4, 5, 1],
+  ])(
+    "rounds then positively wraps variation %s for %s entries",
+    (variationCount, variationIndex, expected) => {
+      expect(normalizeVariationIndex(variationIndex, variationCount)).toBe(
+        expected,
+      );
+    },
+  );
+
+  it("wraps rounded variation indices when resolving entries", () => {
     expect(
       resolveSampleEntry({
         banks,
@@ -137,7 +146,57 @@ describe("resolveSampleEntry", () => {
         sourceKey: 0,
         variationIndex: 99,
       }),
-    ).toEqual({ type: "file", src: "bd-0.wav" });
+    ).toEqual({ type: "file", src: "bd-1.wav" });
+    expect(
+      resolveSampleEntry({
+        banks,
+        bank: "kit",
+        sample: "bd",
+        sourceKey: 0,
+        variationIndex: -1.2,
+      }),
+    ).toEqual({ type: "file", src: "bd-1.wav" });
+  });
+
+  it("uses each source key's own variation count", () => {
+    const banksWithUnevenVariations: Record<string, BankSchema> = {
+      kit: {
+        samples: {
+          bd: {
+            "48": [{ type: "file", src: "48-0.wav" }],
+            "60": [
+              { type: "file", src: "60-0.wav" },
+              { type: "file", src: "60-1.wav" },
+              { type: "file", src: "60-2.wav" },
+            ],
+          },
+        },
+      },
+    };
+
+    expect(
+      resolveSampleEntry({
+        banks: banksWithUnevenVariations,
+        bank: "kit",
+        sample: "bd",
+        sourceKey: 48,
+        variationIndex: 4,
+      }),
+    ).toEqual({ type: "file", src: "48-0.wav" });
+    expect(
+      resolveSampleEntry({
+        banks: banksWithUnevenVariations,
+        bank: "kit",
+        sample: "bd",
+        sourceKey: 60,
+        variationIndex: 4,
+      }),
+    ).toEqual({ type: "file", src: "60-1.wav" });
+  });
+
+  it("returns null for empty variation arrays", () => {
+    expect(resolveVariationEntry([], 0)).toBeNull();
+    expect(normalizeVariationIndex(0, 0)).toBeNull();
   });
 
   it("returns null for missing bank, sample, source key, or entry", () => {
