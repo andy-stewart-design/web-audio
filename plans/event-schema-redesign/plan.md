@@ -1623,10 +1623,10 @@ Every emitted voice in the event uses the same direction. Cancellation and playb
 
 **Acceptance criteria:**
 
-- [ ] Layered voices all play in the same direction.
-- [ ] Partial success advances once.
-- [ ] Complete failure does not advance.
-- [ ] Cancellation resets alternate state.
+- [x] Layered voices all play in the same direction.
+- [x] Partial success advances once.
+- [x] Complete failure does not advance.
+- [x] Cancellation resets alternate state.
 
 ---
 
@@ -1644,10 +1644,10 @@ Preload must not assume every source key has the same variation count.
 
 **Acceptance criteria:**
 
-- [ ] Negative and overflowing static values preload their wrapped targets.
-- [ ] Layered groups preload every target.
-- [ ] Unknown random output preloads all available variations.
-- [ ] Runtime never uses a normalization rule different from preload.
+- [x] Negative and overflowing static values preload their wrapped targets.
+- [x] Layered groups preload every target.
+- [x] Unknown random output preloads all available variations.
+- [x] Runtime never uses a normalization rule different from preload.
 
 ---
 

@@ -92,7 +92,10 @@ function getSpeedRatio(value: number) {
 }
 
 function compress<S>(cycle: Cycle<S>, multiplier: number) {
-  const length = Math.ceil(cycle.length / multiplier);
+  if (cycle.length === 0) return [];
+
+  const sourceLength = lowestCommonMultiple(cycle.length, multiplier);
+  const length = sourceLength / multiplier;
 
   return Array.from({ length }, (_, barIndex) =>
     Array.from({ length: multiplier }, (_, offset) => {
@@ -100,6 +103,14 @@ function compress<S>(cycle: Cycle<S>, multiplier: number) {
       return sourceBar;
     }).flat(),
   );
+}
+
+function lowestCommonMultiple(a: number, b: number) {
+  const product = a * b;
+  if (!Number.isSafeInteger(product)) {
+    throw new Error("[Pattern] Combined cycle length exceeds safe precision.");
+  }
+  return product / greatestCommonDivisor(a, b);
 }
 
 function expand<S>(cycle: Cycle<S>, nullValue: S, multiplier: number) {

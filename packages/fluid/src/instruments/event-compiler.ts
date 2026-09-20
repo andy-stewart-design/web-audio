@@ -179,13 +179,12 @@ function compileSamplerEvents({
   timingOverride,
   sampleName,
 }: SamplerEventCompilerInput) {
-  const explicitTiming = timingOverride ?? timing.getTimingPattern();
-  const selectedTiming =
-    explicitTiming ?? getInferredSamplerTiming({ pitches, variation });
-  const filteredTiming = filterTimingByFixedAvailability(selectedTiming, [
-    getPitchAvailability(pitches),
-    getVariationAvailability(variation),
-  ]);
+  const filteredTiming = getSamplerEventTiming({
+    pitches,
+    timing,
+    variation,
+    timingOverride,
+  });
   const noteEvents = pitches.getEventPattern(filteredTiming);
   const notes = pitches.hasRequestedPitches ? noteEvents.notes : undefined;
 
@@ -196,6 +195,21 @@ function compileSamplerEvents({
     variationIndices: compileVariationPattern(variation),
     hasAuthoredPitchValues: pitches.hasAuthoredValues,
   });
+}
+
+function getSamplerEventTiming({
+  pitches,
+  timing,
+  variation,
+  timingOverride,
+}: Omit<SamplerEventCompilerInput, "sampleName">) {
+  const explicitTiming = timingOverride ?? timing.getTimingPattern();
+  const selectedTiming =
+    explicitTiming ?? getInferredSamplerTiming({ pitches, variation });
+  return filterTimingByFixedAvailability(selectedTiming, [
+    getPitchAvailability(pitches),
+    getVariationAvailability(variation),
+  ]);
 }
 
 function getInferredSamplerTiming({
@@ -553,6 +567,7 @@ function cloneCondition(condition: NonNullable<TimingPattern["condition"]>) {
 export {
   compileNoteEvents,
   compileSamplerEvents,
+  getSamplerEventTiming,
   finalizeSamplerEvents,
   compileVariationPattern,
   compileSampleNames,

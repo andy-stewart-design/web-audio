@@ -991,6 +991,119 @@ describe("Drome", () => {
       }
     });
 
+    it("keeps repeated static event values paired with explicit timing through speed changes", () => {
+      const createSampler = () =>
+        new Drome()
+          .sample("bd")
+          .xox([1, 0, 0, 1, 0, 0, 1, 0])
+          .notes(0, 10, 20)
+          .var(0, 1, 2);
+
+      const fast = createSampler().fast(2).getSchema().eventPattern;
+      const slow = createSampler().slow(2).getSchema().eventPattern;
+      const stretched = createSampler().stretch(2).getSchema().eventPattern;
+      const reversed = createSampler().reverse().getSchema().eventPattern;
+
+      expect(fast.timing.cycle.map((bar) => bar.length)).toEqual([6, 6, 6]);
+      expect(fast.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[0], [0], [0], [10], [10], [10]],
+          [[20], [20], [20], [0], [0], [0]],
+          [[10], [10], [10], [20], [20], [20]],
+        ],
+      });
+      expect(fast.variationIndices).toEqual({
+        type: "static",
+        cycle: [
+          [[0], [0], [0], [1], [1], [1]],
+          [[2], [2], [2], [0], [0], [0]],
+          [[1], [1], [1], [2], [2], [2]],
+        ],
+      });
+
+      expect(slow.timing.cycle.map((bar) => bar.length)).toEqual([
+        2, 1, 2, 1, 2, 1,
+      ]);
+      expect(slow.notes).toEqual({
+        type: "static",
+        cycle: [[[0], [0]], [[0]], [[10], [10]], [[10]], [[20], [20]], [[20]]],
+      });
+      expect(slow.variationIndices).toEqual({
+        type: "static",
+        cycle: [[[0], [0]], [[0]], [[1], [1]], [[1]], [[2], [2]], [[2]]],
+      });
+
+      expect(stretched.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[0], [0], [0]],
+          [[0], [0], [0]],
+          [[10], [10], [10]],
+          [[10], [10], [10]],
+          [[20], [20], [20]],
+          [[20], [20], [20]],
+        ],
+      });
+      expect(stretched.variationIndices).toEqual({
+        type: "static",
+        cycle: [
+          [[0], [0], [0]],
+          [[0], [0], [0]],
+          [[1], [1], [1]],
+          [[1], [1], [1]],
+          [[2], [2], [2]],
+          [[2], [2], [2]],
+        ],
+      });
+
+      expect(reversed.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[20], [20], [20]],
+          [[10], [10], [10]],
+          [[0], [0], [0]],
+        ],
+      });
+      expect(reversed.variationIndices).toEqual({
+        type: "static",
+        cycle: [
+          [[2], [2], [2]],
+          [[1], [1], [1]],
+          [[0], [0], [0]],
+        ],
+      });
+    });
+
+    it("preserves a complete reversed phrase when fast groups do not divide its bars", () => {
+      const events = new Drome()
+        .sample("bd")
+        .xox([1, 0, 0, 1, 0, 0, 1, 0])
+        .notes(0, 10, 20)
+        .var(0, 1, 2)
+        .reverse()
+        .fast(2)
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle.map((bar) => bar.length)).toEqual([6, 6, 6]);
+      expect(events.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[20], [20], [20], [10], [10], [10]],
+          [[0], [0], [0], [20], [20], [20]],
+          [[10], [10], [10], [0], [0], [0]],
+        ],
+      });
+      expect(events.variationIndices).toEqual({
+        type: "static",
+        cycle: [
+          [[2], [2], [2], [1], [1], [1]],
+          [[0], [0], [0], [2], [2], [2]],
+          [[1], [1], [1], [0], [0], [0]],
+        ],
+      });
+    });
+
     it("broadcasts scalar notes across transformed variation events", () => {
       const transforms = [
         { apply: (sampler: Sampler) => sampler.fast(2), hits: [6] },

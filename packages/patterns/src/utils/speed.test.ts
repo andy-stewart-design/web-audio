@@ -21,6 +21,14 @@ describe("Speed", () => {
     ]);
   });
 
+  it("repeats a complete source phrase when compression groups do not divide it", () => {
+    expect(new Speed().multiply(2).applyTo([[1], [2], [3]], 0)).toEqual([
+      [1, 2],
+      [3, 1],
+      [2, 3],
+    ]);
+  });
+
   it("compiles fractional speeds as reduced rational rates", () => {
     const cycle = [[1], [2], [3], [4], [5], [6]];
     const fractional = new Speed().multiply(1.5).applyTo(cycle, 0);

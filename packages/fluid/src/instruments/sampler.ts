@@ -16,7 +16,7 @@ import {
   type ChopState,
   type RegionState,
 } from "./sampler-utils";
-import { compileSamplerEvents } from "./event-compiler";
+import { compileSamplerEvents, getSamplerEventTiming } from "./event-compiler";
 import { DEFAULT_BANK } from "@/banks";
 import Instrument from "./instrument";
 import type Drome from "@/index";
@@ -56,25 +56,33 @@ class Sampler extends Instrument {
   }
 
   override reverse() {
-    super.reverse();
+    this._materializeEventsForTransform();
+    this._pitches.reverse();
+    this._timing.reverse();
     this._variation.reverse();
     return this;
   }
 
   override fast(multiplier: number) {
-    super.fast(multiplier);
+    this._materializeEventsForTransform();
+    this._pitches.fast(multiplier);
+    this._timing.fast(multiplier);
     this._variation.fast(multiplier);
     return this;
   }
 
   override slow(multiplier: number) {
-    super.slow(multiplier);
+    this._materializeEventsForTransform();
+    this._pitches.slow(multiplier);
+    this._timing.slow(multiplier);
     this._variation.slow(multiplier);
     return this;
   }
 
   override stretch(bars: number, steps?: number) {
-    super.stretch(bars, steps);
+    this._materializeEventsForTransform();
+    this._pitches.stretch(bars, steps);
+    this._timing.stretch(bars, steps);
     this._variation.stretch(bars, steps);
     return this;
   }
@@ -194,6 +202,19 @@ class Sampler extends Instrument {
   clip(enabled = true) {
     this._clipMode = enabled ? "clipped" : "one-shot";
     return this;
+  }
+
+  private _materializeEventsForTransform() {
+    const timingOverride = this._getTimingOverride();
+    if (timingOverride) return;
+
+    const timing = getSamplerEventTiming({
+      pitches: this._pitches,
+      timing: this._timing,
+      variation: this._variation,
+    });
+    this._materializePitchesForTransform(timing);
+    this._variation.materializeAgainstTiming(timing);
   }
 
   private _getGeneratedFit() {

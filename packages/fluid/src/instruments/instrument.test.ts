@@ -53,6 +53,24 @@ describe("instrument event schemas", () => {
     expect(events).not.toHaveProperty("mask");
   });
 
+  it("keeps static synth values paired with repeated explicit timing through fast", () => {
+    const events = new Synthesizer()
+      .xox([1, 0, 0, 1, 0, 0, 1, 0])
+      .notes(60, 64, 67)
+      .fast(2)
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle.map((bar) => bar.length)).toEqual([6, 6, 6]);
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [
+        [[60], [60], [60], [64], [64], [64]],
+        [[67], [67], [67], [60], [60], [60]],
+        [[64], [64], [64], [67], [67], [67]],
+      ],
+    });
+  });
+
   it("preserves fixed rhythm when notes are replaced", () => {
     expect(
       new Synthesizer()

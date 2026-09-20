@@ -97,6 +97,7 @@ abstract class Instrument {
   }
 
   reverse() {
+    this._materializePitchesForTransform();
     this._pitches.reverse();
     this._timing.reverse();
     return this;
@@ -121,21 +122,32 @@ abstract class Instrument {
   }
 
   fast(multiplier: number) {
+    this._materializePitchesForTransform();
     this._pitches.fast(multiplier);
     this._timing.fast(multiplier);
     return this;
   }
 
   slow(multiplier: number) {
+    this._materializePitchesForTransform();
     this._pitches.slow(multiplier);
     this._timing.slow(multiplier);
     return this;
   }
 
   stretch(bars: number, steps?: number) {
+    this._materializePitchesForTransform();
     this._pitches.stretch(bars, steps);
     this._timing.stretch(bars, steps);
     return this;
+  }
+
+  protected _materializePitchesForTransform(timing?: TimingPattern) {
+    const selectedTiming =
+      timing ??
+      this._timing.getTimingPattern() ??
+      this._pitches.getEventPattern().timing;
+    this._pitches.materializeAgainstTiming(selectedTiming);
   }
 
   protected _getPitchEventPattern(timingOverride?: TimingPattern) {

@@ -10,6 +10,7 @@ import type {
   TimingPattern,
 } from "@web-audio/schema";
 import { compileNoteEvents } from "@/instruments/event-compiler";
+import EventTiming from "@/patterns/event-timing";
 import { getScale } from "@/utils/get-scale";
 import { noteStringToMidi } from "@/utils/note-string-to-midi";
 import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
@@ -76,6 +77,17 @@ class AuthoredPitches {
     return this;
   }
 
+  materializeAgainstTiming(timing: TimingPattern) {
+    if (isRandomCycle(this._notes) || this._getStaticScalar()) return this;
+
+    const source = this._notes.activeEvents.map((bar) =>
+      bar.filter((chord): chord is number[] => chord !== null),
+    );
+    const { cycle, mask } = new EventTiming(timing).alignValues(source);
+    this._notes = new MaskedCycle(cycle).xox(...mask);
+    return this;
+  }
+
   fast(multiplier: number) {
     this._notes.fast(multiplier);
     return this;
@@ -127,9 +139,11 @@ class AuthoredPitches {
   }
 
   getFixedAvailability() {
-    if (isRandomCycle(this._notes)) return undefined;
+    if (isRandomCycle(this._notes) || this._getStaticScalar()) {
+      return undefined;
+    }
 
-    return this._notes.sourceValues.map((bar) =>
+    return this._notes.transformedValues.map((bar) =>
       bar.map((chord) =>
         Boolean(chord?.some((value) => typeof value === "number")),
       ),

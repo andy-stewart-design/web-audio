@@ -1,6 +1,8 @@
 import { MaskedCycle, RandomCycle } from "@web-audio/patterns";
 import type { NullableCycleInput } from "@/types";
+import EventTiming from "@/patterns/event-timing";
 import { isRandomCycleTuple } from "@/utils/validate";
+import type { TimingPattern } from "@web-audio/schema";
 
 type StaticAuthoredValues<T> = {
   type: "static";
@@ -91,6 +93,20 @@ class AuthoredEventValues<T> {
 
   reverse() {
     this._transform((cycle) => cycle.reverse());
+    return this;
+  }
+
+  materializeAgainstTiming(timing: TimingPattern) {
+    if (this._source.type === "random" || this._source.broadcastValue) {
+      return this;
+    }
+
+    const source = this._source.cycle.map((bar) =>
+      bar.filter((group): group is T[] => group !== null),
+    );
+    const { cycle, mask } = new EventTiming(timing).alignValues(source);
+    const values = new MaskedCycle(cycle).xox(...mask).transformedValues;
+    this._source = { type: "static", cycle: values };
     return this;
   }
 
