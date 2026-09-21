@@ -1679,9 +1679,9 @@ Add end-to-end coverage for:
 
 **Acceptance criteria:**
 
-- [ ] Every PR 2 behavior appears in both Fluid schema tests and engine resolution/scheduling tests where applicable.
-- [ ] Tests distinguish timing hit number from authored grid position.
-- [ ] No test restores an old schema concept.
+- [x] Every PR 2 behavior appears in both Fluid schema tests and engine resolution/scheduling tests where applicable.
+- [x] Tests distinguish timing hit number from authored grid position.
+- [x] No test restores an old schema concept.
 
 ---
 
@@ -1707,9 +1707,9 @@ Document:
 
 **Acceptance criteria:**
 
-- [ ] Examples match target schema and runtime behavior.
-- [ ] Random freshness and static row preservation are stated explicitly.
-- [ ] No documentation implies variation zero is a rest.
+- [x] Examples match target schema and runtime behavior.
+- [x] Random freshness and static row preservation are stated explicitly.
+- [x] No documentation implies variation zero is a rest.
 
 ---
 
@@ -1717,23 +1717,23 @@ Document:
 
 **Automated verification:**
 
-- [ ] `pnpm --filter @web-audio/schema test:ci`
-- [ ] `pnpm --filter @web-audio/patterns test:ci`
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
-- [ ] `pnpm check`
-- [ ] `pnpm lint`
-- [ ] `pnpm test`
-- [ ] `git diff --check`
+- [x] `pnpm --filter @web-audio/schema test:ci`
+- [x] `pnpm --filter @web-audio/patterns test:ci`
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] `pnpm check`
+- [x] `pnpm lint`
+- [x] `pnpm test`
+- [x] `git diff --check`
 
 **Manual verification, only with user permission:**
 
-- [ ] Audible static variation cycle.
-- [ ] Variation-derived timing.
-- [ ] Simultaneous variation layers.
-- [ ] Random variation under fast/stretch/reverse.
-- [ ] Alternate direction with layers and partial failures.
-- [ ] Variation layers across multisamples, sprites, regions, chop, and fit.
+- [x] Audible static variation cycle.
+- [x] Variation-derived timing.
+- [x] Simultaneous variation layers.
+- [x] Random variation under fast/stretch/reverse.
+- [x] Alternate direction with layers and partial failures.
+- [x] Variation layers across multisamples, sprites, regions, chop, and fit.
 
 ---
 

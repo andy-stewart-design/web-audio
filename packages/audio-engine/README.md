@@ -16,6 +16,10 @@ Static patterns contain values only. Random numeric patterns use `valuesPerBar`;
 
 Sampler notes are optional. When absent, the engine selects the lowest source key derived from normalized bank data and plays it at rate `1`. An absent variation pattern means variation `0`.
 
+Sampler note and variation groups are layered voice dimensions. The engine chooses their longest group length and wraps shorter groups. A random variation resolves once per event and broadcasts that one value across every static layer. It rounds each resolved variation value, then positively wraps it by the selected source key's variation count; missing variation entries skip only their affected voice.
+
+Alternate sample direction is event-based: all successful layers in one event use the same direction, and the alternate state advances once only if at least one layer is scheduled. A failed timing chance gates the complete event before any of its voice values resolve.
+
 ## Sample resources
 
 Sample entries are resolved from `bank → sample name → source key → variation`. Source keys are derived from normalized bank data rather than serialized on instruments. Pitched playback selects the nearest key, using the lower key for midpoint ties.

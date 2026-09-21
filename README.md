@@ -6,7 +6,7 @@ A workspace for the Drome live-coding language and its Web Audio playback engine
 
 Fluid compiles authored rhythms into explicit event timing and separate value patterns. The engine filters timing candidates, assigns consecutive hit indices, resolves instrument and processing values by hit, and schedules one or more voices per event. Static and random value patterns contain no timing geometry or serialized grid indices.
 
-Sampler resources are resolved from normalized bank data using bank, sample name, source key, and variation. Decoded audio is shared only by exact URL; unloaded resources skip their scheduled voice while loading for future hits.
+Sampler resources are resolved from normalized bank data using bank, sample name, source key, and variation. Sampler variation groups create simultaneous voices; values round and wrap within each selected source key's available recordings. Decoded audio is shared only by exact URL; unloaded resources skip their scheduled voice while loading for future hits.
 
 This Turborepo starter is maintained by the Turborepo core team.
 

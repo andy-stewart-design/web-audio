@@ -271,6 +271,33 @@ describe("instrument event schemas", () => {
     });
   });
 
+  it("compiles variation-owned timing, rests, and layered values into one event plan", () => {
+    const events = new Sampler("kick")
+      .notes(60)
+      .variation([[0, 1], null, [2, 3]])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle).toEqual([
+      [
+        { offset: 0, duration: 1 / 3 },
+        { offset: 2 / 3, duration: 1 / 3 },
+      ],
+    ]);
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [[[60], [60]]],
+    });
+    expect(events.variationIndices).toEqual({
+      type: "static",
+      cycle: [
+        [
+          [0, 1],
+          [2, 3],
+        ],
+      ],
+    });
+  });
+
   it("chooses the denser explicit variation pattern for sampler timing", () => {
     const events = new Sampler("kick")
       .notes(60)

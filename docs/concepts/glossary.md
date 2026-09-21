@@ -63,7 +63,7 @@ An event is one hit combined with the instrument-specific values needed for play
 
 ### Voice
 
-A voice is one simultaneous sound within an event. The notes in a synth chord are separate voices that share one hit. Sampler layers will use the same model.
+A voice is one simultaneous sound within an event. The notes in a synth chord are separate voices that share one hit. Simultaneous sampler variation values also create voices that share one hit.
 
 ### Value pattern
 
@@ -155,7 +155,7 @@ A source key is the recorded pitch of one entry in a multisample, represented as
 
 ### Sample variation
 
-A sample variation is a zero-based number used to select an alternate recording for a sample name and source key. Patterned variations resolve in active-hit order, so rests and random misses do not consume variation values. When no variation pattern exists, the engine uses variation `0`.
+A sample variation is a numeric value used to select an alternate recording for a sample name and source key. Patterned variations resolve in active-hit order, so rests and random misses do not consume variation values. The engine rounds a value and positively wraps it within the selected key's available recordings. When no variation pattern exists, the engine uses variation `0`; zero is a playable variation, not a rest.
 
 ### Sample buffer cache
 

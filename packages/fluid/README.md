@@ -6,7 +6,7 @@ Fluid language for constructing scheduled Web Audio schemas.
 
 Fluid separates authoring patterns into three playback concerns:
 
-- `events.timing` describes candidate offsets and durations;
+- `eventPattern.timing` describes candidate offsets and durations;
 - instrument event patterns describe notes, sample names, and variations;
 - processing value patterns describe gain, detune, envelopes, effects, and regions.
 
@@ -14,7 +14,37 @@ Fixed rhythm masks and rests are compiled into timing and do not cross the engin
 
 Static value patterns contain raw values only; random numeric patterns contain per-bar value counts and random-generation settings. Neither carries offsets, durations, masks, or serialized step indices.
 
-In the current PR 1 sampler model, the sample name is represented under `events.sampleNames` but remains fixed to one name. Natural-pitch samplers omit `events.notes`, and variation zero is represented by an absent `events.variationIndices` field.
+This PR keeps one fixed sample name per sampler. Natural-pitch samplers omit `events.notes`, and an absent `events.variationIndices` field means variation `0`.
+
+## Sampler variations
+
+`.var()` and `.variation()` are aliases. Their input dimensions are:
+
+```txt
+outer arguments → bars
+array entries   → sequential hits
+nested arrays   → simultaneous sampler voices
+null            → a whole-hit rest
+```
+
+```ts
+d.sample("bd").var([0, 1, 2]).push(); // three hits in one bar
+d.sample("bd").var(0, 1, 2).push(); // one hit across three bars
+d.sample("bd")
+  .var([
+    [0, 1],
+    [2, 3],
+  ])
+  .push(); // two layered hits
+```
+
+Without explicit rhythm, authored notes and variations compete to supply timing by sequential-hit density; explicit rests take priority, and notes win density ties. Explicit rhythm and generated chop/fit timing remain stronger than variation timing. Rests remove timing candidates and do not consume later values.
+
+At a sampler event, note and variation groups are paired to the longest group length; shorter groups wrap. A random variation produces one scalar per event and broadcasts to every static voice in that event.
+
+Variation values are resolved per selected source key: Fluid preserves finite authored values, then the engine applies `Math.round()` and positive modulo wrapping to that key's variation count. For four variations, `-1` selects `3` and `4` selects `0`; variation `0` is always a playable value, never a rest.
+
+`fast()`, `slow()`, `stretch()`, and `reverse()` preserve static note/variation event combinations. Random variation shape transforms generate fresh deterministic values rather than repeating prior results. Generated chop/fit timing remains exempt. With `.dir("alt")`, every layer in one event uses the same direction, and direction advances once only when at least one voice plays.
 
 ## Buses, routes, and sends
 
