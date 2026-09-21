@@ -1,19 +1,19 @@
 import {
   applyPattern,
   euclid,
-  fast,
   hex,
-  stretch,
   reverse,
   sequence,
-  slow,
+  stretch,
   xox,
-  type Cycle,
 } from "./utils";
+import type { Cycle } from "./types";
+import Speed from "./utils/speed";
 
 abstract class BaseCycle<T> {
   protected _cycle: Cycle<T>;
   protected _nullValue: T;
+  private _speed = new Speed();
 
   constructor(cycle: Cycle<T>, nullValue: T) {
     this._cycle = cycle;
@@ -21,33 +21,45 @@ abstract class BaseCycle<T> {
   }
 
   private applyPattern(modifier: number[][]) {
+    this.applyPendingSpeed();
     return applyPattern(this._cycle, modifier, this._nullValue);
+  }
+
+  protected applyPendingSpeed() {
+    if (this._speed.isUnit) return;
+
+    const cycle = this._speed.applyTo(this._cycle, this._nullValue);
+    this._speed = new Speed();
+    if (cycle) this._cycle = cycle;
+  }
+
+  protected replaceCycle(cycle: Cycle<T>) {
+    this._cycle = cycle;
+    this._speed = new Speed();
   }
 
   /* ----------------------------------------------------------------
   /* PATTERN MODIFIERS
   ---------------------------------------------------------------- */
   stretch(bars: number, steps = 1) {
+    this.applyPendingSpeed();
     this._cycle = stretch(this._cycle, bars, steps);
     return this;
   }
 
   reverse() {
+    this.applyPendingSpeed();
     this._cycle = reverse(this._cycle);
     return this;
   }
 
-  fast(mult: number) {
-    const nextCycle = fast(this._cycle, this._nullValue, mult);
-    if (!nextCycle) return this;
-    this._cycle = nextCycle;
+  fast(multiplier: number) {
+    this._speed.multiply(multiplier);
     return this;
   }
 
-  slow(mult: number) {
-    const nextCycle = slow(this._cycle, this._nullValue, mult);
-    if (!nextCycle) return this;
-    this._cycle = nextCycle;
+  slow(multiplier: number) {
+    this._speed.divide(multiplier);
     return this;
   }
 
@@ -72,17 +84,19 @@ abstract class BaseCycle<T> {
   }
 
   clear() {
-    this._cycle = [];
+    this.replaceCycle([]);
   }
 
   /* ----------------------------------------------------------------
   /* GETTERS
   ---------------------------------------------------------------- */
   get length() {
+    this.applyPendingSpeed();
     return this._cycle.length;
   }
 
   get current() {
+    this.applyPendingSpeed();
     return this._cycle;
   }
 }

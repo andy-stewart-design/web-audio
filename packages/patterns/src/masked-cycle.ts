@@ -1,14 +1,13 @@
 import {
   applyPattern,
   euclid,
-  fast,
   hex,
   reverse,
   sequence,
-  slow,
   stretch,
   xox,
 } from "./utils";
+import Speed from "./utils/speed";
 import type {
   BinaryCycleData,
   Cycle,
@@ -34,6 +33,7 @@ const REST: RestStep = { type: "rest" };
 class MaskedCycle<T> {
   private _source: Cycle<T>;
   private _grid: Cycle<MaskedStep>;
+  private _speed = new Speed();
 
   constructor(source: Cycle<T>) {
     this._source = source.map((bar) => [...bar]);
@@ -47,6 +47,7 @@ class MaskedCycle<T> {
   }
 
   setMask(mask: BinaryCycleData) {
+    this.applyPendingSpeed();
     this._grid = applyPattern(this._grid, mask, REST).map((bar) =>
       bar.map((step) => (step?.type === "active" ? step : REST)),
     );
@@ -74,25 +75,33 @@ class MaskedCycle<T> {
   }
 
   fast(multiplier: number) {
-    const grid = fast(this._grid, REST, multiplier);
-    if (grid) this._grid = grid;
+    this._speed.multiply(multiplier);
     return this;
   }
 
   slow(multiplier: number) {
-    const grid = slow(this._grid, REST, multiplier);
-    if (grid) this._grid = grid;
+    this._speed.divide(multiplier);
     return this;
   }
 
   stretch(bars: number, steps?: number) {
+    this.applyPendingSpeed();
     this._grid = stretch(this._grid, bars, steps);
     return this;
   }
 
   reverse() {
+    this.applyPendingSpeed();
     this._grid = reverse(this._grid);
     return this;
+  }
+
+  private applyPendingSpeed() {
+    if (this._speed.isUnit) return;
+
+    const grid = this._speed.applyTo(this._grid, REST);
+    this._speed = new Speed();
+    if (grid) this._grid = grid;
   }
 
   get sourceValues() {
@@ -100,6 +109,7 @@ class MaskedCycle<T> {
   }
 
   get candidateTiming(): TimingPattern {
+    this.applyPendingSpeed();
     const cycle = this._grid.map((bar) => {
       if (bar.length === 0) return [];
 
@@ -116,12 +126,14 @@ class MaskedCycle<T> {
   }
 
   get fixedRestFilter(): BinaryCycleData {
+    this.applyPendingSpeed();
     return this._grid.map((bar) =>
       bar.map((step) => (step.type === "active" ? 1 : 0)),
     );
   }
 
   get activeSourceReferences(): Cycle<SourceHitReference> {
+    this.applyPendingSpeed();
     return this._grid.map((bar) =>
       bar.flatMap((step) =>
         step.type === "active"
@@ -147,10 +159,21 @@ class MaskedCycle<T> {
   }
 
   get activeEvents() {
+    this.applyPendingSpeed();
     return this.activeSourceReferences.map((bar) =>
       bar.flatMap(({ sourceBarIndex, sourceHitIndex }) => {
         const value = this._source[sourceBarIndex]?.[sourceHitIndex];
         return value === undefined ? [] : [value];
+      }),
+    );
+  }
+
+  get transformedValues() {
+    this.applyPendingSpeed();
+    return this._grid.map((bar) =>
+      bar.map((step) => {
+        if (step.type === "rest") return null;
+        return this._source[step.sourceBarIndex]?.[step.sourceHitIndex] ?? null;
       }),
     );
   }

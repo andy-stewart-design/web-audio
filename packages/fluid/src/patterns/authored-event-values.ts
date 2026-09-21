@@ -1,20 +1,18 @@
-import { RandomCycle } from "@web-audio/patterns";
+import { MaskedCycle, RandomCycle } from "@web-audio/patterns";
 import type { NullableCycleInput } from "@/types";
+import EventTiming from "@/patterns/event-timing";
 import { isRandomCycleTuple } from "@/utils/validate";
+import type { TimingPattern } from "@web-audio/schema";
 
 type StaticAuthoredValues<T> = {
   type: "static";
   cycle: (T[] | null)[][];
+  broadcastValue?: T[];
 };
 
 type RandomAuthoredValues = {
   type: "random";
   cycle: RandomCycle;
-};
-
-type AuthoredEventValues<T> = {
-  explicit: boolean;
-  source: StaticAuthoredValues<T> | RandomAuthoredValues;
 };
 
 type AuthoredEventValuesOptions<T> = {
@@ -26,41 +24,123 @@ type AuthoredEventValuesOptions<T> = {
 
 type AuthoredEventValuesInput<T> = T | null | (T | T[] | null)[];
 
-function createDefaultAuthoredEventValues<T>(value: T): AuthoredEventValues<T> {
-  return {
-    explicit: false,
-    source: { type: "static", cycle: [[[value]]] },
-  };
-}
+class AuthoredEventValues<T> {
+  private _source: StaticAuthoredValues<T> | RandomAuthoredValues;
+  private _hasAuthoredValues = false;
 
-function createAuthoredEventValues<T>(
-  input: NullableCycleInput<T>,
-  options: AuthoredEventValuesOptions<T> = {},
-): AuthoredEventValues<T> {
-  if (input.length === 0) {
-    throw new Error(
-      "[Fluid] Authored event values require at least one pattern.",
+  private constructor(
+    source: StaticAuthoredValues<T> | RandomAuthoredValues,
+    hasAuthoredValues = false,
+  ) {
+    this._source = source;
+    this._hasAuthoredValues = hasAuthoredValues;
+  }
+
+  static fromDefault<T>(value: T) {
+    return new AuthoredEventValues<T>(
+      {
+        type: "static",
+        cycle: [[[value]]],
+        broadcastValue: [value],
+      },
+      false,
     );
   }
 
-  if (isRandomCycleTuple(input)) {
-    return { explicit: true, source: { type: "random", cycle: input[0] } };
+  static fromInput<T>(
+    input: NullableCycleInput<T>,
+    options: AuthoredEventValuesOptions<T> = {},
+  ) {
+    if (input.length === 0) {
+      throw new Error(
+        "[Fluid] Authored event values require at least one pattern.",
+      );
+    }
+
+    if (isRandomCycleTuple(input)) {
+      return new AuthoredEventValues<T>(
+        { type: "random", cycle: input[0] },
+        true,
+      );
+    }
+
+    const cycle = input.map((bar) => normalizeBar(bar, options));
+    return new AuthoredEventValues<T>(
+      {
+        type: "static",
+        cycle,
+        broadcastValue: getBroadcastValue(cycle),
+      },
+      true,
+    );
   }
 
-  return {
-    explicit: true,
-    source: {
-      type: "static",
-      cycle: input.map((bar) => normalizeBar(bar, options)),
-    },
-  };
-}
+  get hasAuthoredValues() {
+    return this._hasAuthoredValues;
+  }
 
-function hasAuthoredEventValueRests<T>(values: AuthoredEventValues<T>) {
-  return (
-    values.source.type === "static" &&
-    values.source.cycle.some((bar) => bar.some((group) => group === null))
-  );
+  get source() {
+    return this._source;
+  }
+
+  get hasRests() {
+    return (
+      this._source.type === "static" &&
+      this._source.broadcastValue === undefined &&
+      this._source.cycle.some((bar) => bar.some((group) => group === null))
+    );
+  }
+
+  reverse() {
+    this._transform((cycle) => cycle.reverse());
+    return this;
+  }
+
+  materializeAgainstTiming(timing: TimingPattern) {
+    if (this._source.type === "random" || this._source.broadcastValue) {
+      return this;
+    }
+
+    const source = this._source.cycle.map((bar) =>
+      bar.filter((group): group is T[] => group !== null),
+    );
+    const { cycle, mask } = new EventTiming(timing).alignValues(source);
+    const values = new MaskedCycle(cycle).xox(...mask).transformedValues;
+    this._source = { type: "static", cycle: values };
+    return this;
+  }
+
+  fast(multiplier: number) {
+    this._transform((cycle) => cycle.fast(multiplier));
+    return this;
+  }
+
+  slow(multiplier: number) {
+    this._transform((cycle) => cycle.slow(multiplier));
+    return this;
+  }
+
+  stretch(bars: number, steps?: number) {
+    this._transform((cycle) => cycle.stretch(bars, steps));
+    return this;
+  }
+
+  private _transform(
+    transform: (cycle: MaskedCycle<T[] | null> | RandomCycle) => void,
+  ) {
+    if (this._source.type === "random") {
+      transform(this._source.cycle);
+      return;
+    }
+
+    const cycle = new MaskedCycle(this._source.cycle);
+    transform(cycle);
+    this._source = {
+      type: "static",
+      cycle: cycle.transformedValues,
+      broadcastValue: this._source.broadcastValue,
+    };
+  }
 }
 
 function normalizeBar<T>(
@@ -109,14 +189,16 @@ function validateValue<T>(value: T, options: AuthoredEventValuesOptions<T>) {
   );
 }
 
-export {
-  createDefaultAuthoredEventValues,
-  createAuthoredEventValues,
-  hasAuthoredEventValueRests,
-};
+function getBroadcastValue<T>(cycle: (T[] | null)[][]) {
+  return cycle.length === 1 && cycle[0].length === 1
+    ? (cycle[0][0] ?? undefined)
+    : undefined;
+}
+
+export default AuthoredEventValues;
 export type {
-  AuthoredEventValues,
   AuthoredEventValuesOptions,
+  AuthoredEventValuesInput,
   RandomAuthoredValues,
   StaticAuthoredValues,
 };

@@ -498,7 +498,10 @@ describe("Drome", () => {
       expect(instrument.type).toBe("sampler");
       if (instrument.type !== "sampler") return;
       expect(instrument.eventPattern.timing.cycle).toEqual([
-        [{ offset: 0, duration: 1 }],
+        [
+          { offset: 0, duration: 0.5 },
+          { offset: 0.5, duration: 0.5 },
+        ],
         [],
       ]);
       expect(instrument.eventPattern.variationIndices).toMatchObject({
@@ -524,6 +527,59 @@ describe("Drome", () => {
       expect(staticNotes.variationIndices?.type).toBe("random-number");
       expect(randomNotes.notes?.type).toBe("random-number");
       expect(randomNotes.variationIndices?.type).toBe("static");
+    });
+
+    it("keeps static lanes aligned with transformed random event values", () => {
+      const randomVariation = new Drome()
+        .sample("bd")
+        .notes(60)
+        .var(new RandomCycle().int().steps(2).ribbon(7))
+        .stretch(2)
+        .getSchema().eventPattern;
+      const randomNotes = new Drome()
+        .sample("bd")
+        .notes(new RandomCycle().int().steps(2).ribbon(11))
+        .var([
+          [0, 1],
+          [2, 3],
+        ])
+        .stretch(2)
+        .getSchema().eventPattern;
+
+      expect(randomVariation.timing.cycle.map((bar) => bar.length)).toEqual([
+        2, 2,
+      ]);
+      expect(randomVariation.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[60], [60]],
+          [[60], [60]],
+        ],
+      });
+      expect(randomVariation.variationIndices).toMatchObject({
+        type: "random-number",
+        valuesPerBar: [2, 2],
+        segments: [{ seed: 7 }],
+      });
+      expect(randomNotes.timing.cycle.map((bar) => bar.length)).toEqual([2, 2]);
+      expect(randomNotes.notes).toMatchObject({
+        type: "random-number",
+        valuesPerBar: [2, 2],
+        segments: [{ seed: 11 }],
+      });
+      expect(randomNotes.variationIndices).toEqual({
+        type: "static",
+        cycle: [
+          [
+            [0, 1],
+            [2, 3],
+          ],
+          [
+            [0, 1],
+            [2, 3],
+          ],
+        ],
+      });
     });
 
     it("distinguishes explicit sampler pitch intent from timing ownership", () => {
@@ -761,6 +817,28 @@ describe("Drome", () => {
       },
     );
 
+    it("keeps generated fit timing when variations are denser", () => {
+      const schema = new Drome().sample("bd").fit(4).var([0, 1, 2]).getSchema();
+
+      expect(schema.eventPattern.timing.cycle).toEqual(
+        Array.from({ length: 4 }, () => [{ offset: 0, duration: 1 }]),
+      );
+      expect(schema.eventPattern.variationIndices).toEqual({
+        type: "static",
+        cycle: Array.from({ length: 4 }, () => [[0], [1], [2]]),
+      });
+    });
+
+    it("keeps generated chop timing while variations wrap by hit", () => {
+      const schema = new Drome().sample("bd").chop(8).var([0, 1]).getSchema();
+
+      expect(schema.eventPattern.timing.cycle[0]).toHaveLength(8);
+      expect(schema.eventPattern.variationIndices).toEqual({
+        type: "static",
+        cycle: [[[0], [1]]],
+      });
+    });
+
     it("distributes generated chop values and timing over fit bars", () => {
       const schema = new Drome().sample("bd").fit(2).chop(8).getSchema();
       const fixture = getStaticChopFixture(schema);
@@ -845,6 +923,248 @@ describe("Drome", () => {
       });
       expect(explicit.eventPattern.timing.cycle[0]).toHaveLength(2);
       expect(explicit.region).toBeNull();
+    });
+
+    it("keeps static note and variation rows paired under reverse", () => {
+      const events = new Drome()
+        .sample("bd")
+        .notes([60, 64])
+        .var([
+          [0, 1],
+          [2, 3],
+        ])
+        .reverse()
+        .getSchema().eventPattern;
+
+      expect(events.notes).toEqual({
+        type: "static",
+        cycle: [[[64], [60]]],
+      });
+      expect(events.variationIndices).toEqual({
+        type: "static",
+        cycle: [
+          [
+            [2, 3],
+            [0, 1],
+          ],
+        ],
+      });
+    });
+
+    it("preserves simultaneous voice order through every transform", () => {
+      const transforms = [
+        (sampler: Sampler) => sampler.fast(2),
+        (sampler: Sampler) => sampler.slow(2),
+        (sampler: Sampler) => sampler.stretch(2),
+        (sampler: Sampler) => sampler.reverse(),
+      ];
+
+      for (const transform of transforms) {
+        const events = transform(
+          new Drome()
+            .sample("bd")
+            .notes([
+              [60, 64],
+              [65, 67],
+            ])
+            .var([
+              [0, 1],
+              [2, 3],
+            ]),
+        ).getSchema().eventPattern;
+        if (
+          events.notes?.type !== "static" ||
+          events.variationIndices?.type !== "static"
+        ) {
+          throw new Error("Expected static note and variation patterns.");
+        }
+
+        const noteGroups = events.notes.cycle
+          .flat()
+          .filter((group): group is number[] => group !== null);
+        const variationGroups = events.variationIndices.cycle
+          .flat()
+          .filter((group): group is number[] => group !== null);
+        for (const group of [...noteGroups, ...variationGroups]) {
+          expect(group[0]).toBeLessThan(group[1]);
+        }
+      }
+    });
+
+    it("keeps repeated static event values paired with explicit timing through speed changes", () => {
+      const createSampler = () =>
+        new Drome()
+          .sample("bd")
+          .xox([1, 0, 0, 1, 0, 0, 1, 0])
+          .notes(0, 10, 20)
+          .var(0, 1, 2);
+
+      const fast = createSampler().fast(2).getSchema().eventPattern;
+      const slow = createSampler().slow(2).getSchema().eventPattern;
+      const stretched = createSampler().stretch(2).getSchema().eventPattern;
+      const reversed = createSampler().reverse().getSchema().eventPattern;
+
+      expect(fast.timing.cycle.map((bar) => bar.length)).toEqual([6, 6, 6]);
+      expect(fast.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[0], [0], [0], [10], [10], [10]],
+          [[20], [20], [20], [0], [0], [0]],
+          [[10], [10], [10], [20], [20], [20]],
+        ],
+      });
+      expect(fast.variationIndices).toEqual({
+        type: "static",
+        cycle: [
+          [[0], [0], [0], [1], [1], [1]],
+          [[2], [2], [2], [0], [0], [0]],
+          [[1], [1], [1], [2], [2], [2]],
+        ],
+      });
+
+      expect(slow.timing.cycle.map((bar) => bar.length)).toEqual([
+        2, 1, 2, 1, 2, 1,
+      ]);
+      expect(slow.notes).toEqual({
+        type: "static",
+        cycle: [[[0], [0]], [[0]], [[10], [10]], [[10]], [[20], [20]], [[20]]],
+      });
+      expect(slow.variationIndices).toEqual({
+        type: "static",
+        cycle: [[[0], [0]], [[0]], [[1], [1]], [[1]], [[2], [2]], [[2]]],
+      });
+
+      expect(stretched.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[0], [0], [0]],
+          [[0], [0], [0]],
+          [[10], [10], [10]],
+          [[10], [10], [10]],
+          [[20], [20], [20]],
+          [[20], [20], [20]],
+        ],
+      });
+      expect(stretched.variationIndices).toEqual({
+        type: "static",
+        cycle: [
+          [[0], [0], [0]],
+          [[0], [0], [0]],
+          [[1], [1], [1]],
+          [[1], [1], [1]],
+          [[2], [2], [2]],
+          [[2], [2], [2]],
+        ],
+      });
+
+      expect(reversed.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[20], [20], [20]],
+          [[10], [10], [10]],
+          [[0], [0], [0]],
+        ],
+      });
+      expect(reversed.variationIndices).toEqual({
+        type: "static",
+        cycle: [
+          [[2], [2], [2]],
+          [[1], [1], [1]],
+          [[0], [0], [0]],
+        ],
+      });
+    });
+
+    it("preserves a complete reversed phrase when fast groups do not divide its bars", () => {
+      const events = new Drome()
+        .sample("bd")
+        .xox([1, 0, 0, 1, 0, 0, 1, 0])
+        .notes(0, 10, 20)
+        .var(0, 1, 2)
+        .reverse()
+        .fast(2)
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle.map((bar) => bar.length)).toEqual([6, 6, 6]);
+      expect(events.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[20], [20], [20], [10], [10], [10]],
+          [[0], [0], [0], [20], [20], [20]],
+          [[10], [10], [10], [0], [0], [0]],
+        ],
+      });
+      expect(events.variationIndices).toEqual({
+        type: "static",
+        cycle: [
+          [[2], [2], [2], [1], [1], [1]],
+          [[0], [0], [0], [2], [2], [2]],
+          [[1], [1], [1], [0], [0], [0]],
+        ],
+      });
+    });
+
+    it("broadcasts scalar notes across transformed variation events", () => {
+      const transforms = [
+        { apply: (sampler: Sampler) => sampler.fast(2), hits: [6] },
+        { apply: (sampler: Sampler) => sampler.slow(2), hits: [2, 1] },
+        { apply: (sampler: Sampler) => sampler.stretch(2), hits: [3, 3] },
+        { apply: (sampler: Sampler) => sampler.reverse(), hits: [3] },
+      ];
+
+      for (const { apply, hits } of transforms) {
+        const events = apply(
+          new Drome().sample("bd").notes(60).var([0, 1, 2]),
+        ).getSchema().eventPattern;
+        expect(events.notes).toMatchObject({ type: "static" });
+        expect(events.variationIndices).toMatchObject({ type: "static" });
+        if (
+          events.notes?.type !== "static" ||
+          events.variationIndices?.type !== "static"
+        ) {
+          throw new Error("Expected static note and variation patterns.");
+        }
+
+        expect(events.timing.cycle.map((bar) => bar.length)).toEqual(hits);
+        expect(events.timing.cycle.map((bar) => bar.length)).toEqual(
+          events.notes.cycle.map((bar) => (bar[0] === null ? 0 : bar.length)),
+        );
+        expect(events.timing.cycle.map((bar) => bar.length)).toEqual(
+          events.variationIndices.cycle.map((bar) =>
+            bar[0] === null ? 0 : bar.length,
+          ),
+        );
+        expect(events.notes.cycle.flat().flat()).toEqual(
+          Array(events.timing.cycle.flat().length).fill(60),
+        );
+      }
+    });
+
+    it("does not transform values set after an event transform", () => {
+      const transforms = [
+        (sampler: Sampler) => sampler.fast(2),
+        (sampler: Sampler) => sampler.slow(2),
+        (sampler: Sampler) => sampler.stretch(2),
+        (sampler: Sampler) => sampler.reverse(),
+      ];
+
+      for (const transform of transforms) {
+        const events = transform(
+          new Drome().sample("bd").notes([60, 64]).var([0, 1]),
+        )
+          .notes([67, 69])
+          .var([2, 3])
+          .getSchema().eventPattern;
+
+        expect(events.notes).toEqual({
+          type: "static",
+          cycle: [[[67], [69]]],
+        });
+        expect(events.variationIndices).toEqual({
+          type: "static",
+          cycle: [[[2], [3]]],
+        });
+      }
     });
 
     it("keeps generated chop/fit timing exempt from event transforms", () => {

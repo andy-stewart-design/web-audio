@@ -157,6 +157,27 @@ The compiled playback model has three independent parts:
 
 Value patterns contain no offsets or durations. Their bars and hits wrap independently and are addressed only after timing has produced final hits.
 
+## Sampler variations and layers
+
+Sampler variations are event values rather than timing steps. `.var()` accepts bars, sequential hits, simultaneous voice groups, and whole-hit rests:
+
+```js
+d.sample("bd").var([0, 1, 2]).push();
+d.sample("bd")
+  .var([
+    [0, 1],
+    [2, 3],
+  ])
+  .push();
+d.sample("bd").var([0, null, 2]).push();
+```
+
+With no explicit rhythm, the densest authored notes or variations supply timing; a lane with explicit rests wins so its silence is preserved. Explicit rhythm and generated sampler chop/fit timing take precedence. A rest removes a candidate and does not consume a later note or variation value.
+
+A simultaneous variation group creates sampler layers. Notes and variations wrap to the longest group, so one note with `[0, 1, 2]` starts three voices. Random variation produces one value for the event and broadcasts it across all of its static layers. At playback, a variation is rounded and positively wrapped within the selected source key's available recordings: variation `-1` selects the final recording, while an overflow wraps to the beginning.
+
+Event transforms preserve static note/variation rows together. Random values remain deterministic but are generated afresh for transformed timing shape. Alternate sample direction is selected once per event, so all successful layers play forward or reverse together.
+
 ## The core model
 
 The whole system comes down to four levels:

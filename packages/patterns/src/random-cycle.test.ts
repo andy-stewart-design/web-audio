@@ -48,6 +48,22 @@ describe("RandomCycle", () => {
       ).toMatchObject({ valuesPerBar: [2, 4], order: "forward" });
     });
 
+    it("transforms random shape without materializing random values", () => {
+      expect(
+        new RandomCycle().steps(2, 3).fast(2).getRandomSchema(),
+      ).toMatchObject({
+        valuesPerBar: [5],
+      });
+      expect(
+        new RandomCycle().steps(2, 3).slow(2).getRandomSchema(),
+      ).toMatchObject({
+        valuesPerBar: [1, 1, 2, 1],
+      });
+      expect(
+        new RandomCycle().steps(2, 3).stretch(2).getRandomSchema(),
+      ).toMatchObject({ valuesPerBar: [2, 2, 3, 3] });
+    });
+
     it("supports binary random values when chance is not configured", () => {
       expect(new RandomCycle().bin().getRandomSchema()).toMatchObject({
         type: "random-number",
@@ -130,6 +146,15 @@ describe("RandomCycle", () => {
         algorithm: "xor",
         order: "forward",
       });
+    });
+
+    it("retains probability boundaries for Fluid timing composition", () => {
+      expect(
+        new RandomCycle().bin().chance(0).getTimingCondition(),
+      ).toMatchObject({ probability: 0 });
+      expect(
+        new RandomCycle().bin().chance(1).getTimingCondition(),
+      ).toMatchObject({ probability: 1 });
     });
 
     it("serializes one fractional chance condition", () => {

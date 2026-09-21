@@ -1,5 +1,6 @@
+import FixedTimingCycle from "./fixed-timing-cycle";
 import PatternCycle from "./pattern-cycle";
-import compileTimingCycle from "./utils/compile-timing-cycle";
+import { isNonNegativeInteger } from "./utils";
 import type {
   ChanceCondition,
   RandomNumberPattern,
@@ -25,8 +26,12 @@ class RandomCycle extends PatternCycle<1 | 0> {
     this.rib = this.ribbon.bind(this);
   }
 
+  getFixedTimingCycle() {
+    return new FixedTimingCycle(this.current);
+  }
+
   get candidateTiming(): TimingPattern {
-    return compileTimingCycle(this._cycle);
+    return this.getFixedTimingCycle().getTimingPattern();
   }
 
   get dataType() {
@@ -38,18 +43,13 @@ class RandomCycle extends PatternCycle<1 | 0> {
       throw new Error("RandomCycle.steps() requires at least one step count");
     }
 
-    if (
-      counts.some(
-        (count) =>
-          !Number.isFinite(count) || count < 0 || !Number.isInteger(count),
-      )
-    ) {
+    if (counts.some((count) => !isNonNegativeInteger(count))) {
       throw new Error(
         "RandomCycle.steps() counts must be finite, non-negative integers",
       );
     }
 
-    this._cycle = counts.map((count) => Array.from({ length: count }, () => 1));
+    this.replace(counts.map((count) => Array.from({ length: count }, () => 1)));
     return this;
   }
 
@@ -113,7 +113,7 @@ class RandomCycle extends PatternCycle<1 | 0> {
     return this;
   }
 
-  getRandomSchema(): RandomNumberPattern {
+  getRandomSchema() {
     if (this._chance !== undefined) {
       throw new Error(
         "[Pattern] RandomCycle.chance() configures event timing and cannot be serialized as a numeric value pattern.",
@@ -122,7 +122,7 @@ class RandomCycle extends PatternCycle<1 | 0> {
 
     return {
       type: "random-number",
-      valuesPerBar: this._cycle.map(
+      valuesPerBar: this.current.map(
         (bar) => bar.filter((value) => value === 1).length,
       ),
       dataType: this._type,
@@ -131,37 +131,41 @@ class RandomCycle extends PatternCycle<1 | 0> {
       algorithm: this._algorithm,
       quantValue: this._quantValue,
       order: this._order,
-    };
+    } satisfies RandomNumberPattern;
   }
 
-  getTimingPattern(): TimingPattern {
+  getTimingCondition() {
     if (this._type !== "binary") {
       throw new Error(
         "[Pattern] RandomCycle event timing requires a binary random cycle. Call .bin() before using it as timing.",
       );
     }
 
-    const probability = this._chance ?? 0.5;
-    if (probability === 0) {
-      return { cycle: this._cycle.map(() => []) };
+    return {
+      type: "chance",
+      probability: this._chance ?? 0.5,
+      segments: this.getSegments(),
+      algorithm: this._algorithm,
+      order: this._order,
+    } satisfies ChanceCondition;
+  }
+
+  getTimingPattern(): TimingPattern {
+    const condition = this.getTimingCondition();
+    if (condition.probability === 0) {
+      return {
+        cycle: this.current.map(() => []),
+        condition: undefined,
+      } satisfies TimingPattern;
     }
 
     const timing = this.candidateTiming;
-    if (probability === 1) return timing;
+    if (condition.probability === 1) return timing;
 
-    return {
-      ...timing,
-      condition: {
-        type: "chance",
-        probability,
-        segments: this.getSegments(),
-        algorithm: this._algorithm,
-        order: this._order,
-      } satisfies ChanceCondition,
-    };
+    return { ...timing, condition } satisfies TimingPattern;
   }
 
-  private getSegments(): ChanceCondition["segments"] {
+  private getSegments() {
     const segments = this._segments ?? [{ seed: this._baseSeed }];
     return segments.map((segment) => ({ ...segment }));
   }

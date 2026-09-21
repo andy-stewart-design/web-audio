@@ -232,7 +232,7 @@ describe("Sampler scheduling", () => {
           variationIndices: randomNumberPattern({
             valuesPerBar: [1],
             dataType: "integer",
-            valueMap: [1],
+            valueMap: [3],
           }),
         },
       }),
@@ -247,6 +247,37 @@ describe("Sampler scheduling", () => {
 
     expect(FakeBufferSourceNode.instances[0].options.buffer?.duration).toBe(2);
     expect(FakeBufferSourceNode.instances[0].options.playbackRate).toBe(1);
+  });
+
+  it("rounds and wraps static variation indices per voice", async () => {
+    const banks = fileBank("kit", "bd", [
+      "https://example.com/0.wav",
+      "https://example.com/1.wav",
+      "https://example.com/2.wav",
+    ]);
+    const instance = await sampler(
+      schema({
+        eventPattern: {
+          timing: timing(),
+          sampleNames: { type: "static", cycle: [[["bd"]]] },
+          variationIndices: { type: "static", cycle: [[[-1, 3.6]]] },
+        },
+      }),
+      banks,
+      cache({
+        "https://example.com/0.wav": buffer(1),
+        "https://example.com/1.wav": buffer(2),
+        "https://example.com/2.wav": buffer(3),
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(
+      FakeBufferSourceNode.instances.map(
+        ({ options }) => options.buffer?.duration,
+      ),
+    ).toEqual([3, 2]);
   });
 
   it("resolves variation before composing a static region", async () => {
@@ -346,6 +377,37 @@ describe("Sampler scheduling", () => {
     expect(
       FakeBufferSourceNode.instances.map(({ options }) => options.detune),
     ).toEqual([25, 25]);
+  });
+
+  it("schedules every static variation layer independently", async () => {
+    const banks = fileBank("kit", "bd", [
+      "https://example.com/0.wav",
+      "https://example.com/1.wav",
+      "https://example.com/2.wav",
+    ]);
+    const instance = await sampler(
+      schema({
+        eventPattern: {
+          timing: timing(),
+          sampleNames: { type: "static", cycle: [[["bd"]]] },
+          variationIndices: { type: "static", cycle: [[[0, 1, 2]]] },
+        },
+      }),
+      banks,
+      cache({
+        "https://example.com/0.wav": buffer(1),
+        "https://example.com/1.wav": buffer(2),
+        "https://example.com/2.wav": buffer(3),
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(
+      FakeBufferSourceNode.instances.map(
+        ({ options }) => options.buffer?.duration,
+      ),
+    ).toEqual([1, 2, 3]);
   });
 
   it("shares alternate direction across voices and advances once per emitted event", async () => {

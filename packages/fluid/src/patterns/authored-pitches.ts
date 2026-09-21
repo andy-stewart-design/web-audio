@@ -10,6 +10,7 @@ import type {
   TimingPattern,
 } from "@web-audio/schema";
 import { compileNoteEvents } from "@/instruments/event-compiler";
+import EventTiming from "@/patterns/event-timing";
 import { getScale } from "@/utils/get-scale";
 import { noteStringToMidi } from "@/utils/note-string-to-midi";
 import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
@@ -18,13 +19,10 @@ import type { NoteName, NoteValue, ScaleAlias } from "@/types";
 type NoteOrChord<T> = T | T[];
 type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
-type RhythmState = { type: "fixed" } | { type: "random"; cycle: RandomCycle };
-
-class MidiNotes {
+class AuthoredPitches {
   private _notes: MaskedCycle<Chord> | RandomCycle;
-  // Retains whether timing is inferred from notes or supplied by an explicit
-  // fixed/random rhythm, so timing priority can be resolved during compilation.
-  private _rhythmState: RhythmState | undefined;
+  private _hasAuthoredValues = false;
+  private _hasPitchTransform = false;
   private _root = 0;
   private _scale: number[] | undefined;
 
@@ -47,7 +45,7 @@ class MidiNotes {
       throw new Error("[Instrument] notes() requires at least one pattern.");
     }
 
-    this._rhythmState = undefined;
+    this._hasAuthoredValues = true;
     if (isRandomCycleTuple(input)) {
       this._notes = input[0];
     } else {
@@ -62,29 +60,15 @@ class MidiNotes {
   }
 
   root(n: NoteName | NoteValue | number) {
+    this._hasPitchTransform = true;
     if (typeof n === "number") this._root = n;
     else this._root = noteStringToMidi(n) || 0;
     return this;
   }
 
   scale(name: ScaleAlias) {
+    this._hasPitchTransform = true;
     this._scale = getScale(name);
-    return this;
-  }
-
-  euclid(
-    pulses: number | number[],
-    steps: number,
-    rotation: number | number[] = 0,
-  ) {
-    this._notes.euclid(pulses, steps, rotation);
-    this._rhythmState = { type: "fixed" };
-    return this;
-  }
-
-  hex(...hexes: (string | number)[]) {
-    this._notes.hex(...hexes);
-    this._rhythmState = { type: "fixed" };
     return this;
   }
 
@@ -93,19 +77,14 @@ class MidiNotes {
     return this;
   }
 
-  sequence(steps: number, ...pulses: (number | number[])[]) {
-    this._notes.sequence(steps, ...pulses);
-    this._rhythmState = { type: "fixed" };
-    return this;
-  }
+  materializeAgainstTiming(timing: TimingPattern) {
+    if (isRandomCycle(this._notes) || this._getStaticScalar()) return this;
 
-  xox(...input: (number | number[])[] | [RandomCycle]) {
-    if (isRandomCycleTuple(input)) {
-      this._rhythmState = { type: "random", cycle: input[0] };
-    } else {
-      this._notes.xox(...input);
-      this._rhythmState = { type: "fixed" };
-    }
+    const source = this._notes.activeEvents.map((bar) =>
+      bar.filter((chord): chord is number[] => chord !== null),
+    );
+    const { cycle, mask } = new EventTiming(timing).alignValues(source);
+    this._notes = new MaskedCycle(cycle).xox(...mask);
     return this;
   }
 
@@ -125,8 +104,6 @@ class MidiNotes {
   }
 
   getEventPattern(timingOverride?: TimingPattern) {
-    const explicitTiming = timingOverride ?? this._getExplicitTiming();
-
     if (isRandomCycle(this._notes)) {
       return compileNoteEvents({
         source: {
@@ -134,7 +111,7 @@ class MidiNotes {
           pattern: this._getRandomNotePattern(this._notes),
           candidateTiming: this._notes.candidateTiming,
         },
-        explicitTiming,
+        explicitTiming: timingOverride,
       });
     }
 
@@ -142,9 +119,10 @@ class MidiNotes {
       source: {
         type: "static",
         cycle: this._notes,
+        scalar: this._getStaticScalar(),
         transform: this._degreeToMidi.bind(this),
       },
-      explicitTiming,
+      explicitTiming: timingOverride,
     });
   }
 
@@ -152,16 +130,47 @@ class MidiNotes {
     return this.getEventPattern().notes;
   }
 
-  get hasExplicitRhythm() {
-    return this._rhythmState !== undefined;
+  get hasAuthoredValues() {
+    return this._hasAuthoredValues;
   }
 
-  private _getExplicitTiming() {
-    if (this._rhythmState?.type !== "random") return undefined;
-    if (this._rhythmState.cycle.dataType !== "binary") {
-      throw new Error("Instrument.xox() random masks must be binary");
+  get hasRequestedPitches() {
+    return this._hasAuthoredValues || this._hasPitchTransform;
+  }
+
+  getFixedAvailability() {
+    if (isRandomCycle(this._notes) || this._getStaticScalar()) {
+      return undefined;
     }
-    return this._rhythmState.cycle.getTimingPattern();
+
+    return this._notes.transformedValues.map((bar) =>
+      bar.map((chord) =>
+        Boolean(chord?.some((value) => typeof value === "number")),
+      ),
+    );
+  }
+
+  getRandomValuesPerBar() {
+    return isRandomCycle(this._notes)
+      ? this._notes.getRandomSchema().valuesPerBar
+      : undefined;
+  }
+
+  get hasAuthoredPitchRests() {
+    return (
+      this.getFixedAvailability()?.some((bar) =>
+        bar.some((available) => !available),
+      ) ?? false
+    );
+  }
+
+  private _getStaticScalar() {
+    if (isRandomCycle(this._notes)) return undefined;
+
+    const source = this._notes.sourceValues;
+    return source.length === 1 && source[0].length === 1
+      ? source[0][0]
+      : undefined;
   }
 
   private _getRandomNotePattern(cycle: RandomCycle): RandomNumberPattern {
@@ -187,4 +196,4 @@ class MidiNotes {
   }
 }
 
-export default MidiNotes;
+export default AuthoredPitches;

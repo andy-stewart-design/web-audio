@@ -41,6 +41,15 @@ describe("RandomResolver", () => {
     expect(resolver.resolve(0, 0)).not.toBe(resolver.resolve(1, 0));
   });
 
+  it("generates fresh values in repeated random-shape bars", () => {
+    const resolver = new RandomResolver(makeSchema({ valuesPerBar: [2, 2] }));
+
+    expect([resolver.resolve(0, 0), resolver.resolve(0, 1)]).not.toEqual([
+      resolver.resolve(1, 0),
+      resolver.resolve(1, 1),
+    ]);
+  });
+
   it("produces values within the specified range", () => {
     const resolver = new RandomResolver(
       makeSchema({ valuesPerBar: [8], range: { min: 10, max: 20 } }),
@@ -144,5 +153,23 @@ describe("RandomResolver", () => {
     );
 
     expect(reverseValues).toEqual(forwardValues.toReversed());
+  });
+
+  it("keeps seed chronology tied to playback bars under reverse", () => {
+    const forward = new RandomResolver(makeSchema({ valuesPerBar: [4, 2] }));
+    const reverse = new RandomResolver(
+      makeSchema({ valuesPerBar: [4, 2], order: "reverse" }),
+    );
+
+    for (const barIndex of [0, 1, 2]) {
+      const count = [4, 2][barIndex % 2];
+      const forwardValues = Array.from({ length: count }, (_, hitIndex) =>
+        forward.resolve(barIndex, hitIndex),
+      );
+      const reverseValues = Array.from({ length: count }, (_, hitIndex) =>
+        reverse.resolve(barIndex, hitIndex),
+      );
+      expect(reverseValues).toEqual(forwardValues.toReversed());
+    }
   });
 });

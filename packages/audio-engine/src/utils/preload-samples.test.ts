@@ -60,12 +60,52 @@ describe("planSamplerPreloads", () => {
     ]);
   });
 
+  it("normalizes static variation indices with the runtime rule", () => {
+    const banks = fileBank("kit", "bd", ["0.wav", "1.wav", "2.wav"]);
+    const sampler = schema({
+      type: "static",
+      cycle: [[[-1], [3.6]]],
+    });
+
+    expect(urls(planSamplerPreloads(sampler, banks))).toEqual([
+      "1.wav",
+      "2.wav",
+    ]);
+  });
+
+  it("wraps static variation layers per source key", () => {
+    const banks: Record<string, BankSchema> = {
+      kit: {
+        samples: {
+          bd: {
+            "48": [{ type: "file", src: "48-0.wav" }],
+            "60": [
+              { type: "file", src: "60-0.wav" },
+              { type: "file", src: "60-1.wav" },
+              { type: "file", src: "60-2.wav" },
+            ],
+          },
+        },
+      },
+    };
+    const sampler = schema({
+      type: "static",
+      cycle: [[[4, -1]]],
+    });
+
+    expect(urls(planSamplerPreloads(sampler, banks))).toEqual([
+      "48-0.wav",
+      "60-1.wav",
+      "60-2.wav",
+    ]);
+  });
+
   it("narrows finite random value maps", () => {
     const banks = fileBank("kit", "bd", ["0.wav", "1.wav", "2.wav"]);
 
     expect(
-      urls(planSamplerPreloads(schema(random({ valueMap: [0, 2] })), banks)),
-    ).toEqual(["0.wav", "2.wav"]);
+      urls(planSamplerPreloads(schema(random({ valueMap: [-1, 4] })), banks)),
+    ).toEqual(["1.wav", "2.wav"]);
   });
 
   it("narrows small integral random ranges", () => {

@@ -399,9 +399,10 @@ Resource availability is not a validation concern. Missing banks, sample names, 
 
 - `packages/patterns/src/types.ts`
 - `packages/patterns/src/index.ts`
-- `packages/patterns/src/static-cycles.ts`
+- `packages/patterns/src/value-cycle.ts`
 - `packages/patterns/src/value-cycle.test.ts`
-- `packages/patterns/src/binary-cycle.test.ts`
+- `packages/patterns/src/fixed-timing-cycle.ts`
+- `packages/patterns/src/fixed-timing-cycle.test.ts`
 - `packages/patterns/src/random-cycle.ts`
 - `packages/patterns/src/random-cycle.test.ts`
 - `packages/patterns/src/utils/chord-static-schema.ts`
@@ -582,11 +583,11 @@ Ensure zero remains ordinary data. No processing serializer may filter values ba
 - `packages/fluid/src/instruments/event-compiler.test.ts` (new)
 - `packages/fluid/src/instruments/instrument.ts`
 - `packages/fluid/src/instruments/sampler.ts`
-- `packages/fluid/src/patterns/midi-notes.ts`
+- `packages/fluid/src/patterns/authored-pitches.ts`
 - `packages/fluid/src/patterns/notes.test.ts`
 - `packages/fluid/src/patterns/sample-notes.test.ts`
 - `packages/fluid/src/instruments/instrument.test.ts`
-- `packages/patterns/src/static-cycles.ts`
+- `packages/patterns/src/fixed-timing-cycle.ts`
 - `packages/patterns/src/random-cycle.ts`
 - `packages/patterns/src/utils/compile-timing-cycle.ts` (new)
 - `packages/patterns/src/random-cycle.test.ts`
@@ -1232,8 +1233,13 @@ The constructor variation remains scalar in `d.sample("bd", value)` and `d.sampl
 
 **Files:**
 
+- `packages/patterns/src/fixed-timing-cycle.ts`
+- `packages/patterns/src/fixed-timing-cycle.test.ts`
+- `packages/patterns/src/random-cycle.ts`
+- `packages/fluid/src/patterns/authored-timing.ts`
+- `packages/fluid/src/patterns/authored-timing.test.ts`
 - `packages/fluid/src/instruments/instrument.ts`
-- `packages/fluid/src/patterns/midi-notes.ts`
+- `packages/fluid/src/patterns/authored-pitches.ts`
 - `packages/fluid/src/instruments/event-compiler.ts`
 - `packages/fluid/src/instruments/instrument.test.ts`
 
@@ -1250,18 +1256,18 @@ Do not serialize authoring flags.
 
 **Acceptance criteria:**
 
-- [ ] Notes after rhythm do not clear rhythm.
-- [ ] Variations after rhythm do not clear rhythm.
-- [ ] Repeated random XOX is last-write-wins.
-- [ ] Only one chance condition reaches the schema.
-- [ ] Fixed masks are compiled away.
+- [x] Notes after rhythm do not clear rhythm.
+- [x] Variations after rhythm do not clear rhythm.
+- [x] Repeated random XOX is last-write-wins.
+- [x] Only one chance condition reaches the schema.
+- [x] Fixed masks are compiled away.
 
 **Testing:**
 
-- [ ] Every setter/rhythm call-order pair.
-- [ ] Fixed → random → fixed composition.
-- [ ] Random → random replacement.
-- [ ] Probability zero/one simplification after composition.
+- [x] Every setter/rhythm call-order pair.
+- [x] Fixed → random → fixed composition.
+- [x] Random → random replacement.
+- [x] Probability zero/one simplification after composition.
 
 ---
 
@@ -1291,20 +1297,20 @@ The compiler records only the winning timing result, not why it won.
 
 **Acceptance criteria:**
 
-- [ ] A denser variation pattern can supply timing.
-- [ ] A denser note pattern can supply timing.
-- [ ] Notes win exact density ties.
-- [ ] Explicit rests beat a denser non-rest pattern.
-- [ ] Multi-bar averages compare correctly.
-- [ ] Chord size does not affect density.
+- [x] A denser variation pattern can supply timing.
+- [x] A denser note pattern can supply timing.
+- [x] Notes win exact density ties.
+- [x] Explicit rests beat a denser non-rest pattern.
+- [x] Multi-bar averages compare correctly.
+- [x] Chord size does not affect density.
 
 **Testing:**
 
-- [ ] `notes(60).var([0,1,2])` gives three hits.
-- [ ] `notes([60,64]).var(0,1,2)` gives two hits over the combined phrase.
-- [ ] Equal-density cycles with different bar counts.
-- [ ] Silent bars and interleaved rests.
-- [ ] Chord/layer density.
+- [x] `notes(60).var([0,1,2])` gives three hits.
+- [x] `notes([60,64]).var(0,1,2)` gives two hits over the combined phrase.
+- [x] Equal-density cycles with different bar counts.
+- [x] Silent bars and interleaved rests.
+- [x] Chord/layer density.
 
 ---
 
@@ -1331,19 +1337,19 @@ Rules:
 
 **Acceptance criteria:**
 
-- [ ] A rest in either lane removes the corresponding candidate.
-- [ ] Multiple rest masks combine deterministically.
-- [ ] Surviving values are re-addressed by consecutive hit number.
-- [ ] Direct schema validation catches mismatched silent bars.
-- [ ] Failure-independent hit indexing is unchanged.
+- [x] A rest in either lane removes the corresponding candidate.
+- [x] Multiple rest masks combine deterministically.
+- [x] Surviving values are re-addressed by consecutive hit number.
+- [x] Direct schema validation catches mismatched silent bars.
+- [x] Failure-independent hit indexing is unchanged.
 
 **Testing:**
 
-- [ ] Notes rests over variation timing.
-- [ ] Variation rests over note timing.
-- [ ] Both over explicit XOX/Euclidean timing.
-- [ ] Multi-bar wrapping.
-- [ ] Zero note/variation values remain active.
+- [x] Notes rests over variation timing.
+- [x] Variation rests over note timing.
+- [x] Both over explicit XOX/Euclidean timing.
+- [x] Multi-bar wrapping.
+- [x] Zero note/variation values remain active.
 
 ---
 
@@ -1367,10 +1373,10 @@ Required precedence:
 
 **Acceptance criteria:**
 
-- [ ] `.fit(4)` timing is unchanged by a denser variation pattern.
-- [ ] `.chop(8).var([0,1])` keeps eight chop events and wraps variation by hit.
-- [ ] Long chop/fit durations remain valid.
-- [ ] Existing explicit-note/chop behavior remains covered.
+- [x] `.fit(4)` timing is unchanged by a denser variation pattern.
+- [x] `.chop(8).var([0,1])` keeps eight chop events and wraps variation by hit.
+- [x] Long chop/fit durations remain valid.
+- [x] Existing explicit-note/chop behavior remains covered.
 
 ---
 
@@ -1408,16 +1414,16 @@ Use one shared guard for all schema-expanding transforms. Do not silently trunca
 
 **Acceptance criteria:**
 
-- [ ] Whole-cycle integer behavior remains correct.
-- [ ] Supported fractional rates are exact within documented tolerance.
-- [ ] Composed rates reduce before expansion.
-- [ ] Unreasonable rates and expansions fail with actionable errors.
+- [x] Whole-cycle integer behavior remains correct.
+- [x] Supported fractional rates are exact within documented tolerance.
+- [x] Composed rates reduce before expansion.
+- [x] Unreasonable rates and expansions fail with actionable errors.
 
 **Testing:**
 
-- [ ] `2`, `0.5`, `1.5`, `4/3`-like input, and composed rates.
-- [ ] Multi-bar compression and expansion.
-- [ ] Invalid and over-limit cases.
+- [x] `2`, `0.5`, `1.5`, `4/3`-like input, and composed rates.
+- [x] Multi-bar compression and expansion.
+- [x] Invalid and over-limit cases.
 
 ---
 
@@ -1433,9 +1439,9 @@ Require positive finite integers for `bars` and `steps`. Remove rounding and `Ma
 
 **Acceptance criteria:**
 
-- [ ] Valid stretch output preserves bar and hit order.
-- [ ] Zero, negative, fractional, `NaN`, and infinite values throw.
-- [ ] Errors identify the invalid argument.
+- [x] Valid stretch output preserves bar and hit order.
+- [x] Zero, negative, fractional, `NaN`, and infinite values throw.
+- [x] Errors identify the invalid argument.
 
 ---
 
@@ -1472,21 +1478,21 @@ When static cycles must be combined, expand to their least common repeating peri
 
 **Acceptance criteria:**
 
-- [ ] Notes and variations stay paired under reverse.
-- [ ] Scalar values remain available for every transformed event.
-- [ ] Fast compresses and slow expands complete multi-bar phrases.
-- [ ] Reverse reverses bar order and hit order.
-- [ ] Simultaneous voice order never changes.
-- [ ] Later setters are not retroactively transformed.
-- [ ] Generated chop/fit timing remains exempt.
+- [x] Notes and variations stay paired under reverse.
+- [x] Scalar values remain available for every transformed event.
+- [x] Fast compresses and slow expands complete multi-bar phrases.
+- [x] Reverse reverses bar order and hit order.
+- [x] Simultaneous voice order never changes.
+- [x] Later setters are not retroactively transformed.
+- [x] Generated chop/fit timing remains exempt.
 
 **Testing:**
 
-- [ ] Scalar note plus multi-value variation under every transform.
-- [ ] Chords plus layered variations.
-- [ ] Different finite cycle lengths and LCM guard.
-- [ ] Transform/setter call-order matrices.
-- [ ] Chop/fit exemption tests.
+- [x] Scalar note plus multi-value variation under every transform.
+- [x] Chords plus layered variations.
+- [x] Different finite cycle lengths and LCM guard.
+- [x] Transform/setter call-order matrices.
+- [x] Chop/fit exemption tests.
 
 ---
 
@@ -1512,17 +1518,17 @@ Static and random lanes may coexist in one event. Static rows transform together
 
 **Acceptance criteria:**
 
-- [ ] Fast random output does not repeat a pre-resolved phrase.
-- [ ] Stretch generates distinct deterministic bars for distinct playback bars.
-- [ ] Reverse is deterministic and keeps seed chronology forward.
-- [ ] Chance conditions receive the same transformed candidate shape as timing.
+- [x] Fast random output does not repeat a pre-resolved phrase.
+- [x] Stretch generates distinct deterministic bars for distinct playback bars.
+- [x] Reverse is deterministic and keeps seed chronology forward.
+- [x] Chance conditions receive the same transformed candidate shape as timing.
 
 **Testing:**
 
-- [ ] Seeded expected sequences for every transform.
-- [ ] Static name/note with random variation.
-- [ ] Random notes with static layered variation.
-- [ ] Random timing plus random values use independent resolver state.
+- [x] Seeded expected sequences for every transform.
+- [x] Static name/note with random variation.
+- [x] Random notes with static layered variation.
+- [x] Random timing plus random values use independent resolver state.
 
 ---
 
@@ -1545,19 +1551,19 @@ Every resolved voice carries its own requested variation value before bank looku
 
 **Acceptance criteria:**
 
-- [ ] Static variation layers create simultaneous sampler voices.
-- [ ] Uneven note and variation groups wrap predictably.
-- [ ] Random variation broadcasts one result per event.
-- [ ] A failed voice does not prevent sibling voices from playing.
-- [ ] One chance decision gates the complete layered event.
+- [x] Static variation layers create simultaneous sampler voices.
+- [x] Uneven note and variation groups wrap predictably.
+- [x] Random variation broadcasts one result per event.
+- [x] A failed voice does not prevent sibling voices from playing.
+- [x] One chance decision gates the complete layered event.
 
 **Testing:**
 
-- [ ] One note/three variations.
-- [ ] Three notes/one variation.
-- [ ] Two notes/three variations.
-- [ ] Random variation with static chord.
-- [ ] Partial and complete resource failure.
+- [x] One note/three variations.
+- [x] Three notes/one variation.
+- [x] Two notes/three variations.
+- [x] Random variation with static chord.
+- [x] Partial and complete resource failure.
 
 ---
 
@@ -1582,18 +1588,18 @@ Remove fallback-to-zero behavior for out-of-range indices.
 
 **Acceptance criteria:**
 
-- [ ] Positive overflow wraps.
-- [ ] Negative indices wrap.
-- [ ] Fractional values round before wrapping.
-- [ ] Wrapping uses the selected name/key variation count.
-- [ ] Empty variation arrays skip the affected voice.
+- [x] Positive overflow wraps.
+- [x] Negative indices wrap.
+- [x] Fractional values round before wrapping.
+- [x] Wrapping uses the selected name/key variation count.
+- [x] Empty variation arrays skip the affected voice.
 
 **Testing:**
 
-- [ ] Boundary table for counts one through four.
-- [ ] Different variation counts across source keys.
-- [ ] Static and random variation values.
-- [ ] Preload and runtime use identical normalization logic.
+- [x] Boundary table for counts one through four.
+- [x] Different variation counts across source keys.
+- [x] Static and random variation values.
+- [x] Preload and runtime use identical normalization logic.
 
 ---
 
@@ -1617,10 +1623,10 @@ Every emitted voice in the event uses the same direction. Cancellation and playb
 
 **Acceptance criteria:**
 
-- [ ] Layered voices all play in the same direction.
-- [ ] Partial success advances once.
-- [ ] Complete failure does not advance.
-- [ ] Cancellation resets alternate state.
+- [x] Layered voices all play in the same direction.
+- [x] Partial success advances once.
+- [x] Complete failure does not advance.
+- [x] Cancellation resets alternate state.
 
 ---
 
@@ -1638,10 +1644,10 @@ Preload must not assume every source key has the same variation count.
 
 **Acceptance criteria:**
 
-- [ ] Negative and overflowing static values preload their wrapped targets.
-- [ ] Layered groups preload every target.
-- [ ] Unknown random output preloads all available variations.
-- [ ] Runtime never uses a normalization rule different from preload.
+- [x] Negative and overflowing static values preload their wrapped targets.
+- [x] Layered groups preload every target.
+- [x] Unknown random output preloads all available variations.
+- [x] Runtime never uses a normalization rule different from preload.
 
 ---
 
@@ -1673,9 +1679,9 @@ Add end-to-end coverage for:
 
 **Acceptance criteria:**
 
-- [ ] Every PR 2 behavior appears in both Fluid schema tests and engine resolution/scheduling tests where applicable.
-- [ ] Tests distinguish timing hit number from authored grid position.
-- [ ] No test restores an old schema concept.
+- [x] Every PR 2 behavior appears in both Fluid schema tests and engine resolution/scheduling tests where applicable.
+- [x] Tests distinguish timing hit number from authored grid position.
+- [x] No test restores an old schema concept.
 
 ---
 
@@ -1701,9 +1707,9 @@ Document:
 
 **Acceptance criteria:**
 
-- [ ] Examples match target schema and runtime behavior.
-- [ ] Random freshness and static row preservation are stated explicitly.
-- [ ] No documentation implies variation zero is a rest.
+- [x] Examples match target schema and runtime behavior.
+- [x] Random freshness and static row preservation are stated explicitly.
+- [x] No documentation implies variation zero is a rest.
 
 ---
 
@@ -1711,23 +1717,23 @@ Document:
 
 **Automated verification:**
 
-- [ ] `pnpm --filter @web-audio/schema test:ci`
-- [ ] `pnpm --filter @web-audio/patterns test:ci`
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
-- [ ] `pnpm check`
-- [ ] `pnpm lint`
-- [ ] `pnpm test`
-- [ ] `git diff --check`
+- [x] `pnpm --filter @web-audio/schema test:ci`
+- [x] `pnpm --filter @web-audio/patterns test:ci`
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] `pnpm check`
+- [x] `pnpm lint`
+- [x] `pnpm test`
+- [x] `git diff --check`
 
 **Manual verification, only with user permission:**
 
-- [ ] Audible static variation cycle.
-- [ ] Variation-derived timing.
-- [ ] Simultaneous variation layers.
-- [ ] Random variation under fast/stretch/reverse.
-- [ ] Alternate direction with layers and partial failures.
-- [ ] Variation layers across multisamples, sprites, regions, chop, and fit.
+- [x] Audible static variation cycle.
+- [x] Variation-derived timing.
+- [x] Simultaneous variation layers.
+- [x] Random variation under fast/stretch/reverse.
+- [x] Alternate direction with layers and partial failures.
+- [x] Variation layers across multisamples, sprites, regions, chop, and fit.
 
 ---
 
@@ -2316,7 +2322,8 @@ Prefer focused unit cases over one enormous combinatorial test, but ensure every
 | File                                                 | Change                                                                                   |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `packages/patterns/src/types.ts`                     | Export target schema types and retain only package-owned authoring cycle types.          |
-| `packages/patterns/src/static-cycles.ts`             | Serialize raw values and fixed timing separately.                                        |
+| `packages/patterns/src/value-cycle.ts`               | Serialize raw values.                                                                    |
+| `packages/patterns/src/fixed-timing-cycle.ts`        | Own full fixed candidate-event geometry and serialize it as timing.                      |
 | `packages/patterns/src/random-cycle.ts`              | Serialize random counts/configuration and expose timing chance configuration.            |
 | `packages/patterns/src/masked-cycle.ts`              | Expose independent source values and fixed trigger geometry without schema grid indices. |
 | `packages/patterns/src/base-cycle.ts`                | Use strict transform validation and rational speed behavior.                             |
@@ -2334,7 +2341,8 @@ Prefer focused unit cases over one enormous combinatorial test, but ensure every
 | `packages/fluid/src/instruments/synthesizer.ts`    | Emit `SynthEventPattern`.                                                                                        |
 | `packages/fluid/src/instruments/sampler.ts`        | Emit `SamplerEventPattern`; add variation layers/rests and later `.name()`/unnamed construction.                 |
 | `packages/fluid/src/instruments/sampler-utils.ts`  | Generate timing and value-only chop/fit/region data; remove dummy notes and source keys.                         |
-| `packages/fluid/src/patterns/midi-notes.ts`        | Compile grouped note values independently from timing and retain root/scale value mapping.                       |
+| `packages/fluid/src/patterns/authored-timing.ts`   | Retain explicit timing intent, fixed candidate geometry, and one random chance condition.                        |
+| `packages/fluid/src/patterns/authored-pitches.ts`  | Compile grouped note values independently from timing and retain root/scale value mapping.                       |
 | `packages/fluid/src/patterns/sample-notes.ts`      | Support optional sampler note intent without owning timing by default.                                           |
 | `packages/fluid/src/patterns/parameter.ts`         | Emit `NumberPattern`.                                                                                            |
 | `packages/fluid/src/utils/sample-utils.ts`         | Canonicalize bank/sample keys and reject trim collisions.                                                        |

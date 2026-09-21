@@ -1,4 +1,4 @@
-import SampleNotes from "@/patterns/sample-notes";
+import AuthoredPitches from "@/patterns/authored-pitches";
 import Parameter from "@/patterns/parameter";
 import type { CycleInput, NullableCycleInput } from "@/types";
 import type {
@@ -8,11 +8,7 @@ import type {
   SamplerEventPattern,
   SamplerSchema,
 } from "@web-audio/schema";
-import {
-  createDefaultAuthoredEventValues,
-  createAuthoredEventValues,
-  type AuthoredEventValues,
-} from "@/patterns/authored-event-values";
+import AuthoredEventValues from "@/patterns/authored-event-values";
 import {
   getChopTiming,
   getDistributedTiming,
@@ -20,7 +16,7 @@ import {
   type ChopState,
   type RegionState,
 } from "./sampler-utils";
-import { compileSamplerEvents } from "./event-compiler";
+import { compileSamplerEvents, getSamplerEventTiming } from "./event-compiler";
 import { DEFAULT_BANK } from "@/banks";
 import Instrument from "./instrument";
 import type Drome from "@/index";
@@ -39,9 +35,6 @@ class Sampler extends Instrument {
   private _fit: FitSchema | null = null;
   private _region: RegionState | null = null;
   private _chop: ChopState | null = null;
-  // Pitch intent controls optional note output; only explicit notes may filter timing.
-  private _explicitNotes = false;
-  private _pitchIntent = false;
   private _loop = false;
   private _clipMode: ClipMode = "clipped";
   private _direction: SampleDirection = "forward";
@@ -54,12 +47,44 @@ class Sampler extends Instrument {
     { bank = DEFAULT_BANK, host }: SamplerOptions = {},
   ) {
     super([0], host, { a: 0.0025, r: 0.005 });
-    this._cycle = new SampleNotes([0]);
+    this._pitches = new AuthoredPitches([0]);
     this._bank = bank;
     this._sample = sample;
-    this._variation = createDefaultAuthoredEventValues(0);
+    this._variation = AuthoredEventValues.fromDefault(0);
     this.dur = this.duration.bind(this);
     this.dir = this.direction.bind(this);
+  }
+
+  override reverse() {
+    this._materializeEventsForTransform();
+    this._pitches.reverse();
+    this._timing.reverse();
+    this._variation.reverse();
+    return this;
+  }
+
+  override fast(multiplier: number) {
+    this._materializeEventsForTransform();
+    this._pitches.fast(multiplier);
+    this._timing.fast(multiplier);
+    this._variation.fast(multiplier);
+    return this;
+  }
+
+  override slow(multiplier: number) {
+    this._materializeEventsForTransform();
+    this._pitches.slow(multiplier);
+    this._timing.slow(multiplier);
+    this._variation.slow(multiplier);
+    return this;
+  }
+
+  override stretch(bars: number, steps?: number) {
+    this._materializeEventsForTransform();
+    this._pitches.stretch(bars, steps);
+    this._timing.stretch(bars, steps);
+    this._variation.stretch(bars, steps);
+    return this;
   }
 
   // METHOD ALIASES
@@ -78,7 +103,7 @@ class Sampler extends Instrument {
       throw new Error("[Sampler] variation() requires at least one pattern.");
     }
 
-    this._variation = createAuthoredEventValues(input, {
+    this._variation = AuthoredEventValues.fromInput(input, {
       validateValue: Number.isFinite,
       invalidValueMessage:
         "[Sampler] variation() values must be finite numbers.",
@@ -97,22 +122,6 @@ class Sampler extends Instrument {
 
     this._fit = { type: "fit", bars };
     return this;
-  }
-
-  notes(...input: Parameters<Instrument["notes"]>) {
-    this._explicitNotes = true;
-    this._pitchIntent = true;
-    return super.notes(...input);
-  }
-
-  root(...input: Parameters<Instrument["root"]>) {
-    this._pitchIntent = true;
-    return super.root(...input);
-  }
-
-  scale(...input: Parameters<Instrument["scale"]>) {
-    this._pitchIntent = true;
-    return super.scale(...input);
   }
 
   start(...input: CycleInput<number>) {
@@ -195,8 +204,21 @@ class Sampler extends Instrument {
     return this;
   }
 
+  private _materializeEventsForTransform() {
+    const timingOverride = this._getTimingOverride();
+    if (timingOverride) return;
+
+    const timing = getSamplerEventTiming({
+      pitches: this._pitches,
+      timing: this._timing,
+      variation: this._variation,
+    });
+    this._materializePitchesForTransform(timing);
+    this._variation.materializeAgainstTiming(timing);
+  }
+
   private _getGeneratedFit() {
-    const unfit = this._explicitNotes || this._chop || this._region;
+    const unfit = this._pitches.hasAuthoredValues || this._chop || this._region;
     if (unfit) return null;
     return this._fit;
   }
@@ -214,14 +236,11 @@ class Sampler extends Instrument {
 
   private _getEventPattern(): SamplerEventPattern {
     return compileSamplerEvents({
-      getNoteEvents: (timingOverride) =>
-        this._cycle.getEventPattern(timingOverride),
-      timingOverride: this._getTimingOverride(),
-      hasExplicitNotes: this._explicitNotes,
-      hasExplicitRhythm: this._cycle.hasExplicitRhythm,
-      includeNotes: this._pitchIntent,
-      sampleNames: { type: "static", cycle: [[[this._sample]]] },
+      pitches: this._pitches,
+      timing: this._timing,
       variation: this._variation,
+      timingOverride: this._getTimingOverride(),
+      sampleName: this._sample,
     });
   }
 

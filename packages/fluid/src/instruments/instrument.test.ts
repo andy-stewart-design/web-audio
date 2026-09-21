@@ -53,7 +53,25 @@ describe("instrument event schemas", () => {
     expect(events).not.toHaveProperty("mask");
   });
 
-  it("replaces note and fixed-rhythm state when notes are replaced", () => {
+  it("keeps static synth values paired with repeated explicit timing through fast", () => {
+    const events = new Synthesizer()
+      .xox([1, 0, 0, 1, 0, 0, 1, 0])
+      .notes(60, 64, 67)
+      .fast(2)
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle.map((bar) => bar.length)).toEqual([6, 6, 6]);
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [
+        [[60], [60], [60], [64], [64], [64]],
+        [[67], [67], [67], [60], [60], [60]],
+        [[64], [64], [64], [67], [67], [67]],
+      ],
+    });
+  });
+
+  it("preserves fixed rhythm when notes are replaced", () => {
     expect(
       new Synthesizer()
         .notes([60, 64])
@@ -64,12 +82,26 @@ describe("instrument event schemas", () => {
       timing: {
         cycle: [
           [
-            { offset: 0, duration: 0.5 },
-            { offset: 0.5, duration: 0.5 },
+            { offset: 0, duration: 1 / 3 },
+            { offset: 2 / 3, duration: 1 / 3 },
           ],
         ],
       },
       notes: { type: "static", cycle: [[[67], [71]]] },
+    });
+  });
+
+  it("composes fixed rhythms in call order", () => {
+    expect(
+      new Synthesizer().xox([1, 1, 1, 1]).euclid(2, 4).getSchema().eventPattern
+        .timing,
+    ).toEqual({
+      cycle: [
+        [
+          { offset: 0, duration: 0.25 },
+          { offset: 0.5, duration: 0.25 },
+        ],
+      ],
     });
   });
 
@@ -87,6 +119,79 @@ describe("instrument event schemas", () => {
     expect(events.notes).toEqual({
       type: "static",
       cycle: [[[60], [60], [60], [60]], [null]],
+    });
+  });
+
+  it("keeps random XOX timing when notes or variations are replaced", () => {
+    const rhythm = new RandomCycle().bin().steps(4).chance(0.6);
+    const synth = new Synthesizer()
+      .xox(rhythm)
+      .notes([67, 71])
+      .getSchema().eventPattern;
+    const sampler = new Sampler("kick")
+      .xox(rhythm)
+      .variation([1, 2])
+      .getSchema().eventPattern;
+
+    expect(synth.timing).toMatchObject({
+      cycle: [
+        [
+          { offset: 0, duration: 0.25 },
+          { offset: 0.25, duration: 0.25 },
+          { offset: 0.5, duration: 0.25 },
+          { offset: 0.75, duration: 0.25 },
+        ],
+      ],
+      condition: { type: "chance", probability: 0.6 },
+    });
+    expect(synth.notes).toEqual({
+      type: "static",
+      cycle: [[[67], [71], [67], [71]]],
+    });
+    expect(sampler.timing).toEqual(synth.timing);
+    expect(sampler.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[1], [2]]],
+    });
+  });
+
+  it("replaces random XOX timing and preserves its one condition through fixed rhythm", () => {
+    const events = new Synthesizer()
+      .xox([1, 0])
+      .xox(new RandomCycle().bin().steps(3).chance(0.25))
+      .xox(new RandomCycle().bin().steps(4).chance(0.75))
+      .xox([1, 0, 1, 0])
+      .getSchema().eventPattern;
+
+    expect(events.timing).toMatchObject({
+      cycle: [
+        [
+          { offset: 0, duration: 0.25 },
+          { offset: 0.5, duration: 0.25 },
+        ],
+      ],
+      condition: { type: "chance", probability: 0.75 },
+    });
+  });
+
+  it("simplifies random XOX probability boundaries after fixed composition", () => {
+    const zero = new Synthesizer()
+      .xox(new RandomCycle().bin().steps(4).chance(0))
+      .xox([1, 0, 1, 0])
+      .getSchema().eventPattern;
+    const one = new Synthesizer()
+      .xox(new RandomCycle().bin().steps(4).chance(1))
+      .xox([1, 0, 1, 0])
+      .getSchema().eventPattern;
+
+    expect(zero.timing).toEqual({ cycle: [[]] });
+    expect(one.timing).toEqual({
+      cycle: [
+        [
+          { offset: 0, duration: 0.25 },
+          { offset: 0.5, duration: 0.25 },
+        ],
+      ],
     });
   });
 
@@ -128,6 +233,23 @@ describe("instrument event schemas", () => {
     expect(scale.timing.cycle[0]).toHaveLength(3);
   });
 
+  it("does not let requested pitch output provide sampler timing", () => {
+    const events = new Sampler("kick")
+      .root("A3")
+      .variation([0, 1, 2])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 1 / 3 },
+      { offset: 1 / 3, duration: 1 / 3 },
+      { offset: 2 / 3, duration: 1 / 3 },
+    ]);
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [[[57], [57], [57]]],
+    });
+  });
+
   it("moves explicit sampler variation values under events", () => {
     expect(
       new Sampler("kick").variation([0, 1, 2]).getSchema().eventPattern,
@@ -147,6 +269,194 @@ describe("instrument event schemas", () => {
       dataType: "integer",
       range: { min: 0, max: 4 },
     });
+  });
+
+  it("compiles variation-owned timing, rests, and layered values into one event plan", () => {
+    const events = new Sampler("kick")
+      .notes(60)
+      .variation([[0, 1], null, [2, 3]])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle).toEqual([
+      [
+        { offset: 0, duration: 1 / 3 },
+        { offset: 2 / 3, duration: 1 / 3 },
+      ],
+    ]);
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [[[60], [60]]],
+    });
+    expect(events.variationIndices).toEqual({
+      type: "static",
+      cycle: [
+        [
+          [0, 1],
+          [2, 3],
+        ],
+      ],
+    });
+  });
+
+  it("chooses the denser explicit variation pattern for sampler timing", () => {
+    const events = new Sampler("kick")
+      .notes(60)
+      .variation([0, 1, 2])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle).toEqual([
+      [
+        { offset: 0, duration: 1 / 3 },
+        { offset: 1 / 3, duration: 1 / 3 },
+        { offset: 2 / 3, duration: 1 / 3 },
+      ],
+    ]);
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [[[60], [60], [60]]],
+    });
+  });
+
+  it("chooses the denser explicit pitch pattern for sampler timing", () => {
+    const events = new Sampler("kick")
+      .notes([60, 64])
+      .variation(0, 1, 2)
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle).toEqual([
+      [
+        { offset: 0, duration: 0.5 },
+        { offset: 0.5, duration: 0.5 },
+      ],
+      [
+        { offset: 0, duration: 0.5 },
+        { offset: 0.5, duration: 0.5 },
+      ],
+      [
+        { offset: 0, duration: 0.5 },
+        { offset: 0.5, duration: 0.5 },
+      ],
+    ]);
+  });
+
+  it("uses pitch priority when explicit timing candidates have equal density", () => {
+    const events = new Sampler("kick")
+      .notes([60], [64, 67, 69])
+      .variation([0, 1])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle).toEqual([
+      [{ offset: 0, duration: 1 }],
+      [
+        { offset: 0, duration: 1 / 3 },
+        { offset: 1 / 3, duration: 1 / 3 },
+        { offset: 2 / 3, duration: 1 / 3 },
+      ],
+    ]);
+  });
+
+  it("preserves explicit rests over a denser competing timing candidate", () => {
+    const notesOwnTiming = new Sampler("kick")
+      .notes([60, null])
+      .variation([0, 1, 2])
+      .getSchema().eventPattern;
+    const variationsOwnTiming = new Sampler("kick")
+      .notes([60, 64, 67])
+      .variation([0, null])
+      .getSchema().eventPattern;
+
+    expect(notesOwnTiming.timing.cycle).toEqual([
+      [{ offset: 0, duration: 0.5 }],
+    ]);
+    expect(variationsOwnTiming.timing.cycle).toEqual([
+      [{ offset: 0, duration: 0.5 }],
+    ]);
+  });
+
+  it("filters explicit XOX timing with fixed pitch and variation rests", () => {
+    const pitchRests = new Sampler("kick")
+      .notes([60, null, 64])
+      .variation([0, 1, 2, 3])
+      .xox([1, 1, 1, 1])
+      .getSchema().eventPattern;
+    const variationRests = new Sampler("kick")
+      .notes([60, 64, 67, 71])
+      .variation([0, null, 2])
+      .xox([1, 1, 1, 1])
+      .getSchema().eventPattern;
+
+    expect(pitchRests.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 0.25 },
+      { offset: 0.25, duration: 0.25 },
+      { offset: 0.75, duration: 0.25 },
+    ]);
+    expect(variationRests.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 0.25 },
+      { offset: 0.25, duration: 0.25 },
+      { offset: 0.75, duration: 0.25 },
+    ]);
+    expect(pitchRests.notes).toEqual({
+      type: "static",
+      cycle: [[[60], [64]]],
+    });
+    expect(variationRests.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[0], [2]]],
+    });
+  });
+
+  it("intersects multiple fixed rest masks over Euclidean timing", () => {
+    const events = new Sampler("kick")
+      .notes([60, null, 64])
+      .variation([0, 1, null])
+      .euclid(6, 6)
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 1 / 6 },
+      { offset: 1 / 6, duration: 1 / 6 },
+    ]);
+  });
+
+  it("preserves multi-bar rest alignment and active zero values", () => {
+    const multiBar = new Sampler("kick")
+      .notes([60, null], [64, 67])
+      .variation([0, 1], [null])
+      .xox([1, 1])
+      .getSchema().eventPattern;
+    const zeroValues = new Sampler("kick")
+      .notes([0])
+      .variation([0, null, 0])
+      .xox([1, 1, 1])
+      .getSchema().eventPattern;
+
+    expect(multiBar.timing.cycle).toEqual([[{ offset: 0, duration: 0.5 }], []]);
+    expect(zeroValues.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 1 / 3 },
+      { offset: 2 / 3, duration: 1 / 3 },
+    ]);
+    expect(zeroValues.notes).toEqual({
+      type: "static",
+      cycle: [[[0], [0]]],
+    });
+    expect(zeroValues.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[0], [0]]],
+    });
+  });
+
+  it("counts simultaneous pitch voices as one timing hit", () => {
+    const events = new Sampler("kick")
+      .notes([[60, 64, 67]])
+      .variation([0, 1])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle).toEqual([
+      [
+        { offset: 0, duration: 0.5 },
+        { offset: 0.5, duration: 0.5 },
+      ],
+    ]);
   });
 
   it("supports variation bars, sequential hits, and simultaneous voices", () => {

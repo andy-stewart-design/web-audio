@@ -90,6 +90,73 @@ describe("resolveSamplerEvents", () => {
     },
   );
 
+  it.each([
+    {
+      label: "one note with three variations",
+      notes: [60],
+      variations: [0, 1, 2],
+      expected: [
+        { note: 60, sampleName: "bd", requestedVariationIndex: 0 },
+        { note: 60, sampleName: "bd", requestedVariationIndex: 1 },
+        { note: 60, sampleName: "bd", requestedVariationIndex: 2 },
+      ],
+    },
+    {
+      label: "three notes with one variation",
+      notes: [60, 64, 67],
+      variations: [1],
+      expected: [
+        { note: 60, sampleName: "bd", requestedVariationIndex: 1 },
+        { note: 64, sampleName: "bd", requestedVariationIndex: 1 },
+        { note: 67, sampleName: "bd", requestedVariationIndex: 1 },
+      ],
+    },
+    {
+      label: "two notes with three variations",
+      notes: [60, 64],
+      variations: [0, 1, 2],
+      expected: [
+        { note: 60, sampleName: "bd", requestedVariationIndex: 0 },
+        { note: 64, sampleName: "bd", requestedVariationIndex: 1 },
+        { note: 60, sampleName: "bd", requestedVariationIndex: 2 },
+      ],
+    },
+  ])(
+    "resolves $label with longest-array wrapping",
+    ({ notes, variations, expected }) => {
+      expect(
+        resolveSamplerEvents(
+          events({
+            notes: { type: "static", cycle: [[notes]] },
+            variationIndices: { type: "static", cycle: [[variations]] },
+          }),
+          0,
+        )[0].voices,
+      ).toEqual(expected);
+    },
+  );
+
+  it("uses one chance decision for every variation layer", () => {
+    expect(
+      resolveSamplerEvents(
+        events({
+          timing: {
+            cycle: [[{ offset: 0, duration: 1 }]],
+            condition: {
+              type: "chance",
+              probability: 0,
+              segments: [{ seed: 42 }],
+              algorithm: "xor",
+              order: "forward",
+            },
+          },
+          variationIndices: { type: "static", cycle: [[[0, 1, 2]]] },
+        }),
+        0,
+      ),
+    ).toEqual([]);
+  });
+
   it("normalizes random notes and variations to scalar groups", () => {
     const random = {
       type: "random-number" as const,
@@ -114,6 +181,29 @@ describe("resolveSamplerEvents", () => {
     expect(resolved[0].voices[0].requestedVariationIndex).toBe(
       resolved[0].voices[1].requestedVariationIndex,
     );
+  });
+
+  it("broadcasts one random variation across a static chord", () => {
+    const resolved = resolveSamplerEvents(
+      events({
+        notes: { type: "static", cycle: [[[60, 64]]] },
+        variationIndices: {
+          type: "random-number",
+          valuesPerBar: [1],
+          dataType: "integer",
+          segments: [{ seed: 42 }],
+          valueMap: [2],
+          algorithm: "xor",
+          order: "forward",
+        },
+      }),
+      0,
+    );
+
+    expect(resolved[0].voices).toEqual([
+      { note: 60, sampleName: "bd", requestedVariationIndex: 2 },
+      { note: 64, sampleName: "bd", requestedVariationIndex: 2 },
+    ]);
   });
 
   it("wraps every lane independently across bars and hits", () => {

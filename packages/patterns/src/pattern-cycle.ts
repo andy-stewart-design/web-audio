@@ -1,5 +1,6 @@
 import BaseCycle from "./base-cycle";
-import { arrange, pattern, type NoteInput, type Cycle } from "./utils";
+import { arrange, pattern } from "./utils";
+import type { NoteInput, Cycle } from "./types";
 
 class PatternCycle<T> extends BaseCycle<T> {
   constructor(input: NoteInput<T>, nullValue: T) {
@@ -11,17 +12,17 @@ class PatternCycle<T> extends BaseCycle<T> {
   /* PATTERN SETTERS
   ---------------------------------------------------------------- */
   pattern(...patterns: NoteInput<T>[]) {
-    this._cycle = pattern(...patterns);
+    this.replaceCycle(pattern(...patterns));
     return this;
   }
 
   arrange(...input: [number, NoteInput<T>][]) {
-    this._cycle = arrange(...input);
+    this.replaceCycle(arrange(...input));
     return this;
   }
 
   replace(cycle: Cycle<T>) {
-    this._cycle = cycle;
+    this.replaceCycle(cycle);
   }
 }
 

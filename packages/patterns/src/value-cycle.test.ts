@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ValueCycle } from "./static-cycles";
+import { ValueCycle } from "./value-cycle";
 
 describe("ValueCycle", () => {
   describe("getStaticSchema", () => {
@@ -18,6 +18,15 @@ describe("ValueCycle", () => {
       expect(schema.cycle).toEqual([
         [0, -2.5],
         [3, 4.25],
+      ]);
+    });
+
+    it("materializes pending speed before serialization", () => {
+      expect(
+        new ValueCycle([1, 2], 0).fast(1.5).getStaticSchema().cycle,
+      ).toEqual([
+        [1, 0, 2, 0, 1, 0],
+        [2, 0, 1, 0, 2, 0],
       ]);
     });
 

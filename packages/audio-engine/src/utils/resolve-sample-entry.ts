@@ -69,8 +69,23 @@ function resolveVariationEntry(
   variations: SampleVariationSchema[] | undefined,
   variationIndex: number,
 ) {
+  const normalizedIndex = normalizeVariationIndex(
+    variationIndex,
+    variations?.length ?? 0,
+  );
+  return normalizedIndex === null
+    ? null
+    : (variations?.[normalizedIndex] ?? null);
+}
+
+function normalizeVariationIndex(
+  variationIndex: number,
+  variationCount: number,
+) {
+  if (!Number.isFinite(variationIndex) || variationCount <= 0) return null;
+
   const roundedIndex = Math.round(variationIndex);
-  return variations?.[roundedIndex] ?? variations?.[0] ?? null;
+  return ((roundedIndex % variationCount) + variationCount) % variationCount;
 }
 
 function resolveSampleUrl(options: ResolveSampleEntryOptions) {
@@ -81,6 +96,7 @@ export {
   deriveSourceKeys,
   resolveSample,
   resolveSampleEntry,
+  normalizeVariationIndex,
   resolveSampleUrl,
   resolveVariationEntry,
   selectNaturalSourceKey,
