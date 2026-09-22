@@ -100,6 +100,9 @@ function validateDromeGraph(schema: DromeSchema) {
     if (!isNonEmptyString(instrument.bank)) {
       throw new Error(`[Schema] ${path}.bank must be non-empty.`);
     }
+    if (!isCanonicalName(instrument.bank)) {
+      throw new Error(`[Schema] ${path}.bank is not canonical.`);
+    }
     validateSamplerEventPattern(
       instrument.eventPattern,
       `${path}.eventPattern`,
@@ -175,6 +178,9 @@ function validateBanks(banks: unknown) {
     if (!isNonEmptyString(name)) {
       throw new Error(`[Schema] Bank name "${name}" must be non-empty.`);
     }
+    if (!isCanonicalName(name)) {
+      throw new Error(`[Schema] Bank name "${name}" is not canonical.`);
+    }
     const path = `banks["${name}"]`;
     if (!isRecord(bank)) {
       throw new Error(`[Schema] ${path} must be an object.`);
@@ -195,6 +201,9 @@ function validateBankSamples(samples: Record<string, unknown>, path: string) {
       throw new Error(`[Schema] ${path}.samples has an empty sample name.`);
     }
     const samplePath = `${path}.samples["${sampleName}"]`;
+    if (!isCanonicalName(sampleName)) {
+      throw new Error(`[Schema] ${samplePath} name is not canonical.`);
+    }
     if (!isRecord(sourceKeys)) {
       throw new Error(`[Schema] ${samplePath} must be an object.`);
     }
@@ -563,7 +572,7 @@ function validateSampleNamePattern(
   const summary = validateVoicePattern(
     schema,
     path,
-    isNonEmptyString,
+    isCanonicalName,
     "sample name",
   );
   if (!summary.hasRealValue) {

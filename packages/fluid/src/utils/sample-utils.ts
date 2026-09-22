@@ -20,6 +20,28 @@ function normalizeBankName(name: string) {
   return normalized;
 }
 
+function normalizeSampleName(name: string) {
+  const normalized = name.trim();
+  if (normalized === "") {
+    throw new Error("[Samples] sample name cannot be empty.");
+  }
+  return normalized;
+}
+
+function setNormalizedSample<T>(
+  samples: Record<string, T>,
+  name: string,
+  value: T,
+) {
+  const normalizedName = normalizeSampleName(name);
+  if (Object.prototype.hasOwnProperty.call(samples, normalizedName)) {
+    throw new Error(
+      `[Samples] sample name "${name}" conflicts with existing canonical name "${normalizedName}".`,
+    );
+  }
+  samples[normalizedName] = value;
+}
+
 // -----------------------------------------------------------------------------
 // Normalization
 // -----------------------------------------------------------------------------
@@ -46,7 +68,9 @@ function _normalizeSimpleSamples(
 ): BankSchema["samples"] {
   const normalized: BankSchema["samples"] = {};
   for (const [name, paths] of Object.entries(samples)) {
-    normalized[name] = { "0": _normalizeFileVariations(paths, basePath) };
+    setNormalizedSample(normalized, name, {
+      "0": _normalizeFileVariations(paths, basePath),
+    });
   }
   return normalized;
 }
@@ -71,11 +95,12 @@ function _normalizeMultiSamples(
   const normalized: BankSchema["samples"] = {};
 
   for (const [sampleName, keyedSamples] of Object.entries(samples)) {
-    normalized[sampleName] = {};
+    const normalizedKeyedSamples: BankSchema["samples"][string] = {};
     for (const [key, paths] of Object.entries(keyedSamples)) {
-      normalized[sampleName][String(_pitchKeyToMidi(key))] =
+      normalizedKeyedSamples[String(_pitchKeyToMidi(key))] =
         _normalizeFileVariations(paths, baseUrl);
     }
+    setNormalizedSample(normalized, sampleName, normalizedKeyedSamples);
   }
 
   return normalized;
@@ -90,9 +115,9 @@ function _normalizeSpriteSamples(input: SpriteSampleBank) {
   const normalized: BankSchema["samples"] = {};
 
   for (const [sampleName, leaf] of Object.entries(input.samples)) {
-    normalized[sampleName] = {
+    setNormalizedSample(normalized, sampleName, {
       "0": _normalizeSpriteLeaf(_resolveSrc(input.src, input.baseUrl), leaf),
-    };
+    });
   }
 
   return normalized;
@@ -102,11 +127,12 @@ function _normalizePitchedSpriteSamples(input: PitchedSpriteSampleBank) {
   const normalized: BankSchema["samples"] = {};
 
   for (const [sampleName, keyedRegions] of Object.entries(input.samples)) {
-    normalized[sampleName] = {};
+    const normalizedKeyedRegions: BankSchema["samples"][string] = {};
     for (const [key, leaf] of Object.entries(keyedRegions)) {
-      normalized[sampleName][String(_pitchKeyToMidi(key))] =
+      normalizedKeyedRegions[String(_pitchKeyToMidi(key))] =
         _normalizeSpriteLeaf(_resolveSrc(input.src, input.baseUrl), leaf);
     }
+    setNormalizedSample(normalized, sampleName, normalizedKeyedRegions);
   }
 
   return normalized;
@@ -255,6 +281,7 @@ function isMultiSampleBank(obj: unknown): obj is MultiSampleBank {
 export {
   invalidManifestMessage,
   normalizeBankName,
+  normalizeSampleName,
   isMultiSampleBank,
   isBanked,
   isBankedBank,

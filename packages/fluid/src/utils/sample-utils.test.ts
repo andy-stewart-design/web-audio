@@ -7,6 +7,7 @@ import {
   isSampleBank,
   isSpriteSampleBank,
   normalizeBankName,
+  normalizeSampleName,
   normalizeSampleBank,
   resolveBank,
 } from "./sample-utils";
@@ -24,9 +25,21 @@ describe("sample-utils", () => {
     });
   });
 
+  describe("normalizeSampleName", () => {
+    it("trims non-empty sample names", () => {
+      expect(normalizeSampleName("  bd  ")).toBe("bd");
+    });
+
+    it("rejects empty sample names", () => {
+      expect(() => normalizeSampleName("   ")).toThrow(
+        "[Samples] sample name cannot be empty.",
+      );
+    });
+  });
+
   describe("normalizeSampleBank", () => {
     it("normalizes flat simple sample banks", () => {
-      expect(normalizeSampleBank({ bd: ["bd.wav"] })).toEqual({
+      expect(normalizeSampleBank({ " bd ": ["bd.wav"] })).toEqual({
         samples: {
           bd: {
             "0": [{ type: "file", src: "bd.wav" }],
@@ -73,7 +86,7 @@ describe("sample-utils", () => {
         normalizeSampleBank({
           bank: "acoustic",
           samples: {
-            piano: {
+            " piano ": {
               a2: ["a2-a.wav", "a2-b.wav"],
               a3: ["a3.wav"],
             },
@@ -120,7 +133,7 @@ describe("sample-utils", () => {
           bank: "op1",
           src: "kit.wav",
           samples: {
-            bd: [[0, 0.08]],
+            " bd ": [[0, 0.08]],
             sd: [[0.1, 0.18]],
           },
         }),
@@ -189,7 +202,7 @@ describe("sample-utils", () => {
           bank: "acoustic",
           src: "piano-sprite.wav",
           samples: {
-            piano: {
+            " piano ": {
               a2: [[0, 0.16]],
               a3: [
                 [0.2, 0.36],
@@ -226,6 +239,38 @@ describe("sample-utils", () => {
           },
         },
       });
+    });
+
+    it.each([
+      { " bd ": ["one.wav"], bd: ["two.wav"] },
+      {
+        samples: {
+          " piano ": { a2: ["one.wav"] },
+          piano: { a3: ["two.wav"] },
+        },
+      },
+      {
+        src: "kit.wav",
+        samples: {
+          " bd ": [[0, 0.08]],
+          bd: [[0.1, 0.18]],
+        },
+      },
+      {
+        src: "piano.wav",
+        samples: {
+          " piano ": { a2: [[0, 0.1]] },
+          piano: { a3: [[0.2, 0.3]] },
+        },
+      },
+    ])("rejects sample-name collisions created by trimming", (input) => {
+      expect(() => normalizeSampleBank(input)).toThrow("[Samples] sample name");
+    });
+
+    it("rejects empty sample keys during bank normalization", () => {
+      expect(() => normalizeSampleBank({ " ": ["empty.wav"] })).toThrow(
+        "[Samples] sample name cannot be empty.",
+      );
     });
 
     it("rejects legacy name and sprite properties", () => {
@@ -294,7 +339,7 @@ describe("sample-utils", () => {
       expect(
         resolveBank({
           basePath: "https://example.com/",
-          samples: { bd: ["bd.wav"] },
+          samples: { " bd ": ["bd.wav"] },
         }),
       ).toEqual({
         samples: {
