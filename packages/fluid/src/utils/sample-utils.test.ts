@@ -6,11 +6,24 @@ import {
   isPitchedSpriteSampleBank,
   isSampleBank,
   isSpriteSampleBank,
+  normalizeBankName,
   normalizeSampleBank,
   resolveBank,
 } from "./sample-utils";
 
 describe("sample-utils", () => {
+  describe("normalizeBankName", () => {
+    it("trims non-empty bank names", () => {
+      expect(normalizeBankName("  drums  ")).toBe("drums");
+    });
+
+    it("rejects empty bank names", () => {
+      expect(() => normalizeBankName("   ")).toThrow(
+        "[Bank] name cannot be empty.",
+      );
+    });
+  });
+
   describe("normalizeSampleBank", () => {
     it("normalizes flat simple sample banks", () => {
       expect(normalizeSampleBank({ bd: ["bd.wav"] })).toEqual({

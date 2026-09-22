@@ -11,6 +11,7 @@ import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import {
   isBanked,
+  normalizeBankName,
   normalizeSampleBank,
   resolveBank,
 } from "./utils/sample-utils";
@@ -29,11 +30,13 @@ class Drome {
   private _instruments: Set<Instrument>;
   private _bpm: number | undefined;
   private _banks: Record<string, BankSchema>;
+  private _bankNames: Record<string, string>;
   private _buses = new Map<string, Bus>();
 
   constructor() {
     this._instruments = new Set();
     this._banks = {};
+    this._bankNames = {};
   }
 
   bpm(value: number) {
@@ -138,7 +141,20 @@ class Drome {
     const normalized = normalizeSampleBank(input);
 
     if (isBanked(input)) {
-      this._banks[input.bank] = normalized;
+      const bankName = normalizeBankName(input.bank);
+      const previousName = this._bankNames[bankName];
+      if (previousName !== undefined && previousName !== input.bank) {
+        throw new Error(
+          `[Drome] Bank name "${input.bank}" conflicts with existing bank "${bankName}".`,
+        );
+      }
+      if (previousName === undefined && this._banks[bankName]) {
+        throw new Error(
+          `[Drome] Bank name "${input.bank}" conflicts with existing bank "${bankName}".`,
+        );
+      }
+      this._bankNames[bankName] = input.bank;
+      this._banks[bankName] = normalized;
     } else {
       this._banks.user ??= { samples: {} };
       Object.assign(this._banks.user.samples, normalized.samples);
@@ -184,8 +200,11 @@ class Drome {
   }
 
   _resolveBank(name: string): BankSchema | null {
-    if (this._banks[name]) return this._banks[name];
-    if (BUILT_IN_BANKS[name]) return resolveBank(BUILT_IN_BANKS[name]);
+    const normalized = normalizeBankName(name);
+    if (this._banks[normalized]) return this._banks[normalized];
+    if (BUILT_IN_BANKS[normalized]) {
+      return resolveBank(BUILT_IN_BANKS[normalized]);
+    }
     return null;
   }
 
@@ -195,7 +214,7 @@ class Drome {
 
     for (const instrument of instruments) {
       if (instrument.type === "sampler") {
-        const { bank: bankName } = instrument;
+        const bankName = normalizeBankName(instrument.bank);
         const resolvedBank = this._resolveBank(bankName);
         if (!banks[bankName] && resolvedBank) banks[bankName] = resolvedBank;
       }

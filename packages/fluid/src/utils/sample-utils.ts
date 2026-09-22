@@ -12,6 +12,14 @@ import { noteStringToMidi } from "./note-string-to-midi";
 const invalidManifestMessage =
   "Invalid sample manifest: expected a sample bank, banked sample bank, multisample bank, or sprite bank";
 
+function normalizeBankName(name: string) {
+  const normalized = name.trim();
+  if (normalized === "") {
+    throw new Error("[Bank] name cannot be empty.");
+  }
+  return normalized;
+}
+
 // -----------------------------------------------------------------------------
 // Normalization
 // -----------------------------------------------------------------------------
@@ -246,6 +254,7 @@ function isMultiSampleBank(obj: unknown): obj is MultiSampleBank {
 
 export {
   invalidManifestMessage,
+  normalizeBankName,
   isMultiSampleBank,
   isBanked,
   isBankedBank,

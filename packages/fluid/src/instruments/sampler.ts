@@ -23,6 +23,7 @@ import { compileSamplerEvents, getSamplerEventTiming } from "./event-compiler";
 import { DEFAULT_BANK } from "@/banks";
 import Instrument from "./instrument";
 import type Drome from "@/index";
+import { normalizeBankName } from "@/utils/sample-utils";
 import { isRandomCycleTuple } from "@/utils/validate";
 
 interface SamplerOptions {
@@ -52,7 +53,7 @@ class Sampler extends Instrument {
   ) {
     super([0], host, { a: 0.0025, r: 0.005 });
     this._pitches = new AuthoredPitches([0]);
-    this._bank = bank;
+    this._bank = normalizeBankName(bank);
     this._sampleNames = sample
       ? AuthoredEventValues.fromDefault(sample.trim())
       : undefined;
@@ -120,7 +121,7 @@ class Sampler extends Instrument {
   }
 
   bank(name: string) {
-    this._bank = name;
+    this._bank = normalizeBankName(name);
     return this;
   }
 

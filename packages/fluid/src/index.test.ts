@@ -1411,15 +1411,43 @@ describe("Drome", () => {
       });
     });
 
-    it("registers named banks without polluting the user bank", () => {
+    it("normalizes named banks and sampler bank references", () => {
       const d = new Drome();
-      d.loadSamples({ bank: "mykit", samples: { kick: ["url.wav"] } });
+      d.loadSamples({ bank: " mykit ", samples: { kick: ["url.wav"] } });
+      d.sample("kick").bank(" mykit ").push();
 
       const schema = d.getSchema();
+      expect(schema.instruments[0].type).toBe("sampler");
+      if (schema.instruments[0].type === "sampler") {
+        expect(schema.instruments[0].bank).toBe("mykit");
+      }
       expect(schema.banks.mykit.samples.kick).toEqual({
         "0": [{ type: "file", src: "url.wav" }],
       });
+      expect(schema.banks[" mykit "]).toBeUndefined();
       expect(schema.banks.user).toBeUndefined();
+    });
+
+    it("rejects empty bank names at Fluid boundaries", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").bank("   ")).toThrow(
+        "[Bank] name cannot be empty.",
+      );
+      expect(() =>
+        d.loadSamples({ bank: "   ", samples: { kick: ["url.wav"] } }),
+      ).toThrow("[Bank] name cannot be empty.");
+    });
+
+    it("rejects named-bank collisions created by trimming", () => {
+      const d = new Drome();
+      d.loadSamples({ bank: " mykit ", samples: { kick: ["one.wav"] } });
+
+      expect(() =>
+        d.loadSamples({ bank: "mykit", samples: { snare: ["two.wav"] } }),
+      ).toThrow(
+        '[Drome] Bank name "mykit" conflicts with existing bank "mykit".',
+      );
     });
 
     it("custom named banks take precedence over built-in banks", () => {
@@ -1436,7 +1464,7 @@ describe("Drome", () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: vi.fn().mockResolvedValue({
-          bank: "remote",
+          bank: " remote ",
           samples: { kick: ["remote.wav"] },
         }),
       });
