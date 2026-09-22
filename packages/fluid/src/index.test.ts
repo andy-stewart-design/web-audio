@@ -491,6 +491,106 @@ describe("Drome", () => {
       );
     });
 
+    it("serializes static sample names as bars, hits, and voices", () => {
+      const sequential = new Drome()
+        .sample()
+        .name([" bd ", "sd"])
+        .getSchema().eventPattern;
+      const multiBar = new Drome()
+        .sample()
+        .name("bd", "sd")
+        .getSchema().eventPattern;
+      const layered = new Drome()
+        .sample()
+        .name([["bd", "hh"]])
+        .getSchema().eventPattern;
+
+      expect(sequential.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd"], ["sd"]]],
+      });
+      expect(multiBar.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd"]], [["sd"]]],
+      });
+      expect(layered.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd", "hh"]]],
+      });
+    });
+
+    it("replaces the constructor and previous sample names", () => {
+      const schema = new Drome().sample("bd").name("sd").name("hh").getSchema();
+
+      expect(schema.eventPattern.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["hh"]]],
+      });
+    });
+
+    it("treats colons in name patterns literally", () => {
+      const schema = new Drome().sample().name("bd:2").getSchema();
+
+      expect(schema.eventPattern.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd:2"]]],
+      });
+    });
+
+    it("rejects invalid sample-name patterns", () => {
+      const d = new Drome();
+
+      expect(() => d.sample().name()).toThrow(
+        "[Sampler] name() requires at least one pattern.",
+      );
+      expect(() => d.sample().name([""])).toThrow(
+        "[Sampler] name() sample names must be non-empty.",
+      );
+      expect(() => d.sample().name([[]])).toThrow(
+        "[Sampler] name() simultaneous voice groups cannot be empty.",
+      );
+      expect(() =>
+        d.sample().name([["bd", null]] as unknown as string),
+      ).toThrow("[Sampler] name() null is only allowed as a whole-hit rest.");
+      expect(() => d.sample().name(d.rand() as unknown as string)).toThrow(
+        "[Sampler] name() does not support random patterns.",
+      );
+    });
+
+    it("compiles sample-name rests into timing", () => {
+      const interleaved = new Drome()
+        .sample()
+        .name(["bd", null, "sd"])
+        .getSchema().eventPattern;
+      const silentBar = new Drome()
+        .sample()
+        .name([], ["sd"])
+        .getSchema().eventPattern;
+
+      expect(interleaved.timing.cycle[0]).toEqual([
+        { offset: 0, duration: 1 / 3 },
+        { offset: 2 / 3, duration: 1 / 3 },
+      ]);
+      expect(interleaved.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd"], ["sd"]]],
+      });
+      expect(silentBar.timing.cycle).toEqual([
+        [],
+        [{ offset: 0, duration: 1 }],
+      ]);
+      expect(silentBar.sampleNames).toEqual({
+        type: "static",
+        cycle: [[null], [["sd"]]],
+      });
+    });
+
+    it("rejects an all-silent sample-name pattern at schema generation", () => {
+      expect(() => new Drome().sample().name([null]).getSchema()).toThrow(
+        "[Sampler] name() must contain at least one sample name before getSchema().",
+      );
+    });
+
     it("emits a valid natural-pitch sampler event schema", () => {
       const d = new Drome();
       d.sample("bd").push();

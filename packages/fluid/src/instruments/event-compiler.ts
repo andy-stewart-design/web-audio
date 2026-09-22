@@ -43,7 +43,7 @@ type CompiledNoteEvents = {
 };
 
 type SamplerTimingCandidate = {
-  source: "notes" | "variation";
+  source: "notes" | "sampleNames" | "variation";
   timing: TimingPattern;
   hasRests: boolean;
 };
@@ -58,7 +58,7 @@ type SamplerEventCompilerInput = {
   timing: AuthoredTiming;
   variation: AuthoredEventValues<number>;
   timingOverride?: TimingPattern;
-  sampleName: string;
+  sampleNames: AuthoredEventValues<string>;
 };
 
 // COMPILE NOTE EVENTS
@@ -177,20 +177,21 @@ function compileSamplerEvents({
   timing,
   variation,
   timingOverride,
-  sampleName,
+  sampleNames,
 }: SamplerEventCompilerInput) {
   const filteredTiming = getSamplerEventTiming({
     pitches,
     timing,
     variation,
     timingOverride,
+    sampleNames,
   });
   const noteEvents = pitches.getEventPattern(filteredTiming);
   const notes = pitches.hasRequestedPitches ? noteEvents.notes : undefined;
 
   return finalizeSamplerEvents({
     timing: filteredTiming,
-    sampleNames: compileSampleNames(sampleName),
+    sampleNames: compileSampleNames(sampleNames),
     notes,
     variationIndices: compileVariationPattern(variation),
     hasAuthoredPitchValues: pitches.hasAuthoredValues,
@@ -202,25 +203,34 @@ function getSamplerEventTiming({
   timing,
   variation,
   timingOverride,
-}: Omit<SamplerEventCompilerInput, "sampleName">) {
+  sampleNames,
+}: Omit<SamplerEventCompilerInput, "sampleNames"> & {
+  sampleNames?: AuthoredEventValues<string>;
+}) {
   const explicitTiming = timingOverride ?? timing.getTimingPattern();
   const selectedTiming =
-    explicitTiming ?? getInferredSamplerTiming({ pitches, variation });
+    explicitTiming ??
+    getInferredSamplerTiming({ pitches, variation, sampleNames });
   return filterTimingByFixedAvailability(selectedTiming, [
     getPitchAvailability(pitches),
     getVariationAvailability(variation),
+    getSampleNameAvailability(sampleNames),
   ]);
 }
 
 function getInferredSamplerTiming({
   pitches,
   variation,
-}: Pick<SamplerEventCompilerInput, "pitches" | "variation">) {
+  sampleNames,
+}: Pick<SamplerEventCompilerInput, "pitches" | "variation"> & {
+  sampleNames?: AuthoredEventValues<string>;
+}) {
   const noteEvents = pitches.getEventPattern();
   const selectedTiming = selectSamplerTimingCandidate({
     noteEvents,
     pitches,
     variation,
+    sampleNames,
   });
   return selectedTiming?.timing ?? noteEvents.timing;
 }
@@ -231,6 +241,24 @@ function getPitchAvailability(pitches: AuthoredPitches) {
   return {
     cycle: pitches.getFixedAvailability(),
     valuesPerBar: pitches.getRandomValuesPerBar(),
+  } satisfies FixedAvailability;
+}
+
+function getSampleNameAvailability(
+  sampleNames: AuthoredEventValues<string> | undefined,
+) {
+  if (
+    !sampleNames ||
+    !sampleNames.hasAuthoredValues ||
+    !sampleNames.hasRests ||
+    sampleNames.source.type === "random"
+  ) {
+    return undefined;
+  }
+  if (sampleNames.source.broadcastValue) return undefined;
+
+  return {
+    cycle: sampleNames.source.cycle.map((bar) => bar.map(Boolean)),
   } satisfies FixedAvailability;
 }
 
@@ -253,10 +281,12 @@ function selectSamplerTimingCandidate({
   noteEvents,
   pitches,
   variation,
+  sampleNames,
 }: {
   noteEvents: CompiledNoteEvents;
   pitches: AuthoredPitches;
   variation: AuthoredEventValues<number>;
+  sampleNames: AuthoredEventValues<string> | undefined;
 }) {
   const noteCandidate = pitches.hasAuthoredValues
     ? ({
@@ -265,19 +295,34 @@ function selectSamplerTimingCandidate({
         hasRests: pitches.hasAuthoredPitchRests,
       } satisfies SamplerTimingCandidate)
     : undefined;
+  const nameCandidate = getSampleNameTimingCandidate(sampleNames);
   const variationCandidate = getVariationTimingCandidate(variation);
+
+  if (noteCandidate?.hasRests) return noteCandidate;
+  if (nameCandidate?.hasRests) return nameCandidate;
+  if (variationCandidate?.hasRests) return variationCandidate;
 
   if (!noteCandidate) return variationCandidate;
   if (!variationCandidate) return noteCandidate;
 
-  if (noteCandidate.hasRests !== variationCandidate.hasRests) {
-    return noteCandidate.hasRests ? noteCandidate : variationCandidate;
-  }
-  if (noteCandidate.hasRests) return noteCandidate;
-
   return compareTimingDensity(noteCandidate, variationCandidate) >= 0
     ? noteCandidate
     : variationCandidate;
+}
+
+function getSampleNameTimingCandidate(
+  sampleNames: AuthoredEventValues<string> | undefined,
+): SamplerTimingCandidate | undefined {
+  if (!sampleNames || !sampleNames.hasAuthoredValues || !sampleNames.hasRests) {
+    return undefined;
+  }
+  if (sampleNames.source.type === "random") return undefined;
+
+  return {
+    source: "sampleNames",
+    timing: compileStaticTiming(sampleNames.source.cycle),
+    hasRests: true,
+  };
 }
 
 function getVariationTimingCandidate(
@@ -372,10 +417,28 @@ function compileStaticTiming<T>(cycle: (T[] | null)[][]) {
   } satisfies TimingPattern;
 }
 
-function compileSampleNames(sampleName: string) {
+function compileSampleNames(values: AuthoredEventValues<string>) {
+  if (values.source.type === "random") {
+    throw new Error("[Sampler] name() does not support random patterns.");
+  }
+
+  const cycle = values.source.broadcastValue
+    ? [[[...values.source.broadcastValue]]]
+    : values.source.cycle.map((bar) => {
+        const activeGroups = bar.flatMap((group) =>
+          group === null ? [] : [[...group]],
+        );
+        return activeGroups.length > 0 ? activeGroups : [null];
+      });
+  if (!cycle.some((bar) => bar.some((group) => group !== null))) {
+    throw new Error(
+      "[Sampler] name() must contain at least one sample name before getSchema().",
+    );
+  }
+
   return {
     type: "static",
-    cycle: [[[sampleName]]],
+    cycle,
   } satisfies SamplerEventPattern["sampleNames"];
 }
 

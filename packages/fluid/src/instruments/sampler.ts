@@ -1,11 +1,14 @@
 import AuthoredPitches from "@/patterns/authored-pitches";
 import Parameter from "@/patterns/parameter";
-import type { CycleInput, NullableCycleInput } from "@/types";
+import type {
+  CycleInput,
+  NullableCycleInput,
+  StaticNullableCycleInput,
+} from "@/types";
 import type {
   ClipMode,
   FitSchema,
   SampleDirection,
-  SamplerEventPattern,
   SamplerSchema,
 } from "@web-audio/schema";
 import AuthoredEventValues from "@/patterns/authored-event-values";
@@ -20,6 +23,7 @@ import { compileSamplerEvents, getSamplerEventTiming } from "./event-compiler";
 import { DEFAULT_BANK } from "@/banks";
 import Instrument from "./instrument";
 import type Drome from "@/index";
+import { isRandomCycleTuple } from "@/utils/validate";
 
 interface SamplerOptions {
   bank?: string;
@@ -30,7 +34,7 @@ type SampleDirectionInput = SampleDirection | "for" | "rev" | "alt";
 
 class Sampler extends Instrument {
   private _bank: string;
-  private _sample: string | undefined;
+  private _sampleNames: AuthoredEventValues<string> | undefined;
   private _variation: AuthoredEventValues<number>;
   private _fit: FitSchema | null = null;
   private _region: RegionState | null = null;
@@ -49,7 +53,9 @@ class Sampler extends Instrument {
     super([0], host, { a: 0.0025, r: 0.005 });
     this._pitches = new AuthoredPitches([0]);
     this._bank = bank;
-    this._sample = sample;
+    this._sampleNames = sample
+      ? AuthoredEventValues.fromDefault(sample.trim())
+      : undefined;
     this._variation = AuthoredEventValues.fromDefault(0);
     this.dur = this.duration.bind(this);
     this.dir = this.direction.bind(this);
@@ -93,6 +99,26 @@ class Sampler extends Instrument {
   }
 
   // INSTANCE METHODS
+  name(...input: StaticNullableCycleInput<string>) {
+    if (input.length === 0) {
+      throw new Error("[Sampler] name() requires at least one pattern.");
+    }
+    if (isRandomCycleTuple(input)) {
+      throw new Error("[Sampler] name() does not support random patterns.");
+    }
+
+    this._sampleNames = AuthoredEventValues.fromInput(input, {
+      normalizeValue: (value) => value.trim(),
+      validateValue: (value) => value.length > 0,
+      invalidValueMessage: "[Sampler] name() sample names must be non-empty.",
+      invalidGroupMessage:
+        "[Sampler] name() simultaneous voice groups cannot be empty.",
+      invalidRestMessage:
+        "[Sampler] name() null is only allowed as a whole-hit rest.",
+    });
+    return this;
+  }
+
   bank(name: string) {
     this._bank = name;
     return this;
@@ -234,17 +260,17 @@ class Sampler extends Instrument {
       : undefined;
   }
 
-  private _getEventPattern(sampleName: string): SamplerEventPattern {
+  private _getEventPattern(sampleNames: AuthoredEventValues<string>) {
     return compileSamplerEvents({
       pitches: this._pitches,
       timing: this._timing,
       variation: this._variation,
       timingOverride: this._getTimingOverride(),
-      sampleName,
+      sampleNames,
     });
   }
 
-  private _warnForMissingSource(sampleName: string) {
+  private _warnForMissingSource(sampleNames: AuthoredEventValues<string>) {
     if (!this._host) return;
     const bank = this._host._resolveBank(this._bank);
     if (!bank) {
@@ -253,23 +279,32 @@ class Sampler extends Instrument {
       );
       return;
     }
-    if (!bank.samples[sampleName]) {
-      console.warn(
-        `[Sampler] Sample "${sampleName}" not found in bank "${this._bank}". This sampler may not produce audio.`,
-      );
+    if (sampleNames.source.type === "random") return;
+    const names = new Set(
+      sampleNames.source.cycle.flatMap((bar) =>
+        bar.flatMap((group) => group ?? []),
+      ),
+    );
+    for (const sampleName of names) {
+      if (!bank.samples[sampleName]) {
+        console.warn(
+          `[Sampler] Sample "${sampleName}" not found in bank "${this._bank}". This sampler may not produce audio.`,
+        );
+      }
     }
   }
 
-  private _requireSampleName() {
-    if (!this._sample) {
+  private _requireSampleNames() {
+    if (!this._sampleNames) {
       throw new Error("[Sampler] sample name is required before getSchema().");
     }
-    return this._sample;
+    return this._sampleNames;
   }
 
   getSchema(): SamplerSchema {
-    const sampleName = this._requireSampleName();
-    this._warnForMissingSource(sampleName);
+    const sampleNames = this._requireSampleNames();
+    const eventPattern = this._getEventPattern(sampleNames);
+    this._warnForMissingSource(sampleNames);
     const region = getRegion({
       fitSchema: this._getGeneratedFit(),
       chopState: this._chop,
@@ -280,7 +315,7 @@ class Sampler extends Instrument {
     return {
       type: "sampler",
       bank: this._bank,
-      eventPattern: this._getEventPattern(sampleName),
+      eventPattern,
       fit: this._fit,
       region,
       detune: this._detune.getSchema("detune"),

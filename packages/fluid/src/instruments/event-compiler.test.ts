@@ -253,7 +253,7 @@ describe("event compiler", () => {
         pitches,
         timing: new AuthoredTiming(),
         variation,
-        sampleName: "bd",
+        sampleNames: AuthoredEventValues.fromDefault("bd"),
       }),
     ).toThrow("[Pattern] Transform produces more than 1024 bars.");
   });
