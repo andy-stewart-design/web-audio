@@ -327,7 +327,7 @@ function getSampleNameTimingCandidate(
   return {
     source: "sampleNames",
     timing: compileStaticTiming(sampleNames.source.cycle),
-    hasRests: true,
+    hasRests: sampleNames.hasRests,
   };
 }
 

@@ -1781,17 +1781,17 @@ An unnamed sampler may exist while chaining but must have a real name before `ge
 
 **Acceptance criteria:**
 
-- [ ] All valid constructor forms produce equivalent canonical state where expected.
-- [ ] Invalid shorthand throws actionable errors.
-- [ ] Array constructors do not type-check and fail defensively at runtime.
-- [ ] `d.sample()` does not fail until schema generation if `.name()` has not yet supplied a name.
+- [x] All valid constructor forms produce equivalent canonical state where expected.
+- [x] Invalid shorthand throws actionable errors.
+- [x] Array constructors do not type-check and fail defensively at runtime.
+- [x] `d.sample()` does not fail until schema generation if `.name()` has not yet supplied a name.
 
 **Testing:**
 
-- [ ] Whitespace around token/name/variation.
-- [ ] Negative and fractional variations.
-- [ ] Empty, whitespace-only, malformed, duplicate, and multi-colon cases.
-- [ ] Constructor plus second-argument conflict.
+- [x] Whitespace around token/name/variation.
+- [x] Negative and fractional variations.
+- [x] Empty, whitespace-only, malformed, duplicate, and multi-colon cases.
+- [x] Constructor plus second-argument conflict.
 
 ---
 
@@ -1830,19 +1830,19 @@ The replaced constructor name must not remain in schema, preload, warnings, or r
 
 **Acceptance criteria:**
 
-- [ ] Static name patterns compile to `SampleNamePattern`.
-- [ ] Simultaneous names preserve authored order and duplicates.
-- [ ] Explicit rests remain available to the timing compiler.
-- [ ] Constructor replacement is complete.
-- [ ] Random name patterns are rejected for now with a clear type/runtime boundary.
+- [x] Static name patterns compile to `SampleNamePattern`.
+- [x] Simultaneous names preserve authored order and duplicates.
+- [x] Explicit rests remain available to the timing compiler.
+- [x] Constructor replacement is complete.
+- [x] Random name patterns are rejected for now with a clear type/runtime boundary.
 
 **Testing:**
 
-- [ ] Every valid shape and invalid nesting form.
-- [ ] Trimming and duplicate names.
-- [ ] Literal colon names via `.name()`.
-- [ ] Last-write-wins and constructor replacement.
-- [ ] All-silent name pattern rejection.
+- [x] Every valid shape and invalid nesting form.
+- [x] Trimming and duplicate names.
+- [x] Literal colon names via `.name()`.
+- [x] Last-write-wins and constructor replacement.
+- [x] All-silent name pattern rejection.
 
 ---
 
@@ -1873,10 +1873,10 @@ User-defined bank precedence over a built-in bank of the same canonical name rem
 
 **Acceptance criteria:**
 
-- [ ] Authored and loaded bank names share one canonical form.
-- [ ] Canonical collisions throw before graph generation.
-- [ ] Compiled bank keys and sampler `bank` fields match exactly.
-- [ ] Built-in lookup remains deterministic.
+- [x] Authored and loaded bank names share one canonical form.
+- [x] Canonical collisions throw before graph generation.
+- [x] Compiled bank keys and sampler `bank` fields match exactly.
+- [x] Built-in lookup remains deterministic.
 
 ---
 
@@ -1909,17 +1909,17 @@ Do not trim or rewrite URLs.
 
 **Acceptance criteria:**
 
-- [ ] Authored names and normalized bank keys use the same canonical identity.
-- [ ] Collision detection works for every manifest shape.
-- [ ] Multisample pitch-key normalization remains independent from sample-name normalization.
-- [ ] Direct invalid schemas fail validation.
+- [x] Authored names and normalized bank keys use the same canonical identity.
+- [x] Collision detection works for every manifest shape.
+- [x] Multisample pitch-key normalization remains independent from sample-name normalization.
+- [x] Direct invalid schemas fail validation.
 
 **Testing:**
 
-- [ ] Whitespace keys in every supported bank format.
-- [ ] Canonical collision tables.
-- [ ] Base URL and sprite source preservation.
-- [ ] External JSON manifests.
+- [x] Whitespace keys in every supported bank format.
+- [x] Canonical collision tables.
+- [x] Base URL and sprite source preservation.
+- [x] External JSON manifests.
 
 ---
 
@@ -1952,20 +1952,20 @@ Rules remain:
 
 **Acceptance criteria:**
 
-- [ ] A denser name pattern can supply timing.
-- [ ] Notes beat names on a tie.
-- [ ] Names beat variations on a tie.
-- [ ] Name rests filter explicit rhythm.
-- [ ] Name layers count as one event.
-- [ ] The schema contains only final timing.
+- [x] A denser name pattern can supply timing.
+- [x] Notes beat names on a tie.
+- [x] Names beat variations on a tie.
+- [x] Name rests filter explicit rhythm.
+- [x] Name layers count as one event.
+- [x] The schema contains only final timing.
 
 **Testing:**
 
-- [ ] All pairwise and three-way density comparisons.
-- [ ] Multi-bar average density.
-- [ ] Competing explicit silence.
-- [ ] Constructor scalar plus name/variation patterns.
-- [ ] Chop/fit priority.
+- [x] All pairwise and three-way density comparisons.
+- [x] Multi-bar average density.
+- [x] Competing explicit silence.
+- [x] Constructor scalar plus name/variation patterns.
+- [x] Chop/fit priority.
 
 ---
 
@@ -1989,10 +1989,10 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Reversing `bd/0, sd/1` produces `sd/1, bd/0`.
-- [ ] Slow never creates accidental missing-name bars for a scalar name.
-- [ ] Fast and stretch preserve complete static combinations.
-- [ ] Random note/variation values remain fresh and broadcast against transformed name rows.
+- [x] Reversing `bd/0, sd/1` produces `sd/1, bd/0`.
+- [x] Slow never creates accidental missing-name bars for a scalar name.
+- [x] Fast and stretch preserve complete static combinations.
+- [x] Random note/variation values remain fresh and broadcast against transformed name rows.
 
 ---
 

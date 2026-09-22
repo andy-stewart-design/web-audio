@@ -504,6 +504,10 @@ describe("Drome", () => {
         .sample()
         .name([["bd", "hh"]])
         .getSchema().eventPattern;
+      const duplicate = new Drome()
+        .sample()
+        .name([["bd", "bd"]])
+        .getSchema().eventPattern;
 
       expect(sequential.sampleNames).toEqual({
         type: "static",
@@ -516,6 +520,10 @@ describe("Drome", () => {
       expect(layered.sampleNames).toEqual({
         type: "static",
         cycle: [[["bd", "hh"]]],
+      });
+      expect(duplicate.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd", "bd"]]],
       });
     });
 
@@ -588,6 +596,7 @@ describe("Drome", () => {
     it("uses sample-name density when no stronger timing exists", () => {
       const events = new Drome()
         .sample()
+        .notes(60)
         .name(["bd", "sd"])
         .getSchema().eventPattern;
 
@@ -597,6 +606,26 @@ describe("Drome", () => {
           { offset: 0.5, duration: 0.5 },
         ],
       ]);
+    });
+
+    it("compares all three authored timing densities", () => {
+      const events = new Drome()
+        .sample()
+        .notes(60)
+        .name(["bd", "sd"])
+        .var([0, 1, 2])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toHaveLength(3);
+    });
+
+    it("counts layered names as one timing hit", () => {
+      const events = new Drome()
+        .sample()
+        .name([["bd", "hh"], "sd"])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toHaveLength(2);
     });
 
     it("uses notes over names and names over variations on density ties", () => {
@@ -638,6 +667,20 @@ describe("Drome", () => {
       expect(events.timing.cycle[0]).toEqual([
         { offset: 0, duration: 0.25 },
         { offset: 0.5, duration: 0.25 },
+      ]);
+    });
+
+    it("filters explicit rhythm by sample-name rests", () => {
+      const events = new Drome()
+        .sample()
+        .xox([1, 1, 1, 1])
+        .name(["bd", null, "sd"])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toEqual([
+        { offset: 0, duration: 0.25 },
+        { offset: 0.25, duration: 0.25 },
+        { offset: 0.75, duration: 0.25 },
       ]);
     });
 
@@ -1194,6 +1237,47 @@ describe("Drome", () => {
         type: "static",
         cycle: [[[1], [0]]],
       });
+    });
+
+    it("keeps complete static name rows paired through speed and stretch", () => {
+      const transforms = [
+        (sampler: Sampler) => sampler.fast(2),
+        (sampler: Sampler) => sampler.slow(2),
+        (sampler: Sampler) => sampler.stretch(2),
+      ];
+
+      for (const transform of transforms) {
+        const events = transform(
+          new Drome()
+            .sample("bd")
+            .name(["bd", "sd"])
+            .notes([60, 64])
+            .var([0, 1]),
+        ).getSchema().eventPattern;
+        if (
+          events.notes?.type !== "static" ||
+          events.variationIndices?.type !== "static" ||
+          events.sampleNames.type !== "static"
+        ) {
+          throw new Error("Expected static event patterns.");
+        }
+
+        const names = events.sampleNames.cycle
+          .flat()
+          .filter((group): group is string[] => group !== null);
+        const notes = events.notes.cycle
+          .flat()
+          .filter((group): group is number[] => group !== null);
+        const variations = events.variationIndices.cycle
+          .flat()
+          .filter((group): group is number[] => group !== null);
+        expect(names).toHaveLength(notes.length);
+        expect(names).toHaveLength(variations.length);
+        names.forEach(([name], index) => {
+          expect(notes[index][0]).toBe(name === "bd" ? 60 : 64);
+          expect(variations[index][0]).toBe(name === "bd" ? 0 : 1);
+        });
+      }
     });
 
     it("replaces transformed names with an untransformed later setter", () => {
