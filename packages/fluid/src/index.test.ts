@@ -434,6 +434,63 @@ describe("Drome", () => {
   });
 
   describe("sampler schema round-trip", () => {
+    it("supports named, scalar-variation, and shorthand construction", () => {
+      const named = new Drome().sample("bd").getSchema();
+      const scalarVariation = new Drome().sample("bd", 2).getSchema();
+      const shorthand = new Drome().sample(" bd : 2 ").getSchema();
+
+      expect(shorthand).toEqual(scalarVariation);
+      expect(named.eventPattern.variationIndices).toBeUndefined();
+      expect(scalarVariation.eventPattern.variationIndices).toEqual(
+        shorthand.eventPattern.variationIndices,
+      );
+    });
+
+    it("accepts negative and fractional shorthand variations", () => {
+      const shorthand = new Drome().sample("bd:-1.5").getSchema();
+      const scalarVariation = new Drome().sample("bd", -1.5).getSchema();
+
+      expect(shorthand).toEqual(scalarVariation);
+    });
+
+    it("allows an unnamed sampler to be built before schema generation", () => {
+      const sampler = new Drome().sample().variation(2).bank("tr909");
+
+      expect(() => sampler.getSchema()).toThrow(
+        "[Sampler] sample name is required before getSchema().",
+      );
+    });
+
+    it.each([
+      "",
+      "   ",
+      ":2",
+      "bd:",
+      "bd:not-a-number",
+      "bd:Infinity",
+      "bd:NaN",
+      "bd:1:2",
+    ])("rejects invalid sample shorthand %j", (token) => {
+      expect(() => new Drome().sample(token)).toThrow();
+    });
+
+    it("rejects ambiguous and non-finite constructor variations", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd:2", 3)).toThrow(
+        "[Drome] sample() shorthand variation cannot be combined with a second argument.",
+      );
+      expect(() => d.sample("bd", Number.NaN)).toThrow(
+        "[Drome] sample() variation must be a finite number.",
+      );
+      expect(() => d.sample(["bd", "sd"] as unknown as string)).toThrow(
+        "[Drome] sample() name must be a string.",
+      );
+      expect(() => d.sample("bd", [2, 4] as unknown as number)).toThrow(
+        "[Drome] sample() variation must be a finite number.",
+      );
+    });
+
     it("emits a valid natural-pitch sampler event schema", () => {
       const d = new Drome();
       d.sample("bd").push();

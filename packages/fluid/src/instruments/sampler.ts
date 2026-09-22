@@ -30,7 +30,7 @@ type SampleDirectionInput = SampleDirection | "for" | "rev" | "alt";
 
 class Sampler extends Instrument {
   private _bank: string;
-  private _sample: string;
+  private _sample: string | undefined;
   private _variation: AuthoredEventValues<number>;
   private _fit: FitSchema | null = null;
   private _region: RegionState | null = null;
@@ -43,7 +43,7 @@ class Sampler extends Instrument {
   dir: (direction: SampleDirectionInput) => this;
 
   constructor(
-    sample: string,
+    sample: string | undefined,
     { bank = DEFAULT_BANK, host }: SamplerOptions = {},
   ) {
     super([0], host, { a: 0.0025, r: 0.005 });
@@ -234,17 +234,17 @@ class Sampler extends Instrument {
       : undefined;
   }
 
-  private _getEventPattern(): SamplerEventPattern {
+  private _getEventPattern(sampleName: string): SamplerEventPattern {
     return compileSamplerEvents({
       pitches: this._pitches,
       timing: this._timing,
       variation: this._variation,
       timingOverride: this._getTimingOverride(),
-      sampleName: this._sample,
+      sampleName,
     });
   }
 
-  private _warnForMissingSource() {
+  private _warnForMissingSource(sampleName: string) {
     if (!this._host) return;
     const bank = this._host._resolveBank(this._bank);
     if (!bank) {
@@ -253,15 +253,23 @@ class Sampler extends Instrument {
       );
       return;
     }
-    if (!bank.samples[this._sample]) {
+    if (!bank.samples[sampleName]) {
       console.warn(
-        `[Sampler] Sample "${this._sample}" not found in bank "${this._bank}". This sampler may not produce audio.`,
+        `[Sampler] Sample "${sampleName}" not found in bank "${this._bank}". This sampler may not produce audio.`,
       );
     }
   }
 
+  private _requireSampleName() {
+    if (!this._sample) {
+      throw new Error("[Sampler] sample name is required before getSchema().");
+    }
+    return this._sample;
+  }
+
   getSchema(): SamplerSchema {
-    this._warnForMissingSource();
+    const sampleName = this._requireSampleName();
+    this._warnForMissingSource(sampleName);
     const region = getRegion({
       fitSchema: this._getGeneratedFit(),
       chopState: this._chop,
@@ -272,7 +280,7 @@ class Sampler extends Instrument {
     return {
       type: "sampler",
       bank: this._bank,
-      eventPattern: this._getEventPattern(),
+      eventPattern: this._getEventPattern(sampleName),
       fit: this._fit,
       region,
       detune: this._detune.getSchema("detune"),

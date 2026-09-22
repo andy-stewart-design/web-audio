@@ -56,13 +56,61 @@ class Drome {
     return bus;
   }
 
-  sample(nameOrToken: string, variation?: number) {
-    const [sampleName, variationStr] = nameOrToken.split(":");
+  sample(nameOrToken?: string, variation?: number) {
+    if (nameOrToken !== undefined && typeof nameOrToken !== "string") {
+      throw new Error("[Drome] sample() name must be a string.");
+    }
+
+    if (nameOrToken === undefined) {
+      if (variation !== undefined) {
+        throw new Error(
+          "[Drome] sample() variation requires a sample name argument.",
+        );
+      }
+      return new Sampler(undefined, { host: this });
+    }
+
+    const token = nameOrToken.trim();
+    const parts = token.split(":");
+    if (parts.length > 2) {
+      throw new Error(
+        "[Drome] sample() shorthand may contain at most one colon.",
+      );
+    }
+
+    const sampleName = parts[0].trim();
+    if (sampleName === "") {
+      throw new Error("[Drome] sample() name cannot be empty.");
+    }
+
+    let resolvedVariation = variation;
+    if (parts.length === 2) {
+      if (variation !== undefined) {
+        throw new Error(
+          "[Drome] sample() shorthand variation cannot be combined with a second argument.",
+        );
+      }
+
+      const variationToken = parts[1].trim();
+      const parsedVariation = Number(variationToken);
+      if (variationToken === "" || !Number.isFinite(parsedVariation)) {
+        throw new Error(
+          "[Drome] sample() shorthand variation must be a finite number.",
+        );
+      }
+      resolvedVariation = parsedVariation;
+    }
+
+    if (
+      resolvedVariation !== undefined &&
+      !Number.isFinite(resolvedVariation)
+    ) {
+      throw new Error("[Drome] sample() variation must be a finite number.");
+    }
+
     const sampler = new Sampler(sampleName, { host: this });
-    if (variationStr !== undefined) {
-      sampler.variation(parseInt(variationStr, 10));
-    } else if (variation !== undefined) {
-      sampler.variation(variation);
+    if (resolvedVariation !== undefined) {
+      sampler.variation(resolvedVariation);
     }
     return sampler;
   }
