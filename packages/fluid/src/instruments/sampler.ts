@@ -67,6 +67,7 @@ class Sampler extends Instrument {
     this._pitches.reverse();
     this._timing.reverse();
     this._variation.reverse();
+    this._sampleNames?.reverse();
     return this;
   }
 
@@ -75,6 +76,7 @@ class Sampler extends Instrument {
     this._pitches.fast(multiplier);
     this._timing.fast(multiplier);
     this._variation.fast(multiplier);
+    this._sampleNames?.fast(multiplier);
     return this;
   }
 
@@ -83,6 +85,7 @@ class Sampler extends Instrument {
     this._pitches.slow(multiplier);
     this._timing.slow(multiplier);
     this._variation.slow(multiplier);
+    this._sampleNames?.slow(multiplier);
     return this;
   }
 
@@ -91,6 +94,7 @@ class Sampler extends Instrument {
     this._pitches.stretch(bars, steps);
     this._timing.stretch(bars, steps);
     this._variation.stretch(bars, steps);
+    this._sampleNames?.stretch(bars, steps);
     return this;
   }
 
@@ -242,6 +246,7 @@ class Sampler extends Instrument {
       sampleNames: this._sampleNames,
     });
     this._materializePitchesForTransform(timing);
+    this._sampleNames?.materializeAgainstTiming(timing);
     this._variation.materializeAgainstTiming(timing);
   }
 

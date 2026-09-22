@@ -1173,6 +1173,59 @@ describe("Drome", () => {
       });
     });
 
+    it("keeps static names paired with notes and variations under reverse", () => {
+      const events = new Drome()
+        .sample("bd")
+        .name(["bd", "sd"])
+        .notes([60, 64])
+        .var([0, 1])
+        .reverse()
+        .getSchema().eventPattern;
+
+      expect(events.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["sd"], ["bd"]]],
+      });
+      expect(events.notes).toEqual({
+        type: "static",
+        cycle: [[[64], [60]]],
+      });
+      expect(events.variationIndices).toEqual({
+        type: "static",
+        cycle: [[[1], [0]]],
+      });
+    });
+
+    it("replaces transformed names with an untransformed later setter", () => {
+      const events = new Drome()
+        .sample("bd")
+        .name(["bd", "sd"])
+        .reverse()
+        .name(["hh", "oh"])
+        .getSchema().eventPattern;
+
+      expect(events.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["hh"], ["oh"]]],
+      });
+    });
+
+    it("broadcasts scalar names through static event transforms", () => {
+      const events = new Drome()
+        .sample("bd")
+        .name("sd")
+        .notes([60, 64])
+        .var([0, 1])
+        .fast(2)
+        .getSchema().eventPattern;
+
+      expect(events.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["sd"]]],
+      });
+      expect(events.timing.cycle.flat().length).toBeGreaterThan(0);
+    });
+
     it("preserves simultaneous voice order through every transform", () => {
       const transforms = [
         (sampler: Sampler) => sampler.fast(2),
