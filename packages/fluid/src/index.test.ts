@@ -585,6 +585,71 @@ describe("Drome", () => {
       });
     });
 
+    it("uses sample-name density when no stronger timing exists", () => {
+      const events = new Drome()
+        .sample()
+        .name(["bd", "sd"])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle).toEqual([
+        [
+          { offset: 0, duration: 0.5 },
+          { offset: 0.5, duration: 0.5 },
+        ],
+      ]);
+    });
+
+    it("uses notes over names and names over variations on density ties", () => {
+      const notesWin = new Drome()
+        .sample()
+        .notes([60, 64], [67, 69])
+        .name(["bd", "sd"])
+        .getSchema().eventPattern;
+      const namesWin = new Drome()
+        .sample()
+        .name("bd", "sd")
+        .var(0)
+        .getSchema().eventPattern;
+
+      expect(notesWin.timing.cycle.map((bar) => bar.length)).toEqual([2, 2]);
+      expect(namesWin.timing.cycle.map((bar) => bar.length)).toEqual([1, 1]);
+    });
+
+    it("preserves name rests over denser competing values", () => {
+      const events = new Drome()
+        .sample()
+        .notes([60, 64, 67])
+        .name(["bd", null, "sd"])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toEqual([
+        { offset: 0, duration: 1 / 3 },
+        { offset: 2 / 3, duration: 1 / 3 },
+      ]);
+    });
+
+    it("keeps explicit rhythm stronger than sample-name timing", () => {
+      const events = new Drome()
+        .sample()
+        .xox([1, 0, 1, 0])
+        .name(["bd", "sd", "hh"])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toEqual([
+        { offset: 0, duration: 0.25 },
+        { offset: 0.5, duration: 0.25 },
+      ]);
+    });
+
+    it("does not let a constructor name beat a denser authored lane", () => {
+      const events = new Drome()
+        .sample("bd")
+        .var([0, 1, 2])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toHaveLength(3);
+    });
+
     it("rejects an all-silent sample-name pattern at schema generation", () => {
       expect(() => new Drome().sample().name([null]).getSchema()).toThrow(
         "[Sampler] name() must contain at least one sample name before getSchema().",

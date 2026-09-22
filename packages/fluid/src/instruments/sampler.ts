@@ -239,6 +239,7 @@ class Sampler extends Instrument {
       pitches: this._pitches,
       timing: this._timing,
       variation: this._variation,
+      sampleNames: this._sampleNames,
     });
     this._materializePitchesForTransform(timing);
     this._variation.materializeAgainstTiming(timing);
