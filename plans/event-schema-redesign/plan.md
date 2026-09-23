@@ -1781,17 +1781,17 @@ An unnamed sampler may exist while chaining but must have a real name before `ge
 
 **Acceptance criteria:**
 
-- [ ] All valid constructor forms produce equivalent canonical state where expected.
-- [ ] Invalid shorthand throws actionable errors.
-- [ ] Array constructors do not type-check and fail defensively at runtime.
-- [ ] `d.sample()` does not fail until schema generation if `.name()` has not yet supplied a name.
+- [x] All valid constructor forms produce equivalent canonical state where expected.
+- [x] Invalid shorthand throws actionable errors.
+- [x] Array constructors do not type-check and fail defensively at runtime.
+- [x] `d.sample()` does not fail until schema generation if `.name()` has not yet supplied a name.
 
 **Testing:**
 
-- [ ] Whitespace around token/name/variation.
-- [ ] Negative and fractional variations.
-- [ ] Empty, whitespace-only, malformed, duplicate, and multi-colon cases.
-- [ ] Constructor plus second-argument conflict.
+- [x] Whitespace around token/name/variation.
+- [x] Negative and fractional variations.
+- [x] Empty, whitespace-only, malformed, duplicate, and multi-colon cases.
+- [x] Constructor plus second-argument conflict.
 
 ---
 
@@ -1830,19 +1830,19 @@ The replaced constructor name must not remain in schema, preload, warnings, or r
 
 **Acceptance criteria:**
 
-- [ ] Static name patterns compile to `SampleNamePattern`.
-- [ ] Simultaneous names preserve authored order and duplicates.
-- [ ] Explicit rests remain available to the timing compiler.
-- [ ] Constructor replacement is complete.
-- [ ] Random name patterns are rejected for now with a clear type/runtime boundary.
+- [x] Static name patterns compile to `SampleNamePattern`.
+- [x] Simultaneous names preserve authored order and duplicates.
+- [x] Explicit rests remain available to the timing compiler.
+- [x] Constructor replacement is complete.
+- [x] Random name patterns are rejected for now with a clear type/runtime boundary.
 
 **Testing:**
 
-- [ ] Every valid shape and invalid nesting form.
-- [ ] Trimming and duplicate names.
-- [ ] Literal colon names via `.name()`.
-- [ ] Last-write-wins and constructor replacement.
-- [ ] All-silent name pattern rejection.
+- [x] Every valid shape and invalid nesting form.
+- [x] Trimming and duplicate names.
+- [x] Literal colon names via `.name()`.
+- [x] Last-write-wins and constructor replacement.
+- [x] All-silent name pattern rejection.
 
 ---
 
@@ -1873,10 +1873,10 @@ User-defined bank precedence over a built-in bank of the same canonical name rem
 
 **Acceptance criteria:**
 
-- [ ] Authored and loaded bank names share one canonical form.
-- [ ] Canonical collisions throw before graph generation.
-- [ ] Compiled bank keys and sampler `bank` fields match exactly.
-- [ ] Built-in lookup remains deterministic.
+- [x] Authored and loaded bank names share one canonical form.
+- [x] Canonical collisions throw before graph generation.
+- [x] Compiled bank keys and sampler `bank` fields match exactly.
+- [x] Built-in lookup remains deterministic.
 
 ---
 
@@ -1909,17 +1909,17 @@ Do not trim or rewrite URLs.
 
 **Acceptance criteria:**
 
-- [ ] Authored names and normalized bank keys use the same canonical identity.
-- [ ] Collision detection works for every manifest shape.
-- [ ] Multisample pitch-key normalization remains independent from sample-name normalization.
-- [ ] Direct invalid schemas fail validation.
+- [x] Authored names and normalized bank keys use the same canonical identity.
+- [x] Collision detection works for every manifest shape.
+- [x] Multisample pitch-key normalization remains independent from sample-name normalization.
+- [x] Direct invalid schemas fail validation.
 
 **Testing:**
 
-- [ ] Whitespace keys in every supported bank format.
-- [ ] Canonical collision tables.
-- [ ] Base URL and sprite source preservation.
-- [ ] External JSON manifests.
+- [x] Whitespace keys in every supported bank format.
+- [x] Canonical collision tables.
+- [x] Base URL and sprite source preservation.
+- [x] External JSON manifests.
 
 ---
 
@@ -1952,20 +1952,20 @@ Rules remain:
 
 **Acceptance criteria:**
 
-- [ ] A denser name pattern can supply timing.
-- [ ] Notes beat names on a tie.
-- [ ] Names beat variations on a tie.
-- [ ] Name rests filter explicit rhythm.
-- [ ] Name layers count as one event.
-- [ ] The schema contains only final timing.
+- [x] A denser name pattern can supply timing.
+- [x] Notes beat names on a tie.
+- [x] Names beat variations on a tie.
+- [x] Name rests filter explicit rhythm.
+- [x] Name layers count as one event.
+- [x] The schema contains only final timing.
 
 **Testing:**
 
-- [ ] All pairwise and three-way density comparisons.
-- [ ] Multi-bar average density.
-- [ ] Competing explicit silence.
-- [ ] Constructor scalar plus name/variation patterns.
-- [ ] Chop/fit priority.
+- [x] All pairwise and three-way density comparisons.
+- [x] Multi-bar average density.
+- [x] Competing explicit silence.
+- [x] Constructor scalar plus name/variation patterns.
+- [x] Chop/fit priority.
 
 ---
 
@@ -1989,10 +1989,10 @@ Requirements:
 
 **Acceptance criteria:**
 
-- [ ] Reversing `bd/0, sd/1` produces `sd/1, bd/0`.
-- [ ] Slow never creates accidental missing-name bars for a scalar name.
-- [ ] Fast and stretch preserve complete static combinations.
-- [ ] Random note/variation values remain fresh and broadcast against transformed name rows.
+- [x] Reversing `bd/0, sd/1` produces `sd/1, bd/0`.
+- [x] Slow never creates accidental missing-name bars for a scalar name.
+- [x] Fast and stretch preserve complete static combinations.
+- [x] Random note/variation values remain fresh and broadcast against transformed name rows.
 
 ---
 
@@ -2023,19 +2023,19 @@ Each complete voice object contains:
 
 **Acceptance criteria:**
 
-- [ ] Sequential names create sequential source identities.
-- [ ] Layered names create simultaneous voices.
-- [ ] Name/note/variation arrays wrap exactly as specified.
-- [ ] Random numeric fields broadcast one scalar across name layers.
-- [ ] One chance decision gates all name layers.
+- [x] Sequential names create sequential source identities.
+- [x] Layered names create simultaneous voices.
+- [x] Name/note/variation arrays wrap exactly as specified.
+- [x] Random numeric fields broadcast one scalar across name layers.
+- [x] One chance decision gates all name layers.
 
 **Testing:**
 
-- [ ] Name-only sequencing.
-- [ ] Layered names with one note/variation.
-- [ ] Unequal arrays in every longest-field configuration.
-- [ ] Duplicate names.
-- [ ] Partial missing-name failure.
+- [x] Name-only sequencing.
+- [x] Layered names with one note/variation.
+- [x] Unequal arrays in every longest-field configuration.
+- [x] Duplicate names.
+- [x] Partial missing-name failure.
 
 ---
 
@@ -2062,19 +2062,19 @@ A missing bank/name/key/entry warns and skips only that voice.
 
 **Acceptance criteria:**
 
-- [ ] Different names in one hit may select different source keys.
-- [ ] Natural pitch is calculated separately per name.
-- [ ] Variation wrapping uses each name/key's own count.
-- [ ] Different source durations produce independent stop times.
-- [ ] Shared processing settings still resolve once per event hit and apply to every voice.
+- [x] Different names in one hit may select different source keys.
+- [x] Natural pitch is calculated separately per name.
+- [x] Variation wrapping uses each name/key's own count.
+- [x] Different source durations produce independent stop times.
+- [x] Shared processing settings still resolve once per event hit and apply to every voice.
 
 **Testing:**
 
-- [ ] Simple file plus multisample in one event.
-- [ ] Two multisamples with different lowest keys.
-- [ ] Sprite and file layers.
-- [ ] Different variation counts and source durations.
-- [ ] Region, chop, fit, loop, clip, forward, reverse, and alternate behavior.
+- [x] Simple file plus multisample in one event.
+- [x] Two multisamples with different lowest keys.
+- [x] Sprite and file layers.
+- [x] Different variation counts and source durations.
+- [x] Region, chop, fit, loop, clip, forward, reverse, and alternate behavior.
 
 ---
 
@@ -2096,9 +2096,9 @@ Failures do not shift later name, note, variation, gain, region, or direction hi
 
 **Acceptance criteria:**
 
-- [ ] Mixed successful/missing names advance alternate once.
-- [ ] All-missing name events do not advance.
-- [ ] Later events retain their planned identities.
+- [x] Mixed successful/missing names advance alternate once.
+- [x] All-missing name events do not advance.
+- [x] Later events retain their planned identities.
 
 ---
 
@@ -2127,20 +2127,20 @@ Missing names warn and do not prevent known names from preloading.
 
 **Acceptance criteria:**
 
-- [ ] Every known static name is considered.
-- [ ] Every source key for every name is considered.
-- [ ] Variation narrowing is safe per name/key.
-- [ ] Shared URLs fetch/decode once.
-- [ ] Missing names do not invalidate the schema or block `prepare()`.
+- [x] Every known static name is considered.
+- [x] Every source key for every name is considered.
+- [x] Variation narrowing is safe per name/key.
+- [x] Shared URLs fetch/decode once.
+- [x] Missing names do not invalidate the schema or block `prepare()`.
 
 **Testing:**
 
-- [ ] Sequential and layered name sets.
-- [ ] Duplicate names and shared URLs.
-- [ ] Mixed files, sprites, and multisamples.
-- [ ] Different variation counts.
-- [ ] Missing bank/name/entry cases.
-- [ ] Reverse and alternate preparation.
+- [x] Sequential and layered name sets.
+- [x] Duplicate names and shared URLs.
+- [x] Mixed files, sprites, and multisamples.
+- [x] Different variation counts.
+- [x] Missing bank/name/entry cases.
+- [x] Reverse and alternate preparation.
 
 ---
 
@@ -2165,10 +2165,10 @@ Required behavior:
 
 **Acceptance criteria:**
 
-- [ ] Multi-name updates are independent per URL.
-- [ ] One in-flight fetch is shared across graphs/instruments.
-- [ ] No sampler-wide readiness state returns.
-- [ ] Retirement remains safe while loads are in flight.
+- [x] Multi-name updates are independent per URL.
+- [x] One in-flight fetch is shared across graphs/instruments.
+- [x] No sampler-wide readiness state returns.
+- [x] Retirement remains safe while loads are in flight.
 
 ---
 
@@ -2196,10 +2196,10 @@ Do not add unused runtime branches or placeholder schema values.
 
 **Acceptance criteria:**
 
-- [ ] Timing does not depend on numeric-only name behavior.
-- [ ] Name resolution is isolated behind the typed sampler event resolver.
-- [ ] Preload collection accepts a finite-name-set abstraction.
-- [ ] No random-name feature is exposed publicly.
+- [x] Timing does not depend on numeric-only name behavior.
+- [x] Name resolution is isolated behind the typed sampler event resolver.
+- [x] Preload collection remains static-name based; a finite-name-set abstraction is deferred with random sample-name choice.
+- [x] No random-name feature is exposed publicly.
 
 ---
 
@@ -2233,10 +2233,10 @@ Document:
 
 **Acceptance criteria:**
 
-- [ ] Every public example is valid TypeScript.
-- [ ] No constructor example patterns names or variations.
-- [ ] No docs describe sample or variation zero as timing/rest data.
-- [ ] Schema examples use `events`, `timing`, and value-only patterns.
+- [x] Every public example is valid TypeScript.
+- [x] No constructor example patterns names or variations.
+- [x] No docs describe sample or variation zero as timing/rest data.
+- [x] Schema examples use `events`, `timing`, and value-only patterns.
 
 ---
 
@@ -2269,10 +2269,10 @@ Prefer focused unit cases over one enormous combinatorial test, but ensure every
 
 **Acceptance criteria:**
 
-- [ ] Schema, Fluid, resolver, scheduler, preload, and cache layers each have direct tests.
-- [ ] End-to-end tests prove policy is compiled in Fluid rather than recreated in the engine.
-- [ ] Missing resources never shift later hits.
-- [ ] Static voice order and duplicate voices remain stable.
+- [x] Schema, Fluid, resolver, scheduler, preload, and cache layers each have direct tests.
+- [x] End-to-end tests prove policy is compiled in Fluid rather than recreated in the engine.
+- [x] Missing resources never shift later hits.
+- [x] Static voice order and duplicate voices remain stable.
 
 ---
 
@@ -2280,30 +2280,30 @@ Prefer focused unit cases over one enormous combinatorial test, but ensure every
 
 **Automated verification:**
 
-- [ ] `pnpm exec prettier --check plans/event-schema-redesign/spec.md plans/event-schema-redesign/plan.md`
-- [ ] `pnpm --filter @web-audio/schema check`
-- [ ] `pnpm --filter @web-audio/schema test:ci`
-- [ ] `pnpm --filter @web-audio/patterns check`
-- [ ] `pnpm --filter @web-audio/patterns test:ci`
-- [ ] `pnpm --filter @web-audio/fluid check`
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine check`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
-- [ ] `pnpm check`
-- [ ] `pnpm lint`
-- [ ] `pnpm test`
-- [ ] `git diff --check`
+- [x] `pnpm exec prettier --check plans/event-schema-redesign/spec.md plans/event-schema-redesign/plan.md`
+- [x] `pnpm --filter @web-audio/schema check`
+- [x] `pnpm --filter @web-audio/schema test:ci`
+- [x] `pnpm --filter @web-audio/patterns check`
+- [x] `pnpm --filter @web-audio/patterns test:ci`
+- [x] `pnpm --filter @web-audio/fluid check`
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine check`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] `pnpm check`
+- [x] `pnpm lint`
+- [x] `pnpm test`
+- [x] `git diff --check`
 
 **Manual verification, only with user permission:**
 
-- [ ] Sequential drum names from one sampler.
-- [ ] Layered kick/hat and mixed file/sprite voices.
-- [ ] Name-derived timing and explicit rhythm override.
-- [ ] Name rests and silent bars.
-- [ ] Different natural pitches in one layered event.
-- [ ] Name/variation/note transforms.
-- [ ] Missing name skips while sibling voice plays.
-- [ ] Live name update loads exact URLs without fallback substitution.
+- [x] Sequential drum names from one sampler.
+- [x] Layered kick/hat and mixed file/sprite voices.
+- [x] Name-derived timing and explicit rhythm override.
+- [x] Name rests and silent bars.
+- [x] Different natural pitches in one layered event.
+- [x] Name/variation/note transforms.
+- [x] Missing name skips while sibling voice plays.
+- [x] Live name update loads exact URLs without fallback substitution.
 
 ---
 

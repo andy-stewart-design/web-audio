@@ -117,6 +117,10 @@ A note, sample-name, or variation pattern resolved with `(barIndex, hitIndex)`. 
 
 A gain, detune, envelope, effect, region, or other numeric pattern resolved for an event. Processing patterns never contribute event timing.
 
+### Sample Name Pattern
+
+A static event-value pattern containing one or more sample names per hit, or `null` for an authored whole-hit rest. Names are resolved after timing is compiled. Simultaneous names create sampler voices, shorter name lanes wrap, and duplicate names remain distinct voices. Random sample-name choice is not currently exposed.
+
 ### Pattern Modifier
 
 A Fluid rhythm function (`.euclid()`, `.xox()`, `.hex()`, etc.) applied during authoring. Fixed masks and rests are compiled away before the playback schema reaches the engine.

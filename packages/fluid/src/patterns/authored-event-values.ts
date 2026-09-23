@@ -16,6 +16,7 @@ type RandomAuthoredValues = {
 };
 
 type AuthoredEventValuesOptions<T> = {
+  normalizeValue?: (value: T) => T;
   validateValue?: (value: T) => boolean;
   invalidValueMessage?: string;
   invalidGroupMessage?: string;
@@ -149,8 +150,7 @@ function normalizeBar<T>(
 ) {
   if (input === null) return [null];
   if (!Array.isArray(input)) {
-    validateValue(input, options);
-    return [[input]];
+    return [[normalizeValue(input, options)]];
   }
   if (input.length === 0) return [null];
 
@@ -163,8 +163,7 @@ function normalizeHit<T>(
 ) {
   if (hit === null) return null;
   if (!Array.isArray(hit)) {
-    validateValue(hit, options);
-    return [hit];
+    return [normalizeValue(hit, options)];
   }
   if (hit.length === 0) {
     throw new Error(
@@ -178,8 +177,13 @@ function normalizeHit<T>(
         "[Fluid] Authored event value null is only allowed as a whole-hit rest.",
     );
   }
-  hit.forEach((value) => validateValue(value, options));
-  return [...hit];
+  return hit.map((value) => normalizeValue(value, options));
+}
+
+function normalizeValue<T>(value: T, options: AuthoredEventValuesOptions<T>) {
+  const normalized = options.normalizeValue?.(value) ?? value;
+  validateValue(normalized, options);
+  return normalized;
 }
 
 function validateValue<T>(value: T, options: AuthoredEventValuesOptions<T>) {

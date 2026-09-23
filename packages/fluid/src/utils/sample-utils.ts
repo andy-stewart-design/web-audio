@@ -12,6 +12,36 @@ import { noteStringToMidi } from "./note-string-to-midi";
 const invalidManifestMessage =
   "Invalid sample manifest: expected a sample bank, banked sample bank, multisample bank, or sprite bank";
 
+function normalizeBankName(name: string) {
+  const normalized = name.trim();
+  if (normalized === "") {
+    throw new Error("[Bank] name cannot be empty.");
+  }
+  return normalized;
+}
+
+function normalizeSampleName(name: string) {
+  const normalized = name.trim();
+  if (normalized === "") {
+    throw new Error("[Samples] sample name cannot be empty.");
+  }
+  return normalized;
+}
+
+function setNormalizedSample<T>(
+  samples: Record<string, T>,
+  name: string,
+  value: T,
+) {
+  const normalizedName = normalizeSampleName(name);
+  if (Object.prototype.hasOwnProperty.call(samples, normalizedName)) {
+    throw new Error(
+      `[Samples] sample name "${name}" conflicts with existing canonical name "${normalizedName}".`,
+    );
+  }
+  samples[normalizedName] = value;
+}
+
 // -----------------------------------------------------------------------------
 // Normalization
 // -----------------------------------------------------------------------------
@@ -38,7 +68,9 @@ function _normalizeSimpleSamples(
 ): BankSchema["samples"] {
   const normalized: BankSchema["samples"] = {};
   for (const [name, paths] of Object.entries(samples)) {
-    normalized[name] = { "0": _normalizeFileVariations(paths, basePath) };
+    setNormalizedSample(normalized, name, {
+      "0": _normalizeFileVariations(paths, basePath),
+    });
   }
   return normalized;
 }
@@ -46,14 +78,15 @@ function _normalizeSimpleSamples(
 // Multisample authoring uses pitch names like "a2" and "c#4". Normalized bank
 // schemas use stringified MIDI numbers like "45" so runtime lookup is simple.
 function _pitchKeyToMidi(key: string) {
-  if (!/^[A-Ga-g][#b]?-?\d+$/.test(key)) {
-    throw new Error(`Invalid sample pitch key "${key}"`);
+  if (/^-?\d+$/.test(key)) {
+    const midi = Number(key);
+    if (midi >= 0 && midi <= 127) return midi;
+  } else if (/^[A-Ga-g][#b]?-?\d+$/.test(key)) {
+    const midi = noteStringToMidi(key as never);
+    if (midi !== null) return midi;
   }
 
-  const midi = noteStringToMidi(key as never);
-  if (midi === null) throw new Error(`Invalid sample pitch key "${key}"`);
-
-  return midi;
+  throw new Error(`Invalid sample pitch key "${key}"`);
 }
 
 function _normalizeMultiSamples(
@@ -63,11 +96,32 @@ function _normalizeMultiSamples(
   const normalized: BankSchema["samples"] = {};
 
   for (const [sampleName, keyedSamples] of Object.entries(samples)) {
-    normalized[sampleName] = {};
-    for (const [key, paths] of Object.entries(keyedSamples)) {
-      normalized[sampleName][String(_pitchKeyToMidi(key))] =
-        _normalizeFileVariations(paths, baseUrl);
+    if (Array.isArray(keyedSamples)) {
+      setNormalizedSample(normalized, sampleName, {
+        "0": _normalizeFileVariations(keyedSamples, baseUrl),
+      });
+      continue;
     }
+
+    const normalizedKeyedSamples: BankSchema["samples"][string] = {};
+    for (const [key, paths] of Object.entries(keyedSamples)) {
+      const normalizedKey = String(_pitchKeyToMidi(key));
+      if (
+        Object.prototype.hasOwnProperty.call(
+          normalizedKeyedSamples,
+          normalizedKey,
+        )
+      ) {
+        throw new Error(
+          `[Samples] pitch key "${key}" conflicts with existing canonical key "${normalizedKey}".`,
+        );
+      }
+      normalizedKeyedSamples[normalizedKey] = _normalizeFileVariations(
+        paths,
+        baseUrl,
+      );
+    }
+    setNormalizedSample(normalized, sampleName, normalizedKeyedSamples);
   }
 
   return normalized;
@@ -82,9 +136,9 @@ function _normalizeSpriteSamples(input: SpriteSampleBank) {
   const normalized: BankSchema["samples"] = {};
 
   for (const [sampleName, leaf] of Object.entries(input.samples)) {
-    normalized[sampleName] = {
+    setNormalizedSample(normalized, sampleName, {
       "0": _normalizeSpriteLeaf(_resolveSrc(input.src, input.baseUrl), leaf),
-    };
+    });
   }
 
   return normalized;
@@ -94,11 +148,12 @@ function _normalizePitchedSpriteSamples(input: PitchedSpriteSampleBank) {
   const normalized: BankSchema["samples"] = {};
 
   for (const [sampleName, keyedRegions] of Object.entries(input.samples)) {
-    normalized[sampleName] = {};
+    const normalizedKeyedRegions: BankSchema["samples"][string] = {};
     for (const [key, leaf] of Object.entries(keyedRegions)) {
-      normalized[sampleName][String(_pitchKeyToMidi(key))] =
+      normalizedKeyedRegions[String(_pitchKeyToMidi(key))] =
         _normalizeSpriteLeaf(_resolveSrc(input.src, input.baseUrl), leaf);
     }
+    setNormalizedSample(normalized, sampleName, normalizedKeyedRegions);
   }
 
   return normalized;
@@ -230,6 +285,13 @@ function isPitchedSpriteSampleBank(
 function isMultiSampleBank(obj: unknown): obj is MultiSampleBank {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
   const record = obj as Record<string, unknown>;
+  if (
+    Object.keys(record).some(
+      (key) => key !== "bank" && key !== "baseUrl" && key !== "samples",
+    )
+  ) {
+    return false;
+  }
   const samples = record.samples;
   if (!samples || typeof samples !== "object" || Array.isArray(samples)) {
     return false;
@@ -237,15 +299,18 @@ function isMultiSampleBank(obj: unknown): obj is MultiSampleBank {
 
   return Object.values(samples as Record<string, unknown>).every(
     (value) =>
-      !!value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      Object.values(value as Record<string, unknown>).every(_isStringArray),
+      _isStringArray(value) ||
+      (!!value &&
+        typeof value === "object" &&
+        !Array.isArray(value) &&
+        Object.values(value as Record<string, unknown>).every(_isStringArray)),
   );
 }
 
 export {
   invalidManifestMessage,
+  normalizeBankName,
+  normalizeSampleName,
   isMultiSampleBank,
   isBanked,
   isBankedBank,

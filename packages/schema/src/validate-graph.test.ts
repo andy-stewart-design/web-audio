@@ -1050,6 +1050,41 @@ describe("validateDromeGraph", () => {
     },
   );
 
+  it("rejects non-canonical bank, sample, and event names", () => {
+    expect(() =>
+      validateDromeGraph(
+        schema({}, [], {
+          " drums ": validBank,
+        }),
+      ),
+    ).toThrow('[Schema] Bank name " drums " is not canonical.');
+
+    expect(() =>
+      validateDromeGraph(
+        schema({}, [], {
+          drums: {
+            samples: {
+              " bd ": { "0": [{ type: "file", src: "bd.wav" }] },
+            },
+          },
+        }),
+      ),
+    ).toThrow('[Schema] banks["drums"].samples[" bd "] name is not canonical.');
+
+    expect(() =>
+      validateDromeGraph(
+        schema({}, [
+          sampler("drums", {
+            timing: timing(),
+            sampleNames: { type: "static", cycle: [[[" bd "]]] },
+          }),
+        ]),
+      ),
+    ).toThrow(
+      "[Schema] Instrument 0.eventPattern.sampleNames.cycle[0][0][0] is not a valid sample name.",
+    );
+  });
+
   it.each(["01", " 60 ", "-0", "1.0", "not-a-number"])(
     "rejects non-canonical source key %j",
     (sourceKey) => {

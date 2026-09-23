@@ -135,7 +135,7 @@ A waveform describes the shape of a synthesizer’s oscillator that defines its 
 
 ### Sampler
 
-Sampler is an instrument that plays recorded audio instead of generating sound internally. It maps note values to audio files and schedules playback within pattern steps. Ideal for drums, loops, impacts, and textures.
+A sampler is an instrument that plays recorded audio instead of generating sound internally. It resolves each sample name independently through its bank, source keys, and variations. Note values select pitch, natural-pitch playback uses the lowest source key at rate `1`, and missing resources skip only the affected voice while loading or warning. Samplers are ideal for drums, loops, impacts, and textures.
 
 ### Sample
 
@@ -147,7 +147,7 @@ A sample bank is a named collection of recorded sounds. It groups categories of 
 
 ### Sample name
 
-A sample name identifies a logical group of audio files within a bank, such as all kick drum samples (`bd`) or snare hits (`sd`). It serves as the base identifier for playback before a specific variation is selected. Future patterned sample names will resolve in active-hit order without rests consuming names.
+A sample name identifies a logical group of audio files within a bank, such as all kick drum samples (`bd`) or snare hits (`sd`). A sampler can construct names with `d.sample("bd")` or author static name patterns with `.name()`. Sequential names advance by active hit, layered names create simultaneous voices, and rests do not consume later names. A later `.name()` call replaces the constructor name. Random sample-name choice is future work and is not currently exposed.
 
 ### Source key
 

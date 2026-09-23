@@ -94,13 +94,14 @@ async function sampler(
   samplerSchema: SamplerSchema,
   banks: Record<string, BankSchema> = fileBank(),
   buffers = cache({ "https://example.com/bd.wav": buffer() }),
+  shouldLoad = true,
 ) {
   const instance = new Sampler(
     new FakeAudioContext() as unknown as AudioContext,
     { barDuration: 2 } as AudioClock,
     { schema: samplerSchema, banks, cache: buffers },
   );
-  await instance.load();
+  if (shouldLoad) await instance.load();
   return instance;
 }
 
@@ -114,6 +115,58 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Sampler scheduling", () => {
+  it("plays cached names while new names load and retries them later", async () => {
+    const banks: Record<string, BankSchema> = fileBank();
+    banks.kit.samples.sd = {
+      "0": [{ type: "file", src: "https://example.com/sd.wav" }],
+    };
+    const entries: Record<string, AudioBuffer> = {
+      "https://example.com/bd.wav": buffer(1),
+    };
+    const buffers = cache(entries);
+    let resolveSd!: (value: AudioBuffer) => void;
+    const sdLoaded = new Promise<AudioBuffer>((resolve) => {
+      resolveSd = resolve;
+    });
+    vi.mocked(buffers.prepare).mockImplementation(async (url) => {
+      if (url === "https://example.com/sd.wav") {
+        const value = await sdLoaded;
+        entries[url] = value;
+        return value;
+      }
+      return entries[url] ?? null;
+    });
+    const instance = await sampler(
+      schema({
+        eventPattern: {
+          timing: timing(),
+          sampleNames: { type: "static", cycle: [[["bd", "sd"]]] },
+        },
+      }),
+      banks,
+      buffers,
+      false,
+    );
+
+    void instance.load();
+    instance.scheduleBar(0, 10);
+
+    expect(FakeBufferSourceNode.instances).toHaveLength(1);
+    expect(FakeBufferSourceNode.instances[0].options.buffer?.duration).toBe(1);
+
+    resolveSd(buffer(2));
+    await Promise.resolve();
+    await Promise.resolve();
+    instance.scheduleBar(1, 12);
+
+    expect(FakeBufferSourceNode.instances).toHaveLength(3);
+    expect(
+      FakeBufferSourceNode.instances
+        .slice(1)
+        .map(({ options }) => options.buffer?.duration),
+    ).toEqual([1, 2]);
+  });
+
   it("plays a natural-pitch sampler at rate one", async () => {
     const instance = await sampler(schema());
 
@@ -180,6 +233,145 @@ describe("Sampler scheduling", () => {
     expect(
       FakeBufferSourceNode.instances.map(({ options }) => options.playbackRate),
     ).toEqual([1, expect.closeTo(Math.pow(2, 2 / 12))]);
+  });
+
+  it("selects different nearest source keys for layered multisamples", async () => {
+    const banks: Record<string, BankSchema> = fileBank();
+    banks.kit.samples.low = {
+      "48": [{ type: "file", src: "https://example.com/low-48.wav" }],
+      "60": [{ type: "file", src: "https://example.com/low-60.wav" }],
+    };
+    banks.kit.samples.high = {
+      "36": [{ type: "file", src: "https://example.com/high-36.wav" }],
+      "72": [{ type: "file", src: "https://example.com/high-72.wav" }],
+    };
+    const instance = await sampler(
+      schema({
+        eventPattern: {
+          timing: timing(),
+          notes: { type: "static", cycle: [[[60, 60]]] },
+          sampleNames: { type: "static", cycle: [[["low", "high"]]] },
+        },
+      }),
+      banks,
+      cache({
+        "https://example.com/low-48.wav": buffer(),
+        "https://example.com/low-60.wav": buffer(),
+        "https://example.com/high-36.wav": buffer(),
+        "https://example.com/high-72.wav": buffer(),
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(
+      FakeBufferSourceNode.instances.map(({ options }) => options.playbackRate),
+    ).toEqual([1, expect.closeTo(Math.pow(2, -12 / 12))]);
+  });
+
+  it("selects each layered name's lowest natural source key", async () => {
+    const banks: Record<string, BankSchema> = fileBank();
+    banks.kit.samples.low = {
+      "48": [{ type: "file", src: "https://example.com/low-48.wav" }],
+      "60": [{ type: "file", src: "https://example.com/low-60.wav" }],
+    };
+    banks.kit.samples.high = {
+      "36": [{ type: "file", src: "https://example.com/high-36.wav" }],
+      "72": [{ type: "file", src: "https://example.com/high-72.wav" }],
+    };
+    const instance = await sampler(
+      schema({
+        eventPattern: {
+          timing: timing(),
+          sampleNames: { type: "static", cycle: [[["low", "high"]]] },
+        },
+      }),
+      banks,
+      cache({
+        "https://example.com/low-48.wav": buffer(1),
+        "https://example.com/low-60.wav": buffer(2),
+        "https://example.com/high-36.wav": buffer(3),
+        "https://example.com/high-72.wav": buffer(4),
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(
+      FakeBufferSourceNode.instances.map(
+        ({ options }) => options.buffer?.duration,
+      ),
+    ).toEqual([1, 3]);
+  });
+
+  it("uses each layered name's variation count and source duration", async () => {
+    const banks = fileBank("kit", "bd", [
+      "https://example.com/bd-0.wav",
+      "https://example.com/bd-1.wav",
+    ]);
+    banks.kit.samples.sd = {
+      "0": [{ type: "file", src: "https://example.com/sd-0.wav" }],
+    };
+    const instance = await sampler(
+      schema({
+        eventPattern: {
+          timing: timing([[{ offset: 0, duration: 0.25 }]]),
+          sampleNames: { type: "static", cycle: [[["bd", "sd"]]] },
+          variationIndices: { type: "static", cycle: [[[3, 1]]] },
+        },
+        clipMode: "one-shot",
+      }),
+      banks,
+      cache({
+        "https://example.com/bd-0.wav": buffer(1),
+        "https://example.com/bd-1.wav": buffer(2),
+        "https://example.com/sd-0.wav": buffer(3),
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(
+      FakeBufferSourceNode.instances.map(
+        ({ options }) => options.buffer?.duration,
+      ),
+    ).toEqual([2, 3]);
+    expect(
+      FakeBufferSourceNode.instances.map(({ stop }) => stop.mock.calls[0][0]),
+    ).toEqual([expect.closeTo(12.05), expect.closeTo(13.05)]);
+  });
+
+  it("resolves sprite and file layers independently", async () => {
+    const banks: Record<string, BankSchema> = fileBank();
+    banks.kit.samples.sd = {
+      "0": [
+        {
+          type: "sprite",
+          src: "https://example.com/kit.wav",
+          start: 0.25,
+          end: 0.75,
+        },
+      ],
+    };
+    const instance = await sampler(
+      schema({
+        eventPattern: {
+          timing: timing(),
+          sampleNames: { type: "static", cycle: [[["bd", "sd"]]] },
+        },
+      }),
+      banks,
+      cache({
+        "https://example.com/bd.wav": buffer(),
+        "https://example.com/kit.wav": buffer(8),
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeBufferSourceNode.instances).toHaveLength(2);
+    expect(FakeBufferSourceNode.instances[0].start).toHaveBeenCalledWith(10);
+    expect(FakeBufferSourceNode.instances[1].start).toHaveBeenCalledWith(10, 2);
   });
 
   it("uses random notes for source-key selection and pitch rate", async () => {
@@ -444,21 +636,79 @@ describe("Sampler scheduling", () => {
     ).toEqual([false, false, true, true]);
   });
 
-  it("does not advance alternate direction when an event emits no voices", async () => {
-    const buffers = cache({});
+  it("does not advance alternate direction when all names fail", async () => {
+    const banks: Record<string, BankSchema> = fileBank();
+    banks.kit.samples.missing = {
+      "0": [{ type: "file", src: "https://example.com/missing.wav" }],
+    };
+    banks.kit.samples.sd = {
+      "0": [{ type: "file", src: "https://example.com/sd.wav" }],
+    };
+    const buffers = cache({ "https://example.com/sd.wav": buffer() });
     const instance = await sampler(
-      schema({ direction: "alternate" }),
-      fileBank(),
+      schema({
+        eventPattern: {
+          timing: timing([
+            [{ offset: 0, duration: 1 }],
+            [{ offset: 0, duration: 1 }],
+          ]),
+          sampleNames: {
+            type: "static",
+            cycle: [[["missing"]], [["sd"]]],
+          },
+        },
+        direction: "alternate",
+      }),
+      banks,
       buffers,
     );
 
     instance.scheduleBar(0, 10);
-    vi.mocked(buffers.get).mockReturnValue(buffer());
     instance.scheduleBar(1, 12);
 
     expect(vi.mocked(buffers.get).mock.calls).toEqual([
+      ["https://example.com/missing.wav", false],
+      ["https://example.com/sd.wav", false],
+    ]);
+  });
+
+  it("preserves later name identities after partial voice failure", async () => {
+    const banks: Record<string, BankSchema> = fileBank();
+    banks.kit.samples.missing = {
+      "0": [{ type: "file", src: "https://example.com/missing.wav" }],
+    };
+    banks.kit.samples.sd = {
+      "0": [{ type: "file", src: "https://example.com/sd.wav" }],
+    };
+    const buffers = cache({
+      "https://example.com/bd.wav": buffer(),
+      "https://example.com/sd.wav": buffer(),
+    });
+    const instance = await sampler(
+      schema({
+        eventPattern: {
+          timing: timing([
+            [{ offset: 0, duration: 1 }],
+            [{ offset: 0, duration: 1 }],
+          ]),
+          sampleNames: {
+            type: "static",
+            cycle: [[["missing", "bd"]], [["sd"]]],
+          },
+        },
+        direction: "alternate",
+      }),
+      banks,
+      buffers,
+    );
+
+    instance.scheduleBar(0, 10);
+    instance.scheduleBar(1, 12);
+
+    expect(vi.mocked(buffers.get).mock.calls).toEqual([
+      ["https://example.com/missing.wav", false],
       ["https://example.com/bd.wav", false],
-      ["https://example.com/bd.wav", false],
+      ["https://example.com/sd.wav", true],
     ]);
   });
 

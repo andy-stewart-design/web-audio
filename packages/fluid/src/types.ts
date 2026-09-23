@@ -12,7 +12,8 @@ import type Parameter from "./patterns/parameter";
 import type { scaleAliasMap } from "./utils/get-scale";
 
 type CycleInput<T> = (T | T[])[] | [RandomCycle];
-type NullableCycleInput<T> = (T | null | (T | null | T[])[])[] | [RandomCycle];
+type StaticNullableCycleInput<T> = (T | null | (T | null | T[])[])[];
+type NullableCycleInput<T> = StaticNullableCycleInput<T> | [RandomCycle];
 
 type AudioParamSource = Parameter | Envelope | Lfo | MidiCc;
 type AudioParamInput = CycleInput<number> | [Envelope] | [Lfo] | [MidiCc];
@@ -41,8 +42,9 @@ type SpriteSampleBank = SpriteBank<Record<string, SpriteLeaf>>;
 type PitchedSpriteSampleBank = SpriteBank<
   Record<string, Record<string, SpriteLeaf>>
 >;
+type MultiSampleValue = string[] | Record<string, string[]>;
 type MultiSampleBank = {
-  samples: Record<string, Record<string, string[]>>;
+  samples: Record<string, MultiSampleValue>;
   baseUrl?: string;
 };
 type LoadSamplesInput =
@@ -61,6 +63,7 @@ export type {
   AudioParamSource,
   CycleInput,
   NullableCycleInput,
+  StaticNullableCycleInput,
   ScaleAlias,
   NoteName,
   NoteValue,

@@ -14,7 +14,7 @@ Synthesizers and samplers receive explicit `events.timing` separately from their
 
 Static patterns contain values only. Random numeric patterns use `valuesPerBar`; they do not carry timing grids or chance policy. Chords and sampler layers are explicit voice arrays, and every voice in one event shares its hit index.
 
-Sampler notes are optional. When absent, the engine selects the lowest source key derived from normalized bank data and plays it at rate `1`. An absent variation pattern means variation `0`.
+Sampler notes and sample names are resolved as independent voice dimensions. Names are static schema values; simultaneous names create voices, shorter name/note/variation groups wrap, and duplicate names remain distinct voices. When notes are absent, the engine selects the lowest source key for each name and plays it at rate `1`. An absent variation pattern means variation `0`.
 
 Sampler note and variation groups are layered voice dimensions. The engine chooses their longest group length and wraps shorter groups. A random variation resolves once per event and broadcasts that one value across every static layer. It rounds each resolved variation value, then positively wraps it by the selected source key's variation count; missing variation entries skip only their affected voice.
 
@@ -24,7 +24,7 @@ Alternate sample direction is event-based: all successful layers in one event us
 
 Sample entries are resolved from `bank → sample name → source key → variation`. Source keys are derived from normalized bank data rather than serialized on instruments. Pitched playback selects the nearest key, using the lower key for midpoint ties.
 
-Decoded buffers are shared by exact resolved URL. Concurrent requests for one URL share one fetch and decode; different URLs never substitute for each other. A voice whose exact URL is not loaded starts or joins a background load, warns, and skips its scheduled time. Later hits may use the completed load. Reverse buffers are shared per decoded buffer.
+Decoded buffers are shared by exact resolved URL. Concurrent requests for one URL share one fetch and decode; different URLs never substitute for each other. A voice whose exact URL is not loaded starts or joins a background load, warns, and skips its scheduled time. Later hits may use the completed load; no other sample name is substituted. Reverse buffers are shared per decoded buffer.
 
 `prepare()` builds a conservative preload plan from fixed sample names, all bank-derived source keys, and every provably possible variation. Broad random variation patterns preload every available variation. Missing external resources warn but do not invalidate an otherwise structurally valid graph.
 

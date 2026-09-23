@@ -11,13 +11,13 @@ Drome does not use a separate pattern language. Patterns are written with JavaSc
 
 A step is one subdivision of a pattern. A single value creates a one-step pattern:
 
-```js
+```ts
 d.synth().notes(60).push();
 ```
 
 An array creates a pattern with one step per item:
 
-```js
+```ts
 d.synth().notes([60, 64, 67, 71]).push();
 ```
 
@@ -27,13 +27,13 @@ That pattern has four steps. Since every pattern lasts one bar, each step takes 
 
 A step can hold a single note:
 
-```js
+```ts
 d.synth().notes([60, 64, 67, 71]).push();
 ```
 
 A step can also hold a chord. A chord is written as an array inside the pattern array:
 
-```js
+```ts
 d.synth()
   .notes([[60, 64, 67]])
   .push();
@@ -41,7 +41,7 @@ d.synth()
 
 That is one step containing three notes, so all three notes play together. A chord counts as one hit for gain, detune, variation, effects, and other event-addressed value patterns. You can mix chords and single notes in the same pattern:
 
-```js
+```ts
 d.synth()
   .notes([[60, 64], 67, [71, 74]])
   .push();
@@ -49,13 +49,29 @@ d.synth()
 
 Silence is represented with `null`, `undefined`, or an empty slot:
 
-```js
+```ts
 d.synth().notes([60, null, 64, undefined]).push();
 
 d.synth().notes([60, , 64, 67]).push();
 ```
 
-These authored silent steps still take up time. They are rests, not shortened patterns. Fluid removes them from the compiled timing candidates while preserving the offsets of active steps. Rests do not consume notes, gain values, sample variations, effect values, or other values resolved for a hit.
+These authored silent steps still take up time. They are rests, not shortened patterns. Fluid removes them from the compiled timing candidates while preserving the offsets of active steps. Rests do not consume notes, sample names, gain values, sample variations, effect values, or other values resolved for a hit.
+
+## Sample names
+
+Samplers use sample names as event values. An unnamed sampler can receive a static name pattern with `.name()`:
+
+```ts
+d.sample().name(["bd", "sd"]).push();
+d.sample()
+  .name([["bd", "hh"], "sd"])
+  .push();
+d.sample().name(["bd", null, "sd", null]).push();
+```
+
+A nested array is one simultaneous voice group. `null` is a whole-hit rest. Names may be supplied as multiple bars with separate arguments, and a later `.name()` call replaces the previous constructor or authored name pattern. Random sample-name choice is not part of the current API.
+
+Names, notes, and variations are independent value lanes. The longest lane wraps shorter lanes, while duplicate names remain duplicate voices. Without explicit rhythm, average density selects timing with notes ahead of names and names ahead of variations on ties. Explicit rhythm and chop/fit timing are stronger; authored rests filter the final timing and do not consume later values.
 
 ## Patterns last one bar
 
@@ -63,19 +79,19 @@ A pattern always stretches across one bar, no matter how many steps it contains.
 
 A four-step pattern divides the bar into four equal parts:
 
-```js
+```ts
 d.synth().notes([60, 60, 60, 60]).push();
 ```
 
 An eight-step pattern divides the same bar into eight equal parts:
 
-```js
+```ts
 d.synth().notes([60, 60, 60, 60, 60, 60, 60, 60]).push();
 ```
 
 A three-step pattern divides the bar into three equal parts:
 
-```js
+```ts
 d.synth().notes([60, 64, 67]).push();
 ```
 
@@ -98,7 +114,7 @@ This makes it easy to write patterns that feel straight, syncopated, uneven, or 
 
 You are not limited to one pattern. If you pass multiple patterns, Drome plays one pattern per bar, then loops back to the beginning. The full repeating sequence is called a **cycle**.
 
-```js
+```ts
 d.synth().notes([60, null, 64, null], [60, null, 64, 67]).push();
 ```
 
@@ -130,7 +146,7 @@ Authoring rhythms and masks decide which positions become compiled timing candid
 
 The surviving candidates become **hits**, and event-addressed value patterns advance only when a hit occurs.
 
-```js
+```ts
 d.synth("saw").notes([60, 64]).gain([0.25, 1]).euclid(2, 4).push();
 ```
 
@@ -140,7 +156,7 @@ This rule also applies to random masks: a random-mask miss is not a hit and cons
 
 Hit numbering restarts within each bar, while pattern bars continue to advance normally. These two gain forms therefore retain different meanings:
 
-```js
+```ts
 .gain([0.25, 1]) // two values within each bar, selected by hit
 .gain(0.25, 1)   // one value in bar 1, then one value in bar 2
 ```
@@ -161,7 +177,7 @@ Value patterns contain no offsets or durations. Their bars and hits wrap indepen
 
 Sampler variations are event values rather than timing steps. `.var()` accepts bars, sequential hits, simultaneous voice groups, and whole-hit rests:
 
-```js
+```ts
 d.sample("bd").var([0, 1, 2]).push();
 d.sample("bd")
   .var([

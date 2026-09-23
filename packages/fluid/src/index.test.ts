@@ -434,6 +434,308 @@ describe("Drome", () => {
   });
 
   describe("sampler schema round-trip", () => {
+    it("supports named, scalar-variation, and shorthand construction", () => {
+      const named = new Drome().sample("bd").getSchema();
+      const scalarVariation = new Drome().sample("bd", 2).getSchema();
+      const shorthand = new Drome().sample(" bd : 2 ").getSchema();
+
+      expect(shorthand).toEqual(scalarVariation);
+      expect(named.eventPattern.variationIndices).toBeUndefined();
+      expect(scalarVariation.eventPattern.variationIndices).toEqual(
+        shorthand.eventPattern.variationIndices,
+      );
+    });
+
+    it("accepts negative and fractional shorthand variations", () => {
+      const shorthand = new Drome().sample("bd:-1.5").getSchema();
+      const scalarVariation = new Drome().sample("bd", -1.5).getSchema();
+
+      expect(shorthand).toEqual(scalarVariation);
+    });
+
+    it("allows an unnamed sampler to be built before schema generation", () => {
+      const sampler = new Drome().sample().variation(2).bank("tr909");
+
+      expect(() => sampler.getSchema()).toThrow(
+        "[Sampler] sample name is required before getSchema().",
+      );
+    });
+
+    it.each([
+      "",
+      "   ",
+      ":2",
+      "bd:",
+      "bd:not-a-number",
+      "bd:Infinity",
+      "bd:NaN",
+      "bd:1:2",
+    ])("rejects invalid sample shorthand %j", (token) => {
+      expect(() => new Drome().sample(token)).toThrow();
+    });
+
+    it("rejects ambiguous and non-finite constructor variations", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd:2", 3)).toThrow(
+        "[Drome] sample() shorthand variation cannot be combined with a second argument.",
+      );
+      expect(() => d.sample("bd", Number.NaN)).toThrow(
+        "[Drome] sample() variation must be a finite number.",
+      );
+      expect(() => d.sample(["bd", "sd"] as unknown as string)).toThrow(
+        "[Drome] sample() name must be a string.",
+      );
+      expect(() => d.sample("bd", [2, 4] as unknown as number)).toThrow(
+        "[Drome] sample() variation must be a finite number.",
+      );
+    });
+
+    it("serializes static sample names as bars, hits, and voices", () => {
+      const sequential = new Drome()
+        .sample()
+        .name([" bd ", "sd"])
+        .getSchema().eventPattern;
+      const multiBar = new Drome()
+        .sample()
+        .name("bd", "sd")
+        .getSchema().eventPattern;
+      const layered = new Drome()
+        .sample()
+        .name([["bd", "hh"]])
+        .getSchema().eventPattern;
+      const duplicate = new Drome()
+        .sample()
+        .name([["bd", "bd"]])
+        .getSchema().eventPattern;
+
+      expect(sequential.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd"], ["sd"]]],
+      });
+      expect(multiBar.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd"]], [["sd"]]],
+      });
+      expect(layered.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd", "hh"]]],
+      });
+      expect(duplicate.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd", "bd"]]],
+      });
+    });
+
+    it("replaces the constructor and previous sample names", () => {
+      const schema = new Drome().sample("bd").name("sd").name("hh").getSchema();
+
+      expect(schema.eventPattern.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["hh"]]],
+      });
+    });
+
+    it("treats colons in name patterns literally", () => {
+      const schema = new Drome().sample().name("bd:2").getSchema();
+
+      expect(schema.eventPattern.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd:2"]]],
+      });
+    });
+
+    it("rejects invalid sample-name patterns", () => {
+      const d = new Drome();
+
+      expect(() => d.sample().name()).toThrow(
+        "[Sampler] name() requires at least one pattern.",
+      );
+      expect(() => d.sample().name([""])).toThrow(
+        "[Sampler] name() sample names must be non-empty.",
+      );
+      expect(() => d.sample().name([[]])).toThrow(
+        "[Sampler] name() simultaneous voice groups cannot be empty.",
+      );
+      expect(() =>
+        d.sample().name([["bd", null]] as unknown as string),
+      ).toThrow("[Sampler] name() null is only allowed as a whole-hit rest.");
+      expect(() => d.sample().name(d.rand() as unknown as string)).toThrow(
+        "[Sampler] name() does not support random patterns.",
+      );
+    });
+
+    it("compiles sample-name rests into timing", () => {
+      const interleaved = new Drome()
+        .sample()
+        .name(["bd", null, "sd"])
+        .getSchema().eventPattern;
+      const silentBar = new Drome()
+        .sample()
+        .name([], ["sd"])
+        .getSchema().eventPattern;
+
+      expect(interleaved.timing.cycle[0]).toEqual([
+        { offset: 0, duration: 1 / 3 },
+        { offset: 2 / 3, duration: 1 / 3 },
+      ]);
+      expect(interleaved.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd"], ["sd"]]],
+      });
+      expect(silentBar.timing.cycle).toEqual([
+        [],
+        [{ offset: 0, duration: 1 }],
+      ]);
+      expect(silentBar.sampleNames).toEqual({
+        type: "static",
+        cycle: [[null], [["sd"]]],
+      });
+    });
+
+    it("uses sample-name density when no stronger timing exists", () => {
+      const events = new Drome()
+        .sample()
+        .notes(60)
+        .name(["bd", "sd"])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle).toEqual([
+        [
+          { offset: 0, duration: 0.5 },
+          { offset: 0.5, duration: 0.5 },
+        ],
+      ]);
+    });
+
+    it("compares all three authored timing densities", () => {
+      const events = new Drome()
+        .sample()
+        .notes(60)
+        .name(["bd", "sd"])
+        .var([0, 1, 2])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toHaveLength(3);
+    });
+
+    it("counts layered names as one timing hit", () => {
+      const events = new Drome()
+        .sample()
+        .name([["bd", "hh"], "sd"])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toHaveLength(2);
+    });
+
+    it("uses notes over names and names over variations on density ties", () => {
+      const notesWin = new Drome()
+        .sample()
+        .notes([60, 64], [67, 69])
+        .name(["bd", "sd"])
+        .getSchema().eventPattern;
+      const namesWin = new Drome()
+        .sample()
+        .name("bd", "sd")
+        .var(0)
+        .getSchema().eventPattern;
+
+      expect(notesWin.timing.cycle.map((bar) => bar.length)).toEqual([2, 2]);
+      expect(namesWin.timing.cycle.map((bar) => bar.length)).toEqual([1, 1]);
+    });
+
+    it("preserves name rests over denser competing values", () => {
+      const events = new Drome()
+        .sample()
+        .notes([60, 64, 67])
+        .name(["bd", null, "sd"])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toEqual([
+        { offset: 0, duration: 1 / 3 },
+        { offset: 2 / 3, duration: 1 / 3 },
+      ]);
+    });
+
+    it("keeps explicit rhythm stronger than sample-name timing", () => {
+      const events = new Drome()
+        .sample()
+        .xox([1, 0, 1, 0])
+        .name(["bd", "sd", "hh"])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toEqual([
+        { offset: 0, duration: 0.25 },
+        { offset: 0.5, duration: 0.25 },
+      ]);
+    });
+
+    it("filters explicit rhythm by sample-name rests", () => {
+      const events = new Drome()
+        .sample()
+        .xox([1, 1, 1, 1])
+        .name(["bd", null, "sd"])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toEqual([
+        { offset: 0, duration: 0.25 },
+        { offset: 0.5, duration: 0.25 },
+        { offset: 0.75, duration: 0.25 },
+      ]);
+    });
+
+    it("repeats sample-name rests across a denser explicit rhythm", () => {
+      const events = new Drome()
+        .sample()
+        .name(["bd", null, "sd", null])
+        .xox([1, 1, 1, 1, 1, 1, 1, 1])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toEqual([
+        { offset: 0, duration: 0.125 },
+        { offset: 0.25, duration: 0.125 },
+        { offset: 0.5, duration: 0.125 },
+        { offset: 0.75, duration: 0.125 },
+      ]);
+      expect(events.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd"], ["sd"]]],
+      });
+    });
+
+    it("uses a denser note lane while filtering it by sample-name rests", () => {
+      const events = new Drome()
+        .sample()
+        .name(["piano", null])
+        .notes([0, 2, 4, 6])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toHaveLength(2);
+      expect(events.notes).toEqual({
+        type: "static",
+        cycle: [[[0], [2]]],
+      });
+      expect(events.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["piano"]]],
+      });
+    });
+
+    it("does not let a constructor name beat a denser authored lane", () => {
+      const events = new Drome()
+        .sample("bd")
+        .var([0, 1, 2])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toHaveLength(3);
+    });
+
+    it("rejects an all-silent sample-name pattern at schema generation", () => {
+      expect(() => new Drome().sample().name([null]).getSchema()).toThrow(
+        "[Sampler] name() must contain at least one sample name before getSchema().",
+      );
+    });
+
     it("emits a valid natural-pitch sampler event schema", () => {
       const d = new Drome();
       d.sample("bd").push();
@@ -951,6 +1253,118 @@ describe("Drome", () => {
       });
     });
 
+    it("keeps static names paired with notes and variations under reverse", () => {
+      const events = new Drome()
+        .sample("bd")
+        .name(["bd", "sd"])
+        .notes([60, 64])
+        .var([0, 1])
+        .reverse()
+        .getSchema().eventPattern;
+
+      expect(events.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["sd"], ["bd"]]],
+      });
+      expect(events.notes).toEqual({
+        type: "static",
+        cycle: [[[64], [60]]],
+      });
+      expect(events.variationIndices).toEqual({
+        type: "static",
+        cycle: [[[1], [0]]],
+      });
+    });
+
+    it("wraps shorter static name lanes after reversing longer variation lanes", () => {
+      const events = new Drome()
+        .sample()
+        .name(["bd", "sd"])
+        .var([0, 2, 1])
+        .reverse()
+        .getSchema().eventPattern;
+
+      expect(events.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["sd"], ["bd"]]],
+      });
+      expect(events.variationIndices).toEqual({
+        type: "static",
+        cycle: [[[1], [2], [0]]],
+      });
+    });
+
+    it("keeps complete static name rows paired through speed and stretch", () => {
+      const transforms = [
+        (sampler: Sampler) => sampler.fast(2),
+        (sampler: Sampler) => sampler.slow(2),
+        (sampler: Sampler) => sampler.stretch(2),
+      ];
+
+      for (const transform of transforms) {
+        const events = transform(
+          new Drome()
+            .sample("bd")
+            .name(["bd", "sd"])
+            .notes([60, 64])
+            .var([0, 1]),
+        ).getSchema().eventPattern;
+        if (
+          events.notes?.type !== "static" ||
+          events.variationIndices?.type !== "static" ||
+          events.sampleNames.type !== "static"
+        ) {
+          throw new Error("Expected static event patterns.");
+        }
+
+        const names = events.sampleNames.cycle
+          .flat()
+          .filter((group): group is string[] => group !== null);
+        const notes = events.notes.cycle
+          .flat()
+          .filter((group): group is number[] => group !== null);
+        const variations = events.variationIndices.cycle
+          .flat()
+          .filter((group): group is number[] => group !== null);
+        expect(names).toHaveLength(notes.length);
+        expect(names).toHaveLength(variations.length);
+        names.forEach(([name], index) => {
+          expect(notes[index][0]).toBe(name === "bd" ? 60 : 64);
+          expect(variations[index][0]).toBe(name === "bd" ? 0 : 1);
+        });
+      }
+    });
+
+    it("replaces transformed names with an untransformed later setter", () => {
+      const events = new Drome()
+        .sample("bd")
+        .name(["bd", "sd"])
+        .reverse()
+        .name(["hh", "oh"])
+        .getSchema().eventPattern;
+
+      expect(events.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["hh"], ["oh"]]],
+      });
+    });
+
+    it("broadcasts scalar names through static event transforms", () => {
+      const events = new Drome()
+        .sample("bd")
+        .name("sd")
+        .notes([60, 64])
+        .var([0, 1])
+        .fast(2)
+        .getSchema().eventPattern;
+
+      expect(events.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["sd"]]],
+      });
+      expect(events.timing.cycle.flat().length).toBeGreaterThan(0);
+    });
+
     it("preserves simultaneous voice order through every transform", () => {
       const transforms = [
         (sampler: Sampler) => sampler.fast(2),
@@ -1254,15 +1668,43 @@ describe("Drome", () => {
       });
     });
 
-    it("registers named banks without polluting the user bank", () => {
+    it("normalizes named banks and sampler bank references", () => {
       const d = new Drome();
-      d.loadSamples({ bank: "mykit", samples: { kick: ["url.wav"] } });
+      d.loadSamples({ bank: " mykit ", samples: { kick: ["url.wav"] } });
+      d.sample("kick").bank(" mykit ").push();
 
       const schema = d.getSchema();
+      expect(schema.instruments[0].type).toBe("sampler");
+      if (schema.instruments[0].type === "sampler") {
+        expect(schema.instruments[0].bank).toBe("mykit");
+      }
       expect(schema.banks.mykit.samples.kick).toEqual({
         "0": [{ type: "file", src: "url.wav" }],
       });
+      expect(schema.banks[" mykit "]).toBeUndefined();
       expect(schema.banks.user).toBeUndefined();
+    });
+
+    it("rejects empty bank names at Fluid boundaries", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").bank("   ")).toThrow(
+        "[Bank] name cannot be empty.",
+      );
+      expect(() =>
+        d.loadSamples({ bank: "   ", samples: { kick: ["url.wav"] } }),
+      ).toThrow("[Bank] name cannot be empty.");
+    });
+
+    it("rejects named-bank collisions created by trimming", () => {
+      const d = new Drome();
+      d.loadSamples({ bank: " mykit ", samples: { kick: ["one.wav"] } });
+
+      expect(() =>
+        d.loadSamples({ bank: "mykit", samples: { snare: ["two.wav"] } }),
+      ).toThrow(
+        '[Drome] Bank name "mykit" conflicts with existing bank "mykit".',
+      );
     });
 
     it("custom named banks take precedence over built-in banks", () => {
@@ -1279,7 +1721,7 @@ describe("Drome", () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: vi.fn().mockResolvedValue({
-          bank: "remote",
+          bank: " remote ",
           samples: { kick: ["remote.wav"] },
         }),
       });
