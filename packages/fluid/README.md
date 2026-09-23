@@ -14,7 +14,37 @@ Fixed rhythm masks and rests are compiled into timing and do not cross the engin
 
 Static value patterns contain raw values only; random numeric patterns contain per-bar value counts and random-generation settings. Neither carries offsets, durations, masks, or serialized step indices.
 
-This PR keeps one fixed sample name per sampler. Natural-pitch samplers omit `events.notes`, and an absent `events.variationIndices` field means variation `0`.
+Samplers may be unnamed while they are being built. A name must be supplied before schema generation, either with the constructor or with `.name()`. Natural-pitch samplers omit `events.notes`, and an absent `events.variationIndices` field means variation `0`.
+
+## Sampler names
+
+These constructor forms are equivalent where applicable:
+
+```ts
+d.sample("bd");
+d.sample("bd", 2);
+d.sample("bd:2");
+d.sample();
+```
+
+The shorthand accepts exactly one colon, trims both parts, and requires a finite numeric variation suffix. An unnamed sampler must receive a name before `getSchema()`.
+
+`.name()` replaces any constructor name and accepts sequential bars, simultaneous voices, and whole-hit rests:
+
+```ts
+d.sample().name(["bd", "sd"]).push();
+d.sample()
+  .name([["bd", "hh"], "sd"])
+  .push();
+d.sample().name(["bd", null, "sd", null]).push();
+d.sample().name("bd", "sd").push(); // two bars
+```
+
+Names, notes, and variations are independent event-value dimensions. The longest voice group supplies the voice count and shorter groups wrap. Duplicate names remain duplicate voices. Random numeric notes and variations resolve one scalar per hit and broadcast across static name layers. Random sample-name choice is not currently exposed.
+
+Without explicit rhythm, notes, names, and variations compete by average sequential density; notes win ties over names, and names win ties over variations. Explicit rhythm and generated chop/fit timing are stronger. Authored rests filter the final timing and do not consume later values. Static names participate in `fast()`, `slow()`, `stretch()`, and `reverse()`; setting `.name()` later replaces the transformed name lane.
+
+Each name resolves independently through its bank, source keys, and variation entries. Natural pitch uses the lowest source key at rate `1`; a requested note selects the nearest source key. Variation indices are rounded and positively wrapped per selected source key. Missing banks, names, entries, or exact URLs warn and skip only the affected voice. Exact URLs share decoded buffers, while a newly introduced URL loads in the background for later hits.
 
 ## Sampler variations
 

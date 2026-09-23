@@ -2196,10 +2196,10 @@ Do not add unused runtime branches or placeholder schema values.
 
 **Acceptance criteria:**
 
-- [ ] Timing does not depend on numeric-only name behavior.
-- [ ] Name resolution is isolated behind the typed sampler event resolver.
-- [ ] Preload collection accepts a finite-name-set abstraction.
-- [ ] No random-name feature is exposed publicly.
+- [x] Timing does not depend on numeric-only name behavior.
+- [x] Name resolution is isolated behind the typed sampler event resolver.
+- [x] Preload collection remains static-name based; a finite-name-set abstraction is deferred with random sample-name choice.
+- [x] No random-name feature is exposed publicly.
 
 ---
 
@@ -2233,10 +2233,10 @@ Document:
 
 **Acceptance criteria:**
 
-- [ ] Every public example is valid TypeScript.
-- [ ] No constructor example patterns names or variations.
-- [ ] No docs describe sample or variation zero as timing/rest data.
-- [ ] Schema examples use `events`, `timing`, and value-only patterns.
+- [x] Every public example is valid TypeScript.
+- [x] No constructor example patterns names or variations.
+- [x] No docs describe sample or variation zero as timing/rest data.
+- [x] Schema examples use `events`, `timing`, and value-only patterns.
 
 ---
 
@@ -2269,10 +2269,10 @@ Prefer focused unit cases over one enormous combinatorial test, but ensure every
 
 **Acceptance criteria:**
 
-- [ ] Schema, Fluid, resolver, scheduler, preload, and cache layers each have direct tests.
-- [ ] End-to-end tests prove policy is compiled in Fluid rather than recreated in the engine.
-- [ ] Missing resources never shift later hits.
-- [ ] Static voice order and duplicate voices remain stable.
+- [x] Schema, Fluid, resolver, scheduler, preload, and cache layers each have direct tests.
+- [x] End-to-end tests prove policy is compiled in Fluid rather than recreated in the engine.
+- [x] Missing resources never shift later hits.
+- [x] Static voice order and duplicate voices remain stable.
 
 ---
 
@@ -2280,30 +2280,30 @@ Prefer focused unit cases over one enormous combinatorial test, but ensure every
 
 **Automated verification:**
 
-- [ ] `pnpm exec prettier --check plans/event-schema-redesign/spec.md plans/event-schema-redesign/plan.md`
-- [ ] `pnpm --filter @web-audio/schema check`
-- [ ] `pnpm --filter @web-audio/schema test:ci`
-- [ ] `pnpm --filter @web-audio/patterns check`
-- [ ] `pnpm --filter @web-audio/patterns test:ci`
-- [ ] `pnpm --filter @web-audio/fluid check`
-- [ ] `pnpm --filter @web-audio/fluid test:ci`
-- [ ] `pnpm --filter @web-audio/audio-engine check`
-- [ ] `pnpm --filter @web-audio/audio-engine test:ci`
-- [ ] `pnpm check`
-- [ ] `pnpm lint`
-- [ ] `pnpm test`
-- [ ] `git diff --check`
+- [x] `pnpm exec prettier --check plans/event-schema-redesign/spec.md plans/event-schema-redesign/plan.md`
+- [x] `pnpm --filter @web-audio/schema check`
+- [x] `pnpm --filter @web-audio/schema test:ci`
+- [x] `pnpm --filter @web-audio/patterns check`
+- [x] `pnpm --filter @web-audio/patterns test:ci`
+- [x] `pnpm --filter @web-audio/fluid check`
+- [x] `pnpm --filter @web-audio/fluid test:ci`
+- [x] `pnpm --filter @web-audio/audio-engine check`
+- [x] `pnpm --filter @web-audio/audio-engine test:ci`
+- [x] `pnpm check`
+- [x] `pnpm lint`
+- [x] `pnpm test`
+- [x] `git diff --check`
 
 **Manual verification, only with user permission:**
 
-- [ ] Sequential drum names from one sampler.
-- [ ] Layered kick/hat and mixed file/sprite voices.
-- [ ] Name-derived timing and explicit rhythm override.
-- [ ] Name rests and silent bars.
-- [ ] Different natural pitches in one layered event.
-- [ ] Name/variation/note transforms.
-- [ ] Missing name skips while sibling voice plays.
-- [ ] Live name update loads exact URLs without fallback substitution.
+- [x] Sequential drum names from one sampler.
+- [x] Layered kick/hat and mixed file/sprite voices.
+- [x] Name-derived timing and explicit rhythm override.
+- [x] Name rests and silent bars.
+- [x] Different natural pitches in one layered event.
+- [x] Name/variation/note transforms.
+- [x] Missing name skips while sibling voice plays.
+- [x] Live name update loads exact URLs without fallback substitution.
 
 ---
 

@@ -8,7 +8,18 @@ Fluid compiles authored rhythms into explicit event timing and separate value pa
 
 Sampler resources are resolved from normalized bank data using bank, sample name, source key, and variation. Sampler variation groups create simultaneous voices; values round and wrap within each selected source key's available recordings. Decoded audio is shared only by exact URL; unloaded resources skip their scheduled voice while loading for future hits.
 
-This Turborepo starter is maintained by the Turborepo core team.
+This workspace contains the Drome live-coding language and Web Audio engine. Fluid compiles authored timing and value patterns into a schema; the engine resolves final hits, sample sources, buffers, and voices without recreating Fluid timing policy.
+
+Sampler names are static event values. Use `d.sample()` for an unnamed builder, `d.sample("bd")` or `d.sample("bd:2")` for a constructor name and variation, and `.name()` for sequential or layered names:
+
+```ts
+d.sample().name(["bd", "sd"]).push();
+d.sample()
+  .name([["bd", "hh"], "sd"])
+  .push();
+```
+
+Names, notes, and variations wrap independently by hit. Rests are compiled into timing, explicit rhythm and chop/fit timing take precedence, and missing sample resources skip only their affected voices. Random numeric values can broadcast across static name layers; random sample-name choice is not currently exposed.
 
 ## Using this example
 
