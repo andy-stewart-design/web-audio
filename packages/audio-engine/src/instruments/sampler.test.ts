@@ -94,13 +94,14 @@ async function sampler(
   samplerSchema: SamplerSchema,
   banks: Record<string, BankSchema> = fileBank(),
   buffers = cache({ "https://example.com/bd.wav": buffer() }),
+  shouldLoad = true,
 ) {
   const instance = new Sampler(
     new FakeAudioContext() as unknown as AudioContext,
     { barDuration: 2 } as AudioClock,
     { schema: samplerSchema, banks, cache: buffers },
   );
-  await instance.load();
+  if (shouldLoad) await instance.load();
   return instance;
 }
 
@@ -114,6 +115,58 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Sampler scheduling", () => {
+  it("plays cached names while new names load and retries them later", async () => {
+    const banks: Record<string, BankSchema> = fileBank();
+    banks.kit.samples.sd = {
+      "0": [{ type: "file", src: "https://example.com/sd.wav" }],
+    };
+    const entries: Record<string, AudioBuffer> = {
+      "https://example.com/bd.wav": buffer(1),
+    };
+    const buffers = cache(entries);
+    let resolveSd!: (value: AudioBuffer) => void;
+    const sdLoaded = new Promise<AudioBuffer>((resolve) => {
+      resolveSd = resolve;
+    });
+    vi.mocked(buffers.prepare).mockImplementation(async (url) => {
+      if (url === "https://example.com/sd.wav") {
+        const value = await sdLoaded;
+        entries[url] = value;
+        return value;
+      }
+      return entries[url] ?? null;
+    });
+    const instance = await sampler(
+      schema({
+        eventPattern: {
+          timing: timing(),
+          sampleNames: { type: "static", cycle: [[["bd", "sd"]]] },
+        },
+      }),
+      banks,
+      buffers,
+      false,
+    );
+
+    void instance.load();
+    instance.scheduleBar(0, 10);
+
+    expect(FakeBufferSourceNode.instances).toHaveLength(1);
+    expect(FakeBufferSourceNode.instances[0].options.buffer?.duration).toBe(1);
+
+    resolveSd(buffer(2));
+    await Promise.resolve();
+    await Promise.resolve();
+    instance.scheduleBar(1, 12);
+
+    expect(FakeBufferSourceNode.instances).toHaveLength(3);
+    expect(
+      FakeBufferSourceNode.instances
+        .slice(1)
+        .map(({ options }) => options.buffer?.duration),
+    ).toEqual([1, 2]);
+  });
+
   it("plays a natural-pitch sampler at rate one", async () => {
     const instance = await sampler(schema());
 

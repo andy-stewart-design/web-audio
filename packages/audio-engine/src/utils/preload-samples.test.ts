@@ -185,6 +185,57 @@ describe("planSamplerPreloads", () => {
     ]);
   });
 
+  it("plans sequential, layered, and duplicate names as one URL set", () => {
+    const banks: Record<string, BankSchema> = {
+      kit: {
+        samples: {
+          bd: {
+            "0": [{ type: "file", src: "shared.wav" }],
+          },
+          sd: {
+            "0": [{ type: "sprite", src: "shared.wav", start: 0, end: 0.5 }],
+          },
+          piano: {
+            "48": [{ type: "file", src: "piano-48.wav" }],
+            "60": [{ type: "file", src: "piano-60.wav" }],
+          },
+        },
+      },
+    };
+    const sampler = schema();
+    sampler.eventPattern.sampleNames = {
+      type: "static",
+      cycle: [[["bd", "sd"], ["bd"]], [["piano"]]],
+    };
+
+    expect(urls(planSamplerPreloads(sampler, banks))).toEqual([
+      "piano-48.wav",
+      "piano-60.wav",
+      "shared.wav",
+    ]);
+  });
+
+  it("warns for missing names and empty entries while planning known names", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const banks: Record<string, BankSchema> = fileBank();
+    banks.kit.samples.empty = { "0": [] };
+    const sampler = schema();
+    sampler.eventPattern.sampleNames = {
+      type: "static",
+      cycle: [[["missing", "bd"], ["empty"]]],
+    };
+
+    expect(urls(planSamplerPreloads(sampler, banks))).toEqual([
+      "https://example.com/bd.wav",
+    ]);
+    expect(warn).toHaveBeenCalledWith(
+      '[Sampler] Sample "missing" not found in bank "kit"',
+    );
+    expect(warn).toHaveBeenCalledWith(
+      '[Sampler] No entries found for "kit/empty" source 0',
+    );
+  });
+
   it("marks reverse and alternate sources for reverse preparation", () => {
     expect(
       planSamplerPreloads(schema(undefined, "reverse"), fileBank()),

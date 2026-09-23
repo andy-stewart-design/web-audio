@@ -2127,20 +2127,20 @@ Missing names warn and do not prevent known names from preloading.
 
 **Acceptance criteria:**
 
-- [ ] Every known static name is considered.
-- [ ] Every source key for every name is considered.
-- [ ] Variation narrowing is safe per name/key.
-- [ ] Shared URLs fetch/decode once.
-- [ ] Missing names do not invalidate the schema or block `prepare()`.
+- [x] Every known static name is considered.
+- [x] Every source key for every name is considered.
+- [x] Variation narrowing is safe per name/key.
+- [x] Shared URLs fetch/decode once.
+- [x] Missing names do not invalidate the schema or block `prepare()`.
 
 **Testing:**
 
-- [ ] Sequential and layered name sets.
-- [ ] Duplicate names and shared URLs.
-- [ ] Mixed files, sprites, and multisamples.
-- [ ] Different variation counts.
-- [ ] Missing bank/name/entry cases.
-- [ ] Reverse and alternate preparation.
+- [x] Sequential and layered name sets.
+- [x] Duplicate names and shared URLs.
+- [x] Mixed files, sprites, and multisamples.
+- [x] Different variation counts.
+- [x] Missing bank/name/entry cases.
+- [x] Reverse and alternate preparation.
 
 ---
 
@@ -2165,10 +2165,10 @@ Required behavior:
 
 **Acceptance criteria:**
 
-- [ ] Multi-name updates are independent per URL.
-- [ ] One in-flight fetch is shared across graphs/instruments.
-- [ ] No sampler-wide readiness state returns.
-- [ ] Retirement remains safe while loads are in flight.
+- [x] Multi-name updates are independent per URL.
+- [x] One in-flight fetch is shared across graphs/instruments.
+- [x] No sampler-wide readiness state returns.
+- [x] Retirement remains safe while loads are in flight.
 
 ---
 
