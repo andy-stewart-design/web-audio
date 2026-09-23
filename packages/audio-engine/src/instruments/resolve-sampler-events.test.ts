@@ -40,6 +40,50 @@ describe("resolveSamplerEvents", () => {
     ]);
   });
 
+  it("resolves name-only sequencing with natural pitch and variation zero", () => {
+    expect(
+      resolveSamplerEvents(
+        events({
+          timing: {
+            cycle: [
+              [
+                { offset: 0, duration: 1 / 3 },
+                { offset: 1 / 3, duration: 1 / 3 },
+                { offset: 2 / 3, duration: 1 / 3 },
+              ],
+            ],
+          },
+          sampleNames: {
+            type: "static",
+            cycle: [[["bd"], ["sd"], ["hh"]]],
+          },
+        }),
+        0,
+      ).map(({ voices }) => voices),
+    ).toEqual([
+      [{ sampleName: "bd", requestedVariationIndex: 0 }],
+      [{ sampleName: "sd", requestedVariationIndex: 0 }],
+      [{ sampleName: "hh", requestedVariationIndex: 0 }],
+    ]);
+  });
+
+  it("broadcasts one note and variation across duplicate layered names", () => {
+    expect(
+      resolveSamplerEvents(
+        events({
+          notes: { type: "static", cycle: [[[60]]] },
+          sampleNames: { type: "static", cycle: [[["bd", "bd", "sd"]]] },
+          variationIndices: { type: "static", cycle: [[[2]]] },
+        }),
+        0,
+      )[0].voices,
+    ).toEqual([
+      { note: 60, sampleName: "bd", requestedVariationIndex: 2 },
+      { note: 60, sampleName: "bd", requestedVariationIndex: 2 },
+      { note: 60, sampleName: "sd", requestedVariationIndex: 2 },
+    ]);
+  });
+
   it.each([
     {
       label: "notes",
@@ -151,6 +195,27 @@ describe("resolveSamplerEvents", () => {
             },
           },
           variationIndices: { type: "static", cycle: [[[0, 1, 2]]] },
+        }),
+        0,
+      ),
+    ).toEqual([]);
+  });
+
+  it("uses one chance decision for every layered name", () => {
+    expect(
+      resolveSamplerEvents(
+        events({
+          timing: {
+            cycle: [[{ offset: 0, duration: 1 }]],
+            condition: {
+              type: "chance",
+              probability: 0,
+              segments: [{ seed: 42 }],
+              algorithm: "xor",
+              order: "forward",
+            },
+          },
+          sampleNames: { type: "static", cycle: [[["bd", "sd"]]] },
         }),
         0,
       ),

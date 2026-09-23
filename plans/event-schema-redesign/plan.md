@@ -2023,19 +2023,19 @@ Each complete voice object contains:
 
 **Acceptance criteria:**
 
-- [ ] Sequential names create sequential source identities.
-- [ ] Layered names create simultaneous voices.
-- [ ] Name/note/variation arrays wrap exactly as specified.
-- [ ] Random numeric fields broadcast one scalar across name layers.
-- [ ] One chance decision gates all name layers.
+- [x] Sequential names create sequential source identities.
+- [x] Layered names create simultaneous voices.
+- [x] Name/note/variation arrays wrap exactly as specified.
+- [x] Random numeric fields broadcast one scalar across name layers.
+- [x] One chance decision gates all name layers.
 
 **Testing:**
 
-- [ ] Name-only sequencing.
-- [ ] Layered names with one note/variation.
-- [ ] Unequal arrays in every longest-field configuration.
-- [ ] Duplicate names.
-- [ ] Partial missing-name failure.
+- [x] Name-only sequencing.
+- [x] Layered names with one note/variation.
+- [x] Unequal arrays in every longest-field configuration.
+- [x] Duplicate names.
+- [x] Partial missing-name failure.
 
 ---
 
