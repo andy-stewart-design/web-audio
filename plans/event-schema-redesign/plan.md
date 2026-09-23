@@ -2062,19 +2062,19 @@ A missing bank/name/key/entry warns and skips only that voice.
 
 **Acceptance criteria:**
 
-- [ ] Different names in one hit may select different source keys.
-- [ ] Natural pitch is calculated separately per name.
-- [ ] Variation wrapping uses each name/key's own count.
-- [ ] Different source durations produce independent stop times.
-- [ ] Shared processing settings still resolve once per event hit and apply to every voice.
+- [x] Different names in one hit may select different source keys.
+- [x] Natural pitch is calculated separately per name.
+- [x] Variation wrapping uses each name/key's own count.
+- [x] Different source durations produce independent stop times.
+- [x] Shared processing settings still resolve once per event hit and apply to every voice.
 
 **Testing:**
 
-- [ ] Simple file plus multisample in one event.
-- [ ] Two multisamples with different lowest keys.
-- [ ] Sprite and file layers.
-- [ ] Different variation counts and source durations.
-- [ ] Region, chop, fit, loop, clip, forward, reverse, and alternate behavior.
+- [x] Simple file plus multisample in one event.
+- [x] Two multisamples with different lowest keys.
+- [x] Sprite and file layers.
+- [x] Different variation counts and source durations.
+- [x] Region, chop, fit, loop, clip, forward, reverse, and alternate behavior.
 
 ---
 
@@ -2096,9 +2096,9 @@ Failures do not shift later name, note, variation, gain, region, or direction hi
 
 **Acceptance criteria:**
 
-- [ ] Mixed successful/missing names advance alternate once.
-- [ ] All-missing name events do not advance.
-- [ ] Later events retain their planned identities.
+- [x] Mixed successful/missing names advance alternate once.
+- [x] All-missing name events do not advance.
+- [x] Later events retain their planned identities.
 
 ---
 
