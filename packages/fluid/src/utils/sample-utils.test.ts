@@ -105,6 +105,35 @@ describe("sample-utils", () => {
       });
     });
 
+    it("normalizes mixed simple and numeric-key multisample banks", () => {
+      expect(
+        normalizeSampleBank({
+          bank: "manual",
+          samples: {
+            kick: ["kick.wav"],
+            snare: ["snare.wav"],
+            piano: {
+              "57": ["piano-57.wav"],
+              "69": ["piano-69.wav"],
+            },
+          },
+        }),
+      ).toEqual({
+        samples: {
+          kick: {
+            "0": [{ type: "file", src: "kick.wav" }],
+          },
+          snare: {
+            "0": [{ type: "file", src: "snare.wav" }],
+          },
+          piano: {
+            "57": [{ type: "file", src: "piano-57.wav" }],
+            "69": [{ type: "file", src: "piano-69.wav" }],
+          },
+        },
+      });
+    });
+
     it("normalizes multisample banks with baseUrl", () => {
       expect(
         normalizeSampleBank({
@@ -371,7 +400,15 @@ describe("sample-utils", () => {
       );
     });
 
-    it("detects multisample banks", () => {
+    it("detects mixed multisample banks", () => {
+      expect(
+        isMultiSampleBank({
+          samples: {
+            kick: ["kick.wav"],
+            piano: { "57": ["piano.wav"] },
+          },
+        }),
+      ).toBe(true);
       expect(
         isMultiSampleBank({ samples: { piano: { a2: ["a2.wav"] } } }),
       ).toBe(true);

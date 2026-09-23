@@ -52,6 +52,7 @@ type SamplerTimingCandidate = {
 type FixedAvailability = {
   cycle?: boolean[][];
   valuesPerBar?: number[];
+  alignment?: "hit";
 };
 
 type SamplerEventCompilerInput = {
@@ -209,13 +210,19 @@ function getSamplerEventTiming({
   sampleNames?: AuthoredEventValues<string>;
 }) {
   const explicitTiming = timingOverride ?? timing.getTimingPattern();
-  const selectedTiming =
-    explicitTiming ??
-    getInferredSamplerTiming({ pitches, variation, sampleNames });
+  const selectedCandidate = explicitTiming
+    ? undefined
+    : getInferredSamplerTiming({ pitches, variation, sampleNames });
+  const selectedTiming = explicitTiming ?? selectedCandidate!.timing;
+  const selectedSource = selectedCandidate?.source;
   return filterTimingByFixedAvailability(selectedTiming, [
-    getPitchAvailability(pitches),
-    getVariationAvailability(variation),
-    getSampleNameAvailability(sampleNames),
+    selectedSource === "notes" ? undefined : getPitchAvailability(pitches),
+    selectedSource === "variation"
+      ? undefined
+      : getVariationAvailability(variation),
+    selectedSource === "sampleNames"
+      ? undefined
+      : getSampleNameAvailability(sampleNames),
   ]);
 }
 
@@ -227,13 +234,18 @@ function getInferredSamplerTiming({
   sampleNames?: AuthoredEventValues<string>;
 }) {
   const noteEvents = pitches.getEventPattern();
-  const selectedTiming = selectSamplerTimingCandidate({
-    noteEvents,
-    pitches,
-    variation,
-    sampleNames,
-  });
-  return selectedTiming?.timing ?? noteEvents.timing;
+  return (
+    selectSamplerTimingCandidate({
+      noteEvents,
+      pitches,
+      variation,
+      sampleNames,
+    }) ?? {
+      source: "notes",
+      timing: noteEvents.timing,
+      hasRests: false,
+    }
+  );
 }
 
 function getPitchAvailability(pitches: AuthoredPitches) {
@@ -260,6 +272,7 @@ function getSampleNameAvailability(
 
   return {
     cycle: sampleNames.source.cycle.map((bar) => bar.map(Boolean)),
+    alignment: "hit",
   } satisfies FixedAvailability;
 }
 
@@ -302,7 +315,9 @@ function selectSamplerTimingCandidate({
     isDefined,
   );
 
-  const restCandidate = candidates.find((candidate) => candidate.hasRests);
+  const restCandidate = candidates.find(
+    (candidate) => candidate.hasRests && candidate.source !== "sampleNames",
+  );
   if (restCandidate) return restCandidate;
 
   return candidates.reduce<SamplerTimingCandidate | undefined>(
@@ -385,9 +400,9 @@ function filterTimingByFixedAvailability(
   return {
     condition,
     cycle: Array.from({ length: cycleLength }, (_, barIndex) =>
-      timing.cycle[barIndex % timing.cycle.length].filter((step) =>
+      timing.cycle[barIndex % timing.cycle.length].filter((step, hitIndex) =>
         activeAvailabilities.every((availability) =>
-          isFixedAvailabilityActive(availability, barIndex, step),
+          isFixedAvailabilityActive(availability, barIndex, step, hitIndex),
         ),
       ),
     ),
@@ -398,6 +413,7 @@ function isFixedAvailabilityActive(
   availability: FixedAvailability,
   barIndex: number,
   step: TimingStep,
+  hitIndex: number,
 ) {
   if (
     availability.valuesPerBar &&
@@ -409,7 +425,11 @@ function isFixedAvailabilityActive(
   if (!availability.cycle) return true;
   const bar = availability.cycle[barIndex % availability.cycle.length];
   if (bar.length === 0) return false;
-  return bar[Math.floor(step.offset * bar.length)];
+  const index =
+    availability.alignment === "hit"
+      ? hitIndex % bar.length
+      : Math.floor(step.offset * bar.length);
+  return bar[index];
 }
 
 function compileStaticTiming<T>(cycle: (T[] | null)[][]) {

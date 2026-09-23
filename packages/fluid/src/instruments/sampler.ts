@@ -246,7 +246,6 @@ class Sampler extends Instrument {
       sampleNames: this._sampleNames,
     });
     this._materializePitchesForTransform(timing);
-    this._sampleNames?.materializeAgainstTiming(timing);
     this._variation.materializeAgainstTiming(timing);
   }
 

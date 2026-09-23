@@ -679,9 +679,46 @@ describe("Drome", () => {
 
       expect(events.timing.cycle[0]).toEqual([
         { offset: 0, duration: 0.25 },
-        { offset: 0.25, duration: 0.25 },
+        { offset: 0.5, duration: 0.25 },
         { offset: 0.75, duration: 0.25 },
       ]);
+    });
+
+    it("repeats sample-name rests across a denser explicit rhythm", () => {
+      const events = new Drome()
+        .sample()
+        .name(["bd", null, "sd", null])
+        .xox([1, 1, 1, 1, 1, 1, 1, 1])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toEqual([
+        { offset: 0, duration: 0.125 },
+        { offset: 0.25, duration: 0.125 },
+        { offset: 0.5, duration: 0.125 },
+        { offset: 0.75, duration: 0.125 },
+      ]);
+      expect(events.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["bd"], ["sd"]]],
+      });
+    });
+
+    it("uses a denser note lane while filtering it by sample-name rests", () => {
+      const events = new Drome()
+        .sample()
+        .name(["piano", null])
+        .notes([0, 2, 4, 6])
+        .getSchema().eventPattern;
+
+      expect(events.timing.cycle[0]).toHaveLength(2);
+      expect(events.notes).toEqual({
+        type: "static",
+        cycle: [[[0], [2]]],
+      });
+      expect(events.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["piano"]]],
+      });
     });
 
     it("does not let a constructor name beat a denser authored lane", () => {
@@ -1236,6 +1273,24 @@ describe("Drome", () => {
       expect(events.variationIndices).toEqual({
         type: "static",
         cycle: [[[1], [0]]],
+      });
+    });
+
+    it("wraps shorter static name lanes after reversing longer variation lanes", () => {
+      const events = new Drome()
+        .sample()
+        .name(["bd", "sd"])
+        .var([0, 2, 1])
+        .reverse()
+        .getSchema().eventPattern;
+
+      expect(events.sampleNames).toEqual({
+        type: "static",
+        cycle: [[["sd"], ["bd"]]],
+      });
+      expect(events.variationIndices).toEqual({
+        type: "static",
+        cycle: [[[1], [2], [0]]],
       });
     });
 

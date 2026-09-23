@@ -42,8 +42,9 @@ type SpriteSampleBank = SpriteBank<Record<string, SpriteLeaf>>;
 type PitchedSpriteSampleBank = SpriteBank<
   Record<string, Record<string, SpriteLeaf>>
 >;
+type MultiSampleValue = string[] | Record<string, string[]>;
 type MultiSampleBank = {
-  samples: Record<string, Record<string, string[]>>;
+  samples: Record<string, MultiSampleValue>;
   baseUrl?: string;
 };
 type LoadSamplesInput =

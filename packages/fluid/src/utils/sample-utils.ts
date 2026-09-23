@@ -78,14 +78,15 @@ function _normalizeSimpleSamples(
 // Multisample authoring uses pitch names like "a2" and "c#4". Normalized bank
 // schemas use stringified MIDI numbers like "45" so runtime lookup is simple.
 function _pitchKeyToMidi(key: string) {
-  if (!/^[A-Ga-g][#b]?-?\d+$/.test(key)) {
-    throw new Error(`Invalid sample pitch key "${key}"`);
+  if (/^-?\d+$/.test(key)) {
+    const midi = Number(key);
+    if (midi >= 0 && midi <= 127) return midi;
+  } else if (/^[A-Ga-g][#b]?-?\d+$/.test(key)) {
+    const midi = noteStringToMidi(key as never);
+    if (midi !== null) return midi;
   }
 
-  const midi = noteStringToMidi(key as never);
-  if (midi === null) throw new Error(`Invalid sample pitch key "${key}"`);
-
-  return midi;
+  throw new Error(`Invalid sample pitch key "${key}"`);
 }
 
 function _normalizeMultiSamples(
@@ -95,10 +96,30 @@ function _normalizeMultiSamples(
   const normalized: BankSchema["samples"] = {};
 
   for (const [sampleName, keyedSamples] of Object.entries(samples)) {
+    if (Array.isArray(keyedSamples)) {
+      setNormalizedSample(normalized, sampleName, {
+        "0": _normalizeFileVariations(keyedSamples, baseUrl),
+      });
+      continue;
+    }
+
     const normalizedKeyedSamples: BankSchema["samples"][string] = {};
     for (const [key, paths] of Object.entries(keyedSamples)) {
-      normalizedKeyedSamples[String(_pitchKeyToMidi(key))] =
-        _normalizeFileVariations(paths, baseUrl);
+      const normalizedKey = String(_pitchKeyToMidi(key));
+      if (
+        Object.prototype.hasOwnProperty.call(
+          normalizedKeyedSamples,
+          normalizedKey,
+        )
+      ) {
+        throw new Error(
+          `[Samples] pitch key "${key}" conflicts with existing canonical key "${normalizedKey}".`,
+        );
+      }
+      normalizedKeyedSamples[normalizedKey] = _normalizeFileVariations(
+        paths,
+        baseUrl,
+      );
     }
     setNormalizedSample(normalized, sampleName, normalizedKeyedSamples);
   }
@@ -264,6 +285,13 @@ function isPitchedSpriteSampleBank(
 function isMultiSampleBank(obj: unknown): obj is MultiSampleBank {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
   const record = obj as Record<string, unknown>;
+  if (
+    Object.keys(record).some(
+      (key) => key !== "bank" && key !== "baseUrl" && key !== "samples",
+    )
+  ) {
+    return false;
+  }
   const samples = record.samples;
   if (!samples || typeof samples !== "object" || Array.isArray(samples)) {
     return false;
@@ -271,10 +299,11 @@ function isMultiSampleBank(obj: unknown): obj is MultiSampleBank {
 
   return Object.values(samples as Record<string, unknown>).every(
     (value) =>
-      !!value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      Object.values(value as Record<string, unknown>).every(_isStringArray),
+      _isStringArray(value) ||
+      (!!value &&
+        typeof value === "object" &&
+        !Array.isArray(value) &&
+        Object.values(value as Record<string, unknown>).every(_isStringArray)),
   );
 }
 
