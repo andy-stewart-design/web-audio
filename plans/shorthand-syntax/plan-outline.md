@@ -1,8 +1,12 @@
 # Shorthand Syntax Implementation Plan Outline
 
+## Status and companion documents
+
+Proposed high-level outline. [`plan.md`](./plan.md) is the detailed execution checklist, and [`spec.md`](./spec.md) is authoritative for behavior.
+
 ## Strategy
 
-Migrate incrementally at the existing schema boundary. First prove the new event-cycle representation and compiler using structured input, then replace legacy authoring state, and only then add shorthand.
+Migrate incrementally at the existing schema boundary. First prove the shared expression model, event-cycle representation, and compiler using structured input. Then replace legacy authoring state and add shorthand as a second frontend to the same evaluator.
 
 Use a one-way strangler migration rather than dual-writing state:
 
@@ -13,13 +17,23 @@ new authoring state                    → new compiler
 
 The temporary adapter is the only permitted bridge between architectures. The new compiler must not import legacy authored classes.
 
+Expressions remain at the input boundary:
+
+```text
+structured input → decode and validate ─┐
+                                        ├→ PatternExpression → evaluate → EventCycle<T>
+shorthand source → parse ───────────────┘
+```
+
+Instrument state stores evaluated event cycles, not expression trees.
+
 ## PR 1 — Characterize the existing baseline
 
 Add tests without changing behavior. Cover:
 
 - timing ownership;
-- rests and scalar broadcasting;
-- random sources;
+- current scalar broadcasting;
+- rests and random sources;
 - transforms and setter order;
 - sampler lane interactions;
 - generated chop/fit timing;
@@ -28,26 +42,35 @@ Add tests without changing behavior. Cover:
 
 These fixtures become the initial compatibility baseline.
 
-## PR 2 — Make intentional filtering changes
+## PR 2 — Land intentional event-semantics changes
 
-Implement sampler candidate-ordinal filtering as an isolated behavior change.
+Land each change as an independently reviewable step before architecture migration:
 
-- Add explicit before/after fixtures.
-- Establish the corrected behavior as the baseline for later parity comparisons.
-- Do not introduce the new architecture in this PR.
+1. Change sampler note and variation rests to candidate-ordinal filtering.
+2. Remove authored scalar broadcasting. All authored sources become patterns whose rests filter externally owned timing.
+3. Establish constructor defaults as fallback sources with nonempty groups. Defaults do not compete with or filter authored timing, fill surviving hits, and never create hits.
 
-## PR 3 — Introduce event-cycle primitives
+Include the explicit contrast:
 
-Add the internal IR and generic mechanics:
+```ts
+d.sample("bd").slow(2).xox([1, 1]);
+d.sample().name("bd").slow(2).xox([1, 1]);
+```
 
-- event, rest, and continuation steps;
-- static and random cycles;
-- `valueMode`;
-- rational geometry and expansion limits;
-- generic transforms;
+The first uses a default fallback for every surviving hit. The second is an authored pattern whose slowed rest bar can suppress hits. Promote the corrected fixtures to the baseline used by all later parity comparisons.
+
+## PR 3 — Introduce the shared expression and event-cycle primitives
+
+Add:
+
+- one generic `PatternExpression<T>` model for both frontends;
+- structured-input decoding and validation into typed expressions;
+- one evaluator for explicit bars, sequences, polyphony, rests, allocation, and limits;
+- static event/rest/continuation cycles and separate random cycle variants;
+- rational geometry and generic event-cycle transforms;
 - derived offsets and durations.
 
-`@web-audio/patterns` owns generic structure, geometry, and transforms. Fluid retains structured-input entry points, authored intent, and consumer-specific validation.
+Do not add `valueMode` or a separate shorthand AST. `@web-audio/patterns` owns the generic expression model and evaluator. Fluid owns consumer-specific structured decoding and validation.
 
 Do not cut over production behavior yet.
 
@@ -63,10 +86,10 @@ legacy authoring state
   → existing schema
 ```
 
-Prove that the adapter preserves everything representable by legacy state:
+Prove that the adapter preserves everything representable by the corrected legacy baseline:
 
-- scalar broadcasting as constant `valueMode`;
-- default versus authored intent;
+- authored patterns and default fallback intent;
+- nonempty default fallback groups;
 - static rests and silent bars;
 - random settings and values per bar;
 - transformed cycle geometry;
@@ -76,7 +99,7 @@ Prove that the adapter preserves everything representable by legacy state:
 
 Adapt authoring state directly rather than reconstructing it from compiled schema. Keep legacy getter side effects or materialization outside the pure compiler.
 
-Run old and new compilers over the same fixtures and compare their schema output.
+Run old and new compilers over the same fixtures and compare complete schema output.
 
 ## PR 5 — Cut synth compilation over
 
@@ -86,25 +109,24 @@ Switch `Synthesizer.getSchema()` to the adapter and new compiler:
 legacy synth authoring state → adapter → new compiler
 ```
 
-Remove superseded synth-only compilation code. Retain `AuthoredPitches`, `AuthoredTiming`, and the adapter until authoring state migrates later.
+Remove superseded synth-only schema wiring. Retain legacy state, the adapter, and shared helpers still required by sampler compilation or transform materialization.
 
-Once the old synth compiler is removed, use retained golden schema fixtures for subsequent parity checks rather than keeping the old compiler available.
+Once an old implementation is removed, use retained golden schema fixtures rather than keeping it solely for comparison.
 
 ## PR 6 — Cut sampler compilation over
 
 Switch sampler schema generation to the adapter and new compiler, including:
 
 - timing selection;
-- candidate availability;
+- authored candidate availability;
+- default fallback value resolution;
 - hit-index value resolution;
 - random values;
 - names, notes, and variations;
 - generated chop/fit timing overrides;
 - silent bars and voice wrapping.
 
-Remove the superseded sampler compilation path. Legacy classes remain temporarily as authoring storage.
-
-Once the old sampler compiler is removed, use retained golden schema fixtures for subsequent parity checks.
+Remove the superseded sampler `getSchema()` path. Narrowly identified legacy timing/materialization helpers may remain until PR 7.
 
 ## PR 7 — Establish transform ownership
 
@@ -114,14 +136,15 @@ Each transform must:
 
 1. select or materialize timing once, when required;
 2. transform each applicable lane exactly once;
-3. preserve generated timing exemptions;
-4. preserve setter and transform call order.
+3. preserve default fallback groups while transforming default timing geometry;
+4. preserve generated timing exemptions;
+5. preserve setter and transform call order.
 
-Add explicit sampler tests for mixed lane ordering and chop/fit interactions.
+Route transform timing selection through the new pure logic, delete the remaining old compiler helpers, and make golden fixtures the parity authority.
 
 ## PR 8 — Migrate common note and timing state
 
-Replace shared `Instrument` note and timing storage with the new event state.
+Replace shared `Instrument` note and timing storage with native event state.
 
 A temporary mixed flow may be:
 
@@ -142,31 +165,31 @@ Move sample names and variations to native event sources. Then:
 - remove or narrow `AuthoredPitches`, `AuthoredTiming`, `AuthoredEventValues`, and `MaskedCycle`;
 - remove duplicate materialization and availability helpers.
 
-Structured input now uses the new architecture end to end.
+Structured input now follows the shared expression evaluator into native event state end to end.
 
-## PR 10 — Add the shorthand parser and public AST
+## PR 10 — Add the shorthand parser to the shared expression model
 
 Implement and test:
 
-- lexer and parser;
-- readonly source-aware AST;
+- lexer and parser producing `PatternExpression<string>` directly;
+- readonly source ranges on parsed expression nodes;
 - syntax diagnostics;
+- shorthand-only alternation and postfix operators in the shared evaluator;
 - nesting and expansion limits;
 - syntax restrictions such as rejecting `[0 1,2]`.
 
-This work may proceed in parallel with PR 11 once the event-cycle IR and AST contracts are stable.
+There is no `ShorthandNode` or converted-tree lowering stage.
 
-## PR 11 — Add shorthand normalization
+## PR 11 — Add target atom interpretation and prove equivalence
 
-Normalize typed shorthand ASTs into the same event cycles as structured input.
+Add consumer callbacks that interpret shorthand atoms during evaluation:
 
-Determine `valueMode` through separate semantic analysis, not by reordering evaluation:
+- notes and variations become finite numbers;
+- sample names remain validated names;
+- XOX atoms become onsets or rests;
+- legacy compact XOX strings decode into the same expression model.
 
-> Determine `valueMode` from authored topology: sequences, alternation, polyphony, rests, and structural repetition participate in classification; speed and weight modifiers preserve it. Evaluate geometry in written operator order, including the specified speed-chain cancellation rules.
-
-This must not be implemented as “evaluate every `!` before every `*`, `/`, or `@`.”
-
-Include equivalence fixtures such as:
+No intermediate converted expression is created. Prove structured/shorthand event-cycle and schema equivalence, including:
 
 ```ts
 .var("1/2");
@@ -181,14 +204,14 @@ Include equivalence fixtures such as:
 Add:
 
 - `d.shorthand()` and `d.sh()`;
+- immutable reusable shorthand values exposing `PatternExpression<string>`;
 - direct-string dispatch;
 - shorthand support in `.notes()`, `.name()`, `.var()`, and `.xox()`;
-- target-specific atom validation;
 - sample alias restrictions;
-- public AST exports;
+- public expression node exports;
 - user documentation.
 
-Public integration remains last even if parser and normalization work proceed in parallel.
+Public integration remains last even if parser and atom-interpreter work proceed in parallel.
 
 ## Cutover gates
 
@@ -202,4 +225,4 @@ Every production cutover requires:
 - no new features implemented through superseded paths;
 - no production dependency on superseded paths except through the temporary adapter.
 
-If the adapter cannot express a legacy state identically, the mismatch must either block cutover or land first as a separate, documented behavior change.
+If the adapter cannot express corrected legacy state identically, the mismatch must either block cutover or land first as a separate, documented behavior change.

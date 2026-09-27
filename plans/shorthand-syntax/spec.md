@@ -16,7 +16,7 @@ The syntax is intentionally a subset of Tidal/Strudel mini-notation and is calle
 ## Goals
 
 - Add compact syntax for notes, sample names, variations, and XOX rhythm.
-- Give structured input and shorthand one canonical internal representation.
+- Give structured input and shorthand one shared expression model and one canonical state representation.
 - Simplify the event-pattern pipeline rather than adding shorthand in front of the existing chain.
 - Preserve established behavior unless this specification identifies an intentional change.
 - Keep the existing schema and audio-engine event model stable.
@@ -37,20 +37,26 @@ The syntax is intentionally a subset of Tidal/Strudel mini-notation and is calle
 Shorthand is an event-pattern authoring syntax, not a separate playback semantic.
 
 ```text
-structured values ─> normalizeStructuredInput() ─┐
-                                                  ├─> EventCycle<T>
-shorthand value ──> ShorthandNode ─> normalizeShorthand() ─┘
-                                                         ↓
-                                              InstrumentEventState
-                                                         ↓
-                                                  EventCompiler
-                                                         ↓
-                                           existing event-pattern schema
+structured values ─> decode and validate ─┐
+                                           ├─> PatternExpression<TAtom>
+shorthand source ──> parse ───────────────┘
+                                                      ↓
+                                evaluatePatternExpression(interpretAtom)
+                                                      ↓
+                                               EventCycle<T>
+                                                      ↓
+                                           InstrumentEventState
+                                                      ↓
+                                               EventCompiler
+                                                      ↓
+                                        existing event-pattern schema
 ```
 
-The normalizer names are intentionally analogous: they identify different input syntaxes but produce the same representation. `normalizeStructuredInput()` is broader than `normalizeArraySyntax()` because method arguments may include scalars, multiple bars, and random sources in addition to arrays.
+Structured decoding interprets method arguments, arrays, explicit bars, rests, and simultaneous voices. Shorthand parsing interprets text, grouping, alternation, and operators. Both produce the same expression-tree model, and one evaluator owns allocation, rational geometry, rests, continuations, operators, and expansion limits.
 
-Notes, sample names, variations, and explicit rhythm are distinct event lanes, each represented by an event cycle built from the same structural primitives. Fluid coordinates those lanes, selects timing, applies availability, and emits the existing schema.
+Structured values are already typed and validated. Shorthand atoms remain text until evaluation, when the consuming method supplies target-specific interpretation. Random sources retain their separate event-cycle branch rather than being forced into artificial expression nodes.
+
+Notes, sample names, variations, and explicit rhythm are distinct event lanes built from the same structural primitives. Value lanes use `EventCycle<T>`; fixed timing uses `StaticEventCycle<1>`. Fluid coordinates those lanes, selects timing, applies availability, and emits the existing schema.
 
 Processing parameters remain hit-addressed value patterns. They consume final hits but do not create or filter event timing.
 
@@ -75,13 +81,13 @@ The returned value is immutable, target-independent, and reusable:
 interface Shorthand {
   readonly type: "shorthand";
   readonly source: string;
-  readonly ast: ShorthandNode;
+  readonly expression: PatternExpression<string>;
 }
 ```
 
-The returned object is ordinary frozen data. Its `ast` is enumerable, inspectable, and fully typed.
+The returned object is ordinary frozen data. Its `expression` is enumerable, inspectable, source-aware, and fully typed. There is no separate public shorthand AST representation: the parser directly produces the same expression model used by structured input.
 
-Fluid exports `Shorthand`, `ShorthandNode`, and their supporting readonly AST types. `d.shorthand()` and `d.sh()` remain the public parser entry points; a separate `parseShorthand()` function is not part of the REPL-facing API.
+Fluid exports `Shorthand`, `PatternExpression`, and their supporting readonly node types. `d.shorthand()` and `d.sh()` remain the public parser entry points; a separate `parseShorthand()` function is not part of the REPL-facing API.
 
 ### Direct strings
 
@@ -94,7 +100,7 @@ d.sample("bd").var("0 <1 2>");
 d.sample("bd").xox("1!4 0!4");
 ```
 
-Direct strings and `d.sh()` values use exactly the same parser and normalization path.
+Direct strings and `d.sh()` values use exactly the same parser and evaluation path.
 
 ### Argument dispatch
 
@@ -136,74 +142,82 @@ The first implementation supports shorthand in:
 - `.var()` and `.variation()`;
 - `.xox()`.
 
-Each consumer supplies target-specific atom conversion while sharing structural parsing and normalization.
+Each consumer supplies target-specific atom interpretation to the shared expression evaluator.
 
 ## Syntax
 
-### AST
+### Expression model
 
-The parser returns a public, readonly, source-aware AST:
+Both frontends produce one public, readonly expression model:
 
 ```ts
-type ShorthandNode =
-  | ShorthandAtom
-  | ShorthandRest
-  | ShorthandSequence
-  | ShorthandGroup
-  | ShorthandParallel
-  | ShorthandAlternate
-  | ShorthandModifier;
+type PatternExpression<T> = {
+  readonly type: "pattern-expression";
+  readonly patterns: readonly PatternNode<T>[];
+  readonly range?: PatternRange;
+};
 
-type ShorthandRange = {
+type PatternNode<T> =
+  | PatternAtom<T>
+  | PatternRest
+  | PatternSequence<T>
+  | PatternGroup<T>
+  | PatternParallel<T>
+  | PatternAlternate<T>
+  | PatternModifier<T>;
+
+type PatternRange = {
   readonly start: number;
   readonly end: number;
 };
 
-type ShorthandAtom = {
+type PatternAtom<T> = {
   readonly type: "atom";
-  readonly value: string;
-  readonly range: ShorthandRange;
+  readonly value: T;
+  readonly range?: PatternRange;
 };
 
-type ShorthandRest = {
+type PatternRest = {
   readonly type: "rest";
-  readonly range: ShorthandRange;
+  readonly range?: PatternRange;
 };
 
-type ShorthandSequence = {
+type PatternSequence<T> = {
   readonly type: "sequence";
-  readonly children: readonly ShorthandNode[];
-  readonly range: ShorthandRange;
+  readonly children: readonly PatternNode<T>[];
+  readonly range?: PatternRange;
 };
 
-type ShorthandGroup = {
+type PatternGroup<T> = {
   readonly type: "group";
-  readonly child: ShorthandNode;
-  readonly range: ShorthandRange;
+  readonly child: PatternNode<T>;
+  readonly range?: PatternRange;
 };
 
-type ShorthandParallel = {
+type PatternParallel<T> = {
   readonly type: "parallel";
-  readonly children: readonly ShorthandNode[];
-  readonly range: ShorthandRange;
+  readonly children: readonly PatternNode<T>[];
+  readonly range?: PatternRange;
 };
 
-type ShorthandAlternate = {
+type PatternAlternate<T> = {
   readonly type: "alternate";
-  readonly children: readonly ShorthandNode[];
-  readonly range: ShorthandRange;
+  readonly children: readonly PatternNode<T>[];
+  readonly range?: PatternRange;
 };
 
-type ShorthandModifier = {
+type PatternModifier<T> = {
   readonly type: "modifier";
   readonly operator: "repeat" | "accelerate" | "slow" | "weight";
   readonly amount: string;
-  readonly child: ShorthandNode;
-  readonly range: ShorthandRange;
+  readonly child: PatternNode<T>;
+  readonly range?: PatternRange;
 };
 ```
 
-User-authored atom and operator-amount lexemes remain strings in the AST. Target conversion and rational interpretation happen during normalization.
+`patterns` represents explicit authored bars. Structured method arguments populate it directly. A shorthand source initially contains one root pattern; alternation and slowdown may produce a multi-pattern cycle during evaluation.
+
+The shorthand parser produces `PatternExpression<string>` and populates source ranges. User-authored atom and operator-amount lexemes remain strings. Structured decoding produces typed expressions and may omit text ranges. Target interpretation and rational interpretation happen during evaluation without constructing a converted expression-tree copy.
 
 Examples:
 
@@ -382,7 +396,7 @@ This differs from `!`, which inserts siblings before the parent allocates time.
 
 ### Slowdown: `/`
 
-`/n` is semantically equivalent to applying the existing `.slow(n)` transform to its operand. It slows event progression by distributing the node's existing steps across more cycles without implicitly extending their gate durations. The equivalence includes preserving the operand's `valueMode`; it is not limited to pattern geometry.
+`/n` is semantically equivalent to applying the existing `.slow(n)` transform to its operand. It slows event progression by distributing the node's existing steps across more cycles without implicitly extending their gate durations.
 
 ```txt
 60/2
@@ -432,7 +446,7 @@ A shorthand slowdown and the corresponding fluent transform therefore remain equ
 .var(1).slow(2);
 ```
 
-Both begin with a constant value group and preserve that classification through slowdown. Their normalized cycle geometry includes an event bar followed by a silent bar, but under externally owned timing the constant group `[1]` broadcasts into both bars; the generated silent bar does not filter candidates. In contrast, `.var([1], [null])` is authored as patterned and its explicit second silent bar does filter candidates.
+Both evaluate to the same authored pattern: an event bar followed by a silent bar. When another lane owns timing, the slowed rest filters candidates in both forms. `.var([1], [null])` has the same two-bar event/rest geometry.
 
 A future cross-bar `legato()` may convert slowdown gaps into continuations. For example, `.notes(60).slow(2).legato()` would sustain `60` across two bars. Cross-bar legato is not part of v1.
 
@@ -527,7 +541,7 @@ pattern → one bar
 step    → one normalized subdivision within a pattern
 ```
 
-A note, sample-name, variation, or timing **lane** contains an `EventCycle<T>`. A lane describes the lane's role in an instrument; it is not another structural level.
+A note, sample-name, or variation **lane** contains an `EventCycle<T>`. A fixed timing lane contains a `StaticEventCycle<1>`. A lane describes its role in an instrument; it is not another structural level.
 
 `EventPattern<T>` does overlap in name with the existing schema `EventPattern`. During migration, code that imports both should alias the schema type as `CompiledEventPattern` rather than inventing different musical terminology for the IR.
 
@@ -536,22 +550,11 @@ A note, sample-name, variation, or timing **lane** contains an `EventCycle<T>`. 
 A conceptual representation is:
 
 ```ts
-type EventCycle<T> = StaticValueCycle<T> | RandomEventCycle<T>;
+type EventCycle<T> = StaticEventCycle<T> | RandomEventCycle<T>;
 
 type StaticEventCycle<T> = {
   readonly type: "static-event-cycle";
   readonly patterns: readonly EventPattern<T>[];
-};
-
-type StaticValueCycle<T> = StaticEventCycle<T> & {
-  readonly valueMode:
-    | {
-        readonly type: "constant";
-        readonly group: readonly [T, ...T[]];
-      }
-    | {
-        readonly type: "patterned";
-      };
 };
 
 type RandomEventCycle<T> = {
@@ -571,7 +574,7 @@ type EventStep<T> =
   | { readonly type: "continuation" };
 ```
 
-The exact random settings and container syntax may change, but the cycle/pattern/step levels, static step variants, and constant-versus-patterned distinction are required. Random event cycles are numeric-only in v1 and preserve generation settings rather than pretending to contain static steps.
+The exact random settings and container syntax may change, but the cycle/pattern/step levels and static step variants are required. Random event cycles are numeric-only in v1 and preserve generation settings rather than pretending to contain static steps.
 
 Invariants:
 
@@ -606,7 +609,6 @@ normalizes to:
 ```ts
 {
   type: "static-event-cycle",
-  valueMode: { type: "patterned" },
   patterns: [
     [
       { type: "event", values: [0] },
@@ -632,7 +634,6 @@ normalizes to the same five-step pattern shape, but with continuations rather th
 ```ts
 {
   type: "static-event-cycle",
-  valueMode: { type: "patterned" },
   patterns: [
     [
       { type: "event", values: [0] },
@@ -651,15 +652,15 @@ This distinction is why a raw `Array<Array<T[] | null>>` is insufficient: `null`
 
 ### Why offsets and durations are derived
 
-There is no separate shorthand IR after parsing. The shorthand AST is syntax-oriented, and `normalizeShorthand()` produces the same `EventCycle<T>` as `normalizeStructuredInput()`.
+`PatternExpression<T>` exists only at the input boundary. Both frontends evaluate it into `EventCycle<T>`, and instrument state stores only event cycles. No expression tree is retained alongside canonical state.
 
 Storing `offset` and `duration` on every step would duplicate information already represented exactly by step order and continuation runs. Deriving them at the compiler boundary prevents those fields from drifting out of sync and avoids floating-point arithmetic inside the canonical IR.
 
 If an implementation needs rationals during shorthand evaluation, they are transient normalization data, not a second persistent convention.
 
-### Structured input normalization
+### Structured input decoding
 
-Structured input normalizes directly to typed event cycles; it does not pass through the shorthand AST.
+Structured input is decoded and validated into `PatternExpression<T>` before using the shared evaluator.
 
 Existing dimensions remain:
 
@@ -680,13 +681,11 @@ Examples:
 
 Structured slots receive equal allocation. Empty structured bars normalize to explicit silent bars according to existing consumer behavior. Empty simultaneous voice groups remain invalid.
 
-#### Constant versus patterned classification
+### Shared expression evaluation
 
-`valueMode` describes authored value topology, not the final transformed event grid. Classification therefore happens before timing transforms are materialized.
+All setter inputs are patterns. Scalars and one-element arrays are simply one-step repeating patterns; there is no constant-versus-patterned classification.
 
-Structured input is constant when its initial authored shape contains exactly one event with one nonempty simultaneous value group and no authored rests or alternatives. Shorthand uses the same rule after structural sequence, alternation, polyphony, rest, and `!` semantics are known, but before `*`, `/`, and `@` are materialized. Those three operators preserve their operand's classification just like the corresponding fluent timing transforms. The constant event's simultaneous values become `valueMode.group`.
-
-These forms therefore normalize as constant and are semantically equivalent:
+These forms produce the same one-step authored pattern:
 
 ```ts
 .var(1);
@@ -695,43 +694,27 @@ These forms therefore normalize as constant and are semantically equivalent:
 .var(d.sh("1"));
 ```
 
-The same rule applies to notes and names. A one-event simultaneous group may contain multiple values:
+Sequential and simultaneous structure remains distinct:
 
 ```ts
-.var([[1, 2]]); // constant group [1, 2]
-.notes([[60, 64]]); // constant group [60, 64]
+.var([1, 2]); // two sequential events
+.notes([60, 64]); // two sequential notes
+.var([[1, 2]]); // one simultaneous group
+.notes([[60, 64]]); // one chord
 ```
 
-Sequential values are patterned rather than constant:
-
-```ts
-.var([1, 2]);
-.notes([60, 64]);
-```
-
-Structural repetition also creates authored sequential topology, while speed and weight operators do not:
-
-```ts
-.var("1!2"); // patterned; equivalent to .var([1, 1])
-.var("1*2"); // constant value group with accelerated intrinsic timing
-.var("1/2"); // constant value group with slowed intrinsic timing
-```
-
-Once assigned, `valueMode` is semantic state. Transforms preserve it rather than re-inferring it from the transformed patterns. A later setter normalizes and classifies the replacement input afresh.
-
-### Shorthand normalization
-
-A shorthand value remains untyped until consumed:
+The evaluator consumes either typed structured atoms or shorthand text atoms. For shorthand, the consumer interprets each atom at the point it is evaluated:
 
 ```text
-ShorthandNode
-  → structural evaluation
-  → target atom conversion
-  → normalizeShorthand()
-  → typed EventCycle<T>
+PatternExpression<string>
+  + interpretAtom(sourceText, range)
+  → evaluatePatternExpression()
+  → EventCycle<T>
 ```
 
-Target conversion does not alter grouping, timing, rests, alternation, or operators. Shorthand evaluation carries `valueMode` alongside pattern geometry: it classifies authored value topology first and then applies `*`, `/`, and `@` without reclassifying the transformed grid.
+The callback may interpret an atom as an event value or a rest, which lets XOX map `0`, `o`, and `.` to rests without a converted expression-tree copy. Geometry still evaluates in written operator order, including speed-chain cancellation.
+
+Expressions remain at the input boundary. A setter evaluates its expression immediately and stores only the resulting event cycle. Fluent transforms operate on event cycles directly.
 
 ### Random lanes
 
@@ -746,15 +729,29 @@ Fluid owns coordinated synth and sampler event state instead of separate authore
 Conceptually:
 
 ```ts
-type EventSource<T> = {
-  readonly intent: "default" | "authored";
-  readonly cycle: EventCycle<T>;
-};
+type NonEmptyGroup<T> = readonly [T, ...T[]];
 
-type StaticEventSource<T> = {
-  readonly intent: "default" | "authored";
-  readonly cycle: StaticValueCycle<T>;
-};
+type EventSource<T> =
+  | {
+      readonly intent: "default";
+      readonly fallback: NonEmptyGroup<T>;
+      readonly cycle: StaticEventCycle<T>;
+    }
+  | {
+      readonly intent: "authored";
+      readonly cycle: EventCycle<T>;
+    };
+
+type StaticEventSource<T> =
+  | {
+      readonly intent: "default";
+      readonly fallback: NonEmptyGroup<T>;
+      readonly cycle: StaticEventCycle<T>;
+    }
+  | {
+      readonly intent: "authored";
+      readonly cycle: StaticEventCycle<T>;
+    };
 
 type TimingState = {
   readonly intent: "implicit" | "explicit";
@@ -782,6 +779,24 @@ type InstrumentEventState = SynthEventState | SamplerEventState;
 Pitch transforms and unrelated sampler configuration are omitted from the conceptual types.
 
 Intent is colocated with the source it qualifies rather than stored in a parallel metadata object. A constructor default is therefore distinguishable from an authored timing candidate without maintaining two properties that can disagree.
+
+Authored sources are always patterns. Their rests may filter externally owned candidates, and their continuations remain transparent. Default sources are fallbacks:
+
+- they do not compete with authored sources for timing;
+- they never filter externally owned timing;
+- their nonempty fallback group fills every surviving hit;
+- fallback values never create hits or turn a silent timing bar into an active one;
+- the default cycle may supply fallback timing only when no explicit, generated, or authored source supplies it.
+
+A setter always replaces a default source with an authored source, even when the setter supplies the same value:
+
+```ts
+d.sample("bd").slow(2).xox([1, 1]);
+// Default name supplies "bd" for every surviving hit.
+
+d.sample().name("bd").slow(2).xox([1, 1]);
+// Authored name rests introduced by slowdown can suppress hits.
+```
 
 Generated chop/fit timing is derived from sampler configuration and passed to the compiler as an optional timing override. It is not stored alongside authored timing in `InstrumentEventState`. This preserves the underlying implicit or explicit timing state if sampler configuration changes whether generated timing applies.
 
@@ -830,7 +845,7 @@ Samplers without explicit/generated timing use the existing inferred policy:
 1. authored fixed rests in notes or variation retain their current priority;
 2. otherwise the candidate with greatest average active density wins;
 3. density ties resolve as notes, then sample names, then variation;
-4. constructor defaults do not compete as authored intent.
+4. constructor defaults do not compete as authored intent and are used for timing only when no stronger source exists.
 
 This policy should be represented as a small declarative selection function, not distributed across lane classes.
 
@@ -857,11 +872,11 @@ The final timing is at offsets `0`, `1/2`, and `3/4`, and variations resolve as 
 Rules:
 
 - candidate ordinals count fixed active timing candidates, not raw rhythm-pattern steps;
-- each patterned lane maps every candidate ordinal to one of its steps, wrapping independently;
+- each authored lane maps every candidate ordinal to one of its steps, wrapping independently;
 - a mapped event step is available;
 - a mapped explicit rest suppresses the candidate;
 - a mapped continuation is transparent: it occupies and counts as that ordinal, but the candidate remains available;
-- a constant value cycle is available at every candidate when it does not own timing, regardless of rests introduced by transforms;
+- default sources do not filter candidates and provide their fallback group to surviving hits;
 - availability from multiple authored event lanes is intersected;
 - the selected timing lane is not redundantly reapplied as a filter;
 - fixed filtering happens before runtime chance;
@@ -908,7 +923,7 @@ name:       bd         sd         bd
 variation:  0          1          2
 ```
 
-Value lanes continue to wrap independently. Sampler voice groups continue to pair using existing longest-group wrapping behavior in the engine.
+Authored value lanes continue to wrap independently. Default lanes use their nonempty fallback group for every surviving hit. Sampler voice groups continue to pair using existing longest-group wrapping behavior in the engine.
 
 ### Event duration
 
@@ -936,8 +951,9 @@ No stage silently deletes bars from a cycle.
 
 Existing call-order behavior remains part of the compatibility contract:
 
-- value setters replace only their own lane;
-- transforms preserve a static cycle's `valueMode`; it is never re-inferred from transformed patterns;
+- value setters replace only their own lane and always mark the replacement authored, even when its value equals the default;
+- all authored static sources are patterns; transforms may introduce rests that filter externally owned timing;
+- default fallback groups remain available under externally owned timing, while transforms still affect their cycle when it supplies fallback timing;
 - later setters are not retroactively transformed;
 - explicit rhythm remains after a later value setter;
 - fixed rhythm methods compose in call order;
@@ -949,7 +965,7 @@ Global event transforms should be implemented as centralized `InstrumentEventSta
 
 The implementation should not retain an open-ended operation log. Each method updates canonical state immediately through pure transformations.
 
-## Target-specific conversion
+## Target-specific atom interpretation
 
 ### Notes
 
@@ -1019,7 +1035,7 @@ Legacy strings containing only `x`, `o`, `.`, and whitespace retain current beha
 .xox("x o . x");
 ```
 
-They normalize into the same timing-lane representation as all other fixed rhythm input.
+They are decoded into the same `PatternExpression` model as all other fixed rhythm input. This compatibility decoder applies to both direct strings and a reusable `Shorthand.source` when consumed by `.xox()`; it does not add XOX-specific behavior to the generic parser or evaluator.
 
 General shorthand supports:
 
@@ -1042,17 +1058,18 @@ Polyphonic groups and other atom values are invalid. Structural operators, inclu
 
 Owns generic event-pattern mechanics:
 
-- shorthand lexing, parsing, and public readonly AST types;
+- the public readonly `PatternExpression` model;
+- shorthand lexing and parsing directly into that model;
 - source-aware syntax errors;
-- rational structural evaluation;
+- shared rational expression evaluation;
 - static event-cycle primitives;
 - generic transforms and expansion limits;
-- immutable shorthand creation and normalization support;
+- immutable shorthand creation support;
 - existing random-pattern primitives.
 
 It does not decide whether an atom is a note, sample name, variation, or XOX value.
 
-The AST is public through the returned shorthand value so users and tooling can inspect parsed syntax. The normalized event-cycle IR remains an internal implementation boundary even if private package exports are required for Fluid integration.
+The parsed expression is public through the returned shorthand value so users and tooling can inspect it. The evaluated event-cycle IR remains an internal implementation boundary even if private package exports are required for Fluid integration.
 
 ### `@web-audio/fluid`
 
@@ -1060,8 +1077,8 @@ Owns authoring semantics:
 
 - `d.shorthand()` and `d.sh()`;
 - direct-string dispatch;
-- structured-input normalization entry points;
-- target-specific atom conversion and validation;
+- structured-input decoding and validation into `PatternExpression<T>`;
+- target-specific atom interpretation during shared evaluation;
 - synth and sampler event state with colocated authored intent;
 - timing-selection policy;
 - transform/setter call order;
@@ -1069,7 +1086,7 @@ Owns authoring semantics:
 
 ### `@web-audio/schema` and `@web-audio/audio-engine`
 
-Remain unchanged for the initial redesign. They continue to consume explicit timing and hit-addressed event-value patterns.
+The schema event model remains unchanged: it continues to contain explicit timing and hit-addressed event-value patterns, with no shorthand or event-cycle IR. Schema validation is tightened only for the documented sample-alias convention. The audio engine remains unchanged.
 
 ## Compatibility policy
 
@@ -1078,9 +1095,11 @@ Existing behavior is preserved unless listed below.
 ### Intentional changes
 
 1. Sampler note and variation rests filter explicit or competing timing by candidate ordinal rather than offset-based positional resampling.
-2. A single string passed to a supported method is shorthand.
-3. Sample aliases adopt the notation-safe alphanumeric convention.
-4. `:` is rejected in `.name()` and sample-bank keys; constructor `name:variation` shorthand remains supported.
+2. Authored scalar and one-step sources are ordinary patterns. Rests introduced by transforms filter externally owned timing; there is no authored scalar-broadcast exception.
+3. Constructor defaults become explicit fallback sources: they do not compete with or filter authored timing, and their nonempty fallback group fills surviving hits without creating hits.
+4. A single string passed to a supported method is shorthand.
+5. Sample aliases adopt the notation-safe alphanumeric convention.
+6. `:` is rejected in `.name()` and sample-bank keys; constructor `name:variation` shorthand remains supported.
 
 Each change requires focused before/after tests and release documentation.
 
@@ -1092,12 +1111,12 @@ Each change requires focused before/after tests and release documentation.
 - final hit-index value resolution;
 - fixed and random rests consuming no final values;
 - random chance as one timing condition;
-- setter replacement semantics;
+- setters replacing defaults with authored sources, even when the value is unchanged;
 - transform call order;
 - note root/scale behavior;
 - sampler voice pairing and duplicate voices;
 - silent-bar schema conventions;
-- constant value groups remaining available after timing transforms;
+- default fallback groups filling surviving hits without activating silent timing;
 - schema and engine playback behavior.
 
 ## Errors and limits
@@ -1105,16 +1124,16 @@ Each change requires focused before/after tests and release documentation.
 Errors remain eager at the earliest meaningful boundary:
 
 - syntax errors occur in `d.sh()`, `d.shorthand()`, or direct-string method dispatch;
-- target conversion errors occur when a shorthand value is consumed;
+- target atom interpretation errors occur when a shorthand value is consumed;
 - structured target validation remains at the setter;
-- expansion-limit errors occur during normalization or transformation;
+- expansion-limit errors occur during evaluation or transformation;
 - missing sample resources retain existing warning behavior.
 
 Diagnostics should include the shorthand source range and target method where available.
 
 Existing cycle limits remain authoritative. The implementation must also bound:
 
-- AST node count and nesting depth;
+- expression node count and nesting depth;
 - alternation period;
 - rational denominator and normalized pattern length;
 - total steps, events, voices, patterns, and cycles;
@@ -1130,25 +1149,30 @@ The redesign lands before shorthand integration so the new syntax does not depen
 
 - Preserve focused tests for current timing ownership, rests, transforms, random patterns, silent bars, and setter order.
 - Add explicit compatibility fixtures for structured input versus final schema.
-- Change sampler note and variation availability to candidate-ordinal filtering in an isolated change.
-- Document the intentional behavior difference.
+- Change sampler note and variation availability to candidate-ordinal filtering in an isolated step.
+- Remove authored scalar broadcasting and establish default fallback semantics in a separate isolated step.
+- Document both intentional behavior differences before compiler migration.
 
-### Phase 2 — Introduce event-cycle primitives
+### Phase 2 — Introduce expressions and event-cycle primitives
 
+- Implement the shared `PatternExpression<T>` model.
+- Decode structured inputs into expressions and evaluate them through one shared evaluator.
 - Implement the static event/rest/continuation representation.
-- Add rational normalization and bounded pattern-length utilities.
-- Normalize existing structured notes into event cycles.
-- Test transformations independently from Fluid classes.
+- Add exact rational evaluation and bounded pattern-length utilities.
+- Test evaluation and transformations independently from Fluid classes.
 
-### Phase 3 — Migrate synth event compilation
+### Phase 3 — Add the migration adapter and migrate synth compilation
 
+- Introduce a one-way adapter from legacy authoring state to `InstrumentEventState`; do not dual-write either representation.
+- Preserve authored/default intent, fallback groups, cycle geometry, random settings, timing conditions, and pitch metadata.
 - Introduce pure event compilation for structured synth notes and explicit rhythm.
+- Compare old and new compilers while both exist, then retain explicit golden schema fixtures after deleting an old path.
 - Preserve random note and random XOX behavior.
 - Route synth schema generation through the new compiler.
 
 ### Phase 4 — Migrate sampler lanes
 
-- Normalize names and variations into the same lane abstraction.
+- Decode and evaluate names and variations into the same lane abstraction.
 - Centralize sampler timing selection and fixed availability.
 - Preserve independent value wrapping, voices, random variation, and default intent.
 - Route sampler schema generation through the new compiler.
@@ -1157,26 +1181,28 @@ The redesign lands before shorthand integration so the new syntax does not depen
 
 - Move event transforms into `InstrumentEventState` operations.
 - Preserve call-order characterization tests.
+- Remove the temporary adapter once every event lane uses native event state.
 - Remove or narrow `MaskedCycle`, `AuthoredPitches`, `AuthoredEventValues`, and `AuthoredTiming` once no production path depends on them.
 - Remove duplicate timing and availability helpers.
 
 ### Phase 6 — Add shorthand
 
-- Implement the lexer, parser, public readonly AST types, diagnostics, and immutable shorthand value.
-- Normalize shorthand to the same typed event cycles as structured input.
+- Implement the lexer and parser directly against the shared expression model.
+- Add source-aware diagnostics and immutable shorthand values exposing `PatternExpression<string>`.
+- Interpret shorthand atoms during the same evaluator already used by structured input.
 - Add direct-string dispatch and `d.shorthand()`/`d.sh()`.
-- Normalize legacy XOX strings through the same rhythm-lane path.
+- Decode legacy compact XOX strings into the same expression model.
 
 ### Phase 7 — Cleanup and documentation
 
-- Remove temporary migration adapters.
+- Remove any remaining migration-only exports or comments.
 - Update public pattern and sampler documentation.
 - Document sample-name migration constraints.
 - Confirm that no schema or engine shorthand concepts were introduced.
 
 ## Testing requirements
 
-### Structural normalization
+### Expression evaluation and cycle normalization
 
 Cover:
 
@@ -1184,8 +1210,9 @@ Cover:
 - polyphony, duplicate voices, invalid rest voices, and invalid mixed forms such as `[0 1,2]`;
 - alternation and nested alternation;
 - `!`, `*`, `/`, and `@`;
-- `valueMode` classification before shorthand timing modifiers;
-- exact equivalence between `"1/2"` and `.var(1).slow(2)` under inferred and external timing;
+- structured decoding and shorthand parsing producing the same expression-node model;
+- atom interpretation during evaluation without a converted-tree copy;
+- exact pattern equivalence between `"1/2"` and `.var(1).slow(2)` under inferred and external timing;
 - scalar and sibling slowdown, including the exact `60/2 1` result;
 - uninterrupted `*`/`/` rate cancellation without duration drift;
 - weighted-alternation retriggering before and after acceleration;
@@ -1202,7 +1229,7 @@ For syntax with a structured equivalent, compare typed lanes and final schema ou
 - rests and chords;
 - repetitions and flattened groups;
 - direct strings versus `d.sh()` values;
-- target conversion errors;
+- target atom interpretation errors;
 - single versus multiple method arguments.
 
 `@` tests should compare exact continuation steps, derived durations, and schema timing. They do not require the future public `.legato()` method.
@@ -1218,8 +1245,11 @@ Cover:
 - intersections of rests from multiple lanes;
 - random timing and random values;
 - chance misses consuming no values;
-- scalar/default versus authored intent;
-- constant versus patterned `valueMode`, including preservation through transforms;
+- default fallback versus authored pattern intent;
+- authored slowed rests filtering externally owned timing;
+- default transformed cycles not filtering externally owned timing;
+- fallback groups never creating hits or activating silent timing bars;
+- setters replacing defaults with authored sources even for equal values;
 - voice order, duplicate voices, and wrapping;
 - root/scale transforms;
 - transform and setter call order;
@@ -1235,6 +1265,15 @@ d.sample("bd").var([0, null, 2]).xox([1, 1, 1, 1]);
 ```
 
 The accepted result has candidates at `0`, `1/2`, and `3/4`, with values `0`, `2`, and `0`.
+
+Also include the intentional authored/default contrast:
+
+```ts
+d.sample("bd").slow(2).xox([1, 1]);
+d.sample().name("bd").slow(2).xox([1, 1]);
+```
+
+The first uses `bd` as a default fallback for every surviving hit. The second is an authored pattern whose slowed rest bar can suppress hits.
 
 ### Regression verification
 
@@ -1252,11 +1291,12 @@ git diff --check
 
 The work is complete when:
 
-- structured event inputs and shorthand normalize to the same event-cycle representation;
+- structured event inputs and shorthand produce one expression model and use one evaluator;
+- evaluated expressions are discarded and instrument state stores only event cycles;
 - shorthand does not pass through the legacy authored-class chain;
 - sampler event lanes use candidate-ordinal availability consistently;
 - event timing and values compile to the existing schema;
 - transforms and setter ordering retain characterized behavior;
 - old event-pattern infrastructure is removed or has a clearly narrower remaining responsibility;
-- the readonly shorthand AST is publicly inspectable while the normalized event-cycle IR remains internal;
+- the readonly parsed `PatternExpression<string>` is publicly inspectable while the evaluated event-cycle IR remains internal;
 - all compatibility changes are documented and tested.

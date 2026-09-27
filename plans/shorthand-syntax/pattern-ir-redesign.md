@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by [`spec.md`](./spec.md). This document is retained as design history; where it differs from the specification, the specification is authoritative.
+Superseded by [`spec.md`](./spec.md). This document is retained as design history and does not describe the current implementation plan. In particular, the current design uses one shared `PatternExpression<T>` model for structured and shorthand input rather than the separate shorthand-AST lowering described below. Where this document differs from the specification or [`plan.md`](./plan.md), those documents are authoritative.
 
 ## Central idea
 
