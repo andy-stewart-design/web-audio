@@ -313,7 +313,7 @@ const eventSchemaFixtures = [
     },
   },
   {
-    name: "note rests use legacy offset filtering against explicit timing",
+    name: "note rests wrap by candidate ordinal against explicit timing",
     createInstrument: () =>
       new Drome().sample("bd").notes([60, null, 64]).xox([1, 1, 1, 1]),
     expected: {
@@ -321,19 +321,19 @@ const eventSchemaFixtures = [
         cycle: [
           [
             { offset: 0, duration: 0.25 },
-            { offset: 0.25, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
             { offset: 0.75, duration: 0.25 },
           ],
         ],
         condition: undefined,
       },
       sampleNames: { type: "static", cycle: [[["bd"]]] },
-      notes: { type: "static", cycle: [[[60], [64]]] },
+      notes: { type: "static", cycle: [[[60], [64], [60]]] },
       variationIndices: undefined,
     },
   },
   {
-    name: "variation rests use legacy offset filtering against explicit timing",
+    name: "variation rests wrap by candidate ordinal against explicit timing",
     createInstrument: () =>
       new Drome().sample("bd").variation([0, null, 2]).xox([1, 1, 1, 1]),
     expected: {
@@ -341,7 +341,7 @@ const eventSchemaFixtures = [
         cycle: [
           [
             { offset: 0, duration: 0.25 },
-            { offset: 0.25, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
             { offset: 0.75, duration: 0.25 },
           ],
         ],
@@ -350,6 +350,69 @@ const eventSchemaFixtures = [
       sampleNames: { type: "static", cycle: [[["bd"]]] },
       notes: undefined,
       variationIndices: { type: "static", cycle: [[[0], [2]]] },
+    },
+  },
+  {
+    name: "multi-bar note rests wrap within each bar against sparse XOX candidates",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .notes([60, null, 64], [67, null])
+        .xox([1, 0, 1, 0, 1, 0, 1, 0]),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.125 },
+            { offset: 0.5, duration: 0.125 },
+            { offset: 0.75, duration: 0.125 },
+          ],
+          [
+            { offset: 0, duration: 0.125 },
+            { offset: 0.5, duration: 0.125 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: {
+        type: "static",
+        cycle: [
+          [[60], [64], [60]],
+          [[67], [67]],
+        ],
+      },
+      variationIndices: undefined,
+    },
+  },
+  {
+    name: "multi-bar variation rests wrap within each bar against explicit timing",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .variation([0, null, 2], [3, null])
+        .xox([1, 1, 1, 1]),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+            { offset: 0.75, duration: 0.25 },
+          ],
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: undefined,
+      variationIndices: {
+        type: "static",
+        cycle: [[[0], [2]], [[3]]],
+      },
     },
   },
   {
@@ -560,7 +623,7 @@ const eventSchemaFixtures = [
     },
   },
   {
-    name: "all authored sampler rest lanes intersect explicit timing",
+    name: "all authored sampler rest lanes intersect by original candidate ordinal",
     createInstrument: () =>
       new Drome()
         .sample("kick")
@@ -570,12 +633,36 @@ const eventSchemaFixtures = [
         .xox([1, 1, 1, 1]),
     expected: {
       timing: {
-        cycle: [[{ offset: 0, duration: 0.25 }]],
+        cycle: [
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+          ],
+        ],
         condition: undefined,
       },
-      notes: { type: "static", cycle: [[[60]]] },
+      notes: { type: "static", cycle: [[[60], [60]]] },
       sampleNames: { type: "static", cycle: [[["bd"], ["sd"]]] },
       variationIndices: { type: "static", cycle: [[[0], [2], [3]]] },
+    },
+  },
+  {
+    name: "inferred note timing is not filtered again by its own rest positions",
+    createInstrument: () =>
+      new Drome().sample("bd").notes([60, null, 64]).variation([0, 1, 2, 3]),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 1 / 3 },
+            { offset: 2 / 3, duration: 1 / 3 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]]] },
+      notes: { type: "static", cycle: [[[60], [64]]] },
+      variationIndices: { type: "static", cycle: [[[0], [1], [2], [3]]] },
     },
   },
   {

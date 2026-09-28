@@ -387,17 +387,17 @@ describe("instrument event schemas", () => {
 
     expect(pitchRests.timing.cycle[0]).toEqual([
       { offset: 0, duration: 0.25 },
-      { offset: 0.25, duration: 0.25 },
+      { offset: 0.5, duration: 0.25 },
       { offset: 0.75, duration: 0.25 },
     ]);
     expect(variationRests.timing.cycle[0]).toEqual([
       { offset: 0, duration: 0.25 },
-      { offset: 0.25, duration: 0.25 },
+      { offset: 0.5, duration: 0.25 },
       { offset: 0.75, duration: 0.25 },
     ]);
     expect(pitchRests.notes).toEqual({
       type: "static",
-      cycle: [[[60], [64]]],
+      cycle: [[[60], [64], [60]]],
     });
     expect(variationRests.variationIndices).toEqual({
       type: "static",
@@ -414,8 +414,50 @@ describe("instrument event schemas", () => {
 
     expect(events.timing.cycle[0]).toEqual([
       { offset: 0, duration: 1 / 6 },
-      { offset: 1 / 6, duration: 1 / 6 },
+      { offset: 3 / 6, duration: 1 / 6 },
     ]);
+  });
+
+  it("filters fixed candidates before preserving a random timing condition", () => {
+    const events = new Sampler("kick")
+      .variation([0, null, 2])
+      .xox(new RandomCycle().bin().steps(4).chance(0.25))
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 0.25 },
+      { offset: 0.5, duration: 0.25 },
+      { offset: 0.75, duration: 0.25 },
+    ]);
+    expect(events.timing.condition).toMatchObject({
+      type: "chance",
+      probability: 0.25,
+    });
+    expect(events.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[0], [2]]],
+    });
+  });
+
+  it("keeps random zero-values-per-bar suppression after fixed note filtering", () => {
+    const events = new Sampler("kick")
+      .notes([60, null, 64])
+      .variation(new RandomCycle().steps(2, 0).int())
+      .xox([1, 1, 1, 1])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle).toEqual([
+      [
+        { offset: 0, duration: 0.25 },
+        { offset: 0.5, duration: 0.25 },
+        { offset: 0.75, duration: 0.25 },
+      ],
+      [],
+    ]);
+    expect(events.variationIndices).toMatchObject({
+      type: "random-number",
+      valuesPerBar: [2, 0],
+    });
   });
 
   it("preserves multi-bar rest alignment and active zero values", () => {

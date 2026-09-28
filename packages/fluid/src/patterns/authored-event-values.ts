@@ -28,6 +28,7 @@ type AuthoredEventValuesInput<T> = T | null | (T | T[] | null)[];
 class AuthoredEventValues<T> {
   private _source: StaticAuthoredValues<T> | RandomAuthoredValues;
   private _hasAuthoredValues = false;
+  private _materializedAgainstTiming = false;
 
   private constructor(
     source: StaticAuthoredValues<T> | RandomAuthoredValues,
@@ -84,6 +85,10 @@ class AuthoredEventValues<T> {
     return this._source;
   }
 
+  get materializedAgainstTiming() {
+    return this._materializedAgainstTiming;
+  }
+
   get hasRests() {
     return (
       this._source.type === "static" &&
@@ -108,6 +113,7 @@ class AuthoredEventValues<T> {
     const { cycle, mask } = new EventTiming(timing).alignValues(source);
     const values = new MaskedCycle(cycle).xox(...mask).transformedValues;
     this._source = { type: "static", cycle: values };
+    this._materializedAgainstTiming = true;
     return this;
   }
 

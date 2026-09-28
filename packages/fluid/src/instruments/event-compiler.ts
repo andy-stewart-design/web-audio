@@ -23,6 +23,7 @@ type StaticNoteSource = {
   cycle: MaskedCycle<Chord>;
   scalar: Chord | undefined;
   transform: (value: number) => number;
+  resolveActiveValues?: boolean;
 };
 
 type RandomNoteSource = {
@@ -52,7 +53,8 @@ type SamplerTimingCandidate = {
 type FixedAvailability = {
   cycle?: boolean[][];
   valuesPerBar?: number[];
-  alignment?: "hit";
+  // Materialization creates timing-grid gaps, not candidate-ordinal rests.
+  alignment?: "timing-grid";
 };
 
 type SamplerEventCompilerInput = {
@@ -76,9 +78,12 @@ function compileStaticNoteEvents(
   source: StaticNoteSource,
   explicitTiming: TimingPattern | undefined,
 ) {
-  const sourceBars = source.cycle.activeEvents.map((bar) =>
-    bar.map((chord) => normalizeChord(chord, source.transform)),
-  );
+  const sourceBars = source.cycle.activeEvents.map((bar) => {
+    const chords = bar.map((chord) => normalizeChord(chord, source.transform));
+    return source.resolveActiveValues
+      ? chords.filter((chord): chord is number[] => chord !== null)
+      : chords;
+  });
   const scalar = normalizeChord(source.scalar, source.transform);
   const timing = explicitTiming ?? source.cycle.candidateTiming;
   const condition = timing.condition && cloneCondition(timing.condition);
@@ -188,7 +193,7 @@ function compileSamplerEvents({
     timingOverride,
     sampleNames,
   });
-  const noteEvents = pitches.getEventPattern(filteredTiming);
+  const noteEvents = pitches.getEventPattern(filteredTiming, true);
   const notes = pitches.hasRequestedPitches ? noteEvents.notes : undefined;
 
   return finalizeSamplerEvents({
@@ -254,6 +259,7 @@ function getPitchAvailability(pitches: AuthoredPitches) {
   return {
     cycle: pitches.getFixedAvailability(),
     valuesPerBar: pitches.getRandomValuesPerBar(),
+    alignment: pitches.materializedAgainstTiming ? "timing-grid" : undefined,
   } satisfies FixedAvailability;
 }
 
@@ -272,23 +278,23 @@ function getSampleNameAvailability(
 
   return {
     cycle: sampleNames.source.cycle.map((bar) => bar.map(Boolean)),
-    alignment: "hit",
   } satisfies FixedAvailability;
 }
 
 function getVariationAvailability(variation: AuthoredEventValues<number>) {
   if (!variation.hasAuthoredValues) return undefined;
 
-  const availability =
-    variation.source.type === "random"
-      ? { valuesPerBar: variation.source.cycle.getRandomSchema().valuesPerBar }
-      : variation.source.broadcastValue
-        ? undefined
-        : { cycle: variation.source.cycle.map((bar) => bar.map(Boolean)) };
+  if (variation.source.type === "random") {
+    return {
+      valuesPerBar: variation.source.cycle.getRandomSchema().valuesPerBar,
+    } satisfies FixedAvailability;
+  }
+  if (variation.source.broadcastValue) return undefined;
 
-  if (!availability) return undefined;
-
-  return availability satisfies FixedAvailability;
+  return {
+    cycle: variation.source.cycle.map((bar) => bar.map(Boolean)),
+    alignment: variation.materializedAgainstTiming ? "timing-grid" : undefined,
+  } satisfies FixedAvailability;
 }
 
 function selectSamplerTimingCandidate({
@@ -425,10 +431,11 @@ function isFixedAvailabilityActive(
   if (!availability.cycle) return true;
   const bar = availability.cycle[barIndex % availability.cycle.length];
   if (bar.length === 0) return false;
+  // Only synthesized gaps from transform materialization retain grid alignment.
   const index =
-    availability.alignment === "hit"
-      ? hitIndex % bar.length
-      : Math.floor(step.offset * bar.length);
+    availability.alignment === "timing-grid"
+      ? Math.floor(step.offset * bar.length)
+      : hitIndex % bar.length;
   return bar[index];
 }
 

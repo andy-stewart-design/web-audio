@@ -23,6 +23,7 @@ class AuthoredPitches {
   private _notes: MaskedCycle<Chord> | RandomCycle;
   private _hasAuthoredValues = false;
   private _hasPitchTransform = false;
+  private _materializedAgainstTiming = false;
   private _root = 0;
   private _scale: number[] | undefined;
 
@@ -46,6 +47,7 @@ class AuthoredPitches {
     }
 
     this._hasAuthoredValues = true;
+    this._materializedAgainstTiming = false;
     if (isRandomCycleTuple(input)) {
       this._notes = input[0];
     } else {
@@ -85,6 +87,7 @@ class AuthoredPitches {
     );
     const { cycle, mask } = new EventTiming(timing).alignValues(source);
     this._notes = new MaskedCycle(cycle).xox(...mask);
+    this._materializedAgainstTiming = true;
     return this;
   }
 
@@ -103,7 +106,7 @@ class AuthoredPitches {
     return this;
   }
 
-  getEventPattern(timingOverride?: TimingPattern) {
+  getEventPattern(timingOverride?: TimingPattern, resolveActiveValues = false) {
     if (isRandomCycle(this._notes)) {
       return compileNoteEvents({
         source: {
@@ -121,6 +124,7 @@ class AuthoredPitches {
         cycle: this._notes,
         scalar: this._getStaticScalar(),
         transform: this._degreeToMidi.bind(this),
+        resolveActiveValues,
       },
       explicitTiming: timingOverride,
     });
@@ -136,6 +140,10 @@ class AuthoredPitches {
 
   get hasRequestedPitches() {
     return this._hasAuthoredValues || this._hasPitchTransform;
+  }
+
+  get materializedAgainstTiming() {
+    return this._materializedAgainstTiming;
   }
 
   getFixedAvailability() {

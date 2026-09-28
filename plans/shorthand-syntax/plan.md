@@ -148,12 +148,12 @@ Change static sampler note and variation availability from offset resampling to 
 
 ### Tasks
 
-- [ ] Add failing note and variation fixtures against explicit XOX.
-- [ ] Cover wrapping, multi-bar cycles, and multiple-lane rest intersections.
-- [ ] Exclude the selected timing owner from redundant filtering.
-- [ ] Preserve random zero-values-per-bar suppression.
-- [ ] Preserve fixed filtering before runtime chance.
-- [ ] Update only intentional golden expectations.
+- [x] Add failing note and variation fixtures against explicit XOX.
+- [x] Cover wrapping, multi-bar cycles, and multiple-lane rest intersections.
+- [x] Exclude the selected timing owner from redundant filtering.
+- [x] Preserve random zero-values-per-bar suppression.
+- [x] Preserve fixed filtering before runtime chance.
+- [x] Update only intentional golden expectations.
 
 ### Likely files
 
@@ -165,8 +165,8 @@ Change static sampler note and variation availability from offset resampling to 
 
 ### Verification
 
-- [ ] Verify `[0, null, 2]` against four candidates yields offsets `0`, `1/2`, `3/4` and values `0`, `2`, `0`.
-- [ ] Confirm unrelated PR 1 fixtures remain green.
+- [x] Verify `[0, null, 2]` against four candidates yields offsets `0`, `1/2`, `3/4` and values `0`, `2`, `0`.
+- [x] Confirm unrelated PR 1 fixtures remain green.
 
 ## Step 2.2 — Remove authored scalar broadcasting
 
