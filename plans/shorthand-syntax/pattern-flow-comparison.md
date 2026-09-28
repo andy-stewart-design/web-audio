@@ -28,5 +28,3 @@ Key properties:
 - authored patterns and default fallback sources retain distinct intent;
 - the pure compiler continues emitting the existing synth and sampler schema;
 - the schema and audio engine remain unaware of expressions and event cycles.
-
-The editable target diagram is [`target-pattern-flow.tldraw`](./target-pattern-flow.tldraw).

@@ -11,7 +11,7 @@ Read this with:
 - [`syntax-examples.md`](./syntax-examples.md) — shorthand and closest structured equivalents;
 - [`pattern-flow-comparison.md`](./pattern-flow-comparison.md) — current and target flows side by side;
 - [`pattern-flow-current.png`](./pattern-flow-current.png) — current production flow;
-- [`pattern-flow-target.png`](./pattern-flow-target.png) and editable [`target-pattern-flow.tldraw`](./target-pattern-flow.tldraw) — target flow;
+- [`pattern-flow-target.png`](./pattern-flow-target.png) — target flow;
 - [`pattern-ir-redesign.md`](./pattern-ir-redesign.md) — superseded design history only.
 
 If this plan and the specification disagree, the specification wins.
