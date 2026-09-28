@@ -79,40 +79,39 @@ Create table-driven fixtures that invoke the public Fluid API and assert complet
 
 ### Tasks
 
-- [ ] Add a dedicated event-schema compatibility test file.
-- [ ] Add reusable fixture types and assertion helpers.
-- [ ] Capture complete timing, values, conditions, and silent bars.
-- [ ] Keep fixture construction reusable by later old/new compiler comparisons.
-- [ ] Confirm this step changes no production files.
+- [x] Add a dedicated event-schema compatibility test file.
+- [x] Add reusable fixture types and assertion helpers.
+- [x] Capture complete timing, values, conditions, and silent bars.
+- [x] Keep fixture construction reusable by later old/new compiler comparisons.
+- [x] Confirm this step changes no production files.
 
 ### Likely files
 
 - `packages/fluid/src/instruments/event-schema-compatibility.test.ts` — **new, suggested**
-- `packages/fluid/src/instruments/event-schema-fixtures.ts` — **new, suggested**, if useful
 - `packages/fluid/src/instruments/event-compiler.test.ts`
 - `packages/fluid/src/instruments/instrument.test.ts`
 - `packages/fluid/src/index.test.ts`
 
 ### Verification
 
-- [ ] Run focused Fluid tests.
-- [ ] Confirm fixtures pass against current behavior.
-- [ ] Confirm the diff contains tests and fixture data only.
+- [x] Run focused Fluid tests.
+- [x] Confirm fixtures pass against current behavior.
+- [x] Confirm the diff contains tests and fixture data only.
 
 ## Step 1.2 — Fill the compatibility matrix
 
 ### Tasks
 
-- [ ] Cover synth implicit timing and explicit XOX timing.
-- [ ] Cover sampler ownership, rest priority, density, and tie-breaking.
-- [ ] Cover current scalar broadcasting and constructor defaults separately.
-- [ ] Cover rests in notes, names, and variations.
-- [ ] Cover random notes, variations, and timing conditions.
-- [ ] Cover chords, duplicate voices, and independent wrapping.
-- [ ] Cover silent bars and multi-bar LCM expansion.
-- [ ] Cover root and scale conversion, including negative degrees.
-- [ ] Cover `fast`, `slow`, `stretch`, and `reverse` around setters.
-- [ ] Cover generated chop/fit timing and transform exemptions.
+- [x] Cover synth implicit timing and explicit XOX timing.
+- [x] Cover sampler ownership, rest priority, density, and tie-breaking.
+- [x] Cover current scalar broadcasting and constructor defaults separately.
+- [x] Cover rests in notes, names, and variations.
+- [x] Cover random notes, variations, and timing conditions.
+- [x] Cover chords, duplicate voices, and independent wrapping.
+- [x] Cover silent bars and multi-bar LCM expansion.
+- [x] Cover root and scale conversion, including negative degrees.
+- [x] Cover `fast`, `slow`, `stretch`, and `reverse` around setters.
+- [x] Cover generated chop/fit timing and transform exemptions.
 
 ### Likely files
 
@@ -123,15 +122,15 @@ Create table-driven fixtures that invoke the public Fluid API and assert complet
 
 ### Verification
 
-- [ ] Run the complete Fluid suite.
-- [ ] Review the matrix against `spec.md` compatibility requirements.
-- [ ] Confirm no production behavior changed.
+- [x] Run the complete Fluid suite.
+- [x] Review the matrix against `spec.md` compatibility requirements.
+- [x] Confirm no production behavior changed.
 
 ## PR 1 completion gate
 
-- [ ] Existing behavior is represented by explicit passing fixtures.
-- [ ] Later PRs can reference named fixtures instead of rediscovering behavior.
-- [ ] No intentional behavior change has landed yet.
+- [x] Existing behavior is represented by explicit passing fixtures.
+- [x] Later PRs can reference named fixtures instead of rediscovering behavior.
+- [x] No intentional behavior change has landed yet.
 
 ---
 
