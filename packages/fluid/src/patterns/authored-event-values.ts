@@ -7,11 +7,14 @@ import type { TimingPattern } from "@web-audio/schema";
 type StaticAuthoredValues<T> = {
   type: "static";
   cycle: (T[] | null)[][];
-  broadcastValue?: T[];
-};
+} & (
+  | { intent: "default"; fallback: readonly [T, ...T[]] }
+  | { intent: "authored" }
+);
 
 type RandomAuthoredValues = {
   type: "random";
+  intent: "authored";
   cycle: RandomCycle;
 };
 
@@ -27,26 +30,24 @@ type AuthoredEventValuesInput<T> = T | null | (T | T[] | null)[];
 
 class AuthoredEventValues<T> {
   private _source: StaticAuthoredValues<T> | RandomAuthoredValues;
-  private _hasAuthoredValues = false;
   private _materializedAgainstTiming = false;
 
-  private constructor(
-    source: StaticAuthoredValues<T> | RandomAuthoredValues,
-    hasAuthoredValues = false,
-  ) {
+  private constructor(source: StaticAuthoredValues<T> | RandomAuthoredValues) {
     this._source = source;
-    this._hasAuthoredValues = hasAuthoredValues;
   }
 
   static fromDefault<T>(value: T) {
-    return new AuthoredEventValues<T>(
-      {
-        type: "static",
-        cycle: [[[value]]],
-        broadcastValue: [value],
-      },
-      false,
-    );
+    if (value === null || value === undefined) {
+      throw new Error(
+        "[Fluid] Default event values require a nonempty fallback group.",
+      );
+    }
+    return new AuthoredEventValues<T>({
+      type: "static",
+      intent: "default",
+      cycle: [[[value]]],
+      fallback: [value],
+    });
   }
 
   static fromInput<T>(
@@ -60,18 +61,29 @@ class AuthoredEventValues<T> {
     }
 
     if (isRandomCycleTuple(input)) {
-      return new AuthoredEventValues<T>(
-        { type: "random", cycle: input[0] },
-        true,
-      );
+      return new AuthoredEventValues<T>({
+        type: "random",
+        intent: "authored",
+        cycle: input[0],
+      });
     }
 
     const cycle = input.map((bar) => normalizeBar(bar, options));
-    return new AuthoredEventValues<T>({ type: "static", cycle }, true);
+    return new AuthoredEventValues<T>({
+      type: "static",
+      intent: "authored",
+      cycle,
+    });
   }
 
   get hasAuthoredValues() {
-    return this._hasAuthoredValues;
+    return this._source.intent === "authored";
+  }
+
+  get defaultFallback() {
+    return this._source.intent === "default"
+      ? this._source.fallback
+      : undefined;
   }
 
   get source() {
@@ -95,7 +107,7 @@ class AuthoredEventValues<T> {
   }
 
   materializeAgainstTiming(timing: TimingPattern) {
-    if (this._source.type === "random" || !this._hasAuthoredValues) {
+    if (this._source.intent === "default" || this._source.type === "random") {
       return this;
     }
     if (this._source.cycle.length === 1 && this._source.cycle[0].length === 1) {
@@ -107,7 +119,7 @@ class AuthoredEventValues<T> {
     );
     const { cycle, mask } = new EventTiming(timing).alignValues(source);
     const values = new MaskedCycle(cycle).xox(...mask).transformedValues;
-    this._source = { type: "static", cycle: values };
+    this._source = { type: "static", intent: "authored", cycle: values };
     this._materializedAgainstTiming = true;
     return this;
   }
@@ -137,12 +149,19 @@ class AuthoredEventValues<T> {
 
     const cycle = new MaskedCycle(this._source.cycle);
     transform(cycle);
+    if (this._source.intent === "default") {
+      this._source = {
+        type: "static",
+        intent: "default",
+        cycle: cycle.transformedValues,
+        fallback: this._source.fallback,
+      };
+      return;
+    }
     this._source = {
       type: "static",
+      intent: "authored",
       cycle: cycle.transformedValues,
-      ...(!this._hasAuthoredValues && {
-        broadcastValue: this._source.broadcastValue,
-      }),
     };
   }
 }

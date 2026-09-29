@@ -21,7 +21,7 @@ import type { Chord, MaskedCycle } from "@web-audio/patterns";
 type StaticNoteSource = {
   type: "static";
   cycle: MaskedCycle<Chord>;
-  scalar: Chord | undefined;
+  fallback?: readonly [number, ...number[]];
   transform: (value: number) => number;
   resolveActiveValues?: boolean;
 };
@@ -84,7 +84,7 @@ function compileStaticNoteEvents(
       ? chords.filter((chord): chord is number[] => chord !== null)
       : chords;
   });
-  const scalar = normalizeChord(source.scalar, source.transform);
+  const fallback = source.fallback?.map(source.transform);
   const timing = explicitTiming ?? source.cycle.candidateTiming;
   const condition = timing.condition && cloneCondition(timing.condition);
   const cycleLength = repeatingCycleLength(
@@ -103,7 +103,7 @@ function compileStaticNoteEvents(
     timingBar.forEach((step, hitIndex) => {
       const chord =
         sourceBar.length === 0
-          ? scalar
+          ? fallback
           : sourceBar[hitIndex % sourceBar.length];
       if (chord === null || chord === undefined) return;
       noteBar.push(chord);
@@ -453,10 +453,11 @@ function compileSampleNames(values: AuthoredEventValues<string>) {
     throw new Error("[Sampler] name() does not support random patterns.");
   }
 
-  if (!values.hasAuthoredValues && values.source.broadcastValue) {
+  const fallback = values.defaultFallback;
+  if (fallback) {
     return {
       type: "static",
-      cycle: [[[...values.source.broadcastValue]]],
+      cycle: [[[...fallback]]],
     } satisfies SamplerEventPattern["sampleNames"];
   }
 
@@ -483,12 +484,12 @@ function compileVariationPattern(values: AuthoredEventValues<number>) {
     return values.source.cycle.getRandomSchema();
   }
 
-  if (isDefaultVariationValues(values)) return undefined;
-
-  if (!values.hasAuthoredValues && values.source.broadcastValue) {
+  const fallback = values.defaultFallback;
+  if (fallback?.length === 1 && fallback[0] === 0) return undefined;
+  if (fallback) {
     return {
       type: "static",
-      cycle: [[[...values.source.broadcastValue]]],
+      cycle: [[[...fallback]]],
     } satisfies VariationIndexPattern;
   }
 
@@ -501,15 +502,6 @@ function compileVariationPattern(values: AuthoredEventValues<number>) {
       return activeGroups.length > 0 ? activeGroups : [null];
     }),
   } satisfies VariationIndexPattern;
-}
-
-function isDefaultVariationValues(values: AuthoredEventValues<number>) {
-  return (
-    !values.hasAuthoredValues &&
-    values.source.type === "static" &&
-    values.source.broadcastValue?.length === 1 &&
-    values.source.broadcastValue[0] === 0
-  );
 }
 
 function finalizeSamplerEvents({
@@ -528,13 +520,9 @@ function finalizeSamplerEvents({
   const cycleLength = cycleLengths.reduce(lowestCommonMultiple);
   assertCycleBarLimit(cycleLength);
   const sampleNames = expandSampleNamePattern(inputSampleNames, cycleLength);
-  const expandedNotes = inputNotes
+  const notes = inputNotes
     ? expandNotePattern(inputNotes, cycleLength)
     : undefined;
-  const notes =
-    expandedNotes && !hasAuthoredPitchValues
-      ? fillUnavailableNotes(expandedNotes, eventPattern.timing, cycleLength)
-      : expandedNotes;
   const variationIndices = inputVariationIndices
     ? expandVariationPattern(inputVariationIndices, cycleLength)
     : undefined;
@@ -593,35 +581,6 @@ function expandNotePattern(pattern: NotePattern, cycleLength: number) {
     cycle: repeatCycle(pattern.cycle, cycleLength).map((bar) =>
       bar.map((group) => (group === null ? null : [...group])),
     ),
-  } satisfies NotePattern;
-}
-
-function fillUnavailableNotes(
-  pattern: NotePattern,
-  timing: TimingPattern,
-  cycleLength: number,
-): NotePattern {
-  if (pattern.type === "random-number") {
-    return {
-      ...pattern,
-      valuesPerBar: pattern.valuesPerBar.map((count, barIndex) =>
-        count === 0
-          ? timing.cycle[barIndex % timing.cycle.length].length
-          : count,
-      ),
-    } satisfies NotePattern;
-  }
-
-  const fallback = pattern.cycle
-    .flat()
-    .find((group): group is number[] => group !== null);
-  if (!fallback) return pattern;
-  return {
-    type: "static",
-    cycle: Array.from({ length: cycleLength }, (_, barIndex) => {
-      const bar = pattern.cycle[barIndex];
-      return bar[0] === null ? [[...fallback]] : bar;
-    }),
   } satisfies NotePattern;
 }
 

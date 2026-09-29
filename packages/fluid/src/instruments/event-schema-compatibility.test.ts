@@ -1,4 +1,5 @@
 import type { SamplerEventPattern, SynthEventPattern } from "@web-audio/schema";
+import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
 import Drome from "../index";
 import type Sampler from "./sampler";
@@ -212,6 +213,139 @@ const eventSchemaFixtures = [
         cycle: [[["bd"]], [["bd"]]],
       },
       notes: undefined,
+      variationIndices: undefined,
+    },
+  },
+  {
+    name: "transformed default cycle supplies timing when no authored lane does",
+    createInstrument: () => new Drome().sample("bd").slow(2),
+    expected: {
+      timing: {
+        cycle: [[{ offset: 0, duration: 1 }], []],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: undefined,
+      variationIndices: undefined,
+    },
+  },
+  {
+    name: "default name and note fallbacks fill stronger timing despite transformed rest bars",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .root("a3")
+        .slow(2)
+        .xox(new RandomCycle().bin().steps(2).chance(1)),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.5 },
+            { offset: 0.5, duration: 0.5 },
+          ],
+          [
+            { offset: 0, duration: 0.5 },
+            { offset: 0.5, duration: 0.5 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: {
+        type: "static",
+        cycle: [
+          [[57], [57]],
+          [[57], [57]],
+        ],
+      },
+      variationIndices: undefined,
+    },
+  },
+  {
+    name: "authored name with the same value filters stronger timing",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .name("bd")
+        .slow(2)
+        .xox(new RandomCycle().bin().steps(2).chance(1)),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.5 },
+            { offset: 0.5, duration: 0.5 },
+          ],
+          [],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [null]] },
+      notes: undefined,
+      variationIndices: undefined,
+    },
+  },
+  {
+    name: "authored notes equal to default filter stronger timing",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .root("a3")
+        .notes(0)
+        .slow(2)
+        .xox(new RandomCycle().bin().steps(2).chance(1)),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.5 },
+            { offset: 0.5, duration: 0.5 },
+          ],
+          [],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: { type: "static", cycle: [[[57], [57]], [null]] },
+      variationIndices: undefined,
+    },
+  },
+  {
+    name: "authored variation equal to default filters stronger timing",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .var(0)
+        .slow(2)
+        .xox(new RandomCycle().bin().steps(2).chance(1)),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.5 },
+            { offset: 0.5, duration: 0.5 },
+          ],
+          [],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: undefined,
+      variationIndices: { type: "static", cycle: [[[0]], [null]] },
+    },
+  },
+  {
+    name: "default fallbacks do not activate a silent explicit timing bar",
+    createInstrument: () =>
+      new Drome().sample("bd").root("a3").xox([0, 0], [1, 0]),
+    expected: {
+      timing: {
+        cycle: [[], [{ offset: 0, duration: 0.5 }]],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: { type: "static", cycle: [[null], [[57]]] },
       variationIndices: undefined,
     },
   },

@@ -205,14 +205,14 @@ Separate constructor defaults from authored patterns. A default source retains t
 
 ### Tasks
 
-- [ ] Represent or expose default intent independently from authored setters.
-- [ ] Require each fallback group to be nonempty.
-- [ ] Ensure defaults do not compete with authored timing.
-- [ ] Ensure defaults never filter externally owned timing.
-- [ ] Fill every surviving hit from the fallback group.
-- [ ] Ensure fallback values never create hits or activate silent timing bars.
-- [ ] Allow the transformed default cycle to supply timing only when no stronger source exists.
-- [ ] Ensure a setter replaces a default with authored intent even when values are equal.
+- [x] Represent or expose default intent independently from authored setters.
+- [x] Require each fallback group to be nonempty.
+- [x] Ensure defaults do not compete with authored timing.
+- [x] Ensure defaults never filter externally owned timing.
+- [x] Fill every surviving hit from the fallback group.
+- [x] Ensure fallback values never create hits or activate silent timing bars.
+- [x] Allow the transformed default cycle to supply timing only when no stronger source exists.
+- [x] Ensure a setter replaces a default with authored intent even when values are equal.
 
 ### Likely files
 
@@ -225,10 +225,10 @@ Separate constructor defaults from authored patterns. A default source retains t
 
 ### Verification
 
-- [ ] Verify `d.sample("bd").slow(2).xox([1, 1])` fills every surviving hit with `bd`.
-- [ ] Verify `d.sample().name("bd").slow(2).xox([1, 1])` can suppress the slowed rest bar.
-- [ ] Verify defaults do not activate an empty explicit timing bar.
-- [ ] Verify setting the same value changes intent to authored.
+- [x] Verify `d.sample("bd").slow(2).xox([1, 1])` fills every surviving hit with `bd`.
+- [x] Verify `d.sample().name("bd").slow(2).xox([1, 1])` can suppress the slowed rest bar.
+- [x] Verify defaults do not activate an empty explicit timing bar.
+- [x] Verify setting the same value changes intent to authored.
 
 ## Step 2.4 — Promote the corrected baseline
 

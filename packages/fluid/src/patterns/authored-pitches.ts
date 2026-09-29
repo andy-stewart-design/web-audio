@@ -21,13 +21,27 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class AuthoredPitches {
   private _notes: MaskedCycle<Chord> | RandomCycle;
-  private _hasAuthoredValues = false;
+  private _defaultFallback: readonly [number, ...number[]] | undefined;
   private _hasPitchTransform = false;
   private _materializedAgainstTiming = false;
   private _root = 0;
   private _scale: number[] | undefined;
 
   constructor(defaultPattern: Chord) {
+    if (
+      !Array.isArray(defaultPattern) ||
+      defaultPattern.length === 0 ||
+      !defaultPattern.every(
+        (value): value is number =>
+          typeof value === "number" && Number.isFinite(value),
+      )
+    ) {
+      throw new Error(
+        "[Instrument] Default notes require a nonempty fallback group of finite numbers.",
+      );
+    }
+    const [first, ...rest] = defaultPattern;
+    this._defaultFallback = [first, ...rest];
     this._notes = new MaskedCycle([[defaultPattern]]);
   }
 
@@ -46,7 +60,7 @@ class AuthoredPitches {
       throw new Error("[Instrument] notes() requires at least one pattern.");
     }
 
-    this._hasAuthoredValues = true;
+    this._defaultFallback = undefined;
     this._materializedAgainstTiming = false;
     if (isRandomCycleTuple(input)) {
       this._notes = input[0];
@@ -82,7 +96,7 @@ class AuthoredPitches {
   materializeAgainstTiming(timing: TimingPattern) {
     if (
       isRandomCycle(this._notes) ||
-      !this._hasAuthoredValues ||
+      !this.hasAuthoredValues ||
       this._getStaticScalar()
     ) {
       return this;
@@ -128,7 +142,7 @@ class AuthoredPitches {
       source: {
         type: "static",
         cycle: this._notes,
-        scalar: this._hasAuthoredValues ? undefined : this._getStaticScalar(),
+        fallback: this._defaultFallback,
         transform: this._degreeToMidi.bind(this),
         resolveActiveValues,
       },
@@ -141,11 +155,15 @@ class AuthoredPitches {
   }
 
   get hasAuthoredValues() {
-    return this._hasAuthoredValues;
+    return this._defaultFallback === undefined;
+  }
+
+  get defaultFallback() {
+    return this._defaultFallback;
   }
 
   get hasRequestedPitches() {
-    return this._hasAuthoredValues || this._hasPitchTransform;
+    return this.hasAuthoredValues || this._hasPitchTransform;
   }
 
   get materializedAgainstTiming() {
@@ -153,7 +171,7 @@ class AuthoredPitches {
   }
 
   getFixedAvailability() {
-    if (isRandomCycle(this._notes) || !this._hasAuthoredValues) {
+    if (isRandomCycle(this._notes) || !this.hasAuthoredValues) {
       return undefined;
     }
 

@@ -198,6 +198,21 @@ describe("event compiler", () => {
     });
   });
 
+  it("does not fill default note values into a silent timing bar", () => {
+    expect(
+      finalizeSamplerEvents({
+        timing: { cycle: [[{ offset: 0, duration: 1 }], []] },
+        sampleNames: { type: "static", cycle: [[["bd"]]] },
+        notes: { type: "static", cycle: [[[0]], [null]] },
+      }),
+    ).toEqual({
+      timing: { cycle: [[{ offset: 0, duration: 1 }], []] },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: { type: "static", cycle: [[[0]], [null]] },
+      variationIndices: undefined,
+    });
+  });
+
   it("aligns zero-count event values with empty timing bars", () => {
     expect(
       finalizeSamplerEvents({
