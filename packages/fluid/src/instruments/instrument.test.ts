@@ -373,6 +373,101 @@ describe("instrument event schemas", () => {
     ]);
   });
 
+  it.each([
+    {
+      lane: "synth notes",
+      scalar: () => new Synthesizer().notes(60),
+      oneStep: () => new Synthesizer().notes([60]),
+      twoBars: () => new Synthesizer().notes([60], [null]),
+    },
+    {
+      lane: "sampler notes",
+      scalar: () => new Sampler("kick").notes(60),
+      oneStep: () => new Sampler("kick").notes([60]),
+      twoBars: () => new Sampler("kick").notes([60], [null]),
+    },
+    {
+      lane: "sample names",
+      scalar: () => new Sampler("kick").name("bd"),
+      oneStep: () => new Sampler("kick").name(["bd"]),
+      twoBars: () => new Sampler("kick").name(["bd"], [null]),
+    },
+    {
+      lane: "variations",
+      scalar: () => new Sampler("kick").var(1),
+      oneStep: () => new Sampler("kick").var([1]),
+      twoBars: () => new Sampler("kick").var([1], [null]),
+    },
+  ])(
+    "treats authored scalar, one-step, and slowed $lane as the same pattern",
+    ({ scalar, oneStep, twoBars }) => {
+      const scalarEvents = scalar()
+        .slow(2)
+        .xox([1, 1])
+        .getSchema().eventPattern;
+      const oneStepEvents = oneStep()
+        .slow(2)
+        .xox([1, 1])
+        .getSchema().eventPattern;
+      const twoBarEvents = twoBars().xox([1, 1]).getSchema().eventPattern;
+
+      expect(scalarEvents).toEqual(oneStepEvents);
+      expect(scalarEvents).toEqual(twoBarEvents);
+    },
+  );
+
+  it.each([
+    {
+      lane: "synth notes",
+      scalar: () => new Synthesizer().xox([1, 1]).notes(60),
+      twoBars: () => new Synthesizer().xox([1, 1]).slow(2).notes([60], [null]),
+    },
+    {
+      lane: "sampler notes",
+      scalar: () => new Sampler("kick").xox([1, 1]).notes(60),
+      twoBars: () =>
+        new Sampler("kick").xox([1, 1]).slow(2).notes([60], [null]),
+    },
+    {
+      lane: "sample names",
+      scalar: () => new Sampler("kick").xox([1, 1]).name("bd"),
+      twoBars: () =>
+        new Sampler("kick").xox([1, 1]).slow(2).name(["bd"], [null]),
+    },
+    {
+      lane: "variations",
+      scalar: () => new Sampler("kick").xox([1, 1]).var(1),
+      twoBars: () => new Sampler("kick").xox([1, 1]).slow(2).var([1], [null]),
+    },
+  ])(
+    "keeps slowed authored $lane rests under previously explicit timing",
+    ({ scalar, twoBars }) => {
+      const events = scalar().slow(2).getSchema().eventPattern;
+      expect(events).toEqual(twoBars().getSchema().eventPattern);
+      expect(events.timing.cycle.map((bar) => bar.length)).toEqual([1, 0]);
+    },
+  );
+
+  it("repeats untransformed one-step authored patterns over explicit hits", () => {
+    const events = new Sampler("kick")
+      .notes([60])
+      .name(["bd"])
+      .var([1])
+      .xox([1, 1, 1])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle[0]).toHaveLength(3);
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [[[60], [60], [60]]],
+    });
+    expect(events.sampleNames).toEqual({ type: "static", cycle: [[["bd"]]] });
+    expect(events.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[1]]],
+    });
+  });
+
   it("filters explicit XOX timing with fixed pitch and variation rests", () => {
     const pitchRests = new Sampler("kick")
       .notes([60, null, 64])

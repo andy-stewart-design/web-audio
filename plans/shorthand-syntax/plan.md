@@ -176,12 +176,12 @@ Treat every value supplied through a setter as an authored pattern, including sc
 
 ### Tasks
 
-- [ ] Make scalar, one-element array, and one-step cycle inputs use the same authored path.
-- [ ] Remove authored `broadcastValue` exceptions from fixed availability.
-- [ ] Make `.var(1).slow(2)` produce the same event/rest availability as an equivalent two-bar pattern.
-- [ ] Apply the rule consistently to notes, names, and variations.
-- [ ] Add before/after fixtures for explicit timing interactions.
-- [ ] Update only intentional golden expectations.
+- [x] Make scalar, one-element array, and one-step cycle inputs use the same authored path.
+- [x] Remove authored `broadcastValue` exceptions from fixed availability.
+- [x] Make `.var(1).slow(2)` produce the same event/rest availability as an equivalent two-bar pattern.
+- [x] Apply the rule consistently to notes, names, and variations.
+- [x] Add before/after fixtures for explicit timing interactions.
+- [x] Update only intentional golden expectations.
 
 ### Likely files
 
@@ -194,8 +194,8 @@ Treat every value supplied through a setter as an authored pattern, including sc
 
 ### Verification
 
-- [ ] Confirm authored slowed rest bars suppress externally owned candidates.
-- [ ] Confirm untransformed one-step authored patterns still repeat naturally.
+- [x] Confirm authored slowed rest bars suppress externally owned candidates.
+- [x] Confirm untransformed one-step authored patterns still repeat naturally.
 
 ## Step 2.3 — Establish explicit default fallback semantics
 

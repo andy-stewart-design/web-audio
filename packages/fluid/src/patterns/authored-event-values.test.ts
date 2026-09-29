@@ -14,7 +14,6 @@ describe("authored event values", () => {
     expect(values.source).toEqual({
       type: "static",
       cycle: [[[0], [1, 2], null], [null], [[3]]],
-      broadcastValue: undefined,
     });
     expect(values.hasRests).toBe(true);
   });
@@ -23,9 +22,9 @@ describe("authored event values", () => {
     expect(AuthoredEventValues.fromDefault<number>(0).hasAuthoredValues).toBe(
       false,
     );
-    expect(AuthoredEventValues.fromInput<number>([0]).hasAuthoredValues).toBe(
-      true,
-    );
+    const authored = AuthoredEventValues.fromInput<number>([0]);
+    expect(authored.hasAuthoredValues).toBe(true);
+    expect(authored.source).toEqual({ type: "static", cycle: [[[0]]] });
   });
 
   it("preserves random values as scalar event sources", () => {

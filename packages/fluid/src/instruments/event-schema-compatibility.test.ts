@@ -157,7 +157,7 @@ const eventSchemaFixtures = [
       },
       notes: undefined,
       sampleNames: { type: "static", cycle: [[["bd"]], [["sd"]]] },
-      variationIndices: undefined,
+      variationIndices: { type: "static", cycle: [[[0]], [[0]]] },
     },
   },
   {
@@ -216,7 +216,7 @@ const eventSchemaFixtures = [
     },
   },
   {
-    name: "authored scalar sample name currently broadcasts through slowdown",
+    name: "authored scalar sample name filters its slowed rest bar",
     createInstrument: () => new Drome().sample().name("bd").slow(2).xox([1, 1]),
     expected: {
       timing: {
@@ -231,14 +231,14 @@ const eventSchemaFixtures = [
       },
       sampleNames: {
         type: "static",
-        cycle: [[["bd"]], [["bd"]]],
+        cycle: [[["bd"]], [null]],
       },
       notes: undefined,
       variationIndices: undefined,
     },
   },
   {
-    name: "authored scalar notes currently broadcast through slowdown",
+    name: "authored scalar synth notes filter their slowed rest bar",
     createInstrument: () => new Drome().synth().notes(60).slow(2).xox([1, 1]),
     expected: {
       timing: {
@@ -258,7 +258,7 @@ const eventSchemaFixtures = [
     },
   },
   {
-    name: "authored scalar variation currently broadcasts through slowdown",
+    name: "authored scalar variation filters its slowed rest bar",
     createInstrument: () =>
       new Drome().sample("bd").variation(1).slow(2).xox([1, 1]),
     expected: {
@@ -279,12 +279,32 @@ const eventSchemaFixtures = [
       notes: undefined,
       variationIndices: {
         type: "static",
-        cycle: [[[1]], [[1]]],
+        cycle: [[[1]], [null]],
       },
     },
   },
   {
-    name: "authored scalar values broadcast across transformed event timing",
+    name: "authored scalar sampler notes filter their slowed rest bar",
+    createInstrument: () =>
+      new Drome().sample("bd").notes(60).slow(2).xox([1, 1]),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.5 },
+            { offset: 0.5, duration: 0.5 },
+          ],
+          [],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: { type: "static", cycle: [[[60], [60]], [null]] },
+      variationIndices: undefined,
+    },
+  },
+  {
+    name: "authored one-step notes and variation repeat across fast event timing",
     createInstrument: () =>
       new Drome().sample("bd").notes(60).variation([0, 1, 2]).fast(2),
     expected: {

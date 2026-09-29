@@ -67,14 +67,7 @@ class AuthoredEventValues<T> {
     }
 
     const cycle = input.map((bar) => normalizeBar(bar, options));
-    return new AuthoredEventValues<T>(
-      {
-        type: "static",
-        cycle,
-        broadcastValue: getBroadcastValue(cycle),
-      },
-      true,
-    );
+    return new AuthoredEventValues<T>({ type: "static", cycle }, true);
   }
 
   get hasAuthoredValues() {
@@ -92,7 +85,6 @@ class AuthoredEventValues<T> {
   get hasRests() {
     return (
       this._source.type === "static" &&
-      this._source.broadcastValue === undefined &&
       this._source.cycle.some((bar) => bar.some((group) => group === null))
     );
   }
@@ -103,7 +95,10 @@ class AuthoredEventValues<T> {
   }
 
   materializeAgainstTiming(timing: TimingPattern) {
-    if (this._source.type === "random" || this._source.broadcastValue) {
+    if (this._source.type === "random" || !this._hasAuthoredValues) {
+      return this;
+    }
+    if (this._source.cycle.length === 1 && this._source.cycle[0].length === 1) {
       return this;
     }
 
@@ -145,7 +140,9 @@ class AuthoredEventValues<T> {
     this._source = {
       type: "static",
       cycle: cycle.transformedValues,
-      broadcastValue: this._source.broadcastValue,
+      ...(!this._hasAuthoredValues && {
+        broadcastValue: this._source.broadcastValue,
+      }),
     };
   }
 }
@@ -197,12 +194,6 @@ function validateValue<T>(value: T, options: AuthoredEventValuesOptions<T>) {
   throw new Error(
     options.invalidValueMessage ?? "[Fluid] Authored event value is invalid.",
   );
-}
-
-function getBroadcastValue<T>(cycle: (T[] | null)[][]) {
-  return cycle.length === 1 && cycle[0].length === 1
-    ? (cycle[0][0] ?? undefined)
-    : undefined;
 }
 
 export default AuthoredEventValues;

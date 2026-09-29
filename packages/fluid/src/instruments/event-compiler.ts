@@ -274,7 +274,6 @@ function getSampleNameAvailability(
   ) {
     return undefined;
   }
-  if (sampleNames.source.broadcastValue) return undefined;
 
   return {
     cycle: sampleNames.source.cycle.map((bar) => bar.map(Boolean)),
@@ -289,7 +288,6 @@ function getVariationAvailability(variation: AuthoredEventValues<number>) {
       valuesPerBar: variation.source.cycle.getRandomSchema().valuesPerBar,
     } satisfies FixedAvailability;
   }
-  if (variation.source.broadcastValue) return undefined;
 
   return {
     cycle: variation.source.cycle.map((bar) => bar.map(Boolean)),
@@ -455,14 +453,19 @@ function compileSampleNames(values: AuthoredEventValues<string>) {
     throw new Error("[Sampler] name() does not support random patterns.");
   }
 
-  const cycle = values.source.broadcastValue
-    ? [[[...values.source.broadcastValue]]]
-    : values.source.cycle.map((bar) => {
-        const activeGroups = bar.flatMap((group) =>
-          group === null ? [] : [[...group]],
-        );
-        return activeGroups.length > 0 ? activeGroups : [null];
-      });
+  if (!values.hasAuthoredValues && values.source.broadcastValue) {
+    return {
+      type: "static",
+      cycle: [[[...values.source.broadcastValue]]],
+    } satisfies SamplerEventPattern["sampleNames"];
+  }
+
+  const cycle = values.source.cycle.map((bar) => {
+    const activeGroups = bar.flatMap((group) =>
+      group === null ? [] : [[...group]],
+    );
+    return activeGroups.length > 0 ? activeGroups : [null];
+  });
   if (!cycle.some((bar) => bar.some((group) => group !== null))) {
     throw new Error(
       "[Sampler] name() must contain at least one sample name before getSchema().",
@@ -482,7 +485,7 @@ function compileVariationPattern(values: AuthoredEventValues<number>) {
 
   if (isDefaultVariationValues(values)) return undefined;
 
-  if (values.source.broadcastValue) {
+  if (!values.hasAuthoredValues && values.source.broadcastValue) {
     return {
       type: "static",
       cycle: [[[...values.source.broadcastValue]]],
@@ -502,6 +505,7 @@ function compileVariationPattern(values: AuthoredEventValues<number>) {
 
 function isDefaultVariationValues(values: AuthoredEventValues<number>) {
   return (
+    !values.hasAuthoredValues &&
     values.source.type === "static" &&
     values.source.broadcastValue?.length === 1 &&
     values.source.broadcastValue[0] === 0

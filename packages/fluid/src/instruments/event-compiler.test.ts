@@ -217,7 +217,7 @@ describe("event compiler", () => {
     ).toBeUndefined();
     expect(
       compileVariationPattern(AuthoredEventValues.fromInput<number>([0])),
-    ).toBeUndefined();
+    ).toEqual({ type: "static", cycle: [[[0]]] });
     expect(
       compileVariationPattern(
         AuthoredEventValues.fromInput<number>([[0, 1, 2]]),

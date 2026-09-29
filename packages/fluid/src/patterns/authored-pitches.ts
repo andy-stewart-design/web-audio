@@ -80,7 +80,13 @@ class AuthoredPitches {
   }
 
   materializeAgainstTiming(timing: TimingPattern) {
-    if (isRandomCycle(this._notes) || this._getStaticScalar()) return this;
+    if (
+      isRandomCycle(this._notes) ||
+      !this._hasAuthoredValues ||
+      this._getStaticScalar()
+    ) {
+      return this;
+    }
 
     const source = this._notes.activeEvents.map((bar) =>
       bar.filter((chord): chord is number[] => chord !== null),
@@ -122,7 +128,7 @@ class AuthoredPitches {
       source: {
         type: "static",
         cycle: this._notes,
-        scalar: this._getStaticScalar(),
+        scalar: this._hasAuthoredValues ? undefined : this._getStaticScalar(),
         transform: this._degreeToMidi.bind(this),
         resolveActiveValues,
       },
@@ -147,7 +153,7 @@ class AuthoredPitches {
   }
 
   getFixedAvailability() {
-    if (isRandomCycle(this._notes) || this._getStaticScalar()) {
+    if (isRandomCycle(this._notes) || !this._hasAuthoredValues) {
       return undefined;
     }
 
