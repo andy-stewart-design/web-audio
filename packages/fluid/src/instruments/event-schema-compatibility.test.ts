@@ -511,6 +511,56 @@ const eventSchemaFixtures = [
     },
   },
   {
+    name: "materialized note gaps filter replacement timing by candidate ordinal",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .notes([60, 64])
+        .xox([1, 0, 1])
+        .reverse()
+        .xox(new RandomCycle().bin().steps(4).chance(1)),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+            { offset: 0.75, duration: 0.25 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]]] },
+      notes: { type: "static", cycle: [[[64], [60], [64]]] },
+      variationIndices: undefined,
+    },
+  },
+  {
+    name: "materialized variation gaps filter replacement timing by candidate ordinal",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .variation([0, 2])
+        .xox([1, 0, 1])
+        .reverse()
+        .xox(new RandomCycle().bin().steps(4).chance(1)),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+            { offset: 0.75, duration: 0.25 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]]] },
+      notes: undefined,
+      variationIndices: { type: "static", cycle: [[[2], [0]]] },
+    },
+  },
+  {
     name: "multi-bar note rests wrap within each bar against sparse XOX candidates",
     createInstrument: () =>
       new Drome()

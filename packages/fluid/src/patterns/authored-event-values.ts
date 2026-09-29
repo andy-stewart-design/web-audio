@@ -94,6 +94,11 @@ class AuthoredEventValues<T> {
     return this._materializedAgainstTiming;
   }
 
+  useCandidateOrdinalAvailability() {
+    this._materializedAgainstTiming = false;
+    return this;
+  }
+
   get hasRests() {
     return (
       this._source.type === "static" &&

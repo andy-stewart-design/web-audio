@@ -170,6 +170,11 @@ class AuthoredPitches {
     return this._materializedAgainstTiming;
   }
 
+  useCandidateOrdinalAvailability() {
+    this._materializedAgainstTiming = false;
+    return this;
+  }
+
   getFixedAvailability() {
     if (isRandomCycle(this._notes) || !this.hasAuthoredValues) {
       return undefined;

@@ -121,6 +121,7 @@ class Sampler extends Instrument {
       invalidRestMessage:
         "[Sampler] name() null is only allowed as a whole-hit rest.",
     });
+    this._invalidateMaterializedTiming();
     return this;
   }
 
@@ -143,6 +144,7 @@ class Sampler extends Instrument {
       invalidRestMessage:
         "[Sampler] variation() null is only allowed as a whole-hit rest.",
     });
+    this._invalidateMaterializedTiming();
     return this;
   }
 
@@ -152,6 +154,7 @@ class Sampler extends Instrument {
     }
 
     this._fit = { type: "fit", bars };
+    this._invalidateMaterializedTiming();
     return this;
   }
 
@@ -192,6 +195,7 @@ class Sampler extends Instrument {
       sliceCount,
       sequence: sequence.length > 0 ? new Parameter(...sequence) : null,
     };
+    this._invalidateMaterializedTiming();
     return this;
   }
 
@@ -233,6 +237,11 @@ class Sampler extends Instrument {
   clip(enabled = true) {
     this._clipMode = enabled ? "clipped" : "one-shot";
     return this;
+  }
+
+  protected override _invalidateMaterializedTiming() {
+    super._invalidateMaterializedTiming();
+    this._variation.useCandidateOrdinalAvailability();
   }
 
   private _materializeEventsForTransform() {

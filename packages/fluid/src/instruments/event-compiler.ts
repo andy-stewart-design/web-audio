@@ -53,8 +53,6 @@ type SamplerTimingCandidate = {
 type FixedAvailability = {
   cycle?: boolean[][];
   valuesPerBar?: number[];
-  // Materialization creates timing-grid gaps, not candidate-ordinal rests.
-  alignment?: "timing-grid";
 };
 
 type SamplerEventCompilerInput = {
@@ -254,12 +252,13 @@ function getInferredSamplerTiming({
 }
 
 function getPitchAvailability(pitches: AuthoredPitches) {
-  if (!pitches.hasAuthoredValues) return undefined;
+  if (!pitches.hasAuthoredValues || pitches.materializedAgainstTiming) {
+    return undefined;
+  }
 
   return {
     cycle: pitches.getFixedAvailability(),
     valuesPerBar: pitches.getRandomValuesPerBar(),
-    alignment: pitches.materializedAgainstTiming ? "timing-grid" : undefined,
   } satisfies FixedAvailability;
 }
 
@@ -281,7 +280,9 @@ function getSampleNameAvailability(
 }
 
 function getVariationAvailability(variation: AuthoredEventValues<number>) {
-  if (!variation.hasAuthoredValues) return undefined;
+  if (!variation.hasAuthoredValues || variation.materializedAgainstTiming) {
+    return undefined;
+  }
 
   if (variation.source.type === "random") {
     return {
@@ -291,7 +292,6 @@ function getVariationAvailability(variation: AuthoredEventValues<number>) {
 
   return {
     cycle: variation.source.cycle.map((bar) => bar.map(Boolean)),
-    alignment: variation.materializedAgainstTiming ? "timing-grid" : undefined,
   } satisfies FixedAvailability;
 }
 
@@ -404,9 +404,9 @@ function filterTimingByFixedAvailability(
   return {
     condition,
     cycle: Array.from({ length: cycleLength }, (_, barIndex) =>
-      timing.cycle[barIndex % timing.cycle.length].filter((step, hitIndex) =>
+      timing.cycle[barIndex % timing.cycle.length].filter((_, hitIndex) =>
         activeAvailabilities.every((availability) =>
-          isFixedAvailabilityActive(availability, barIndex, step, hitIndex),
+          isFixedAvailabilityActive(availability, barIndex, hitIndex),
         ),
       ),
     ),
@@ -416,7 +416,6 @@ function filterTimingByFixedAvailability(
 function isFixedAvailabilityActive(
   availability: FixedAvailability,
   barIndex: number,
-  step: TimingStep,
   hitIndex: number,
 ) {
   if (
@@ -429,12 +428,7 @@ function isFixedAvailabilityActive(
   if (!availability.cycle) return true;
   const bar = availability.cycle[barIndex % availability.cycle.length];
   if (bar.length === 0) return false;
-  // Only synthesized gaps from transform materialization retain grid alignment.
-  const index =
-    availability.alignment === "timing-grid"
-      ? Math.floor(step.offset * bar.length)
-      : hitIndex % bar.length;
-  return bar[index];
+  return bar[hitIndex % bar.length];
 }
 
 function compileStaticTiming<T>(cycle: (T[] | null)[][]) {
