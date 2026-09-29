@@ -11,6 +11,10 @@ type EventSchemaFixture = {
   expected: SynthEventPattern | SamplerEventPattern;
 };
 
+// PR 2 corrected schema baseline: use these expected event patterns as the
+// authority for PR 4 compiler comparisons, not pre-PR 2 legacy output.
+// Intentional changes: candidate-ordinal sampler rest filtering, authored
+// one-step patterns (including transformed rests), and constructor fallbacks.
 const eventSchemaFixtures = [
   {
     name: "default synth timing and notes",
@@ -162,7 +166,7 @@ const eventSchemaFixtures = [
     },
   },
   {
-    name: "constructor sample names broadcast across authored hits",
+    name: "constructor sample name fallback fills authored hits",
     createInstrument: () => new Drome().sample("bd").variation([0, 1, 2]),
     expected: {
       timing: {
@@ -195,7 +199,7 @@ const eventSchemaFixtures = [
     },
   },
   {
-    name: "constructor sample name broadcasts through slowdown before explicit timing",
+    name: "constructor sample name fallback survives slowdown before explicit timing",
     createInstrument: () => new Drome().sample("bd").slow(2).xox([1, 1]),
     expected: {
       timing: {

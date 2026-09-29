@@ -4,88 +4,72 @@
 
 Proposed revision to the delivery sequence in [`plan.md`](./plan.md).
 
-The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document changes only how the target architecture is introduced. It replaces the adapter-first, lane-by-lane migration sequence with a shorter direct cutover.
+The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document changes only how that architecture is introduced. It replaces the adapter-first, lane-by-lane sequence in PRs 3–9 of the original plan with a shorter direct cutover.
 
 Read this with:
 
-- [`spec.md`](./spec.md) — authoritative behavior and architecture;
-- [`plan-outline.md`](./plan-outline.md) — original conservative migration outline;
-- [`plan.md`](./plan.md) — original detailed strangler plan;
+- [`spec.md`](./spec.md) — normative behavior and architecture;
+- [`plan.md`](./plan.md) — original conservative strangler plan;
+- [`plan-outline.md`](./plan-outline.md) — original high-level sequence;
 - [`pattern-flow-comparison.md`](./pattern-flow-comparison.md) — current and target flows;
-- [`syntax-examples.md`](./syntax-examples.md) — public syntax examples.
+- [`syntax-examples.md`](./syntax-examples.md) — shorthand and structured equivalents.
 
 If this plan and the specification disagree, the specification wins.
 
-## Why revise the delivery strategy
+## Delivery strategy
 
-The original plan optimizes for independently releasable migration steps, direct old/new compiler comparison, and small production cutovers. To achieve that, it intentionally introduces temporary machinery:
+Finish the intentional semantic corrections in PR 2, then stop modifying the legacy event architecture.
 
-- a legacy-state adapter;
-- separate synth and sampler compiler cutovers;
-- mixed native and legacy state;
-- transform coordination across both representations;
-- repeated implementation of corrected semantics in old and new compilers.
+Build the target foundations beside production code:
 
-That is appropriate when minimizing each cutover's risk is more important than minimizing total migration work. It is unnecessarily expensive when a larger atomic cutover is acceptable and explicit golden schema fixtures already provide a strong compatibility oracle.
+```text
+structured input → decode and validate → PatternExpression<T> → evaluate → EventCycle<T>
+                                                               ↓
+                                                    InstrumentEventState
+                                                               ↓
+                                                     pure event compiler
+                                                               ↓
+                                                  existing event schema
+```
 
-This revised plan optimizes for:
+Before shorthand is connected, only the structured-input branch exists. Once the target path is complete and directly tested, switch every coordinated event lane to native state in one production cutover and delete the old path.
 
-- reaching the target architecture sooner;
-- avoiding production adapters and mixed state;
-- implementing semantics only once in the replacement architecture after PR 2;
-- deleting legacy event abstractions at the production cutover;
-- preserving reviewability by building and testing pure foundations before wiring them into production.
-
-## Current position
-
-PR 1 established complete schema compatibility fixtures.
-
-PR 2 establishes the intentional semantic baseline:
-
-1. sampler note and variation rests use candidate ordinals;
-2. authored scalar and one-step inputs are ordinary patterns;
-3. constructor defaults are explicit fallback sources.
-
-Finish PR 2, but treat it as the final work that changes the legacy event architecture. Do not further generalize or polish legacy authored wrappers beyond what is required to make the corrected public behavior explicit and tested.
-
-Implementation details inside `AuthoredPitches`, `AuthoredEventValues`, `AuthoredTiming`, `MaskedCycle`, and the old event compiler remain temporary. Public schema fixtures and semantic expectations are the durable output of PR 2.
-
-## Target production flow
-
-The production cutover moves directly from the current flow to:
+After the cutover, add shorthand as a second frontend:
 
 ```text
 structured input → decode and validate ─┐
-                                        ├→ PatternExpression<T> → evaluate → EventCycle<T>
+                                        ├→ PatternExpression → evaluate → EventCycle<T>
 shorthand source → parse ───────────────┘
-                                                                  ↓
-                                                       InstrumentEventState
-                                                                  ↓
-                                                        pure event compiler
-                                                                  ↓
-                                                     existing event schema
 ```
 
-Before shorthand is connected, only the structured-input branch is active.
+This plan intentionally does not include:
 
-Expressions remain transient. Instrument state stores event cycles. Random sources remain a separate event-cycle variant. Processing parameters remain outside this architecture.
+- a production legacy-state adapter;
+- direct old/new compiler differential wiring;
+- separate synth and sampler schema cutovers;
+- mixed native and legacy event lanes;
+- a transform coordinator that understands both representations.
+
+Corrected golden schema fixtures are the compatibility authority.
 
 ## Migration rules
 
-1. Do not add a production legacy-state adapter by default.
-2. Do not dual-write legacy and native event state.
-3. Do not introduce a production period where some coordinated event lanes are native and others remain legacy-backed.
-4. Build new primitives, state transitions, and compilation beside production code with direct unit tests.
-5. Switch all coordinated event lanes atomically once the replacement path is complete.
-6. Use corrected golden schema fixtures as the cutover authority.
-7. Delete superseded compiler and authored-wrapper code in the cutover PR.
-8. Keep processing patterns, envelopes, effects, and unrelated sampler configuration out of the migration.
-9. Add shorthand only after structured input uses the target path end to end.
-10. If a temporary bridge becomes necessary, stop and document the concrete blocker before adding it. A bridge is an exception, not a planned phase.
+1. PR 2 is the final PR that changes legacy event semantics.
+2. Do not dual-write legacy and native state.
+3. Do not introduce a production period with mixed native and legacy event lanes.
+4. Build new foundations with direct tests before production wiring.
+5. Switch notes, timing, sample names, and variations together.
+6. Delete superseded wrappers and compiler code in the cutover PR.
+7. Expressions remain transient; instrument state stores event cycles only.
+8. Random sources remain a separate event-cycle branch.
+9. Processing parameters remain outside the redesign.
+10. If a bridge becomes necessary, stop and document the concrete blocker before adding it. A bridge is an exception, not a planned phase.
+
+Steps within the atomic cutover PR describe implementation areas, not independently mergeable production states. The branch may prepare isolated helpers first, but the merged result must contain only one authoritative event-state representation.
 
 ## Verification conventions
 
-Run focused tests throughout each PR. At each PR completion gate, run:
+Run focused tests after each step. At the end of every PR, run:
 
 ```sh
 pnpm check
@@ -95,33 +79,211 @@ pnpm format
 git diff --check
 ```
 
-The schema boundary remains the compatibility boundary. Before production cutover, test the new compiler using directly constructed native state. At cutover, run the existing public Fluid API fixtures unchanged against the new path.
+Useful focused commands:
+
+```sh
+pnpm --filter @web-audio/patterns test:ci
+pnpm --filter @web-audio/fluid test:ci
+pnpm --filter @web-audio/schema test:ci
+```
+
+Before production cutover, test the new compiler with directly constructed native state. At cutover, run the existing public Fluid API fixtures unchanged against the new production path.
 
 ---
 
 # PR 1 — Characterize the existing baseline
 
+## Goal
+
+Capture current public behavior at the schema boundary without changing production code.
+
 Status: complete.
 
-Retain the explicit event-schema compatibility fixtures as the long-term parity authority. Do not keep obsolete production code solely for differential testing.
+## Step 1.1 — Establish complete schema fixtures
+
+### Work
+
+Use table-driven public Fluid API scenarios with explicit complete event-pattern expectations.
+
+### Tasks
+
+- [x] Add the event-schema compatibility test file.
+- [x] Cover complete timing, values, conditions, and silent bars.
+- [x] Use fresh instrument construction for every fixture.
+- [x] Compare canonical serialized schema output strictly.
+- [x] Keep production behavior unchanged.
+
+### Likely files
+
+- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+
+### Verification
+
+- [x] Run focused Fluid tests.
+- [x] Run the complete repository suite.
+- [x] Confirm the PR contains tests only.
+
+## Step 1.2 — Retain fixtures as the parity authority
+
+### Work
+
+Use explicit expected schema objects after old production code is deleted. Do not preserve obsolete code solely for differential tests.
+
+### Tasks
+
+- [x] Cover timing ownership, rests, defaults, scalar broadcasting, transforms, random sources, polyphony, generated timing, and cycle expansion.
+- [x] Give each fixture a behavior-oriented name.
+- [x] Make fixture failures identify complete schema differences.
+
+### Likely files
+
+- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+
+### Verification
+
+- [x] Confirm every planned intentional PR 2 change has a before/after fixture.
+
+## PR 1 completion gate
+
+- [x] Existing behavior is represented by explicit schema fixtures.
+- [x] No production behavior changed.
+- [x] Golden fixtures can remain after legacy deletion.
+
+---
 
 # PR 2 — Land intentional event-semantics changes
 
+## Goal
+
+Establish the corrected semantic baseline before replacing the architecture. Treat this as the final work on the legacy event path.
+
 Status: in progress.
 
-Complete the corrected semantic baseline in the current architecture:
+## Step 2.1 — Change sampler filtering to candidate ordinals
 
-- candidate-ordinal availability;
-- authored scalar pattern behavior;
-- default fallback intent and resolution.
+### Work
 
-## Completion gate
+Make static sampler note and variation rests filter active timing candidates by ordinal rather than by offset resampling.
 
-- [ ] Corrected public schema fixtures pass.
-- [ ] Intentional output changes are isolated and documented.
-- [ ] Defaults, authored patterns, rests, random sources, and transforms have explicit coverage.
-- [ ] No target expression, event-cycle, or adapter infrastructure has landed.
-- [ ] No additional legacy refactoring is planned after this PR.
+### Tasks
+
+- [x] Apply candidate-ordinal filtering to notes and variations.
+- [x] Preserve sample-name candidate-ordinal behavior.
+- [x] Exclude the selected timing owner from redundant filtering.
+- [x] Preserve random zero-values-per-bar suppression.
+- [x] Preserve fixed filtering before runtime chance.
+- [x] Cover wrapping, multi-bar cycles, and rest intersections.
+
+### Likely files
+
+- `packages/fluid/src/instruments/event-compiler.ts`
+- `packages/fluid/src/instruments/event-compiler.test.ts`
+- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+- `packages/fluid/src/patterns/authored-event-values.ts`
+- `packages/fluid/src/patterns/authored-pitches.ts`
+
+### Verification
+
+- [x] Verify `[0, null, 2]` against four candidates yields offsets `0`, `1/2`, and `3/4`.
+- [x] Verify resulting values are `0`, `2`, and `0`.
+- [x] Confirm unrelated compatibility fixtures remain green.
+
+## Step 2.2 — Remove authored scalar broadcasting
+
+### Work
+
+Treat every setter value, including scalars and one-step arrays, as an authored pattern whose transformed rests may filter externally owned timing.
+
+### Tasks
+
+- [x] Route scalar, one-element array, and one-step cycle input through the same authored path.
+- [x] Remove authored broadcast exceptions.
+- [x] Apply the rule to notes, names, and variations.
+- [x] Cover explicit timing interactions.
+- [x] Preserve natural repetition for untransformed one-step patterns.
+
+### Likely files
+
+- `packages/fluid/src/patterns/authored-event-values.ts`
+- `packages/fluid/src/patterns/authored-event-values.test.ts`
+- `packages/fluid/src/patterns/authored-pitches.ts`
+- `packages/fluid/src/instruments/event-compiler.ts`
+- `packages/fluid/src/instruments/event-compiler.test.ts`
+- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+
+### Verification
+
+- [x] Verify `.var(1).slow(2)` produces an event bar followed by a rest bar.
+- [x] Verify authored slowed rest bars suppress externally owned candidates.
+- [x] Confirm only intentional schema expectations changed.
+
+## Step 2.3 — Establish default fallback semantics
+
+### Work
+
+Separate constructor default intent from authored setter intent. A default retains transformed timing geometry and a nonempty fallback group.
+
+### Tasks
+
+- [x] Represent default intent independently from authored intent.
+- [x] Require nonempty fallback groups.
+- [x] Prevent defaults from competing with authored timing.
+- [x] Prevent defaults from filtering external timing.
+- [x] Fill surviving hits from fallback groups.
+- [x] Prevent fallbacks from creating hits or activating silent timing bars.
+- [x] Allow transformed default cycles to supply timing when no stronger source exists.
+- [x] Make equal-value setters replace defaults with authored intent.
+
+### Likely files
+
+- `packages/fluid/src/patterns/authored-event-values.ts`
+- `packages/fluid/src/patterns/authored-event-values.test.ts`
+- `packages/fluid/src/patterns/authored-pitches.ts`
+- `packages/fluid/src/patterns/notes.test.ts`
+- `packages/fluid/src/instruments/event-compiler.ts`
+- `packages/fluid/src/instruments/event-compiler.test.ts`
+- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+
+### Verification
+
+- [x] Verify `d.sample("bd").slow(2).xox([1, 1])` fills surviving hits with `bd`.
+- [x] Verify `d.sample().name("bd").slow(2).xox([1, 1])` filters its slowed rest bar.
+- [x] Verify defaults do not activate an empty explicit timing bar.
+- [x] Verify setting the same value changes intent to authored.
+
+## Step 2.4 — Freeze the corrected legacy baseline
+
+### Work
+
+Promote corrected schema fixtures to the authority for the direct cutover. Avoid further legacy cleanup that will be deleted in PR 5.
+
+### Tasks
+
+- [ ] Mark candidate filtering, authored scalar semantics, and fallback semantics as intentional changes.
+- [ ] Review new wrapper-level tests and retain only those needed to explain PR 2.
+- [ ] Confirm no expression, event-cycle, native-state, or adapter code landed.
+- [ ] Record PR 2 as the last planned change to legacy event semantics.
+
+### Likely files
+
+- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+- `plans/shorthand-syntax/direct-cutover-plan.md`
+- release or migration documentation, if applicable
+
+### Verification
+
+- [ ] Run the complete repository suite.
+- [ ] Review schema changes for unrelated differences.
+- [ ] Confirm all future semantic work targets native state and the new compiler.
+
+## PR 2 completion gate
+
+- [ ] Candidate-ordinal filtering is established.
+- [ ] Authored scalar broadcasting is removed.
+- [ ] Constructor defaults have explicit fallback semantics.
+- [ ] Corrected golden fixtures pass.
+- [ ] No target architecture or migration bridge has landed.
+- [ ] No additional legacy refactoring is planned.
 
 ---
 
@@ -129,173 +291,320 @@ Complete the corrected semantic baseline in the current architecture:
 
 ## Goal
 
-Implement the target input-boundary model and canonical event-cycle mechanics without changing production instrument behavior.
+Add one expression model, one evaluator, canonical event cycles, structured decoding, and native transforms without changing production instrument behavior.
 
 ## Step 3.1 — Define `PatternExpression<T>`
 
-Add one readonly expression model shared by structured input and shorthand:
+### Work
 
-- explicit root patterns;
-- atoms and rests;
-- sequences, groups, parallel groups, and alternation;
-- modifiers;
-- optional source ranges;
-- bounded node count and depth.
+Create one generic readonly tree used by structured decoding and shorthand parsing.
 
-Do not add a separate shorthand AST.
+### Tasks
 
-## Step 3.2 — Define event-cycle primitives
+- [ ] Define atom, rest, sequence, group, parallel, alternate, and modifier nodes.
+- [ ] Define explicit root patterns for structured method arguments.
+- [ ] Make source ranges optional for structured input and available to shorthand.
+- [ ] Keep atom payload generic.
+- [ ] Make expression data readonly and enumerable.
+- [ ] Bound expression node count and depth.
+- [ ] Do not define a second shorthand AST.
 
-Add:
+### Likely files
 
-- static event cycles;
-- event, rest, and continuation steps;
-- nonempty event groups;
-- explicit silent patterns;
-- separate random event-cycle variants;
-- bounded cycle, pattern, step, event, and voice counts.
+- `packages/patterns/src/pattern-expression.ts` — **new, suggested**
+- `packages/patterns/src/pattern-expression.test.ts` — **new, suggested**
+- `packages/patterns/src/types.ts`
+- `packages/patterns/src/index.ts`
+- `packages/patterns/src/utils/cycle-limits.ts`
 
-No `valueMode`, scalar classification, authored broadcasting metadata, or schema-specific fields belong in the cycle.
+### Verification
 
-## Step 3.3 — Implement exact evaluation
+- [ ] Type-test every node variant.
+- [ ] Verify expression data can be frozen and inspected.
+- [ ] Confirm no production Fluid path uses expressions yet.
 
-Implement one pure evaluator that:
+## Step 3.2 — Define event-cycle primitives and invariants
 
-- accepts `PatternExpression<TAtom>`;
-- receives a consumer atom interpreter;
-- evaluates typed structured atoms through identity interpretation;
-- owns allocation, geometry, rests, continuations, and normalization;
-- uses bounded rational arithmetic;
-- rejects excessive expansion instead of rounding or truncating;
-- returns immutable event cycles.
+### Work
 
-Initially implement the structures required by existing structured input. Shorthand-only alternation and operator behavior may be completed in PR 6.
+Create the canonical internal representation for static and random event lanes.
 
-## Step 3.4 — Decode structured inputs
+### Tasks
 
-In Fluid, decode and validate current method input into typed expressions:
+- [ ] Define `EventCycle`, static cycles, and random cycle variants.
+- [ ] Define event, rest, and continuation steps.
+- [ ] Require nonempty event groups.
+- [ ] Preserve explicit silent patterns.
+- [ ] Preserve simultaneous voice order and duplicates.
+- [ ] Bound pattern, step, event, voice, and cycle counts.
+- [ ] Do not add schema offsets, durations, `valueMode`, or scalar metadata.
 
-- method arguments become explicit patterns/bars;
-- array entries become sequential slots;
-- nested arrays become simultaneous groups;
-- allowed `null` and `undefined` values become rests;
-- random inputs bypass static expression evaluation and become random event cycles.
+### Likely files
 
-Cover notes, sample names, variations, and fixed timing.
+- `packages/patterns/src/event-cycle.ts` — **new, suggested**
+- `packages/patterns/src/event-cycle.test.ts` — **new, suggested**
+- `packages/patterns/src/types.ts`
+- `packages/patterns/src/index.ts`
+- `packages/patterns/src/utils/cycle-limits.ts`
 
-## Step 3.5 — Implement native cycle transforms
+### Verification
 
-Implement pure event-cycle transforms for:
+- [ ] Verify events, rests, continuations, and silent patterns are distinguishable.
+- [ ] Verify event groups cannot be empty.
+- [ ] Confirm random settings remain a separate representation.
 
-- `reverse`;
-- `fast`;
-- `slow`;
-- `stretch`.
+## Step 3.3 — Add exact geometry and the shared evaluator
 
-Preserve exact geometry, explicit rests, continuations, silent patterns, and multi-pattern cycles. Keep default fallback metadata outside the transformed cycle.
+### Work
 
-## Likely files
+Evaluate typed expressions into immutable event cycles using exact bounded structural geometry.
 
-- `packages/patterns/src/pattern-expression.ts`
-- `packages/patterns/src/event-cycle.ts`
-- `packages/patterns/src/evaluate-pattern-expression.ts`
-- `packages/patterns/src/event-cycle-transforms.ts`
-- rational, grid, limit, and corresponding test files
-- `packages/fluid/src/patterns/decode-structured-input.ts`
-- structured-decoder tests and Fluid validation utilities
+### Tasks
 
-## Completion gate
+- [ ] Add normalized rational arithmetic and overflow checks.
+- [ ] Decode equal structural allocation into the smallest bounded step grid.
+- [ ] Derive offsets and durations from step indexes and continuation runs.
+- [ ] Evaluate explicit patterns, sequences, rests, and simultaneous groups.
+- [ ] Accept an atom interpreter callback.
+- [ ] Use identity interpretation for typed structured atoms.
+- [ ] Reject excessive denominators, steps, voices, patterns, or cycles.
+- [ ] Keep evaluation pure and non-mutating.
 
-- [ ] Structured inputs decode into `PatternExpression<T>`.
+### Likely files
+
+- `packages/patterns/src/evaluate-pattern-expression.ts` — **new, suggested**
+- `packages/patterns/src/evaluate-pattern-expression.test.ts` — **new, suggested**
+- `packages/patterns/src/utils/rational.ts` — **new, suggested**
+- `packages/patterns/src/utils/rational.test.ts` — **new, suggested**
+- `packages/patterns/src/utils/event-grid.ts` — **new, suggested**
+- `packages/patterns/src/utils/event-grid.test.ts` — **new, suggested**
+
+### Verification
+
+- [ ] Test exact nested allocation.
+- [ ] Test explicit rests versus continuations.
+- [ ] Test limit and overflow failures.
+- [ ] Assert expression inputs are unchanged.
+
+## Step 3.4 — Decode structured inputs into expressions
+
+### Work
+
+Keep consumer validation in Fluid, then evaluate all static structured event input through the shared expression path.
+
+### Tasks
+
+- [ ] Decode method arguments as explicit patterns/bars.
+- [ ] Decode array entries as sequential children.
+- [ ] Decode nested arrays as simultaneous groups.
+- [ ] Decode allowed `null` and `undefined` values as whole-step rests.
+- [ ] Validate notes, names, variations, and XOX in Fluid.
+- [ ] Route typed expressions through the shared evaluator.
+- [ ] Route random inputs directly to random event cycles.
+- [ ] Cover scalar, sequence, chord, rest, silent-bar, and multi-bar input.
+
+### Likely files
+
+- `packages/fluid/src/patterns/decode-structured-input.ts` — **new, suggested**
+- `packages/fluid/src/patterns/decode-structured-input.test.ts` — **new, suggested**
+- `packages/fluid/src/patterns/decode-xox-input.ts` — **new, suggested**
+- `packages/fluid/src/patterns/decode-xox-input.test.ts` — **new, suggested**
+- `packages/fluid/src/types.ts`
+- `packages/fluid/src/utils/validate.ts`
+
+### Verification
+
+- [ ] Compare evaluated geometry with corrected structured fixtures.
+- [ ] Confirm decoder output can be inspected independently.
+- [ ] Confirm random inputs bypass static evaluation.
+- [ ] Confirm production instruments remain on the legacy path.
+
+## Step 3.5 — Implement generic event-cycle transforms
+
+### Work
+
+Implement the transforms needed by native instrument state before production cutover.
+
+### Tasks
+
+- [ ] Implement reverse, acceleration, slowdown, and stretch.
+- [ ] Insert slowdown rests without extending gates.
+- [ ] Preserve explicit rests and continuations.
+- [ ] Preserve silent patterns and multi-pattern cycles.
+- [ ] Keep fallback groups outside cycle transforms.
+- [ ] Return new immutable cycle data.
+- [ ] Test transform composition and repeated transforms.
+
+### Likely files
+
+- `packages/patterns/src/event-cycle-transforms.ts` — **new, suggested**
+- `packages/patterns/src/event-cycle-transforms.test.ts` — **new, suggested**
+- `packages/patterns/src/utils/reverse.ts`
+- `packages/patterns/src/utils/speed.ts`
+- `packages/patterns/src/utils/stretch.ts`
+- `packages/patterns/src/index.ts`
+
+### Verification
+
+- [ ] Verify `60/2` produces an event pattern followed by a silent pattern.
+- [ ] Verify `[0 2 4 6]/2` preserves non-extended gate durations.
+- [ ] Verify all transforms are immutable.
+- [ ] Run patterns and Fluid focused suites.
+
+## PR 3 completion gate
+
+- [ ] Structured inputs decode to the shared expression model.
 - [ ] One evaluator produces canonical event cycles.
-- [ ] Generic transforms operate on event cycles immutably.
-- [ ] Random sources retain a separate branch.
-- [ ] Production instruments still use the legacy path.
-- [ ] No adapter or native/legacy mixed state exists.
+- [ ] Event cycles represent corrected structured behavior.
+- [ ] Generic transforms preserve exact geometry.
+- [ ] Production schema generation remains legacy-backed.
+- [ ] No adapter or mixed state exists.
 
 ---
 
-# PR 4 — Build native event state and the pure compiler
+# PR 4 — Build native state, transitions, and the pure compiler
 
 ## Goal
 
-Implement the complete target state model, transitions, and compiler in isolation from production authoring classes.
+Implement the complete target event state and compiler beside production code. Test it directly rather than adapting legacy authoring classes into it.
 
-## Step 4.1 — Define native event state
+## Step 4.1 — Define immutable instrument event state
 
-Define readonly state for synths and samplers:
+### Work
 
-- authored static and random event sources;
-- default static sources with nonempty fallback groups;
-- implicit and explicit timing;
-- chance conditions;
-- root and scale metadata;
-- sampler names and variations;
-- optional generated timing override supplied to compilation.
+Represent synth and sampler event concerns as readonly data with intent colocated with each source.
 
-Intent is colocated with its source. Expressions do not enter state.
+### Tasks
+
+- [ ] Define authored static and random event sources.
+- [ ] Define default static sources with nonempty fallback groups.
+- [ ] Define implicit and explicit timing state.
+- [ ] Preserve timing chance conditions.
+- [ ] Represent synth and sampler notes.
+- [ ] Represent sampler names and variations.
+- [ ] Represent root and scale state without legacy class methods.
+- [ ] Accept generated sampler timing as a compiler override, not stored event state.
+- [ ] Keep expressions out of state.
+
+### Likely files
+
+- `packages/fluid/src/instruments/event-state.ts` — **new, suggested**
+- `packages/fluid/src/instruments/event-state.test.ts` — **new, suggested**
+- `packages/fluid/src/types.ts`
+
+### Verification
+
+- [ ] Type-check complete synth and sampler states.
+- [ ] Verify default fallback groups cannot be empty.
+- [ ] Confirm state types have no legacy class or expression references.
 
 ## Step 4.2 — Implement pure state transitions
 
-Implement structural transitions for:
+### Work
 
-- replacing notes, names, variations, and timing;
-- applying root and scale settings;
-- applying all event transforms exactly once;
-- preserving setter/transform call order;
-- retaining fallback groups while transforming default timing geometry;
-- preserving generated chop/fit exemptions.
+Implement native setter and transform behavior before changing the mutable public facades.
 
-A transform coordinator does not need to exist as a migration abstraction. If a named coordinator is useful, it should be a thin native state transition with no legacy dependencies.
+### Tasks
 
-## Step 4.3 — Implement the pure compiler
+- [ ] Add constructors for default synth and sampler event state.
+- [ ] Replace notes, names, variations, and timing independently.
+- [ ] Make every setter replacement authored.
+- [ ] Apply root and scale without changing cycle geometry.
+- [ ] Apply reverse, fast, slow, and stretch exactly once to participating lanes.
+- [ ] Preserve default fallback groups while transforming their cycles.
+- [ ] Preserve setter-before-transform and transform-before-setter behavior.
+- [ ] Preserve explicit timing and generated timing exemptions.
+- [ ] Keep transitions pure and immutable.
 
-Implement:
+### Likely files
 
-- explicit/generated/inferred timing selection;
-- sampler density and tie policy;
-- candidate-ordinal availability;
-- continuation transparency;
-- default fallback resolution;
-- bounded common-cycle expansion;
-- final hit-index value resolution;
-- static and random schema emission;
-- root and scale conversion;
-- existing silent-bar conventions.
-
-The compiler must not import legacy authored classes, inspect public JavaScript input nesting, mutate state, or compile processing parameters.
-
-## Step 4.4 — Test native semantics directly
-
-Construct native state directly in tests and cover the corrected behavior matrix, including:
-
-- synth and sampler timing ownership;
-- all authored/default contrasts;
-- rest intersections and continuations;
-- scalar slowdown;
-- random values and random timing;
-- transforms and setter ordering;
-- silent patterns and cycle expansion;
-- generated timing overrides;
-- duplicate voices and independent lane wrapping.
-
-Use explicit expected schema objects. Do not build a production legacy adapter solely to run differential tests.
-
-## Likely files
-
+- `packages/fluid/src/instruments/event-state-transitions.ts` — **new, suggested**
+- `packages/fluid/src/instruments/event-state-transitions.test.ts` — **new, suggested**
 - `packages/fluid/src/instruments/event-state.ts`
-- `packages/fluid/src/instruments/event-state-transitions.ts`
+- `packages/patterns/src/event-cycle-transforms.ts`
+
+### Verification
+
+- [ ] Test every setter against default and authored state.
+- [ ] Test equal-value setters changing intent.
+- [ ] Test all transforms before and after setters.
+- [ ] Assert transition inputs remain unchanged.
+- [ ] Confirm no transition imports a legacy authored wrapper.
+
+## Step 4.3 — Implement static event compilation
+
+### Work
+
+Compile native state to the existing schema without parsing input or mutating authoring state.
+
+### Tasks
+
+- [ ] Implement synth implicit versus explicit timing selection.
+- [ ] Implement sampler rest priority, density, and tie order.
+- [ ] Use defaults for timing only when no stronger source exists.
+- [ ] Expand participating cycles to a bounded common length.
+- [ ] Apply authored rests by candidate ordinal.
+- [ ] Keep continuations ordinal-occupying and externally transparent.
+- [ ] Prevent defaults from filtering candidates.
+- [ ] Fill surviving hits from fallback groups.
+- [ ] Prevent fallbacks from creating hits or activating silent patterns.
+- [ ] Resolve authored values by final hit index.
+- [ ] Apply root and scale conversion.
+- [ ] Emit existing static schema shapes and silent-bar conventions.
+
+### Likely files
+
+- `packages/fluid/src/instruments/event-state-compiler.ts` — **new, suggested**
+- `packages/fluid/src/instruments/event-state-compiler.test.ts` — **new, suggested**
+- `packages/fluid/src/instruments/event-state.ts`
+- `packages/patterns/src/event-cycle.ts`
+
+### Verification
+
+- [ ] Construct native static states directly in tests.
+- [ ] Compare complete output with corrected golden expectations.
+- [ ] Assert compiler inputs remain unchanged.
+- [ ] Confirm the compiler has no legacy imports.
+
+## Step 4.4 — Add random compilation and generated timing overrides
+
+### Work
+
+Complete the compiler for random lanes, chance timing, and generated sampler timing.
+
+### Tasks
+
+- [ ] Preserve random notes and variations as random schemas.
+- [ ] Preserve values-per-pattern, segments, ranges, maps, and integer settings.
+- [ ] Preserve random timing as one runtime condition.
+- [ ] Apply fixed availability before runtime chance.
+- [ ] Ensure random misses consume no final values.
+- [ ] Accept chop/fit timing as a separate override.
+- [ ] Preserve optional sampler notes and default variation omission.
+- [ ] Cover random zero-count and silent-pattern conventions.
+
+### Likely files
+
 - `packages/fluid/src/instruments/event-state-compiler.ts`
-- corresponding test files
+- `packages/fluid/src/instruments/event-state-compiler.test.ts`
+- `packages/fluid/src/instruments/event-state.ts`
+- `packages/fluid/src/instruments/sampler-utils.ts`
 
-## Completion gate
+### Verification
 
-- [ ] Native state represents all corrected structured behavior.
-- [ ] Pure transitions preserve all transform and setter-order rules.
-- [ ] Pure compiler output matches corrected golden expectations.
-- [ ] Compiler and transitions have no legacy authored-class imports.
-- [ ] Production instruments still have one legacy source of truth.
-- [ ] No adapter or dual state has been introduced.
+- [ ] Compare complete random output with corrected golden expectations.
+- [ ] Cover generated chop and fit timing exemptions.
+- [ ] Run new compiler tests over the full semantic matrix.
+- [ ] Confirm production `getSchema()` still uses the legacy path.
+
+## PR 4 completion gate
+
+- [ ] Native state represents every corrected structured event behavior.
+- [ ] Native transitions preserve transform and setter semantics.
+- [ ] The pure compiler emits the established schema.
+- [ ] Static, random, and generated timing cases are covered.
+- [ ] New code has no legacy authored-class imports.
+- [ ] No adapter, dual state, or production cutover has landed.
 
 ---
 
@@ -303,146 +612,309 @@ Use explicit expected schema objects. Do not build a production legacy adapter s
 
 ## Goal
 
-Replace production event authoring and compilation in one coordinated cutover, then delete the superseded architecture.
+Replace production event authoring and compilation in one coordinated cutover, then delete the legacy event architecture.
 
-This is intentionally the largest PR in the revised plan. Its risk is controlled by the isolated coverage from PRs 3 and 4 and by the existing complete-schema fixtures.
+Steps 5.1–5.3 are one production transition and must not be merged independently. Preparation may occur in isolated code, but the merged PR must have only native event state.
 
-## Step 5.1 — Route all structured setters to native state
+## Step 5.1 — Route every event setter to native state
 
-Replace legacy event storage in `Instrument`, `Synthesizer`, and `Sampler`:
+### Work
 
-- initialize native synth and sampler event state;
-- decode and evaluate `.notes()`;
-- decode fixed/random `.xox()`;
-- preserve `.hex()`, `.euclid()`, and `.sequence()` behavior;
-- decode and evaluate `.name()`;
-- decode and evaluate `.variation()` / `.var()`;
-- apply root and scale through native state;
-- make every setter replacement authored, even when equal to a default;
-- retain generated chop/fit timing as a compiler override.
+Replace legacy fields in `Instrument`, `Synthesizer`, and `Sampler` with one native event-state source of truth.
 
-All coordinated event lanes switch together. Do not leave sampler names or variations on legacy wrappers after common notes and timing move.
+### Tasks
+
+- [ ] Initialize native synth and sampler event state.
+- [ ] Decode and evaluate `.notes()` into native state.
+- [ ] Decode fixed and random `.xox()` into native timing state.
+- [ ] Preserve `.hex()`, `.euclid()`, and `.sequence()` behavior through native timing transitions.
+- [ ] Decode and evaluate `.name()` into native sampler state.
+- [ ] Decode and evaluate `.variation()` / `.var()` into native sampler state.
+- [ ] Route root and scale updates through native state.
+- [ ] Preserve fluent public signatures and validation behavior.
+- [ ] Keep processing parameter fields unchanged.
+- [ ] Do not retain parallel legacy event fields.
+
+### Likely files
+
+- `packages/fluid/src/instruments/instrument.ts`
+- `packages/fluid/src/instruments/synthesizer.ts`
+- `packages/fluid/src/instruments/sampler.ts`
+- `packages/fluid/src/instruments/event-state.ts`
+- `packages/fluid/src/instruments/event-state-transitions.ts`
+- `packages/fluid/src/patterns/decode-structured-input.ts`
+- `packages/fluid/src/patterns/decode-xox-input.ts`
+- `packages/fluid/src/types.ts`
+
+### Verification
+
+- [ ] Confirm setters replace only their target lane.
+- [ ] Confirm equal-value setters change default intent to authored.
+- [ ] Run focused public setter and validation tests.
+- [ ] Confirm no public instrument stores both legacy and native event state.
 
 ## Step 5.2 — Route transforms through native transitions
 
-Make `reverse`, `fast`, `slow`, and `stretch` update `InstrumentEventState` directly:
+### Work
 
-- transform every participating event lane exactly once;
-- select or materialize timing once when required;
-- preserve default fallback groups;
-- preserve later-setter behavior;
-- preserve explicit timing and generated timing exemptions;
-- leave processing parameters untouched.
+Make every global event transform one immediate native state operation.
 
-## Step 5.3 — Switch schema generation
+### Tasks
 
-Route both synth and sampler `getSchema()` through the new pure compiler in the same production cutover.
+- [ ] Route `reverse`, `fast`, `slow`, and `stretch` through native transitions.
+- [ ] Transform every participating event cycle exactly once.
+- [ ] Select or materialize timing once when current behavior requires it.
+- [ ] Preserve default fallback groups.
+- [ ] Preserve authored slowed-rest filtering.
+- [ ] Preserve explicit timing and setter call order.
+- [ ] Preserve generated chop/fit timing exemptions.
+- [ ] Leave processing parameters outside event transforms.
+- [ ] Avoid an operation log or deferred getter mutation.
 
-Preserve:
+### Likely files
 
-- current schema types;
-- optional sampler notes and default variation omission;
-- sample resource warnings;
-- sampler region, fit, chop, loop, clipping, and direction behavior;
-- processing parameter compilation.
+- `packages/fluid/src/instruments/instrument.ts`
+- `packages/fluid/src/instruments/sampler.ts`
+- `packages/fluid/src/instruments/event-state-transitions.ts`
+- `packages/fluid/src/instruments/event-state-transitions.test.ts`
+- `packages/patterns/src/event-cycle-transforms.ts`
+
+### Verification
+
+- [ ] Run every transform against every event lane.
+- [ ] Cover setter-before-transform and transform-before-setter ordering.
+- [ ] Cover repeated and chained transforms.
+- [ ] Confirm each public transform has one native state transition entry.
+
+## Step 5.3 — Switch synth and sampler schema generation together
+
+### Work
+
+Route both instruments through the pure compiler in the same production cutover.
+
+### Tasks
+
+- [ ] Compile synth event schema from native state.
+- [ ] Compile sampler event schema from native state.
+- [ ] Pass generated chop/fit timing as an override.
+- [ ] Preserve optional notes and default variation omission.
+- [ ] Preserve sample warning behavior using native static names and fallbacks.
+- [ ] Preserve region, fit, chop, loop, clipping, direction, routing, effects, and gain behavior.
+- [ ] Keep schema and audio-engine types unchanged.
+
+### Likely files
+
+- `packages/fluid/src/instruments/synthesizer.ts`
+- `packages/fluid/src/instruments/sampler.ts`
+- `packages/fluid/src/instruments/instrument.ts`
+- `packages/fluid/src/instruments/event-state-compiler.ts`
+- `packages/fluid/src/instruments/sampler-utils.ts`
+- `packages/fluid/src/utils/sample-utils.ts`
+- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+
+### Verification
+
+- [ ] Run all complete-schema fixtures unchanged against the new path.
+- [ ] Explain every mismatch against the corrected PR 2 baseline.
+- [ ] Confirm both instruments use the new compiler.
+- [ ] Confirm no production getter invokes legacy event compilation.
 
 ## Step 5.4 — Delete superseded event infrastructure
 
-Once the new path is wired and fixtures pass, delete or narrow:
+### Work
 
-- the old event compiler;
-- `AuthoredPitches`;
-- `AuthoredEventValues`;
-- event-related `AuthoredTiming` responsibilities;
-- event-related `MaskedCycle` usage;
-- duplicated availability, materialization, timing-selection, and cycle-expansion helpers;
-- wrapper-detail tests that no longer describe production behavior.
+Remove the old architecture in the same PR so the repository does not retain two competing paths.
 
-Retain any generally useful rhythm generators as named pure utilities rather than legacy stateful wrappers.
+### Tasks
 
-## Cutover verification
+- [ ] Delete the old event compiler.
+- [ ] Delete `AuthoredPitches`.
+- [ ] Delete `AuthoredEventValues`.
+- [ ] Delete or narrow `AuthoredTiming` to any genuinely reusable rhythm utilities.
+- [ ] Delete or narrow event-related `MaskedCycle` usage.
+- [ ] Remove duplicated timing selection, availability, materialization, and cycle-expansion helpers.
+- [ ] Remove obsolete exports and imports.
+- [ ] Replace wrapper-detail tests with native transition, compiler, and golden coverage.
+- [ ] Retain useful rhythm generation only as named pure utilities.
 
-Run the existing public Fluid API compatibility fixtures unchanged. Review every schema mismatch against the PR 2 baseline. A mismatch must be:
+### Likely files
 
-1. fixed as a regression; or
-2. documented as an additional intentional behavior change before merge.
+- `packages/fluid/src/instruments/event-compiler.ts`
+- `packages/fluid/src/instruments/event-compiler.test.ts`
+- `packages/fluid/src/patterns/authored-pitches.ts`
+- `packages/fluid/src/patterns/notes.test.ts`
+- `packages/fluid/src/patterns/authored-event-values.ts`
+- `packages/fluid/src/patterns/authored-event-values.test.ts`
+- `packages/fluid/src/patterns/authored-timing.ts`
+- `packages/fluid/src/patterns/authored-timing.test.ts`
+- `packages/patterns/src/masked-cycle.ts`
+- `packages/patterns/src/masked-cycle.test.ts`
+- package index and type files
 
-Also use `rg` to confirm deleted wrappers and compiler symbols have no production callers.
+### Verification
 
-## Completion gate
+- [ ] Use `rg` to confirm removed classes and compiler symbols have no callers.
+- [ ] Run Fluid, patterns, schema, and complete repository suites.
+- [ ] Confirm the diff contains no adapter or dual-state bridge.
+- [ ] Confirm processing patterns remain unchanged.
 
-- [ ] Structured input uses expressions, evaluation, event cycles, native state, and the new compiler end to end.
-- [ ] Both synth and sampler cut over together.
-- [ ] No legacy adapter, dual state, or mixed event-lane state exists.
-- [ ] Old event compiler and authored wrappers are deleted or explicitly narrowed.
-- [ ] Complete schema fixtures pass unchanged except for documented PR 2 expectations.
-- [ ] Processing patterns remain unaffected.
+## PR 5 completion gate
+
+- [ ] Structured event input uses expressions and evaluation end to end.
+- [ ] Instrument state stores only native event cycles.
+- [ ] Both synth and sampler compile through the new compiler.
+- [ ] All coordinated event lanes switched together.
+- [ ] Transforms update native state exactly once.
+- [ ] Legacy wrappers and compiler code are deleted or explicitly narrowed.
+- [ ] Golden schema fixtures pass.
+- [ ] No adapter, dual state, or mixed event-lane state remains.
 
 ---
 
-# PR 6 — Add shorthand parsing and complete shared evaluation
+# PR 6 — Add shorthand parsing and prove shared evaluation
 
 ## Goal
 
-Add shorthand as a second frontend to the already-production expression evaluator.
+Add shorthand as a second frontend to the expression evaluator already used by structured production input.
 
-## Step 6.1 — Parse directly into `PatternExpression<string>`
+## Step 6.1 — Add the source-aware lexer and parser
 
-Implement:
+### Work
 
-- source-aware lexing and parsing;
-- source ranges;
-- groups, polyphony, alternation, and postfix modifiers;
-- reserved-token and empty-structure errors;
-- syntax and expansion limits.
+Parse shorthand directly into `PatternExpression<string>`.
 
-Do not introduce a second shorthand AST or converted expression tree.
+### Tasks
 
-## Step 6.2 — Complete shorthand-only evaluation
+- [ ] Tokenize atoms, delimiters, rests, and postfix modifiers.
+- [ ] Treat spaces, tabs, and newlines as equivalent separators.
+- [ ] Preserve atom and modifier amount lexemes as strings.
+- [ ] Populate source ranges on parsed nodes.
+- [ ] Reject unsupported reserved constructs and empty structures.
+- [ ] Bound source length, token count, expression depth, and node count.
+- [ ] Do not introduce `ShorthandNode` or another AST.
 
-Extend the shared evaluator with:
+### Likely files
 
-- deterministic alternation;
-- structural repetition;
-- acceleration and slowdown;
-- relative weighting and continuations;
-- exact speed-chain cancellation;
-- nested allocation and bounded finite periods.
+- `packages/patterns/src/shorthand/lexer.ts` — **new, suggested**
+- `packages/patterns/src/shorthand/lexer.test.ts` — **new, suggested**
+- `packages/patterns/src/shorthand/parser.ts` — **new, suggested**
+- `packages/patterns/src/shorthand/parser.test.ts` — **new, suggested**
+- `packages/patterns/src/shorthand/errors.ts` — **new, suggested**
+- `packages/patterns/src/pattern-expression.ts`
+- `packages/patterns/src/index.ts`
 
-Structured behavior must continue through the same evaluator unchanged.
+### Verification
 
-## Step 6.3 — Add consumer atom interpreters
+- [ ] Verify exact ranges for valid and invalid input.
+- [ ] Cover all syntax and invalid-form examples from the specification.
+- [ ] Confirm parsing performs no target-specific atom interpretation.
 
-In Fluid, interpret shorthand atoms during evaluation for:
+## Step 6.2 — Complete shorthand-only expression evaluation
 
-- notes;
-- sample names;
-- variations;
-- XOX timing.
+### Work
 
-Preserve legacy compact XOX through a compatibility decoder that also produces `PatternExpression<string>`.
+Extend the same evaluator with shorthand structures and operators.
 
-## Step 6.4 — Prove structured/shorthand equivalence
+### Tasks
 
-Compare expression structures, event cycles, and final schema for equivalent forms, including:
+- [ ] Evaluate nested groups and deterministic alternation.
+- [ ] Evaluate structural repetition `!`.
+- [ ] Evaluate acceleration `*` and slowdown `/`.
+- [ ] Evaluate relative weighting `@` with continuations.
+- [ ] Combine uninterrupted speed chains as exact rational rates.
+- [ ] Preserve written operator order.
+- [ ] Implement weighted alternation as whole-pattern retrigger frequency.
+- [ ] Bound alternation periods and normalized expansion.
+- [ ] Keep structured evaluation on the same code path.
 
-```ts
-.var("1!2");
-.var([1, 1]);
+### Likely files
 
-.var("1/2");
-.var(1).slow(2);
-```
+- `packages/patterns/src/evaluate-pattern-expression.ts`
+- `packages/patterns/src/evaluate-pattern-expression.test.ts`
+- `packages/patterns/src/event-cycle-transforms.ts`
+- rational, grid, and limit utilities
 
-Cover rests, chords, continuations, weighting, alternation, direct strings, reusable shorthand values, and target-specific errors.
+### Verification
 
-## Completion gate
+- [ ] Test `60/2 1` exactly.
+- [ ] Test `[0 2]*2/2` for geometry and duration cancellation.
+- [ ] Test `<0@2 2 3>*2` as `[0, 0]` followed by `[2, 3]`.
+- [ ] Verify weighting distinguishes continuations from rests.
+- [ ] Verify no second evaluator was introduced.
 
-- [ ] Shorthand parses directly into the shared expression model.
+## Step 6.3 — Add target atom interpreters and compact XOX decoding
+
+### Work
+
+Interpret shorthand leaves during shared evaluation without creating a converted expression tree.
+
+### Tasks
+
+- [ ] Define the consumer atom-interpreter callback contract.
+- [ ] Parse notes and variations as strict finite numbers.
+- [ ] Preserve signed and fractional values.
+- [ ] Validate sample names under the specified alias rules.
+- [ ] Map XOX onset and rest atoms.
+- [ ] Reject XOX polyphony and unsupported values.
+- [ ] Include target method and source range in errors.
+- [ ] Decode legacy compact XOX into `PatternExpression<string>`.
+- [ ] Apply compact decoding to direct strings and reusable shorthand sources.
+
+### Likely files
+
+- `packages/fluid/src/patterns/atom-interpreters.ts` — **new, suggested**
+- `packages/fluid/src/patterns/atom-interpreters.test.ts` — **new, suggested**
+- `packages/fluid/src/patterns/decode-xox-input.ts`
+- `packages/fluid/src/patterns/decode-xox-input.test.ts`
+- `packages/fluid/src/utils/sample-utils.ts`
+- `packages/fluid/src/utils/validate.ts`
+- `packages/fluid/src/types.ts`
+
+### Verification
+
+- [ ] Confirm interpretation occurs leaf-by-leaf during evaluation.
+- [ ] Confirm no converted expression copy is created.
+- [ ] Compare compact and general XOX event cycles.
+- [ ] Verify target-specific errors include source ranges.
+
+## Step 6.4 — Prove structured and shorthand equivalence
+
+### Work
+
+Compare equivalent inputs at expression, event-cycle, and final-schema boundaries before public shorthand dispatch lands.
+
+### Tasks
+
+- [ ] Compare atoms, rests, sequences, and chords.
+- [ ] Compare `"1!2"` with `[1, 1]`.
+- [ ] Compare `"1/2"` with scalar input followed by `.slow(2)`.
+- [ ] Compare continuations and weighted durations.
+- [ ] Compare alternation over its complete finite period.
+- [ ] Verify continuations occupy candidate ordinals without suppressing them.
+- [ ] Verify authored rests suppress candidates.
+- [ ] Compare final schema output for every supported consumer.
+
+### Likely files
+
+- `packages/patterns/src/evaluate-pattern-expression.test.ts`
+- `packages/fluid/src/patterns/atom-interpreters.test.ts`
+- `packages/fluid/src/patterns/decode-structured-input.test.ts`
+- `packages/fluid/src/instruments/event-state-compiler.test.ts`
+- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+
+### Verification
+
+- [ ] Run patterns and Fluid suites.
+- [ ] Confirm comparisons include geometry, rests, continuations, and schema.
+- [ ] Confirm production method dispatch remains structured-only.
+
+## PR 6 completion gate
+
+- [ ] Shorthand parses directly into `PatternExpression<string>`.
 - [ ] One evaluator handles structured and shorthand geometry.
-- [ ] Atom interpretation creates no converted expression copy.
-- [ ] Structured production behavior remains green.
-- [ ] No public shorthand dispatch is required yet.
+- [ ] Consumer callbacks interpret atoms during evaluation.
+- [ ] Structured and shorthand equivalents compile identically.
+- [ ] No shorthand public API is connected yet.
 
 ---
 
@@ -450,48 +922,164 @@ Cover rests, chords, continuations, weighting, alternation, direct strings, reus
 
 ## Goal
 
-Expose shorthand publicly after the target structured architecture is stable.
+Expose reusable shorthand and direct-string dispatch after the target structured architecture is stable.
 
-## Tasks
+## Step 7.1 — Add shorthand construction and exports
 
+### Work
+
+Expose immutable reusable shorthand values containing the shared expression model.
+
+### Tasks
+
+- [ ] Define `Shorthand` with `source` and `expression`.
 - [ ] Add `d.shorthand()` and `d.sh()`.
-- [ ] Return immutable reusable shorthand values with inspectable expressions.
-- [ ] Add direct single-string dispatch to supported consumers.
-- [ ] Require reusable shorthand values to be the sole argument.
-- [ ] Support `.notes()`, `.name()`, `.variation()` / `.var()`, and `.xox()`.
-- [ ] Preserve compact XOX compatibility.
-- [ ] Apply the documented sample alias and `:` restrictions.
-- [ ] Export public expression types.
+- [ ] Parse eagerly at shorthand construction.
+- [ ] Freeze the wrapper and expression recursively.
+- [ ] Export `Shorthand`, `PatternExpression`, and supporting node types.
+- [ ] Keep parsed expression data enumerable and inspectable.
+- [ ] Test alias equivalence and eager syntax errors.
+
+### Likely files
+
+- `packages/patterns/src/shorthand/index.ts` — **new, suggested**
+- `packages/patterns/src/pattern-expression.ts`
+- `packages/patterns/src/index.ts`
+- `packages/fluid/src/index.ts`
+- `packages/fluid/src/index.test.ts`
+- `packages/fluid/src/types.ts`
+
+### Verification
+
+- [ ] Inspect inferred public declarations.
+- [ ] Verify returned values and nested expressions are immutable.
+- [ ] Confirm no avoidable explicit return types are added.
+
+## Step 7.2 — Add public method dispatch
+
+### Work
+
+Route supported direct strings and reusable shorthand values through the parser and evaluator already proved in PR 6.
+
+### Tasks
+
+- [ ] Dispatch one string, one `Shorthand`, or structured arguments.
+- [ ] Require a `Shorthand` value to be the sole argument.
+- [ ] Add shorthand to `.notes()`.
+- [ ] Add shorthand to `.name()`.
+- [ ] Add shorthand to `.variation()` / `.var()`.
+- [ ] Add shorthand to `.xox()`.
+- [ ] Preserve multiple structured arguments under existing dispatch rules.
+- [ ] Preserve legacy compact XOX compatibility.
+- [ ] Route direct strings and reusable shorthand through the same parser/evaluator path.
+
+### Likely files
+
+- `packages/fluid/src/instruments/instrument.ts`
+- `packages/fluid/src/instruments/sampler.ts`
+- `packages/fluid/src/instruments/event-state-transitions.ts`
+- `packages/fluid/src/patterns/atom-interpreters.ts`
+- `packages/fluid/src/patterns/decode-xox-input.ts`
+- `packages/fluid/src/types.ts`
+- public API test files
+
+### Verification
+
+- [ ] Run direct-string and reusable-value tests for every consumer.
+- [ ] Run retained structured golden fixtures unchanged.
+- [ ] Verify invalid mixed argument forms fail eagerly.
+
+## Step 7.3 — Enforce sample alias compatibility changes
+
+### Work
+
+Apply the notation-safe sample-name rules defined by the specification.
+
+### Tasks
+
+- [ ] Restrict aliases to `[A-Za-z0-9]+` in names and bank keys.
+- [ ] Reject `:` in structured and shorthand `.name()` input.
+- [ ] Preserve constructor `d.sample("bd:2")` behavior.
+- [ ] Reject combined selectors in `.name()`.
+- [ ] Preserve unrestricted URLs.
+- [ ] Tighten direct schema validation.
+- [ ] Add focused migration errors and tests.
+
+### Likely files
+
+- `packages/fluid/src/utils/sample-utils.ts`
+- `packages/fluid/src/utils/sample-utils.test.ts`
+- `packages/fluid/src/instruments/sampler.ts`
+- `packages/fluid/src/index.ts`
+- `packages/fluid/src/index.test.ts`
+- `packages/schema/src/validate-graph.ts`
+- `packages/schema/src/validate-graph.test.ts`
+
+### Verification
+
+- [ ] Run Fluid and schema suites.
+- [ ] Verify constructor shorthand and `.name()` differ only as specified.
+- [ ] Confirm URL handling remains unchanged.
+
+## Step 7.4 — Complete end-to-end coverage and documentation
+
+### Work
+
+Finalize public examples, diagnostics, cleanup, and architectural verification.
+
+### Tasks
+
+- [ ] Add public examples for every supported consumer.
 - [ ] Add malformed syntax, invalid target, and expansion-limit tests.
-- [ ] Update Fluid, patterns, and concept documentation.
-- [ ] Remove migration-only exports, comments, and test scaffolding.
-- [ ] Confirm expressions and event cycles do not enter schema or audio-engine code.
+- [ ] Add exact slowdown, cancellation, weighting, alternation, and continuation tests.
+- [ ] Document reusable `d.sh()` and direct strings.
+- [ ] Document authored patterns versus default fallbacks.
+- [ ] Document sample-name restrictions and intentional changes.
+- [ ] Remove migration-only exports, comments, and scaffolding.
+- [ ] Confirm schema and audio engine contain no shorthand or event-cycle concepts.
 
-## Completion gate
+### Likely files
 
-- [ ] Supported consumers accept direct strings and reusable shorthand.
-- [ ] Structured and shorthand inputs share one model and evaluator.
+- `packages/fluid/README.md`
+- `packages/patterns/README.md`
+- `docs/concepts/patterns.md`
+- `plans/shorthand-syntax/syntax-examples.md`
+- public API, parser, evaluator, interpreter, compiler, and schema tests
+
+### Verification
+
+- [ ] Run the complete repository suite.
+- [ ] Review public exports and generated declarations.
+- [ ] Use `rg` to confirm no obsolete wrappers, adapters, or compiler symbols remain.
+- [ ] Confirm `git diff --check` passes.
+
+## PR 7 completion gate
+
+- [ ] Supported consumers accept direct strings and reusable shorthand values.
+- [ ] Parsed expression data is readonly, enumerable, inspectable, and source-aware.
+- [ ] Structured and shorthand input share one expression model and evaluator.
 - [ ] Instrument state stores only event cycles.
-- [ ] Legacy event abstractions and migration-only code are gone.
-- [ ] Intentional compatibility changes are documented.
-- [ ] Complete repository validation passes.
+- [ ] Legacy event abstractions and migration code are gone.
+- [ ] Compatibility changes are documented and tested.
+- [ ] Schema and audio engine remain unchanged by shorthand concepts.
 
 ---
 
-# Direct-cutover review checklist
+# Global review checklist
 
-- [ ] PR 2 is the last change to legacy event semantics.
-- [ ] New foundational code is tested before production wiring.
+- [ ] PR 2 is the final modification to legacy event semantics.
+- [ ] New foundations are tested before production wiring.
 - [ ] New compiler tests construct native state directly.
-- [ ] No production adapter is introduced without a documented blocker.
-- [ ] No lane is represented in both legacy and native state.
-- [ ] All coordinated event lanes switch in one production cutover.
 - [ ] Golden schema fixtures remain the compatibility authority.
+- [ ] No production adapter exists without a documented blocker.
+- [ ] No event lane is represented in both legacy and native state.
+- [ ] All coordinated event lanes switch in one production cutover.
 - [ ] Expressions remain transient input-boundary values.
-- [ ] Event cycles remain internal canonical state.
+- [ ] Event cycles remain canonical internal state.
 - [ ] Random sources remain a separate branch.
-- [ ] Defaults retain nonempty fallback groups and never create/filter hits.
+- [ ] Defaults retain nonempty fallback groups and never create or filter hits.
 - [ ] Authored rests filter by candidate ordinal.
+- [ ] Continuations occupy ordinals without suppressing external candidates.
 - [ ] Transforms update native state exactly once.
 - [ ] Processing parameters remain outside the redesign.
 - [ ] Superseded wrappers and compiler helpers are deleted at cutover.

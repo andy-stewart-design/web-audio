@@ -232,23 +232,25 @@ Separate constructor defaults from authored patterns. A default source retains t
 
 ## Step 2.4 — Promote the corrected baseline
 
+The explicit expected schemas in `packages/fluid/src/instruments/event-schema-compatibility.test.ts` are the corrected PR 2 baseline for PR 4 comparisons. Keep their named fixtures and complete timing/value assertions intact when introducing a new compiler. The only accepted differences from the PR 1 baseline are sampler candidate-ordinal rest filtering, authored one-step pattern behavior (including an authored `var(0)` rather than omitted default variation), and constructor fallback semantics. Other schema differences are regressions unless separately specified and reviewed.
+
 ### Tasks
 
-- [ ] Mark candidate filtering, authored pattern semantics, and default fallbacks as intentional changes.
-- [ ] Ensure no new architecture types or adapters landed in this PR.
-- [ ] Make corrected fixtures authoritative for PR 4 differential comparisons.
+- [x] Mark candidate filtering, authored pattern semantics, and default fallbacks as intentional changes.
+- [x] Ensure no new architecture types or adapters landed in this PR.
+- [x] Make corrected fixtures authoritative for PR 4 differential comparisons.
 
 ### Verification
 
-- [ ] Run the complete repository suite.
-- [ ] Review schema diffs specifically for unrelated changes.
+- [x] Run the complete repository suite.
+- [x] Review schema diffs specifically for unrelated changes.
 
 ## PR 2 completion gate
 
-- [ ] Candidate-ordinal filtering is established.
-- [ ] Authored scalar broadcasting is removed.
-- [ ] Default fallbacks have explicit tested semantics.
-- [ ] No event-cycle redesign code has landed.
+- [x] Candidate-ordinal filtering is established.
+- [x] Authored scalar broadcasting is removed.
+- [x] Default fallbacks have explicit tested semantics.
+- [x] No event-cycle redesign code has landed.
 
 ---
 

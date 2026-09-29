@@ -16,6 +16,14 @@ Static value patterns contain raw values only; random numeric patterns contain p
 
 Samplers may be unnamed while they are being built. A name must be supplied before schema generation, either with the constructor or with `.name()`. Natural-pitch samplers omit `events.notes`, and an absent `events.variationIndices` field means variation `0`.
 
+## Event-pattern compatibility changes
+
+These are intentional changes to structured event authoring (not new shorthand syntax):
+
+- **Candidate-ordinal rests:** sampler note and variation rests now filter the ordered hits in a bar, wrapping by hit ordinal rather than resampling their offsets. For example, `.var([0, null, 2]).xox([1, 1, 1, 1])` keeps hits at offsets `0`, `1/2`, and `3/4` with variations `0`, `2`, and `0`. Sample-name rests already followed this rule.
+- **Authored scalars are patterns:** values set with `.notes()`, `.name()`, or `.var()` behave like one-step arrays. `.var(1).slow(2)` has an event bar followed by a rest bar; that rest suppresses hits when another lane owns timing. Replace an authored scalar after a transform if you want an untransformed repeating one-step pattern.
+- **Constructor defaults are fallbacks:** a constructor sample name, the default pitch, and the default variation `0` do not compete with or filter externally owned timing. Their values fill surviving hits, never create hits in a silent bar, and their transformed cycles provide timing only when no stronger source exists. Calling a setter replaces the default with an authored pattern even if its value is unchanged. For example, `.sample("bd").slow(2)` retains fallback `bd`, while `.sample().name("bd").slow(2)` has an authored rest bar under stronger timing.
+
 ## Sampler names
 
 These constructor forms are equivalent where applicable:
