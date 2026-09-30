@@ -131,4 +131,6 @@ function greatestCommonDivisor(a: number, b: number): number {
   return b === 0 ? a : greatestCommonDivisor(b, a % b);
 }
 
+// Internal numeric boundary shared with native transforms; legacy behavior is unchanged.
+export { getSpeedRatio };
 export default Speed;

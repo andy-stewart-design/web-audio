@@ -437,15 +437,17 @@ Native-only `decode-{structured,random,xox}-input.ts` helpers are in Fluid's pat
 
 Implement the transforms needed by native instrument state before production cutover.
 
+Implemented in `packages/patterns/src/event-cycle-transforms.ts`. Transforms freeze fresh structure, preserve opaque payloads, and guard total patterns, steps, and voices before expansion. Reverse mirrors complete event/gate blocks; stretch retriggers those blocks; slowdown spaces onsets without extending gates. Random candidates transform separately from generation settings, with reverse toggling generation order once. Cross-bar gates fail explicitly under the v1 continuation invariant. Materialized helper calls are not an uninterrupted expression speed chain; Step 6.2 still owns that cancellation.
+
 ### Tasks
 
-- [ ] Implement reverse, acceleration, slowdown, and stretch.
-- [ ] Insert slowdown rests without extending gates.
-- [ ] Preserve explicit rests and continuations.
-- [ ] Preserve silent patterns and multi-pattern cycles.
-- [ ] Keep fallback groups outside cycle transforms.
-- [ ] Return new immutable cycle data.
-- [ ] Test transform composition and repeated transforms.
+- [x] Implement reverse, acceleration, slowdown, and stretch.
+- [x] Insert slowdown rests without extending gates.
+- [x] Preserve explicit rests and continuations.
+- [x] Preserve silent patterns and multi-pattern cycles.
+- [x] Keep fallback groups outside cycle transforms.
+- [x] Return new immutable cycle data.
+- [x] Test transform composition and repeated transforms.
 
 ### Likely files
 
@@ -458,19 +460,19 @@ Implement the transforms needed by native instrument state before production cut
 
 ### Verification
 
-- [ ] Verify `60/2` produces an event pattern followed by a silent pattern.
-- [ ] Verify `[0 2 4 6]/2` preserves non-extended gate durations.
-- [ ] Verify all transforms are immutable.
-- [ ] Run patterns and Fluid focused suites.
+- [x] Verify `60/2` produces an event pattern followed by a silent pattern.
+- [x] Verify `[0 2 4 6]/2` preserves non-extended gate durations.
+- [x] Verify all transforms are immutable.
+- [x] Run patterns and Fluid focused suites.
 
 ## PR 3 completion gate
 
-- [ ] Structured inputs decode to the shared expression model.
-- [ ] One evaluator produces canonical event cycles.
-- [ ] Event cycles represent corrected structured behavior.
-- [ ] Generic transforms preserve exact geometry.
-- [ ] Production schema generation remains legacy-backed.
-- [ ] No adapter or mixed state exists.
+- [x] Structured inputs decode to the shared expression model.
+- [x] One evaluator produces canonical event cycles.
+- [ ] Event cycles represent corrected structured behavior (complete parity still requires the empty-bar provenance feasibility/replay gate in Steps 4.2/4.5).
+- [x] Generic transforms preserve exact geometry.
+- [x] Production schema generation remains legacy-backed.
+- [x] No adapter or mixed state exists.
 
 ---
 
@@ -530,6 +532,7 @@ Implement native setter and transform behavior before changing the mutable publi
 - [ ] Prove authored and slowdown-created rests still filter replacement timing.
 - [ ] Prove coordinated lanes sharing materialized timing do not apply their intersection twice.
 - [ ] Cover repeated and chained transforms, timing replacement, and generated chop/fit exemptions.
+- [ ] Resolve empty-bar provenance for authored-rest priority and speed geometry: legacy zero-width empty bars and canonical one-step silence compress differently. Also resolve legacy empty-note-chord acceptance against native empty-group validation before cutover.
 - [ ] Document and resolve any required representation changes before production wiring.
 - [ ] Keep transitions pure and immutable.
 

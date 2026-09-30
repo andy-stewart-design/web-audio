@@ -14,6 +14,12 @@ import {
 } from "./event-cycle";
 import { evaluatePatternExpression } from "./evaluate-pattern-expression";
 import { getEventPatternGeometry } from "./utils/event-grid";
+import {
+  reverseEventCycle,
+  fastEventCycle,
+  slowEventCycle,
+  stretchEventCycle,
+} from "./event-cycle-transforms";
 import type {
   ChanceCondition,
   Chord,
@@ -57,6 +63,10 @@ export {
   assertRandomGenerationMetadata,
   evaluatePatternExpression,
   getEventPatternGeometry,
+  reverseEventCycle,
+  fastEventCycle,
+  slowEventCycle,
+  stretchEventCycle,
   getChordStaticSchema,
   type ChanceCondition,
   type Chord,
