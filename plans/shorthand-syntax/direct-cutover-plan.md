@@ -45,25 +45,27 @@ shorthand source → parse ───────────────┘
 This plan intentionally does not include:
 
 - a production legacy-state adapter;
-- direct old/new compiler differential wiring;
+- production old/new differential wiring;
 - separate synth and sampler schema cutovers;
 - mixed native and legacy event lanes;
 - a transform coordinator that understands both representations.
 
-Corrected golden schema fixtures are the compatibility authority.
+Corrected golden schema fixtures are the compatibility authority. Temporary test-only legacy/native comparisons are permitted, including generated setter/transform sequences. They run independently initialized paths, not a legacy-state adapter, and are removed when the legacy path is deleted; retained golden and native tests remain authoritative afterward.
 
 ## Migration rules
 
 1. PR 2 is the final PR that changes legacy event semantics.
 2. Do not dual-write legacy and native state.
 3. Do not introduce a production period with mixed native and legacy event lanes.
-4. Build new foundations with direct tests before production wiring.
+4. Build new foundations with direct tests and complete native scenario replay before production wiring.
 5. Switch notes, timing, sample names, and variations together.
-6. Delete superseded wrappers and compiler code in the cutover PR.
+6. Delete superseded wrappers and compiler code in the cutover PR only after recording and verifying coverage transfer.
 7. Expressions remain transient; instrument state stores event cycles only.
 8. Random sources remain a separate event-cycle branch.
 9. Processing parameters remain outside the redesign.
-10. If a bridge becomes necessary, stop and document the concrete blocker before adding it. A bridge is an exception, not a planned phase.
+10. If a production bridge becomes necessary, stop and document the concrete blocker before adding it. A production bridge is an exception, not a planned phase; independent test-only scenario replay is permitted.
+11. Unresolved representation-feasibility questions block cutover. Resolve any required design changes before PR 5, not inside production wiring.
+12. Do not change corrected golden expectations to make PR 5 pass. Fix regressions; if a behavior change proves necessary, stop and review it separately before resuming cutover.
 
 Steps within the atomic cutover PR describe implementation areas, not independently mergeable production states. The branch may prepare isolated helpers first, but the merged result must contain only one authoritative event-state representation.
 
@@ -87,7 +89,7 @@ pnpm --filter @web-audio/fluid test:ci
 pnpm --filter @web-audio/schema test:ci
 ```
 
-Before production cutover, test the new compiler with directly constructed native state. At cutover, run the existing public Fluid API fixtures unchanged against the new production path.
+Before production cutover, test the new compiler with directly constructed native state and replay compatibility scenarios through native constructors, decoding, evaluation, transitions, and compilation. The native test driver must invoke the same helpers intended for production, not recreate validation, timing selection, or materialization logic. Temporary differential tests may compare independently initialized legacy and native paths, but neither production code nor the native implementation may depend on the comparison harness. At cutover, run the existing public Fluid API fixtures unchanged against the new production path.
 
 ---
 
@@ -502,7 +504,7 @@ Represent synth and sampler event concerns as readonly data with intent colocate
 
 ### Work
 
-Implement native setter and transform behavior before changing the mutable public facades.
+Implement native setter and transform behavior before changing the mutable public facades. Establish representation feasibility explicitly: native state must preserve the distinction between authored rests and materialized timing gaps, coordinated lanes sharing selected timing, and later timing replacement. Passing isolated transform tests is insufficient if subsequent setters lose these distinctions.
 
 ### Tasks
 
@@ -514,6 +516,11 @@ Implement native setter and transform behavior before changing the mutable publi
 - [ ] Preserve default fallback groups while transforming their cycles.
 - [ ] Preserve setter-before-transform and transform-before-setter behavior.
 - [ ] Preserve explicit timing and generated timing exemptions.
+- [ ] Prove materialized timing gaps do not become authored candidate-filtering rests after later timing or unrelated value setters.
+- [ ] Prove authored and slowdown-created rests still filter replacement timing.
+- [ ] Prove coordinated lanes sharing materialized timing do not apply their intersection twice.
+- [ ] Cover repeated and chained transforms, timing replacement, and generated chop/fit exemptions.
+- [ ] Document and resolve any required representation changes before production wiring.
 - [ ] Keep transitions pure and immutable.
 
 ### Likely files
@@ -527,9 +534,11 @@ Implement native setter and transform behavior before changing the mutable publi
 
 - [ ] Test every setter against default and authored state.
 - [ ] Test equal-value setters changing intent.
-- [ ] Test all transforms before and after setters.
+- [ ] Test all transforms before and after setters, including sparse explicit timing followed by reverse/slow and timing replacement.
+- [ ] Assert native state preserves the required availability and timing distinctions across subsequent operations.
 - [ ] Assert transition inputs remain unchanged.
 - [ ] Confirm no transition imports a legacy authored wrapper.
+- [ ] Block PR 5 until representation-feasibility cases also pass complete-schema replay in Step 4.5.
 
 ## Step 4.3 — Implement static event compilation
 
@@ -597,14 +606,51 @@ Complete the compiler for random lanes, chance timing, and generated sampler tim
 - [ ] Run new compiler tests over the full semantic matrix.
 - [ ] Confirm production `getSchema()` still uses the legacy path.
 
+## Step 4.5 — Replay complete native scenarios before cutover
+
+### Work
+
+Prove the complete structured native path, not only compilation from hand-constructed state. Extract replayable operation sequences from the existing compatibility fixtures while retaining their names and corrected expected schemas unchanged. Replay each sequence through native construction, decoding, evaluation, transitions, generated timing overrides, and compilation. Production instruments remain legacy-backed.
+
+### Tasks
+
+- [ ] Share scenario inputs and golden expectations between existing public API fixtures and the native replay tests.
+- [ ] Initialize fresh native state and sampler configuration for every scenario.
+- [ ] Use the production-intended native helpers rather than duplicating their semantics in the test driver.
+- [ ] Replay every corrected compatibility fixture, including random sources and generated timing.
+- [ ] Add complete-schema cases for the representation-feasibility scenarios in Step 4.2.
+- [ ] Add temporary test-only comparisons against independently constructed legacy instruments.
+- [ ] Compare bounded, reproducibly generated valid setter/transform sequences, including timing replacement and repeated transforms; compare sequence prefixes to expose intermediate divergences.
+- [ ] Report the scenario or generation seed, operation sequence, and complete schema difference for each failure.
+- [ ] Turn discovered edge cases into retained explicit golden or native regression tests; do not redefine expected behavior merely to match the new path.
+
+### Likely files
+
+- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+- `packages/fluid/src/instruments/event-schema-fixtures.ts` — **new, suggested**
+- `packages/fluid/src/instruments/native-event-scenario-replay.test.ts` — **new, suggested**
+- `packages/fluid/src/instruments/event-state-transitions.test.ts`
+- `packages/fluid/src/instruments/event-state-compiler.test.ts`
+
+### Verification
+
+- [ ] Compare complete native schema output strictly with every corrected golden expectation.
+- [ ] Confirm the legacy public fixtures still pass with unchanged expectations.
+- [ ] Resolve every differential mismatch before cutover.
+- [ ] Confirm the replay driver contains no legacy-to-native adaptation or duplicated authoring semantics.
+- [ ] Confirm production instruments still use only legacy state and compilation.
+
 ## PR 4 completion gate
 
 - [ ] Native state represents every corrected structured event behavior.
+- [ ] Representation feasibility is demonstrated across transforms and subsequent setters, with no unresolved design questions.
 - [ ] Native transitions preserve transform and setter semantics.
 - [ ] The pure compiler emits the established schema.
+- [ ] Complete native scenario replay passes against unchanged corrected goldens.
+- [ ] Generated setter/transform comparisons have no unexplained mismatches.
 - [ ] Static, random, and generated timing cases are covered.
-- [ ] New code has no legacy authored-class imports.
-- [ ] No adapter, dual state, or production cutover has landed.
+- [ ] New production-intended code has no legacy authored-class imports; legacy comparison dependencies are test-only.
+- [ ] No production adapter, dual state, or production cutover has landed.
 
 ---
 
@@ -614,7 +660,9 @@ Complete the compiler for random lanes, chance timing, and generated sampler tim
 
 Replace production event authoring and compilation in one coordinated cutover, then delete the legacy event architecture.
 
-Steps 5.1–5.3 are one production transition and must not be merged independently. Preparation may occur in isolated code, but the merged PR must have only native event state.
+Steps 5.1–5.4 are one production transition and must not be merged independently. Preparation may occur in isolated code, but the merged PR must have only native event state.
+
+Organize reviewable commits by setter wiring (5.1), transform wiring (5.2), schema wiring (5.3), and legacy deletion after verified coverage transfer (5.4). These are review boundaries, not separately deployable production states; merge them together only after the final integrated path passes all cutover gates. Keep representation changes in PR 4 and newly discovered behavior changes out of PR 5. Corrected golden expectations must remain unchanged.
 
 ## Step 5.1 — Route every event setter to native state
 
@@ -715,7 +763,8 @@ Route both instruments through the pure compiler in the same production cutover.
 ### Verification
 
 - [ ] Run all complete-schema fixtures unchanged against the new path.
-- [ ] Explain every mismatch against the corrected PR 2 baseline.
+- [ ] Explain and resolve every mismatch against the corrected PR 2 baseline without changing golden expectations.
+- [ ] Stop cutover for any necessary behavior change and review it separately before proceeding.
 - [ ] Confirm both instruments use the new compiler.
 - [ ] Confirm no production getter invokes legacy event compilation.
 
@@ -723,10 +772,14 @@ Route both instruments through the pure compiler in the same production cutover.
 
 ### Work
 
-Remove the old architecture in the same PR so the repository does not retain two competing paths.
+Remove the old architecture in the same PR so the repository does not retain two competing paths. Before deleting legacy tests or implementations, record a coverage-transfer inventory in the PR: each useful legacy behavior/assertion maps to a retained golden, decoder, transition, compiler, or public API test. Assertions specific only to obsolete internals may be retired with an explicit rationale; passing golden fixtures alone does not justify dropping behavioral coverage.
 
 ### Tasks
 
+- [ ] Inventory useful legacy assertions and identify their retained replacement tests before deletion.
+- [ ] Preserve coverage for validation/errors, resource warnings, rhythm composition, random settings, root/scale conversion, materialization, and setter/transform call order.
+- [ ] Verify replacement tests pass and cover the same behavioral assertions before removing legacy tests.
+- [ ] Delete temporary legacy/native differential wiring while retaining native replay, shared scenarios, and regression expectations.
 - [ ] Delete the old event compiler.
 - [ ] Delete `AuthoredPitches`.
 - [ ] Delete `AuthoredEventValues`.
@@ -734,7 +787,7 @@ Remove the old architecture in the same PR so the repository does not retain two
 - [ ] Delete or narrow event-related `MaskedCycle` usage.
 - [ ] Remove duplicated timing selection, availability, materialization, and cycle-expansion helpers.
 - [ ] Remove obsolete exports and imports.
-- [ ] Replace wrapper-detail tests with native transition, compiler, and golden coverage.
+- [ ] Replace wrapper-detail tests only after their useful behavioral assertions have verified native coverage or an explicit retirement rationale.
 - [ ] Retain useful rhythm generation only as named pure utilities.
 
 ### Likely files
@@ -755,7 +808,10 @@ Remove the old architecture in the same PR so the repository does not retain two
 
 - [ ] Use `rg` to confirm removed classes and compiler symbols have no callers.
 - [ ] Run Fluid, patterns, schema, and complete repository suites.
-- [ ] Confirm the diff contains no adapter or dual-state bridge.
+- [ ] Confirm every inventory entry has a passing retained test or an explicit retirement rationale.
+- [ ] Confirm no useful validation, warning, rhythm, random, or call-order coverage was lost.
+- [ ] Confirm temporary differential tests no longer import deleted legacy code.
+- [ ] Confirm the diff contains no production adapter or dual-state bridge.
 - [ ] Confirm processing patterns remain unchanged.
 
 ## PR 5 completion gate
@@ -766,7 +822,10 @@ Remove the old architecture in the same PR so the repository does not retain two
 - [ ] All coordinated event lanes switched together.
 - [ ] Transforms update native state exactly once.
 - [ ] Legacy wrappers and compiler code are deleted or explicitly narrowed.
-- [ ] Golden schema fixtures pass.
+- [ ] Golden schema fixtures pass with corrected expectations unchanged.
+- [ ] Coverage transfer is recorded and verified before legacy test deletion.
+- [ ] Setter, transform, schema, and deletion commits were reviewed separately and merge together.
+- [ ] Temporary differential wiring is deleted; native scenario replay and regression tests remain.
 - [ ] No adapter, dual state, or mixed event-lane state remains.
 
 ---
@@ -1069,8 +1128,12 @@ Finalize public examples, diagnostics, cleanup, and architectural verification.
 
 - [ ] PR 2 is the final modification to legacy event semantics.
 - [ ] New foundations are tested before production wiring.
-- [ ] New compiler tests construct native state directly.
-- [ ] Golden schema fixtures remain the compatibility authority.
+- [ ] Representation feasibility is proven before cutover, including timing gaps, authored rests, shared materialization, and later timing replacement.
+- [ ] New compiler tests construct native state directly, and complete native scenarios exercise decoding through compilation.
+- [ ] Test-only differential comparisons use independently initialized paths and are removed with legacy deletion.
+- [ ] Golden schema fixtures remain the compatibility authority and their corrected expectations do not change in PR 5.
+- [ ] Useful legacy coverage is inventoried and verified in retained tests before deletion.
+- [ ] Atomic cutover has separately reviewable setter, transform, schema, and deletion commits.
 - [ ] No production adapter exists without a documented blocker.
 - [ ] No event lane is represented in both legacy and native state.
 - [ ] All coordinated event lanes switch in one production cutover.
