@@ -157,7 +157,7 @@ Use explicit expected schema objects after old production code is deleted. Do no
 
 Establish the corrected semantic baseline before replacing the architecture. Treat this as the final work on the legacy event path.
 
-Status: in progress.
+Status: complete. PR 2 is the last planned change to legacy event semantics; subsequent semantic work targets native state and the new compiler.
 
 ## Step 2.1 — Change sampler filtering to candidate ordinals
 
@@ -259,10 +259,10 @@ Promote corrected schema fixtures to the authority for the direct cutover. Avoid
 
 ### Tasks
 
-- [ ] Mark candidate filtering, authored scalar semantics, and fallback semantics as intentional changes.
-- [ ] Review new wrapper-level tests and retain only those needed to explain PR 2.
-- [ ] Confirm no expression, event-cycle, native-state, or adapter code landed.
-- [ ] Record PR 2 as the last planned change to legacy event semantics.
+- [x] Mark candidate filtering, authored scalar semantics, and fallback semantics as intentional changes.
+- [x] Review new wrapper-level tests and retain only those needed to explain PR 2.
+- [x] Confirm no expression, event-cycle, native-state, or adapter code landed.
+- [x] Record PR 2 as the last planned change to legacy event semantics.
 
 ### Likely files
 
@@ -272,18 +272,18 @@ Promote corrected schema fixtures to the authority for the direct cutover. Avoid
 
 ### Verification
 
-- [ ] Run the complete repository suite.
-- [ ] Review schema changes for unrelated differences.
-- [ ] Confirm all future semantic work targets native state and the new compiler.
+- [x] Run the complete repository suite.
+- [x] Review schema changes for unrelated differences.
+- [x] Confirm all future semantic work targets native state and the new compiler.
 
 ## PR 2 completion gate
 
-- [ ] Candidate-ordinal filtering is established.
-- [ ] Authored scalar broadcasting is removed.
-- [ ] Constructor defaults have explicit fallback semantics.
-- [ ] Corrected golden fixtures pass.
-- [ ] No target architecture or migration bridge has landed.
-- [ ] No additional legacy refactoring is planned.
+- [x] Candidate-ordinal filtering is established.
+- [x] Authored scalar broadcasting is removed.
+- [x] Constructor defaults have explicit fallback semantics.
+- [x] Corrected golden fixtures pass.
+- [x] No target architecture or migration bridge has landed.
+- [x] No additional legacy refactoring is planned.
 
 ---
 
