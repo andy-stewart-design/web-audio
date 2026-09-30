@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import Synthesizer from "@/instruments/synthesizer";
 import Sampler from "@/instruments/sampler";
 import {
+  MAX_STRUCTURED_INPUT_ITEMS,
   decodeNotesExpression,
   decodeNotesInput,
   decodeSampleNamesExpression,
@@ -404,6 +405,90 @@ describe("consumer validation and bounds", () => {
     expect(() => decodeNotesExpression([[...grouped, [60]]])).toThrow(
       "16384 nodes",
     );
+  });
+});
+
+describe("raw structured traversal budget", () => {
+  const budgetError = `structured input contains more than ${MAX_STRUCTURED_INPUT_ITEMS} raw items`;
+
+  it.each([100_000, 1_000_000_000])(
+    "rejects a %s-slot sparse nullable chord before reading any voice",
+    (length) => {
+      const chord = Array<undefined>(length);
+      const readVoice = vi.fn(() => undefined);
+      Object.defineProperty(chord, "0", { get: readVoice });
+      expect(() => decodeNotesInput([[chord]])).toThrow(
+        `[Instrument] notes() ${budgetError}`,
+      );
+      expect(readVoice).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["sparse", "null", "undefined"] as const)(
+    "counts omitted %s placeholders at the exact raw boundary",
+    (kind) => {
+      // One argument and one bar slot leave this many raw chord slots.
+      const chord = Array<number | null | undefined>(
+        MAX_STRUCTURED_INPUT_ITEMS - 2,
+      );
+      if (kind === "null") chord.fill(null);
+      if (kind === "undefined") chord.fill(undefined);
+      expect(requireStatic(decodeNotesInput([[chord]])).patterns).toEqual([
+        [rest],
+      ]);
+      chord.length++;
+      expect(() => decodeNotesInput([[chord]])).toThrow(budgetError);
+    },
+  );
+
+  it("keeps surviving voices separate from raw nullable slots", () => {
+    const chord = Array<number | undefined>(MAX_STRUCTURED_INPUT_ITEMS - 2);
+    chord[chord.length - 1] = 60;
+    expect(requireStatic(decodeNotesInput([[chord]])).patterns).toEqual([
+      [event(60)],
+    ]);
+    expect(() =>
+      decodeNotesInput([
+        [Array<number>(patterns.MAX_EVENT_GROUP_VOICES + 1).fill(60)],
+      ]),
+    ).toThrow("128 voices");
+  });
+
+  it("accumulates raw work across bars and rejects a later group before scanning it", () => {
+    const first = Array<undefined>(MAX_STRUCTURED_INPUT_ITEMS / 2);
+    const second = Array<undefined>(MAX_STRUCTURED_INPUT_ITEMS / 2);
+    const readVoice = vi.fn(() => undefined);
+    Object.defineProperty(second, "0", { get: readVoice });
+    expect(requireStatic(decodeNotesInput([[first]])).patterns).toEqual([
+      [rest],
+    ]);
+    expect(() => decodeNotesInput([[first], [second]])).toThrow(budgetError);
+    expect(readVoice).not.toHaveBeenCalled();
+  });
+
+  it("accumulates raw work across groups within a bar", () => {
+    const chord = Array<undefined>(MAX_STRUCTURED_INPUT_ITEMS / 4);
+    expect(() => decodeNotesInput([[chord, chord, chord, chord]])).toThrow(
+      budgetError,
+    );
+  });
+
+  it("guards oversized sample-name argument arrays before random detection", () => {
+    const input = Array<unknown>(1_000_000_000);
+    const readArgument = vi.fn(() => "bd");
+    Object.defineProperty(input, "0", { get: readArgument });
+    expect(() => decodeSampleNamesInput(input)).toThrow("1024 patterns");
+    expect(readArgument).not.toHaveBeenCalled();
+  });
+
+  it("does not traverse opaque atom payload contents", () => {
+    const payload = { data: Array<undefined>(1_000_000_000) };
+    const decoded = decodeStructuredInput([payload], {
+      method: "[test]",
+      interpretValue: () => ({ type: "event", value: payload }),
+    });
+    expect(decoded.patterns).toEqual([atom(payload)]);
+    expect(Object.isFrozen(payload)).toBe(false);
   });
 });
 

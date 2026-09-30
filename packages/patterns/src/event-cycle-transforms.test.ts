@@ -779,6 +779,23 @@ describe("validation and bounded expansion", () => {
     },
   );
 
+  it.each(transforms)(
+    "$name rejects unknown step tags instead of losing data or throwing incidental errors",
+    ({ apply }) => {
+      const malformed = { type: "rest" } as const;
+      Reflect.set(malformed, "type", "unexpected");
+      const source = cycle([event(60), malformed]);
+      const before = structuredClone(source);
+      expect(() => apply(source)).toThrow(
+        "patterns[0][1] has unsupported step type unexpected",
+      );
+      expect(() => fastEventCycle(source, 1)).toThrow(
+        "patterns[0][1] has unsupported step type unexpected",
+      );
+      expect(source).toEqual(before);
+    },
+  );
+
   it("validates numeric random settings and candidate values", () => {
     const invalid = random(cycle([event<1>(1)]));
     Reflect.set(invalid.settings, "quantValue", 0);

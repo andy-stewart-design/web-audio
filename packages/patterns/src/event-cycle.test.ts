@@ -244,6 +244,20 @@ describe("static event cycles", () => {
     ).toThrow("patterns[0][0] must contain a nonempty voice group");
   });
 
+  it.each(["unexpected", undefined, 17])(
+    "rejects malformed runtime step tag %s with its path",
+    (tag) => {
+      const step = { type: "rest" } as const;
+      Reflect.set(step, "type", tag);
+      const cycle = createStaticCycle([[rest], [event, step, continuation]]);
+      const before = structuredClone(cycle);
+      expect(() => assertEventCycleInvariants(cycle)).toThrow(
+        `patterns[1][1] has unsupported step type ${String(tag)}`,
+      );
+      expect(cycle).toEqual(before);
+    },
+  );
+
   it.each([
     { name: "at the beginning of a pattern", patterns: [[continuation]] },
     { name: "after a rest", patterns: [[event, rest, continuation]] },
@@ -471,6 +485,21 @@ describe("random event cycles", () => {
     };
     expect(() => assertEventCycleInvariants(cycle)).toThrow(
       "continuation must follow an event",
+    );
+  });
+
+  it("rejects unknown tags in random candidate geometry with the candidate path", () => {
+    const step = { type: "rest" } as const;
+    const cycle: RandomEventCycle = {
+      ...createRandomCycle(),
+      candidateCycle: createStaticCycle<1>([
+        [{ type: "event", values: [1] }],
+        [step],
+      ]),
+    };
+    expect(Reflect.set(step, "type", "unexpected")).toBe(true);
+    expect(() => assertEventCycleInvariants(cycle)).toThrow(
+      "patterns[1][0] has unsupported step type unexpected",
     );
   });
 

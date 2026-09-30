@@ -11,6 +11,10 @@ import {
 import { isRandomCycle } from "@/utils/validate";
 import { decodeRandomEventInput } from "./decode-random-input";
 
+// Bound raw traversal independently of emitted nodes and surviving voices.
+// Count argument, bar, and chord slots, including holes and omitted placeholders.
+const MAX_STRUCTURED_INPUT_ITEMS = 65_536;
+
 // These are internal validation boundaries, intentionally accepting unknown
 // leaves. Public fluent signatures and production dispatch remain unchanged.
 type StructuredDecodeOptions<T> = {
@@ -20,6 +24,7 @@ type StructuredDecodeOptions<T> = {
   readonly allowUndefinedRest?: boolean;
   readonly allowPolyphony?: boolean;
   readonly omitNullableVoices?: boolean;
+  readonly randomPatternError?: string;
 };
 
 function isArray(value: unknown): value is readonly unknown[] {
@@ -38,9 +43,20 @@ function decodeStructuredInput<T>(
       `cannot contain more than ${MAX_EVENT_CYCLE_PATTERNS} patterns.`,
     );
   }
+  let remainingInputItems = MAX_STRUCTURED_INPUT_ITEMS;
+  const reserveInputItems = (length: number) => {
+    if (length > remainingInputItems) {
+      throw fail(
+        `structured input contains more than ${MAX_STRUCTURED_INPUT_ITEMS} raw items.`,
+      );
+    }
+    remainingInputItems -= length;
+  };
+  reserveInputItems(input.length);
   if (input.some(isRandomCycle)) {
     throw fail(
-      "random patterns must bypass structured decoding and be the sole argument.",
+      options.randomPatternError ??
+        "random patterns must bypass structured decoding and be the sole argument.",
     );
   }
   let nodeCount = 0;
@@ -73,6 +89,8 @@ function decodeStructuredInput<T>(
     }
     if (value.length === 0)
       throw fail("simultaneous voice groups cannot be empty.");
+    // Charge the whole array before iteration, even if every voice is absent.
+    reserveInputItems(value.length);
     // Existing note chords may contain nullable placeholders. Omit absent
     // voices before forming a parallel node, never emit rest voices into it.
     const voices: unknown[] = [];
@@ -116,6 +134,7 @@ function decodeStructuredInput<T>(
         `expression contains more than ${MAX_EXPRESSION_NODES} nodes.`,
       );
     }
+    reserveInputItems(bar.length);
     // Array.from treats sparse entries as undefined rather than creating holes
     // in the expression. Each consumer decides whether undefined is a rest.
     const children = Array.from(bar, decodeSlot);
@@ -151,11 +170,9 @@ function decodeNotesExpression(input: readonly unknown[]) {
 }
 
 function decodeSampleNamesExpression(input: readonly unknown[]) {
-  if (input.some(isRandomCycle)) {
-    throw new Error("[Sampler] name() does not support random patterns.");
-  }
   return decodeStructuredInput(input, {
     method: "[Sampler] name()",
+    randomPatternError: "does not support random patterns.",
     interpretValue: (value) => {
       if (typeof value !== "string" || value.trim().length === 0) {
         throw new Error(
@@ -192,6 +209,7 @@ function decodeVariationsInput(input: readonly unknown[]) {
 }
 
 export {
+  MAX_STRUCTURED_INPUT_ITEMS,
   decodeStructuredInput,
   decodeNotesExpression,
   decodeSampleNamesExpression,

@@ -2,9 +2,9 @@
 
 ## Status and companion documents
 
-Proposed implementation plan.
+**Superseded delivery plan — historical reference only.** Follow [`direct-cutover-plan.md`](./direct-cutover-plan.md) for the active sequence and completion checklist. Its atomic cutover replaces the adapter-first sequence below; do not implement the temporary adapter or mixed-state phases described here. [`spec.md`](./spec.md) remains normative for behavior and architecture.
 
-Read this with:
+Historical companion documents:
 
 - [`spec.md`](./spec.md) — normative behavior and architecture;
 - [`plan-outline.md`](./plan-outline.md) — high-level PR sequence;
@@ -14,7 +14,7 @@ Read this with:
 - [`pattern-flow-target.png`](./pattern-flow-target.png) — target flow;
 - [`pattern-ir-redesign.md`](./pattern-ir-redesign.md) — superseded design history only.
 
-If this plan and the specification disagree, the specification wins.
+If this historical plan conflicts with the active direct-cutover plan, follow the active plan. For behavior and architecture, the specification wins.
 
 ## Delivery strategy
 

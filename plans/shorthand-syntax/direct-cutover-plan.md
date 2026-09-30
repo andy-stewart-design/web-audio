@@ -2,9 +2,9 @@
 
 ## Status and companion documents
 
-Proposed revision to the delivery sequence in [`plan.md`](./plan.md).
+Active implementation plan. PRs 1–3 are complete; PR 4 compatibility proof and PR 5 production cutover remain pending.
 
-The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document changes only how that architecture is introduced. It replaces the adapter-first, lane-by-lane sequence in PRs 3–9 of the original plan with a shorter direct cutover.
+The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document governs delivery and supersedes the adapter-first, lane-by-lane sequence in [`plan.md`](./plan.md) and [`plan-outline.md`](./plan-outline.md). Those documents are retained as historical alternatives, not execution checklists.
 
 Read this with:
 
@@ -295,6 +295,8 @@ Promote corrected schema fixtures to the authority for the direct cutover. Avoid
 
 Add one expression model, one evaluator, canonical event cycles, structured decoding, and native transforms without changing production instrument behavior.
 
+Status: complete as isolated foundations. This does not establish full corrected-baseline compatibility; the representation-feasibility and complete-schema replay gates in Steps 4.2/4.5 remain required before PR 5.
+
 ## Step 3.1 — Define `PatternExpression<T>`
 
 ### Work
@@ -333,7 +335,7 @@ Implemented in `packages/patterns/src/pattern-expression.ts`, with supporting ty
 
 Create the canonical internal representation for static and random event lanes.
 
-Implemented in `packages/patterns/src/event-cycle.ts`, with readonly types and a non-mutating `assertEventCycleInvariants()` helper. Event groups are nonempty tuples; continuations must follow an event or continuation within the same pattern. Empty patterns are rejected; silence is represented by explicit rest steps. Random numeric sources retain settings plus `StaticEventCycle<1>` candidate geometry, with counts derived from onsets so sparse/transformed timing is not lost or duplicated. Types are exported only for package integration, not as a Fluid extension API.
+Implemented in `packages/patterns/src/event-cycle.ts`, with readonly types and a non-mutating `assertEventCycleInvariants()` helper. Event groups are nonempty tuples; continuations must follow an event or continuation within the same pattern. Empty patterns are rejected; silence is represented by explicit rest steps. Unknown runtime step tags are rejected with their pattern/step path before validation or transforms can proceed. Random numeric sources retain settings plus `StaticEventCycle<1>` candidate geometry, with counts derived from onsets so sparse/transformed timing is not lost or duplicated. Types are exported only for package integration, not as a Fluid extension API.
 
 Limits are 1,024 patterns, 16,384 total steps (also bounding onsets), 128 voices per event, and 65,536 total voice occurrences per cycle. Random settings arrays are bounded to 16,384 segments or mapped values. These limits leave the existing legacy checks unchanged.
 
@@ -402,7 +404,7 @@ Implemented in `packages/patterns/src/evaluate-pattern-expression.ts`, with `uti
 
 Keep consumer validation in Fluid, then evaluate all static structured event input through the shared expression path.
 
-Native-only `decode-{structured,random,xox}-input.ts` helpers are in Fluid's patterns directory. Before cutover, resolve legacy empty-note-chord acceptance and empty-note-bar timing-priority provenance.
+Native-only `decode-{structured,random,xox}-input.ts` helpers are in Fluid's patterns directory. A separate cumulative raw-input budget of 65,536 argument, bar, and chord slots includes sparse holes and omitted nullable voices; array lengths are reserved before traversal, independently of emitted-node and surviving-voice limits. Opaque atom payloads are not traversed. Before cutover, resolve legacy empty-note-chord acceptance and empty-note-bar timing-priority provenance.
 
 ### Tasks
 
@@ -469,7 +471,7 @@ Implemented in `packages/patterns/src/event-cycle-transforms.ts`. Transforms fre
 
 - [x] Structured inputs decode to the shared expression model.
 - [x] One evaluator produces canonical event cycles.
-- [ ] Event cycles represent corrected structured behavior (complete parity still requires the empty-bar provenance feasibility/replay gate in Steps 4.2/4.5).
+- [x] Expression evaluation, structured decoding, and generic transforms provide tested native event-cycle foundations.
 - [x] Generic transforms preserve exact geometry.
 - [x] Production schema generation remains legacy-backed.
 - [x] No adapter or mixed state exists.

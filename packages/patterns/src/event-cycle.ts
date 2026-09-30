@@ -109,7 +109,8 @@ function assertStaticEventCycleInvariants(cycle: StaticEventCycle<unknown>) {
     let canContinue = false;
     for (const [stepIndex, step] of pattern.entries()) {
       const path = `patterns[${patternIndex}][${stepIndex}]`;
-      switch (step.type) {
+      const tag = step.type;
+      switch (tag) {
         case "event":
           if (step.values.length === 0) {
             throw new Error(
@@ -139,6 +140,10 @@ function assertStaticEventCycleInvariants(cycle: StaticEventCycle<unknown>) {
             );
           }
           break;
+        default:
+          throw new Error(
+            `[Pattern] Event cycle ${path} has unsupported step type ${String(tag)}.`,
+          );
       }
     }
   }
