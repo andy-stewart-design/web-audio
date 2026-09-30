@@ -157,40 +157,7 @@ function assertRandomEventSettings(settings: RandomEventSettings) {
   ) {
     throw new Error("[Pattern] Random event settings dataType is invalid.");
   }
-  if (settings.algorithm !== "xor" && settings.algorithm !== "mulberry") {
-    throw new Error("[Pattern] Random event settings algorithm is invalid.");
-  }
-  if (settings.order !== "forward" && settings.order !== "reverse") {
-    throw new Error("[Pattern] Random event settings order is invalid.");
-  }
-  if (settings.segments.length === 0) {
-    throw new Error(
-      "[Pattern] Random event settings require at least one segment.",
-    );
-  }
-  if (settings.segments.length > MAX_RANDOM_EVENT_SETTINGS_ITEMS) {
-    throw new Error(
-      `[Pattern] Random event settings contain more than ${MAX_RANDOM_EVENT_SETTINGS_ITEMS} segments.`,
-    );
-  }
-  for (const [index, segment] of settings.segments.entries()) {
-    if (!Number.isFinite(segment.seed)) {
-      throw new Error(
-        `[Pattern] Random event settings segments[${index}] seed must be finite.`,
-      );
-    }
-    if (segment.len === undefined) {
-      if (settings.segments.length !== 1) {
-        throw new Error(
-          "[Pattern] Random event settings may contain an unbounded segment only by itself.",
-        );
-      }
-    } else if (!isPositiveInteger(segment.len)) {
-      throw new Error(
-        `[Pattern] Random event settings segments[${index}] length must be a positive finite integer.`,
-      );
-    }
-  }
+  assertRandomGenerationMetadata(settings);
   if (
     settings.range &&
     (!Number.isFinite(settings.range.min) ||
@@ -231,7 +198,47 @@ function assertRandomEventSettings(settings: RandomEventSettings) {
   }
 }
 
-export { assertEventCycleInvariants };
+/** @internal Shared seed/algorithm/order checks for numeric generation and timing chance. */
+function assertRandomGenerationMetadata(
+  settings: Pick<RandomEventSettings, "segments" | "algorithm" | "order">,
+) {
+  if (settings.algorithm !== "xor" && settings.algorithm !== "mulberry") {
+    throw new Error("[Pattern] Random event settings algorithm is invalid.");
+  }
+  if (settings.order !== "forward" && settings.order !== "reverse") {
+    throw new Error("[Pattern] Random event settings order is invalid.");
+  }
+  if (settings.segments.length === 0) {
+    throw new Error(
+      "[Pattern] Random event settings require at least one segment.",
+    );
+  }
+  if (settings.segments.length > MAX_RANDOM_EVENT_SETTINGS_ITEMS) {
+    throw new Error(
+      `[Pattern] Random event settings contain more than ${MAX_RANDOM_EVENT_SETTINGS_ITEMS} segments.`,
+    );
+  }
+  for (const [index, segment] of settings.segments.entries()) {
+    if (!Number.isFinite(segment.seed)) {
+      throw new Error(
+        `[Pattern] Random event settings segments[${index}] seed must be finite.`,
+      );
+    }
+    if (segment.len === undefined) {
+      if (settings.segments.length !== 1) {
+        throw new Error(
+          "[Pattern] Random event settings may contain an unbounded segment only by itself.",
+        );
+      }
+    } else if (!isPositiveInteger(segment.len)) {
+      throw new Error(
+        `[Pattern] Random event settings segments[${index}] length must be a positive finite integer.`,
+      );
+    }
+  }
+}
+
+export { assertEventCycleInvariants, assertRandomGenerationMetadata };
 export type {
   NonEmptyGroup,
   EventCycle,

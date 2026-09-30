@@ -402,16 +402,18 @@ Implemented in `packages/patterns/src/evaluate-pattern-expression.ts`, with `uti
 
 Keep consumer validation in Fluid, then evaluate all static structured event input through the shared expression path.
 
+Native-only `decode-{structured,random,xox}-input.ts` helpers are in Fluid's patterns directory. Before cutover, resolve legacy empty-note-chord acceptance and empty-note-bar timing-priority provenance.
+
 ### Tasks
 
-- [ ] Decode method arguments as explicit patterns/bars.
-- [ ] Decode array entries as sequential children.
-- [ ] Decode nested arrays as simultaneous groups.
-- [ ] Decode allowed `null` and `undefined` values as whole-step rests.
-- [ ] Validate notes, names, variations, and XOX in Fluid.
-- [ ] Route typed expressions through the shared evaluator.
-- [ ] Route random inputs directly to random event cycles.
-- [ ] Cover scalar, sequence, chord, rest, silent-bar, and multi-bar input.
+- [x] Decode method arguments as explicit patterns/bars.
+- [x] Decode array entries as sequential children.
+- [x] Decode nested arrays as simultaneous groups.
+- [x] Decode allowed `null` and `undefined` values as whole-step rests.
+- [x] Validate notes, names, variations, and XOX in Fluid.
+- [x] Route typed expressions through the shared evaluator.
+- [x] Route random inputs directly to random event cycles.
+- [x] Cover scalar, sequence, chord, rest, silent-bar, and multi-bar input.
 
 ### Likely files
 
@@ -424,10 +426,10 @@ Keep consumer validation in Fluid, then evaluate all static structured event inp
 
 ### Verification
 
-- [ ] Compare evaluated geometry with corrected structured fixtures.
-- [ ] Confirm decoder output can be inspected independently.
-- [ ] Confirm random inputs bypass static evaluation.
-- [ ] Confirm production instruments remain on the legacy path.
+- [x] Compare evaluated geometry with corrected structured fixtures.
+- [x] Confirm decoder output can be inspected independently.
+- [x] Confirm random inputs bypass static evaluation.
+- [x] Confirm production instruments remain on the legacy path.
 
 ## Step 3.5 — Implement generic event-cycle transforms
 

@@ -8,7 +8,10 @@ import {
 } from "./utils";
 import { MaskedCycle } from "./masked-cycle";
 import { assertPatternExpressionLimits } from "./pattern-expression";
-import { assertEventCycleInvariants } from "./event-cycle";
+import {
+  assertEventCycleInvariants,
+  assertRandomGenerationMetadata,
+} from "./event-cycle";
 import { evaluatePatternExpression } from "./evaluate-pattern-expression";
 import { getEventPatternGeometry } from "./utils/event-grid";
 import type {
@@ -51,6 +54,7 @@ export {
   assertCycleLimits,
   assertPatternExpressionLimits,
   assertEventCycleInvariants,
+  assertRandomGenerationMetadata,
   evaluatePatternExpression,
   getEventPatternGeometry,
   getChordStaticSchema,
@@ -83,3 +87,11 @@ export {
   type TimingPattern,
   type TimingStep,
 };
+
+// Internal frontend bounds: validate before allocating decoded expression/state data.
+export {
+  MAX_EXPRESSION_NODES,
+  MAX_EVENT_CYCLE_PATTERNS,
+  MAX_EVENT_CYCLE_STEPS,
+  MAX_EVENT_GROUP_VOICES,
+} from "./utils/cycle-limits";
