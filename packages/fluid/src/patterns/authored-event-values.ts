@@ -1,5 +1,6 @@
 import { MaskedCycle, RandomCycle } from "@web-audio/patterns";
 import type { NullableCycleInput } from "@/types";
+import AuthoredAvailability from "@/patterns/authored-availability";
 import EventTiming from "@/patterns/event-timing";
 import { isRandomCycleTuple } from "@/utils/validate";
 import type { TimingPattern } from "@web-audio/schema";
@@ -30,10 +31,17 @@ type AuthoredEventValuesInput<T> = T | null | (T | T[] | null)[];
 
 class AuthoredEventValues<T> {
   private _source: StaticAuthoredValues<T> | RandomAuthoredValues;
-  private _materializedAgainstTiming = false;
+  private _authoredAvailability: AuthoredAvailability | undefined;
+  private _materializedTiming?: object;
 
   private constructor(source: StaticAuthoredValues<T> | RandomAuthoredValues) {
     this._source = source;
+    this._authoredAvailability =
+      source.type === "static" && source.intent === "authored"
+        ? new AuthoredAvailability(
+            source.cycle.map((bar) => bar.map((group) => group !== null)),
+          )
+        : undefined;
   }
 
   static fromDefault<T>(value: T) {
@@ -90,32 +98,49 @@ class AuthoredEventValues<T> {
     return this._source;
   }
 
-  get materializedAgainstTiming() {
-    return this._materializedAgainstTiming;
-  }
-
-  useCandidateOrdinalAvailability() {
-    this._materializedAgainstTiming = false;
-    return this;
+  get materializedTiming() {
+    return this._materializedTiming;
   }
 
   get hasRests() {
-    return (
-      this._source.type === "static" &&
-      this._source.cycle.some((bar) => bar.some((group) => group === null))
-    );
+    return this._authoredAvailability?.hasRests ?? false;
+  }
+
+  getFixedAvailability() {
+    return this._authoredAvailability?.fixedCycle;
   }
 
   reverse() {
     this._transform((cycle) => cycle.reverse());
+    this._authoredAvailability?.reverse();
     return this;
   }
 
-  materializeAgainstTiming(timing: TimingPattern) {
-    if (this._source.intent === "default" || this._source.type === "random") {
+  materializeAvailabilityAgainstTiming(timing: TimingPattern) {
+    if (
+      this._source.type !== "static" ||
+      this._source.intent !== "authored" ||
+      (this._source.cycle.length === 1 && this._source.cycle[0].length === 1) ||
+      !this._authoredAvailability
+    ) {
       return this;
     }
-    if (this._source.cycle.length === 1 && this._source.cycle[0].length === 1) {
+
+    this._authoredAvailability.materializeAgainstTiming(timing);
+    return this;
+  }
+
+  releaseMaterializedTiming() {
+    this._authoredAvailability?.releaseTiming();
+    return this;
+  }
+
+  materializeAgainstTiming(timing: TimingPattern, materializedTiming?: object) {
+    if (
+      this._source.type !== "static" ||
+      this._source.intent !== "authored" ||
+      (this._source.cycle.length === 1 && this._source.cycle[0].length === 1)
+    ) {
       return this;
     }
 
@@ -125,22 +150,25 @@ class AuthoredEventValues<T> {
     const { cycle, mask } = new EventTiming(timing).alignValues(source);
     const values = new MaskedCycle(cycle).xox(...mask).transformedValues;
     this._source = { type: "static", intent: "authored", cycle: values };
-    this._materializedAgainstTiming = true;
+    this._materializedTiming = materializedTiming;
     return this;
   }
 
   fast(multiplier: number) {
     this._transform((cycle) => cycle.fast(multiplier));
+    this._authoredAvailability?.fast(multiplier);
     return this;
   }
 
   slow(multiplier: number) {
     this._transform((cycle) => cycle.slow(multiplier));
+    this._authoredAvailability?.slow(multiplier);
     return this;
   }
 
   stretch(bars: number, steps?: number) {
     this._transform((cycle) => cycle.stretch(bars, steps));
+    this._authoredAvailability?.stretch(bars, steps);
     return this;
   }
 

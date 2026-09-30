@@ -448,6 +448,56 @@ describe("instrument event schemas", () => {
     },
   );
 
+  it("does not filter slowed gaps twice while their explicit timing is unchanged", () => {
+    const events = new Sampler("kick")
+      .notes([60, 64])
+      .xox([1, 1, 1, 1])
+      .slow(2)
+      .getSchema().eventPattern;
+
+    expect(
+      events.timing.cycle.map((bar) => bar.map((step) => step.offset)),
+    ).toEqual([
+      [0, 0.5],
+      [0, 0.5],
+    ]);
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [
+        [[60], [64]],
+        [[60], [64]],
+      ],
+    });
+  });
+
+  it.each([
+    {
+      lane: "notes",
+      create: () => new Sampler("kick").notes([60, 64]),
+    },
+    {
+      lane: "variation",
+      create: () => new Sampler("kick").variation([0, 1]),
+    },
+  ])(
+    "retains $lane slowdown rests through reverse and replacement timing",
+    ({ create }) => {
+      const events = create()
+        .xox([1, 1, 1, 1])
+        .slow(2)
+        .reverse()
+        .xox(new RandomCycle().bin().steps(4).chance(1))
+        .getSchema().eventPattern;
+
+      expect(
+        events.timing.cycle.map((bar) => bar.map((step) => step.offset)),
+      ).toEqual([
+        [0.25, 0.75],
+        [0.25, 0.75],
+      ]);
+    },
+  );
+
   it("repeats untransformed one-step authored patterns over explicit hits", () => {
     const events = new Sampler("kick")
       .notes([60])

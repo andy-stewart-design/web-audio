@@ -442,6 +442,161 @@ const eventSchemaFixtures = [
     },
   },
   {
+    name: "slow-created note rests filter every bar of replacement timing",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .notes([60, 64])
+        .slow(2)
+        .xox(new RandomCycle().bin().steps(4).chance(1)),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+          ],
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: {
+        type: "static",
+        cycle: [
+          [[60], [60]],
+          [[64], [64]],
+        ],
+      },
+      variationIndices: undefined,
+    },
+  },
+  {
+    name: "slow-created variation rests filter every bar of replacement timing",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .variation([0, 1])
+        .slow(2)
+        .xox(new RandomCycle().bin().steps(4).chance(1)),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+          ],
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: undefined,
+      variationIndices: { type: "static", cycle: [[[0]], [[1]]] },
+    },
+  },
+  {
+    name: "notes slowed under explicit timing filter its replacement",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .notes([60, 64])
+        .xox([1, 1, 1, 1])
+        .slow(2)
+        .xox(new RandomCycle().bin().steps(4).chance(1)),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+          ],
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: {
+        type: "static",
+        cycle: [
+          [[60], [64]],
+          [[60], [64]],
+        ],
+      },
+      variationIndices: undefined,
+    },
+  },
+  {
+    name: "variations slowed under explicit timing filter its replacement",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .variation([0, 1])
+        .xox([1, 1, 1, 1])
+        .slow(2)
+        .xox(new RandomCycle().bin().steps(4).chance(1)),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+          ],
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["bd"]]] },
+      notes: undefined,
+      variationIndices: {
+        type: "static",
+        cycle: [
+          [[0], [1]],
+          [[0], [1]],
+        ],
+      },
+    },
+  },
+  {
+    name: "slow-created sample-name rests filter every bar of replacement timing",
+    createInstrument: () =>
+      new Drome()
+        .sample()
+        .name(["bd", "sd"])
+        .slow(2)
+        .xox(new RandomCycle().bin().steps(4).chance(1)),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+          ],
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.5, duration: 0.25 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]], [["sd"]]] },
+      notes: undefined,
+      variationIndices: undefined,
+    },
+  },
+  {
     name: "authored one-step notes and variation repeat across fast event timing",
     createInstrument: () =>
       new Drome().sample("bd").notes(60).variation([0, 1, 2]).fast(2),
@@ -511,7 +666,73 @@ const eventSchemaFixtures = [
     },
   },
   {
-    name: "materialized note gaps filter replacement timing by candidate ordinal",
+    name: "overlapping authored rests preserve their surviving hit through reverse",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .notes([60, null, 64])
+        .variation([0, null, 2])
+        .reverse(),
+    expected: {
+      timing: {
+        cycle: [[{ offset: 2 / 3, duration: 1 / 3 }]],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]]] },
+      notes: { type: "static", cycle: [[[60]]] },
+      variationIndices: { type: "static", cycle: [[[0]]] },
+    },
+  },
+  {
+    name: "transformed authored note rests still filter explicit timing",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .notes([60, null, 64])
+        .xox([1, 1, 1, 1])
+        .reverse(),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.25, duration: 0.25 },
+            { offset: 0.75, duration: 0.25 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]]] },
+      notes: { type: "static", cycle: [[[64], [60], [64]]] },
+      variationIndices: undefined,
+    },
+  },
+  {
+    name: "transformed authored variation rests still filter explicit timing",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .variation([0, null, 2])
+        .xox([1, 1, 1, 1])
+        .reverse(),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 0.25 },
+            { offset: 0.25, duration: 0.25 },
+            { offset: 0.75, duration: 0.25 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]]] },
+      notes: undefined,
+      variationIndices: { type: "static", cycle: [[[0], [2], [0]]] },
+    },
+  },
+  {
+    name: "materialized note timing gaps do not filter replacement timing",
     createInstrument: () =>
       new Drome()
         .sample("bd")
@@ -524,6 +745,7 @@ const eventSchemaFixtures = [
         cycle: [
           [
             { offset: 0, duration: 0.25 },
+            { offset: 0.25, duration: 0.25 },
             { offset: 0.5, duration: 0.25 },
             { offset: 0.75, duration: 0.25 },
           ],
@@ -531,12 +753,12 @@ const eventSchemaFixtures = [
         condition: undefined,
       },
       sampleNames: { type: "static", cycle: [[["bd"]]] },
-      notes: { type: "static", cycle: [[[64], [60], [64]]] },
+      notes: { type: "static", cycle: [[[64], [60], [64], [60]]] },
       variationIndices: undefined,
     },
   },
   {
-    name: "materialized variation gaps filter replacement timing by candidate ordinal",
+    name: "materialized variation timing gaps do not filter replacement timing",
     createInstrument: () =>
       new Drome()
         .sample("bd")
@@ -549,6 +771,7 @@ const eventSchemaFixtures = [
         cycle: [
           [
             { offset: 0, duration: 0.25 },
+            { offset: 0.25, duration: 0.25 },
             { offset: 0.5, duration: 0.25 },
             { offset: 0.75, duration: 0.25 },
           ],
@@ -558,6 +781,30 @@ const eventSchemaFixtures = [
       sampleNames: { type: "static", cycle: [[["bd"]]] },
       notes: undefined,
       variationIndices: { type: "static", cycle: [[[2], [0]]] },
+    },
+  },
+  {
+    name: "unrelated setters do not turn materialized timing gaps into rests",
+    createInstrument: () =>
+      new Drome()
+        .sample("bd")
+        .notes([60, 64])
+        .xox([1, 0, 1])
+        .reverse()
+        .variation(0),
+    expected: {
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 1 / 3 },
+            { offset: 2 / 3, duration: 1 / 3 },
+          ],
+        ],
+        condition: undefined,
+      },
+      sampleNames: { type: "static", cycle: [[["bd"]]] },
+      notes: { type: "static", cycle: [[[64], [60]]] },
+      variationIndices: { type: "static", cycle: [[[0]]] },
     },
   },
   {

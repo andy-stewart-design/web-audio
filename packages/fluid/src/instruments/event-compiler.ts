@@ -203,7 +203,37 @@ function compileSamplerEvents({
   });
 }
 
-function getSamplerEventTiming({
+function getSamplerEventTiming(
+  input: Omit<SamplerEventCompilerInput, "sampleNames"> & {
+    sampleNames?: AuthoredEventValues<string>;
+  },
+) {
+  const { pitches, variation, sampleNames } = input;
+  const {
+    timing,
+    source,
+    materializedTiming: selectedMaterializedTiming,
+  } = getSamplerTimingSelection(input);
+  const pitchesShareSelectedTiming =
+    selectedMaterializedTiming !== undefined &&
+    pitches.materializedTiming === selectedMaterializedTiming;
+  const variationSharesSelectedTiming =
+    selectedMaterializedTiming !== undefined &&
+    variation.materializedTiming === selectedMaterializedTiming;
+  return filterTimingByFixedAvailability(timing, [
+    source === "notes" || pitchesShareSelectedTiming
+      ? undefined
+      : getPitchAvailability(pitches),
+    source === "variation" || variationSharesSelectedTiming
+      ? undefined
+      : getVariationAvailability(variation),
+    source === "sampleNames"
+      ? undefined
+      : getSampleNameAvailability(sampleNames),
+  ]);
+}
+
+function getSamplerTimingSelection({
   pitches,
   timing,
   variation,
@@ -212,21 +242,39 @@ function getSamplerEventTiming({
 }: Omit<SamplerEventCompilerInput, "sampleNames"> & {
   sampleNames?: AuthoredEventValues<string>;
 }) {
-  const explicitTiming = timingOverride ?? timing.getTimingPattern();
-  const selectedCandidate = explicitTiming
-    ? undefined
-    : getInferredSamplerTiming({ pitches, variation, sampleNames });
-  const selectedTiming = explicitTiming ?? selectedCandidate!.timing;
-  const selectedSource = selectedCandidate?.source;
-  return filterTimingByFixedAvailability(selectedTiming, [
-    selectedSource === "notes" ? undefined : getPitchAvailability(pitches),
-    selectedSource === "variation"
-      ? undefined
-      : getVariationAvailability(variation),
-    selectedSource === "sampleNames"
-      ? undefined
-      : getSampleNameAvailability(sampleNames),
-  ]);
+  if (timingOverride) {
+    return {
+      timing: timingOverride,
+      source: undefined,
+      materializedTiming: undefined,
+    };
+  }
+
+  const explicitTiming = timing.getTimingPattern();
+  if (explicitTiming) {
+    return {
+      timing: explicitTiming,
+      source: undefined,
+      materializedTiming: undefined,
+    };
+  }
+
+  const candidate = getInferredSamplerTiming({
+    pitches,
+    variation,
+    sampleNames,
+  });
+  const materializedTiming =
+    candidate.source === "notes"
+      ? pitches.materializedTiming
+      : candidate.source === "variation"
+        ? variation.materializedTiming
+        : undefined;
+  return {
+    timing: candidate.timing,
+    source: candidate.source,
+    materializedTiming,
+  };
 }
 
 function getInferredSamplerTiming({
@@ -252,9 +300,7 @@ function getInferredSamplerTiming({
 }
 
 function getPitchAvailability(pitches: AuthoredPitches) {
-  if (!pitches.hasAuthoredValues || pitches.materializedAgainstTiming) {
-    return undefined;
-  }
+  if (!pitches.hasAuthoredValues) return undefined;
 
   return {
     cycle: pitches.getFixedAvailability(),
@@ -275,14 +321,12 @@ function getSampleNameAvailability(
   }
 
   return {
-    cycle: sampleNames.source.cycle.map((bar) => bar.map(Boolean)),
+    cycle: sampleNames.getFixedAvailability(),
   } satisfies FixedAvailability;
 }
 
 function getVariationAvailability(variation: AuthoredEventValues<number>) {
-  if (!variation.hasAuthoredValues || variation.materializedAgainstTiming) {
-    return undefined;
-  }
+  if (!variation.hasAuthoredValues) return undefined;
 
   if (variation.source.type === "random") {
     return {
@@ -291,7 +335,7 @@ function getVariationAvailability(variation: AuthoredEventValues<number>) {
   }
 
   return {
-    cycle: variation.source.cycle.map((bar) => bar.map(Boolean)),
+    cycle: variation.getFixedAvailability(),
   } satisfies FixedAvailability;
 }
 
@@ -637,6 +681,7 @@ export {
   compileNoteEvents,
   compileSamplerEvents,
   getSamplerEventTiming,
+  getSamplerTimingSelection,
   finalizeSamplerEvents,
   compileVariationPattern,
   compileSampleNames,

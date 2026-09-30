@@ -19,7 +19,11 @@ import {
   type ChopState,
   type RegionState,
 } from "./sampler-utils";
-import { compileSamplerEvents, getSamplerEventTiming } from "./event-compiler";
+import {
+  compileSamplerEvents,
+  getSamplerEventTiming,
+  getSamplerTimingSelection,
+} from "./event-compiler";
 import { DEFAULT_BANK } from "@/banks";
 import Instrument from "./instrument";
 import type Drome from "@/index";
@@ -121,7 +125,7 @@ class Sampler extends Instrument {
       invalidRestMessage:
         "[Sampler] name() null is only allowed as a whole-hit rest.",
     });
-    this._invalidateMaterializedTiming();
+    this._releaseMaterializedTimingForValueSetter();
     return this;
   }
 
@@ -144,7 +148,7 @@ class Sampler extends Instrument {
       invalidRestMessage:
         "[Sampler] variation() null is only allowed as a whole-hit rest.",
     });
-    this._invalidateMaterializedTiming();
+    this._releaseMaterializedTimingForValueSetter();
     return this;
   }
 
@@ -153,8 +157,11 @@ class Sampler extends Instrument {
       throw new Error("[Sampler] fit() bars must be a positive integer.");
     }
 
+    const hadOverride = this._getTimingOverride() !== undefined;
     this._fit = { type: "fit", bars };
-    this._invalidateMaterializedTiming();
+    if (hadOverride || this._getTimingOverride() !== undefined) {
+      this._releaseMaterializedTiming();
+    }
     return this;
   }
 
@@ -195,7 +202,7 @@ class Sampler extends Instrument {
       sliceCount,
       sequence: sequence.length > 0 ? new Parameter(...sequence) : null,
     };
-    this._invalidateMaterializedTiming();
+    this._releaseMaterializedTiming();
     return this;
   }
 
@@ -239,23 +246,42 @@ class Sampler extends Instrument {
     return this;
   }
 
-  protected override _invalidateMaterializedTiming() {
-    super._invalidateMaterializedTiming();
-    this._variation.useCandidateOrdinalAvailability();
+  protected override _releaseMaterializedTiming() {
+    super._releaseMaterializedTiming();
+    this._variation.releaseMaterializedTiming();
   }
 
   private _materializeEventsForTransform() {
     const timingOverride = this._getTimingOverride();
     if (timingOverride) return;
 
-    const timing = getSamplerEventTiming({
+    const compilerInput = {
       pitches: this._pitches,
       timing: this._timing,
       variation: this._variation,
       sampleNames: this._sampleNames,
-    });
-    this._materializePitchesForTransform(timing);
-    this._variation.materializeAgainstTiming(timing);
+    };
+    const selection = getSamplerTimingSelection(compilerInput);
+    const timing = getSamplerEventTiming(compilerInput);
+
+    // Lanes coupled to an inferred source already encode their intersection in
+    // the selected timing, while their authored availability retains provenance.
+    const pitchesShareSelectedTiming =
+      selection.materializedTiming !== undefined &&
+      this._pitches.materializedTiming === selection.materializedTiming;
+    const variationSharesSelectedTiming =
+      selection.materializedTiming !== undefined &&
+      this._variation.materializedTiming === selection.materializedTiming;
+    if (selection.source !== "notes" && !pitchesShareSelectedTiming) {
+      this._pitches.materializeAvailabilityAgainstTiming(selection.timing);
+    }
+    if (selection.source !== "variation" && !variationSharesSelectedTiming) {
+      this._variation.materializeAvailabilityAgainstTiming(selection.timing);
+    }
+
+    const materializedTiming = {};
+    this._pitches.materializeAgainstTiming(timing, materializedTiming);
+    this._variation.materializeAgainstTiming(timing, materializedTiming);
   }
 
   private _getGeneratedFit() {
