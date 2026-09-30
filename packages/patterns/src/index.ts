@@ -8,9 +8,17 @@ import {
 } from "./utils";
 import { MaskedCycle } from "./masked-cycle";
 import { assertPatternExpressionLimits } from "./pattern-expression";
+import { assertEventCycleInvariants } from "./event-cycle";
 import type {
   ChanceCondition,
   Chord,
+  NonEmptyGroup,
+  EventCycle,
+  StaticEventCycle,
+  RandomEventCycle,
+  RandomEventSettings,
+  EventPattern,
+  EventStep,
   PatternExpression,
   PatternNode,
   PatternRange,
@@ -38,9 +46,17 @@ export {
   assertCycleBarLimit,
   assertCycleLimits,
   assertPatternExpressionLimits,
+  assertEventCycleInvariants,
   getChordStaticSchema,
   type ChanceCondition,
   type Chord,
+  type NonEmptyGroup,
+  type EventCycle,
+  type StaticEventCycle,
+  type RandomEventCycle,
+  type RandomEventSettings,
+  type EventPattern,
+  type EventStep,
   type PatternExpression,
   type PatternNode,
   type PatternRange,

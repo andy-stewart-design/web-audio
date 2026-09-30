@@ -22,6 +22,17 @@ export type {
   PatternModifier,
 } from "./pattern-expression";
 
+// Canonical event-cycle types — internal package integration, not a user API
+export type {
+  NonEmptyGroup,
+  EventCycle,
+  StaticEventCycle,
+  RandomEventCycle,
+  RandomEventSettings,
+  EventPattern,
+  EventStep,
+} from "./event-cycle";
+
 // Internal pattern types — owned by this package
 type NoteInput<S> = S | S[];
 type Pattern<S> = S[];

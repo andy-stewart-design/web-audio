@@ -333,15 +333,19 @@ Implemented in `packages/patterns/src/pattern-expression.ts`, with supporting ty
 
 Create the canonical internal representation for static and random event lanes.
 
+Implemented in `packages/patterns/src/event-cycle.ts`, with readonly types and a non-mutating `assertEventCycleInvariants()` helper. Event groups are nonempty tuples; continuations must follow an event or continuation within the same pattern. Empty patterns are rejected; silence is represented by explicit rest steps. Random numeric sources retain settings plus `StaticEventCycle<1>` candidate geometry, with counts derived from onsets so sparse/transformed timing is not lost or duplicated. Types are exported only for package integration, not as a Fluid extension API.
+
+Limits are 1,024 patterns, 16,384 total steps (also bounding onsets), 128 voices per event, and 65,536 total voice occurrences per cycle. Random settings arrays are bounded to 16,384 segments or mapped values. These limits leave the existing legacy checks unchanged.
+
 ### Tasks
 
-- [ ] Define `EventCycle`, static cycles, and random cycle variants.
-- [ ] Define event, rest, and continuation steps.
-- [ ] Require nonempty event groups.
-- [ ] Preserve explicit silent patterns.
-- [ ] Preserve simultaneous voice order and duplicates.
-- [ ] Bound pattern, step, event, voice, and cycle counts.
-- [ ] Do not add schema offsets, durations, `valueMode`, or scalar metadata.
+- [x] Define `EventCycle`, static cycles, and random cycle variants.
+- [x] Define event, rest, and continuation steps.
+- [x] Require nonempty event groups.
+- [x] Preserve explicit silent patterns.
+- [x] Preserve simultaneous voice order and duplicates.
+- [x] Bound pattern, step, event, voice, and cycle counts.
+- [x] Do not add schema offsets, durations, `valueMode`, or scalar metadata.
 
 ### Likely files
 
@@ -353,9 +357,9 @@ Create the canonical internal representation for static and random event lanes.
 
 ### Verification
 
-- [ ] Verify events, rests, continuations, and silent patterns are distinguishable.
-- [ ] Verify event groups cannot be empty.
-- [ ] Confirm random settings remain a separate representation.
+- [x] Verify events, rests, continuations, and silent patterns are distinguishable.
+- [x] Verify event groups cannot be empty.
+- [x] Confirm random settings remain a separate representation.
 
 ## Step 3.3 — Add exact geometry and the shared evaluator
 

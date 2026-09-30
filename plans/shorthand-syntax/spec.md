@@ -550,17 +550,19 @@ A note, sample-name, or variation **lane** contains an `EventCycle<T>`. A fixed 
 A conceptual representation is:
 
 ```ts
-type EventCycle<T> = StaticEventCycle<T> | RandomEventCycle<T>;
+type EventCycle<T> =
+  | StaticEventCycle<T>
+  | (number extends T ? RandomEventCycle : never);
 
 type StaticEventCycle<T> = {
   readonly type: "static-event-cycle";
   readonly patterns: readonly EventPattern<T>[];
 };
 
-type RandomEventCycle<T> = {
+type RandomEventCycle = {
   readonly type: "random-event-cycle";
-  readonly valuesPerPattern: readonly number[];
-  readonly settings: RandomSettings<T>;
+  readonly candidateCycle: StaticEventCycle<1>;
+  readonly settings: RandomEventSettings;
 };
 
 type EventPattern<T> = readonly EventStep<T>[];
@@ -568,13 +570,15 @@ type EventPattern<T> = readonly EventStep<T>[];
 type EventStep<T> =
   | {
       readonly type: "event";
-      readonly values: readonly T[];
+      readonly values: readonly [T, ...T[]];
     }
   | { readonly type: "rest" }
   | { readonly type: "continuation" };
 ```
 
-The exact random settings and container syntax may change, but the cycle/pattern/step levels and static step variants are required. Random event cycles are numeric-only in v1 and preserve generation settings rather than pretending to contain static steps.
+The exact random settings and container syntax may change, but the cycle/pattern/step levels and static step variants are required. Random event cycles are numeric-only in v1 and preserve generation settings rather than pretending to contain static numeric values.
+
+The random branch retains fixed candidate geometry because counts alone cannot express sparse or transformed onsets and gate lengths. `candidateCycle` contains timing onsets with exactly one value of `1`, plus rests and continuations; generated numeric values are not materialized. Per-pattern value counts are derived from its event steps rather than stored redundantly. `RandomEventSettings` contains readonly `dataType`, `segments`, optional `range`, optional `quantValue`, `algorithm`, optional `valueMap`, and `order`, retaining the existing numeric generation semantics. Runtime timing chance remains separate in Fluid timing state.
 
 Invariants:
 
