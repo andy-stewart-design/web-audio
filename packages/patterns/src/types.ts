@@ -22,6 +22,11 @@ export type {
   PatternModifier,
 } from "./pattern-expression";
 
+export type {
+  AtomInterpretation,
+  AtomInterpreter,
+} from "./evaluate-pattern-expression";
+
 // Canonical event-cycle types — internal package integration, not a user API
 export type {
   NonEmptyGroup,

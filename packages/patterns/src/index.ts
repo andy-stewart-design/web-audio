@@ -9,9 +9,13 @@ import {
 import { MaskedCycle } from "./masked-cycle";
 import { assertPatternExpressionLimits } from "./pattern-expression";
 import { assertEventCycleInvariants } from "./event-cycle";
+import { evaluatePatternExpression } from "./evaluate-pattern-expression";
+import { getEventPatternGeometry } from "./utils/event-grid";
 import type {
   ChanceCondition,
   Chord,
+  AtomInterpretation,
+  AtomInterpreter,
   NonEmptyGroup,
   EventCycle,
   StaticEventCycle,
@@ -47,9 +51,13 @@ export {
   assertCycleLimits,
   assertPatternExpressionLimits,
   assertEventCycleInvariants,
+  evaluatePatternExpression,
+  getEventPatternGeometry,
   getChordStaticSchema,
   type ChanceCondition,
   type Chord,
+  type AtomInterpretation,
+  type AtomInterpreter,
   type NonEmptyGroup,
   type EventCycle,
   type StaticEventCycle,

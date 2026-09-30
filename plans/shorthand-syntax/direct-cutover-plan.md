@@ -367,16 +367,18 @@ Limits are 1,024 patterns, 16,384 total steps (also bounding onsets), 128 voices
 
 Evaluate typed expressions into immutable event cycles using exact bounded structural geometry.
 
+Implemented in `packages/patterns/src/evaluate-pattern-expression.ts`, with `utils/rational.ts` and `utils/event-grid.ts`. BigInt intermediates normalize to frozen safe-integer rationals with denominators bounded to 16,384. Evaluation uses identity or a ranged event/rest callback, preserves each explicit bar's smallest exact grid, and freezes new structural data without touching opaque payloads. Geometry is derived from indexes and continuation runs, never stored on steps. Alternation and modifiers fail explicitly until Step 6.2. Production Fluid remains unchanged.
+
 ### Tasks
 
-- [ ] Add normalized rational arithmetic and overflow checks.
-- [ ] Decode equal structural allocation into the smallest bounded step grid.
-- [ ] Derive offsets and durations from step indexes and continuation runs.
-- [ ] Evaluate explicit patterns, sequences, rests, and simultaneous groups.
-- [ ] Accept an atom interpreter callback.
-- [ ] Use identity interpretation for typed structured atoms.
-- [ ] Reject excessive denominators, steps, voices, patterns, or cycles.
-- [ ] Keep evaluation pure and non-mutating.
+- [x] Add normalized rational arithmetic and overflow checks.
+- [x] Decode equal structural allocation into the smallest bounded step grid.
+- [x] Derive offsets and durations from step indexes and continuation runs.
+- [x] Evaluate explicit patterns, sequences, rests, and simultaneous groups.
+- [x] Accept an atom interpreter callback.
+- [x] Use identity interpretation for typed structured atoms.
+- [x] Reject excessive denominators, steps, voices, patterns, or cycles.
+- [x] Keep evaluation pure and non-mutating.
 
 ### Likely files
 
@@ -389,10 +391,10 @@ Evaluate typed expressions into immutable event cycles using exact bounded struc
 
 ### Verification
 
-- [ ] Test exact nested allocation.
-- [ ] Test explicit rests versus continuations.
-- [ ] Test limit and overflow failures.
-- [ ] Assert expression inputs are unchanged.
+- [x] Test exact nested allocation.
+- [x] Test explicit rests versus continuations.
+- [x] Test limit and overflow failures.
+- [x] Assert expression inputs are unchanged.
 
 ## Step 3.4 — Decode structured inputs into expressions
 
