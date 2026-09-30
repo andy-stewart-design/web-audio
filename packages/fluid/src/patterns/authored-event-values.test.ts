@@ -13,8 +13,8 @@ describe("authored event values", () => {
     expect(values.hasAuthoredValues).toBe(true);
     expect(values.source).toEqual({
       type: "static",
+      intent: "authored",
       cycle: [[[0], [1, 2], null], [null], [[3]]],
-      broadcastValue: undefined,
     });
     expect(values.hasRests).toBe(true);
   });
@@ -23,8 +23,36 @@ describe("authored event values", () => {
     expect(AuthoredEventValues.fromDefault<number>(0).hasAuthoredValues).toBe(
       false,
     );
-    expect(AuthoredEventValues.fromInput<number>([0]).hasAuthoredValues).toBe(
-      true,
+    const authored = AuthoredEventValues.fromInput<number>([0]);
+    expect(authored.hasAuthoredValues).toBe(true);
+    expect(authored.source).toEqual({
+      type: "static",
+      intent: "authored",
+      cycle: [[[0]]],
+    });
+  });
+
+  it("retains a nonempty default fallback independently of transformed geometry", () => {
+    const values = AuthoredEventValues.fromDefault("bd").slow(2);
+    expect(values.defaultFallback).toEqual(["bd"]);
+    expect(values.source).toEqual({
+      type: "static",
+      intent: "default",
+      cycle: [[["bd"]], [null]],
+      fallback: ["bd"],
+    });
+    const authored = AuthoredEventValues.fromInput(["bd"]);
+    expect(authored.defaultFallback).toBeUndefined();
+    expect(authored.source).toEqual({
+      type: "static",
+      intent: "authored",
+      cycle: [[["bd"]]],
+    });
+  });
+
+  it("rejects empty default fallback values", () => {
+    expect(() => AuthoredEventValues.fromDefault(null)).toThrow(
+      "nonempty fallback",
     );
   });
 
@@ -33,7 +61,11 @@ describe("authored event values", () => {
     const values = AuthoredEventValues.fromInput<number>([cycle]);
 
     expect(values.hasAuthoredValues).toBe(true);
-    expect(values.source).toEqual({ type: "random", cycle });
+    expect(values.source).toEqual({
+      type: "random",
+      intent: "authored",
+      cycle,
+    });
   });
 
   it("rejects invalid authored event values", () => {

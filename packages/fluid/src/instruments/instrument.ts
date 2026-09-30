@@ -69,6 +69,7 @@ abstract class Instrument {
 
   notes(...input: NoteInput<ScheduledValue> | [RandomCycle]) {
     this._pitches.notes(...input);
+    this._releaseMaterializedTimingForValueSetter();
     return this;
   }
 
@@ -88,11 +89,13 @@ abstract class Instrument {
     rotation: number | number[] = 0,
   ) {
     this._timing.euclid(pulses, steps, rotation);
+    this._releaseMaterializedTiming();
     return this;
   }
 
   hex(...hexes: (string | number)[]) {
     this._timing.hex(...hexes);
+    this._releaseMaterializedTiming();
     return this;
   }
 
@@ -105,6 +108,7 @@ abstract class Instrument {
 
   sequence(steps: number, ...pulses: (number | number[])[]) {
     this._timing.sequence(steps, ...pulses);
+    this._releaseMaterializedTiming();
     return this;
   }
 
@@ -118,6 +122,7 @@ abstract class Instrument {
     } else {
       this._timing.xox(...input);
     }
+    this._releaseMaterializedTiming();
     return this;
   }
 
@@ -147,7 +152,16 @@ abstract class Instrument {
       timing ??
       this._timing.getTimingPattern() ??
       this._pitches.getEventPattern().timing;
+    this._pitches.materializeAvailabilityAgainstTiming(selectedTiming);
     this._pitches.materializeAgainstTiming(selectedTiming);
+  }
+
+  protected _releaseMaterializedTimingForValueSetter() {
+    if (!this._timing.isExplicit) this._releaseMaterializedTiming();
+  }
+
+  protected _releaseMaterializedTiming() {
+    this._pitches.releaseMaterializedTiming();
   }
 
   protected _getPitchEventPattern(timingOverride?: TimingPattern) {

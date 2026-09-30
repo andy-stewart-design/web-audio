@@ -10,6 +10,7 @@ import type {
   TimingPattern,
 } from "@web-audio/schema";
 import { compileNoteEvents } from "@/instruments/event-compiler";
+import AuthoredAvailability from "@/patterns/authored-availability";
 import EventTiming from "@/patterns/event-timing";
 import { getScale } from "@/utils/get-scale";
 import { noteStringToMidi } from "@/utils/note-string-to-midi";
@@ -21,12 +22,28 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 
 class AuthoredPitches {
   private _notes: MaskedCycle<Chord> | RandomCycle;
-  private _hasAuthoredValues = false;
+  private _authoredAvailability?: AuthoredAvailability;
+  private _materializedTiming?: object;
+  private _defaultFallback: readonly [number, ...number[]] | undefined;
   private _hasPitchTransform = false;
   private _root = 0;
   private _scale: number[] | undefined;
 
   constructor(defaultPattern: Chord) {
+    if (
+      !Array.isArray(defaultPattern) ||
+      defaultPattern.length === 0 ||
+      !defaultPattern.every(
+        (value): value is number =>
+          typeof value === "number" && Number.isFinite(value),
+      )
+    ) {
+      throw new Error(
+        "[Instrument] Default notes require a nonempty fallback group of finite numbers.",
+      );
+    }
+    const [first, ...rest] = defaultPattern;
+    this._defaultFallback = [first, ...rest];
     this._notes = new MaskedCycle([[defaultPattern]]);
   }
 
@@ -45,9 +62,11 @@ class AuthoredPitches {
       throw new Error("[Instrument] notes() requires at least one pattern.");
     }
 
-    this._hasAuthoredValues = true;
+    this._defaultFallback = undefined;
+    this._materializedTiming = undefined;
     if (isRandomCycleTuple(input)) {
       this._notes = input[0];
+      this._authoredAvailability = undefined;
     } else {
       const cycle = input.map((pattern) =>
         Array.isArray(pattern)
@@ -55,6 +74,11 @@ class AuthoredPitches {
           : [[pattern]],
       );
       this._notes = new MaskedCycle(cycle);
+      this._authoredAvailability = new AuthoredAvailability(
+        cycle.map((bar) =>
+          bar.map((chord) => chord.some((value) => typeof value === "number")),
+        ),
+      );
     }
     return this;
   }
@@ -74,36 +98,53 @@ class AuthoredPitches {
 
   reverse() {
     this._notes.reverse();
+    this._authoredAvailability?.reverse();
     return this;
   }
 
-  materializeAgainstTiming(timing: TimingPattern) {
-    if (isRandomCycle(this._notes) || this._getStaticScalar()) return this;
+  materializeAvailabilityAgainstTiming(timing: TimingPattern) {
+    if (!this._canMaterialize() || !this._authoredAvailability) return this;
+
+    this._authoredAvailability.materializeAgainstTiming(timing);
+    return this;
+  }
+
+  releaseMaterializedTiming() {
+    this._authoredAvailability?.releaseTiming();
+    return this;
+  }
+
+  materializeAgainstTiming(timing: TimingPattern, materializedTiming?: object) {
+    if (!this._canMaterialize() || isRandomCycle(this._notes)) return this;
 
     const source = this._notes.activeEvents.map((bar) =>
       bar.filter((chord): chord is number[] => chord !== null),
     );
     const { cycle, mask } = new EventTiming(timing).alignValues(source);
     this._notes = new MaskedCycle(cycle).xox(...mask);
+    this._materializedTiming = materializedTiming;
     return this;
   }
 
   fast(multiplier: number) {
     this._notes.fast(multiplier);
+    this._authoredAvailability?.fast(multiplier);
     return this;
   }
 
   slow(multiplier: number) {
     this._notes.slow(multiplier);
+    this._authoredAvailability?.slow(multiplier);
     return this;
   }
 
   stretch(bars: number, steps?: number) {
     this._notes.stretch(bars, steps);
+    this._authoredAvailability?.stretch(bars, steps);
     return this;
   }
 
-  getEventPattern(timingOverride?: TimingPattern) {
+  getEventPattern(timingOverride?: TimingPattern, resolveActiveValues = false) {
     if (isRandomCycle(this._notes)) {
       return compileNoteEvents({
         source: {
@@ -119,8 +160,9 @@ class AuthoredPitches {
       source: {
         type: "static",
         cycle: this._notes,
-        scalar: this._getStaticScalar(),
+        fallback: this._defaultFallback,
         transform: this._degreeToMidi.bind(this),
+        resolveActiveValues,
       },
       explicitTiming: timingOverride,
     });
@@ -131,23 +173,23 @@ class AuthoredPitches {
   }
 
   get hasAuthoredValues() {
-    return this._hasAuthoredValues;
+    return this._defaultFallback === undefined;
+  }
+
+  get defaultFallback() {
+    return this._defaultFallback;
   }
 
   get hasRequestedPitches() {
-    return this._hasAuthoredValues || this._hasPitchTransform;
+    return this.hasAuthoredValues || this._hasPitchTransform;
+  }
+
+  get materializedTiming() {
+    return this._materializedTiming;
   }
 
   getFixedAvailability() {
-    if (isRandomCycle(this._notes) || this._getStaticScalar()) {
-      return undefined;
-    }
-
-    return this._notes.transformedValues.map((bar) =>
-      bar.map((chord) =>
-        Boolean(chord?.some((value) => typeof value === "number")),
-      ),
-    );
+    return this._authoredAvailability?.fixedCycle;
   }
 
   getRandomValuesPerBar() {
@@ -157,10 +199,14 @@ class AuthoredPitches {
   }
 
   get hasAuthoredPitchRests() {
+    return this._authoredAvailability?.hasRests ?? false;
+  }
+
+  private _canMaterialize() {
     return (
-      this.getFixedAvailability()?.some((bar) =>
-        bar.some((available) => !available),
-      ) ?? false
+      !isRandomCycle(this._notes) &&
+      this.hasAuthoredValues &&
+      !this._getStaticScalar()
     );
   }
 

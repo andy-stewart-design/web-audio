@@ -21,8 +21,9 @@ import type { Chord, MaskedCycle } from "@web-audio/patterns";
 type StaticNoteSource = {
   type: "static";
   cycle: MaskedCycle<Chord>;
-  scalar: Chord | undefined;
+  fallback?: readonly [number, ...number[]];
   transform: (value: number) => number;
+  resolveActiveValues?: boolean;
 };
 
 type RandomNoteSource = {
@@ -52,7 +53,6 @@ type SamplerTimingCandidate = {
 type FixedAvailability = {
   cycle?: boolean[][];
   valuesPerBar?: number[];
-  alignment?: "hit";
 };
 
 type SamplerEventCompilerInput = {
@@ -76,10 +76,13 @@ function compileStaticNoteEvents(
   source: StaticNoteSource,
   explicitTiming: TimingPattern | undefined,
 ) {
-  const sourceBars = source.cycle.activeEvents.map((bar) =>
-    bar.map((chord) => normalizeChord(chord, source.transform)),
-  );
-  const scalar = normalizeChord(source.scalar, source.transform);
+  const sourceBars = source.cycle.activeEvents.map((bar) => {
+    const chords = bar.map((chord) => normalizeChord(chord, source.transform));
+    return source.resolveActiveValues
+      ? chords.filter((chord): chord is number[] => chord !== null)
+      : chords;
+  });
+  const fallback = source.fallback?.map(source.transform);
   const timing = explicitTiming ?? source.cycle.candidateTiming;
   const condition = timing.condition && cloneCondition(timing.condition);
   const cycleLength = repeatingCycleLength(
@@ -98,7 +101,7 @@ function compileStaticNoteEvents(
     timingBar.forEach((step, hitIndex) => {
       const chord =
         sourceBar.length === 0
-          ? scalar
+          ? fallback
           : sourceBar[hitIndex % sourceBar.length];
       if (chord === null || chord === undefined) return;
       noteBar.push(chord);
@@ -188,7 +191,7 @@ function compileSamplerEvents({
     timingOverride,
     sampleNames,
   });
-  const noteEvents = pitches.getEventPattern(filteredTiming);
+  const noteEvents = pitches.getEventPattern(filteredTiming, true);
   const notes = pitches.hasRequestedPitches ? noteEvents.notes : undefined;
 
   return finalizeSamplerEvents({
@@ -200,7 +203,37 @@ function compileSamplerEvents({
   });
 }
 
-function getSamplerEventTiming({
+function getSamplerEventTiming(
+  input: Omit<SamplerEventCompilerInput, "sampleNames"> & {
+    sampleNames?: AuthoredEventValues<string>;
+  },
+) {
+  const { pitches, variation, sampleNames } = input;
+  const {
+    timing,
+    source,
+    materializedTiming: selectedMaterializedTiming,
+  } = getSamplerTimingSelection(input);
+  const pitchesShareSelectedTiming =
+    selectedMaterializedTiming !== undefined &&
+    pitches.materializedTiming === selectedMaterializedTiming;
+  const variationSharesSelectedTiming =
+    selectedMaterializedTiming !== undefined &&
+    variation.materializedTiming === selectedMaterializedTiming;
+  return filterTimingByFixedAvailability(timing, [
+    source === "notes" || pitchesShareSelectedTiming
+      ? undefined
+      : getPitchAvailability(pitches),
+    source === "variation" || variationSharesSelectedTiming
+      ? undefined
+      : getVariationAvailability(variation),
+    source === "sampleNames"
+      ? undefined
+      : getSampleNameAvailability(sampleNames),
+  ]);
+}
+
+function getSamplerTimingSelection({
   pitches,
   timing,
   variation,
@@ -209,21 +242,39 @@ function getSamplerEventTiming({
 }: Omit<SamplerEventCompilerInput, "sampleNames"> & {
   sampleNames?: AuthoredEventValues<string>;
 }) {
-  const explicitTiming = timingOverride ?? timing.getTimingPattern();
-  const selectedCandidate = explicitTiming
-    ? undefined
-    : getInferredSamplerTiming({ pitches, variation, sampleNames });
-  const selectedTiming = explicitTiming ?? selectedCandidate!.timing;
-  const selectedSource = selectedCandidate?.source;
-  return filterTimingByFixedAvailability(selectedTiming, [
-    selectedSource === "notes" ? undefined : getPitchAvailability(pitches),
-    selectedSource === "variation"
-      ? undefined
-      : getVariationAvailability(variation),
-    selectedSource === "sampleNames"
-      ? undefined
-      : getSampleNameAvailability(sampleNames),
-  ]);
+  if (timingOverride) {
+    return {
+      timing: timingOverride,
+      source: undefined,
+      materializedTiming: undefined,
+    };
+  }
+
+  const explicitTiming = timing.getTimingPattern();
+  if (explicitTiming) {
+    return {
+      timing: explicitTiming,
+      source: undefined,
+      materializedTiming: undefined,
+    };
+  }
+
+  const candidate = getInferredSamplerTiming({
+    pitches,
+    variation,
+    sampleNames,
+  });
+  const materializedTiming =
+    candidate.source === "notes"
+      ? pitches.materializedTiming
+      : candidate.source === "variation"
+        ? variation.materializedTiming
+        : undefined;
+  return {
+    timing: candidate.timing,
+    source: candidate.source,
+    materializedTiming,
+  };
 }
 
 function getInferredSamplerTiming({
@@ -268,27 +319,24 @@ function getSampleNameAvailability(
   ) {
     return undefined;
   }
-  if (sampleNames.source.broadcastValue) return undefined;
 
   return {
-    cycle: sampleNames.source.cycle.map((bar) => bar.map(Boolean)),
-    alignment: "hit",
+    cycle: sampleNames.getFixedAvailability(),
   } satisfies FixedAvailability;
 }
 
 function getVariationAvailability(variation: AuthoredEventValues<number>) {
   if (!variation.hasAuthoredValues) return undefined;
 
-  const availability =
-    variation.source.type === "random"
-      ? { valuesPerBar: variation.source.cycle.getRandomSchema().valuesPerBar }
-      : variation.source.broadcastValue
-        ? undefined
-        : { cycle: variation.source.cycle.map((bar) => bar.map(Boolean)) };
+  if (variation.source.type === "random") {
+    return {
+      valuesPerBar: variation.source.cycle.getRandomSchema().valuesPerBar,
+    } satisfies FixedAvailability;
+  }
 
-  if (!availability) return undefined;
-
-  return availability satisfies FixedAvailability;
+  return {
+    cycle: variation.getFixedAvailability(),
+  } satisfies FixedAvailability;
 }
 
 function selectSamplerTimingCandidate({
@@ -400,9 +448,9 @@ function filterTimingByFixedAvailability(
   return {
     condition,
     cycle: Array.from({ length: cycleLength }, (_, barIndex) =>
-      timing.cycle[barIndex % timing.cycle.length].filter((step, hitIndex) =>
+      timing.cycle[barIndex % timing.cycle.length].filter((_, hitIndex) =>
         activeAvailabilities.every((availability) =>
-          isFixedAvailabilityActive(availability, barIndex, step, hitIndex),
+          isFixedAvailabilityActive(availability, barIndex, hitIndex),
         ),
       ),
     ),
@@ -412,7 +460,6 @@ function filterTimingByFixedAvailability(
 function isFixedAvailabilityActive(
   availability: FixedAvailability,
   barIndex: number,
-  step: TimingStep,
   hitIndex: number,
 ) {
   if (
@@ -425,11 +472,7 @@ function isFixedAvailabilityActive(
   if (!availability.cycle) return true;
   const bar = availability.cycle[barIndex % availability.cycle.length];
   if (bar.length === 0) return false;
-  const index =
-    availability.alignment === "hit"
-      ? hitIndex % bar.length
-      : Math.floor(step.offset * bar.length);
-  return bar[index];
+  return bar[hitIndex % bar.length];
 }
 
 function compileStaticTiming<T>(cycle: (T[] | null)[][]) {
@@ -448,14 +491,20 @@ function compileSampleNames(values: AuthoredEventValues<string>) {
     throw new Error("[Sampler] name() does not support random patterns.");
   }
 
-  const cycle = values.source.broadcastValue
-    ? [[[...values.source.broadcastValue]]]
-    : values.source.cycle.map((bar) => {
-        const activeGroups = bar.flatMap((group) =>
-          group === null ? [] : [[...group]],
-        );
-        return activeGroups.length > 0 ? activeGroups : [null];
-      });
+  const fallback = values.defaultFallback;
+  if (fallback) {
+    return {
+      type: "static",
+      cycle: [[[...fallback]]],
+    } satisfies SamplerEventPattern["sampleNames"];
+  }
+
+  const cycle = values.source.cycle.map((bar) => {
+    const activeGroups = bar.flatMap((group) =>
+      group === null ? [] : [[...group]],
+    );
+    return activeGroups.length > 0 ? activeGroups : [null];
+  });
   if (!cycle.some((bar) => bar.some((group) => group !== null))) {
     throw new Error(
       "[Sampler] name() must contain at least one sample name before getSchema().",
@@ -473,12 +522,12 @@ function compileVariationPattern(values: AuthoredEventValues<number>) {
     return values.source.cycle.getRandomSchema();
   }
 
-  if (isDefaultVariationValues(values)) return undefined;
-
-  if (values.source.broadcastValue) {
+  const fallback = values.defaultFallback;
+  if (fallback?.length === 1 && fallback[0] === 0) return undefined;
+  if (fallback) {
     return {
       type: "static",
-      cycle: [[[...values.source.broadcastValue]]],
+      cycle: [[[...fallback]]],
     } satisfies VariationIndexPattern;
   }
 
@@ -491,14 +540,6 @@ function compileVariationPattern(values: AuthoredEventValues<number>) {
       return activeGroups.length > 0 ? activeGroups : [null];
     }),
   } satisfies VariationIndexPattern;
-}
-
-function isDefaultVariationValues(values: AuthoredEventValues<number>) {
-  return (
-    values.source.type === "static" &&
-    values.source.broadcastValue?.length === 1 &&
-    values.source.broadcastValue[0] === 0
-  );
 }
 
 function finalizeSamplerEvents({
@@ -517,13 +558,9 @@ function finalizeSamplerEvents({
   const cycleLength = cycleLengths.reduce(lowestCommonMultiple);
   assertCycleBarLimit(cycleLength);
   const sampleNames = expandSampleNamePattern(inputSampleNames, cycleLength);
-  const expandedNotes = inputNotes
+  const notes = inputNotes
     ? expandNotePattern(inputNotes, cycleLength)
     : undefined;
-  const notes =
-    expandedNotes && !hasAuthoredPitchValues
-      ? fillUnavailableNotes(expandedNotes, eventPattern.timing, cycleLength)
-      : expandedNotes;
   const variationIndices = inputVariationIndices
     ? expandVariationPattern(inputVariationIndices, cycleLength)
     : undefined;
@@ -582,35 +619,6 @@ function expandNotePattern(pattern: NotePattern, cycleLength: number) {
     cycle: repeatCycle(pattern.cycle, cycleLength).map((bar) =>
       bar.map((group) => (group === null ? null : [...group])),
     ),
-  } satisfies NotePattern;
-}
-
-function fillUnavailableNotes(
-  pattern: NotePattern,
-  timing: TimingPattern,
-  cycleLength: number,
-): NotePattern {
-  if (pattern.type === "random-number") {
-    return {
-      ...pattern,
-      valuesPerBar: pattern.valuesPerBar.map((count, barIndex) =>
-        count === 0
-          ? timing.cycle[barIndex % timing.cycle.length].length
-          : count,
-      ),
-    } satisfies NotePattern;
-  }
-
-  const fallback = pattern.cycle
-    .flat()
-    .find((group): group is number[] => group !== null);
-  if (!fallback) return pattern;
-  return {
-    type: "static",
-    cycle: Array.from({ length: cycleLength }, (_, barIndex) => {
-      const bar = pattern.cycle[barIndex];
-      return bar[0] === null ? [[...fallback]] : bar;
-    }),
   } satisfies NotePattern;
 }
 
@@ -673,6 +681,7 @@ export {
   compileNoteEvents,
   compileSamplerEvents,
   getSamplerEventTiming,
+  getSamplerTimingSelection,
   finalizeSamplerEvents,
   compileVariationPattern,
   compileSampleNames,

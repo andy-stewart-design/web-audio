@@ -1,5 +1,6 @@
 import { MaskedCycle, RandomCycle } from "@web-audio/patterns";
 import type { NullableCycleInput } from "@/types";
+import AuthoredAvailability from "@/patterns/authored-availability";
 import EventTiming from "@/patterns/event-timing";
 import { isRandomCycleTuple } from "@/utils/validate";
 import type { TimingPattern } from "@web-audio/schema";
@@ -7,11 +8,14 @@ import type { TimingPattern } from "@web-audio/schema";
 type StaticAuthoredValues<T> = {
   type: "static";
   cycle: (T[] | null)[][];
-  broadcastValue?: T[];
-};
+} & (
+  | { intent: "default"; fallback: readonly [T, ...T[]] }
+  | { intent: "authored" }
+);
 
 type RandomAuthoredValues = {
   type: "random";
+  intent: "authored";
   cycle: RandomCycle;
 };
 
@@ -27,25 +31,31 @@ type AuthoredEventValuesInput<T> = T | null | (T | T[] | null)[];
 
 class AuthoredEventValues<T> {
   private _source: StaticAuthoredValues<T> | RandomAuthoredValues;
-  private _hasAuthoredValues = false;
+  private _authoredAvailability: AuthoredAvailability | undefined;
+  private _materializedTiming?: object;
 
-  private constructor(
-    source: StaticAuthoredValues<T> | RandomAuthoredValues,
-    hasAuthoredValues = false,
-  ) {
+  private constructor(source: StaticAuthoredValues<T> | RandomAuthoredValues) {
     this._source = source;
-    this._hasAuthoredValues = hasAuthoredValues;
+    this._authoredAvailability =
+      source.type === "static" && source.intent === "authored"
+        ? new AuthoredAvailability(
+            source.cycle.map((bar) => bar.map((group) => group !== null)),
+          )
+        : undefined;
   }
 
   static fromDefault<T>(value: T) {
-    return new AuthoredEventValues<T>(
-      {
-        type: "static",
-        cycle: [[[value]]],
-        broadcastValue: [value],
-      },
-      false,
-    );
+    if (value === null || value === undefined) {
+      throw new Error(
+        "[Fluid] Default event values require a nonempty fallback group.",
+      );
+    }
+    return new AuthoredEventValues<T>({
+      type: "static",
+      intent: "default",
+      cycle: [[[value]]],
+      fallback: [value],
+    });
   }
 
   static fromInput<T>(
@@ -59,46 +69,78 @@ class AuthoredEventValues<T> {
     }
 
     if (isRandomCycleTuple(input)) {
-      return new AuthoredEventValues<T>(
-        { type: "random", cycle: input[0] },
-        true,
-      );
+      return new AuthoredEventValues<T>({
+        type: "random",
+        intent: "authored",
+        cycle: input[0],
+      });
     }
 
     const cycle = input.map((bar) => normalizeBar(bar, options));
-    return new AuthoredEventValues<T>(
-      {
-        type: "static",
-        cycle,
-        broadcastValue: getBroadcastValue(cycle),
-      },
-      true,
-    );
+    return new AuthoredEventValues<T>({
+      type: "static",
+      intent: "authored",
+      cycle,
+    });
   }
 
   get hasAuthoredValues() {
-    return this._hasAuthoredValues;
+    return this._source.intent === "authored";
+  }
+
+  get defaultFallback() {
+    return this._source.intent === "default"
+      ? this._source.fallback
+      : undefined;
   }
 
   get source() {
     return this._source;
   }
 
+  get materializedTiming() {
+    return this._materializedTiming;
+  }
+
   get hasRests() {
-    return (
-      this._source.type === "static" &&
-      this._source.broadcastValue === undefined &&
-      this._source.cycle.some((bar) => bar.some((group) => group === null))
-    );
+    return this._authoredAvailability?.hasRests ?? false;
+  }
+
+  getFixedAvailability() {
+    return this._authoredAvailability?.fixedCycle;
   }
 
   reverse() {
     this._transform((cycle) => cycle.reverse());
+    this._authoredAvailability?.reverse();
     return this;
   }
 
-  materializeAgainstTiming(timing: TimingPattern) {
-    if (this._source.type === "random" || this._source.broadcastValue) {
+  materializeAvailabilityAgainstTiming(timing: TimingPattern) {
+    if (
+      this._source.type !== "static" ||
+      this._source.intent !== "authored" ||
+      (this._source.cycle.length === 1 && this._source.cycle[0].length === 1) ||
+      !this._authoredAvailability
+    ) {
+      return this;
+    }
+
+    this._authoredAvailability.materializeAgainstTiming(timing);
+    return this;
+  }
+
+  releaseMaterializedTiming() {
+    this._authoredAvailability?.releaseTiming();
+    return this;
+  }
+
+  materializeAgainstTiming(timing: TimingPattern, materializedTiming?: object) {
+    if (
+      this._source.type !== "static" ||
+      this._source.intent !== "authored" ||
+      (this._source.cycle.length === 1 && this._source.cycle[0].length === 1)
+    ) {
       return this;
     }
 
@@ -107,22 +149,26 @@ class AuthoredEventValues<T> {
     );
     const { cycle, mask } = new EventTiming(timing).alignValues(source);
     const values = new MaskedCycle(cycle).xox(...mask).transformedValues;
-    this._source = { type: "static", cycle: values };
+    this._source = { type: "static", intent: "authored", cycle: values };
+    this._materializedTiming = materializedTiming;
     return this;
   }
 
   fast(multiplier: number) {
     this._transform((cycle) => cycle.fast(multiplier));
+    this._authoredAvailability?.fast(multiplier);
     return this;
   }
 
   slow(multiplier: number) {
     this._transform((cycle) => cycle.slow(multiplier));
+    this._authoredAvailability?.slow(multiplier);
     return this;
   }
 
   stretch(bars: number, steps?: number) {
     this._transform((cycle) => cycle.stretch(bars, steps));
+    this._authoredAvailability?.stretch(bars, steps);
     return this;
   }
 
@@ -136,10 +182,19 @@ class AuthoredEventValues<T> {
 
     const cycle = new MaskedCycle(this._source.cycle);
     transform(cycle);
+    if (this._source.intent === "default") {
+      this._source = {
+        type: "static",
+        intent: "default",
+        cycle: cycle.transformedValues,
+        fallback: this._source.fallback,
+      };
+      return;
+    }
     this._source = {
       type: "static",
+      intent: "authored",
       cycle: cycle.transformedValues,
-      broadcastValue: this._source.broadcastValue,
     };
   }
 }
@@ -191,12 +246,6 @@ function validateValue<T>(value: T, options: AuthoredEventValuesOptions<T>) {
   throw new Error(
     options.invalidValueMessage ?? "[Fluid] Authored event value is invalid.",
   );
-}
-
-function getBroadcastValue<T>(cycle: (T[] | null)[][]) {
-  return cycle.length === 1 && cycle[0].length === 1
-    ? (cycle[0][0] ?? undefined)
-    : undefined;
 }
 
 export default AuthoredEventValues;

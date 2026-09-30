@@ -148,12 +148,12 @@ Change static sampler note and variation availability from offset resampling to 
 
 ### Tasks
 
-- [ ] Add failing note and variation fixtures against explicit XOX.
-- [ ] Cover wrapping, multi-bar cycles, and multiple-lane rest intersections.
-- [ ] Exclude the selected timing owner from redundant filtering.
-- [ ] Preserve random zero-values-per-bar suppression.
-- [ ] Preserve fixed filtering before runtime chance.
-- [ ] Update only intentional golden expectations.
+- [x] Add failing note and variation fixtures against explicit XOX.
+- [x] Cover wrapping, multi-bar cycles, and multiple-lane rest intersections.
+- [x] Exclude the selected timing owner from redundant filtering.
+- [x] Preserve random zero-values-per-bar suppression.
+- [x] Preserve fixed filtering before runtime chance.
+- [x] Update only intentional golden expectations.
 
 ### Likely files
 
@@ -165,8 +165,8 @@ Change static sampler note and variation availability from offset resampling to 
 
 ### Verification
 
-- [ ] Verify `[0, null, 2]` against four candidates yields offsets `0`, `1/2`, `3/4` and values `0`, `2`, `0`.
-- [ ] Confirm unrelated PR 1 fixtures remain green.
+- [x] Verify `[0, null, 2]` against four candidates yields offsets `0`, `1/2`, `3/4` and values `0`, `2`, `0`.
+- [x] Confirm unrelated PR 1 fixtures remain green.
 
 ## Step 2.2 — Remove authored scalar broadcasting
 
@@ -176,12 +176,12 @@ Treat every value supplied through a setter as an authored pattern, including sc
 
 ### Tasks
 
-- [ ] Make scalar, one-element array, and one-step cycle inputs use the same authored path.
-- [ ] Remove authored `broadcastValue` exceptions from fixed availability.
-- [ ] Make `.var(1).slow(2)` produce the same event/rest availability as an equivalent two-bar pattern.
-- [ ] Apply the rule consistently to notes, names, and variations.
-- [ ] Add before/after fixtures for explicit timing interactions.
-- [ ] Update only intentional golden expectations.
+- [x] Make scalar, one-element array, and one-step cycle inputs use the same authored path.
+- [x] Remove authored `broadcastValue` exceptions from fixed availability.
+- [x] Make `.var(1).slow(2)` produce the same event/rest availability as an equivalent two-bar pattern.
+- [x] Apply the rule consistently to notes, names, and variations.
+- [x] Add before/after fixtures for explicit timing interactions.
+- [x] Update only intentional golden expectations.
 
 ### Likely files
 
@@ -194,8 +194,8 @@ Treat every value supplied through a setter as an authored pattern, including sc
 
 ### Verification
 
-- [ ] Confirm authored slowed rest bars suppress externally owned candidates.
-- [ ] Confirm untransformed one-step authored patterns still repeat naturally.
+- [x] Confirm authored slowed rest bars suppress externally owned candidates.
+- [x] Confirm untransformed one-step authored patterns still repeat naturally.
 
 ## Step 2.3 — Establish explicit default fallback semantics
 
@@ -205,14 +205,14 @@ Separate constructor defaults from authored patterns. A default source retains t
 
 ### Tasks
 
-- [ ] Represent or expose default intent independently from authored setters.
-- [ ] Require each fallback group to be nonempty.
-- [ ] Ensure defaults do not compete with authored timing.
-- [ ] Ensure defaults never filter externally owned timing.
-- [ ] Fill every surviving hit from the fallback group.
-- [ ] Ensure fallback values never create hits or activate silent timing bars.
-- [ ] Allow the transformed default cycle to supply timing only when no stronger source exists.
-- [ ] Ensure a setter replaces a default with authored intent even when values are equal.
+- [x] Represent or expose default intent independently from authored setters.
+- [x] Require each fallback group to be nonempty.
+- [x] Ensure defaults do not compete with authored timing.
+- [x] Ensure defaults never filter externally owned timing.
+- [x] Fill every surviving hit from the fallback group.
+- [x] Ensure fallback values never create hits or activate silent timing bars.
+- [x] Allow the transformed default cycle to supply timing only when no stronger source exists.
+- [x] Ensure a setter replaces a default with authored intent even when values are equal.
 
 ### Likely files
 
@@ -225,30 +225,32 @@ Separate constructor defaults from authored patterns. A default source retains t
 
 ### Verification
 
-- [ ] Verify `d.sample("bd").slow(2).xox([1, 1])` fills every surviving hit with `bd`.
-- [ ] Verify `d.sample().name("bd").slow(2).xox([1, 1])` can suppress the slowed rest bar.
-- [ ] Verify defaults do not activate an empty explicit timing bar.
-- [ ] Verify setting the same value changes intent to authored.
+- [x] Verify `d.sample("bd").slow(2).xox([1, 1])` fills every surviving hit with `bd`.
+- [x] Verify `d.sample().name("bd").slow(2).xox([1, 1])` can suppress the slowed rest bar.
+- [x] Verify defaults do not activate an empty explicit timing bar.
+- [x] Verify setting the same value changes intent to authored.
 
 ## Step 2.4 — Promote the corrected baseline
 
+The explicit expected schemas in `packages/fluid/src/instruments/event-schema-compatibility.test.ts` are the corrected PR 2 baseline for PR 4 comparisons. Keep their named fixtures and complete timing/value assertions intact when introducing a new compiler. The only accepted differences from the PR 1 baseline are sampler candidate-ordinal rest filtering, authored one-step pattern behavior (including an authored `var(0)` rather than omitted default variation), and constructor fallback semantics. Other schema differences are regressions unless separately specified and reviewed.
+
 ### Tasks
 
-- [ ] Mark candidate filtering, authored pattern semantics, and default fallbacks as intentional changes.
-- [ ] Ensure no new architecture types or adapters landed in this PR.
-- [ ] Make corrected fixtures authoritative for PR 4 differential comparisons.
+- [x] Mark candidate filtering, authored pattern semantics, and default fallbacks as intentional changes.
+- [x] Ensure no new architecture types or adapters landed in this PR.
+- [x] Make corrected fixtures authoritative for PR 4 differential comparisons.
 
 ### Verification
 
-- [ ] Run the complete repository suite.
-- [ ] Review schema diffs specifically for unrelated changes.
+- [x] Run the complete repository suite.
+- [x] Review schema diffs specifically for unrelated changes.
 
 ## PR 2 completion gate
 
-- [ ] Candidate-ordinal filtering is established.
-- [ ] Authored scalar broadcasting is removed.
-- [ ] Default fallbacks have explicit tested semantics.
-- [ ] No event-cycle redesign code has landed.
+- [x] Candidate-ordinal filtering is established.
+- [x] Authored scalar broadcasting is removed.
+- [x] Default fallbacks have explicit tested semantics.
+- [x] No event-cycle redesign code has landed.
 
 ---
 

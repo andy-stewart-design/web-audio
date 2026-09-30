@@ -373,6 +373,151 @@ describe("instrument event schemas", () => {
     ]);
   });
 
+  it.each([
+    {
+      lane: "synth notes",
+      scalar: () => new Synthesizer().notes(60),
+      oneStep: () => new Synthesizer().notes([60]),
+      twoBars: () => new Synthesizer().notes([60], [null]),
+    },
+    {
+      lane: "sampler notes",
+      scalar: () => new Sampler("kick").notes(60),
+      oneStep: () => new Sampler("kick").notes([60]),
+      twoBars: () => new Sampler("kick").notes([60], [null]),
+    },
+    {
+      lane: "sample names",
+      scalar: () => new Sampler("kick").name("bd"),
+      oneStep: () => new Sampler("kick").name(["bd"]),
+      twoBars: () => new Sampler("kick").name(["bd"], [null]),
+    },
+    {
+      lane: "variations",
+      scalar: () => new Sampler("kick").var(1),
+      oneStep: () => new Sampler("kick").var([1]),
+      twoBars: () => new Sampler("kick").var([1], [null]),
+    },
+  ])(
+    "treats authored scalar, one-step, and slowed $lane as the same pattern",
+    ({ scalar, oneStep, twoBars }) => {
+      const scalarEvents = scalar()
+        .slow(2)
+        .xox([1, 1])
+        .getSchema().eventPattern;
+      const oneStepEvents = oneStep()
+        .slow(2)
+        .xox([1, 1])
+        .getSchema().eventPattern;
+      const twoBarEvents = twoBars().xox([1, 1]).getSchema().eventPattern;
+
+      expect(scalarEvents).toEqual(oneStepEvents);
+      expect(scalarEvents).toEqual(twoBarEvents);
+    },
+  );
+
+  it.each([
+    {
+      lane: "synth notes",
+      scalar: () => new Synthesizer().xox([1, 1]).notes(60),
+      twoBars: () => new Synthesizer().xox([1, 1]).slow(2).notes([60], [null]),
+    },
+    {
+      lane: "sampler notes",
+      scalar: () => new Sampler("kick").xox([1, 1]).notes(60),
+      twoBars: () =>
+        new Sampler("kick").xox([1, 1]).slow(2).notes([60], [null]),
+    },
+    {
+      lane: "sample names",
+      scalar: () => new Sampler("kick").xox([1, 1]).name("bd"),
+      twoBars: () =>
+        new Sampler("kick").xox([1, 1]).slow(2).name(["bd"], [null]),
+    },
+    {
+      lane: "variations",
+      scalar: () => new Sampler("kick").xox([1, 1]).var(1),
+      twoBars: () => new Sampler("kick").xox([1, 1]).slow(2).var([1], [null]),
+    },
+  ])(
+    "keeps slowed authored $lane rests under previously explicit timing",
+    ({ scalar, twoBars }) => {
+      const events = scalar().slow(2).getSchema().eventPattern;
+      expect(events).toEqual(twoBars().getSchema().eventPattern);
+      expect(events.timing.cycle.map((bar) => bar.length)).toEqual([1, 0]);
+    },
+  );
+
+  it("does not filter slowed gaps twice while their explicit timing is unchanged", () => {
+    const events = new Sampler("kick")
+      .notes([60, 64])
+      .xox([1, 1, 1, 1])
+      .slow(2)
+      .getSchema().eventPattern;
+
+    expect(
+      events.timing.cycle.map((bar) => bar.map((step) => step.offset)),
+    ).toEqual([
+      [0, 0.5],
+      [0, 0.5],
+    ]);
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [
+        [[60], [64]],
+        [[60], [64]],
+      ],
+    });
+  });
+
+  it.each([
+    {
+      lane: "notes",
+      create: () => new Sampler("kick").notes([60, 64]),
+    },
+    {
+      lane: "variation",
+      create: () => new Sampler("kick").variation([0, 1]),
+    },
+  ])(
+    "retains $lane slowdown rests through reverse and replacement timing",
+    ({ create }) => {
+      const events = create()
+        .xox([1, 1, 1, 1])
+        .slow(2)
+        .reverse()
+        .xox(new RandomCycle().bin().steps(4).chance(1))
+        .getSchema().eventPattern;
+
+      expect(
+        events.timing.cycle.map((bar) => bar.map((step) => step.offset)),
+      ).toEqual([
+        [0.25, 0.75],
+        [0.25, 0.75],
+      ]);
+    },
+  );
+
+  it("repeats untransformed one-step authored patterns over explicit hits", () => {
+    const events = new Sampler("kick")
+      .notes([60])
+      .name(["bd"])
+      .var([1])
+      .xox([1, 1, 1])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle[0]).toHaveLength(3);
+    expect(events.notes).toEqual({
+      type: "static",
+      cycle: [[[60], [60], [60]]],
+    });
+    expect(events.sampleNames).toEqual({ type: "static", cycle: [[["bd"]]] });
+    expect(events.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[1]]],
+    });
+  });
+
   it("filters explicit XOX timing with fixed pitch and variation rests", () => {
     const pitchRests = new Sampler("kick")
       .notes([60, null, 64])
@@ -387,17 +532,17 @@ describe("instrument event schemas", () => {
 
     expect(pitchRests.timing.cycle[0]).toEqual([
       { offset: 0, duration: 0.25 },
-      { offset: 0.25, duration: 0.25 },
+      { offset: 0.5, duration: 0.25 },
       { offset: 0.75, duration: 0.25 },
     ]);
     expect(variationRests.timing.cycle[0]).toEqual([
       { offset: 0, duration: 0.25 },
-      { offset: 0.25, duration: 0.25 },
+      { offset: 0.5, duration: 0.25 },
       { offset: 0.75, duration: 0.25 },
     ]);
     expect(pitchRests.notes).toEqual({
       type: "static",
-      cycle: [[[60], [64]]],
+      cycle: [[[60], [64], [60]]],
     });
     expect(variationRests.variationIndices).toEqual({
       type: "static",
@@ -414,8 +559,50 @@ describe("instrument event schemas", () => {
 
     expect(events.timing.cycle[0]).toEqual([
       { offset: 0, duration: 1 / 6 },
-      { offset: 1 / 6, duration: 1 / 6 },
+      { offset: 3 / 6, duration: 1 / 6 },
     ]);
+  });
+
+  it("filters fixed candidates before preserving a random timing condition", () => {
+    const events = new Sampler("kick")
+      .variation([0, null, 2])
+      .xox(new RandomCycle().bin().steps(4).chance(0.25))
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle[0]).toEqual([
+      { offset: 0, duration: 0.25 },
+      { offset: 0.5, duration: 0.25 },
+      { offset: 0.75, duration: 0.25 },
+    ]);
+    expect(events.timing.condition).toMatchObject({
+      type: "chance",
+      probability: 0.25,
+    });
+    expect(events.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[0], [2]]],
+    });
+  });
+
+  it("keeps random zero-values-per-bar suppression after fixed note filtering", () => {
+    const events = new Sampler("kick")
+      .notes([60, null, 64])
+      .variation(new RandomCycle().steps(2, 0).int())
+      .xox([1, 1, 1, 1])
+      .getSchema().eventPattern;
+
+    expect(events.timing.cycle).toEqual([
+      [
+        { offset: 0, duration: 0.25 },
+        { offset: 0.5, duration: 0.25 },
+        { offset: 0.75, duration: 0.25 },
+      ],
+      [],
+    ]);
+    expect(events.variationIndices).toMatchObject({
+      type: "random-number",
+      valuesPerBar: [2, 0],
+    });
   });
 
   it("preserves multi-bar rest alignment and active zero values", () => {

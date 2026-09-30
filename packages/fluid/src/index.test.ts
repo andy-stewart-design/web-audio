@@ -1349,7 +1349,7 @@ describe("Drome", () => {
       });
     });
 
-    it("broadcasts scalar names through static event transforms", () => {
+    it("transforms authored one-step names as patterns", () => {
       const events = new Drome()
         .sample("bd")
         .name("sd")
@@ -1360,7 +1360,7 @@ describe("Drome", () => {
 
       expect(events.sampleNames).toEqual({
         type: "static",
-        cycle: [[["sd"]]],
+        cycle: [[["sd"], ["sd"]]],
       });
       expect(events.timing.cycle.flat().length).toBeGreaterThan(0);
     });
@@ -1518,10 +1518,10 @@ describe("Drome", () => {
       });
     });
 
-    it("broadcasts scalar notes across transformed variation events", () => {
+    it("repeats authored one-step notes across transformed variation events", () => {
       const transforms = [
         { apply: (sampler: Sampler) => sampler.fast(2), hits: [6] },
-        { apply: (sampler: Sampler) => sampler.slow(2), hits: [2, 1] },
+        { apply: (sampler: Sampler) => sampler.slow(2), hits: [1, 0] },
         { apply: (sampler: Sampler) => sampler.stretch(2), hits: [3, 3] },
         { apply: (sampler: Sampler) => sampler.reverse(), hits: [3] },
       ];
@@ -1543,14 +1543,23 @@ describe("Drome", () => {
         expect(events.timing.cycle.map((bar) => bar.length)).toEqual(
           events.notes.cycle.map((bar) => (bar[0] === null ? 0 : bar.length)),
         );
-        expect(events.timing.cycle.map((bar) => bar.length)).toEqual(
-          events.variationIndices.cycle.map((bar) =>
-            bar[0] === null ? 0 : bar.length,
+        if (hits.includes(0)) {
+          // Note rests may suppress timing without consuming variation values.
+          expect(
+            events.variationIndices.cycle.map((bar) => bar.length),
+          ).toEqual([2, 1]);
+        } else {
+          expect(events.timing.cycle.map((bar) => bar.length)).toEqual(
+            events.variationIndices.cycle.map((bar) =>
+              bar[0] === null ? 0 : bar.length,
+            ),
+          );
+        }
+        expect(
+          events.notes.cycle.flatMap((bar) =>
+            bar.flatMap((group) => group ?? []),
           ),
-        );
-        expect(events.notes.cycle.flat().flat()).toEqual(
-          Array(events.timing.cycle.flat().length).fill(60),
-        );
+        ).toEqual(Array(events.timing.cycle.flat().length).fill(60));
       }
     });
 

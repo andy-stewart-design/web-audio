@@ -13,6 +13,59 @@ describe("authored pitch compilation", () => {
     });
   });
 
+  it("requires a nonempty default pitch fallback group", () => {
+    expect(() => new AuthoredPitches([])).toThrow("nonempty fallback");
+    expect(() => new AuthoredPitches([null])).toThrow("nonempty fallback");
+  });
+
+  it("exposes default pitch fallback separately from transformed timing", () => {
+    const pitches = new AuthoredPitches([0, 7]).slow(2);
+    expect(pitches.defaultFallback).toEqual([0, 7]);
+    expect(pitches.getEventPattern().timing.cycle).toEqual([
+      [{ offset: 0, duration: 1 }],
+      [],
+    ]);
+    pitches.notes([0, 7]);
+    expect(pitches.defaultFallback).toBeUndefined();
+  });
+
+  it("fills externally timed hits from a transformed default chord without creating silent-bar hits", () => {
+    const pitches = new AuthoredPitches([0, 7]).root("a3").slow(2);
+    const timing = {
+      cycle: [
+        [
+          { offset: 0, duration: 0.5 },
+          { offset: 0.5, duration: 0.5 },
+        ],
+        [],
+        [{ offset: 0, duration: 1 }],
+      ],
+    };
+    expect(pitches.getEventPattern(timing)).toEqual({
+      timing: {
+        cycle: [...timing.cycle, ...timing.cycle],
+        condition: undefined,
+      },
+      notes: {
+        type: "static",
+        cycle: [
+          [
+            [57, 64],
+            [57, 64],
+          ],
+          [null],
+          [[57, 64]],
+          [
+            [57, 64],
+            [57, 64],
+          ],
+          [null],
+          [[57, 64]],
+        ],
+      },
+    });
+  });
+
   it("derives pitch output requests from authored values and transforms", () => {
     const defaultPitches = new AuthoredPitches([0]);
     const transformedPitches = new AuthoredPitches([0]).root("c4");
