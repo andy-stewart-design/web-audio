@@ -301,15 +301,17 @@ Add one expression model, one evaluator, canonical event cycles, structured deco
 
 Create one generic readonly tree used by structured decoding and shorthand parsing.
 
+Implemented in `packages/patterns/src/pattern-expression.ts`, with supporting type exports and a non-mutating iterative `assertPatternExpressionLimits()` helper. Expressions are bounded to 16,384 node occurrences and depth 128. Root pattern nodes start at depth 1; the expression wrapper and opaque atom payloads are excluded from node counts. Source ranges use half-open UTF-16 offsets. Runtime freezing will be connected with shorthand construction in Step 7.1.
+
 ### Tasks
 
-- [ ] Define atom, rest, sequence, group, parallel, alternate, and modifier nodes.
-- [ ] Define explicit root patterns for structured method arguments.
-- [ ] Make source ranges optional for structured input and available to shorthand.
-- [ ] Keep atom payload generic.
-- [ ] Make expression data readonly and enumerable.
-- [ ] Bound expression node count and depth.
-- [ ] Do not define a second shorthand AST.
+- [x] Define atom, rest, sequence, group, parallel, alternate, and modifier nodes.
+- [x] Define explicit root patterns for structured method arguments.
+- [x] Make source ranges optional for structured input and available to shorthand.
+- [x] Keep atom payload generic.
+- [x] Make expression data readonly and enumerable.
+- [x] Bound expression node count and depth.
+- [x] Do not define a second shorthand AST.
 
 ### Likely files
 
@@ -321,9 +323,9 @@ Create one generic readonly tree used by structured decoding and shorthand parsi
 
 ### Verification
 
-- [ ] Type-test every node variant.
-- [ ] Verify expression data can be frozen and inspected.
-- [ ] Confirm no production Fluid path uses expressions yet.
+- [x] Type-test every node variant.
+- [x] Verify expression data can be frozen and inspected.
+- [x] Confirm no production Fluid path uses expressions yet.
 
 ## Step 3.2 — Define event-cycle primitives and invariants
 

@@ -3,6 +3,10 @@ import type { Cycle } from "../types";
 const MAX_COMPILED_BARS = 1_024;
 const MAX_COMPILED_EVENTS = 16_384;
 
+// Expression nodes include structural wrappers as well as atoms and rests.
+const MAX_EXPRESSION_NODES = 16_384;
+const MAX_EXPRESSION_DEPTH = 128;
+
 function assertCycleBarLimit(barCount: number) {
   if (barCount > MAX_COMPILED_BARS) {
     throw new Error(
@@ -27,4 +31,6 @@ export {
   assertCycleLimits,
   MAX_COMPILED_BARS,
   MAX_COMPILED_EVENTS,
+  MAX_EXPRESSION_NODES,
+  MAX_EXPRESSION_DEPTH,
 };
