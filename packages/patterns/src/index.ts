@@ -1,107 +1,38 @@
-import FixedTimingCycle from "./fixed-timing-cycle";
-import RandomCycle from "./random-cycle";
-import { ValueCycle } from "./value-cycle";
-import {
-  assertCycleBarLimit,
-  assertCycleLimits,
-  getChordStaticSchema,
-} from "./utils";
-import { MaskedCycle } from "./masked-cycle";
-import { assertPatternExpressionLimits } from "./pattern-expression";
-import {
-  assertEventCycleInvariants,
-  assertRandomGenerationMetadata,
-} from "./event-cycle";
-import { evaluatePatternExpression } from "./evaluate-pattern-expression";
-import { getEventPatternGeometry } from "./utils/event-grid";
-import {
-  reverseEventCycle,
-  fastEventCycle,
-  slowEventCycle,
-  stretchEventCycle,
-} from "./event-cycle-transforms";
-import type {
-  ChanceCondition,
-  Chord,
-  AtomInterpretation,
-  AtomInterpreter,
-  NonEmptyGroup,
-  EventCycle,
-  StaticEventCycle,
-  RandomEventCycle,
-  RandomEventSettings,
-  EventPattern,
-  EventStep,
-  PatternExpression,
-  PatternNode,
-  PatternRange,
-  PatternAtom,
-  PatternRest,
-  PatternSequence,
-  PatternGroup,
-  PatternParallel,
-  PatternAlternate,
-  PatternModifier,
-  RandomNumberPattern,
-  ScheduledValue,
-  SourceHitReference,
-  StaticNotePattern,
-  StaticPattern,
-  TimingPattern,
-  TimingStep,
-} from "./types";
+export { default as FixedTimingCycle } from "./cycles/fixed-timing-cycle";
+
+export { default as RandomCycle } from "./cycles/random-cycle";
+
+export { ValueCycle } from "./cycles/value-cycle";
+
+export { MaskedCycle } from "./cycles/masked-cycle";
+
+export type { Chord, ScheduledValue } from "./cycles/types";
 
 export {
-  FixedTimingCycle,
-  RandomCycle,
-  ValueCycle,
-  MaskedCycle,
-  assertCycleBarLimit,
-  assertCycleLimits,
   assertPatternExpressionLimits,
+  type PatternExpression,
+  type PatternNode,
+} from "./expressions/model";
+
+export {
+  evaluatePatternExpression,
+  type AtomInterpretation,
+} from "./expressions/evaluate";
+
+export {
   assertEventCycleInvariants,
   assertRandomGenerationMetadata,
-  evaluatePatternExpression,
-  getEventPatternGeometry,
-  reverseEventCycle,
-  fastEventCycle,
-  slowEventCycle,
-  stretchEventCycle,
-  getChordStaticSchema,
-  type ChanceCondition,
-  type Chord,
-  type AtomInterpretation,
-  type AtomInterpreter,
-  type NonEmptyGroup,
-  type EventCycle,
   type StaticEventCycle,
   type RandomEventCycle,
   type RandomEventSettings,
-  type EventPattern,
-  type EventStep,
-  type PatternExpression,
-  type PatternNode,
-  type PatternRange,
-  type PatternAtom,
-  type PatternRest,
-  type PatternSequence,
-  type PatternGroup,
-  type PatternParallel,
-  type PatternAlternate,
-  type PatternModifier,
-  type RandomNumberPattern,
-  type ScheduledValue,
-  type SourceHitReference,
-  type StaticNotePattern,
-  type StaticPattern,
-  type TimingPattern,
-  type TimingStep,
-};
+} from "./events/cycle";
+export { getEventPatternGeometry } from "./events/grid";
 
-// Internal frontend bounds: validate before allocating decoded expression/state data.
 export {
+  assertCycleBarLimit,
+  assertCycleLimits,
   MAX_EXPRESSION_NODES,
   MAX_EVENT_CYCLE_PATTERNS,
   MAX_EVENT_CYCLE_STEPS,
   MAX_EVENT_GROUP_VOICES,
-} from "./utils/cycle-limits";
+} from "./limits";

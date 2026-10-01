@@ -5,9 +5,9 @@ import {
   type RandomCycle,
   type RandomEventCycle,
   type RandomEventSettings,
-  type RandomNumberPattern,
   type StaticEventCycle,
 } from "@web-audio/patterns";
+import type { RandomNumberPattern } from "@web-audio/schema";
 
 const REST = Object.freeze({ type: "rest" } as const);
 const ONSET = Object.freeze({

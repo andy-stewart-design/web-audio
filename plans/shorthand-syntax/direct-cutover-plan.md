@@ -2,7 +2,7 @@
 
 ## Status and companion documents
 
-Active implementation plan. PRs 1–3 are complete; PR 4 compatibility proof and PR 5 production cutover remain pending.
+Active implementation plan. PRs 1–3 are complete; PR 4 compatibility proof and PR 5 production cutover remain pending. The separate [patterns package reorganization](../patterns-package-reorg/plan.md) is complete; file references below use the responsibility-based layout.
 
 The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document governs delivery and supersedes the adapter-first, lane-by-lane sequence in [`plan.md`](./plan.md) and [`plan-outline.md`](./plan-outline.md). Those documents are retained as historical alternatives, not execution checklists.
 
@@ -303,7 +303,7 @@ Status: complete as isolated foundations. This does not establish full corrected
 
 Create one generic readonly tree used by structured decoding and shorthand parsing.
 
-Implemented in `packages/patterns/src/pattern-expression.ts`, with supporting type exports and a non-mutating iterative `assertPatternExpressionLimits()` helper. Expressions are bounded to 16,384 node occurrences and depth 128. Root pattern nodes start at depth 1; the expression wrapper and opaque atom payloads are excluded from node counts. Source ranges use half-open UTF-16 offsets. Runtime freezing will be connected with shorthand construction in Step 7.1.
+Implemented in `packages/patterns/src/expressions/model.ts`, with readonly node definitions and a non-mutating iterative `assertPatternExpressionLimits()` helper. Root type exports are curated around actual consumers, not every constituent definition. Expressions are bounded to 16,384 node occurrences and depth 128. Root pattern nodes start at depth 1; the expression wrapper and opaque atom payloads are excluded from node counts. Source ranges use half-open UTF-16 offsets. Runtime freezing will be connected with shorthand construction in Step 7.1.
 
 ### Tasks
 
@@ -317,11 +317,10 @@ Implemented in `packages/patterns/src/pattern-expression.ts`, with supporting ty
 
 ### Likely files
 
-- `packages/patterns/src/pattern-expression.ts` — **new, suggested**
-- `packages/patterns/src/pattern-expression.test.ts` — **new, suggested**
-- `packages/patterns/src/types.ts`
+- `packages/patterns/src/expressions/model.ts`
+- `packages/patterns/src/expressions/model.test.ts`
 - `packages/patterns/src/index.ts`
-- `packages/patterns/src/utils/cycle-limits.ts`
+- `packages/patterns/src/limits.ts`
 
 ### Verification
 
@@ -335,7 +334,7 @@ Implemented in `packages/patterns/src/pattern-expression.ts`, with supporting ty
 
 Create the canonical internal representation for static and random event lanes.
 
-Implemented in `packages/patterns/src/event-cycle.ts`, with readonly types and a non-mutating `assertEventCycleInvariants()` helper. Event groups are nonempty tuples; continuations must follow an event or continuation within the same pattern. Empty patterns are rejected; silence is represented by explicit rest steps. Unknown runtime step tags are rejected with their pattern/step path before validation or transforms can proceed. Random numeric sources retain settings plus `StaticEventCycle<1>` candidate geometry, with counts derived from onsets so sparse/transformed timing is not lost or duplicated. Types are exported only for package integration, not as a Fluid extension API.
+Implemented in `packages/patterns/src/events/cycle.ts`, with readonly types and a non-mutating `assertEventCycleInvariants()` helper. Event groups are nonempty tuples; continuations must follow an event or continuation within the same pattern. Empty patterns are rejected; silence is represented by explicit rest steps. Unknown runtime step tags are rejected with their pattern/step path before validation or transforms can proceed. Random numeric sources retain settings plus `StaticEventCycle<1>` candidate geometry, with counts derived from onsets so sparse/transformed timing is not lost or duplicated. Types are exported only for package integration, not as a Fluid extension API.
 
 Limits are 1,024 patterns, 16,384 total steps (also bounding onsets), 128 voices per event, and 65,536 total voice occurrences per cycle. Random settings arrays are bounded to 16,384 segments or mapped values. These limits leave the existing legacy checks unchanged.
 
@@ -351,11 +350,10 @@ Limits are 1,024 patterns, 16,384 total steps (also bounding onsets), 128 voices
 
 ### Likely files
 
-- `packages/patterns/src/event-cycle.ts` — **new, suggested**
-- `packages/patterns/src/event-cycle.test.ts` — **new, suggested**
-- `packages/patterns/src/types.ts`
+- `packages/patterns/src/events/cycle.ts`
+- `packages/patterns/src/events/cycle.test.ts`
 - `packages/patterns/src/index.ts`
-- `packages/patterns/src/utils/cycle-limits.ts`
+- `packages/patterns/src/limits.ts`
 
 ### Verification
 
@@ -369,7 +367,7 @@ Limits are 1,024 patterns, 16,384 total steps (also bounding onsets), 128 voices
 
 Evaluate typed expressions into immutable event cycles using exact bounded structural geometry.
 
-Implemented in `packages/patterns/src/evaluate-pattern-expression.ts`, with `utils/rational.ts` and `utils/event-grid.ts`. BigInt intermediates normalize to frozen safe-integer rationals with denominators bounded to 16,384. Evaluation uses identity or a ranged event/rest callback, preserves each explicit bar's smallest exact grid, and freezes new structural data without touching opaque payloads. Geometry is derived from indexes and continuation runs, never stored on steps. Alternation and modifiers fail explicitly until Step 6.2. Production Fluid remains unchanged.
+Implemented in `packages/patterns/src/expressions/evaluate.ts`, with `math/rational.ts` and `events/grid.ts`. BigInt intermediates normalize to frozen safe-integer rationals with denominators bounded to 16,384. Evaluation uses identity or a ranged event/rest callback, preserves each explicit bar's smallest exact grid, and freezes new structural data without touching opaque payloads. Geometry is derived from indexes and continuation runs, never stored on steps. Alternation and modifiers fail explicitly until Step 6.2. Production Fluid remains unchanged.
 
 ### Tasks
 
@@ -384,12 +382,12 @@ Implemented in `packages/patterns/src/evaluate-pattern-expression.ts`, with `uti
 
 ### Likely files
 
-- `packages/patterns/src/evaluate-pattern-expression.ts` — **new, suggested**
-- `packages/patterns/src/evaluate-pattern-expression.test.ts` — **new, suggested**
-- `packages/patterns/src/utils/rational.ts` — **new, suggested**
-- `packages/patterns/src/utils/rational.test.ts` — **new, suggested**
-- `packages/patterns/src/utils/event-grid.ts` — **new, suggested**
-- `packages/patterns/src/utils/event-grid.test.ts` — **new, suggested**
+- `packages/patterns/src/expressions/evaluate.ts`
+- `packages/patterns/src/expressions/evaluate.test.ts`
+- `packages/patterns/src/math/rational.ts`
+- `packages/patterns/src/math/rational.test.ts`
+- `packages/patterns/src/events/grid.ts`
+- `packages/patterns/src/events/grid.test.ts`
 
 ### Verification
 
@@ -439,7 +437,7 @@ Native-only `decode-{structured,random,xox}-input.ts` helpers are in Fluid's pat
 
 Implement the transforms needed by native instrument state before production cutover.
 
-Implemented in `packages/patterns/src/event-cycle-transforms.ts`. Transforms freeze fresh structure, preserve opaque payloads, and guard total patterns, steps, and voices before expansion. Reverse mirrors complete event/gate blocks; stretch retriggers those blocks; slowdown spaces onsets without extending gates. Random candidates transform separately from generation settings, with reverse toggling generation order once. Cross-bar gates fail explicitly under the v1 continuation invariant. Materialized helper calls are not an uninterrupted expression speed chain; Step 6.2 still owns that cancellation.
+Implemented in `packages/patterns/src/events/transforms.ts`. Fluent and native transforms share unchanged numeric speed resolution in `math/speed-ratio.ts`. Transforms freeze fresh structure, preserve opaque payloads, and guard total patterns, steps, and voices before expansion. Reverse mirrors complete event/gate blocks; stretch retriggers those blocks; slowdown spaces onsets without extending gates. Random candidates transform separately from generation settings, with reverse toggling generation order once. Cross-bar gates fail explicitly under the v1 continuation invariant. Materialized helper calls are not an uninterrupted expression speed chain; Step 6.2 still owns that cancellation.
 
 ### Tasks
 
@@ -453,12 +451,12 @@ Implemented in `packages/patterns/src/event-cycle-transforms.ts`. Transforms fre
 
 ### Likely files
 
-- `packages/patterns/src/event-cycle-transforms.ts` — **new, suggested**
-- `packages/patterns/src/event-cycle-transforms.test.ts` — **new, suggested**
-- `packages/patterns/src/utils/reverse.ts`
-- `packages/patterns/src/utils/speed.ts`
-- `packages/patterns/src/utils/stretch.ts`
-- `packages/patterns/src/index.ts`
+- `packages/patterns/src/events/transforms.ts`
+- `packages/patterns/src/events/transforms.test.ts`
+- `packages/patterns/src/cycles/operations/reverse.ts`
+- `packages/patterns/src/cycles/operations/speed.ts`
+- `packages/patterns/src/cycles/operations/stretch.ts`
+- `packages/patterns/src/math/speed-ratio.ts`
 
 ### Verification
 
@@ -543,7 +541,7 @@ Implement native setter and transform behavior before changing the mutable publi
 - `packages/fluid/src/instruments/event-state-transitions.ts` — **new, suggested**
 - `packages/fluid/src/instruments/event-state-transitions.test.ts` — **new, suggested**
 - `packages/fluid/src/instruments/event-state.ts`
-- `packages/patterns/src/event-cycle-transforms.ts`
+- `packages/patterns/src/events/transforms.ts`
 
 ### Verification
 
@@ -581,7 +579,7 @@ Compile native state to the existing schema without parsing input or mutating au
 - `packages/fluid/src/instruments/event-state-compiler.ts` — **new, suggested**
 - `packages/fluid/src/instruments/event-state-compiler.test.ts` — **new, suggested**
 - `packages/fluid/src/instruments/event-state.ts`
-- `packages/patterns/src/event-cycle.ts`
+- `packages/patterns/src/events/cycle.ts`
 
 ### Verification
 
@@ -740,7 +738,7 @@ Make every global event transform one immediate native state operation.
 - `packages/fluid/src/instruments/sampler.ts`
 - `packages/fluid/src/instruments/event-state-transitions.ts`
 - `packages/fluid/src/instruments/event-state-transitions.test.ts`
-- `packages/patterns/src/event-cycle-transforms.ts`
+- `packages/patterns/src/events/transforms.ts`
 
 ### Verification
 
@@ -815,8 +813,8 @@ Remove the old architecture in the same PR so the repository does not retain two
 - `packages/fluid/src/patterns/authored-event-values.test.ts`
 - `packages/fluid/src/patterns/authored-timing.ts`
 - `packages/fluid/src/patterns/authored-timing.test.ts`
-- `packages/patterns/src/masked-cycle.ts`
-- `packages/patterns/src/masked-cycle.test.ts`
+- `packages/patterns/src/cycles/masked-cycle.ts`
+- `packages/patterns/src/cycles/masked-cycle.test.ts`
 - package index and type files
 
 ### Verification
@@ -874,7 +872,7 @@ Parse shorthand directly into `PatternExpression<string>`.
 - `packages/patterns/src/shorthand/parser.ts` — **new, suggested**
 - `packages/patterns/src/shorthand/parser.test.ts` — **new, suggested**
 - `packages/patterns/src/shorthand/errors.ts` — **new, suggested**
-- `packages/patterns/src/pattern-expression.ts`
+- `packages/patterns/src/expressions/model.ts`
 - `packages/patterns/src/index.ts`
 
 ### Verification
@@ -903,10 +901,12 @@ Extend the same evaluator with shorthand structures and operators.
 
 ### Likely files
 
-- `packages/patterns/src/evaluate-pattern-expression.ts`
-- `packages/patterns/src/evaluate-pattern-expression.test.ts`
-- `packages/patterns/src/event-cycle-transforms.ts`
-- rational, grid, and limit utilities
+- `packages/patterns/src/expressions/evaluate.ts`
+- `packages/patterns/src/expressions/evaluate.test.ts`
+- `packages/patterns/src/events/transforms.ts`
+- `packages/patterns/src/math/rational.ts`
+- `packages/patterns/src/events/grid.ts`
+- `packages/patterns/src/limits.ts`
 
 ### Verification
 
@@ -970,7 +970,7 @@ Compare equivalent inputs at expression, event-cycle, and final-schema boundarie
 
 ### Likely files
 
-- `packages/patterns/src/evaluate-pattern-expression.test.ts`
+- `packages/patterns/src/expressions/evaluate.test.ts`
 - `packages/fluid/src/patterns/atom-interpreters.test.ts`
 - `packages/fluid/src/patterns/decode-structured-input.test.ts`
 - `packages/fluid/src/instruments/event-state-compiler.test.ts`
@@ -1010,14 +1010,14 @@ Expose immutable reusable shorthand values containing the shared expression mode
 - [ ] Add `d.shorthand()` and `d.sh()`.
 - [ ] Parse eagerly at shorthand construction.
 - [ ] Freeze the wrapper and expression recursively.
-- [ ] Export `Shorthand`, `PatternExpression`, and supporting node types.
+- [ ] Export `Shorthand`; add named expression/supporting-type exports only for demonstrated consumers, not every constituent type.
 - [ ] Keep parsed expression data enumerable and inspectable.
 - [ ] Test alias equivalence and eager syntax errors.
 
 ### Likely files
 
-- `packages/patterns/src/shorthand/index.ts` — **new, suggested**
-- `packages/patterns/src/pattern-expression.ts`
+- `packages/patterns/src/shorthand/create.ts` — **new, suggested; owning module, not a barrel**
+- `packages/patterns/src/expressions/model.ts`
 - `packages/patterns/src/index.ts`
 - `packages/fluid/src/index.ts`
 - `packages/fluid/src/index.test.ts`
