@@ -22,6 +22,8 @@ export {
 export {
   assertEventCycleInvariants,
   assertRandomGenerationMetadata,
+  type EventCycle,
+  type NonEmptyGroup,
   type StaticEventCycle,
   type RandomEventCycle,
   type RandomEventSettings,

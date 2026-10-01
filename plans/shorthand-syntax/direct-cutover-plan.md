@@ -2,7 +2,7 @@
 
 ## Status and companion documents
 
-Active implementation plan. PRs 1–3 are complete; PR 4 compatibility proof and PR 5 production cutover remain pending. The separate [patterns package reorganization](../patterns-package-reorg/plan.md) is complete; file references below use the responsibility-based layout.
+Active implementation plan. PRs 1–3 and Step 4.1's readonly state model are complete; the remaining PR 4 compatibility proof and PR 5 production cutover remain pending. The separate [patterns package reorganization](../patterns-package-reorg/plan.md) is complete; file references below use the responsibility-based layout.
 
 The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document governs delivery and supersedes the adapter-first, lane-by-lane sequence in [`plan.md`](./plan.md) and [`plan-outline.md`](./plan-outline.md). Those documents are retained as historical alternatives, not execution checklists.
 
@@ -488,29 +488,34 @@ Implement the complete target event state and compiler beside production code. T
 
 Represent synth and sampler event concerns as readonly data with intent colocated with each source.
 
+Status: complete as a type-only model in `packages/fluid/src/instruments/event-state.ts`, with 12 focused tests/type assertions. Defaults require static cycles and nonempty fallback tuples; authored numeric lanes admit random cycles, while names stay static. Timing retains readonly chance metadata separately from numeric generation. Pitch state records resolved root/scale data and whether a transform was explicitly requested, preserving sampler note omission even for `root(0)`. Generated sampler timing is a separate compiler-input override, not a stored lane.
+
+Patterns now exports `EventCycle` and `NonEmptyGroup` for this concrete cross-package consumer; no runtime exports or Fluid public exports were added. Native constructors and runtime freezing belong to Step 4.2. This initial model does not resolve the representation-feasibility questions in Steps 4.2/4.5, which still block cutover. Production instruments remain unchanged.
+
 ### Tasks
 
-- [ ] Define authored static and random event sources.
-- [ ] Define default static sources with nonempty fallback groups.
-- [ ] Define implicit and explicit timing state.
-- [ ] Preserve timing chance conditions.
-- [ ] Represent synth and sampler notes.
-- [ ] Represent sampler names and variations.
-- [ ] Represent root and scale state without legacy class methods.
-- [ ] Accept generated sampler timing as a compiler override, not stored event state.
-- [ ] Keep expressions out of state.
+- [x] Define authored static and random event sources.
+- [x] Define default static sources with nonempty fallback groups.
+- [x] Define implicit and explicit timing state.
+- [x] Preserve timing chance conditions.
+- [x] Represent synth and sampler notes.
+- [x] Represent sampler names and variations.
+- [x] Represent root and scale state without legacy class methods.
+- [x] Accept generated sampler timing as a compiler override, not stored event state.
+- [x] Keep expressions out of state.
 
 ### Likely files
 
-- `packages/fluid/src/instruments/event-state.ts` — **new, suggested**
-- `packages/fluid/src/instruments/event-state.test.ts` — **new, suggested**
-- `packages/fluid/src/types.ts`
+- `packages/fluid/src/instruments/event-state.ts`
+- `packages/fluid/src/instruments/event-state.test.ts`
+- `packages/patterns/src/index.ts`
+- `packages/fluid/src/types.ts` — existing readonly timing chance metadata, unchanged
 
 ### Verification
 
-- [ ] Type-check complete synth and sampler states.
-- [ ] Verify default fallback groups cannot be empty.
-- [ ] Confirm state types have no legacy class or expression references.
+- [x] Type-check complete synth and sampler states.
+- [x] Verify default fallback groups cannot be empty.
+- [x] Confirm state types have no legacy class or expression references.
 
 ## Step 4.2 — Implement pure state transitions
 
