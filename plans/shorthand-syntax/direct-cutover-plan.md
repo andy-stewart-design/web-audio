@@ -2,9 +2,9 @@
 
 ## Status and companion documents
 
-Proposed revision to the delivery sequence in [`plan.md`](./plan.md).
+Active implementation plan. PRs 1–3 are complete; PR 4 compatibility proof and PR 5 production cutover remain pending.
 
-The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document changes only how that architecture is introduced. It replaces the adapter-first, lane-by-lane sequence in PRs 3–9 of the original plan with a shorter direct cutover.
+The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document governs delivery and supersedes the adapter-first, lane-by-lane sequence in [`plan.md`](./plan.md) and [`plan-outline.md`](./plan-outline.md). Those documents are retained as historical alternatives, not execution checklists.
 
 Read this with:
 
@@ -45,25 +45,27 @@ shorthand source → parse ───────────────┘
 This plan intentionally does not include:
 
 - a production legacy-state adapter;
-- direct old/new compiler differential wiring;
+- production old/new differential wiring;
 - separate synth and sampler schema cutovers;
 - mixed native and legacy event lanes;
 - a transform coordinator that understands both representations.
 
-Corrected golden schema fixtures are the compatibility authority.
+Corrected golden schema fixtures are the compatibility authority. Temporary test-only legacy/native comparisons are permitted, including generated setter/transform sequences. They run independently initialized paths, not a legacy-state adapter, and are removed when the legacy path is deleted; retained golden and native tests remain authoritative afterward.
 
 ## Migration rules
 
 1. PR 2 is the final PR that changes legacy event semantics.
 2. Do not dual-write legacy and native state.
 3. Do not introduce a production period with mixed native and legacy event lanes.
-4. Build new foundations with direct tests before production wiring.
+4. Build new foundations with direct tests and complete native scenario replay before production wiring.
 5. Switch notes, timing, sample names, and variations together.
-6. Delete superseded wrappers and compiler code in the cutover PR.
+6. Delete superseded wrappers and compiler code in the cutover PR only after recording and verifying coverage transfer.
 7. Expressions remain transient; instrument state stores event cycles only.
 8. Random sources remain a separate event-cycle branch.
 9. Processing parameters remain outside the redesign.
-10. If a bridge becomes necessary, stop and document the concrete blocker before adding it. A bridge is an exception, not a planned phase.
+10. If a production bridge becomes necessary, stop and document the concrete blocker before adding it. A production bridge is an exception, not a planned phase; independent test-only scenario replay is permitted.
+11. Unresolved representation-feasibility questions block cutover. Resolve any required design changes before PR 5, not inside production wiring.
+12. Do not change corrected golden expectations to make PR 5 pass. Fix regressions; if a behavior change proves necessary, stop and review it separately before resuming cutover.
 
 Steps within the atomic cutover PR describe implementation areas, not independently mergeable production states. The branch may prepare isolated helpers first, but the merged result must contain only one authoritative event-state representation.
 
@@ -87,7 +89,7 @@ pnpm --filter @web-audio/fluid test:ci
 pnpm --filter @web-audio/schema test:ci
 ```
 
-Before production cutover, test the new compiler with directly constructed native state. At cutover, run the existing public Fluid API fixtures unchanged against the new production path.
+Before production cutover, test the new compiler with directly constructed native state and replay compatibility scenarios through native constructors, decoding, evaluation, transitions, and compilation. The native test driver must invoke the same helpers intended for production, not recreate validation, timing selection, or materialization logic. Temporary differential tests may compare independently initialized legacy and native paths, but neither production code nor the native implementation may depend on the comparison harness. At cutover, run the existing public Fluid API fixtures unchanged against the new production path.
 
 ---
 
@@ -293,21 +295,25 @@ Promote corrected schema fixtures to the authority for the direct cutover. Avoid
 
 Add one expression model, one evaluator, canonical event cycles, structured decoding, and native transforms without changing production instrument behavior.
 
+Status: complete as isolated foundations. This does not establish full corrected-baseline compatibility; the representation-feasibility and complete-schema replay gates in Steps 4.2/4.5 remain required before PR 5.
+
 ## Step 3.1 — Define `PatternExpression<T>`
 
 ### Work
 
 Create one generic readonly tree used by structured decoding and shorthand parsing.
 
+Implemented in `packages/patterns/src/pattern-expression.ts`, with supporting type exports and a non-mutating iterative `assertPatternExpressionLimits()` helper. Expressions are bounded to 16,384 node occurrences and depth 128. Root pattern nodes start at depth 1; the expression wrapper and opaque atom payloads are excluded from node counts. Source ranges use half-open UTF-16 offsets. Runtime freezing will be connected with shorthand construction in Step 7.1.
+
 ### Tasks
 
-- [ ] Define atom, rest, sequence, group, parallel, alternate, and modifier nodes.
-- [ ] Define explicit root patterns for structured method arguments.
-- [ ] Make source ranges optional for structured input and available to shorthand.
-- [ ] Keep atom payload generic.
-- [ ] Make expression data readonly and enumerable.
-- [ ] Bound expression node count and depth.
-- [ ] Do not define a second shorthand AST.
+- [x] Define atom, rest, sequence, group, parallel, alternate, and modifier nodes.
+- [x] Define explicit root patterns for structured method arguments.
+- [x] Make source ranges optional for structured input and available to shorthand.
+- [x] Keep atom payload generic.
+- [x] Make expression data readonly and enumerable.
+- [x] Bound expression node count and depth.
+- [x] Do not define a second shorthand AST.
 
 ### Likely files
 
@@ -319,9 +325,9 @@ Create one generic readonly tree used by structured decoding and shorthand parsi
 
 ### Verification
 
-- [ ] Type-test every node variant.
-- [ ] Verify expression data can be frozen and inspected.
-- [ ] Confirm no production Fluid path uses expressions yet.
+- [x] Type-test every node variant.
+- [x] Verify expression data can be frozen and inspected.
+- [x] Confirm no production Fluid path uses expressions yet.
 
 ## Step 3.2 — Define event-cycle primitives and invariants
 
@@ -329,15 +335,19 @@ Create one generic readonly tree used by structured decoding and shorthand parsi
 
 Create the canonical internal representation for static and random event lanes.
 
+Implemented in `packages/patterns/src/event-cycle.ts`, with readonly types and a non-mutating `assertEventCycleInvariants()` helper. Event groups are nonempty tuples; continuations must follow an event or continuation within the same pattern. Empty patterns are rejected; silence is represented by explicit rest steps. Unknown runtime step tags are rejected with their pattern/step path before validation or transforms can proceed. Random numeric sources retain settings plus `StaticEventCycle<1>` candidate geometry, with counts derived from onsets so sparse/transformed timing is not lost or duplicated. Types are exported only for package integration, not as a Fluid extension API.
+
+Limits are 1,024 patterns, 16,384 total steps (also bounding onsets), 128 voices per event, and 65,536 total voice occurrences per cycle. Random settings arrays are bounded to 16,384 segments or mapped values. These limits leave the existing legacy checks unchanged.
+
 ### Tasks
 
-- [ ] Define `EventCycle`, static cycles, and random cycle variants.
-- [ ] Define event, rest, and continuation steps.
-- [ ] Require nonempty event groups.
-- [ ] Preserve explicit silent patterns.
-- [ ] Preserve simultaneous voice order and duplicates.
-- [ ] Bound pattern, step, event, voice, and cycle counts.
-- [ ] Do not add schema offsets, durations, `valueMode`, or scalar metadata.
+- [x] Define `EventCycle`, static cycles, and random cycle variants.
+- [x] Define event, rest, and continuation steps.
+- [x] Require nonempty event groups.
+- [x] Preserve explicit silent patterns.
+- [x] Preserve simultaneous voice order and duplicates.
+- [x] Bound pattern, step, event, voice, and cycle counts.
+- [x] Do not add schema offsets, durations, `valueMode`, or scalar metadata.
 
 ### Likely files
 
@@ -349,9 +359,9 @@ Create the canonical internal representation for static and random event lanes.
 
 ### Verification
 
-- [ ] Verify events, rests, continuations, and silent patterns are distinguishable.
-- [ ] Verify event groups cannot be empty.
-- [ ] Confirm random settings remain a separate representation.
+- [x] Verify events, rests, continuations, and silent patterns are distinguishable.
+- [x] Verify event groups cannot be empty.
+- [x] Confirm random settings remain a separate representation.
 
 ## Step 3.3 — Add exact geometry and the shared evaluator
 
@@ -359,16 +369,18 @@ Create the canonical internal representation for static and random event lanes.
 
 Evaluate typed expressions into immutable event cycles using exact bounded structural geometry.
 
+Implemented in `packages/patterns/src/evaluate-pattern-expression.ts`, with `utils/rational.ts` and `utils/event-grid.ts`. BigInt intermediates normalize to frozen safe-integer rationals with denominators bounded to 16,384. Evaluation uses identity or a ranged event/rest callback, preserves each explicit bar's smallest exact grid, and freezes new structural data without touching opaque payloads. Geometry is derived from indexes and continuation runs, never stored on steps. Alternation and modifiers fail explicitly until Step 6.2. Production Fluid remains unchanged.
+
 ### Tasks
 
-- [ ] Add normalized rational arithmetic and overflow checks.
-- [ ] Decode equal structural allocation into the smallest bounded step grid.
-- [ ] Derive offsets and durations from step indexes and continuation runs.
-- [ ] Evaluate explicit patterns, sequences, rests, and simultaneous groups.
-- [ ] Accept an atom interpreter callback.
-- [ ] Use identity interpretation for typed structured atoms.
-- [ ] Reject excessive denominators, steps, voices, patterns, or cycles.
-- [ ] Keep evaluation pure and non-mutating.
+- [x] Add normalized rational arithmetic and overflow checks.
+- [x] Decode equal structural allocation into the smallest bounded step grid.
+- [x] Derive offsets and durations from step indexes and continuation runs.
+- [x] Evaluate explicit patterns, sequences, rests, and simultaneous groups.
+- [x] Accept an atom interpreter callback.
+- [x] Use identity interpretation for typed structured atoms.
+- [x] Reject excessive denominators, steps, voices, patterns, or cycles.
+- [x] Keep evaluation pure and non-mutating.
 
 ### Likely files
 
@@ -381,10 +393,10 @@ Evaluate typed expressions into immutable event cycles using exact bounded struc
 
 ### Verification
 
-- [ ] Test exact nested allocation.
-- [ ] Test explicit rests versus continuations.
-- [ ] Test limit and overflow failures.
-- [ ] Assert expression inputs are unchanged.
+- [x] Test exact nested allocation.
+- [x] Test explicit rests versus continuations.
+- [x] Test limit and overflow failures.
+- [x] Assert expression inputs are unchanged.
 
 ## Step 3.4 — Decode structured inputs into expressions
 
@@ -392,16 +404,18 @@ Evaluate typed expressions into immutable event cycles using exact bounded struc
 
 Keep consumer validation in Fluid, then evaluate all static structured event input through the shared expression path.
 
+Native-only `decode-{structured,random,xox}-input.ts` helpers are in Fluid's patterns directory. A separate cumulative raw-input budget of 65,536 argument, bar, and chord slots includes sparse holes and omitted nullable voices; array lengths are reserved before traversal, independently of emitted-node and surviving-voice limits. Opaque atom payloads are not traversed. Before cutover, resolve legacy empty-note-chord acceptance and empty-note-bar timing-priority provenance.
+
 ### Tasks
 
-- [ ] Decode method arguments as explicit patterns/bars.
-- [ ] Decode array entries as sequential children.
-- [ ] Decode nested arrays as simultaneous groups.
-- [ ] Decode allowed `null` and `undefined` values as whole-step rests.
-- [ ] Validate notes, names, variations, and XOX in Fluid.
-- [ ] Route typed expressions through the shared evaluator.
-- [ ] Route random inputs directly to random event cycles.
-- [ ] Cover scalar, sequence, chord, rest, silent-bar, and multi-bar input.
+- [x] Decode method arguments as explicit patterns/bars.
+- [x] Decode array entries as sequential children.
+- [x] Decode nested arrays as simultaneous groups.
+- [x] Decode allowed `null` and `undefined` values as whole-step rests.
+- [x] Validate notes, names, variations, and XOX in Fluid.
+- [x] Route typed expressions through the shared evaluator.
+- [x] Route random inputs directly to random event cycles.
+- [x] Cover scalar, sequence, chord, rest, silent-bar, and multi-bar input.
 
 ### Likely files
 
@@ -414,10 +428,10 @@ Keep consumer validation in Fluid, then evaluate all static structured event inp
 
 ### Verification
 
-- [ ] Compare evaluated geometry with corrected structured fixtures.
-- [ ] Confirm decoder output can be inspected independently.
-- [ ] Confirm random inputs bypass static evaluation.
-- [ ] Confirm production instruments remain on the legacy path.
+- [x] Compare evaluated geometry with corrected structured fixtures.
+- [x] Confirm decoder output can be inspected independently.
+- [x] Confirm random inputs bypass static evaluation.
+- [x] Confirm production instruments remain on the legacy path.
 
 ## Step 3.5 — Implement generic event-cycle transforms
 
@@ -425,15 +439,17 @@ Keep consumer validation in Fluid, then evaluate all static structured event inp
 
 Implement the transforms needed by native instrument state before production cutover.
 
+Implemented in `packages/patterns/src/event-cycle-transforms.ts`. Transforms freeze fresh structure, preserve opaque payloads, and guard total patterns, steps, and voices before expansion. Reverse mirrors complete event/gate blocks; stretch retriggers those blocks; slowdown spaces onsets without extending gates. Random candidates transform separately from generation settings, with reverse toggling generation order once. Cross-bar gates fail explicitly under the v1 continuation invariant. Materialized helper calls are not an uninterrupted expression speed chain; Step 6.2 still owns that cancellation.
+
 ### Tasks
 
-- [ ] Implement reverse, acceleration, slowdown, and stretch.
-- [ ] Insert slowdown rests without extending gates.
-- [ ] Preserve explicit rests and continuations.
-- [ ] Preserve silent patterns and multi-pattern cycles.
-- [ ] Keep fallback groups outside cycle transforms.
-- [ ] Return new immutable cycle data.
-- [ ] Test transform composition and repeated transforms.
+- [x] Implement reverse, acceleration, slowdown, and stretch.
+- [x] Insert slowdown rests without extending gates.
+- [x] Preserve explicit rests and continuations.
+- [x] Preserve silent patterns and multi-pattern cycles.
+- [x] Keep fallback groups outside cycle transforms.
+- [x] Return new immutable cycle data.
+- [x] Test transform composition and repeated transforms.
 
 ### Likely files
 
@@ -446,19 +462,19 @@ Implement the transforms needed by native instrument state before production cut
 
 ### Verification
 
-- [ ] Verify `60/2` produces an event pattern followed by a silent pattern.
-- [ ] Verify `[0 2 4 6]/2` preserves non-extended gate durations.
-- [ ] Verify all transforms are immutable.
-- [ ] Run patterns and Fluid focused suites.
+- [x] Verify `60/2` produces an event pattern followed by a silent pattern.
+- [x] Verify `[0 2 4 6]/2` preserves non-extended gate durations.
+- [x] Verify all transforms are immutable.
+- [x] Run patterns and Fluid focused suites.
 
 ## PR 3 completion gate
 
-- [ ] Structured inputs decode to the shared expression model.
-- [ ] One evaluator produces canonical event cycles.
-- [ ] Event cycles represent corrected structured behavior.
-- [ ] Generic transforms preserve exact geometry.
-- [ ] Production schema generation remains legacy-backed.
-- [ ] No adapter or mixed state exists.
+- [x] Structured inputs decode to the shared expression model.
+- [x] One evaluator produces canonical event cycles.
+- [x] Expression evaluation, structured decoding, and generic transforms provide tested native event-cycle foundations.
+- [x] Generic transforms preserve exact geometry.
+- [x] Production schema generation remains legacy-backed.
+- [x] No adapter or mixed state exists.
 
 ---
 
@@ -502,7 +518,7 @@ Represent synth and sampler event concerns as readonly data with intent colocate
 
 ### Work
 
-Implement native setter and transform behavior before changing the mutable public facades.
+Implement native setter and transform behavior before changing the mutable public facades. Establish representation feasibility explicitly: native state must preserve the distinction between authored rests and materialized timing gaps, coordinated lanes sharing selected timing, and later timing replacement. Passing isolated transform tests is insufficient if subsequent setters lose these distinctions.
 
 ### Tasks
 
@@ -514,6 +530,12 @@ Implement native setter and transform behavior before changing the mutable publi
 - [ ] Preserve default fallback groups while transforming their cycles.
 - [ ] Preserve setter-before-transform and transform-before-setter behavior.
 - [ ] Preserve explicit timing and generated timing exemptions.
+- [ ] Prove materialized timing gaps do not become authored candidate-filtering rests after later timing or unrelated value setters.
+- [ ] Prove authored and slowdown-created rests still filter replacement timing.
+- [ ] Prove coordinated lanes sharing materialized timing do not apply their intersection twice.
+- [ ] Cover repeated and chained transforms, timing replacement, and generated chop/fit exemptions.
+- [ ] Resolve empty-bar provenance for authored-rest priority and speed geometry: legacy zero-width empty bars and canonical one-step silence compress differently. Also resolve legacy empty-note-chord acceptance against native empty-group validation before cutover.
+- [ ] Document and resolve any required representation changes before production wiring.
 - [ ] Keep transitions pure and immutable.
 
 ### Likely files
@@ -527,9 +549,11 @@ Implement native setter and transform behavior before changing the mutable publi
 
 - [ ] Test every setter against default and authored state.
 - [ ] Test equal-value setters changing intent.
-- [ ] Test all transforms before and after setters.
+- [ ] Test all transforms before and after setters, including sparse explicit timing followed by reverse/slow and timing replacement.
+- [ ] Assert native state preserves the required availability and timing distinctions across subsequent operations.
 - [ ] Assert transition inputs remain unchanged.
 - [ ] Confirm no transition imports a legacy authored wrapper.
+- [ ] Block PR 5 until representation-feasibility cases also pass complete-schema replay in Step 4.5.
 
 ## Step 4.3 — Implement static event compilation
 
@@ -597,14 +621,51 @@ Complete the compiler for random lanes, chance timing, and generated sampler tim
 - [ ] Run new compiler tests over the full semantic matrix.
 - [ ] Confirm production `getSchema()` still uses the legacy path.
 
+## Step 4.5 — Replay complete native scenarios before cutover
+
+### Work
+
+Prove the complete structured native path, not only compilation from hand-constructed state. Extract replayable operation sequences from the existing compatibility fixtures while retaining their names and corrected expected schemas unchanged. Replay each sequence through native construction, decoding, evaluation, transitions, generated timing overrides, and compilation. Production instruments remain legacy-backed.
+
+### Tasks
+
+- [ ] Share scenario inputs and golden expectations between existing public API fixtures and the native replay tests.
+- [ ] Initialize fresh native state and sampler configuration for every scenario.
+- [ ] Use the production-intended native helpers rather than duplicating their semantics in the test driver.
+- [ ] Replay every corrected compatibility fixture, including random sources and generated timing.
+- [ ] Add complete-schema cases for the representation-feasibility scenarios in Step 4.2.
+- [ ] Add temporary test-only comparisons against independently constructed legacy instruments.
+- [ ] Compare bounded, reproducibly generated valid setter/transform sequences, including timing replacement and repeated transforms; compare sequence prefixes to expose intermediate divergences.
+- [ ] Report the scenario or generation seed, operation sequence, and complete schema difference for each failure.
+- [ ] Turn discovered edge cases into retained explicit golden or native regression tests; do not redefine expected behavior merely to match the new path.
+
+### Likely files
+
+- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+- `packages/fluid/src/instruments/event-schema-fixtures.ts` — **new, suggested**
+- `packages/fluid/src/instruments/native-event-scenario-replay.test.ts` — **new, suggested**
+- `packages/fluid/src/instruments/event-state-transitions.test.ts`
+- `packages/fluid/src/instruments/event-state-compiler.test.ts`
+
+### Verification
+
+- [ ] Compare complete native schema output strictly with every corrected golden expectation.
+- [ ] Confirm the legacy public fixtures still pass with unchanged expectations.
+- [ ] Resolve every differential mismatch before cutover.
+- [ ] Confirm the replay driver contains no legacy-to-native adaptation or duplicated authoring semantics.
+- [ ] Confirm production instruments still use only legacy state and compilation.
+
 ## PR 4 completion gate
 
 - [ ] Native state represents every corrected structured event behavior.
+- [ ] Representation feasibility is demonstrated across transforms and subsequent setters, with no unresolved design questions.
 - [ ] Native transitions preserve transform and setter semantics.
 - [ ] The pure compiler emits the established schema.
+- [ ] Complete native scenario replay passes against unchanged corrected goldens.
+- [ ] Generated setter/transform comparisons have no unexplained mismatches.
 - [ ] Static, random, and generated timing cases are covered.
-- [ ] New code has no legacy authored-class imports.
-- [ ] No adapter, dual state, or production cutover has landed.
+- [ ] New production-intended code has no legacy authored-class imports; legacy comparison dependencies are test-only.
+- [ ] No production adapter, dual state, or production cutover has landed.
 
 ---
 
@@ -614,7 +675,9 @@ Complete the compiler for random lanes, chance timing, and generated sampler tim
 
 Replace production event authoring and compilation in one coordinated cutover, then delete the legacy event architecture.
 
-Steps 5.1–5.3 are one production transition and must not be merged independently. Preparation may occur in isolated code, but the merged PR must have only native event state.
+Steps 5.1–5.4 are one production transition and must not be merged independently. Preparation may occur in isolated code, but the merged PR must have only native event state.
+
+Organize reviewable commits by setter wiring (5.1), transform wiring (5.2), schema wiring (5.3), and legacy deletion after verified coverage transfer (5.4). These are review boundaries, not separately deployable production states; merge them together only after the final integrated path passes all cutover gates. Keep representation changes in PR 4 and newly discovered behavior changes out of PR 5. Corrected golden expectations must remain unchanged.
 
 ## Step 5.1 — Route every event setter to native state
 
@@ -715,7 +778,8 @@ Route both instruments through the pure compiler in the same production cutover.
 ### Verification
 
 - [ ] Run all complete-schema fixtures unchanged against the new path.
-- [ ] Explain every mismatch against the corrected PR 2 baseline.
+- [ ] Explain and resolve every mismatch against the corrected PR 2 baseline without changing golden expectations.
+- [ ] Stop cutover for any necessary behavior change and review it separately before proceeding.
 - [ ] Confirm both instruments use the new compiler.
 - [ ] Confirm no production getter invokes legacy event compilation.
 
@@ -723,10 +787,14 @@ Route both instruments through the pure compiler in the same production cutover.
 
 ### Work
 
-Remove the old architecture in the same PR so the repository does not retain two competing paths.
+Remove the old architecture in the same PR so the repository does not retain two competing paths. Before deleting legacy tests or implementations, record a coverage-transfer inventory in the PR: each useful legacy behavior/assertion maps to a retained golden, decoder, transition, compiler, or public API test. Assertions specific only to obsolete internals may be retired with an explicit rationale; passing golden fixtures alone does not justify dropping behavioral coverage.
 
 ### Tasks
 
+- [ ] Inventory useful legacy assertions and identify their retained replacement tests before deletion.
+- [ ] Preserve coverage for validation/errors, resource warnings, rhythm composition, random settings, root/scale conversion, materialization, and setter/transform call order.
+- [ ] Verify replacement tests pass and cover the same behavioral assertions before removing legacy tests.
+- [ ] Delete temporary legacy/native differential wiring while retaining native replay, shared scenarios, and regression expectations.
 - [ ] Delete the old event compiler.
 - [ ] Delete `AuthoredPitches`.
 - [ ] Delete `AuthoredEventValues`.
@@ -734,7 +802,7 @@ Remove the old architecture in the same PR so the repository does not retain two
 - [ ] Delete or narrow event-related `MaskedCycle` usage.
 - [ ] Remove duplicated timing selection, availability, materialization, and cycle-expansion helpers.
 - [ ] Remove obsolete exports and imports.
-- [ ] Replace wrapper-detail tests with native transition, compiler, and golden coverage.
+- [ ] Replace wrapper-detail tests only after their useful behavioral assertions have verified native coverage or an explicit retirement rationale.
 - [ ] Retain useful rhythm generation only as named pure utilities.
 
 ### Likely files
@@ -755,7 +823,10 @@ Remove the old architecture in the same PR so the repository does not retain two
 
 - [ ] Use `rg` to confirm removed classes and compiler symbols have no callers.
 - [ ] Run Fluid, patterns, schema, and complete repository suites.
-- [ ] Confirm the diff contains no adapter or dual-state bridge.
+- [ ] Confirm every inventory entry has a passing retained test or an explicit retirement rationale.
+- [ ] Confirm no useful validation, warning, rhythm, random, or call-order coverage was lost.
+- [ ] Confirm temporary differential tests no longer import deleted legacy code.
+- [ ] Confirm the diff contains no production adapter or dual-state bridge.
 - [ ] Confirm processing patterns remain unchanged.
 
 ## PR 5 completion gate
@@ -766,7 +837,10 @@ Remove the old architecture in the same PR so the repository does not retain two
 - [ ] All coordinated event lanes switched together.
 - [ ] Transforms update native state exactly once.
 - [ ] Legacy wrappers and compiler code are deleted or explicitly narrowed.
-- [ ] Golden schema fixtures pass.
+- [ ] Golden schema fixtures pass with corrected expectations unchanged.
+- [ ] Coverage transfer is recorded and verified before legacy test deletion.
+- [ ] Setter, transform, schema, and deletion commits were reviewed separately and merge together.
+- [ ] Temporary differential wiring is deleted; native scenario replay and regression tests remain.
 - [ ] No adapter, dual state, or mixed event-lane state remains.
 
 ---
@@ -1069,8 +1143,12 @@ Finalize public examples, diagnostics, cleanup, and architectural verification.
 
 - [ ] PR 2 is the final modification to legacy event semantics.
 - [ ] New foundations are tested before production wiring.
-- [ ] New compiler tests construct native state directly.
-- [ ] Golden schema fixtures remain the compatibility authority.
+- [ ] Representation feasibility is proven before cutover, including timing gaps, authored rests, shared materialization, and later timing replacement.
+- [ ] New compiler tests construct native state directly, and complete native scenarios exercise decoding through compilation.
+- [ ] Test-only differential comparisons use independently initialized paths and are removed with legacy deletion.
+- [ ] Golden schema fixtures remain the compatibility authority and their corrected expectations do not change in PR 5.
+- [ ] Useful legacy coverage is inventoried and verified in retained tests before deletion.
+- [ ] Atomic cutover has separately reviewable setter, transform, schema, and deletion commits.
 - [ ] No production adapter exists without a documented blocker.
 - [ ] No event lane is represented in both legacy and native state.
 - [ ] All coordinated event lanes switch in one production cutover.

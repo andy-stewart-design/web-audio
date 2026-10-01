@@ -5,11 +5,17 @@ export type {
   Waveform,
 } from "@web-audio/schema";
 import type { RandomCycle } from "@web-audio/patterns";
+import type { ChanceCondition } from "@web-audio/schema";
 import type Envelope from "./automations/envelope";
 import type Lfo from "./automations/lfo";
 import type { MidiCc } from "./midi";
 import type Parameter from "./patterns/parameter";
 import type { scaleAliasMap } from "./utils/get-scale";
+
+/** Internal native timing metadata, separate from numeric random event sources. */
+type TimingChanceCondition = Readonly<Omit<ChanceCondition, "segments">> & {
+  readonly segments: readonly Readonly<ChanceCondition["segments"][number]>[];
+};
 
 type CycleInput<T> = (T | T[])[] | [RandomCycle];
 type StaticNullableCycleInput<T> = (T | null | (T | null | T[])[])[];
@@ -59,6 +65,7 @@ type LoadSamplesInput =
 
 export type {
   ADSR,
+  TimingChanceCondition,
   AudioParamInput,
   AudioParamSource,
   CycleInput,

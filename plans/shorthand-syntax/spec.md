@@ -9,7 +9,7 @@ This specification defines both:
 1. a compact shorthand syntax for event patterns; and
 2. the event-pattern architecture that structured input and shorthand share.
 
-It supersedes the implementation direction in [`pattern-ir-redesign.md`](./pattern-ir-redesign.md).
+It supersedes the implementation direction in [`pattern-ir-redesign.md`](./pattern-ir-redesign.md). The active delivery sequence is [`direct-cutover-plan.md`](./direct-cutover-plan.md); the adapter-first [`plan.md`](./plan.md) and [`plan-outline.md`](./plan-outline.md) are superseded historical references.
 
 The syntax is intentionally a subset of Tidal/Strudel mini-notation and is called **shorthand**, not mini-notation.
 
@@ -448,6 +448,14 @@ A shorthand slowdown and the corresponding fluent transform therefore remain equ
 
 Both evaluate to the same authored pattern: an event bar followed by a silent bar. When another lane owns timing, the slowed rest filters candidates in both forms. `.var([1], [null])` has the same two-bar event/rest geometry.
 
+V1 rejects a slowdown if preserving an existing gate would make it cross a bar boundary. This can occur with ordinary weighted input, without requesting `legato()`:
+
+```txt
+[~ 60@3]/2
+```
+
+Before slowdown, `60` starts at `1/4` and lasts `3/4` of a bar. Slowdown moves its onset to `1/2` while preserving its `3/4` gate, so it would end at `5/4`, across the next bar boundary. V1 cannot represent that leading continuation and throws rather than truncating the gate, retriggering the note, or silently changing its duration. The same restriction applies to the corresponding fluent `.slow(2)` transform.
+
 A future cross-bar `legato()` may convert slowdown gaps into continuations. For example, `.notes(60).slow(2).legato()` would sustain `60` across two bars. Cross-bar legato is not part of v1.
 
 ### Relative weight: `@`
@@ -550,17 +558,19 @@ A note, sample-name, or variation **lane** contains an `EventCycle<T>`. A fixed 
 A conceptual representation is:
 
 ```ts
-type EventCycle<T> = StaticEventCycle<T> | RandomEventCycle<T>;
+type EventCycle<T> =
+  | StaticEventCycle<T>
+  | (number extends T ? RandomEventCycle : never);
 
 type StaticEventCycle<T> = {
   readonly type: "static-event-cycle";
   readonly patterns: readonly EventPattern<T>[];
 };
 
-type RandomEventCycle<T> = {
+type RandomEventCycle = {
   readonly type: "random-event-cycle";
-  readonly valuesPerPattern: readonly number[];
-  readonly settings: RandomSettings<T>;
+  readonly candidateCycle: StaticEventCycle<1>;
+  readonly settings: RandomEventSettings;
 };
 
 type EventPattern<T> = readonly EventStep<T>[];
@@ -568,13 +578,15 @@ type EventPattern<T> = readonly EventStep<T>[];
 type EventStep<T> =
   | {
       readonly type: "event";
-      readonly values: readonly T[];
+      readonly values: readonly [T, ...T[]];
     }
   | { readonly type: "rest" }
   | { readonly type: "continuation" };
 ```
 
-The exact random settings and container syntax may change, but the cycle/pattern/step levels and static step variants are required. Random event cycles are numeric-only in v1 and preserve generation settings rather than pretending to contain static steps.
+The exact random settings and container syntax may change, but the cycle/pattern/step levels and static step variants are required. Random event cycles are numeric-only in v1 and preserve generation settings rather than pretending to contain static numeric values.
+
+The random branch retains fixed candidate geometry because counts alone cannot express sparse or transformed onsets and gate lengths. `candidateCycle` contains timing onsets with exactly one value of `1`, plus rests and continuations; generated numeric values are not materialized. Per-pattern value counts are derived from its event steps rather than stored redundantly. `RandomEventSettings` contains readonly `dataType`, `segments`, optional `range`, optional `quantValue`, `algorithm`, optional `valueMap`, and `order`, retaining the existing numeric generation semantics. Runtime timing chance remains separate in Fluid timing state.
 
 Invariants:
 
@@ -1134,6 +1146,7 @@ Diagnostics should include the shorthand source range and target method where av
 Existing cycle limits remain authoritative. The implementation must also bound:
 
 - expression node count and nesting depth;
+- cumulative raw structured-input slots, including sparse holes and omitted nullable voices, reserved by array length before traversal;
 - alternation period;
 - rational denominator and normalized pattern length;
 - total steps, events, voices, patterns, and cycles;
@@ -1143,62 +1156,47 @@ Nothing is silently truncated, rounded to a nearby structure, or partially evalu
 
 ## Migration plan
 
-The redesign lands before shorthand integration so the new syntax does not depend on temporary adapters.
+Follow [`direct-cutover-plan.md`](./direct-cutover-plan.md). The redesign lands before shorthand integration, with no production adapter, dual-written state, or mixed legacy/native event lanes. The adapter-first sequence in `plan.md` and `plan-outline.md` is superseded.
 
-### Phase 1 — Characterize and correct behavior
+### PRs 1–2 — Characterize and correct behavior
 
-- Preserve focused tests for current timing ownership, rests, transforms, random patterns, silent bars, and setter order.
-- Add explicit compatibility fixtures for structured input versus final schema.
-- Change sampler note and variation availability to candidate-ordinal filtering in an isolated step.
-- Remove authored scalar broadcasting and establish default fallback semantics in a separate isolated step.
-- Document both intentional behavior differences before compiler migration.
+- Capture complete public-API schema fixtures for timing ownership, rests, transforms, random sources, silent bars, voices, and setter order.
+- Land candidate-ordinal filtering, authored pattern semantics, and default fallback semantics as independently reviewable corrections.
+- Freeze the corrected PR 2 goldens as the compatibility authority; do not rewrite them to accommodate cutover regressions.
 
-### Phase 2 — Introduce expressions and event-cycle primitives
+### PR 3 — Build isolated native foundations
 
-- Implement the shared `PatternExpression<T>` model.
-- Decode structured inputs into expressions and evaluate them through one shared evaluator.
-- Implement the static event/rest/continuation representation.
-- Add exact rational evaluation and bounded pattern-length utilities.
-- Test evaluation and transformations independently from Fluid classes.
+- Implement readonly expressions, canonical static/random event cycles, exact evaluation, structured decoding, and generic transforms.
+- Test these foundations independently without changing production Fluid wiring.
+- Foundation completion is not full corrected-baseline parity; PR 4 must prove representation feasibility and complete native replay.
 
-### Phase 3 — Add the migration adapter and migrate synth compilation
+### PR 4 — Prove native state, transitions, and compilation
 
-- Introduce a one-way adapter from legacy authoring state to `InstrumentEventState`; do not dual-write either representation.
-- Preserve authored/default intent, fallback groups, cycle geometry, random settings, timing conditions, and pitch metadata.
-- Introduce pure event compilation for structured synth notes and explicit rhythm.
-- Compare old and new compilers while both exist, then retain explicit golden schema fixtures after deleting an old path.
-- Preserve random note and random XOX behavior.
-- Route synth schema generation through the new compiler.
+- Build immutable instrument event state, pure setter/transform transitions, and a pure compiler beside the legacy production path.
+- Resolve empty-bar timing-priority provenance, zero-width empty-bar compression, legacy empty-note-chord acceptance, and authored availability versus materialized timing gaps across subsequent setters.
+- Replay every corrected fixture through native construction, decoding, evaluation, transitions, and compilation using production-intended helpers.
+- Compare independently initialized legacy/native paths only in tests, including reproducibly generated operation sequences.
+- Block production cutover until all representation questions and complete-schema mismatches are resolved. Any necessary behavior change requires separate review, not altered cutover expectations.
 
-### Phase 4 — Migrate sampler lanes
+### PR 5 — Cut all structured event lanes over atomically
 
-- Decode and evaluate names and variations into the same lane abstraction.
-- Centralize sampler timing selection and fixed availability.
-- Preserve independent value wrapping, voices, random variation, and default intent.
-- Route sampler schema generation through the new compiler.
+- Switch notes, timing, sample names, variations, transforms, and synth/sampler schema generation together.
+- Keep setter, transform, schema, and deletion commits separately reviewable, but merge only the complete native production path.
+- Run existing public-API goldens unchanged.
+- Record and verify coverage transfer before deleting superseded wrappers, compiler helpers, and legacy tests.
+- Remove temporary differential wiring with legacy deletion; retain native replay and explicit regressions. Leave processing parameters unchanged.
 
-### Phase 5 — Centralize transforms and remove old infrastructure
+### PR 6 — Add shorthand parsing and prove equivalence
 
-- Move event transforms into `InstrumentEventState` operations.
-- Preserve call-order characterization tests.
-- Remove the temporary adapter once every event lane uses native event state.
-- Remove or narrow `MaskedCycle`, `AuthoredPitches`, `AuthoredEventValues`, and `AuthoredTiming` once no production path depends on them.
-- Remove duplicate timing and availability helpers.
+- Parse directly into the shared expression model and extend its existing evaluator with alternation and operators.
+- Interpret target atoms during evaluation, decode compact XOX through the same model, and prove structured/shorthand cycle and schema equivalence.
+- Keep public shorthand dispatch disconnected until this proof passes.
 
-### Phase 6 — Add shorthand
+### PR 7 — Expose shorthand and finish documentation
 
-- Implement the lexer and parser directly against the shared expression model.
-- Add source-aware diagnostics and immutable shorthand values exposing `PatternExpression<string>`.
-- Interpret shorthand atoms during the same evaluator already used by structured input.
-- Add direct-string dispatch and `d.shorthand()`/`d.sh()`.
-- Decode legacy compact XOX strings into the same expression model.
-
-### Phase 7 — Cleanup and documentation
-
-- Remove any remaining migration-only exports or comments.
-- Update public pattern and sampler documentation.
-- Document sample-name migration constraints.
-- Confirm that no schema or engine shorthand concepts were introduced.
+- Add eager immutable `d.shorthand()`/`d.sh()` values and direct-string consumer dispatch.
+- Enforce and document sample-alias compatibility changes.
+- Finish examples, diagnostics, and cleanup; confirm no shorthand or event-cycle concepts enter schema or the audio engine.
 
 ## Testing requirements
 

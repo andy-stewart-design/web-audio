@@ -8,6 +8,36 @@ export type {
   TimingStep,
 } from "@web-audio/schema";
 
+// Shared input-boundary expression types — owned by this package
+export type {
+  PatternExpression,
+  PatternNode,
+  PatternRange,
+  PatternAtom,
+  PatternRest,
+  PatternSequence,
+  PatternGroup,
+  PatternParallel,
+  PatternAlternate,
+  PatternModifier,
+} from "./pattern-expression";
+
+export type {
+  AtomInterpretation,
+  AtomInterpreter,
+} from "./evaluate-pattern-expression";
+
+// Canonical event-cycle types — internal package integration, not a user API
+export type {
+  NonEmptyGroup,
+  EventCycle,
+  StaticEventCycle,
+  RandomEventCycle,
+  RandomEventSettings,
+  EventPattern,
+  EventStep,
+} from "./event-cycle";
+
 // Internal pattern types — owned by this package
 type NoteInput<S> = S | S[];
 type Pattern<S> = S[];

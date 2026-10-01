@@ -2,7 +2,7 @@
 
 ## Status and companion documents
 
-Proposed high-level outline. [`plan.md`](./plan.md) is the detailed execution checklist, and [`spec.md`](./spec.md) is authoritative for behavior.
+**Superseded delivery outline — historical reference only.** [`direct-cutover-plan.md`](./direct-cutover-plan.md) is the active execution checklist. It replaces the adapter-first and mixed-state sequence below with one atomic production cutover. [`plan.md`](./plan.md) is the corresponding historical detailed plan; [`spec.md`](./spec.md) remains authoritative for behavior and architecture.
 
 ## Strategy
 
