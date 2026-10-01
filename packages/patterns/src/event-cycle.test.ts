@@ -1,7 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   assertEventCycleInvariants,
-  RandomCycle,
   type EventCycle,
   type EventPattern,
   type EventStep,
@@ -9,7 +8,8 @@ import {
   type RandomEventCycle,
   type RandomEventSettings,
   type StaticEventCycle,
-} from "./index";
+} from "./event-cycle";
+import RandomCycle from "./random-cycle";
 import {
   MAX_EVENT_CYCLE_PATTERNS,
   MAX_EVENT_CYCLE_STEPS,

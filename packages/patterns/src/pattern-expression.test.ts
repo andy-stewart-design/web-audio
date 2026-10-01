@@ -11,7 +11,7 @@ import {
   type PatternRange,
   type PatternRest,
   type PatternSequence,
-} from "./index";
+} from "./pattern-expression";
 import {
   MAX_EXPRESSION_DEPTH,
   MAX_EXPRESSION_NODES,
@@ -103,7 +103,7 @@ function createFrozenExpression() {
 }
 
 describe("PatternExpression", () => {
-  it("exports and narrows every node variant", () => {
+  it("defines and narrows every node variant", () => {
     const expression: PatternExpression<number> =
       createExpression(createNodeVariants());
     expectTypeOf(expression).toEqualTypeOf<PatternExpression<number>>();

@@ -1,13 +1,15 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import {
   evaluatePatternExpression,
-  getEventPatternGeometry,
   type AtomInterpreter,
-  type PatternExpression,
-  type PatternNode,
-  type PatternRange,
-  type StaticEventCycle,
-} from "./index";
+} from "./evaluate-pattern-expression";
+import { getEventPatternGeometry } from "./utils/event-grid";
+import type {
+  PatternExpression,
+  PatternNode,
+  PatternRange,
+} from "./pattern-expression";
+import type { StaticEventCycle } from "./event-cycle";
 import {
   MAX_EVENT_CYCLE_PATTERNS,
   MAX_EVENT_CYCLE_STEPS,

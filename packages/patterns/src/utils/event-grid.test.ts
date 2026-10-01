@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import {
-  getEventPatternGeometry,
-  type EventPattern,
-  type NonEmptyGroup,
-} from "../index";
+import type { EventPattern, NonEmptyGroup } from "../event-cycle";
 import {
   MAX_EVENT_CYCLE_STEPS,
   MAX_EVENT_CYCLE_VOICES,
   MAX_EVENT_GROUP_VOICES,
 } from "./cycle-limits";
-import { normalizeEventPattern, type EventSpan } from "./event-grid";
+import {
+  getEventPatternGeometry,
+  normalizeEventPattern,
+  type EventSpan,
+} from "./event-grid";
 import { createRational } from "./rational";
 
 function event(

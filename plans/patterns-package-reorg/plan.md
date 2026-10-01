@@ -13,6 +13,8 @@ Keep one package entry point. No `/internal` subpath, wildcard exports, or new p
 
 ## Phase 1 — Curate the package API
 
+Status: complete. Root exports reduced from 48 to 23 (15 runtime values and 8 types), based on current Fluid source and test consumers. Implementations, local type definitions, and behavioral assertions are retained; folders and intermediary barrels remain for subsequent phases.
+
 - Audit root exports against actual cross-package imports, including Fluid's isolated native decoders and tests.
 - Keep exports with demonstrated consumers. Remove unused package exports, not their implementations or local tests. Future work can add an export when it actually needs it.
 - Remove redundant schema-type re-exports; consumers should import schema-owned types directly from `@web-audio/schema`.
@@ -20,7 +22,18 @@ Keep one package entry point. No `/internal` subpath, wildcard exports, or new p
 - Keep genuinely needed types explicit rather than forcing consumers into awkward aliases or indexed-access workarounds.
 - Review export removals as API changes, even though runtime behavior remains unchanged; workspace usage is not proof that published consumers do not exist.
 
-Starting candidates include `getChordStaticSchema`, `SourceHitReference`, unused schema re-exports, unused individual expression-node types, and native transforms/types that have no cross-package consumer yet. Recheck usage when implementing rather than treating this list as final.
+### Outcome and API-change record
+
+Removed from the root:
+
+- Runtime helpers without cross-package consumers: `getChordStaticSchema`, `reverseEventCycle`, `fastEventCycle`, `slowEventCycle`, `stretchEventCycle`.
+- Schema re-exports: `ChanceCondition`, `RandomNumberPattern`, `StaticNotePattern`, `StaticPattern`, `TimingPattern`, `TimingStep`. Fluid's random decoder now imports `RandomNumberPattern` directly from schema.
+- Unused expression/evaluator types: `PatternRange`, `PatternAtom`, `PatternRest`, `PatternSequence`, `PatternGroup`, `PatternParallel`, `PatternAlternate`, `PatternModifier`, `AtomInterpreter`.
+- Unused cycle types: `NonEmptyGroup`, `EventCycle`, `EventPattern`, `EventStep`, `SourceHitReference`.
+
+Retained exports all have demonstrated Fluid consumers. `getEventPatternGeometry` is retained for the native decoder integration tests; that test-only use is deliberate. Local patterns tests import implementation-only types from their owning modules, not the package root. The built declarations were checked for the matching 23 named exports.
+
+These removals intentionally narrow the import API. Unknown published consumers importing removed names will need to migrate; workspace verification does not establish compatibility for them. Schema types should be imported from schema. Other removed exports have no supported root replacement in this phase; reintroduce a name only for an actual consumer, not through a deep-import escape hatch. Musical behavior and corrected schema expectations are unchanged. The spec wording update remains part of Phase 4.
 
 ## Phase 2 — Organize by responsibility
 
