@@ -9,7 +9,7 @@ import {
   type PatternNode,
 } from "@web-audio/patterns";
 import { isRandomCycle } from "@/utils/validate";
-import { decodeRandomEventInput } from "./decode-random-input";
+import { decodeRandomEventInputGeometry } from "./decode-random-input";
 
 // Bound raw traversal independently of emitted nodes and surviving voices.
 // Count argument, bar, and chord slots, including holes and omitted placeholders.
@@ -24,6 +24,7 @@ type StructuredDecodeOptions<T> = {
   readonly allowUndefinedRest?: boolean;
   readonly allowPolyphony?: boolean;
   readonly omitNullableVoices?: boolean;
+  readonly allowEmptyVoiceRest?: boolean;
   readonly randomPatternError?: string;
 };
 
@@ -32,7 +33,7 @@ function isArray(value: unknown): value is readonly unknown[] {
 }
 
 /** Decode method arguments as bars, entries as slots, and nested arrays as voices. */
-function decodeStructuredInput<T>(
+function decodeStructuredInputGeometry<T>(
   input: readonly unknown[],
   options: StructuredDecodeOptions<T>,
 ) {
@@ -87,8 +88,10 @@ function decodeStructuredInput<T>(
     if (options.allowPolyphony === false) {
       throw fail("does not support simultaneous voice groups.");
     }
-    if (value.length === 0)
+    if (value.length === 0) {
+      if (options.allowEmptyVoiceRest) return silence();
       throw fail("simultaneous voice groups cannot be empty.");
+    }
     // Charge the whole array before iteration, even if every voice is absent.
     reserveInputItems(value.length);
     // Existing note chords may contain nullable placeholders. Omit absent
@@ -125,7 +128,9 @@ function decodeStructuredInput<T>(
       children: Object.freeze(children),
     } as const);
   };
-  const patterns: PatternNode<T>[] = Array.from(input, (bar) => {
+  const zeroWidthPatterns: boolean[] = [];
+  const patterns: PatternNode<T>[] = Array.from(input, (bar, index) => {
+    zeroWidthPatterns[index] = isArray(bar) && bar.length === 0;
     if (!isArray(bar)) return decodeValue(bar);
     if (bar.length === 0) return silence();
     reserveNode();
@@ -148,7 +153,17 @@ function decodeStructuredInput<T>(
     patterns: Object.freeze(patterns),
   } as const satisfies PatternExpression<T>);
   assertPatternExpressionLimits(expression);
-  return expression;
+  return Object.freeze({
+    expression,
+    zeroWidthPatterns: Object.freeze(zeroWidthPatterns),
+  });
+}
+
+function decodeStructuredInput<T>(
+  input: readonly unknown[],
+  options: StructuredDecodeOptions<T>,
+) {
+  return decodeStructuredInputGeometry(input, options).expression;
 }
 
 function finiteNumberInterpreter(method: string) {
@@ -160,13 +175,19 @@ function finiteNumberInterpreter(method: string) {
   };
 }
 
-function decodeNotesExpression(input: readonly unknown[]) {
-  return decodeStructuredInput(input, {
+function notesDecodeOptions() {
+  return {
     method: "[Instrument] notes()",
     interpretValue: finiteNumberInterpreter("[Instrument] notes()"),
     allowUndefinedRest: true,
     omitNullableVoices: true,
-  });
+    // Legacy structured notes treat [] chords as silence, never empty events.
+    allowEmptyVoiceRest: true,
+  } as const;
+}
+
+function decodeNotesExpression(input: readonly unknown[]) {
+  return decodeStructuredInput(input, notesDecodeOptions());
 }
 
 function decodeSampleNamesExpression(input: readonly unknown[]) {
@@ -192,29 +213,68 @@ function decodeVariationsExpression(input: readonly unknown[]) {
   });
 }
 
-function decodeNotesInput(input: readonly unknown[]) {
+function decodeNotesInputGeometry(input: readonly unknown[]) {
   if (input.length === 1 && isRandomCycle(input[0]))
-    return decodeRandomEventInput(input[0]);
-  return evaluatePatternExpression(decodeNotesExpression(input));
+    return decodeRandomEventInputGeometry(input[0]);
+  const geometry = decodeStructuredInputGeometry(input, notesDecodeOptions());
+  const cycle = evaluatePatternExpression(geometry.expression);
+  const noteValueSlots = Object.freeze({
+    type: "static-event-cycle",
+    patterns: Object.freeze(
+      cycle.patterns.map((pattern, index) =>
+        Object.freeze(
+          pattern.map(() =>
+            geometry.zeroWidthPatterns[index]
+              ? ({ type: "rest" } as const)
+              : Object.freeze({
+                  type: "event",
+                  values: Object.freeze([1] as const),
+                } as const),
+          ),
+        ),
+      ),
+    ),
+  } as const);
+  return Object.freeze({
+    cycle,
+    zeroWidthPatterns: geometry.zeroWidthPatterns,
+    noteValueSlots,
+  });
+}
+
+function decodeNotesInput(input: readonly unknown[]) {
+  return decodeNotesInputGeometry(input).cycle;
 }
 
 function decodeSampleNamesInput(input: readonly unknown[]) {
   return evaluatePatternExpression(decodeSampleNamesExpression(input));
 }
 
-function decodeVariationsInput(input: readonly unknown[]) {
+function decodeVariationsInputGeometry(input: readonly unknown[]) {
   if (input.length === 1 && isRandomCycle(input[0]))
-    return decodeRandomEventInput(input[0]);
-  return evaluatePatternExpression(decodeVariationsExpression(input));
+    return decodeRandomEventInputGeometry(input[0]);
+  const cycle = evaluatePatternExpression(decodeVariationsExpression(input));
+  // Unlike notes, empty static name/variation bars normalize to authored rests.
+  return Object.freeze({
+    cycle,
+    zeroWidthPatterns: Object.freeze(cycle.patterns.map(() => false)),
+  });
+}
+
+function decodeVariationsInput(input: readonly unknown[]) {
+  return decodeVariationsInputGeometry(input).cycle;
 }
 
 export {
   MAX_STRUCTURED_INPUT_ITEMS,
   decodeStructuredInput,
+  decodeStructuredInputGeometry,
+  decodeNotesInputGeometry,
   decodeNotesExpression,
   decodeSampleNamesExpression,
   decodeVariationsExpression,
   decodeNotesInput,
   decodeSampleNamesInput,
   decodeVariationsInput,
+  decodeVariationsInputGeometry,
 };

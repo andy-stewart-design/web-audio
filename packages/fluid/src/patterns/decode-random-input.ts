@@ -16,7 +16,7 @@ const ONSET = Object.freeze({
 } as const);
 
 /** Snapshot the public random authoring primitive, not legacy instrument state. */
-function decodeRandomCandidateCycle(source: RandomCycle) {
+function decodeRandomCandidateGeometry(source: RandomCycle) {
   // Public RandomCycle getters materialize any pending authored speed chain.
   // Copy that view immediately; never retain mutable source arrays in native IR.
   const current = source.current;
@@ -26,7 +26,9 @@ function decodeRandomCandidateCycle(source: RandomCycle) {
     );
   }
   let stepCount = 0;
-  const patterns = current.map((bar) => {
+  const zeroWidthPatterns: boolean[] = [];
+  const patterns = current.map((bar, index) => {
+    zeroWidthPatterns[index] = bar.length === 0;
     stepCount += Math.max(1, bar.length);
     if (stepCount > MAX_EVENT_CYCLE_STEPS) {
       throw new Error(
@@ -50,14 +52,22 @@ function decodeRandomCandidateCycle(source: RandomCycle) {
     patterns: Object.freeze(patterns),
   } as const satisfies StaticEventCycle<1>);
   assertEventCycleInvariants(cycle);
-  return cycle;
+  return Object.freeze({
+    cycle,
+    zeroWidthPatterns: Object.freeze(zeroWidthPatterns),
+  });
 }
 
-function decodeRandomEventInput(source: RandomCycle) {
+function decodeRandomCandidateCycle(source: RandomCycle) {
+  return decodeRandomCandidateGeometry(source).cycle;
+}
+
+function decodeRandomEventInputGeometry(source: RandomCycle) {
   // Widen to the supported schema contract to retain optional value maps from
   // compatible random primitives, without generating or adapting static values.
   const schema: RandomNumberPattern = source.getRandomSchema();
-  const candidateCycle = decodeRandomCandidateCycle(source);
+  const geometry = decodeRandomCandidateGeometry(source);
+  const candidateCycle = geometry.cycle;
   // Bound and validate source settings before cloning their arrays into native data.
   assertEventCycleInvariants({
     type: "random-event-cycle",
@@ -84,7 +94,19 @@ function decodeRandomEventInput(source: RandomCycle) {
     settings,
   } as const satisfies RandomEventCycle);
   assertEventCycleInvariants(cycle);
-  return cycle;
+  return Object.freeze({
+    cycle,
+    zeroWidthPatterns: geometry.zeroWidthPatterns,
+  });
 }
 
-export { decodeRandomCandidateCycle, decodeRandomEventInput };
+function decodeRandomEventInput(source: RandomCycle) {
+  return decodeRandomEventInputGeometry(source).cycle;
+}
+
+export {
+  decodeRandomCandidateCycle,
+  decodeRandomCandidateGeometry,
+  decodeRandomEventInput,
+  decodeRandomEventInputGeometry,
+};

@@ -2,7 +2,7 @@
 
 ## Status and companion documents
 
-Active implementation plan. PRs 1–3 and Step 4.1's readonly state model are complete; the remaining PR 4 compatibility proof and PR 5 production cutover remain pending. The separate [patterns package reorganization](../patterns-package-reorg/plan.md) is complete; file references below use the responsibility-based layout.
+Active implementation plan. PRs 1–3 and Steps 4.1–4.2's readonly state model and pure transitions are complete. Immediate fluent transforms and read-independent behavior follow the specification; legacy getter-sensitive speed cancellation is an approved compatibility exception, not a feasibility blocker. PR 4's compiler and complete-schema replay, and PR 5's production cutover, remain pending. The separate [patterns package reorganization](../patterns-package-reorg/plan.md) is complete; file references below use the responsibility-based layout.
 
 The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document governs delivery and supersedes the adapter-first, lane-by-lane sequence in [`plan.md`](./plan.md) and [`plan-outline.md`](./plan-outline.md). Those documents are retained as historical alternatives, not execution checklists.
 
@@ -50,7 +50,7 @@ This plan intentionally does not include:
 - mixed native and legacy event lanes;
 - a transform coordinator that understands both representations.
 
-Corrected golden schema fixtures are the compatibility authority. Temporary test-only legacy/native comparisons are permitted, including generated setter/transform sequences. They run independently initialized paths, not a legacy-state adapter, and are removed when the legacy path is deleted; retained golden and native tests remain authoritative afterward.
+Corrected golden schema fixtures are the compatibility authority for preserved behavior; the specification remains normative. Legacy behavior that conflicts with the specification is not a reason to repair superseded code or reproduce its defects in native state. The approved getter-sensitive speed-chain exception is documented in Step 4.2 and the specification; existing corrected goldens remain unchanged. Temporary test-only legacy/native comparisons are permitted, including generated setter/transform sequences. They run independently initialized paths, not a legacy-state adapter, and are removed when the legacy path is deleted; retained golden and native tests remain authoritative afterward.
 
 ## Migration rules
 
@@ -523,23 +523,25 @@ Patterns now exports `EventCycle` and `NonEmptyGroup` for this concrete cross-pa
 
 Implement native setter and transform behavior before changing the mutable public facades. Establish representation feasibility explicitly: native state must preserve the distinction between authored rests and materialized timing gaps, coordinated lanes sharing selected timing, and later timing replacement. Passing isolated transform tests is insufficient if subsequent setters lose these distinctions.
 
+Status: complete. Constructors, setters, timing composition, pitch state, pure transforms, immutable snapshots, and materialization provenance are directly tested. Legacy getter-sensitive speed cancellation was explicitly rejected in favor of the specification's immediate transitions and pure reads. Complete compilation and public getter integration remain Steps 4.3–4.5 and PR 5 work.
+
 ### Tasks
 
-- [ ] Add constructors for default synth and sampler event state.
-- [ ] Replace notes, names, variations, and timing independently.
-- [ ] Make every setter replacement authored.
-- [ ] Apply root and scale without changing cycle geometry.
-- [ ] Apply reverse, fast, slow, and stretch exactly once to participating lanes.
-- [ ] Preserve default fallback groups while transforming their cycles.
-- [ ] Preserve setter-before-transform and transform-before-setter behavior.
-- [ ] Preserve explicit timing and generated timing exemptions.
-- [ ] Prove materialized timing gaps do not become authored candidate-filtering rests after later timing or unrelated value setters.
-- [ ] Prove authored and slowdown-created rests still filter replacement timing.
-- [ ] Prove coordinated lanes sharing materialized timing do not apply their intersection twice.
-- [ ] Cover repeated and chained transforms, timing replacement, and generated chop/fit exemptions.
-- [ ] Resolve empty-bar provenance for authored-rest priority and speed geometry: legacy zero-width empty bars and canonical one-step silence compress differently. Also resolve legacy empty-note-chord acceptance against native empty-group validation before cutover.
-- [ ] Document and resolve any required representation changes before production wiring.
-- [ ] Keep transitions pure and immutable.
+- [x] Add constructors for default synth and sampler event state.
+- [x] Replace notes, names, variations, and timing independently.
+- [x] Make every setter replacement authored.
+- [x] Apply root and scale without changing cycle geometry.
+- [x] Apply reverse, fast, slow, and stretch exactly once to participating lanes.
+- [x] Preserve default fallback groups while transforming their cycles.
+- [x] Preserve setter-before-transform and transform-before-setter behavior.
+- [x] Preserve explicit timing and generated timing exemptions.
+- [x] Prove materialized timing gaps do not become authored candidate-filtering rests after later timing or unrelated value setters.
+- [x] Prove authored and slowdown-created rests still filter replacement timing.
+- [x] Prove coordinated lanes sharing materialized timing do not apply their intersection twice.
+- [x] Cover repeated and chained transforms, timing replacement, and generated chop/fit exemptions.
+- [x] Resolve empty-bar provenance for authored-rest priority and speed geometry: legacy zero-width empty bars and canonical one-step silence compress differently. Also resolve legacy empty-note-chord acceptance against native empty-group validation before cutover.
+- [x] Document and resolve any required representation changes before production wiring.
+- [x] Keep transitions pure and immutable.
 
 ### Likely files
 
@@ -550,13 +552,31 @@ Implement native setter and transform behavior before changing the mutable publi
 
 ### Verification
 
-- [ ] Test every setter against default and authored state.
-- [ ] Test equal-value setters changing intent.
-- [ ] Test all transforms before and after setters, including sparse explicit timing followed by reverse/slow and timing replacement.
-- [ ] Assert native state preserves the required availability and timing distinctions across subsequent operations.
-- [ ] Assert transition inputs remain unchanged.
-- [ ] Confirm no transition imports a legacy authored wrapper.
-- [ ] Block PR 5 until representation-feasibility cases also pass complete-schema replay in Step 4.5.
+- [x] Test every setter against default and authored state.
+- [x] Test equal-value setters changing intent.
+- [x] Test all transforms before and after setters, including sparse explicit timing followed by reverse/slow and timing replacement.
+- [x] Assert native state preserves the required availability and timing distinctions across subsequent operations.
+- [x] Assert transition inputs remain unchanged.
+- [x] Confirm no transition imports a legacy authored wrapper.
+- [x] Block PR 5 until representation-feasibility cases also pass complete-schema replay in Step 4.5.
+
+### Representation decisions and approved compatibility exception
+
+Implemented helpers are `event-state-transitions.ts`, `event-state-geometry.ts`, and `event-state-snapshot.ts`. Production facades remain entirely legacy-backed.
+
+Native provenance is colocated with authored sources, never with generic event steps:
+
+- `availability` is an immutable boolean/transparent-timing-gap cycle. Authored false slots survive alignment; inherited timing gaps disappear from ordinal filtering. Slowdown-created rest steps are transparent while aligned, then become false slots when timing is released by the same setters as the corrected legacy path.
+- `materializedTiming` is an immutable identity shared by coordinated notes/variations. It prevents their already-applied intersection from filtering selected inferred timing twice.
+- `zeroWidthPatterns` preserves empty note/random/timing bars without allowing empty canonical patterns. Generic geometry transforms compress these bars without inserting a subdivision. Empty static names/variations remain ordinary authored rests, matching their legacy normalization.
+- `noteValueSlots` preserves structured null/undefined/empty/null-only chords as value slots during note materialization, while transformed gaps and variation rests are skipped. Empty chords decode as rest nodes, never empty event groups. `materializationExempt` retains the legacy original-one-slot note-source exemption after its geometry changes; this is not scalar broadcasting or an alternate value mode.
+- Generated timing overrides retain readonly schema geometry outside v1 IR, because existing chop/fit gates may cross bars. They remain compiler inputs and are never stored or transformed as authored lanes.
+
+Tests cover native state directly and 32 reproducible eight-operation legacy/native timing-prefix sequences. The comparison uses independently initialized paths and production-intended native helpers; it compares timing selection/filtering, not complete compilation. Step 4.5 still must replay complete schemas and sequences without intermediate getter boundaries.
+
+**Approved: immediate fluent speed transforms, independent of reads.** The user explicitly chose specification conformance over reproducing legacy deferred/getter-sensitive speed cancellation. Native `.fast(2).slow(2)` operates on the materialized intermediate cycle and preserves shortened gates; no getter call changes the outcome. Do not repair the old wrappers, add pending speed state, introduce an observation boundary, or require parity with that legacy quirk. Shorthand's exact uninterrupted expression-chain cancellation remains required in Step 6.2.
+
+`event-state-transitions.test.ts` now tests immediate acceleration/slowdown for synth, sampler, and generated-timing contexts, unchanged results after repeated native reads, later timing replacement, and coordinated value lanes under generated timing. No expected-failure test remains. Steps 4.3–4.5 must extend this to pure compilation and complete-schema replay; PR 5 must test public `getSchema()` read independence once the facade uses native state. Differential mismatches attributable to this approved exception are explained differences, not blockers. Other preserved-behavior regressions still require fixes; do not rewrite existing goldens to hide them.
 
 ## Step 4.3 — Implement static event compilation
 

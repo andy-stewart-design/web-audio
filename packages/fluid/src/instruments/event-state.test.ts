@@ -11,6 +11,7 @@ import type { TimingChanceCondition } from "@/types";
 import type {
   DefaultEventSource,
   EventSource,
+  GeneratedTimingOverride,
   InstrumentEventState,
   PitchState,
   SamplerEventCompilerInput,
@@ -249,9 +250,11 @@ describe("native instrument event state", () => {
 
   it("keeps generated timing at the compiler boundary without replacing stored timing", () => {
     const state = samplerState();
-    const timingOverride = evaluatePatternExpression<1>({
-      type: "pattern-expression",
-      patterns: [{ type: "rest" }, { type: "atom", value: 1 }],
+    const timingOverride: GeneratedTimingOverride = Object.freeze({
+      cycle: Object.freeze([
+        Object.freeze([Object.freeze({ offset: 0, duration: 2 })]),
+        Object.freeze([]),
+      ]),
     });
     const input: SamplerEventCompilerInput = Object.freeze({
       state,
@@ -259,18 +262,19 @@ describe("native instrument event state", () => {
     });
     const withoutOverride: SamplerEventCompilerInput = Object.freeze({ state });
     expectTypeOf(input.timingOverride).toEqualTypeOf<
-      StaticEventCycle<1> | undefined
+      GeneratedTimingOverride | undefined
     >();
     expect(input.state).toBe(state);
     expect(input.state.timing.cycle).toBe(candidates);
     expect(input.state.timing.intent).toBe("implicit");
     expect(withoutOverride.timingOverride).toBeUndefined();
-    expect(input.timingOverride?.patterns).toHaveLength(2);
+    expect(input.timingOverride?.cycle).toHaveLength(2);
+    expect(input.timingOverride?.cycle[0][0].duration).toBe(2);
     expect(Reflect.set(input, "timingOverride", candidates)).toBe(false);
   });
 
   it("makes state, source, pitch, timing, and nested metadata readonly", () => {
-    // Checked by pnpm check, never executed. Runtime freezing belongs to Step 4.2.
+    // Checked by pnpm check, never executed.
     const attemptMutation = (
       synth: SynthEventState,
       sampler: SamplerEventState,

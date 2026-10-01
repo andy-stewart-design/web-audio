@@ -24,11 +24,17 @@ export {
   assertRandomGenerationMetadata,
   type EventCycle,
   type NonEmptyGroup,
+  type EventPattern,
+  type EventStep,
   type StaticEventCycle,
   type RandomEventCycle,
   type RandomEventSettings,
 } from "./events/cycle";
 export { getEventPatternGeometry } from "./events/grid";
+export {
+  transformEventCycleGeometry,
+  type EventCycleTransform,
+} from "./events/transforms";
 
 export {
   assertCycleBarLimit,

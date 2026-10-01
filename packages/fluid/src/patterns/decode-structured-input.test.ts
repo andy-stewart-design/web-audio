@@ -6,6 +6,7 @@ import {
   MAX_STRUCTURED_INPUT_ITEMS,
   decodeNotesExpression,
   decodeNotesInput,
+  decodeNotesInputGeometry,
   decodeSampleNamesExpression,
   decodeSampleNamesInput,
   decodeStructuredInput,
@@ -289,14 +290,13 @@ describe("static consumer evaluation", () => {
 });
 
 describe("consumer validation and bounds", () => {
-  it("records legacy empty-note-chord acceptance for review before production cutover", () => {
+  it("preserves legacy empty-note-chord silence without allowing empty events", () => {
     expect(new Synthesizer().notes([[]]).getSchema().eventPattern).toEqual({
       timing: { cycle: [[]] },
       notes: { type: "static", cycle: [[null]] },
     });
-    expect(() => decodeNotesInput([[[]]])).toThrow(
-      "voice groups cannot be empty",
-    );
+    expect(requireStatic(decodeNotesInput([[[]]])).patterns).toEqual([[rest]]);
+    expect(decodeNotesInputGeometry([[[]]]).zeroWidthPatterns).toEqual([false]);
   });
 
   it("records empty-note-bar timing priority as a native transition feasibility case", () => {
@@ -315,9 +315,11 @@ describe("consumer validation and bounds", () => {
       [rest],
       [event(60)],
     ]);
-    // Canonical silence is specified, but treating this as an authored-rest
-    // priority/filter would lose the legacy empty-bar distinction. PR 4 must
-    // resolve its provenance or explicitly review the behavior before cutover.
+    expect(decodeNotesInputGeometry([[], [60]]).zeroWidthPatterns).toEqual([
+      true,
+      false,
+    ]);
+    // Native transitions retain this provenance separately from explicit rests.
   });
 
   it.each([
@@ -325,14 +327,20 @@ describe("consumer validation and bounds", () => {
     { method: "name()", decode: decodeSampleNamesInput },
     { method: "variation()", decode: decodeVariationsInput },
   ])(
-    "rejects missing bars, empty voice groups, and extra nesting in $method",
+    "rejects missing bars and extra nesting in $method, retaining note-only empty-chord compatibility",
     ({ method, decode }) => {
       expect(() => decode([])).toThrow(
         `${method} requires at least one pattern`,
       );
-      expect(() => decode([[[]]])).toThrow(
-        "simultaneous voice groups cannot be empty",
-      );
+      if (method === "notes()")
+        expect(decode([[[]]])).toEqual({
+          type: "static-event-cycle",
+          patterns: [[rest]],
+        });
+      else
+        expect(() => decode([[[]]])).toThrow(
+          "simultaneous voice groups cannot be empty",
+        );
       expect(() => decode([[[[60]]]])).toThrow(method);
     },
   );

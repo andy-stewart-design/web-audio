@@ -4,27 +4,34 @@ import {
 } from "@web-audio/patterns";
 import { isRandomCycle } from "@/utils/validate";
 import type { TimingChanceCondition } from "@/types";
-import { decodeRandomCandidateCycle } from "./decode-random-input";
-import { decodeStructuredInput } from "./decode-structured-input";
+import { decodeRandomCandidateGeometry } from "./decode-random-input";
+import {
+  decodeStructuredInput,
+  decodeStructuredInputGeometry,
+} from "./decode-structured-input";
 
 /** Structured numeric XOX retains the established nonzero-number mask behavior. */
-function decodeXoxExpression(input: readonly unknown[]) {
-  return decodeStructuredInput<1>(input, {
+function xoxDecodeOptions() {
+  return {
     method: "[Instrument] xox()",
     allowNullRest: false,
     allowPolyphony: false,
-    interpretValue: (value) => {
+    interpretValue: (value: unknown) => {
       if (typeof value !== "number" || !Number.isFinite(value)) {
         throw new Error("[Instrument] xox() values must be finite numbers.");
       }
       return value === 0
-        ? { type: "rest" }
-        : { type: "event", value: 1 as const };
+        ? ({ type: "rest" } as const)
+        : ({ type: "event", value: 1 } as const);
     },
-  });
+  } as const;
 }
 
-function decodeXoxInput(input: readonly unknown[]) {
+function decodeXoxExpression(input: readonly unknown[]) {
+  return decodeStructuredInput<1>(input, xoxDecodeOptions());
+}
+
+function decodeXoxInputGeometry(input: readonly unknown[]) {
   if (input.length === 1 && isRandomCycle(input[0])) {
     const source = input[0];
     if (source.dataType !== "binary") {
@@ -51,14 +58,21 @@ function decodeXoxInput(input: readonly unknown[]) {
     // replacement has no new condition, so transitions can retain prior chance
     // metadata, matching existing rhythm composition semantics.
     return Object.freeze({
-      cycle: decodeRandomCandidateCycle(source),
+      ...decodeRandomCandidateGeometry(source),
       condition: snapshot,
     });
   }
+  const geometry = decodeStructuredInputGeometry<1>(input, xoxDecodeOptions());
   return Object.freeze({
-    cycle: evaluatePatternExpression(decodeXoxExpression(input)),
+    cycle: evaluatePatternExpression(geometry.expression),
+    zeroWidthPatterns: geometry.zeroWidthPatterns,
     condition: undefined,
   });
 }
 
-export { decodeXoxExpression, decodeXoxInput };
+function decodeXoxInput(input: readonly unknown[]) {
+  const { cycle, condition } = decodeXoxInputGeometry(input);
+  return Object.freeze({ cycle, condition });
+}
+
+export { decodeXoxExpression, decodeXoxInput, decodeXoxInputGeometry };
