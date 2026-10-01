@@ -33,7 +33,7 @@ Removed from the root:
 
 Retained exports all have demonstrated Fluid consumers. `getEventPatternGeometry` is retained for the native decoder integration tests; that test-only use is deliberate. Local patterns tests import implementation-only types from their owning modules, not the package root. The built declarations were checked for the matching 23 named exports.
 
-These removals intentionally narrow the import API. Unknown published consumers importing removed names will need to migrate; workspace verification does not establish compatibility for them. Schema types should be imported from schema. Other removed exports have no supported root replacement in this phase; reintroduce a name only for an actual consumer, not through a deep-import escape hatch. Musical behavior and corrected schema expectations are unchanged. The spec wording update remains part of Phase 4.
+These removals intentionally narrow the import API. Unknown published consumers importing removed names will need to migrate; workspace verification does not establish compatibility for them. Schema types should be imported from schema. Other removed exports have no supported root replacement in this phase; reintroduce a name only for an actual consumer, not through a deep-import escape hatch. Musical behavior and corrected schema expectations are unchanged. The spec now makes named supporting-type exports consumer-driven without changing inspectable expression data.
 
 ## Phase 2 — Organize by responsibility
 
@@ -57,7 +57,7 @@ Expression files are `expressions/model.ts` and `expressions/evaluate.ts`; event
 
 Extracted the existing speed-ratio constants, resolver, and shared numeric GCD unchanged into `math/speed-ratio.ts`. Fluent speed and native event transforms now share that numeric boundary without native code importing the fluent `Speed` module. Exact rational geometry remains separate.
 
-No new folder barrels or package entry points were introduced. Fluid imports require no changes because the root API is preserved. Phase 3 removes the intermediary barrels rather than retaining compatibility re-exports.
+No new folder barrels or package entry points were introduced. Fluid imports require no changes because the root API is preserved. Phase 3 removed the intermediary barrels rather than retaining compatibility re-exports.
 
 - Keep tests beside their implementations.
 - Move event-grid mechanics out of the miscellaneous utilities bucket.
@@ -80,6 +80,10 @@ The desired route is `owning module → curated root → consumer`, not a chain 
 
 ## Phase 4 — Document and verify
 
+Status: complete. Replaced the starter README with the source map, ownership notes, export policy, and workspace commands. Updated the shorthand spec and active direct-cutover plan to require named types only for demonstrated consumers, refreshed moved-file references, and replaced the proposed shorthand barrel with an owning module. Superseded adapter-first documents remain historical references.
+
+Final verification passed: patterns and Fluid builds; repository check, lint, tests, and format; planning-document formatting; and `git diff --check`. Patterns retains 21 test files / 367 tests; Fluid retains 20 test files / 508 tests. A disposable audit confirmed the same 23 source/declaration exports (15 runtime values, 8 types), no internal module re-exports, no additional entry points, and no root API test. Corrected schema goldens and production instrument code are unchanged.
+
 - Replace the starter README with a short package map, ownership notes, and export policy.
 - Update shorthand spec/planning language so it does not require gratuitous named type exports. Preserve inspectable expression data and the existing architecture.
 - Run affected package builds and tests, plus repository verification:
@@ -99,4 +103,4 @@ git diff --check
 
 No native-state implementation, compatibility fixes, legacy deletion, production cutover, or new authoring features. Export/import changes are intentional; musical semantics, validation behavior, limits, and test coverage stay intact.
 
-Done when the folders explain the package's responsibilities, the root exports have concrete consumers, intermediary barrels are gone, and verification passes.
+All four phases are complete: the folders explain the package's responsibilities, the root exports have concrete consumers, intermediary barrels are gone, and verification passes. Native-state compatibility proof and production cutover remain separate shorthand work.

@@ -87,7 +87,7 @@ interface Shorthand {
 
 The returned object is ordinary frozen data. Its `expression` is enumerable, inspectable, source-aware, and fully typed. There is no separate public shorthand AST representation: the parser directly produces the same expression model used by structured input.
 
-Fluid exports `Shorthand`, `PatternExpression`, and their supporting readonly node types. `d.shorthand()` and `d.sh()` remain the public parser entry points; a separate `parseShorthand()` function is not part of the REPL-facing API.
+Fluid exports `Shorthand`. Expression and supporting types are exported from package roots only when demonstrated consumers need those names; fully typed, inspectable data does not require a named export for every constituent type. `d.shorthand()` and `d.sh()` remain the public parser entry points; a separate `parseShorthand()` function is not part of the REPL-facing API.
 
 ### Direct strings
 
@@ -148,7 +148,7 @@ Each consumer supplies target-specific atom interpretation to the shared express
 
 ### Expression model
 
-Both frontends produce one public, readonly expression model:
+Both frontends produce one inspectable, readonly expression model. These definitions describe its shape, not a required list of package-root exports:
 
 ```ts
 type PatternExpression<T> = {
@@ -1081,7 +1081,7 @@ Owns generic event-pattern mechanics:
 
 It does not decide whether an atom is a note, sample name, variation, or XOX value.
 
-The parsed expression is public through the returned shorthand value so users and tooling can inspect it. The evaluated event-cycle IR remains an internal implementation boundary even if private package exports are required for Fluid integration.
+The parsed expression is public through the returned shorthand value so users and tooling can inspect it. The evaluated event-cycle IR remains an internal implementation boundary, not a Fluid extension API. Patterns has one curated root entry point with explicit direct re-exports justified by actual cross-package consumers; it does not expose an `/internal` subpath or re-export schema-owned types.
 
 ### `@web-audio/fluid`
 
