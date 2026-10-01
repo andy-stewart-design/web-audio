@@ -2,7 +2,7 @@
 
 ## Status and companion documents
 
-Active implementation plan. PRs 1–3 and Steps 4.1–4.2's readonly state model and pure transitions are complete. Immediate fluent transforms and read-independent behavior follow the specification; legacy getter-sensitive speed cancellation is an approved compatibility exception, not a feasibility blocker. PR 4's compiler and complete-schema replay, and PR 5's production cutover, remain pending. The separate [patterns package reorganization](../patterns-package-reorg/plan.md) is complete; file references below use the responsibility-based layout.
+Active implementation plan. PRs 1–3 and Steps 4.1–4.3's readonly state model, pure transitions, and static event compiler are complete. Immediate fluent transforms and read-independent behavior follow the specification; legacy getter-sensitive speed cancellation is an approved compatibility exception, not a feasibility blocker. PR 4's random/generated-timing compilation and complete-schema replay, and PR 5's production cutover, remain pending. The separate [patterns package reorganization](../patterns-package-reorg/plan.md) is complete; file references below use the responsibility-based layout.
 
 The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document governs delivery and supersedes the adapter-first, lane-by-lane sequence in [`plan.md`](./plan.md) and [`plan-outline.md`](./plan-outline.md). Those documents are retained as historical alternatives, not execution checklists.
 
@@ -584,20 +584,24 @@ Tests cover native state directly and 32 reproducible eight-operation legacy/nat
 
 Compile native state to the existing schema without parsing input or mutating authoring state.
 
+Status: complete in `event-state-compiler.ts`, with 38 direct native-state tests. The compiler reuses Step 4.2 timing selection, availability, shared-materialization provenance, and snapshots. Synth compilation applies authored availability without changing synth transform materialization semantics. Notes resolve final hit counts; sample names and variations retain the established compact sequences for independent engine-side hit-index wrapping. Common-length expansion and emitted event/voice budgets are checked before schema group allocation. Exact geometry stays native until numeric schema emission, retaining corrected golden offset rounding.
+
+Tests compare complete static schemas with representative corrected golden expectations, cover continuations and provenance directly, and prove compilation cannot affect later transforms or mutate/alias input data. Random sources and chance metadata fail explicitly pending Step 4.4, rather than silently losing settings. Complete shared-fixture replay remains Step 4.5; production facades and corrected goldens are unchanged.
+
 ### Tasks
 
-- [ ] Implement synth implicit versus explicit timing selection.
-- [ ] Implement sampler rest priority, density, and tie order.
-- [ ] Use defaults for timing only when no stronger source exists.
-- [ ] Expand participating cycles to a bounded common length.
-- [ ] Apply authored rests by candidate ordinal.
-- [ ] Keep continuations ordinal-occupying and externally transparent.
-- [ ] Prevent defaults from filtering candidates.
-- [ ] Fill surviving hits from fallback groups.
-- [ ] Prevent fallbacks from creating hits or activating silent patterns.
-- [ ] Resolve authored values by final hit index.
-- [ ] Apply root and scale conversion.
-- [ ] Emit existing static schema shapes and silent-bar conventions.
+- [x] Implement synth implicit versus explicit timing selection.
+- [x] Implement sampler rest priority, density, and tie order.
+- [x] Use defaults for timing only when no stronger source exists.
+- [x] Expand participating cycles to a bounded common length.
+- [x] Apply authored rests by candidate ordinal.
+- [x] Keep continuations ordinal-occupying and externally transparent.
+- [x] Prevent defaults from filtering candidates.
+- [x] Fill surviving hits from fallback groups.
+- [x] Prevent fallbacks from creating hits or activating silent patterns.
+- [x] Resolve authored values by final hit index.
+- [x] Apply root and scale conversion.
+- [x] Emit existing static schema shapes and silent-bar conventions.
 
 ### Likely files
 
@@ -608,10 +612,10 @@ Compile native state to the existing schema without parsing input or mutating au
 
 ### Verification
 
-- [ ] Construct native static states directly in tests.
-- [ ] Compare complete output with corrected golden expectations.
-- [ ] Assert compiler inputs remain unchanged.
-- [ ] Confirm the compiler has no legacy imports.
+- [x] Construct native static states directly in tests.
+- [x] Compare complete output with corrected golden expectations.
+- [x] Assert compiler inputs remain unchanged.
+- [x] Confirm the compiler has no legacy imports.
 
 ## Step 4.4 — Add random compilation and generated timing overrides
 

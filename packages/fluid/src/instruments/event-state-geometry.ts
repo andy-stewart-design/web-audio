@@ -28,7 +28,7 @@ function makeCycle<T>(patterns: readonly EventPattern<T>[]) {
     .cycle;
 }
 
-function commonLength(...lengths: number[]) {
+function getCommonEventCycleLength(...lengths: number[]) {
   let result = 1;
   for (const length of lengths) {
     if (length === 0)
@@ -200,18 +200,26 @@ function getSelectedEventTiming(state: InstrumentEventState) {
   );
 }
 
-function getFilteredEventTiming(state: InstrumentEventState) {
+function getFilteredEventTiming(
+  state: InstrumentEventState,
+  options: { readonly filterSynth?: boolean } = {},
+) {
   const selected = getSelectedEventTiming(state);
-  // Synth pitch materialization uses selected rhythm directly; sampler lanes
-  // intersect availability first. These are characterized call-order semantics.
-  if (state.type === "synth") return selected;
-  const filters = [
-    { name: "notes", source: state.notes },
-    { name: "variation", source: state.variation },
-    ...(state.sampleNames
-      ? [{ name: "sampleNames", source: state.sampleNames }]
-      : []),
-  ].flatMap(({ name, source }) => {
+  // Synth materialization uses selected rhythm directly, but compilation applies
+  // authored availability just like sampler compilation. Keep that boundary
+  // explicit rather than changing transform call-order semantics.
+  if (state.type === "synth" && !options.filterSynth) return selected;
+  const sources =
+    state.type === "synth"
+      ? [{ name: "notes", source: state.notes }]
+      : [
+          { name: "notes", source: state.notes },
+          { name: "variation", source: state.variation },
+          ...(state.sampleNames
+            ? [{ name: "sampleNames", source: state.sampleNames }]
+            : []),
+        ];
+  const filters = sources.flatMap(({ name, source }) => {
     if (
       source.intent === "default" ||
       name === selected.source ||
@@ -237,7 +245,7 @@ function getFilteredEventTiming(state: InstrumentEventState) {
       return [];
     return [{ patterns }];
   });
-  const length = commonLength(
+  const length = getCommonEventCycleLength(
     selected.cycle.patterns.length,
     ...filters.map((filter) => filter.patterns.length),
   );
@@ -297,7 +305,10 @@ function alignAvailability<T>(
     return source;
   const values = getFixedAvailability(source);
   if (!values) return source;
-  const length = commonLength(values.length, timing.patterns.length);
+  const length = getCommonEventCycleLength(
+    values.length,
+    timing.patterns.length,
+  );
   const width = (index: number) => {
     const pattern = timing.patterns[index % timing.patterns.length];
     return pattern.some((step) => step.type === "event")
@@ -349,7 +360,10 @@ function alignValues<T>(
           : [],
     ),
   );
-  const length = commonLength(values.length, timing.patterns.length);
+  const length = getCommonEventCycleLength(
+    values.length,
+    timing.patterns.length,
+  );
   const empty = (index: number) =>
     values[index % values.length].length === 0 ||
     !timing.patterns[index % timing.patterns.length].some(
@@ -440,6 +454,7 @@ function defaultSource<T>(fallback: NonEmptyGroup<T>) {
 
 export {
   makeCycle,
+  getCommonEventCycleLength,
   defaultSource,
   initialAvailability,
   getFixedAvailability,
