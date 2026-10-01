@@ -13,7 +13,7 @@ Keep one package entry point. No `/internal` subpath, wildcard exports, or new p
 
 ## Phase 1 — Curate the package API
 
-Status: complete. Root exports reduced from 48 to 23 (15 runtime values and 8 types), based on current Fluid source and test consumers. Implementations, local type definitions, and behavioral assertions are retained; folders and intermediary barrels remain for subsequent phases.
+Status: complete. Root exports reduced from 48 to 23 (15 runtime values and 8 types), based on current Fluid source and test consumers. Implementations, local type definitions, and behavioral assertions are retained.
 
 - Audit root exports against actual cross-package imports, including Fluid's isolated native decoders and tests.
 - Keep exports with demonstrated consumers. Remove unused package exports, not their implementations or local tests. Future work can add an export when it actually needs it.
@@ -37,7 +37,9 @@ These removals intentionally narrow the import API. Unknown published consumers 
 
 ## Phase 2 — Organize by responsibility
 
-Use this as a starting layout; exact filenames can evolve during the move:
+Status: complete. Moved 47 files, including all 21 colocated test files, into the responsibility-based layout. The 23 root exports and their direct re-export style are unchanged. A one-off comparison verified unchanged implementation/test tokens apart from imports, plus identical extracted speed math.
+
+Implemented layout:
 
 ```text
 src/
@@ -51,6 +53,12 @@ src/
 └── math/            # Exact rationals and numeric support
 ```
 
+Expression files are `expressions/model.ts` and `expressions/evaluate.ts`; event mechanics are `events/cycle.ts`, `events/transforms.ts`, and `events/grid.ts`. Cycle classes retain their descriptive filenames. Schema serialization helpers live in `cycles/`, and shared bounds live in root `limits.ts`.
+
+Extracted the existing speed-ratio constants, resolver, and shared numeric GCD unchanged into `math/speed-ratio.ts`. Fluent speed and native event transforms now share that numeric boundary without native code importing the fluent `Speed` module. Exact rational geometry remains separate.
+
+No new folder barrels or package entry points were introduced. Fluid imports require no changes because the root API is preserved. Phase 3 removes the intermediary barrels rather than retaining compatibility re-exports.
+
 - Keep tests beside their implementations.
 - Move event-grid mechanics out of the miscellaneous utilities bucket.
 - Keep schema serialization helpers with the cycle implementations they serve.
@@ -59,6 +67,8 @@ src/
 - Note the existing native-transform dependency on `getSpeedRatio` in the fluent `Speed` module. If separating it, extract the unchanged numeric boundary into math; do not merge its compatibility rules with the distinct exact-rational rules.
 
 ## Phase 3 — Remove indirect import routing
+
+Status: complete. Deleted `src/utils/index.ts` and the root `src/types.ts`. Shared array-cycle definitions now live in `cycles/types.ts`, which defines its own types rather than forwarding exports. Internal consumers import utilities directly from their owning modules and schema types directly from schema. Only the curated root `index.ts` re-exports other modules; all 23 package exports are preserved. Fluid imports and test mocks require no changes.
 
 - Eliminate the umbrella `types.ts` and `utils/index.ts` barrels. Move actual type definitions to their owning area rather than deleting them.
 - Inside the package, import directly from the owning module. Import schema types directly from schema.

@@ -1,23 +1,23 @@
-export { default as FixedTimingCycle } from "./fixed-timing-cycle";
+export { default as FixedTimingCycle } from "./cycles/fixed-timing-cycle";
 
-export { default as RandomCycle } from "./random-cycle";
+export { default as RandomCycle } from "./cycles/random-cycle";
 
-export { ValueCycle } from "./value-cycle";
+export { ValueCycle } from "./cycles/value-cycle";
 
-export { MaskedCycle } from "./masked-cycle";
+export { MaskedCycle } from "./cycles/masked-cycle";
 
-export type { Chord, ScheduledValue } from "./types";
+export type { Chord, ScheduledValue } from "./cycles/types";
 
 export {
   assertPatternExpressionLimits,
   type PatternExpression,
   type PatternNode,
-} from "./pattern-expression";
+} from "./expressions/model";
 
 export {
   evaluatePatternExpression,
   type AtomInterpretation,
-} from "./evaluate-pattern-expression";
+} from "./expressions/evaluate";
 
 export {
   assertEventCycleInvariants,
@@ -25,8 +25,8 @@ export {
   type StaticEventCycle,
   type RandomEventCycle,
   type RandomEventSettings,
-} from "./event-cycle";
-export { getEventPatternGeometry } from "./utils/event-grid";
+} from "./events/cycle";
+export { getEventPatternGeometry } from "./events/grid";
 
 export {
   assertCycleBarLimit,
@@ -35,4 +35,4 @@ export {
   MAX_EVENT_CYCLE_PATTERNS,
   MAX_EVENT_CYCLE_STEPS,
   MAX_EVENT_GROUP_VOICES,
-} from "./utils/cycle-limits";
+} from "./limits";
