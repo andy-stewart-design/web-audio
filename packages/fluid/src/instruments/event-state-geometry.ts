@@ -377,23 +377,35 @@ function alignValues<T>(
     values.length,
     timing.patterns.length,
   );
-  const empty = (index: number) =>
-    values[index % values.length].length === 0 ||
+  const zeroWidth = (index: number) =>
     !timing.patterns[index % timing.patterns.length].some(
       (step) => step.type === "event",
     );
+  const empty = (index: number) =>
+    values[index % values.length].length === 0 || zeroWidth(index);
   const patterns = buildPatterns<T>(
     length,
     (index) =>
-      empty(index) ? 1 : timing.patterns[index % timing.patterns.length].length,
+      zeroWidth(index)
+        ? 1
+        : timing.patterns[index % timing.patterns.length].length,
     (index) => {
-      if (empty(index)) return [REST];
+      if (zeroWidth(index)) return [REST];
+      const pattern = timing.patterns[index % timing.patterns.length];
       const bar = values[index % values.length];
+      // Empty values silence the selected grid; they do not erase its width.
+      if (bar.length === 0) return pattern.map(() => REST);
       let ordinal = 0;
-      return timing.patterns[index % timing.patterns.length].map((step) => {
-        if (step.type !== "event") return step;
-        const group = bar[ordinal++ % bar.length];
-        return group ? ({ type: "event", values: group } as const) : REST;
+      let keep = false;
+      return pattern.map((step) => {
+        if (step.type === "event") {
+          const group = bar[ordinal++ % bar.length];
+          keep = group !== undefined;
+          return group ? ({ type: "event", values: group } as const) : REST;
+        }
+        if (step.type === "rest") keep = false;
+        // A removed onset silences its entire continuation run.
+        return keep ? step : REST;
       });
     },
   );
@@ -401,13 +413,13 @@ function alignValues<T>(
     ...source,
     cycle: makeCycle(patterns),
     zeroWidthPatterns: Object.freeze(
-      Array.from({ length }, (_, index) => empty(index)),
+      Array.from({ length }, (_, index) => zeroWidth(index)),
     ),
     noteValueSlots: source.noteValueSlots
       ? makeCycle<1>(
-          patterns.map((_, index) =>
+          patterns.map((pattern, index) =>
             empty(index)
-              ? [REST]
+              ? pattern.map(() => REST)
               : timing.patterns[index % timing.patterns.length],
           ),
         )

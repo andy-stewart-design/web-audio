@@ -377,6 +377,39 @@ it("characterizes the approved synth slowdown-rest exception without changing ol
   });
 });
 
+describe("temporary fractional empty-note materialization comparisons", () => {
+  it.each(
+    feasibilityScenarios.filter((fixture) =>
+      fixture.name.includes(
+        "retain materialized timing width through fractional",
+      ),
+    ),
+  )("$name", (fixture) => {
+    for (const intermediateReads of [false, true]) {
+      const operations = fixture.operations();
+      let native = createNativeScenario(fixture);
+      let legacy = createPublicScenario(fixture);
+      for (let index = 0; index < operations.length; index++) {
+        native = applyNativeOperation(native, operations[index]);
+        legacy = applyPublicOperation(legacy, operations[index]);
+        const final = index === operations.length - 1;
+        if (!intermediateReads && !final) continue;
+        const actual = toSerializableEventPattern(
+          compileNativeScenario(native),
+        );
+        const message = `${fixture.name}, intermediateReads=${intermediateReads}, ${describeOperations(operations.slice(0, index + 1))}`;
+        expect(actual, message).toStrictEqual(
+          toSerializableEventPattern(legacy.getSchema().eventPattern),
+        );
+        if (final)
+          expect(actual, message).toStrictEqual(
+            toSerializableEventPattern(fixture.expected),
+          );
+      }
+    }
+  });
+});
+
 for (const kind of ["synth", "sampler", "generated"] as const) {
   const input = {
     instrument: kind === "synth" ? ("synth" as const) : ("sampler" as const),

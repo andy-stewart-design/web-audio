@@ -449,6 +449,66 @@ const feasibilityScenarios = [
       sampleNames: names(4, ["loop"]),
     },
   },
+  {
+    name: "leading empty notes retain materialized timing width through fractional acceleration",
+    instrument: "sampler",
+    sampleName: "bd",
+    operations: () => [
+      { method: "notes", args: [[], [60]] },
+      { method: "xox", args: [[1, 0, 1]] },
+      { method: "fast", args: [2 / 3] },
+    ],
+    expected: {
+      timing: { cycle: [[], bar([0, 0.5], 1 / 6), [hit(0.5, 1 / 6)]] },
+      sampleNames: names(3),
+      notes: { type: "static", cycle: [[null], [[60], [60]], [[60]]] },
+    },
+  },
+  {
+    name: "trailing empty notes retain materialized timing width through fractional acceleration",
+    instrument: "sampler",
+    sampleName: "bd",
+    operations: () => [
+      { method: "notes", args: [[60], []] },
+      { method: "xox", args: [[1, 0, 1]] },
+      { method: "fast", args: [2 / 3] },
+    ],
+    expected: {
+      timing: { cycle: [[hit(0, 1 / 6)], bar([0, 0.5], 1 / 6), []] },
+      sampleNames: names(3),
+      notes: { type: "static", cycle: [[[60]], [[60], [60]], [null]] },
+    },
+  },
+  {
+    name: "leading empty notes retain materialized timing width through fractional slowdown",
+    instrument: "sampler",
+    sampleName: "bd",
+    operations: () => [
+      { method: "notes", args: [[], [60]] },
+      { method: "xox", args: [[1, 0, 1]] },
+      { method: "slow", args: [3 / 2] },
+    ],
+    expected: {
+      timing: { cycle: [[], bar([0, 0.5], 1 / 6), [hit(0.5, 1 / 6)]] },
+      sampleNames: names(3),
+      notes: { type: "static", cycle: [[null], [[60], [60]], [[60]]] },
+    },
+  },
+  {
+    name: "trailing empty notes retain materialized timing width through fractional slowdown",
+    instrument: "sampler",
+    sampleName: "bd",
+    operations: () => [
+      { method: "notes", args: [[60], []] },
+      { method: "xox", args: [[1, 0, 1]] },
+      { method: "slow", args: [3 / 2] },
+    ],
+    expected: {
+      timing: { cycle: [[hit(0, 1 / 6)], bar([0, 0.5], 1 / 6), []] },
+      sampleNames: names(3),
+      notes: { type: "static", cycle: [[[60]], [[60], [60]], [null]] },
+    },
+  },
 ] satisfies EventSchemaFixture[];
 
 const immediateSpeedScenarios = [
