@@ -987,6 +987,8 @@ Successive fluent `.fast()` and `.slow()` calls operate on the already-materiali
 
 This does not change the shorthand evaluator's exact cancellation guarantee for an uninterrupted `*`/`/` chain on one expression node.
 
+Authored availability also survives synth note materialization. Slowdown-created within-bar rests filter replacement timing by candidate ordinal, while inherited timing gaps remain transparent. **Approved compatibility exception:** legacy synth compilation compacted materialized note values and lost this rest filtering; native compilation follows the same specified availability policy as samplers. For example, `.synth().notes([60, 64]).slow(2).xox(rand().bin().steps(4).chance(1))` emits offsets `0` and `1/2` in both bars, each with duration `1/4`, rather than the legacy four quarter-bar hits per bar. This exception preserves the corrected PR 2 goldens unchanged and requires no repair of the superseded implementation.
+
 ## Target-specific atom interpretation
 
 ### Notes
@@ -1122,7 +1124,8 @@ Existing behavior is preserved unless listed below.
 4. A single string passed to a supported method is shorthand.
 5. Sample aliases adopt the notation-safe alphanumeric convention.
 6. `:` is rejected in `.name()` and sample-bank keys; constructor `name:variation` shorthand remains supported.
-7. Fluent transforms materialize immediately and reads are side-effect-free. Legacy deferred speed cancellation that depended on getter calls is not preserved. Shorthand's uninterrupted expression speed-chain cancellation remains required.
+7. Fluent transforms materialize immediately and reads are side-effect-free. Legacy deferred speed cancellation that depended on getter calls is not preserved, including deferred changes to implicit stored rhythm used by later fixed rhythm setters. Shorthand's uninterrupted expression speed-chain cancellation remains required.
+8. Synth note materialization preserves authored availability, including slowdown-created rests filtering replacement timing. Legacy synth compilation's loss of this filtering is not preserved; inherited timing gaps remain transparent.
 
 Each change requires focused tests and release documentation. The specification is authoritative when legacy behavior conflicts with it; do not repair superseded implementations or add native machinery solely to reproduce a legacy defect. Existing corrected golden fixtures remain unchanged unless a specific, reviewed specification change requires a new expectation.
 
