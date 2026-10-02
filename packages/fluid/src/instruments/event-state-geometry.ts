@@ -200,26 +200,25 @@ function getSelectedEventTiming(state: InstrumentEventState) {
   );
 }
 
-function getFilteredEventTiming(
+/** Shared availability policy for native cycles and external generated timing. */
+function getEventAvailabilityFilters(
   state: InstrumentEventState,
-  options: { readonly filterSynth?: boolean } = {},
+  selected: {
+    readonly source?: "notes" | "sampleNames" | "variation";
+    readonly materializedTiming?: symbol;
+  } = {},
 ) {
-  const selected = getSelectedEventTiming(state);
-  // Synth materialization uses selected rhythm directly, but compilation applies
-  // authored availability just like sampler compilation. Keep that boundary
-  // explicit rather than changing transform call-order semantics.
-  if (state.type === "synth" && !options.filterSynth) return selected;
-  const sources =
-    state.type === "synth"
-      ? [{ name: "notes", source: state.notes }]
-      : [
-          { name: "notes", source: state.notes },
-          { name: "variation", source: state.variation },
-          ...(state.sampleNames
-            ? [{ name: "sampleNames", source: state.sampleNames }]
-            : []),
-        ];
-  const filters = sources.flatMap(({ name, source }) => {
+  const sources: { name: string; source: EventSource<unknown> }[] = [
+    { name: "notes", source: state.notes },
+  ];
+
+  if (state.type === "sampler") {
+    sources.push({ name: "variation", source: state.variation });
+    if (state.sampleNames) {
+      sources.push({ name: "sampleNames", source: state.sampleNames });
+    }
+  }
+  return sources.flatMap(({ name, source }) => {
     if (
       source.intent === "default" ||
       name === selected.source ||
@@ -228,6 +227,9 @@ function getFilteredEventTiming(
     )
       return [];
     if (source.cycle.type === "random-event-cycle") {
+      // Explicit synth timing sets random note counts, including originally empty
+      // bars. Samplers instead retain random zero-count availability suppression.
+      if (state.type === "synth") return [];
       return [
         {
           patterns: source.cycle.candidateCycle.patterns.map((pattern) => [
@@ -245,6 +247,17 @@ function getFilteredEventTiming(
       return [];
     return [{ patterns }];
   });
+}
+
+function getFilteredEventTiming(
+  state: InstrumentEventState,
+  options: { readonly filterSynth?: boolean } = {},
+) {
+  const selected = getSelectedEventTiming(state);
+  // Synth materialization uses selected rhythm directly, but compilation applies
+  // authored availability. Keep that boundary explicit for transform call order.
+  if (state.type === "synth" && !options.filterSynth) return selected;
+  const filters = getEventAvailabilityFilters(state, selected);
   const length = getCommonEventCycleLength(
     selected.cycle.patterns.length,
     ...filters.map((filter) => filter.patterns.length),
@@ -460,6 +473,7 @@ export {
   getFixedAvailability,
   releaseSourceTiming,
   getSelectedEventTiming,
+  getEventAvailabilityFilters,
   getFilteredEventTiming,
   materializeEventSources,
 };

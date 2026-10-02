@@ -1,41 +1,187 @@
 import {
+  assertCycleBarLimit,
+  assertEventCycleInvariants,
   getEventPatternGeometry,
+  MAX_RANDOM_EVENT_SETTINGS_ITEMS,
   MAX_EVENT_CYCLE_STEPS,
   MAX_EVENT_CYCLE_VOICES,
   type NonEmptyGroup,
+  type RandomEventCycle,
+  type RandomEventSettings,
   type StaticEventCycle,
 } from "@web-audio/patterns";
 import type {
+  RandomNumberPattern,
   SamplerEventPattern,
   StaticPattern,
   SynthEventPattern,
   TimingStep,
 } from "@web-audio/schema";
+import type { TimingChanceCondition } from "@/types";
 import type {
   EventSource,
-  InstrumentEventState,
+  GeneratedTimingOverride,
   PitchState,
+  SamplerEventCompilerInput,
   SamplerEventState,
   StaticEventSource,
   SynthEventState,
 } from "./event-state";
 import {
   getCommonEventCycleLength,
+  getEventAvailabilityFilters,
   getFilteredEventTiming,
 } from "./event-state-geometry";
 import { snapshotEventState } from "./event-state-snapshot";
 
-function requireStaticSource<T>(source: EventSource<T>) {
-  if (source.cycle.type !== "static-event-cycle")
-    throw new Error("[Fluid] Random event compilation is not implemented yet.");
-  return { ...source, cycle: source.cycle };
+function numericLane(source: EventSource<number>, notes: boolean) {
+  if (source.cycle.type === "random-event-cycle")
+    return {
+      type: "random",
+      cycle: source.cycle,
+      counts: source.cycle.candidateCycle.patterns.map(
+        (pattern) => pattern.filter((step) => step.type === "event").length,
+      ),
+    } as const;
+  const fixed = { ...source, cycle: source.cycle };
+  return {
+    type: "static",
+    groups: notes ? noteGroups(fixed) : valueGroups(fixed),
+  } as const;
 }
 
-function assertStaticTiming(state: InstrumentEventState) {
-  if (state.timing.condition)
+function laneLength(lane: ReturnType<typeof numericLane>) {
+  return lane.type === "static" ? lane.groups.length : lane.counts.length;
+}
+
+function laneSilent(lane: ReturnType<typeof numericLane>, index: number) {
+  return lane.type === "static"
+    ? lane.groups[index % lane.groups.length].length === 0
+    : lane.counts[index % lane.counts.length] === 0;
+}
+
+function compileCondition(condition: TimingChanceCondition | undefined) {
+  if (!condition || condition.probability === 0 || condition.probability === 1)
+    return undefined;
+  return {
+    ...condition,
+    segments: condition.segments.map((segment) => ({ ...segment })),
+  };
+}
+
+function compileRandomValues(
+  settings: RandomEventSettings,
+  valuesPerBar: number[],
+) {
+  return {
+    ...settings,
+    type: "random-number",
+    valuesPerBar,
+    segments: settings.segments.map((segment) => ({ ...segment })),
+    range: settings.range ? { ...settings.range } : undefined,
+    valueMap: settings.valueMap ? [...settings.valueMap] : undefined,
+  } satisfies RandomNumberPattern;
+}
+
+function randomNoteSettings(cycle: RandomEventCycle, pitch: PitchState) {
+  const settings = cycle.settings;
+  // Retain established random pitch semantics: binary values map degrees 0/1;
+  // scale-based numeric generation maps a bounded, max-exclusive degree range.
+  // Without a scale, nonbinary generation retains its authored settings.
+  if (settings.dataType === "binary") {
+    const mapped = {
+      ...settings,
+      valueMap: [pitchValue(0, pitch), pitchValue(1, pitch)],
+      range: undefined,
+    };
+    assertEventCycleInvariants({ ...cycle, settings: mapped });
+    return mapped;
+  }
+  if (!pitch.scale) return settings;
+  const min = Math.floor(settings.range?.min ?? 0);
+  const max = Math.ceil(settings.range?.max ?? pitch.scale.length);
+  const length = max - min;
+  if (
+    !Number.isSafeInteger(min) ||
+    !Number.isSafeInteger(max) ||
+    length <= 0 ||
+    length > MAX_RANDOM_EVENT_SETTINGS_ITEMS
+  )
     throw new Error(
-      "[Fluid] Timing chance compilation is not implemented yet.",
+      `[Fluid] Random note scale map requires 1 to ${MAX_RANDOM_EVENT_SETTINGS_ITEMS} safely representable degrees.`,
     );
+  const mapped = {
+    ...settings,
+    range: undefined,
+    valueMap: Array.from({ length }, (_, index) =>
+      pitchValue(index + min, pitch),
+    ),
+  };
+  assertEventCycleInvariants({ ...cycle, settings: mapped });
+  return mapped;
+}
+
+/** Generated gates stay schema geometry, including durations crossing bars. */
+function filteredGeneratedTiming(
+  state: SamplerEventState,
+  override: GeneratedTimingOverride,
+) {
+  const input = override.cycle;
+  if (input.length === 0)
+    throw new Error("[Fluid] Generated timing must contain at least one bar.");
+  assertCycleBarLimit(input.length);
+  const inputBudget = outputBudget("generated timing");
+  for (const bar of input) {
+    inputBudget(bar.length, 0);
+    let previousOffset = -1;
+    for (const step of bar) {
+      if (
+        !Number.isFinite(step.offset) ||
+        step.offset < 0 ||
+        step.offset >= 1 ||
+        !Number.isFinite(step.duration) ||
+        step.duration <= 0
+      )
+        throw new Error(
+          "[Fluid] Generated timing requires finite offsets in [0, 1) and positive finite durations.",
+        );
+      if (step.offset <= previousOffset)
+        throw new Error(
+          "[Fluid] Generated timing offsets must be strictly increasing within each bar.",
+        );
+      previousOffset = step.offset;
+    }
+  }
+  const filters = getEventAvailabilityFilters(state);
+  const length = getCommonEventCycleLength(
+    input.length,
+    ...filters.map((filter) => filter.patterns.length),
+  );
+  const budget = outputBudget("generated timing");
+  for (let index = 0; index < length; index++)
+    budget(input[index % input.length].length, 0);
+  return {
+    condition: undefined,
+    cycle: Array.from({ length }, (_, index) =>
+      input[index % input.length]
+        .filter((_, ordinal) =>
+          filters.every((filter) => {
+            const bar = filter.patterns[index % filter.patterns.length];
+            return bar[ordinal % bar.length];
+          }),
+        )
+        .map((step) => ({ ...step })),
+    ),
+  };
+}
+
+function samplerTiming(
+  state: SamplerEventState,
+  override: GeneratedTimingOverride | undefined,
+) {
+  if (override) return filteredGeneratedTiming(state, override);
+  const selected = getFilteredEventTiming(state);
+  return { cycle: timingBars(selected.cycle), condition: selected.condition };
 }
 
 function activeGroups<T>(cycle: StaticEventCycle<T>) {
@@ -108,16 +254,52 @@ function wrappingVoices<T>(groups: readonly NonEmptyGroup<T>[], hits: number) {
 }
 
 function assertNoteBudget(
-  groups: readonly (readonly NonEmptyGroup<number>[])[],
-  timing: readonly (readonly TimingStep[])[],
+  lane: ReturnType<typeof numericLane>,
+  hits: number,
+  index: number,
+  budget: ReturnType<typeof outputBudget>,
+) {
+  if (lane.type === "random") budget(hits, hits);
+  else
+    budget(
+      Math.max(1, hits),
+      wrappingVoices(lane.groups[index % lane.groups.length], hits),
+    );
+}
+
+function compileNoteLane(
+  lane: ReturnType<typeof numericLane>,
+  cycle: TimingStep[][],
+  pitch: PitchState,
+) {
+  return lane.type === "static"
+    ? compileNotes(lane.groups, cycle, cycle.length, pitch)
+    : compileRandomValues(
+        randomNoteSettings(lane.cycle, pitch),
+        cycle.map((bar) => bar.length),
+      );
+}
+
+function compileVariationLane(
+  lane: ReturnType<typeof numericLane>,
   length: number,
 ) {
-  const budget = outputBudget("notes");
-  for (let index = 0; index < length; index++) {
-    const bar = groups[index % groups.length];
-    const hits = bar.length === 0 ? 0 : timing[index % timing.length].length;
-    budget(Math.max(1, hits), wrappingVoices(bar, hits));
+  if (lane.type === "static") {
+    assertValueBudget(lane.groups, length, "variations");
+    return compileValues(lane.groups, length);
   }
+  const budget = outputBudget("random variations");
+  for (let index = 0; index < length; index++) {
+    const count = lane.counts[index % lane.counts.length];
+    budget(count, count);
+  }
+  return compileRandomValues(
+    lane.cycle.settings,
+    Array.from(
+      { length },
+      (_, index) => lane.counts[index % lane.counts.length],
+    ),
+  );
 }
 
 function compileNotes(
@@ -167,35 +349,43 @@ function compileValues<T>(
   } satisfies StaticPattern<T[] | null>;
 }
 
-/** Compile native static synth state; input structure and payloads remain untouched. */
+/** Compile native synth state without evaluating random values or timing chance. */
 function compileSynthEventState(input: SynthEventState) {
-  assertStaticTiming(input);
   const state = snapshotEventState(input);
-  const source = requireStaticSource(state.notes);
-  const groups = noteGroups(source);
+  const notes = numericLane(state.notes, true);
   const selected = getFilteredEventTiming(state, { filterSynth: true });
   const timing = timingBars(selected.cycle);
-  const length = getCommonEventCycleLength(timing.length, groups.length);
-  assertNoteBudget(groups, timing, length);
+  const length = getCommonEventCycleLength(timing.length, laneLength(notes));
+  const silent = (index: number) =>
+    notes.type === "static" && laneSilent(notes, index);
+  const timingBudget = outputBudget("timing");
+  const noteBudget = outputBudget("notes");
+  for (let index = 0; index < length; index++) {
+    const hits = silent(index) ? 0 : timing[index % timing.length].length;
+    timingBudget(hits, 0);
+    assertNoteBudget(notes, hits, index, noteBudget);
+  }
   const cycle = Array.from({ length }, (_, index) =>
-    groups[index % groups.length].length === 0
+    silent(index)
       ? []
       : timing[index % timing.length].map((step) => ({ ...step })),
   );
   return {
-    timing: { cycle },
-    notes: compileNotes(groups, cycle, length, state.pitch),
+    timing: { cycle, condition: compileCondition(selected.condition) },
+    notes: compileNoteLane(notes, cycle, state.pitch),
   } satisfies SynthEventPattern;
 }
 
 /** Names/variations retain compact value sequences; notes resolve final hit counts. */
-function compileSamplerEventState(input: SamplerEventState) {
-  assertStaticTiming(input);
+function compileSamplerEventState(
+  input: SamplerEventState,
+  { timingOverride }: Omit<SamplerEventCompilerInput, "state"> = {},
+) {
   const state = snapshotEventState(input);
   if (!state.sampleNames)
     throw new Error("[Sampler] sample name is required before getSchema().");
-  const source = requireStaticSource(state.notes);
-  const variation = requireStaticSource(state.variation);
+  const source = state.notes;
+  const variation = state.variation;
   const names = valueGroups(state.sampleNames);
   if (!names.some((bar) => bar.length > 0))
     throw new Error(
@@ -207,51 +397,46 @@ function compileSamplerEventState(input: SamplerEventState) {
     variation.intent === "default" &&
     variation.fallback.length === 1 &&
     variation.fallback[0] === 0;
-  const notes = noteGroups(source);
-  const variations = omitVariation ? undefined : valueGroups(variation);
-  const timing = timingBars(getFilteredEventTiming(state).cycle);
+  const notes = numericLane(source, true);
+  const variations = omitVariation ? undefined : numericLane(variation, false);
+  const selected = samplerTiming(state, timingOverride);
+  const timing = selected.cycle;
   const length = getCommonEventCycleLength(
     timing.length,
     names.length,
-    includeNotes ? notes.length : 1,
-    variations?.length ?? 1,
+    includeNotes ? laneLength(notes) : 1,
+    variations ? laneLength(variations) : 1,
   );
   // Empty authored value bars suppress hits even when empty-bar provenance makes
   // their availability transparent. Fallbacks never create or activate timing.
   const silent = (index: number) =>
     names[index % names.length].length === 0 ||
-    (source.intent === "authored" &&
-      notes[index % notes.length].length === 0) ||
-    (variations !== undefined &&
-      variations[index % variations.length].length === 0);
+    (source.intent === "authored" && laneSilent(notes, index)) ||
+    (variations !== undefined && laneSilent(variations, index));
   // Budget the final expanded output before allocating schema value groups.
   const timingBudget = outputBudget("timing");
   const noteBudget = outputBudget("notes");
   for (let index = 0; index < length; index++) {
     const hits = silent(index) ? 0 : timing[index % timing.length].length;
     timingBudget(hits, 0);
-    if (includeNotes)
-      noteBudget(
-        Math.max(1, hits),
-        wrappingVoices(notes[index % notes.length], hits),
-      );
+    if (includeNotes) assertNoteBudget(notes, hits, index, noteBudget);
   }
   assertValueBudget(names, length, "sample names");
-  if (variations) assertValueBudget(variations, length, "variations");
+  const variationIndices = variations
+    ? compileVariationLane(variations, length)
+    : undefined;
   const cycle = Array.from({ length }, (_, index) =>
     silent(index)
       ? []
       : timing[index % timing.length].map((step) => ({ ...step })),
   );
   return {
-    timing: { cycle },
+    timing: { cycle, condition: compileCondition(selected.condition) },
     sampleNames: compileValues(names, length),
     notes: includeNotes
-      ? compileNotes(notes, cycle, length, state.pitch)
+      ? compileNoteLane(notes, cycle, state.pitch)
       : undefined,
-    variationIndices: variations
-      ? compileValues(variations, length)
-      : undefined,
+    variationIndices,
   } satisfies SamplerEventPattern;
 }
 

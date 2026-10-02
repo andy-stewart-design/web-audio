@@ -2,7 +2,7 @@
 
 ## Status and companion documents
 
-Active implementation plan. PRs 1–3 and Steps 4.1–4.3's readonly state model, pure transitions, and static event compiler are complete. Immediate fluent transforms and read-independent behavior follow the specification; legacy getter-sensitive speed cancellation is an approved compatibility exception, not a feasibility blocker. PR 4's random/generated-timing compilation and complete-schema replay, and PR 5's production cutover, remain pending. The separate [patterns package reorganization](../patterns-package-reorg/plan.md) is complete; file references below use the responsibility-based layout.
+Active implementation plan. PRs 1–3 and Steps 4.1–4.4's readonly state model, pure transitions, and static/random event compiler with generated timing overrides are complete. Immediate fluent transforms and read-independent behavior follow the specification; legacy getter-sensitive speed cancellation is an approved compatibility exception, not a feasibility blocker. PR 4's complete-schema replay and PR 5's production cutover remain pending. The separate [patterns package reorganization](../patterns-package-reorg/plan.md) is complete; file references below use the responsibility-based layout.
 
 The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document governs delivery and supersedes the adapter-first, lane-by-lane sequence in [`plan.md`](./plan.md) and [`plan-outline.md`](./plan-outline.md). Those documents are retained as historical alternatives, not execution checklists.
 
@@ -584,9 +584,9 @@ Tests cover native state directly and 32 reproducible eight-operation legacy/nat
 
 Compile native state to the existing schema without parsing input or mutating authoring state.
 
-Status: complete in `event-state-compiler.ts`, with 38 direct native-state tests. The compiler reuses Step 4.2 timing selection, availability, shared-materialization provenance, and snapshots. Synth compilation applies authored availability without changing synth transform materialization semantics. Notes resolve final hit counts; sample names and variations retain the established compact sequences for independent engine-side hit-index wrapping. Common-length expansion and emitted event/voice budgets are checked before schema group allocation. Exact geometry stays native until numeric schema emission, retaining corrected golden offset rounding.
+Status: complete in `event-state-compiler.ts`, with direct native-state tests. The compiler reuses Step 4.2 timing selection, availability, shared-materialization provenance, and snapshots. Synth compilation applies authored availability without changing synth transform materialization semantics. Notes resolve final hit counts; sample names and variations retain the established compact sequences for independent engine-side hit-index wrapping. Common-length expansion and emitted event/voice budgets are checked before schema group allocation. Exact geometry stays native until numeric schema emission, retaining corrected golden offset rounding.
 
-Tests compare complete static schemas with representative corrected golden expectations, cover continuations and provenance directly, and prove compilation cannot affect later transforms or mutate/alias input data. Random sources and chance metadata fail explicitly pending Step 4.4, rather than silently losing settings. Complete shared-fixture replay remains Step 4.5; production facades and corrected goldens are unchanged.
+Tests compare complete static schemas with representative corrected golden expectations, cover continuations and provenance directly, and prove compilation cannot affect later transforms or mutate/alias input data. Random sources and chance metadata are now supported by Step 4.4; its implementation removed the temporary unsupported-branch guards and their test. Complete shared-fixture replay remains Step 4.5; production facades and corrected goldens are unchanged.
 
 ### Tasks
 
@@ -623,16 +623,24 @@ Tests compare complete static schemas with representative corrected golden expec
 
 Complete the compiler for random lanes, chance timing, and generated sampler timing.
 
+Status: complete in `event-state-compiler.ts`, with 80 passing compiler tests across static, random, chance, and generated timing cases. Production synth/sampler getters and corrected golden expectations are unchanged; complete shared-fixture replay remains Step 4.5.
+
+Random notes use surviving fixed-candidate counts; random variations preserve authored per-bar counts for independent wrapping. Both retain cloned generation metadata, including segments, ranges, maps, quantization, algorithms, and order. Binary/scale note maps follow the established pitch-conversion policy, with generated scale maps bounded before allocation. Explicit synth rhythm replaces random note counts even in originally empty bars; sampler random zero-count bars suppress candidates. Probability zero compiles to silence, probability one omits a redundant condition, and intermediate probabilities remain one runtime timing condition after fixed filtering. The compiler never generates random decisions or values.
+
+`compileSamplerEventState(state, { timingOverride })` accepts readonly generated schema geometry outside authored IR. Overrides take priority over stored rhythm/chance, preserve gates crossing bars, and share native availability policy with ordinary compilation. Input geometry, common-length expansion, and emitted event/count budgets are validated before expansion. Compilation never stores, freezes, mutates, or aliases the override. Chop/fit exemption goldens and read-independent subsequent transforms are covered directly.
+
+A matching complete compiler expectation and retained `resolve-sampler-events.test.ts` regression demonstrate that middle chance misses consume no random notes, variations, or sample names. Audio-engine production code and schema types remain unchanged.
+
 ### Tasks
 
-- [ ] Preserve random notes and variations as random schemas.
-- [ ] Preserve values-per-pattern, segments, ranges, maps, and integer settings.
-- [ ] Preserve random timing as one runtime condition.
-- [ ] Apply fixed availability before runtime chance.
-- [ ] Ensure random misses consume no final values.
-- [ ] Accept chop/fit timing as a separate override.
-- [ ] Preserve optional sampler notes and default variation omission.
-- [ ] Cover random zero-count and silent-pattern conventions.
+- [x] Preserve random notes and variations as random schemas.
+- [x] Preserve values-per-pattern, segments, ranges, maps, and integer settings.
+- [x] Preserve random timing as one runtime condition.
+- [x] Apply fixed availability before runtime chance.
+- [x] Ensure random misses consume no final values.
+- [x] Accept chop/fit timing as a separate override.
+- [x] Preserve optional sampler notes and default variation omission.
+- [x] Cover random zero-count and silent-pattern conventions.
 
 ### Likely files
 
@@ -643,10 +651,10 @@ Complete the compiler for random lanes, chance timing, and generated sampler tim
 
 ### Verification
 
-- [ ] Compare complete random output with corrected golden expectations.
-- [ ] Cover generated chop and fit timing exemptions.
-- [ ] Run new compiler tests over the full semantic matrix.
-- [ ] Confirm production `getSchema()` still uses the legacy path.
+- [x] Compare complete random output with corrected golden expectations.
+- [x] Cover generated chop and fit timing exemptions.
+- [x] Run new compiler tests over the full semantic matrix.
+- [x] Confirm production `getSchema()` still uses the legacy path.
 
 ## Step 4.5 — Replay complete native scenarios before cutover
 
