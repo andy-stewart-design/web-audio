@@ -1,6 +1,6 @@
 import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it, vi } from "vitest";
-import Parameter from "@/patterns/parameter";
+import Parameter from "@/parameters/parameter";
 import {
   getChopSequenceSchema,
   getChopTiming,

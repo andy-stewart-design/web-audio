@@ -3,21 +3,21 @@ import {
   assertEventCycleInvariants,
   type EventCycleTransform,
 } from "@web-audio/patterns";
-import { decodeNotesInputGeometry } from "@/patterns/decode-structured-input";
-import { decodeXoxInputGeometry } from "@/patterns/decode-xox-input";
-import type { InstrumentEventState } from "./event-state";
-import { makeCycle, materializeEventSources } from "./event-state-geometry";
+import { decodeNotesInputGeometry } from "@/inputs/decode-structured-input";
+import { decodeXoxInputGeometry } from "@/inputs/decode-xox-input";
+import type { InstrumentEventState } from "@/events/state";
+import { makeCycle, materializeEventSources } from "@/events/geometry";
 import {
   createSamplerEventState,
   createSynthEventState,
   replaceEventNotes,
   replaceEventTiming,
   transformEventState,
-} from "./event-state-transitions";
+} from "@/events/transitions";
 import {
   compileSamplerEventState,
   compileSynthEventState,
-} from "./event-state-compiler";
+} from "@/events/compiler";
 
 const rest = { type: "rest" } as const;
 const continuation = { type: "continuation" } as const;

@@ -1,7 +1,7 @@
 import { RandomCycle } from "@web-audio/patterns";
 import Envelope from "@/automations/envelope";
 import Lfo from "@/automations/lfo";
-import { MidiCc } from "@/midi";
+import { MidiCc } from "@/midi/builders";
 
 function isRandomCycleTuple<T>(v: unknown[]): v is [T] {
   return v.length === 1 && v[0] instanceof RandomCycle;

@@ -16,17 +16,17 @@ import type {
   EventSource,
   SamplerEventState,
   SynthEventState,
-} from "./event-state";
-import { makeCycle } from "./event-state-geometry";
+} from "@/events/state";
+import { makeCycle } from "@/events/geometry";
 import {
   compileSamplerEventState,
   compileSynthEventState,
-} from "./event-state-compiler";
+} from "@/events/compiler";
 import {
   composeEventTiming,
   replaceEventTiming,
   transformEventState,
-} from "./event-state-transitions";
+} from "@/events/transitions";
 import { getChopTiming, getDistributedTiming } from "./sampler-utils";
 
 const event = <T>(...values: [T, ...T[]]) =>

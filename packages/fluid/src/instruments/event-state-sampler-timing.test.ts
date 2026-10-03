@@ -3,13 +3,13 @@ import {
   createSamplerEventState,
   replaceEventNotes,
   setEventRoot,
-} from "./event-state-transitions";
-import { decodeNotesInputGeometry } from "@/patterns/decode-structured-input";
+} from "@/events/transitions";
+import { decodeNotesInputGeometry } from "@/inputs/decode-structured-input";
 import {
   getGeneratedSamplerTiming,
   setSamplerEventChop,
   setSamplerEventFit,
-} from "./event-state-sampler-timing";
+} from "./sampler-event-timing";
 
 const hit = (offset: number, duration: number) => ({ offset, duration });
 

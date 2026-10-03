@@ -8,8 +8,8 @@ import type { RandomCycle } from "@web-audio/patterns";
 import type { ChanceCondition } from "@web-audio/schema";
 import type Envelope from "./automations/envelope";
 import type Lfo from "./automations/lfo";
-import type { MidiCc } from "./midi";
-import type Parameter from "./patterns/parameter";
+import type { MidiCc } from "./midi/builders";
+import type Parameter from "./parameters/parameter";
 import type { scaleAliasMap } from "./utils/get-scale";
 
 /** Internal native timing metadata, separate from numeric random event sources. */

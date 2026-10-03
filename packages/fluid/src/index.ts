@@ -6,7 +6,7 @@ import Bus from "./buses/bus";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
 import Instrument from "./instruments/instrument";
-import { MidiBuilders } from "./midi";
+import { MidiBuilders } from "./midi/builders";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import {

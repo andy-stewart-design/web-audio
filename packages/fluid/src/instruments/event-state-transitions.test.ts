@@ -10,9 +10,9 @@ import {
   decodeSampleNamesInput,
   decodeVariationsInput,
   decodeVariationsInputGeometry,
-} from "@/patterns/decode-structured-input";
-import { decodeXoxInputGeometry } from "@/patterns/decode-xox-input";
-import type { InstrumentEventState, SamplerEventState } from "./event-state";
+} from "@/inputs/decode-structured-input";
+import { decodeXoxInputGeometry } from "@/inputs/decode-xox-input";
+import type { InstrumentEventState, SamplerEventState } from "@/events/state";
 import {
   createSamplerEventState,
   createSynthEventState,
@@ -24,13 +24,13 @@ import {
   setEventRoot,
   setEventScale,
   transformEventState,
-} from "./event-state-transitions";
+} from "@/events/transitions";
 import {
   getFixedAvailability,
   getFilteredEventTiming,
   getSelectedEventTiming,
   makeCycle,
-} from "./event-state-geometry";
+} from "@/events/geometry";
 import Sampler from "./sampler";
 import Synthesizer from "./synthesizer";
 import AuthoredEventValues from "@/patterns/authored-event-values";

@@ -26,13 +26,13 @@ import type {
   SamplerEventState,
   StaticEventSource,
   SynthEventState,
-} from "./event-state";
+} from "./state";
 import {
   getCommonEventCycleLength,
   getEventAvailabilityFilters,
   getFilteredEventTiming,
-} from "./event-state-geometry";
-import { snapshotEventState } from "./event-state-snapshot";
+} from "./geometry";
+import { snapshotEventState } from "./snapshot";
 
 function numericLane(source: EventSource<number>, notes: boolean) {
   if (source.cycle.type === "random-event-cycle")

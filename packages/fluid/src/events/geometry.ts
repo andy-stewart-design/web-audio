@@ -11,7 +11,7 @@ import type {
   EventSource,
   InstrumentEventState,
   LaneAvailability,
-} from "./event-state";
+} from "./state";
 
 const REST = Object.freeze({ type: "rest" } as const);
 const ONSET = Object.freeze({

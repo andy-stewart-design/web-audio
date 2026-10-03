@@ -2,9 +2,9 @@
 
 ## Intent and status
 
-Proposed, not implemented. A standalone, behavior-preserving cleanup between shorthand PR 4 (native state/compiler) and PR 5 (atomic production cutover), analogous to the completed patterns package reorganization.
+In progress: Step 1 is complete; Steps 2–5 remain pending. A standalone, behavior-preserving cleanup between shorthand PR 4 (native state/compiler) and PR 5 (atomic production cutover), analogous to the completed patterns package reorganization.
 
-PR 4 is currently open as [#55](https://github.com/andy-stewart-design/web-audio/pull/55). Base the reorganization on its merged result, then start PR 5 from the reorganized layout. Do not add the reorganization to PR 4 or combine it with production wiring.
+PR 4 merged as [#55](https://github.com/andy-stewart-design/web-audio/pull/55). This reorganization starts from its merged result; PR 5 starts from the completed reorganized layout. Do not combine this cleanup with production wiring.
 
 The aim is to make ownership obvious from paths, not introduce more architectural layers. Keep the existing single package entry point, default `Drome` export, authoring API, musical behavior, validation, limits, and test assertions unchanged.
 
@@ -126,7 +126,7 @@ Use domain-local `__tests__/`, not one large package-wide directory mirroring ev
 
 Keep tests inside `src` so the current TypeScript project continues to check them. Vitest already discovers `*.test.ts` recursively; verify all 27 files and the same 896 Fluid tests remain discovered after the moves. Verify that the library build includes no test-support code or public test exports. Do not exclude tests from type checking just to simplify configuration.
 
-This is a deliberate Fluid convention change; patterns can keep its existing colocated tests. No repository-wide test migration is required.
+Adopt this as the preferred repository convention. Move tests in the separate `packages/patterns` package—not just `packages/fluid/src/patterns/`—into domain-local `__tests__/` folders in this reorganization too, such as `packages/patterns/src/events/__tests__/` and `packages/patterns/src/cycles/operations/__tests__/`. Other packages adopt the convention as their relevant areas are worked on; no repository-wide migration is required.
 
 ### 3. MIDI gets a folder, not speculative fragmentation
 
@@ -158,18 +158,26 @@ Do not spend this cleanup moving old authored wrappers into a new `legacy/` arch
 
 Use reviewable mechanical commits within one reorganization PR:
 
-1. Move native event machinery, input decoders, processing parameters, and MIDI to their owners; update imports and native sampler configuration paths.
-2. Move all tests and test support to explicit test directories, keeping fixtures, scenario names, expected schemas, and assertions unchanged.
-3. Relocate pitch/sample/input support and type definitions; extract `Drome` unchanged and reduce root `index.ts` to its existing public contract.
-4. Update Fluid's README with the source map and pnpm commands. Refresh the active shorthand spec/direct-cutover plan's file references and PR 5 deletion/coverage-inventory targets. Historical alternative plans remain historical.
+1. [x] Move native event machinery, input decoders, processing parameters, and MIDI to their owners; update imports and native sampler configuration paths.
+2. [ ] Move all Fluid tests and test support to explicit test directories, keeping fixtures, scenario names, expected schemas, and assertions unchanged.
+3. [ ] Move tests in `packages/patterns` into domain-local `__tests__/` folders under `packages/patterns/src/` and update their implementation imports, preserving all assertions without consolidation or dropped coverage. Document the preferred test layout in repository `AGENTS.md`: domain-local unit tests, package-level integration tests, and test-only helpers/fixtures in the relevant suite's `support/`. Other packages adopt it incrementally as their relevant areas are worked on, not through a repository-wide migration.
+4. [ ] Relocate pitch/sample/input support and type definitions; extract `Drome` unchanged and reduce root `index.ts` to its existing public contract.
+5. [ ] Update Fluid's README with the source map and pnpm commands, and refresh `packages/patterns/README.md` to reflect its new test layout. Refresh the active shorthand spec/direct-cutover plan's file references and PR 5 deletion/coverage-inventory targets. Historical alternative plans remain historical.
 
 No compatibility re-export shims, package subpaths, new dependencies, export expansion, runtime behavior changes, legacy deletion, or production native-state wiring.
+
+### Step 1 outcome
+
+Moved 11 implementation modules: the five native event modules to `events/`, three decoders to `inputs/`, `Parameter` to `parameters/parameter.ts`, MIDI to `midi/builders.ts`, and sampler configuration to `instruments/sampler-event-timing.ts`. All consumers now import their owning modules directly; no compatibility shims were added. Tests and fixture/support files remain at their existing paths until Step 2, with import updates only. Production facades still use legacy event authoring and compilation.
+
+Fluid retains all 27 test files and 896 passing tests. A disposable TypeScript-token/import-target audit verified all 68 source/test/support files are unchanged except for module paths, with the same resolved dependencies after the moves. Built declaration tokens are unchanged. Fluid build, workspace check/lint/tests/format, and `git diff --check` pass.
 
 ## Verification gate
 
 - Compare the moved implementations/tests apart from import paths, ownership-only type relocation, and the unchanged `Drome` extraction.
 - Retain all 27 Fluid test files, 896 tests, 54 corrected shared goldens, 88 native replay cases, and 149 temporary comparison tests. Investigate any count or expectation change rather than treating a green runner as proof of unchanged coverage.
+- Record and preserve `packages/patterns` test-file and test counts before and after the moves; retain its implementation/API unchanged apart from necessary test-path references.
 - Preserve native helper import boundaries and confirm no production module imports test support.
 - Verify generated declarations and the default package import still expose the same authoring contract; test-only fixtures must not become entry points or exports.
-- Build Fluid and run workspace checks, lint, tests, format, planning-document formatting, and `git diff --check`.
+- Build Fluid and patterns and run workspace checks, lint, tests, format, planning-document formatting, and `git diff --check`.
 - PR 5 begins only after this reorganization is merged, using the refreshed paths and unchanged coverage-transfer requirement.

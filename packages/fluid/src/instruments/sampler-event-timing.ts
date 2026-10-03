@@ -3,9 +3,9 @@ import {
   MAX_EVENT_CYCLE_STEPS,
 } from "@web-audio/patterns";
 import type { CycleInput } from "@/types";
-import Parameter from "@/patterns/parameter";
-import type { SamplerEventState } from "./event-state";
-import { releaseEventTiming } from "./event-state-transitions";
+import Parameter from "@/parameters/parameter";
+import type { SamplerEventState } from "@/events/state";
+import { releaseEventTiming } from "@/events/transitions";
 import {
   getChopTiming,
   getDistributedTiming,

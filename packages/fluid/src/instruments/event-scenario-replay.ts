@@ -8,9 +8,9 @@ import {
   decodeNotesInputGeometry,
   decodeSampleNamesInput,
   decodeVariationsInputGeometry,
-} from "@/patterns/decode-structured-input";
-import { decodeXoxInputGeometry } from "@/patterns/decode-xox-input";
-import type { InstrumentEventState } from "./event-state";
+} from "@/inputs/decode-structured-input";
+import { decodeXoxInputGeometry } from "@/inputs/decode-xox-input";
+import type { InstrumentEventState } from "@/events/state";
 import type {
   EventSchemaFixture,
   EventScenarioOperation,
@@ -26,17 +26,17 @@ import {
   setEventRoot,
   setEventScale,
   transformEventState,
-} from "./event-state-transitions";
+} from "@/events/transitions";
 import {
   compileSamplerEventState,
   compileSynthEventState,
-} from "./event-state-compiler";
+} from "@/events/compiler";
 import {
   getGeneratedSamplerTiming,
   setSamplerEventFit,
   setSamplerEventChop,
   type SamplerTimingConfiguration,
-} from "./event-state-sampler-timing";
+} from "./sampler-event-timing";
 
 type ScenarioInput = Pick<EventSchemaFixture, "instrument" | "sampleName">;
 type NativeScenario = {

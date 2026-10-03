@@ -9,8 +9,8 @@ import type {
   LaneAvailability,
   SamplerEventState,
   SynthEventState,
-} from "./event-state";
-import { defaultSource } from "./event-state-geometry";
+} from "./state";
+import { defaultSource } from "./geometry";
 
 function snapshotCondition(condition: TimingChanceCondition | undefined) {
   if (!condition) return undefined;

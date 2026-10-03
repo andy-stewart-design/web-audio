@@ -1,6 +1,6 @@
 import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
-import Parameter from "./parameter";
+import Parameter from "@/parameters/parameter";
 
 describe("Parameter", () => {
   it("serializes scalar bars as raw numeric values", () => {

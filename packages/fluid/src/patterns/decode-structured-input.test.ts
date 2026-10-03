@@ -12,7 +12,7 @@ import {
   decodeStructuredInput,
   decodeVariationsExpression,
   decodeVariationsInput,
-} from "./decode-structured-input";
+} from "@/inputs/decode-structured-input";
 
 vi.mock("@web-audio/patterns", { spy: true });
 

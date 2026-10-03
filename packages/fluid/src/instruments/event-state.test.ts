@@ -19,7 +19,7 @@ import type {
   StaticEventSource,
   SynthEventState,
   TimingState,
-} from "./event-state";
+} from "@/events/state";
 
 function staticCycle<T>(value: T) {
   return evaluatePatternExpression({

@@ -19,15 +19,15 @@ import type {
   InstrumentEventState,
   SamplerEventState,
   SynthEventState,
-} from "./event-state";
+} from "./state";
 import {
   defaultSource,
   initialAvailability,
   makeCycle,
   materializeEventSources,
   releaseSourceTiming,
-} from "./event-state-geometry";
-import { snapshotEventState } from "./event-state-snapshot";
+} from "./geometry";
+import { snapshotEventState } from "./snapshot";
 
 function createSynthEventState() {
   const state: SynthEventState = {

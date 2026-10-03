@@ -1,5 +1,5 @@
 import AuthoredPitches from "@/patterns/authored-pitches";
-import Parameter from "@/patterns/parameter";
+import Parameter from "@/parameters/parameter";
 import type {
   CycleInput,
   NullableCycleInput,

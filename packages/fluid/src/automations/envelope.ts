@@ -1,5 +1,5 @@
 import type { EnvelopeSchema } from "@web-audio/schema";
-import Parameter from "@/patterns/parameter";
+import Parameter from "@/parameters/parameter";
 import type { CycleInput } from "@/types";
 
 class Envelope {

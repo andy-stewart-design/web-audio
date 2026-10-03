@@ -8,7 +8,7 @@ import Filter from "@/effects/filter";
 import GainEffect from "@/effects/gain";
 import AuthoredPitches from "@/patterns/authored-pitches";
 import AuthoredTiming from "@/patterns/authored-timing";
-import Parameter from "@/patterns/parameter";
+import Parameter from "@/parameters/parameter";
 import {
   isEnvelopeTuple,
   isLfoTuple,
