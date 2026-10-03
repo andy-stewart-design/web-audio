@@ -2,6 +2,48 @@
 
 Fluid language for constructing scheduled Web Audio schemas.
 
+## Source map
+
+```text
+src/
+├── index.ts              # Sole code entry point; default export from ./drome
+├── drome.ts              # Host/factory API and schema graph assembly
+├── __tests__/            # Public API and cross-domain integration suites
+│   └── event-schemas/    # Complete-schema compatibility and native replay
+│       └── support/      # Shared fixtures, native regressions, replay drivers
+├── instruments/          # Instrument facades and sampler-specific helpers
+│   └── __tests__/
+├── events/               # Native state, geometry, snapshots, transitions, compiler
+│   └── __tests__/
+├── inputs/               # Structured/random/XOX decoding, guards, waveform aliases
+│   ├── types.ts          # Cycle and nullable input unions
+│   └── __tests__/
+├── parameters/           # Processing Parameter and audio-parameter input types
+│   └── __tests__/
+├── automations/          # Envelope (including ADSR) and LFO
+│   └── __tests__/
+├── effects/              # Filter and gain effects
+│   └── __tests__/
+├── buses/                # Bus authoring
+│   └── __tests__/
+├── midi/                 # MIDI schema builders, not the Web MIDI runtime
+│   └── __tests__/
+├── pitch/                # Scale aliases, note types, and MIDI conversion
+├── samples/              # Manifest types, normalization, and built-in bank registry
+│   ├── banks/            # Built-in bank data
+│   └── __tests__/
+└── patterns/             # Temporary legacy authored wrappers and timing helpers
+    └── __tests__/
+```
+
+Production instruments still use the legacy authored wrappers and `instruments/event-compiler.ts`. The native `events/` pipeline is independently tested; PR 5 will switch all event lanes and both schema getters together after the standalone reorganization is merged. Shorthand parsing and public shorthand dispatch are not implemented yet.
+
+Native event helpers do not import instrument classes, legacy wrappers, or test support. Sampler fit/chop configuration stays in `instruments/sampler-event-timing.ts`, outside authored event state. Processing parameters remain separate from event lanes.
+
+Import internal modules directly from their owners; source paths are not supported package subpaths. `src/index.ts` exposes only the existing default `Drome` export, with no folder barrels or compatibility re-export shims. Schema-owned types come directly from `@web-audio/schema`.
+
+Unit tests live in domain-local `__tests__/`; cross-domain suites live in `src/__tests__/`, with fixture/replay helpers in the relevant suite's `support/`. Tests remain TypeScript-checked, and production modules never import test support. See the [reorganization record](../../plans/fluid-package-reorg/plan.md) and [active shorthand plan](../../plans/shorthand-syntax/direct-cutover-plan.md) for the cutover and coverage-transfer gates.
+
 ## Compiled event model
 
 Fluid separates authoring patterns into three playback concerns:
@@ -14,7 +56,7 @@ Fixed rhythm masks and rests are compiled into timing and do not cross the engin
 
 Static value patterns contain raw values only; random numeric patterns contain per-bar value counts and random-generation settings. Neither carries offsets, durations, masks, or serialized step indices.
 
-Samplers may be unnamed while they are being built. A name must be supplied before schema generation, either with the constructor or with `.name()`. Natural-pitch samplers omit `events.notes`, and an absent `events.variationIndices` field means variation `0`.
+Samplers may be unnamed while they are being built. A name must be supplied before schema generation, either with the constructor or with `.name()`. Natural-pitch samplers omit `eventPattern.notes`, and an absent `eventPattern.variationIndices` field means variation `0`.
 
 ## Event-pattern compatibility changes
 
@@ -186,20 +228,23 @@ LFO phase is free-running and shared across an instrument's voices rather than r
 
 ## Development
 
-- Install dependencies:
+From the repository root:
 
-```bash
-npm install
+```sh
+pnpm install
+pnpm --filter @web-audio/fluid build
+pnpm --filter @web-audio/fluid check
+pnpm --filter @web-audio/fluid lint
+pnpm --filter @web-audio/fluid test:ci
+pnpm --filter @web-audio/fluid format
 ```
 
-- Run the unit tests:
+For workspace verification:
 
-```bash
-npm run test
-```
-
-- Build the library:
-
-```bash
-npm run build
+```sh
+pnpm check
+pnpm lint
+pnpm test
+pnpm format
+git diff --check
 ```
