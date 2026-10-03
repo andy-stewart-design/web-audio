@@ -31,10 +31,10 @@ import {
   getSelectedEventTiming,
   makeCycle,
 } from "@/events/geometry";
-import Sampler from "./sampler";
-import Synthesizer from "./synthesizer";
+import Sampler from "@/instruments/sampler";
+import Synthesizer from "@/instruments/synthesizer";
 import AuthoredEventValues from "@/patterns/authored-event-values";
-import { getSamplerEventTiming } from "./event-compiler";
+import { getSamplerEventTiming } from "@/instruments/event-compiler";
 
 // Temporary oracle only. Inspect independently initialized legacy state without
 // passing any legacy data to native helpers or reconstructing native state.

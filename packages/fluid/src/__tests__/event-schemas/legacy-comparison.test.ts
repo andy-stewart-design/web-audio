@@ -5,11 +5,11 @@ import { describe, expect, it } from "vitest";
 import type {
   EventScenarioOperation,
   EventSchemaFixture,
-} from "./event-schema-fixtures";
+} from "./support/schema-fixtures";
 import {
   approvedExceptionScenarios,
   feasibilityScenarios,
-} from "./native-event-regression-fixtures";
+} from "./support/native-regression-fixtures";
 import {
   applyNativeOperation,
   applyPublicOperation,
@@ -21,7 +21,7 @@ import {
   replayPublicScenario,
   toSerializableEventPattern,
   type NativeScenario,
-} from "./event-scenario-replay";
+} from "./support/scenario-replay";
 
 function generateOperations(
   seed: number,

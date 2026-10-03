@@ -3,7 +3,7 @@ import type { RandomNumberPattern } from "@web-audio/schema";
 import type {
   EventSchemaFixture,
   EventScenarioOperation,
-} from "./event-schema-fixtures";
+} from "./schema-fixtures";
 
 const hit = (offset: number, duration: number) => ({ offset, duration });
 const bar = (offsets: number[], duration: number) =>

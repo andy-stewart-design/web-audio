@@ -7,7 +7,7 @@ import {
   getDistributedTiming,
   getRegion,
   getTimingForPattern,
-} from "./sampler-utils";
+} from "../sampler-utils";
 
 describe("sampler numeric schemas", () => {
   it("serializes static start/end regions as value-only patterns", () => {

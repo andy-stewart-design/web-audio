@@ -1,6 +1,6 @@
 import type { SamplerEventPattern, SynthEventPattern } from "@web-audio/schema";
 import { RandomCycle } from "@web-audio/patterns";
-import type Sampler from "./sampler";
+import type Sampler from "@/instruments/sampler";
 
 // Public facade signatures keep replay operations typed; no legacy state enters
 // the native driver. These fixtures remain after the production cutover.

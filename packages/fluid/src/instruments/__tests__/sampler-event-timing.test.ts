@@ -9,7 +9,7 @@ import {
   getGeneratedSamplerTiming,
   setSamplerEventChop,
   setSamplerEventFit,
-} from "./sampler-event-timing";
+} from "../sampler-event-timing";
 
 const hit = (offset: number, duration: number) => ({ offset, duration });
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import Drome from "./index";
+import Drome from "@/index";
 
 describe("MIDI output builder", () => {
   test("defaults to channel 1", () => {

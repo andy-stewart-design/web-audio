@@ -1,6 +1,6 @@
 import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
-import AuthoredEventValues from "./authored-event-values";
+import AuthoredEventValues from "../authored-event-values";
 
 describe("authored event values", () => {
   it("normalizes bars, hits, voices, and rests without assigning timing", () => {

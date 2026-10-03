@@ -2,7 +2,7 @@ import { RandomCycle } from "@web-audio/patterns";
 import type { FilterType } from "@web-audio/schema";
 import { describe, expect, it } from "vitest";
 import Envelope from "@/automations/envelope";
-import Filter from "./filter";
+import Filter from "../filter";
 
 describe("Filter", () => {
   it("serializes frequency and defaults as value-only patterns", () => {

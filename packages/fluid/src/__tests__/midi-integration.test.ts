@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import Drome from "./index";
+import Drome from "@/index";
 
 describe("instrument MIDI output", () => {
   test("serializes synth output with channel and device defaults", () => {

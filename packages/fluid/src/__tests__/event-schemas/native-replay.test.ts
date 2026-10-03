@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   eventSchemaFixtures,
   type EventSchemaFixture,
-} from "./event-schema-fixtures";
+} from "./support/schema-fixtures";
 import {
   approvedExceptionScenarios,
   feasibilityScenarios,
   immediateSpeedScenarios,
   placeholderOperations,
-} from "./native-event-regression-fixtures";
+} from "./support/native-regression-fixtures";
 import {
   applyNativeOperation,
   compileNativeScenario,
@@ -17,7 +17,7 @@ import {
   replayNativeScenario,
   toSerializableEventPattern,
   type NativeScenario,
-} from "./event-scenario-replay";
+} from "./support/scenario-replay";
 
 function assertFrozen(value: unknown) {
   if (value === null || typeof value !== "object") return;

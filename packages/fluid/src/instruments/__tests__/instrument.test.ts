@@ -2,8 +2,8 @@ import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
 import Envelope from "@/automations/envelope";
 import type { EnvelopeSchema } from "@web-audio/schema";
-import Sampler from "./sampler";
-import Synthesizer from "./synthesizer";
+import Sampler from "../sampler";
+import Synthesizer from "../synthesizer";
 
 function staticValue(schema: EnvelopeSchema["a"]) {
   expect(schema.type).toBe("static");

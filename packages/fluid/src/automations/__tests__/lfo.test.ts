@@ -1,6 +1,6 @@
 import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
-import Lfo from "./lfo";
+import Lfo from "../lfo";
 
 describe("Lfo", () => {
   it("produces a valid default schema", () => {

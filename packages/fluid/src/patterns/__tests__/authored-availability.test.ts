@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import AuthoredAvailability from "./authored-availability";
+import AuthoredAvailability from "../authored-availability";
 
 describe("authored availability", () => {
   it("preserves rests introduced by transforms", () => {

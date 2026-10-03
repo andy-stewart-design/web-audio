@@ -1,6 +1,6 @@
 import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
-import AuthoredPitches from "./authored-pitches";
+import AuthoredPitches from "../authored-pitches";
 
 const C_MAJ_MIDI = [60, 62, 64, 65, 67, 69, 71];
 const C_MIN_MIDI = [60, 62, 63, 65, 67, 68, 70];

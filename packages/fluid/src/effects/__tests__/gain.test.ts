@@ -1,7 +1,7 @@
 import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
 import Envelope from "@/automations/envelope";
-import GainEffect from "./gain";
+import GainEffect from "../gain";
 
 describe("GainEffect", () => {
   it("serializes static gain bars as raw values", () => {

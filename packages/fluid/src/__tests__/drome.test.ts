@@ -1,8 +1,8 @@
 import { RandomCycle } from "@web-audio/patterns";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SamplerSchema } from "@web-audio/schema";
-import Drome from "./index";
-import type Sampler from "./instruments/sampler";
+import Drome from "@/index";
+import type Sampler from "@/instruments/sampler";
 
 function getStaticChopFixture(schema: SamplerSchema) {
   const timingBars = schema.eventPattern.timing.cycle;

@@ -1,6 +1,6 @@
 import { RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
-import AuthoredTiming from "./authored-timing";
+import AuthoredTiming from "../authored-timing";
 
 describe("AuthoredTiming", () => {
   it("keeps fixed candidate timing separate from inferred timing", () => {

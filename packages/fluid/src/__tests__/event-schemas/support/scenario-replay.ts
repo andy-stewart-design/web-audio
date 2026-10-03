@@ -2,8 +2,8 @@
 // driver delegates decoding, transitions, configuration, and compilation to
 // the same isolated helpers intended for the production cutover.
 import { RandomCycle } from "@web-audio/patterns";
-import Drome from "../index";
-import Sampler from "./sampler";
+import Drome from "@/index";
+import Sampler from "@/instruments/sampler";
 import {
   decodeNotesInputGeometry,
   decodeSampleNamesInput,
@@ -14,7 +14,7 @@ import type { InstrumentEventState } from "@/events/state";
 import type {
   EventSchemaFixture,
   EventScenarioOperation,
-} from "./event-schema-fixtures";
+} from "./schema-fixtures";
 import {
   createSamplerEventState,
   createSynthEventState,
@@ -36,7 +36,7 @@ import {
   setSamplerEventFit,
   setSamplerEventChop,
   type SamplerTimingConfiguration,
-} from "./sampler-event-timing";
+} from "@/instruments/sampler-event-timing";
 
 type ScenarioInput = Pick<EventSchemaFixture, "instrument" | "sampleName">;
 type NativeScenario = {

@@ -7,7 +7,7 @@ import {
   compileSamplerEvents,
   compileVariationPattern,
   finalizeSamplerEvents,
-} from "./event-compiler";
+} from "../event-compiler";
 
 function compileWithTiming(pitches: AuthoredPitches, timing: AuthoredTiming) {
   return pitches.getEventPattern(timing.getTimingPattern());

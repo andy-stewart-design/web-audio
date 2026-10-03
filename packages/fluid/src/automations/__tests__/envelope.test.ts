@@ -1,7 +1,7 @@
 import { RandomCycle } from "@web-audio/patterns";
 import type { NumberPattern } from "@web-audio/schema";
 import { describe, expect, it } from "vitest";
-import Envelope from "./envelope";
+import Envelope from "../envelope";
 
 function staticCycle(pattern: NumberPattern) {
   expect(pattern.type).toBe("static");

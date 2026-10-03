@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   eventSchemaFixtures,
   type EventSchemaFixture,
-} from "./event-schema-fixtures";
+} from "./support/schema-fixtures";
 import {
   replayPublicScenario,
   toSerializableEventPattern,
-} from "./event-scenario-replay";
+} from "./support/scenario-replay";
 
 function expectEventSchemaFixture(fixture: EventSchemaFixture) {
   const actual = replayPublicScenario(fixture, fixture.operations()).getSchema()

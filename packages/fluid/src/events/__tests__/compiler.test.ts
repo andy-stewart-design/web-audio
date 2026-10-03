@@ -27,7 +27,10 @@ import {
   replaceEventTiming,
   transformEventState,
 } from "@/events/transitions";
-import { getChopTiming, getDistributedTiming } from "./sampler-utils";
+import {
+  getChopTiming,
+  getDistributedTiming,
+} from "@/instruments/sampler-utils";
 
 const event = <T>(...values: [T, ...T[]]) =>
   ({ type: "event", values }) as const;
