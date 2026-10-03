@@ -328,4 +328,196 @@ function stretchEventCycle<T>(
   return transformCycle(cycle, { type: "stretch", bars, steps });
 }
 
-export { reverseEventCycle, fastEventCycle, slowEventCycle, stretchEventCycle };
+type EventCycleTransform =
+  | { readonly type: "reverse" }
+  | { readonly type: "fast" | "slow"; readonly multiplier: number }
+  | {
+      readonly type: "stretch";
+      readonly bars: number;
+      readonly steps?: number;
+    };
+
+type EventCycleGeometry<TCycle> = {
+  readonly cycle: TCycle;
+  readonly zeroWidthPatterns: readonly boolean[];
+};
+
+function resolveOperation(operation: EventCycleTransform): Operation {
+  if (operation.type === "reverse") return operation;
+  if (operation.type === "stretch") {
+    positiveInteger(operation.bars, "bars");
+    positiveInteger(operation.steps ?? 1, "steps");
+    return { ...operation, steps: operation.steps ?? 1 };
+  }
+  const ratio = getSpeedRatio(operation.multiplier);
+  return operation.type === "fast"
+    ? { type: "speed", ...ratio }
+    : {
+        type: "speed",
+        numerator: ratio.denominator,
+        denominator: ratio.numerator,
+      };
+}
+
+/** Preserve zero-width provenance without allowing empty canonical patterns. */
+function transformStaticGeometry<T>(
+  cycle: StaticEventCycle<T>,
+  operation: Operation,
+  zeroWidthPatterns: readonly boolean[],
+) {
+  if (operation.type !== "speed") {
+    const result = transformStatic(cycle, operation);
+    const flags =
+      operation.type === "reverse"
+        ? [...zeroWidthPatterns].reverse()
+        : zeroWidthPatterns.flatMap((flag) =>
+            Array<boolean>(operation.bars).fill(flag),
+          );
+    return Object.freeze({
+      cycle: result,
+      zeroWidthPatterns: Object.freeze(flags),
+    });
+  }
+  const { numerator, denominator } = operation;
+  const divisor = greatestCommonDivisor(cycle.patterns.length, numerator);
+  const groups = cycle.patterns.length / divisor;
+  let steps = 0n;
+  let voices = 0n;
+  cycle.patterns.forEach((pattern, index) => {
+    if (zeroWidthPatterns[index]) return;
+    steps += BigInt(pattern.length);
+    for (const step of pattern)
+      if (step.type === "event") voices += BigInt(step.values.length);
+  });
+  const repetitions = BigInt(numerator / divisor);
+  if (
+    BigInt(cycle.patterns.length) * repetitions >
+    BigInt(MAX_EVENT_CYCLE_STEPS)
+  ) {
+    throw new Error(
+      `[Pattern] Transform traverses more than ${MAX_EVENT_CYCLE_STEPS} source patterns.`,
+    );
+  }
+  assertBudget(
+    BigInt(groups) * BigInt(denominator),
+    steps * repetitions * BigInt(denominator),
+    voices * repetitions,
+  );
+  const patterns: EventPattern<T>[] = [];
+  const flags: boolean[] = [];
+  for (let group = 0; group < groups; group++) {
+    const compressed: EventStep<T>[] = [];
+    for (let offset = 0; offset < numerator; offset++) {
+      const index = (group * numerator + offset) % cycle.patterns.length;
+      if (!zeroWidthPatterns[index]) compressed.push(...cycle.patterns[index]);
+    }
+    if (compressed.length === 0) {
+      for (let bar = 0; bar < denominator; bar++) {
+        patterns.push(Object.freeze([REST]));
+        flags.push(true);
+      }
+    } else {
+      const expanded = transformStatic(
+        { type: "static-event-cycle", patterns: [compressed] },
+        {
+          type: "speed",
+          numerator: 1,
+          denominator,
+        },
+      );
+      patterns.push(...expanded.patterns);
+      flags.push(...Array<boolean>(denominator).fill(false));
+    }
+  }
+  const result = Object.freeze({
+    type: "static-event-cycle",
+    patterns: Object.freeze(patterns),
+  } as const);
+  assertEventCycleInvariants(result);
+  return Object.freeze({
+    cycle: result,
+    zeroWidthPatterns: Object.freeze(flags),
+  });
+}
+
+function transformEventCycleGeometry<T>(
+  cycle: StaticEventCycle<T>,
+  operation: EventCycleTransform,
+  zeroWidthPatterns?: readonly boolean[],
+): EventCycleGeometry<StaticEventCycle<T>>;
+function transformEventCycleGeometry(
+  cycle: RandomEventCycle,
+  operation: EventCycleTransform,
+  zeroWidthPatterns?: readonly boolean[],
+): EventCycleGeometry<RandomEventCycle>;
+function transformEventCycleGeometry<T>(
+  cycle: EventCycle<T>,
+  operation: EventCycleTransform,
+  zeroWidthPatterns?: readonly boolean[],
+): EventCycleGeometry<EventCycle<T>>;
+function transformEventCycleGeometry<T>(
+  cycle: StaticEventCycle<T> | RandomEventCycle,
+  operation: EventCycleTransform,
+  zeroWidthPatterns?: readonly boolean[],
+) {
+  assertEventCycleInvariants(cycle);
+  const source =
+    cycle.type === "static-event-cycle" ? cycle : cycle.candidateCycle;
+  const flags =
+    zeroWidthPatterns ?? Array<boolean>(source.patterns.length).fill(false);
+  if (
+    flags.length !== source.patterns.length ||
+    flags.some(
+      (flag, index) =>
+        typeof flag !== "boolean" ||
+        (flag && source.patterns[index].some((step) => step.type !== "rest")),
+    )
+  ) {
+    throw new Error(
+      "[Pattern] Zero-width provenance must match silent canonical patterns.",
+    );
+  }
+  const resolved = resolveOperation(operation);
+  if (cycle.type === "static-event-cycle")
+    return transformStaticGeometry(cycle, resolved, flags);
+  const geometry = transformStaticGeometry(
+    cycle.candidateCycle,
+    resolved,
+    flags,
+  );
+  // Reuse the existing structural snapshot/order rules, never generate values.
+  const snapshot = transformCycle(cycle, {
+    type: "speed",
+    numerator: 1,
+    denominator: 1,
+  });
+  if (snapshot.type !== "random-event-cycle")
+    throw new Error("[Pattern] Expected random geometry.");
+  const result = Object.freeze({
+    ...snapshot,
+    candidateCycle: geometry.cycle,
+    settings: Object.freeze({
+      ...snapshot.settings,
+      order:
+        operation.type === "reverse"
+          ? snapshot.settings.order === "forward"
+            ? "reverse"
+            : "forward"
+          : snapshot.settings.order,
+    }),
+  });
+  assertEventCycleInvariants(result);
+  return Object.freeze({
+    cycle: result,
+    zeroWidthPatterns: geometry.zeroWidthPatterns,
+  });
+}
+
+export {
+  reverseEventCycle,
+  fastEventCycle,
+  slowEventCycle,
+  stretchEventCycle,
+  transformEventCycleGeometry,
+};
+export type { EventCycleTransform };

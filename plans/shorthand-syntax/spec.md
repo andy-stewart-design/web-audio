@@ -691,7 +691,7 @@ Examples:
 .var([[0, 1], null, [2, 3]]);
 ```
 
-Structured slots receive equal allocation. Empty structured bars normalize to explicit silent bars according to existing consumer behavior. Empty simultaneous voice groups remain invalid.
+Structured slots receive equal allocation. Empty structured bars normalize to explicit silent bars according to existing consumer behavior. Empty simultaneous voice groups remain invalid for names, variations, and shorthand. Legacy structured notes accept empty and null-only chords: the decoder emits a rest, never an empty event group, while Fluid retains their note-value-slot provenance for compatibility.
 
 ### Shared expression evaluation
 
@@ -811,6 +811,12 @@ d.sample().name("bd").slow(2).xox([1, 1]);
 ```
 
 Generated chop/fit timing is derived from sampler configuration and passed to the compiler as an optional timing override. It is not stored alongside authored timing in `InstrumentEventState`. This preserves the underlying implicit or explicit timing state if sampler configuration changes whether generated timing applies.
+
+The conceptual source types above omit compatibility provenance. Fluid may retain readonly availability cycles, transparent inherited-timing gaps, shared materialization identities, zero-width empty-bar flags, and structured note-value-slot provenance alongside authored cycles. These distinguish authored rests from timing gaps and preserve existing materialization/wrapping behavior without adding offsets, durations, value modes, or empty groups to generic event steps. The original-one-slot note-source materialization exemption is transition provenance, not scalar broadcasting.
+
+Generated overrides retain readonly schema timing geometry outside v1 event cycles when existing chop/fit gates cross bars; this does not relax the v1 continuation invariant for authored lanes.
+
+Fluent speed transforms are immediate state operations; legacy getter-sensitive speed cancellation is intentionally not preserved. Reading state or compiling a schema never changes later transform behavior. This follows the immediate-transition and pure-getter architecture, without deferred speed state or observation boundaries.
 
 The intended end state removes or substantially replaces:
 
@@ -969,13 +975,19 @@ Existing call-order behavior remains part of the compatibility contract:
 - later setters are not retroactively transformed;
 - explicit rhythm remains after a later value setter;
 - fixed rhythm methods compose in call order;
-- `fast`, `slow`, `stretch`, and `reverse` retain their existing event behavior;
+- `fast`, `slow`, `stretch`, and `reverse` retain their event behavior, except legacy deferred/getter-sensitive speed cancellation;
 - generated chop/fit timing remains exempt where it is today;
 - processing patterns remain independent from event timing.
 
 Global event transforms should be implemented as centralized `InstrumentEventState` transitions. If current behavior requires materializing lane relationships against selected timing, that materialization happens once in the state operation rather than independently inside authored wrapper classes.
 
 The implementation should not retain an open-ended operation log. Each method updates canonical state immediately through pure transformations.
+
+Successive fluent `.fast()` and `.slow()` calls operate on the already-materialized result of the preceding call. They are not an uninterrupted expression speed chain and need not cancel. For example, a one-event note cycle transformed by `.fast(2).slow(2)` becomes two bars, each with an onset at `0` and a gate of `1/2`; the gate is not extended back to one bar. Intermediate reads or schema compilation cannot affect this result. Generated timing remains exempt from event transforms, but that exemption does not defer transforms of the underlying stored lanes.
+
+This does not change the shorthand evaluator's exact cancellation guarantee for an uninterrupted `*`/`/` chain on one expression node.
+
+Authored availability also survives synth note materialization. Slowdown-created within-bar rests filter replacement timing by candidate ordinal, while inherited timing gaps remain transparent. **Approved compatibility exception:** legacy synth compilation compacted materialized note values and lost this rest filtering; native compilation follows the same specified availability policy as samplers. For example, `.synth().notes([60, 64]).slow(2).xox(rand().bin().steps(4).chance(1))` emits offsets `0` and `1/2` in both bars, each with duration `1/4`, rather than the legacy four quarter-bar hits per bar. This exception preserves the corrected PR 2 goldens unchanged and requires no repair of the superseded implementation.
 
 ## Target-specific atom interpretation
 
@@ -1112,8 +1124,10 @@ Existing behavior is preserved unless listed below.
 4. A single string passed to a supported method is shorthand.
 5. Sample aliases adopt the notation-safe alphanumeric convention.
 6. `:` is rejected in `.name()` and sample-bank keys; constructor `name:variation` shorthand remains supported.
+7. Fluent transforms materialize immediately and reads are side-effect-free. Legacy deferred speed cancellation that depended on getter calls is not preserved, including deferred changes to implicit stored rhythm used by later fixed rhythm setters. Shorthand's uninterrupted expression speed-chain cancellation remains required.
+8. Synth note materialization preserves authored availability, including slowdown-created rests filtering replacement timing. Legacy synth compilation's loss of this filtering is not preserved; inherited timing gaps remain transparent.
 
-Each change requires focused before/after tests and release documentation.
+Each change requires focused tests and release documentation. The specification is authoritative when legacy behavior conflicts with it; do not repair superseded implementations or add native machinery solely to reproduce a legacy defect. Existing corrected golden fixtures remain unchanged unless a specific, reviewed specification change requires a new expectation.
 
 ### Preserved behavior
 
@@ -1251,6 +1265,7 @@ Cover:
 - voice order, duplicate voices, and wrapping;
 - root/scale transforms;
 - transform and setter call order;
+- immediate fluent speed chains, with intermediate reads having no effect;
 - chop/fit timing overrides;
 - silent bars and cycle LCM limits.
 
