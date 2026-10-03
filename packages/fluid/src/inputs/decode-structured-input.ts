@@ -8,7 +8,7 @@ import {
   type PatternExpression,
   type PatternNode,
 } from "@web-audio/patterns";
-import { isRandomCycle } from "@/utils/validate";
+import { isRandomCycle } from "./guards";
 import { decodeRandomEventInputGeometry } from "./decode-random-input";
 
 // Bound raw traversal independently of emitted nodes and surviving voices.

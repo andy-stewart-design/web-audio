@@ -10,7 +10,7 @@ import {
   normalizeSampleName,
   normalizeSampleBank,
   resolveBank,
-} from "@/utils/sample-utils";
+} from "@/samples/normalize-bank";
 
 describe("sample-utils", () => {
   describe("normalizeBankName", () => {

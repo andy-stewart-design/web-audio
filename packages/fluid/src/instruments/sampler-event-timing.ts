@@ -2,7 +2,7 @@ import {
   assertCycleBarLimit,
   MAX_EVENT_CYCLE_STEPS,
 } from "@web-audio/patterns";
-import type { CycleInput } from "@/types";
+import type { CycleInput } from "@/inputs/types";
 import Parameter from "@/parameters/parameter";
 import type { SamplerEventState } from "@/events/state";
 import { releaseEventTiming } from "@/events/transitions";

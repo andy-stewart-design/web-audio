@@ -1,7 +1,7 @@
 import { RandomCycle } from "@web-audio/patterns";
 import type { LfoSchema, Waveform } from "@web-audio/schema";
 import Parameter from "@/parameters/parameter";
-import { resolveWaveform, type WaveformAlias } from "@/utils/waveform";
+import { resolveWaveform, type WaveformAlias } from "@/inputs/waveform";
 
 type LfoInput = number | number[] | RandomCycle;
 

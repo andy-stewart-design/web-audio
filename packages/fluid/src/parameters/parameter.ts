@@ -1,7 +1,13 @@
 import { RandomCycle, ValueCycle } from "@web-audio/patterns";
-import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
+import { isRandomCycle, isRandomCycleTuple } from "@/inputs/guards";
 import type { NumberPattern } from "@web-audio/schema";
-import type { CycleInput } from "@/types";
+import type { CycleInput } from "@/inputs/types";
+import type Envelope from "@/automations/envelope";
+import type Lfo from "@/automations/lfo";
+import type { MidiCc } from "@/midi/builders";
+
+type AudioParamSource = Parameter | Envelope | Lfo | MidiCc;
+type AudioParamInput = CycleInput<number> | [Envelope] | [Lfo] | [MidiCc];
 
 class Parameter {
   protected _cycle: ValueCycle | RandomCycle;
@@ -25,3 +31,4 @@ class Parameter {
 }
 
 export default Parameter;
+export type { AudioParamSource, AudioParamInput };

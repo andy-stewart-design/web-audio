@@ -5,15 +5,11 @@ import {
   type EventCycleTransform,
   type StaticEventCycle,
 } from "@web-audio/patterns";
+import type { NoteName, NoteValue } from "@/pitch/types";
+import { getScale, type ScaleAlias } from "@/pitch/get-scale";
+import { noteStringToMidi } from "@/pitch/note-string-to-midi";
 import type {
-  NoteName,
-  NoteValue,
-  ScaleAlias,
   TimingChanceCondition,
-} from "@/types";
-import { getScale } from "@/utils/get-scale";
-import { noteStringToMidi } from "@/utils/note-string-to-midi";
-import type {
   EventSource,
   GeneratedTimingOverride,
   InstrumentEventState,

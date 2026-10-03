@@ -1,5 +1,3 @@
-import type { ScaleAlias } from "../types";
-
 const baseScaleMap = {
   major: [0, 2, 4, 5, 7, 9, 11],
   minor: [0, 2, 3, 5, 7, 8, 10],
@@ -31,8 +29,11 @@ export const scaleAliasMap = {
   loc: baseScaleMap.locrian,
 };
 
+type ScaleAlias = keyof typeof scaleAliasMap;
+
 function getScale(name: ScaleAlias) {
   return scaleAliasMap[name];
 }
 
 export { getScale };
+export type { ScaleAlias };

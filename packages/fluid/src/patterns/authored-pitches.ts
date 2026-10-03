@@ -12,10 +12,10 @@ import type {
 import { compileNoteEvents } from "@/instruments/event-compiler";
 import AuthoredAvailability from "@/patterns/authored-availability";
 import EventTiming from "@/patterns/event-timing";
-import { getScale } from "@/utils/get-scale";
-import { noteStringToMidi } from "@/utils/note-string-to-midi";
-import { isRandomCycle, isRandomCycleTuple } from "@/utils/validate";
-import type { NoteName, NoteValue, ScaleAlias } from "@/types";
+import { getScale, type ScaleAlias } from "@/pitch/get-scale";
+import { noteStringToMidi } from "@/pitch/note-string-to-midi";
+import { isRandomCycle, isRandomCycleTuple } from "@/inputs/guards";
+import type { NoteName, NoteValue } from "@/pitch/types";
 
 type NoteOrChord<T> = T | T[];
 type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];

@@ -2,8 +2,8 @@ import {
   assertRandomGenerationMetadata,
   transformEventCycleGeometry,
 } from "@web-audio/patterns";
-import type { TimingChanceCondition } from "@/types";
 import type {
+  TimingChanceCondition,
   EventSource,
   InstrumentEventState,
   LaneAvailability,

@@ -3,8 +3,12 @@ import type {
   NonEmptyGroup,
   StaticEventCycle,
 } from "@web-audio/patterns";
-import type { TimingStep } from "@web-audio/schema";
-import type { TimingChanceCondition } from "@/types";
+import type { ChanceCondition, TimingStep } from "@web-audio/schema";
+
+/** Internal native timing metadata, separate from numeric random event sources. */
+type TimingChanceCondition = Readonly<Omit<ChanceCondition, "segments">> & {
+  readonly segments: readonly Readonly<ChanceCondition["segments"][number]>[];
+};
 
 /** Authored false values and inherited timing gaps remain distinct through transforms. */
 type LaneAvailability = {
@@ -94,6 +98,7 @@ type SamplerEventCompilerInput = {
 };
 
 export type {
+  TimingChanceCondition,
   LaneAvailability,
   SourceProvenance,
   GeneratedTimingOverride,

@@ -3,33 +3,30 @@ import {
   type Chord,
   type ScheduledValue,
 } from "@web-audio/patterns";
-import Envelope from "@/automations/envelope";
+import Envelope, { type ADSR } from "@/automations/envelope";
 import Filter from "@/effects/filter";
 import GainEffect from "@/effects/gain";
 import AuthoredPitches from "@/patterns/authored-pitches";
 import AuthoredTiming from "@/patterns/authored-timing";
-import Parameter from "@/parameters/parameter";
+import Parameter, {
+  type AudioParamInput,
+  type AudioParamSource,
+} from "@/parameters/parameter";
 import {
   isEnvelopeTuple,
   isLfoTuple,
   isMidiCcTuple,
   isRandomCycleTuple,
-} from "@/utils/validate";
-import type {
-  ADSR,
-  AudioParamInput,
-  AudioParamSource,
-  CycleInput,
-  NoteName,
-  NoteValue,
-  ScaleAlias,
-} from "@/types";
+} from "@/inputs/guards";
+import type { CycleInput } from "@/inputs/types";
+import type { NoteName, NoteValue } from "@/pitch/types";
+import type { ScaleAlias } from "@/pitch/get-scale";
 import type {
   SamplerSchema,
   SynthesizerSchema,
   TimingPattern,
 } from "@web-audio/schema";
-import type Drome from "@/index";
+import type Drome from "@/drome";
 
 type NoteOrChord<T> = T | T[];
 type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];

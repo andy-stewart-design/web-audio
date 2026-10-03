@@ -1,4 +1,4 @@
-import type { NoteName, NoteValue } from "../types";
+import type { NoteName, NoteValue } from "./types";
 
 // prettier-ignore
 const noteNames: Record<string, number> = {

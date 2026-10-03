@@ -1,7 +1,7 @@
 import * as patterns from "@web-audio/patterns";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import Synthesizer from "@/instruments/synthesizer";
-import type { TimingChanceCondition } from "@/types";
+import type { TimingChanceCondition } from "@/events/state";
 import { decodeXoxExpression, decodeXoxInput } from "@/inputs/decode-xox-input";
 
 vi.mock("@web-audio/patterns", { spy: true });

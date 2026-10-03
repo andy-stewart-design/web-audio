@@ -17,8 +17,8 @@ import type {
   SynthEventPattern,
   TimingStep,
 } from "@web-audio/schema";
-import type { TimingChanceCondition } from "@/types";
 import type {
+  TimingChanceCondition,
   EventSource,
   GeneratedTimingOverride,
   PitchState,

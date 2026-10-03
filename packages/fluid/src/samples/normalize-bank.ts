@@ -5,9 +5,9 @@ import type {
   SampleBank,
   SpriteLeaf,
   SpriteSampleBank,
-} from "@/types";
+} from "./types";
 import type { BankDefinition, BankSchema } from "@web-audio/schema";
-import { noteStringToMidi } from "./note-string-to-midi";
+import { noteStringToMidi } from "@/pitch/note-string-to-midi";
 
 const invalidManifestMessage =
   "Invalid sample manifest: expected a sample bank, banked sample bank, multisample bank, or sprite bank";

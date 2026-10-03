@@ -2,7 +2,7 @@
 
 ## Intent and status
 
-In progress: Steps 1–3 are complete; Steps 4–5 remain pending. A standalone, behavior-preserving cleanup between shorthand PR 4 (native state/compiler) and PR 5 (atomic production cutover), analogous to the completed patterns package reorganization.
+In progress: Steps 1–4 are complete; Step 5 remains pending. A standalone, behavior-preserving cleanup between shorthand PR 4 (native state/compiler) and PR 5 (atomic production cutover), analogous to the completed patterns package reorganization.
 
 PR 4 merged as [#55](https://github.com/andy-stewart-design/web-audio/pull/55). This reorganization starts from its merged result; PR 5 starts from the completed reorganized layout. Do not combine this cleanup with production wiring.
 
@@ -161,7 +161,7 @@ Use reviewable mechanical commits within one reorganization PR:
 1. [x] Move native event machinery, input decoders, processing parameters, and MIDI to their owners; update imports and native sampler configuration paths.
 2. [x] Move all Fluid tests and test support to explicit test directories, keeping fixtures, scenario names, expected schemas, and assertions unchanged.
 3. [x] Move tests in `packages/patterns` into domain-local `__tests__/` folders under `packages/patterns/src/` and update their implementation imports, preserving all assertions without consolidation or dropped coverage. Document the preferred test layout in repository `AGENTS.md`: domain-local unit tests, package-level integration tests, and test-only helpers/fixtures in the relevant suite's `support/`. Other packages adopt it incrementally as their relevant areas are worked on, not through a repository-wide migration.
-4. [ ] Relocate pitch/sample/input support and type definitions; extract `Drome` unchanged and reduce root `index.ts` to its existing public contract.
+4. [x] Relocate pitch/sample/input support and type definitions; extract `Drome` unchanged and reduce root `index.ts` to its existing public contract.
 5. [ ] Update Fluid's README with the source map and pnpm commands, and refresh `packages/patterns/README.md` to reflect its new test layout. Refresh the active shorthand spec/direct-cutover plan's file references and PR 5 deletion/coverage-inventory targets. Historical alternative plans remain historical.
 
 No compatibility re-export shims, package subpaths, new dependencies, export expansion, runtime behavior changes, legacy deletion, or production native-state wiring.
@@ -183,6 +183,12 @@ Fluid retains 27 passing files and 896 tests. A disposable TypeScript-token/impo
 Moved all 22 tests in the separate `packages/patterns` package into domain-local `__tests__/` directories under `cycles/`, `cycles/operations/`, `events/`, `expressions/`, `math/`, and `rhythm/`. Only implementation import paths and their formatting changed; no suites were consolidated or coverage dropped. Root `AGENTS.md` now documents domain-local unit tests, package-level integration/public API tests, suite-local `support/`, the production/test boundary, continued TypeScript checking, and incremental adoption elsewhere. README/source-map updates remain Step 5.
 
 Before and after the moves, patterns has 22 passing test files and 372 tests. A disposable TypeScript-token/module-target audit verified all 51 source/test files retain identical non-import tokens, byte-identical bodies, and resolved dependencies, including imports and re-exports. All 29 production/type files and both built JavaScript and declarations are byte-identical to the Step 3 baseline. Before/after Vitest JSON reports confirm the same 22 suites and all 372 passing test names. No production module imports or exports test-only modules; no configuration changes were needed. Patterns build/check/lint/tests/format, Fluid build, workspace check/lint/tests/format, planning-document formatting, and `git diff --check` pass. Fluid retains its 27 files and 896 passing tests.
+
+### Step 4 outcome
+
+Moved pitch helpers to `pitch/`, guards and waveform interpretation to `inputs/`, sample normalization and the built-in registry to `samples/`, and unchanged bank data to `samples/banks/`. Relocated all 25 authoring type definitions from root `types.ts` to their owners: input unions, processing parameter types, envelope ADSR, pitch types/scale aliases, sample manifest types, and native timing chance. Schema-owned types are imported directly from `@web-audio/schema`; root `types.ts` and the emptied `utils/` and `banks/` directories are gone. Extracted the unchanged `Drome` implementation into `drome.ts`; `index.ts` now directly re-exports its default. Internal host type imports point to `drome.ts`, while public API suites continue exercising `index.ts`. Legacy implementation bodies and production wiring remain unchanged.
+
+A disposable type-/binding-aware audit verified all 68 original Fluid source/test/support files across the final 71-file layout: unchanged implementation/test tokens, relocated type definitions, resolved import bindings, test paths, and native-core/production-test boundaries. Built JavaScript differs only in source-path region comments; built declaration statements are identical apart from ordering and source-path comments. Bank data is byte-identical. Before/after Vitest reports preserve all 27 suites and 896 passing test names. A disposable built-entry smoke test under Vitest confirms the sole default `Drome` export and synth/sampler/bank behavior. Fluid build/check/lint/tests/format, patterns build, workspace check/lint/tests/format, planning-document formatting, and `git diff --check` pass. Patterns retains 22 files and 372 passing tests. README/source-map and active shorthand reference updates remain Step 5.
 
 ## Verification gate
 

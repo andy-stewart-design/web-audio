@@ -7,8 +7,8 @@ import {
   type StaticEventCycle,
 } from "@web-audio/patterns";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import type { TimingChanceCondition } from "@/types";
 import type {
+  TimingChanceCondition,
   DefaultEventSource,
   EventSource,
   GeneratedTimingOverride,

@@ -2,8 +2,8 @@ import {
   assertRandomGenerationMetadata,
   evaluatePatternExpression,
 } from "@web-audio/patterns";
-import { isRandomCycle } from "@/utils/validate";
-import type { TimingChanceCondition } from "@/types";
+import { isRandomCycle } from "./guards";
+import type { TimingChanceCondition } from "@/events/state";
 import { decodeRandomCandidateGeometry } from "./decode-random-input";
 import {
   decodeStructuredInput,

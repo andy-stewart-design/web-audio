@@ -1,5 +1,5 @@
 import type AuthoredEventValues from "@/patterns/authored-event-values";
-import { isDefined } from "@/utils/validate";
+import { isDefined } from "@/inputs/guards";
 import type AuthoredPitches from "@/patterns/authored-pitches";
 import type AuthoredTiming from "@/patterns/authored-timing";
 import type {
