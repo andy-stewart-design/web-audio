@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stretch } from "./stretch";
+import { stretch } from "../stretch";
 
 describe("stretch", () => {
   it("repeats each pattern when bars > 1", () => {

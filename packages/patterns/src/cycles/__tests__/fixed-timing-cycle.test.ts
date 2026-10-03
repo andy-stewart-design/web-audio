@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import FixedTimingCycle from "./fixed-timing-cycle";
+import FixedTimingCycle from "../fixed-timing-cycle";
 
 describe("FixedTimingCycle", () => {
   describe("getTimingPattern", () => {

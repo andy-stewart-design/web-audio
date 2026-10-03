@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getChordStaticSchema } from "./chord-static-schema";
+import { getChordStaticSchema } from "../chord-static-schema";
 
 describe("getChordStaticSchema", () => {
   it("serializes monophonic and chord hits as grouped note values", () => {

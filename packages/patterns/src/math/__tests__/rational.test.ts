@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_RATIONAL_DENOMINATOR } from "../limits";
+import { MAX_RATIONAL_DENOMINATOR } from "../../limits";
 import {
   addRational,
   compareRational,
@@ -9,7 +9,7 @@ import {
   multiplyRational,
   rationalToGridIndex,
   subtractRational,
-} from "./rational";
+} from "../rational";
 
 const maximum = Number.MAX_SAFE_INTEGER;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hex } from "./hex";
+import { hex } from "../hex";
 
 describe("hex", () => {
   it("converts f to all ones", () => {

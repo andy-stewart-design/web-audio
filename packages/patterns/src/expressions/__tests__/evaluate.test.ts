@@ -1,16 +1,16 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
-import { evaluatePatternExpression, type AtomInterpreter } from "./evaluate";
-import { getEventPatternGeometry } from "../events/grid";
-import type { PatternExpression, PatternNode, PatternRange } from "./model";
-import type { StaticEventCycle } from "../events/cycle";
+import { evaluatePatternExpression, type AtomInterpreter } from "../evaluate";
+import { getEventPatternGeometry } from "../../events/grid";
+import type { PatternExpression, PatternNode, PatternRange } from "../model";
+import type { StaticEventCycle } from "../../events/cycle";
 import {
   MAX_EVENT_CYCLE_PATTERNS,
   MAX_EVENT_CYCLE_STEPS,
   MAX_EVENT_GROUP_VOICES,
   MAX_EXPRESSION_DEPTH,
   MAX_EXPRESSION_NODES,
-} from "../limits";
-import { createRational } from "../math/rational";
+} from "../../limits";
+import { createRational } from "../../math/rational";
 
 function atom<T>(value: T, range?: PatternRange) {
   return { type: "atom", value, range } as const;

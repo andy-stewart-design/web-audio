@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { euclid } from "./euclid";
+import { euclid } from "../euclid";
 
 describe("euclid", () => {
   it("generates a known euclidean rhythm (3, 8)", () => {

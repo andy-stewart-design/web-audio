@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrange } from "./arrange";
+import { arrange } from "../arrange";
 
 describe("arrange", () => {
   it("repeats a single pattern the specified number of times", () => {

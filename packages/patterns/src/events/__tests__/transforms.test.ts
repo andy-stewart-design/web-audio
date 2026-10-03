@@ -6,23 +6,23 @@ import {
   type EventStep,
   type RandomEventCycle,
   type StaticEventCycle,
-} from "./cycle";
+} from "../cycle";
 import {
   fastEventCycle,
   reverseEventCycle,
   slowEventCycle,
   stretchEventCycle,
-} from "./transforms";
-import { getEventPatternGeometry } from "./grid";
-import { createRational } from "../math/rational";
+} from "../transforms";
+import { getEventPatternGeometry } from "../grid";
+import { createRational } from "../../math/rational";
 import {
   MAX_EVENT_CYCLE_PATTERNS,
   MAX_EVENT_CYCLE_STEPS,
   MAX_EVENT_CYCLE_VOICES,
-} from "../limits";
-import Speed from "../cycles/operations/speed";
-import { reverse } from "../cycles/operations/reverse";
-import { stretch } from "../cycles/operations/stretch";
+} from "../../limits";
+import Speed from "../../cycles/operations/speed";
+import { reverse } from "../../cycles/operations/reverse";
+import { stretch } from "../../cycles/operations/stretch";
 
 const rest = { type: "rest" } as const;
 const continuation = { type: "continuation" } as const;

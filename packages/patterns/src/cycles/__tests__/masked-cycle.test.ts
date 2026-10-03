@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MaskedCycle } from "./masked-cycle";
+import { MaskedCycle } from "../masked-cycle";
 
 describe("MaskedCycle", () => {
   it("keeps unmasked source content without a trigger grid", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reverse } from "./reverse";
+import { reverse } from "../reverse";
 
 describe("reverse", () => {
   it("reverses the order of patterns and elements within each pattern", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { xox } from "./xox";
+import { xox } from "../xox";
 
 describe("xox", () => {
   it("parses x/o string notation", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyPattern } from "./apply-pattern";
+import { applyPattern } from "../apply-pattern";
 
 describe("applyPattern", () => {
   it("fills active slots sequentially from note content", () => {

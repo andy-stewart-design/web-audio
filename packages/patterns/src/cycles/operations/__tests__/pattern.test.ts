@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pattern } from "./pattern";
+import { pattern } from "../pattern";
 
 describe("pattern", () => {
   it("wraps a single item in a nested array", () => {

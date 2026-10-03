@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import RandomCycle from "./random-cycle";
+import RandomCycle from "../random-cycle";
 
 describe("RandomCycle", () => {
   describe("getRandomSchema", () => {

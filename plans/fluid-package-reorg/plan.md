@@ -2,7 +2,7 @@
 
 ## Intent and status
 
-In progress: Steps 1–2 are complete; Steps 3–5 remain pending. A standalone, behavior-preserving cleanup between shorthand PR 4 (native state/compiler) and PR 5 (atomic production cutover), analogous to the completed patterns package reorganization.
+In progress: Steps 1–3 are complete; Steps 4–5 remain pending. A standalone, behavior-preserving cleanup between shorthand PR 4 (native state/compiler) and PR 5 (atomic production cutover), analogous to the completed patterns package reorganization.
 
 PR 4 merged as [#55](https://github.com/andy-stewart-design/web-audio/pull/55). This reorganization starts from its merged result; PR 5 starts from the completed reorganized layout. Do not combine this cleanup with production wiring.
 
@@ -160,7 +160,7 @@ Use reviewable mechanical commits within one reorganization PR:
 
 1. [x] Move native event machinery, input decoders, processing parameters, and MIDI to their owners; update imports and native sampler configuration paths.
 2. [x] Move all Fluid tests and test support to explicit test directories, keeping fixtures, scenario names, expected schemas, and assertions unchanged.
-3. [ ] Move tests in `packages/patterns` into domain-local `__tests__/` folders under `packages/patterns/src/` and update their implementation imports, preserving all assertions without consolidation or dropped coverage. Document the preferred test layout in repository `AGENTS.md`: domain-local unit tests, package-level integration tests, and test-only helpers/fixtures in the relevant suite's `support/`. Other packages adopt it incrementally as their relevant areas are worked on, not through a repository-wide migration.
+3. [x] Move tests in `packages/patterns` into domain-local `__tests__/` folders under `packages/patterns/src/` and update their implementation imports, preserving all assertions without consolidation or dropped coverage. Document the preferred test layout in repository `AGENTS.md`: domain-local unit tests, package-level integration tests, and test-only helpers/fixtures in the relevant suite's `support/`. Other packages adopt it incrementally as their relevant areas are worked on, not through a repository-wide migration.
 4. [ ] Relocate pitch/sample/input support and type definitions; extract `Drome` unchanged and reduce root `index.ts` to its existing public contract.
 5. [ ] Update Fluid's README with the source map and pnpm commands, and refresh `packages/patterns/README.md` to reflect its new test layout. Refresh the active shorthand spec/direct-cutover plan's file references and PR 5 deletion/coverage-inventory targets. Historical alternative plans remain historical.
 
@@ -177,6 +177,12 @@ Fluid retains all 27 test files and 896 passing tests. A disposable TypeScript-t
 Moved all 27 Fluid test files into domain-local `__tests__/` or package-level integration suites. Complete-schema suites now live under `src/__tests__/event-schemas/`, with the three fixture/replay support modules in its `support/` directory. Renamed test files to match their subjects, including `drome.test.ts`, `midi/__tests__/builders.test.ts`, and `patterns/__tests__/authored-pitches.test.ts`. The sample-normalization tests already live under their final `samples/__tests__/` owner; its implementation remains in `utils/sample-utils.ts` until Step 4.
 
 Fluid retains 27 passing files and 896 tests. A disposable TypeScript-token/import-target audit verified all 68 files retain identical non-import tokens and resolved dependencies after the moves, preserving fixture factories, scenario names, expected schemas, and assertions. All 38 production/type/data files and both built JavaScript and declarations are byte-identical to the Step 2 baseline. No production module imports test support; tests remain included in TypeScript checking without configuration changes. Fluid build/check/lint/tests/format, workspace check/lint/tests/format, and `git diff --check` pass. The separate patterns package test migration remains Step 3.
+
+### Step 3 outcome
+
+Moved all 22 tests in the separate `packages/patterns` package into domain-local `__tests__/` directories under `cycles/`, `cycles/operations/`, `events/`, `expressions/`, `math/`, and `rhythm/`. Only implementation import paths and their formatting changed; no suites were consolidated or coverage dropped. Root `AGENTS.md` now documents domain-local unit tests, package-level integration/public API tests, suite-local `support/`, the production/test boundary, continued TypeScript checking, and incremental adoption elsewhere. README/source-map updates remain Step 5.
+
+Before and after the moves, patterns has 22 passing test files and 372 tests. A disposable TypeScript-token/module-target audit verified all 51 source/test files retain identical non-import tokens, byte-identical bodies, and resolved dependencies, including imports and re-exports. All 29 production/type files and both built JavaScript and declarations are byte-identical to the Step 3 baseline. Before/after Vitest JSON reports confirm the same 22 suites and all 372 passing test names. No production module imports or exports test-only modules; no configuration changes were needed. Patterns build/check/lint/tests/format, Fluid build, workspace check/lint/tests/format, planning-document formatting, and `git diff --check` pass. Fluid retains its 27 files and 896 passing tests.
 
 ## Verification gate
 

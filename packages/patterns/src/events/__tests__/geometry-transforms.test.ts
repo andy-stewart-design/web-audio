@@ -3,13 +3,13 @@ import {
   type EventPattern,
   type StaticEventCycle,
   type RandomEventCycle,
-} from "./cycle";
+} from "../cycle";
 import {
   transformEventCycleGeometry,
   type EventCycleTransform,
-} from "./transforms";
-import Speed from "../cycles/operations/speed";
-import { MAX_EVENT_CYCLE_PATTERNS } from "../limits";
+} from "../transforms";
+import Speed from "../../cycles/operations/speed";
+import { MAX_EVENT_CYCLE_PATTERNS } from "../../limits";
 
 const event = <T>(value: T) =>
   ({ type: "event", values: [value] as const }) as const;

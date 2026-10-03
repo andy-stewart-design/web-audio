@@ -8,15 +8,15 @@ import {
   type RandomEventCycle,
   type RandomEventSettings,
   type StaticEventCycle,
-} from "./cycle";
-import RandomCycle from "../cycles/random-cycle";
+} from "../cycle";
+import RandomCycle from "../../cycles/random-cycle";
 import {
   MAX_EVENT_CYCLE_PATTERNS,
   MAX_EVENT_CYCLE_STEPS,
   MAX_EVENT_CYCLE_VOICES,
   MAX_EVENT_GROUP_VOICES,
   MAX_RANDOM_EVENT_SETTINGS_ITEMS,
-} from "../limits";
+} from "../../limits";
 
 const event = {
   type: "event",

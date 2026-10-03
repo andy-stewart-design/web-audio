@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import Speed from "./speed";
+import Speed from "../speed";
 
 describe("Speed", () => {
   it("starts at unit speed", () => {

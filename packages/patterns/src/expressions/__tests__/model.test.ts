@@ -11,8 +11,8 @@ import {
   type PatternRange,
   type PatternRest,
   type PatternSequence,
-} from "./model";
-import { MAX_EXPRESSION_DEPTH, MAX_EXPRESSION_NODES } from "../limits";
+} from "../model";
+import { MAX_EXPRESSION_DEPTH, MAX_EXPRESSION_NODES } from "../../limits";
 
 function createExpression<T>(patterns: readonly PatternNode<T>[]) {
   return {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sequence } from "./sequence";
+import { sequence } from "../sequence";
 
 describe("sequence", () => {
   it("creates a binary pattern with active steps", () => {
