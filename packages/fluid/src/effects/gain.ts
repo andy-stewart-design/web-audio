@@ -1,7 +1,9 @@
 import type { GainEffectSchema } from "@web-audio/schema";
-import Parameter from "@/patterns/parameter";
-import type { AudioParamInput, AudioParamSource } from "@/types";
-import { isEnvelopeTuple, isLfoTuple, isMidiCcTuple } from "@/utils/validate";
+import Parameter, {
+  type AudioParamInput,
+  type AudioParamSource,
+} from "@/parameters/parameter";
+import { isEnvelopeTuple, isLfoTuple, isMidiCcTuple } from "@/inputs/guards";
 
 class GainEffect {
   private _gain: AudioParamSource;

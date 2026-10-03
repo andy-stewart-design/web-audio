@@ -1,10 +1,10 @@
 import AuthoredPitches from "@/patterns/authored-pitches";
-import Parameter from "@/patterns/parameter";
+import Parameter from "@/parameters/parameter";
 import type {
   CycleInput,
   NullableCycleInput,
   StaticNullableCycleInput,
-} from "@/types";
+} from "@/inputs/types";
 import type {
   ClipMode,
   FitSchema,
@@ -24,11 +24,11 @@ import {
   getSamplerEventTiming,
   getSamplerTimingSelection,
 } from "./event-compiler";
-import { DEFAULT_BANK } from "@/banks";
+import { DEFAULT_BANK } from "@/samples/built-in-banks";
 import Instrument from "./instrument";
-import type Drome from "@/index";
-import { normalizeBankName } from "@/utils/sample-utils";
-import { isRandomCycleTuple } from "@/utils/validate";
+import type Drome from "@/drome";
+import { normalizeBankName } from "@/samples/normalize-bank";
+import { isRandomCycleTuple } from "@/inputs/guards";
 
 interface SamplerOptions {
   bank?: string;

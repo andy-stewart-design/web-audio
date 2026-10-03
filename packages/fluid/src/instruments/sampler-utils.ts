@@ -1,4 +1,4 @@
-import Parameter from "@/patterns/parameter";
+import Parameter from "@/parameters/parameter";
 import type {
   FitSchema,
   NumberPattern,

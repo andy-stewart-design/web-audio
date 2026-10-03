@@ -1,6 +1,8 @@
 import type { EnvelopeSchema } from "@web-audio/schema";
-import Parameter from "@/patterns/parameter";
-import type { CycleInput } from "@/types";
+import Parameter from "@/parameters/parameter";
+import type { CycleInput } from "@/inputs/types";
+
+type ADSR = { a: number; d: number; s: number; r: number };
 
 class Envelope {
   private _min: number;
@@ -79,3 +81,4 @@ class Envelope {
 }
 
 export default Envelope;
+export type { ADSR };

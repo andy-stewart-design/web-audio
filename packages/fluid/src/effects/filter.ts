@@ -1,7 +1,9 @@
 import type { FilterSchema, FilterType } from "@web-audio/schema";
-import Parameter from "@/patterns/parameter";
-import { isEnvelopeTuple, isLfoTuple, isMidiCcTuple } from "@/utils/validate";
-import type { AudioParamInput, AudioParamSource } from "@/types";
+import Parameter, {
+  type AudioParamInput,
+  type AudioParamSource,
+} from "@/parameters/parameter";
+import { isEnvelopeTuple, isLfoTuple, isMidiCcTuple } from "@/inputs/guards";
 
 class Filter {
   private _filterType: FilterType;

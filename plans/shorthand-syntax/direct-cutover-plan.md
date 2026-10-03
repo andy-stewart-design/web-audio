@@ -2,13 +2,14 @@
 
 ## Status and companion documents
 
-Active implementation plan. PRs 1–3 and Steps 4.1–4.4's readonly state model, pure transitions, and static/random event compiler with generated timing overrides are complete. Immediate fluent transforms and read-independent behavior follow the specification; legacy getter-sensitive speed cancellation is an approved compatibility exception, not a feasibility blocker. Step 4.5's complete-schema replay and the PR 4 gate were reopened for two native materialization defects and are complete again after retained regressions and workspace revalidation. Synth materialized slowdown-rest filtering is an additional approved specification-conformance exception; corrected golden expectations remain unchanged. PR 5's production cutover remains pending. The separate [patterns package reorganization](../patterns-package-reorg/plan.md) is complete; file references below use the responsibility-based layout.
+Active implementation plan. PRs 1–3 and Steps 4.1–4.4's readonly state model, pure transitions, and static/random event compiler with generated timing overrides are complete. Immediate fluent transforms and read-independent behavior follow the specification; legacy getter-sensitive speed cancellation is an approved compatibility exception, not a feasibility blocker. Step 4.5's complete-schema replay and the PR 4 gate were reopened for two native materialization defects and are complete again after retained regressions and workspace revalidation. Synth materialized slowdown-rest filtering is an additional approved specification-conformance exception; corrected golden expectations remain unchanged. PR 4 merged as [#55](https://github.com/andy-stewart-design/web-audio/pull/55); PR 5's production cutover remains pending. The separate [patterns package reorganization](../completed/patterns-package-reorg/plan.md) is complete. The standalone [Fluid package reorganization](../fluid-package-reorg/plan.md), including domain-local tests in both packages, is implemented and must be reviewed/merged before PR 5 begins. File references below use the reorganized layout; no cleanup step has switched production to native state.
 
 The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document governs delivery and supersedes the adapter-first, lane-by-lane sequence in [`plan.md`](./plan.md) and [`plan-outline.md`](./plan-outline.md). Those documents are retained as historical alternatives, not execution checklists.
 
 Read this with:
 
 - [`spec.md`](./spec.md) — normative behavior and architecture;
+- [`../fluid-package-reorg/plan.md`](../fluid-package-reorg/plan.md) — standalone layout and verification record;
 - [`plan.md`](./plan.md) — original conservative strangler plan;
 - [`plan-outline.md`](./plan-outline.md) — original high-level sequence;
 - [`pattern-flow-comparison.md`](./pattern-flow-comparison.md) — current and target flows;
@@ -81,6 +82,8 @@ pnpm format
 git diff --check
 ```
 
+Unit suites use domain-local `__tests__/`; cross-domain/public API suites use `src/__tests__/`, with fixtures and replay drivers in the relevant suite's `support/`. Production code must not import these modules. Keep tests TypeScript-checked. File lists identify current paths; future modules are explicitly marked as planned.
+
 Useful focused commands:
 
 ```sh
@@ -117,7 +120,7 @@ Use table-driven public Fluid API scenarios with explicit complete event-pattern
 
 ### Likely files
 
-- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+- `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts`
 
 ### Verification
 
@@ -139,7 +142,7 @@ Use explicit expected schema objects after old production code is deleted. Do no
 
 ### Likely files
 
-- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+- `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts`
 
 ### Verification
 
@@ -179,8 +182,8 @@ Make static sampler note and variation rests filter active timing candidates by 
 ### Likely files
 
 - `packages/fluid/src/instruments/event-compiler.ts`
-- `packages/fluid/src/instruments/event-compiler.test.ts`
-- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+- `packages/fluid/src/instruments/__tests__/event-compiler.test.ts`
+- `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts`
 - `packages/fluid/src/patterns/authored-event-values.ts`
 - `packages/fluid/src/patterns/authored-pitches.ts`
 
@@ -207,11 +210,11 @@ Treat every setter value, including scalars and one-step arrays, as an authored 
 ### Likely files
 
 - `packages/fluid/src/patterns/authored-event-values.ts`
-- `packages/fluid/src/patterns/authored-event-values.test.ts`
+- `packages/fluid/src/patterns/__tests__/authored-event-values.test.ts`
 - `packages/fluid/src/patterns/authored-pitches.ts`
 - `packages/fluid/src/instruments/event-compiler.ts`
-- `packages/fluid/src/instruments/event-compiler.test.ts`
-- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+- `packages/fluid/src/instruments/__tests__/event-compiler.test.ts`
+- `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts`
 
 ### Verification
 
@@ -239,12 +242,12 @@ Separate constructor default intent from authored setter intent. A default retai
 ### Likely files
 
 - `packages/fluid/src/patterns/authored-event-values.ts`
-- `packages/fluid/src/patterns/authored-event-values.test.ts`
+- `packages/fluid/src/patterns/__tests__/authored-event-values.test.ts`
 - `packages/fluid/src/patterns/authored-pitches.ts`
-- `packages/fluid/src/patterns/notes.test.ts`
+- `packages/fluid/src/patterns/__tests__/authored-pitches.test.ts`
 - `packages/fluid/src/instruments/event-compiler.ts`
-- `packages/fluid/src/instruments/event-compiler.test.ts`
-- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+- `packages/fluid/src/instruments/__tests__/event-compiler.test.ts`
+- `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts`
 
 ### Verification
 
@@ -268,7 +271,7 @@ Promote corrected schema fixtures to the authority for the direct cutover. Avoid
 
 ### Likely files
 
-- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+- `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts`
 - `plans/shorthand-syntax/direct-cutover-plan.md`
 - release or migration documentation, if applicable
 
@@ -318,7 +321,7 @@ Implemented in `packages/patterns/src/expressions/model.ts`, with readonly node 
 ### Likely files
 
 - `packages/patterns/src/expressions/model.ts`
-- `packages/patterns/src/expressions/model.test.ts`
+- `packages/patterns/src/expressions/__tests__/model.test.ts`
 - `packages/patterns/src/index.ts`
 - `packages/patterns/src/limits.ts`
 
@@ -351,7 +354,7 @@ Limits are 1,024 patterns, 16,384 total steps (also bounding onsets), 128 voices
 ### Likely files
 
 - `packages/patterns/src/events/cycle.ts`
-- `packages/patterns/src/events/cycle.test.ts`
+- `packages/patterns/src/events/__tests__/cycle.test.ts`
 - `packages/patterns/src/index.ts`
 - `packages/patterns/src/limits.ts`
 
@@ -383,11 +386,11 @@ Implemented in `packages/patterns/src/expressions/evaluate.ts`, with `math/ratio
 ### Likely files
 
 - `packages/patterns/src/expressions/evaluate.ts`
-- `packages/patterns/src/expressions/evaluate.test.ts`
+- `packages/patterns/src/expressions/__tests__/evaluate.test.ts`
 - `packages/patterns/src/math/rational.ts`
-- `packages/patterns/src/math/rational.test.ts`
+- `packages/patterns/src/math/__tests__/rational.test.ts`
 - `packages/patterns/src/events/grid.ts`
-- `packages/patterns/src/events/grid.test.ts`
+- `packages/patterns/src/events/__tests__/grid.test.ts`
 
 ### Verification
 
@@ -402,7 +405,7 @@ Implemented in `packages/patterns/src/expressions/evaluate.ts`, with `math/ratio
 
 Keep consumer validation in Fluid, then evaluate all static structured event input through the shared expression path.
 
-Native-only `decode-{structured,random,xox}-input.ts` helpers are in Fluid's patterns directory. A separate cumulative raw-input budget of 65,536 argument, bar, and chord slots includes sparse holes and omitted nullable voices; array lengths are reserved before traversal, independently of emitted-node and surviving-voice limits. Opaque atom payloads are not traversed. Before cutover, resolve legacy empty-note-chord acceptance and empty-note-bar timing-priority provenance.
+Native-only `decode-{structured,random,xox}-input.ts` helpers are in Fluid's `inputs/` directory. A separate cumulative raw-input budget of 65,536 argument, bar, and chord slots includes sparse holes and omitted nullable voices; array lengths are reserved before traversal, independently of emitted-node and surviving-voice limits. Opaque atom payloads are not traversed. Before cutover, resolve legacy empty-note-chord acceptance and empty-note-bar timing-priority provenance.
 
 ### Tasks
 
@@ -417,12 +420,14 @@ Native-only `decode-{structured,random,xox}-input.ts` helpers are in Fluid's pat
 
 ### Likely files
 
-- `packages/fluid/src/patterns/decode-structured-input.ts` — **new, suggested**
-- `packages/fluid/src/patterns/decode-structured-input.test.ts` — **new, suggested**
-- `packages/fluid/src/patterns/decode-xox-input.ts` — **new, suggested**
-- `packages/fluid/src/patterns/decode-xox-input.test.ts` — **new, suggested**
-- `packages/fluid/src/types.ts`
-- `packages/fluid/src/utils/validate.ts`
+- `packages/fluid/src/inputs/decode-structured-input.ts`
+- `packages/fluid/src/inputs/__tests__/decode-structured-input.test.ts`
+- `packages/fluid/src/inputs/decode-random-input.ts`
+- `packages/fluid/src/inputs/decode-xox-input.ts`
+- `packages/fluid/src/inputs/__tests__/decode-xox-input.test.ts`
+- `packages/fluid/src/inputs/types.ts`
+- `packages/fluid/src/inputs/guards.ts`
+- `packages/fluid/src/events/state.ts` — readonly timing chance metadata
 
 ### Verification
 
@@ -452,7 +457,8 @@ Implemented in `packages/patterns/src/events/transforms.ts`. Fluent and native t
 ### Likely files
 
 - `packages/patterns/src/events/transforms.ts`
-- `packages/patterns/src/events/transforms.test.ts`
+- `packages/patterns/src/events/__tests__/transforms.test.ts`
+- `packages/patterns/src/events/__tests__/geometry-transforms.test.ts`
 - `packages/patterns/src/cycles/operations/reverse.ts`
 - `packages/patterns/src/cycles/operations/speed.ts`
 - `packages/patterns/src/cycles/operations/stretch.ts`
@@ -488,7 +494,7 @@ Implement the complete target event state and compiler beside production code. T
 
 Represent synth and sampler event concerns as readonly data with intent colocated with each source.
 
-Status: complete as a type-only model in `packages/fluid/src/instruments/event-state.ts`, with 12 focused tests/type assertions. Defaults require static cycles and nonempty fallback tuples; authored numeric lanes admit random cycles, while names stay static. Timing retains readonly chance metadata separately from numeric generation. Pitch state records resolved root/scale data and whether a transform was explicitly requested, preserving sampler note omission even for `root(0)`. Generated sampler timing is a separate compiler-input override, not a stored lane.
+Status: complete as a type-only model in `packages/fluid/src/events/state.ts`, with 12 focused tests/type assertions. Defaults require static cycles and nonempty fallback tuples; authored numeric lanes admit random cycles, while names stay static. Timing retains readonly chance metadata separately from numeric generation. Pitch state records resolved root/scale data and whether a transform was explicitly requested, preserving sampler note omission even for `root(0)`. Generated sampler timing is a separate compiler-input override, not a stored lane.
 
 Patterns now exports `EventCycle` and `NonEmptyGroup` for this concrete cross-package consumer; no runtime exports or Fluid public exports were added. Native constructors and runtime freezing belong to Step 4.2. This initial model does not resolve the representation-feasibility questions in Steps 4.2/4.5, which still block cutover. Production instruments remain unchanged.
 
@@ -506,10 +512,9 @@ Patterns now exports `EventCycle` and `NonEmptyGroup` for this concrete cross-pa
 
 ### Likely files
 
-- `packages/fluid/src/instruments/event-state.ts`
-- `packages/fluid/src/instruments/event-state.test.ts`
+- `packages/fluid/src/events/state.ts` — also owns the unchanged readonly timing chance metadata
+- `packages/fluid/src/events/__tests__/state.test.ts`
 - `packages/patterns/src/index.ts`
-- `packages/fluid/src/types.ts` — existing readonly timing chance metadata, unchanged
 
 ### Verification
 
@@ -545,9 +550,11 @@ Status: complete. Constructors, setters, timing composition, pitch state, pure t
 
 ### Likely files
 
-- `packages/fluid/src/instruments/event-state-transitions.ts` — **new, suggested**
-- `packages/fluid/src/instruments/event-state-transitions.test.ts` — **new, suggested**
-- `packages/fluid/src/instruments/event-state.ts`
+- `packages/fluid/src/events/transitions.ts`
+- `packages/fluid/src/events/__tests__/transitions.test.ts`
+- `packages/fluid/src/events/geometry.ts`
+- `packages/fluid/src/events/snapshot.ts`
+- `packages/fluid/src/events/state.ts`
 - `packages/patterns/src/events/transforms.ts`
 
 ### Verification
@@ -562,7 +569,7 @@ Status: complete. Constructors, setters, timing composition, pitch state, pure t
 
 ### Representation decisions and approved compatibility exception
 
-Implemented helpers are `event-state-transitions.ts`, `event-state-geometry.ts`, and `event-state-snapshot.ts`. Production facades remain entirely legacy-backed.
+Implemented helpers are `packages/fluid/src/events/transitions.ts`, `packages/fluid/src/events/geometry.ts`, and `packages/fluid/src/events/snapshot.ts`. Production facades remain entirely legacy-backed.
 
 Native provenance is colocated with authored sources, never with generic event steps:
 
@@ -576,7 +583,7 @@ Tests cover native state directly and 32 reproducible eight-operation legacy/nat
 
 **Approved: immediate fluent speed transforms, independent of reads.** The user explicitly chose specification conformance over reproducing legacy deferred/getter-sensitive speed cancellation. Native `.fast(2).slow(2)` operates on the materialized intermediate cycle and preserves shortened gates; no getter call changes the outcome. Do not repair the old wrappers, add pending speed state, introduce an observation boundary, or require parity with that legacy quirk. Shorthand's exact uninterrupted expression-chain cancellation remains required in Step 6.2.
 
-`event-state-transitions.test.ts` now tests immediate acceleration/slowdown for synth, sampler, and generated-timing contexts, unchanged results after repeated native reads, later timing replacement, and coordinated value lanes under generated timing. No expected-failure test remains. Steps 4.3–4.5 must extend this to pure compilation and complete-schema replay; PR 5 must test public `getSchema()` read independence once the facade uses native state. Differential mismatches attributable to this approved exception are explained differences, not blockers. Other preserved-behavior regressions still require fixes; do not rewrite existing goldens to hide them.
+`packages/fluid/src/events/__tests__/transitions.test.ts` now tests immediate acceleration/slowdown for synth, sampler, and generated-timing contexts, unchanged results after repeated native reads, later timing replacement, and coordinated value lanes under generated timing. No expected-failure test remains. Steps 4.3–4.5 must extend this to pure compilation and complete-schema replay; PR 5 must test public `getSchema()` read independence once the facade uses native state. Differential mismatches attributable to this approved exception are explained differences, not blockers. Other preserved-behavior regressions still require fixes; do not rewrite existing goldens to hide them.
 
 ## Step 4.3 — Implement static event compilation
 
@@ -584,7 +591,7 @@ Tests cover native state directly and 32 reproducible eight-operation legacy/nat
 
 Compile native state to the existing schema without parsing input or mutating authoring state.
 
-Status: complete in `event-state-compiler.ts`, with direct native-state tests. The compiler reuses Step 4.2 timing selection, availability, shared-materialization provenance, and snapshots. Synth compilation applies authored availability without changing synth transform materialization semantics. Notes resolve final hit counts; sample names and variations retain the established compact sequences for independent engine-side hit-index wrapping. Common-length expansion and emitted event/voice budgets are checked before schema group allocation. Exact geometry stays native until numeric schema emission, retaining corrected golden offset rounding.
+Status: complete in `packages/fluid/src/events/compiler.ts`, with direct native-state tests. The compiler reuses Step 4.2 timing selection, availability, shared-materialization provenance, and snapshots. Synth compilation applies authored availability without changing synth transform materialization semantics. Notes resolve final hit counts; sample names and variations retain the established compact sequences for independent engine-side hit-index wrapping. Common-length expansion and emitted event/voice budgets are checked before schema group allocation. Exact geometry stays native until numeric schema emission, retaining corrected golden offset rounding.
 
 Tests compare complete static schemas with representative corrected golden expectations, cover continuations and provenance directly, and prove compilation cannot affect later transforms or mutate/alias input data. Random sources and chance metadata are now supported by Step 4.4; its implementation removed the temporary unsupported-branch guards and their test. Complete shared-fixture replay is verified in Step 4.5; production facades and corrected goldens are unchanged.
 
@@ -605,9 +612,9 @@ Tests compare complete static schemas with representative corrected golden expec
 
 ### Likely files
 
-- `packages/fluid/src/instruments/event-state-compiler.ts` — **new, suggested**
-- `packages/fluid/src/instruments/event-state-compiler.test.ts` — **new, suggested**
-- `packages/fluid/src/instruments/event-state.ts`
+- `packages/fluid/src/events/compiler.ts`
+- `packages/fluid/src/events/__tests__/compiler.test.ts`
+- `packages/fluid/src/events/state.ts`
 - `packages/patterns/src/events/cycle.ts`
 
 ### Verification
@@ -623,7 +630,7 @@ Tests compare complete static schemas with representative corrected golden expec
 
 Complete the compiler for random lanes, chance timing, and generated sampler timing.
 
-Status: complete in `event-state-compiler.ts`, with 80 passing compiler tests across static, random, chance, and generated timing cases. Production synth/sampler getters and corrected golden expectations are unchanged; complete shared-fixture replay is verified in Step 4.5.
+Status: complete in `packages/fluid/src/events/compiler.ts`, with 80 passing compiler tests across static, random, chance, and generated timing cases. Production synth/sampler getters and corrected golden expectations are unchanged; complete shared-fixture replay is verified in Step 4.5.
 
 Random notes use surviving fixed-candidate counts; random variations preserve authored per-bar counts for independent wrapping. Both retain cloned generation metadata, including segments, ranges, maps, quantization, algorithms, and order. Binary/scale note maps follow the established pitch-conversion policy, with generated scale maps bounded before allocation. Explicit synth rhythm replaces random note counts even in originally empty bars; sampler random zero-count bars suppress candidates. Probability zero compiles to silence, probability one omits a redundant condition, and intermediate probabilities remain one runtime timing condition after fixed filtering. The compiler never generates random decisions or values.
 
@@ -644,10 +651,12 @@ A matching complete compiler expectation and retained `resolve-sampler-events.te
 
 ### Likely files
 
-- `packages/fluid/src/instruments/event-state-compiler.ts`
-- `packages/fluid/src/instruments/event-state-compiler.test.ts`
-- `packages/fluid/src/instruments/event-state.ts`
+- `packages/fluid/src/events/compiler.ts`
+- `packages/fluid/src/events/__tests__/compiler.test.ts`
+- `packages/fluid/src/events/state.ts`
 - `packages/fluid/src/instruments/sampler-utils.ts`
+- `packages/fluid/src/instruments/sampler-event-timing.ts`
+- `packages/fluid/src/instruments/__tests__/sampler-event-timing.test.ts`
 
 ### Verification
 
@@ -662,15 +671,15 @@ A matching complete compiler expectation and retained `resolve-sampler-events.te
 
 Prove the complete structured native path, not only compilation from hand-constructed state. Extract replayable operation sequences from the existing compatibility fixtures while retaining their names and corrected expected schemas unchanged. Replay each sequence through native construction, decoding, evaluation, transitions, generated timing overrides, and compilation. Production instruments remain legacy-backed.
 
-Status: complete. All 54 corrected fixtures share fresh operation factories and unchanged names/expected schema ASTs in `event-schema-fixtures.ts`. Both public API and native replay pass their complete serialized expectations. The test-only `event-scenario-replay.ts` driver delegates native behavior to decoders, transitions, compilation, and the isolated production-intended `event-state-sampler-timing.ts` configuration helpers; it never adapts legacy state. Sampler configuration stays outside authored IR, retaining validated fit/chop bounds, processing sequence counts, generated-timing priority, and materialization release.
+Status: complete. All 54 corrected fixtures share fresh operation factories and unchanged names/expected schema ASTs in `packages/fluid/src/__tests__/event-schemas/support/schema-fixtures.ts`. Both public API and native replay pass their complete serialized expectations. The test-only `packages/fluid/src/__tests__/event-schemas/support/scenario-replay.ts` driver delegates native behavior to decoders, transitions, compilation, and the isolated production-intended `packages/fluid/src/instruments/sampler-event-timing.ts` configuration helpers; it never adapts legacy state. Sampler configuration stays outside authored IR, retaining validated fit/chop bounds, processing sequence counts, generated-timing priority, and materialization release.
 
-`native-event-scenario-replay.test.ts` has 88 retained replay cases: the 54 corrected goldens, complete representation-feasibility cases, and explicit approved-exception regressions. They cover inherited gaps versus slowdown-created rests, repeated shared intersections, empty-bar timing priority and generated compression, null/undefined/empty/null-only note chords, original-one-slot exemptions, generated sequence counts, fit deactivation, and immediate synth/sampler/generated speed chains. Every operation prefix is compiled repeatedly without mutating frozen native state, then the final complete schema is compared with independent uninterrupted replay.
+`packages/fluid/src/__tests__/event-schemas/native-replay.test.ts` has 88 retained replay cases: the 54 corrected goldens, complete representation-feasibility cases, and explicit approved-exception regressions. They cover inherited gaps versus slowdown-created rests, repeated shared intersections, empty-bar timing priority and generated compression, null/undefined/empty/null-only note chords, original-one-slot exemptions, generated sequence counts, fit deactivation, and immediate synth/sampler/generated speed chains. Every operation prefix is compiled repeatedly without mutating frozen native state, then the final complete schema is compared with independent uninterrupted replay.
 
-**Materialization follow-up:** readiness was reopened after empty note-value bars lost selected timing width during fractional speeds and missing note groups left orphan continuations. Both defects are fixed in native `alignValues()`: an empty value bar aligned to active timing retains the full silent grid without inventing note-value slots, and removing an onset silences its entire continuation run. Four retained complete-schema fixtures cover leading/trailing empty note bars under `.fast(2 / 3)` and `.slow(3 / 2)`; temporary comparisons verify strict legacy parity with and without intermediate reads. Ten direct cases in `event-state-materialization.test.ts` additionally cover fractional geometry, null/undefined/empty/null-only placeholders, one- and two-step continuation runs, synth/sampler transitions, all four transforms, immutable inputs, and complete reversed schemas. These are native fixes, not new compatibility exceptions; corrected goldens and production wiring are unchanged.
+**Materialization follow-up:** readiness was reopened after empty note-value bars lost selected timing width during fractional speeds and missing note groups left orphan continuations. Both defects are fixed in native `alignValues()`: an empty value bar aligned to active timing retains the full silent grid without inventing note-value slots, and removing an onset silences its entire continuation run. Four retained complete-schema fixtures cover leading/trailing empty note bars under `.fast(2 / 3)` and `.slow(3 / 2)`; temporary comparisons verify strict legacy parity with and without intermediate reads. Ten direct cases in `packages/fluid/src/events/__tests__/materialization.test.ts` additionally cover fractional geometry, null/undefined/empty/null-only placeholders, one- and two-step continuation runs, synth/sampler transitions, all four transforms, immutable inputs, and complete reversed schemas. These are native fixes, not new compatibility exceptions; corrected goldens and production wiring are unchanged.
 
-`legacy-native-event-scenario-comparison.test.ts` has 149 temporary tests. Forty-eight seeds each for synth, sampler, and generated-timing contexts replay eight-operation sequences, comparing all 1,152 prefixes with and without intermediate compilation (2,304 complete legacy/native schema comparisons). Each uninterrupted prefix initializes fresh paths and random sources. Failure messages include the context, seed, operations, and strict complete schema difference.
+`packages/fluid/src/__tests__/event-schemas/legacy-comparison.test.ts` has 149 temporary tests. Forty-eight seeds each for synth, sampler, and generated-timing contexts replay eight-operation sequences, comparing all 1,152 prefixes with and without intermediate compilation (2,304 complete legacy/native schema comparisons). Each uninterrupted prefix initializes fresh paths and random sources. Failure messages include the context, seed, operations, and strict complete schema difference.
 
-Eleven differing prefixes across four generated sequences are fully explained by approved exceptions. Both read modes are checked against exact, independent legacy counterpart schemas and retained explicit native expectations; there is no broad skip for sequences containing speed transforms or rests. Deferred implicit stored-rhythm speeds explain synth seeds 6/12 and sampler seed 48, even when schema reads do not observe that legacy lane. Synth seed 26 exposes the separately approved availability exception below. All other prefixes require strict parity. The temporary comparison file and its obsolete counterpart expectations are removed at cutover; `native-event-regression-fixtures.ts`, shared corrected fixtures, and native replay remain.
+Eleven differing prefixes across four generated sequences are fully explained by approved exceptions. Both read modes are checked against exact, independent legacy counterpart schemas and retained explicit native expectations; there is no broad skip for sequences containing speed transforms or rests. Deferred implicit stored-rhythm speeds explain synth seeds 6/12 and sampler seed 48, even when schema reads do not observe that legacy lane. Synth seed 26 exposes the separately approved availability exception below. All other prefixes require strict parity. The temporary comparison file and its obsolete counterpart expectations are removed at cutover; `packages/fluid/src/__tests__/event-schemas/support/native-regression-fixtures.ts`, shared corrected fixtures, and native replay remain.
 
 **Approved: synth authored availability survives materialization.** Legacy synth compilation ignores slowdown-created within-bar rests after note materialization; native compilation applies their candidate-ordinal availability as specified. `.synth().notes([60, 64]).slow(2).xox(rand().bin().steps(4).chance(1))` emits offsets `0` and `1/2` in both bars with quarter-bar durations, not the legacy four candidates per bar. The user approved documenting this as a compatibility exception rather than reproducing or repairing the legacy defect. Inherited timing gaps remain transparent. The specification, retained full-schema regressions, and explicit old/new characterization record the distinction. No corrected expectation or legacy implementation changed, and no unexplained differential mismatch remains.
 
@@ -689,12 +698,17 @@ Eleven differing prefixes across four generated sequences are fully explained by
 
 ### Likely files
 
-- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
-- `packages/fluid/src/instruments/event-schema-fixtures.ts` — **new, suggested**
-- `packages/fluid/src/instruments/native-event-scenario-replay.test.ts` — **new, suggested**
-- `packages/fluid/src/instruments/event-state-materialization.test.ts` — retained native materialization regressions
-- `packages/fluid/src/instruments/event-state-transitions.test.ts`
-- `packages/fluid/src/instruments/event-state-compiler.test.ts`
+- `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts`
+- `packages/fluid/src/__tests__/event-schemas/native-replay.test.ts`
+- `packages/fluid/src/__tests__/event-schemas/legacy-comparison.test.ts` — temporary, removed at cutover
+- `packages/fluid/src/__tests__/event-schemas/support/schema-fixtures.ts`
+- `packages/fluid/src/__tests__/event-schemas/support/native-regression-fixtures.ts`
+- `packages/fluid/src/__tests__/event-schemas/support/scenario-replay.ts`
+- `packages/fluid/src/events/__tests__/materialization.test.ts` — retained native materialization regressions
+- `packages/fluid/src/events/__tests__/transitions.test.ts`
+- `packages/fluid/src/events/__tests__/compiler.test.ts`
+- `packages/fluid/src/instruments/sampler-event-timing.ts`
+- `packages/fluid/src/instruments/__tests__/sampler-event-timing.test.ts`
 
 ### Verification
 
@@ -724,6 +738,8 @@ Eleven differing prefixes across four generated sequences are fully explained by
 
 Replace production event authoring and compilation in one coordinated cutover, then delete the legacy event architecture.
 
+Begin PR 5 only after the standalone Fluid reorganization is reviewed and merged. Use its final paths and preserve its coverage: 27 Fluid files / 896 tests and 22 patterns files / 372 tests before cutover deletions. Counts alone do not authorize deletion; Step 5.4 still requires assertion-level coverage transfer.
+
 Steps 5.1–5.4 are one production transition and must not be merged independently. Preparation may occur in isolated code, but the merged PR must have only native event state.
 
 Organize reviewable commits by setter wiring (5.1), transform wiring (5.2), schema wiring (5.3), and legacy deletion after verified coverage transfer (5.4). These are review boundaries, not separately deployable production states; merge them together only after the final integrated path passes all cutover gates. Keep representation changes in PR 4 and newly discovered behavior changes out of PR 5. Corrected golden expectations must remain unchanged.
@@ -752,11 +768,14 @@ Replace legacy fields in `Instrument`, `Synthesizer`, and `Sampler` with one nat
 - `packages/fluid/src/instruments/instrument.ts`
 - `packages/fluid/src/instruments/synthesizer.ts`
 - `packages/fluid/src/instruments/sampler.ts`
-- `packages/fluid/src/instruments/event-state.ts`
-- `packages/fluid/src/instruments/event-state-transitions.ts`
-- `packages/fluid/src/patterns/decode-structured-input.ts`
-- `packages/fluid/src/patterns/decode-xox-input.ts`
-- `packages/fluid/src/types.ts`
+- `packages/fluid/src/events/state.ts`
+- `packages/fluid/src/events/transitions.ts`
+- `packages/fluid/src/inputs/decode-structured-input.ts`
+- `packages/fluid/src/inputs/decode-random-input.ts`
+- `packages/fluid/src/inputs/decode-xox-input.ts`
+- `packages/fluid/src/inputs/types.ts`
+- `packages/fluid/src/pitch/types.ts`
+- `packages/fluid/src/pitch/get-scale.ts`
 
 ### Verification
 
@@ -787,8 +806,10 @@ Make every global event transform one immediate native state operation.
 
 - `packages/fluid/src/instruments/instrument.ts`
 - `packages/fluid/src/instruments/sampler.ts`
-- `packages/fluid/src/instruments/event-state-transitions.ts`
-- `packages/fluid/src/instruments/event-state-transitions.test.ts`
+- `packages/fluid/src/events/transitions.ts`
+- `packages/fluid/src/events/__tests__/transitions.test.ts`
+- `packages/fluid/src/instruments/sampler-event-timing.ts`
+- `packages/fluid/src/instruments/__tests__/sampler-event-timing.test.ts`
 - `packages/patterns/src/events/transforms.ts`
 
 ### Verification
@@ -819,10 +840,13 @@ Route both instruments through the pure compiler in the same production cutover.
 - `packages/fluid/src/instruments/synthesizer.ts`
 - `packages/fluid/src/instruments/sampler.ts`
 - `packages/fluid/src/instruments/instrument.ts`
-- `packages/fluid/src/instruments/event-state-compiler.ts`
+- `packages/fluid/src/events/compiler.ts`
 - `packages/fluid/src/instruments/sampler-utils.ts`
-- `packages/fluid/src/utils/sample-utils.ts`
-- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+- `packages/fluid/src/instruments/sampler-event-timing.ts`
+- `packages/fluid/src/samples/normalize-bank.ts`
+- `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts`
+- `packages/fluid/src/__tests__/drome.test.ts`
+- `packages/fluid/src/instruments/__tests__/instrument.test.ts`
 
 ### Verification
 
@@ -854,19 +878,50 @@ Remove the old architecture in the same PR so the repository does not retain two
 - [ ] Replace wrapper-detail tests only after their useful behavioral assertions have verified native coverage or an explicit retirement rationale.
 - [ ] Retain useful rhythm generation only as named pure utilities.
 
-### Likely files
+### Coverage-transfer/deletion inventory targets
+
+Legacy implementation and unit-suite candidates, to delete or narrow only after useful assertions have verified retained coverage:
 
 - `packages/fluid/src/instruments/event-compiler.ts`
-- `packages/fluid/src/instruments/event-compiler.test.ts`
+- `packages/fluid/src/instruments/__tests__/event-compiler.test.ts`
 - `packages/fluid/src/patterns/authored-pitches.ts`
-- `packages/fluid/src/patterns/notes.test.ts`
+- `packages/fluid/src/patterns/__tests__/authored-pitches.test.ts`
 - `packages/fluid/src/patterns/authored-event-values.ts`
-- `packages/fluid/src/patterns/authored-event-values.test.ts`
+- `packages/fluid/src/patterns/__tests__/authored-event-values.test.ts`
 - `packages/fluid/src/patterns/authored-timing.ts`
-- `packages/fluid/src/patterns/authored-timing.test.ts`
+- `packages/fluid/src/patterns/__tests__/authored-timing.test.ts`
+- `packages/fluid/src/patterns/authored-availability.ts`
+- `packages/fluid/src/patterns/__tests__/authored-availability.test.ts`
+- `packages/fluid/src/patterns/event-timing.ts`
 - `packages/patterns/src/cycles/masked-cycle.ts`
-- `packages/patterns/src/cycles/masked-cycle.test.ts`
-- package index and type files
+- `packages/patterns/src/cycles/__tests__/masked-cycle.test.ts`
+- `packages/patterns/src/index.ts` — remove only exports whose callers are gone; retain random/processing primitives and their dependencies
+
+Temporary comparison wiring:
+
+- `packages/fluid/src/__tests__/event-schemas/legacy-comparison.test.ts` — delete the 149-test legacy comparison suite and its obsolete legacy counterpart expectations, not the shared/native expectations
+- `packages/fluid/src/events/__tests__/transitions.test.ts` — remove or replace the temporary `LegacySampler`/`inspectTiming()` oracle and `temporary transition timing comparisons` section after coverage transfer; retain the native transition assertions and direct feasibility regressions
+
+Retained destinations for the assertion-level inventory (a passing destination must be identified for each useful assertion, not merely for each deleted file):
+
+- `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts` — all 54 corrected public-API goldens, unchanged
+- `packages/fluid/src/__tests__/event-schemas/native-replay.test.ts` — all 88 native replay cases, including approved exceptions and materialization regressions
+- `packages/fluid/src/__tests__/event-schemas/support/schema-fixtures.ts`
+- `packages/fluid/src/__tests__/event-schemas/support/native-regression-fixtures.ts`
+- `packages/fluid/src/__tests__/event-schemas/support/scenario-replay.ts` — retain independent public/native replay; after cutover the public driver invokes native-backed facades
+- `packages/fluid/src/events/__tests__/state.test.ts`
+- `packages/fluid/src/events/__tests__/transitions.test.ts` — retained native coverage; obsolete oracle imports must disappear
+- `packages/fluid/src/events/__tests__/compiler.test.ts`
+- `packages/fluid/src/events/__tests__/materialization.test.ts` — empty-value grid width, continuation-run cleanup, and complete reversed schemas
+- `packages/fluid/src/inputs/__tests__/decode-structured-input.test.ts`
+- `packages/fluid/src/inputs/__tests__/decode-xox-input.test.ts`
+- `packages/fluid/src/instruments/__tests__/sampler-event-timing.test.ts`
+- `packages/fluid/src/instruments/__tests__/sampler-utils.test.ts`
+- `packages/fluid/src/instruments/__tests__/instrument.test.ts`
+- `packages/fluid/src/__tests__/drome.test.ts`
+- `packages/fluid/src/parameters/parameter.ts` and `packages/fluid/src/parameters/__tests__/parameter.test.ts` — processing behavior stays outside the event redesign
+
+The reorganization's `pitch/`, `samples/`, `inputs/guards.ts`, `inputs/types.ts`, `drome.ts`, and default-only `index.ts` are retained owners, not obsolete migration infrastructure. No file or assertion is removed by this inventory update; deletion still belongs exclusively to the coordinated PR 5 cutover.
 
 ### Verification
 
@@ -880,6 +935,7 @@ Remove the old architecture in the same PR so the repository does not retain two
 
 ## PR 5 completion gate
 
+- [ ] The standalone Fluid reorganization is merged before production integration.
 - [ ] Structured event input uses expressions and evaluation end to end.
 - [ ] Instrument state stores only native event cycles.
 - [ ] Both synth and sampler compile through the new compiler.
@@ -919,9 +975,9 @@ Parse shorthand directly into `PatternExpression<string>`.
 ### Likely files
 
 - `packages/patterns/src/shorthand/lexer.ts` — **new, suggested**
-- `packages/patterns/src/shorthand/lexer.test.ts` — **new, suggested**
+- `packages/patterns/src/shorthand/__tests__/lexer.test.ts` — **new, suggested**
 - `packages/patterns/src/shorthand/parser.ts` — **new, suggested**
-- `packages/patterns/src/shorthand/parser.test.ts` — **new, suggested**
+- `packages/patterns/src/shorthand/__tests__/parser.test.ts` — **new, suggested**
 - `packages/patterns/src/shorthand/errors.ts` — **new, suggested**
 - `packages/patterns/src/expressions/model.ts`
 - `packages/patterns/src/index.ts`
@@ -953,7 +1009,7 @@ Extend the same evaluator with shorthand structures and operators.
 ### Likely files
 
 - `packages/patterns/src/expressions/evaluate.ts`
-- `packages/patterns/src/expressions/evaluate.test.ts`
+- `packages/patterns/src/expressions/__tests__/evaluate.test.ts`
 - `packages/patterns/src/events/transforms.ts`
 - `packages/patterns/src/math/rational.ts`
 - `packages/patterns/src/events/grid.ts`
@@ -987,13 +1043,13 @@ Interpret shorthand leaves during shared evaluation without creating a converted
 
 ### Likely files
 
-- `packages/fluid/src/patterns/atom-interpreters.ts` — **new, suggested**
-- `packages/fluid/src/patterns/atom-interpreters.test.ts` — **new, suggested**
-- `packages/fluid/src/patterns/decode-xox-input.ts`
-- `packages/fluid/src/patterns/decode-xox-input.test.ts`
-- `packages/fluid/src/utils/sample-utils.ts`
-- `packages/fluid/src/utils/validate.ts`
-- `packages/fluid/src/types.ts`
+- `packages/fluid/src/inputs/atom-interpreters.ts` — **new, suggested**
+- `packages/fluid/src/inputs/__tests__/atom-interpreters.test.ts` — **new, suggested**
+- `packages/fluid/src/inputs/decode-xox-input.ts`
+- `packages/fluid/src/inputs/__tests__/decode-xox-input.test.ts`
+- `packages/fluid/src/samples/normalize-bank.ts`
+- `packages/fluid/src/inputs/guards.ts`
+- `packages/fluid/src/inputs/types.ts`
 
 ### Verification
 
@@ -1021,11 +1077,11 @@ Compare equivalent inputs at expression, event-cycle, and final-schema boundarie
 
 ### Likely files
 
-- `packages/patterns/src/expressions/evaluate.test.ts`
-- `packages/fluid/src/patterns/atom-interpreters.test.ts`
-- `packages/fluid/src/patterns/decode-structured-input.test.ts`
-- `packages/fluid/src/instruments/event-state-compiler.test.ts`
-- `packages/fluid/src/instruments/event-schema-compatibility.test.ts`
+- `packages/patterns/src/expressions/__tests__/evaluate.test.ts`
+- `packages/fluid/src/inputs/__tests__/atom-interpreters.test.ts` — **planned; Step 6.3**
+- `packages/fluid/src/inputs/__tests__/decode-structured-input.test.ts`
+- `packages/fluid/src/events/__tests__/compiler.test.ts`
+- `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts`
 
 ### Verification
 
@@ -1070,9 +1126,10 @@ Expose immutable reusable shorthand values containing the shared expression mode
 - `packages/patterns/src/shorthand/create.ts` — **new, suggested; owning module, not a barrel**
 - `packages/patterns/src/expressions/model.ts`
 - `packages/patterns/src/index.ts`
-- `packages/fluid/src/index.ts`
-- `packages/fluid/src/index.test.ts`
-- `packages/fluid/src/types.ts`
+- `packages/fluid/src/drome.ts` — shorthand factory implementation
+- `packages/fluid/src/index.ts` — public export contract
+- `packages/fluid/src/__tests__/drome.test.ts`
+- `packages/fluid/src/inputs/types.ts`
 
 ### Verification
 
@@ -1102,10 +1159,10 @@ Route supported direct strings and reusable shorthand values through the parser 
 
 - `packages/fluid/src/instruments/instrument.ts`
 - `packages/fluid/src/instruments/sampler.ts`
-- `packages/fluid/src/instruments/event-state-transitions.ts`
-- `packages/fluid/src/patterns/atom-interpreters.ts`
-- `packages/fluid/src/patterns/decode-xox-input.ts`
-- `packages/fluid/src/types.ts`
+- `packages/fluid/src/events/transitions.ts`
+- `packages/fluid/src/inputs/atom-interpreters.ts` — **planned; Step 6.3**
+- `packages/fluid/src/inputs/decode-xox-input.ts`
+- `packages/fluid/src/inputs/types.ts`
 - public API test files
 
 ### Verification
@@ -1132,11 +1189,12 @@ Apply the notation-safe sample-name rules defined by the specification.
 
 ### Likely files
 
-- `packages/fluid/src/utils/sample-utils.ts`
-- `packages/fluid/src/utils/sample-utils.test.ts`
+- `packages/fluid/src/samples/normalize-bank.ts`
+- `packages/fluid/src/samples/__tests__/normalize-bank.test.ts`
+- `packages/fluid/src/samples/types.ts`
 - `packages/fluid/src/instruments/sampler.ts`
-- `packages/fluid/src/index.ts`
-- `packages/fluid/src/index.test.ts`
+- `packages/fluid/src/drome.ts`
+- `packages/fluid/src/__tests__/drome.test.ts`
 - `packages/schema/src/validate-graph.ts`
 - `packages/schema/src/validate-graph.test.ts`
 
@@ -1194,6 +1252,7 @@ Finalize public examples, diagnostics, cleanup, and architectural verification.
 
 - [ ] PR 2 is the final modification to legacy event semantics.
 - [ ] New foundations are tested before production wiring.
+- [ ] The standalone package reorganization is merged before PR 5; current paths and assertion-level coverage-transfer requirements are used.
 - [ ] Representation feasibility is proven before cutover, including timing gaps, authored rests, shared materialization, and later timing replacement.
 - [ ] New compiler tests construct native state directly, and complete native scenarios exercise decoding through compilation.
 - [ ] Test-only differential comparisons use independently initialized paths and are removed with legacy deletion.

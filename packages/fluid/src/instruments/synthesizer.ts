@@ -1,8 +1,8 @@
 import type { SynthesizerSchema, Waveform } from "@web-audio/schema";
 import Instrument from "./instrument";
-import { MidiOut } from "@/midi";
-import type Drome from "@/index";
-import { resolveWaveform, type WaveformAlias } from "@/utils/waveform";
+import { MidiOut } from "@/midi/builders";
+import type Drome from "@/drome";
+import { resolveWaveform, type WaveformAlias } from "@/inputs/waveform";
 
 interface SynthesizerOptions {
   type?: WaveformAlias;

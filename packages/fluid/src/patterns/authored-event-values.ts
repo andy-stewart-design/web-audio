@@ -1,8 +1,8 @@
 import { MaskedCycle, RandomCycle } from "@web-audio/patterns";
-import type { NullableCycleInput } from "@/types";
+import type { NullableCycleInput } from "@/inputs/types";
 import AuthoredAvailability from "@/patterns/authored-availability";
 import EventTiming from "@/patterns/event-timing";
-import { isRandomCycleTuple } from "@/utils/validate";
+import { isRandomCycleTuple } from "@/inputs/guards";
 import type { TimingPattern } from "@web-audio/schema";
 
 type StaticAuthoredValues<T> = {

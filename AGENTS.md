@@ -10,3 +10,10 @@
 
 - When asking questions, ask them one at a time.
 - Read the full contents of a file every time, never subsets so you don't miss important context.
+
+**Test layout:**
+
+- Prefer domain-local `__tests__/` directories for unit tests and package-level `src/__tests__/` directories for cross-domain integration/public API tests.
+- Keep test-only fixtures and helpers in the relevant suite's `support/` directory; do not name support modules `*.test.ts`.
+- Production modules must never import from `__tests__/`. Keep tests included in TypeScript checking.
+- Adopt this convention incrementally when working in the relevant area, not through a repository-wide migration.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed.
+Proposed. PRs 1–4 are complete; native state and compilation remain isolated from the legacy production path. The standalone [Fluid package reorganization](../fluid-package-reorg/plan.md), including test-directory moves in both Fluid and patterns, is implemented and must be merged before PR 5's production cutover. Implementation locations below use the reorganized paths; shorthand parsing and public shorthand dispatch remain planned.
 
 This specification defines both:
 
@@ -1095,6 +1095,8 @@ It does not decide whether an atom is a note, sample name, variation, or XOX val
 
 The parsed expression is public through the returned shorthand value so users and tooling can inspect it. The evaluated event-cycle IR remains an internal implementation boundary, not a Fluid extension API. Patterns has one curated root entry point with explicit direct re-exports justified by actual cross-package consumers; it does not expose an `/internal` subpath or re-export schema-owned types.
 
+Current generic foundations live in `packages/patterns/src/expressions/`, `packages/patterns/src/events/`, and `packages/patterns/src/math/`. Fluent/random/processing cycle support remains in `packages/patterns/src/cycles/`, with rhythm generators in `packages/patterns/src/rhythm/`. Domain-local `__tests__/` directories hold unit suites, including `packages/patterns/src/events/__tests__/` and `packages/patterns/src/cycles/operations/__tests__/`. Future shorthand modules and their unit tests belong under `packages/patterns/src/shorthand/` and its `__tests__/` directory.
+
 ### `@web-audio/fluid`
 
 Owns authoring semantics:
@@ -1107,6 +1109,21 @@ Owns authoring semantics:
 - timing-selection policy;
 - transform/setter call order;
 - event compilation to schema.
+
+#### Implementation locations
+
+The reorganized layout preserves the existing public API and is not itself a production cutover:
+
+- `packages/fluid/src/index.ts` directly re-exports the existing default `Drome` from `packages/fluid/src/drome.ts`; internal host type imports target `drome.ts`, while public API suites exercise the entry point.
+- `packages/fluid/src/instruments/` owns fluent facades, sampler helpers, and `sampler-event-timing.ts` for fit/chop configuration and the external generated-timing bridge.
+- `packages/fluid/src/events/state.ts`, `geometry.ts`, `snapshot.ts`, `transitions.ts`, and `compiler.ts` own native event state and emission. Native helpers do not import instrument classes, legacy authored wrappers, or test support.
+- `packages/fluid/src/inputs/` owns structured/random/XOX decoding, guards, waveform interpretation, and cycle input unions. Future target atom interpreters belong here, not in the legacy `patterns/` directory.
+- `packages/fluid/src/parameters/parameter.ts` owns processing `Parameter` and audio-parameter input/source types; envelope ADSR stays in `packages/fluid/src/automations/envelope.ts`.
+- `packages/fluid/src/pitch/` owns note types, scale aliases, and MIDI conversion; `packages/fluid/src/samples/` owns manifest types, normalization, the built-in registry, and bank data under `banks/`.
+- `packages/fluid/src/midi/builders.ts` owns the existing MIDI authoring/schema builders, not Web MIDI runtime behavior.
+- `packages/fluid/src/patterns/authored-*`, `packages/fluid/src/patterns/event-timing.ts`, and `packages/fluid/src/instruments/event-compiler.ts` remain temporary legacy implementations until PR 5's verified coverage transfer.
+
+Unit tests use the owning domain's `__tests__/`. Complete-schema integration suites live under `packages/fluid/src/__tests__/event-schemas/`; corrected fixtures, native regression fixtures, and independent replay drivers live in its `support/` directory. These are test-only modules, never production dependencies or package exports. Tests remain included in TypeScript checking. Schema-owned types are imported directly from `@web-audio/schema`; no root type bucket, folder barrels, or new package subpaths are introduced.
 
 ### `@web-audio/schema` and `@web-audio/audio-engine`
 
@@ -1192,6 +1209,12 @@ Follow [`direct-cutover-plan.md`](./direct-cutover-plan.md). The redesign lands 
 - Compare independently initialized legacy/native paths only in tests, including reproducibly generated operation sequences.
 - Block production cutover until all representation questions and complete-schema mismatches are resolved. Any necessary behavior change requires separate review, not altered cutover expectations.
 
+### Standalone package reorganization — before PR 5
+
+- Complete and merge the behavior-preserving [Fluid package reorganization](../fluid-package-reorg/plan.md) separately from native production wiring.
+- Retain the default `Drome` export, authoring API, validations, limits, bank data, golden expectations, and all useful coverage; do not delete legacy implementations in the cleanup.
+- Use the reorganized owners and test/support paths in the active cutover inventory. Historical alternative plans remain historical.
+
 ### PR 5 — Cut all structured event lanes over atomically
 
 - Switch notes, timing, sample names, variations, transforms, and synth/sampler schema generation together.
@@ -1199,6 +1222,7 @@ Follow [`direct-cutover-plan.md`](./direct-cutover-plan.md). The redesign lands 
 - Run existing public-API goldens unchanged.
 - Record and verify coverage transfer before deleting superseded wrappers, compiler helpers, and legacy tests.
 - Remove temporary differential wiring with legacy deletion; retain native replay and explicit regressions. Leave processing parameters unchanged.
+- Use the current assertion-level inventory in [Step 5.4](./direct-cutover-plan.md#step-54--delete-superseded-event-infrastructure): retain `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts`, `native-replay.test.ts`, and their `support/`; remove only the obsolete `legacy-comparison.test.ts` suite and temporary legacy-oracle portions of `packages/fluid/src/events/__tests__/transitions.test.ts` after verified coverage transfer. Retain the native materialization suite at `packages/fluid/src/events/__tests__/materialization.test.ts`.
 
 ### PR 6 — Add shorthand parsing and prove equivalence
 
