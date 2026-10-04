@@ -2,9 +2,9 @@
 
 ## Intent and status
 
-Implementation complete: Steps 1–5 and final verification are complete; standalone review/merge remain pending. This behavior-preserving cleanup sits between shorthand PR 4 (native state/compiler) and PR 5 (atomic production cutover), analogous to the completed patterns package reorganization. PR 5 must wait until this reorganization is merged.
+Complete and merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56): Steps 1–5 and final verification are complete. This behavior-preserving cleanup sits between shorthand PR 4 (native state/compiler) and PR 5 (atomic production cutover), analogous to the completed patterns package reorganization. PR 5's reorganization prerequisite is satisfied; the atomic production cutover is ready to begin.
 
-PR 4 merged as [#55](https://github.com/andy-stewart-design/web-audio/pull/55). This reorganization starts from its merged result; PR 5 starts from the completed reorganized layout. Do not combine this cleanup with production wiring.
+PR 4 merged as [#55](https://github.com/andy-stewart-design/web-audio/pull/55). This reorganization started from its merged result; PR 5 starts from the completed reorganized layout. No production native-state wiring or legacy deletion occurred in this cleanup.
 
 The aim is to make ownership obvious from paths, not introduce more architectural layers. Keep the existing single package entry point, default `Drome` export, authoring API, musical behavior, validation, limits, and test assertions unchanged.
 
@@ -198,7 +198,7 @@ PR 5's inventory now explicitly names legacy implementations and unit suites, th
 
 Final verification passes: both package builds, workspace check/lint/tests/format, planning-document formatting, and `git diff --check`. Fluid retains 27 files / 896 tests and patterns retains 22 files / 372 tests, with identical before/after test names. A composed move/type/import-binding audit against the merged PR 4 baseline verifies all 68 original Fluid files across the final 71-file layout, unchanged implementation/test tokens and all 25 relocated type definitions, byte-identical bank data, and intact native-core/production-test boundaries. Final Fluid declaration statements match the pre-reorganization baseline apart from ordering/comments; emitted JavaScript changes are source-path comments only. Patterns' 51 files retain their code and resolved dependencies, with byte-identical production files and built JavaScript/declarations. A disposable documentation audit verifies current source references, explicitly planned future paths, local links, both README trees/commands, and the documentation-only Step 5 diff.
 
-All implementation steps are complete. Review and merge this standalone reorganization before beginning PR 5's atomic production integration and verified coverage transfer.
+All implementation steps are complete, and the standalone reorganization is merged. PR 5 can begin its atomic production integration and verified coverage transfer using this layout.
 
 ## Verification gate
 
@@ -208,4 +208,4 @@ All implementation steps are complete. Review and merge this standalone reorgani
 - Preserve native helper import boundaries and confirm no production module imports test support.
 - Verify generated declarations and the default package import still expose the same authoring contract; test-only fixtures must not become entry points or exports.
 - Build Fluid and patterns and run workspace checks, lint, tests, format, planning-document formatting, and `git diff --check`.
-- PR 5 begins only after this reorganization is merged, using the refreshed paths and unchanged coverage-transfer requirement.
+- The merge prerequisite for PR 5 is satisfied by #56; use the refreshed paths and unchanged coverage-transfer requirement.

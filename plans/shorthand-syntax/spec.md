@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. PRs 1–4 are complete; native state and compilation remain isolated from the legacy production path. The standalone [Fluid package reorganization](../fluid-package-reorg/plan.md), including test-directory moves in both Fluid and patterns, is implemented and must be merged before PR 5's production cutover. Implementation locations below use the reorganized paths; shorthand parsing and public shorthand dispatch remain planned.
+Proposed. PRs 1–4 are complete; native state and compilation remain isolated from the legacy production path. The standalone [Fluid package reorganization](../completed/fluid-package-reorg/plan.md), including test-directory moves in both Fluid and patterns, merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56). PR 5's production cutover is ready to begin. Implementation locations below use the reorganized paths; shorthand parsing and public shorthand dispatch remain planned.
 
 This specification defines both:
 
@@ -1211,7 +1211,7 @@ Follow [`direct-cutover-plan.md`](./direct-cutover-plan.md). The redesign lands 
 
 ### Standalone package reorganization — before PR 5
 
-- Complete and merge the behavior-preserving [Fluid package reorganization](../fluid-package-reorg/plan.md) separately from native production wiring.
+- The behavior-preserving [Fluid package reorganization](../completed/fluid-package-reorg/plan.md) merged separately from native production wiring as [#56](https://github.com/andy-stewart-design/web-audio/pull/56), satisfying PR 5's prerequisite.
 - Retain the default `Drome` export, authoring API, validations, limits, bank data, golden expectations, and all useful coverage; do not delete legacy implementations in the cleanup.
 - Use the reorganized owners and test/support paths in the active cutover inventory. Historical alternative plans remain historical.
 

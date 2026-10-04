@@ -2,14 +2,14 @@
 
 ## Status and companion documents
 
-Active implementation plan. PRs 1–3 and Steps 4.1–4.4's readonly state model, pure transitions, and static/random event compiler with generated timing overrides are complete. Immediate fluent transforms and read-independent behavior follow the specification; legacy getter-sensitive speed cancellation is an approved compatibility exception, not a feasibility blocker. Step 4.5's complete-schema replay and the PR 4 gate were reopened for two native materialization defects and are complete again after retained regressions and workspace revalidation. Synth materialized slowdown-rest filtering is an additional approved specification-conformance exception; corrected golden expectations remain unchanged. PR 4 merged as [#55](https://github.com/andy-stewart-design/web-audio/pull/55); PR 5's production cutover remains pending. The separate [patterns package reorganization](../completed/patterns-package-reorg/plan.md) is complete. The standalone [Fluid package reorganization](../fluid-package-reorg/plan.md), including domain-local tests in both packages, is implemented and must be reviewed/merged before PR 5 begins. File references below use the reorganized layout; no cleanup step has switched production to native state.
+Active implementation plan. PRs 1–3 and Steps 4.1–4.4's readonly state model, pure transitions, and static/random event compiler with generated timing overrides are complete. Immediate fluent transforms and read-independent behavior follow the specification; legacy getter-sensitive speed cancellation is an approved compatibility exception, not a feasibility blocker. Step 4.5's complete-schema replay and the PR 4 gate were reopened for two native materialization defects and are complete again after retained regressions and workspace revalidation. Synth materialized slowdown-rest filtering is an additional approved specification-conformance exception; corrected golden expectations remain unchanged. PR 4 merged as [#55](https://github.com/andy-stewart-design/web-audio/pull/55). The separate [patterns package reorganization](../completed/patterns-package-reorg/plan.md) is complete. The standalone [Fluid package reorganization](../completed/fluid-package-reorg/plan.md), including domain-local tests in both packages, merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56). PR 5's production cutover is ready to begin; production wiring remains unchanged. File references below use the reorganized layout; no cleanup step has switched production to native state.
 
 The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document governs delivery and supersedes the adapter-first, lane-by-lane sequence in [`plan.md`](./plan.md) and [`plan-outline.md`](./plan-outline.md). Those documents are retained as historical alternatives, not execution checklists.
 
 Read this with:
 
 - [`spec.md`](./spec.md) — normative behavior and architecture;
-- [`../fluid-package-reorg/plan.md`](../fluid-package-reorg/plan.md) — standalone layout and verification record;
+- [`../completed/fluid-package-reorg/plan.md`](../completed/fluid-package-reorg/plan.md) — standalone layout and verification record;
 - [`plan.md`](./plan.md) — original conservative strangler plan;
 - [`plan-outline.md`](./plan-outline.md) — original high-level sequence;
 - [`pattern-flow-comparison.md`](./pattern-flow-comparison.md) — current and target flows;
@@ -738,7 +738,7 @@ Eleven differing prefixes across four generated sequences are fully explained by
 
 Replace production event authoring and compilation in one coordinated cutover, then delete the legacy event architecture.
 
-Begin PR 5 only after the standalone Fluid reorganization is reviewed and merged. Use its final paths and preserve its coverage: 27 Fluid files / 896 tests and 22 patterns files / 372 tests before cutover deletions. Counts alone do not authorize deletion; Step 5.4 still requires assertion-level coverage transfer.
+The standalone Fluid reorganization merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56), satisfying PR 5's prerequisite. PR 5 is ready to begin with Step 5.1. Use the final reorganized paths and preserve coverage: 27 Fluid files / 896 tests and 22 patterns files / 372 tests before cutover deletions. Counts alone do not authorize deletion; Step 5.4 still requires assertion-level coverage transfer.
 
 Steps 5.1–5.4 are one production transition and must not be merged independently. Preparation may occur in isolated code, but the merged PR must have only native event state.
 
