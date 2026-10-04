@@ -61,7 +61,7 @@ type MidiBinding = (midi: Midi | null) => void;
 
 abstract class Instrument {
   // Dependencies
-  protected _ctx: AudioContext;
+  protected _ctx: BaseAudioContext;
   protected _clock: AudioClock;
 
   // Output graph
@@ -93,7 +93,7 @@ abstract class Instrument {
   // ---------------------------------------------------------------------------
 
   constructor(
-    ctx: AudioContext,
+    ctx: BaseAudioContext,
     clock: AudioClock,
     {
       destination = ctx.destination,

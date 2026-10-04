@@ -39,7 +39,7 @@ class Sampler extends Instrument {
   private _nextAlternateDirection: "forward" | "reverse" = "forward";
 
   constructor(
-    ctx: AudioContext,
+    ctx: BaseAudioContext,
     clock: AudioClock,
     {
       schema,

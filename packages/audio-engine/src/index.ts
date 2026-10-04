@@ -20,7 +20,7 @@ interface RuntimeGraph {
 }
 
 class AudioEngine {
-  private _ctx: AudioContext;
+  private _ctx: BaseAudioContext;
   private _clock: AudioClock;
   private _master: GainNode;
   private _analyser: AnalyserNode;
@@ -39,7 +39,7 @@ class AudioEngine {
   private readonly _sampleBufferCache: SampleBufferCache;
   readonly ready: Promise<void>;
 
-  constructor(ctx: AudioContext, clock: AudioClock) {
+  constructor(ctx: BaseAudioContext, clock: AudioClock) {
     this._ctx = ctx;
     this._clock = clock;
     this._master = ctx.createGain();

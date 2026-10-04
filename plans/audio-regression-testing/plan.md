@@ -2,7 +2,7 @@
 
 ## Status and goal
 
-**Phase 0 is complete on the user's Mac. Phase 1 is in progress: Step 1.1 is complete; Step 1.2 is next.** Phases 2–3 have not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
+**Phase 0 is complete on the user's Mac. Phase 1 is in progress: Steps 1.1–1.2 are complete; Step 1.3 is next.** Phases 2–3 have not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
 
 The deliverable is a local command that runs saved Fluid sketches through the real engine and compares their audio to listening-approved recordings. It does not require Linux, containers, hosted CI, a report application, or a separate candidate/approval system.
 
@@ -82,10 +82,12 @@ The current phase numbers replace the previous eight-phase plan. All previously 
 
 **Work:** Narrow rendering-only context annotations to `BaseAudioContext` or the small capabilities actually used. Retain real-time context management and resume/close behavior in their owners. Do not change scheduling, envelopes, nodes, or sample behavior.
 
-**Validation:** Compile-check engine construction with both context types, run engine/dependent tests and checking, and verify current app callers remain valid.
+**Completed work:** Replaced rendering-only `AudioContext` annotations with native `BaseAudioContext` in the engine, base/synth/sampler instruments, buses/effect construction, sample cache/reversal, and worklet registration. No runtime logic, clock types, context lifecycle ownership, or existing tests changed. Added three package-level type-contract tests, included in TypeScript checking, covering cast-free engine construction with both native contexts, all rendering consumers, and the unchanged real-time clock context boundary.
 
-- [ ] Offline context is accepted without an `AudioContext` cast.
-- [ ] Production playback and relevant existing tests are unchanged.
+**Validation:** Engine check/lint/build and all 319 tests in 21 files passed (316 existing, 3 new type-contract cases). Forced builds/tests for Fluid, clock, audio-engine, and worklets passed; the unchanged worker and AudioPlayer browser suites each passed all 8 tests against freshly built dependencies. Workspace check/lint/tests, changed-file/document formatting, and `git diff --check` passed; unchanged workspace tasks may be cached. This is context type compatibility, not yet an actual offline browser render; clock-driver compatibility and real rendering remain Steps 1.3–1.4.
+
+- [x] Offline context is accepted without an `AudioContext` cast.
+- [x] Production playback and relevant existing tests are unchanged.
 
 ### Step 1.3 — Accept a small clock driver
 

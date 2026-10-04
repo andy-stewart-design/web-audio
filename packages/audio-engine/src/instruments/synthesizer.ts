@@ -20,7 +20,11 @@ class Synthesizer extends Instrument {
   protected _schema: SynthesizerSchema;
   private _midiOutputScheduler?: MidiOutputScheduler;
 
-  constructor(ctx: AudioContext, clock: AudioClock, opts: SynthesizerOptions) {
+  constructor(
+    ctx: BaseAudioContext,
+    clock: AudioClock,
+    opts: SynthesizerOptions,
+  ) {
     super(ctx, clock, {
       destination: opts.destination,
       routing: opts.routing,

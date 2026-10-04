@@ -2,9 +2,9 @@
 
 ## Status
 
-**Phase 0 is complete on the user's Mac; Step 1.1 is complete.** The unnecessary Linux/container validation requirement has been removed. Fluid now exports the shared synchronous source evaluator used by the REPL worker. Other production seams, audio rendering/comparison, and reference approval are not implemented yet.
+**Phase 0 is complete on the user's Mac; Steps 1.1–1.2 are complete.** The unnecessary Linux/container validation requirement has been removed. Fluid exports the shared synchronous source evaluator used by the REPL worker, and rendering consumers accept native `BaseAudioContext`. The clock seam, actual audio rendering/comparison, and reference approval are not implemented yet.
 
-This record supports Phase 0 and Step 1.1 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
+This record supports Phase 0 and Steps 1.1–1.2 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
 
 Audited production revision: `02059e5755d7011310593bfa38912786bf767cc7`. No production implementation was changed during Phase 0. Re-read these consumers before Phase 1 if other work changes them.
 
@@ -205,4 +205,38 @@ pnpm test
 
 Fluid passed all 1,018 tests in 25 files (11 new). Forced workspace dependency/production builds and tests passed (10 tasks, none cached). The unchanged worker and AudioPlayer browser suites each passed all 8 tests against freshly built Fluid. Workspace checking/linting/tests and changed-file/document formatting passed; unchanged tasks may be cached. `git diff --check` passed. Existing Vite config-loader and tsdown experimental-tsgo warnings are unrelated.
 
-Step 1.2 (rendering context types) is next; no actual audio render or reference has been produced.
+## Step 1.2 — Rendering context types (complete)
+
+Changed only context annotations in eight production modules under `packages/audio-engine/src`:
+
+- `index.ts`: engine constructor and retained context.
+- `instruments/instrument.ts`, `synthesizer.ts`, and `sampler.ts`: graph/synthesis/sampling context.
+- `instruments/sample-buffer-cache.ts`: decode and cache context.
+- `buses/runtime-bus.ts`: bus context and effect construction.
+- `utils/reversed-buffer-cache.ts`: reversed buffer creation.
+- `utils/register-worklets.ts`: real worklet registration.
+
+All use native `BaseAudioContext`, which supports their existing operations and node constructors. No custom context interface or unsafe cast was needed. Scheduling, envelopes, sample loading/error behavior, routing, worklet registration/lifecycle, and runtime cleanup are unchanged. Real-time `AudioClock`, managed context creation/resume/suspend/close, and the app player remain untouched. The engine still requires a concrete `AudioClock` until Step 1.3.
+
+Added `packages/audio-engine/src/__tests__/rendering-context.test.ts` (3 type-contract cases). TypeScript checks an uninvoked `new AudioEngine(ctx, clock)` call where `ctx` is `AudioContext | OfflineAudioContext`, exact common-context annotations across rendering consumers/helpers, and the clock's retained `AudioContext` boundary. Tests remain in the existing `src` TypeScript inclusion. These are compile-time compatibility checks, not browser construction/rendering evidence.
+
+Validation:
+
+```sh
+pnpm --filter @web-audio/audio-engine check
+pnpm --filter @web-audio/audio-engine lint
+pnpm --filter @web-audio/audio-engine test:ci
+pnpm exec turbo run build test:ci --force \
+  --filter=@web-audio/fluid --filter=@web-audio/clock \
+  --filter=@web-audio/audio-engine --filter=@web-audio/worklets \
+  --output-logs=errors-only
+pnpm --filter web test:unit --run --project server src/lib/globals/__tests__/eval.worker.test.ts
+pnpm --filter web test:unit --run --project client src/lib/globals/audio-player.svelte.test.ts
+pnpm check
+pnpm lint
+pnpm test
+```
+
+Engine passed all 319 tests in 21 files (316 unchanged tests plus 3 type-contract cases). Forced dependency/production builds and tests passed (10 tasks, none cached). The unchanged worker and AudioPlayer browser suites each passed all 8 tests against freshly built dependencies. Workspace checking verifies existing app callers remain valid; workspace check/lint/tests, changed-file/document formatting, and `git diff --check` passed. Unchanged workspace tasks may be cached. Existing Vite config-loader and tsdown experimental-tsgo notices remain unrelated warnings.
+
+Step 1.3 (engine-facing clock capabilities) is next. No actual offline audio render or reference has been produced; browser/worklet feasibility and repeatability are still explicit future gates.
