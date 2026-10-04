@@ -2,7 +2,7 @@
 
 ## Status and goal
 
-**Phase 0 is complete on the user's Mac.** Phases 1–3 have not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
+**Phase 0 is complete on the user's Mac. Phase 1 is in progress: Step 1.1 is complete; Step 1.2 is next.** Phases 2–3 have not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
 
 The deliverable is a local command that runs saved Fluid sketches through the real engine and compares their audio to listening-approved recordings. It does not require Linux, containers, hosted CI, a report application, or a separate candidate/approval system.
 
@@ -67,10 +67,12 @@ The current phase numbers replace the previous eight-phase plan. All previously 
 
 **Work:** Extract the fresh-Drome/source/schema operation into a small helper used by worker and harness. Preserve `drome`/`d` aliases, defaults, ignored source return values, synchronous execution, and errors. Keep message handling in the worker; do not add async language support or claim a sandbox.
 
-**Validation:** Fluid build/check/lint/tests and existing worker protocol tests; verify a failed evaluation followed by a successful request and state isolation between calls.
+**Completed work:** Added the public `evaluateSource(code)` export in Fluid (`src/evaluate-source.ts`) and updated the REPL worker to call it. Kept the default Drome export and worker messaging/error serialization unchanged. The helper is ready for the future harness; it executes trusted source synchronously, ignores source return values/promises, and propagates errors. Added 11 public API tests for aliases, defaults, state isolation, ignored returns, error recovery/non-Error throws, and synchronous promise behavior.
 
-- [ ] Worker uses the shared operation without protocol/behavior changes.
-- [ ] Existing characterization tests remain green.
+**Validation:** Fluid check/lint/build and all 1,018 tests passed. Forced builds/tests for Fluid, clock, audio-engine, and worklets passed; all 8 unchanged worker protocol tests and 8 existing AudioPlayer browser tests passed against freshly built Fluid. Workspace check/lint/tests, changed-file formatting, and `git diff --check` passed; unchanged workspace tasks may be cached.
+
+- [x] Worker uses the shared operation without protocol/behavior changes.
+- [x] Existing characterization tests remain green.
 
 ### Step 1.2 — Accept a rendering context
 

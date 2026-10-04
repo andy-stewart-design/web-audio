@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-Phase 0 characterization and browser-launch setup are complete on the user's Mac. Rendering and audio comparison are not implemented yet. See [plan.md](./plan.md) for the remaining three phases and [feasibility.md](./feasibility.md) for production constraints and validation evidence.
+Phase 0 characterization and browser-launch setup are complete on the user's Mac. Step 1.1 is complete: Fluid exports `evaluateSource(code)`, shared with the REPL worker. Rendering and audio comparison are not implemented yet. See [plan.md](./plan.md) for the remaining three phases and [feasibility.md](./feasibility.md) for production constraints and validation evidence.
 
 Replace routine manual REPL checks with a local command that executes saved Fluid sketches, renders through the real audio engine, and compares the sound with listening-approved recordings. Build a useful regression suite, not a cross-platform testing service.
 

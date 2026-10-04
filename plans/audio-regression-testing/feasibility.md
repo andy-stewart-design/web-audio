@@ -2,15 +2,15 @@
 
 ## Status
 
-**Phase 0 is complete on the user's Mac.** The unnecessary Linux/container validation requirement has been removed. Phases 1–3 (render, compare, use) have not started; no production seams, audio rendering/comparison, or reference approval are implemented yet.
+**Phase 0 is complete on the user's Mac; Step 1.1 is complete.** The unnecessary Linux/container validation requirement has been removed. Fluid now exports the shared synchronous source evaluator used by the REPL worker. Other production seams, audio rendering/comparison, and reference approval are not implemented yet.
 
-This record supports Phase 0 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
+This record supports Phase 0 and Step 1.1 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
 
 Audited production revision: `02059e5755d7011310593bfa38912786bf767cc7`. No production implementation was changed during Phase 0. Re-read these consumers before Phase 1 if other work changes them.
 
 ## Source evaluation contract to preserve
 
-Owner: `apps/web/src/lib/globals/eval.worker.ts`.
+Owners: `packages/fluid/src/evaluate-source.ts` (source-to-schema operation, exported from the public entry point) and `apps/web/src/lib/globals/eval.worker.ts` (host messaging/error serialization). Step 1.1 extracted the operation without changing the contract below.
 
 1. Receive `{ id, code }` and create one new Drome for that request, even when the same worker handles multiple requests.
 2. Execute `new Function('drome', 'd', code)(d, d)`. Both aliases reference the same instance. This is arbitrary trusted JavaScript execution, not a sandbox.
@@ -179,3 +179,30 @@ Cleanup validation on the same Mac:
 - Formatting checks for the spec/plan/record and `git diff --check` passed.
 
 Phase 0 is closed. Audio rendering, repeated-run tolerance measurements, comparisons, and user reference review remain actual future work; no launch-only result is presented as audio coverage.
+
+## Step 1.1 — Shared synchronous source evaluation (complete)
+
+Added `evaluateSource(code)` as a named Fluid export while preserving the default Drome export. The helper creates a fresh Drome, invokes `new Function('drome', 'd', code)(d, d)`, ignores its return value, and synchronously returns `d.getSchema()`. It does not wrap errors, await promises, introduce a sandbox, or manage messaging/timeouts. The REPL worker now calls it inside the existing try/catch; message shapes and error serialization are unchanged. The future browser harness can call the same public helper.
+
+Added 11 public API tests in `packages/fluid/src/__tests__/evaluate-source.test.ts`, using the real Fluid implementation. These cover return typing/defaults, aliases, constructor/instrument defaults, state isolation, ignored returns, syntax/runtime/schema/top-level-await errors and recovery, preservation of non-Error throws, and ignored asynchronous mutations. The existing worker characterization tests were not changed.
+
+Validation:
+
+```sh
+pnpm --filter @web-audio/fluid check
+pnpm --filter @web-audio/fluid lint
+pnpm --filter @web-audio/fluid test:ci
+pnpm exec turbo run build test:ci --force \
+  --filter=@web-audio/fluid --filter=@web-audio/clock \
+  --filter=@web-audio/audio-engine --filter=@web-audio/worklets \
+  --output-logs=errors-only
+pnpm --filter web test:unit --run --project server src/lib/globals/__tests__/eval.worker.test.ts
+pnpm --filter web test:unit --run --project client src/lib/globals/audio-player.svelte.test.ts
+pnpm check
+pnpm lint
+pnpm test
+```
+
+Fluid passed all 1,018 tests in 25 files (11 new). Forced workspace dependency/production builds and tests passed (10 tasks, none cached). The unchanged worker and AudioPlayer browser suites each passed all 8 tests against freshly built Fluid. Workspace checking/linting/tests and changed-file/document formatting passed; unchanged tasks may be cached. `git diff --check` passed. Existing Vite config-loader and tsdown experimental-tsgo warnings are unrelated.
+
+Step 1.2 (rendering context types) is next; no actual audio render or reference has been produced.
