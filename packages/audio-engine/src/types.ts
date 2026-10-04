@@ -1,9 +1,19 @@
+import type AudioClock from "@web-audio/clock";
 import type {
   EnvelopeMode,
   EnvelopeSchema,
   LfoSchema,
   MidiCcSchema,
 } from "@web-audio/schema";
+import type { SchedulerClock } from "./midi-output-scheduler";
+
+// Derive event/tempo capabilities from the production clock and retain the
+// scheduler's existing minimal timing boundary (including currentTime only).
+type EngineClock = Pick<AudioClock, "on" | "bpm" | "barDuration"> &
+  SchedulerClock;
+
+// Instruments only read musical duration; they do not own transport or timers.
+type InstrumentClock = Pick<EngineClock, "barDuration">;
 
 interface ScheduledNote {
   sourceNode: AudioScheduledSourceNode;
@@ -75,8 +85,10 @@ type ResolvedDetune =
   | { type: "midi-cc"; value: number; schema: MidiCcSchema };
 
 export type {
+  EngineClock,
   EnvelopeParams,
   EventScheduleContext,
+  InstrumentClock,
   NormalizedADSR,
   ResolvedDetune,
   ResolvedEnvelopeSchema,

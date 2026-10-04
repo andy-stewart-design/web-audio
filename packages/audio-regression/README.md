@@ -2,7 +2,7 @@
 
 Private local tooling for Fluid-sketch audio regression tests. **Phase 0 is complete on the user's Mac:** the package can launch Chromium and test browser cleanup, but it does not yet render or compare audio.
 
-Phase 1 is in progress: Steps 1.1–1.2 added Fluid's public `evaluateSource(code)` helper (shared with the REPL worker) and offline-compatible rendering-context types in the engine. Clock-driver compatibility and the actual harness are next. The remaining implementation is real rendering, float-WAV comparison, then onboarding the user's sketches and connecting routine testing. See [`spec.md`](../../plans/audio-regression-testing/spec.md), [`plan.md`](../../plans/audio-regression-testing/plan.md), and [`feasibility.md`](../../plans/audio-regression-testing/feasibility.md).
+Phase 1 is in progress: Steps 1.1–1.3 added Fluid's public `evaluateSource(code)` helper (shared with the REPL worker), offline-compatible rendering-context types, and the engine's public structural `EngineClock` contract. The actual browser harness/rendering is next. The remaining implementation is real rendering, float-WAV comparison, then onboarding the user's sketches and connecting routine testing. See [`spec.md`](../../plans/audio-regression-testing/spec.md), [`plan.md`](../../plans/audio-regression-testing/plan.md), and [`feasibility.md`](../../plans/audio-regression-testing/feasibility.md).
 
 ## Setup and current commands
 

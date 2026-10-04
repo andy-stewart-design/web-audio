@@ -4,8 +4,7 @@ import { midiToFrequency } from "@/utils/midi-to-frequency";
 import { resolveSynthEvents } from "./resolve-synth-events";
 
 import type { SynthesizerSchema } from "@web-audio/schema";
-import type AudioClock from "@web-audio/clock";
-import type { EventScheduleContext } from "@/types";
+import type { EventScheduleContext, InstrumentClock } from "@/types";
 
 interface SynthesizerOptions {
   schema: SynthesizerSchema;
@@ -22,7 +21,7 @@ class Synthesizer extends Instrument {
 
   constructor(
     ctx: BaseAudioContext,
-    clock: AudioClock,
+    clock: InstrumentClock,
     opts: SynthesizerOptions,
   ) {
     super(ctx, clock, {

@@ -1,4 +1,3 @@
-import type AudioClock from "@web-audio/clock";
 import type {
   BankSchema,
   SamplerSchema,
@@ -17,6 +16,7 @@ import {
 import SampleBufferCache from "./sample-buffer-cache";
 import type {
   EventScheduleContext,
+  InstrumentClock,
   ResolvedSamplerEvent,
   ResolvedSamplerVoice,
 } from "@/types";
@@ -40,7 +40,7 @@ class Sampler extends Instrument {
 
   constructor(
     ctx: BaseAudioContext,
-    clock: AudioClock,
+    clock: InstrumentClock,
     {
       schema,
       destination,

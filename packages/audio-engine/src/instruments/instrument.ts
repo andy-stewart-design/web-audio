@@ -1,4 +1,3 @@
-import type AudioClock from "@web-audio/clock";
 import type { Midi } from "@web-audio/midi";
 import type {
   AudioParamSchema,
@@ -12,6 +11,7 @@ import type {
 } from "@web-audio/schema";
 import type {
   EventScheduleContext,
+  InstrumentClock,
   ResolvedDetune,
   ResolvedEnvelopeSchema,
   ScheduledNote,
@@ -62,7 +62,7 @@ type MidiBinding = (midi: Midi | null) => void;
 abstract class Instrument {
   // Dependencies
   protected _ctx: BaseAudioContext;
-  protected _clock: AudioClock;
+  protected _clock: InstrumentClock;
 
   // Output graph
   protected readonly _balancingNode: GainNode;
@@ -94,7 +94,7 @@ abstract class Instrument {
 
   constructor(
     ctx: BaseAudioContext,
-    clock: AudioClock,
+    clock: InstrumentClock,
     {
       destination = ctx.destination,
       routing,

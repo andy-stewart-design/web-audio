@@ -2,7 +2,7 @@
 
 ## Status and goal
 
-**Phase 0 is complete on the user's Mac. Phase 1 is in progress: Steps 1.1–1.2 are complete; Step 1.3 is next.** Phases 2–3 have not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
+**Phase 0 is complete on the user's Mac. Phase 1 is in progress: Steps 1.1–1.3 are complete; Step 1.4 is next.** Phases 2–3 have not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
 
 The deliverable is a local command that runs saved Fluid sketches through the real engine and compares their audio to listening-approved recordings. It does not require Linux, containers, hosted CI, a report application, or a separate candidate/approval system.
 
@@ -97,11 +97,13 @@ The current phase numbers replace the previous eight-phase plan. All previously 
 
 **Work:** Derive the engine-facing clock contract from existing `on`, `bpm`, `barDuration`, and scheduler timing/conversion capabilities. Keep the real-time clock implementation unchanged. Do not clone its whole class or build another real-time scheduler.
 
-**Validation:** Production clock and a minimal driver satisfy the contract without casts; clock and engine checking/tests pass.
+**Completed work:** Added the public `EngineClock` type in audio-engine, deriving event/tempo/duration members from `AudioClock` and composing the MIDI scheduler's existing structural clock type. Narrowed instrument consumers to `InstrumentClock` (only `barDuration`). The real-time clock and all production runtime logic remain unchanged; the MIDI scheduler only gained a type export. Added a cast-free test-only manual driver, three type-contract cases, and three engine behavior cases covering commit/BPM, exact bar/bus timing, stop/unsubscription, default tempo reset, and MIDI lead validation. Existing Web Audio/instrument mocks are reused for behavior tests; this is not audio-rendering evidence.
 
-- [ ] Engine can subscribe and commit through a structural driver.
-- [ ] Existing MIDI scheduler construction invariant remains valid.
-- [ ] Real-time clock behavior is unchanged.
+**Validation:** Engine check/lint/build and all 325 tests in 22 files passed (6 new cases). Forced builds/tests for Fluid, clock, audio-engine, and worklets passed; worker and AudioPlayer browser suites each passed all 8 tests against freshly built dependencies. Built declarations expose `EngineClock` without requiring the real-time clock class's private state or transport API. Workspace check/lint/tests, changed-file/document formatting, and `git diff --check` passed; unchanged workspace tasks may be cached. Actual browser rendering remains Step 1.4.
+
+- [x] Engine can subscribe and commit through a structural driver.
+- [x] Existing MIDI scheduler construction invariant remains valid.
+- [x] Real-time clock behavior is unchanged.
 
 ### Step 1.4 — Own the harness and render a synth
 

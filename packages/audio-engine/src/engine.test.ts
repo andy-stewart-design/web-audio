@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Midi } from "@web-audio/midi";
 import type { DromeSchema } from "@web-audio/schema";
+import { createManualClock } from "./__tests__/support/manual-clock";
 import {
   defaultSamplerGraph,
   defaultSamplerSchema,
@@ -243,6 +244,103 @@ beforeEach(() => {
 });
 
 describe("AudioEngine", () => {
+  describe("structural clock driver", () => {
+    it("commits and schedules through manual events with committed tempo and cleanup", async () => {
+      const driver = createManualClock(fakeCtx);
+      const engine = new AudioEngine(fakeCtx, driver.clock);
+      await engine.ready;
+      const schema = makeSchema();
+      schema.bpm = 90;
+      schema.instruments[0].route = "drums";
+      schema.buses = {
+        drums: {
+          gain: 1,
+          transition: 0.25,
+          effects: [
+            {
+              type: "filter",
+              filterType: "lp",
+              frequency: staticParam(400, 800),
+              q: staticParam(1),
+              detune: staticParam(0),
+              gain: staticParam(0),
+            },
+          ],
+        },
+      };
+      try {
+        expect(driver.listenerCount()).toBe(3);
+        engine.update(schema);
+        driver.emit("bar", 5, 10);
+        expect(instances()).toHaveLength(0);
+
+        driver.emit("prebar", 5, 10);
+        expect(driver.clock.barDuration).toBe((60 / 90) * 4);
+        const active = instances()[0];
+        const frequency = FakeFilterNode.instances[0].frequency;
+        expect(active.scheduleBar).not.toHaveBeenCalled();
+        expect(active._destination).toBe(createGainMock.mock.results[1]?.value);
+        expect(frequency.setValueAtTime).toHaveBeenCalledWith(800, 10);
+
+        const nextTime = 10 + driver.clock.barDuration;
+        driver.emit("bar", 5, 10);
+        driver.emit("bar", 6, nextTime);
+        expect(active.scheduleBar.mock.calls).toEqual([
+          [5, 10],
+          [6, nextTime],
+        ]);
+        expect(frequency.linearRampToValueAtTime).toHaveBeenCalledWith(
+          400,
+          nextTime + driver.clock.barDuration * 0.25,
+        );
+
+        driver.emit("stop", 6, nextTime + 0.5);
+        expect(active.cancelFutureNotes).toHaveBeenCalledOnce();
+        expect(frequency.cancelAndHoldAtTime).toHaveBeenCalledWith(
+          nextTime + 0.5,
+        );
+        engine.destroy();
+        expect(driver.listenerCount()).toBe(0);
+        driver.emit("bar", 7, nextTime + driver.clock.barDuration);
+        expect(active.scheduleBar).toHaveBeenCalledTimes(2);
+      } finally {
+        engine.destroy();
+      }
+    });
+
+    it("restores the default 120 BPM through the driver at the next commit", async () => {
+      const driver = createManualClock(fakeCtx);
+      const engine = new AudioEngine(fakeCtx, driver.clock);
+      await engine.ready;
+      try {
+        const configured = makeSchema();
+        configured.bpm = 90;
+        engine.update(configured);
+        driver.emit("prebar");
+        expect(driver.clock.barDuration).toBe((60 / 90) * 4);
+
+        engine.update(makeSchema());
+        expect(driver.clock.barDuration).toBe((60 / 90) * 4);
+        driver.emit("prebar", 1, driver.clock.barDuration);
+        expect(driver.clock.barDuration).toBe(2);
+      } finally {
+        engine.destroy();
+      }
+    });
+
+    it("preserves the MIDI scheduler lead invariant for structural drivers", () => {
+      const driver = createManualClock(fakeCtx);
+      expect(
+        () =>
+          new AudioEngine(fakeCtx, {
+            ...driver.clock,
+            schedulingLeadTime: 0.07,
+          }),
+      ).toThrow("must be shorter");
+      expect(driver.listenerCount()).toBe(0);
+    });
+  });
+
   describe("output graph", () => {
     it("creates a master output and analyser for final mixed output", () => {
       const clock = new FakeClock();

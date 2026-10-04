@@ -2,9 +2,9 @@
 
 ## Status
 
-**Phase 0 is complete on the user's Mac; Steps 1.1–1.2 are complete.** The unnecessary Linux/container validation requirement has been removed. Fluid exports the shared synchronous source evaluator used by the REPL worker, and rendering consumers accept native `BaseAudioContext`. The clock seam, actual audio rendering/comparison, and reference approval are not implemented yet.
+**Phase 0 is complete on the user's Mac; Steps 1.1–1.3 are complete.** The unnecessary Linux/container validation requirement has been removed. Fluid exports the shared synchronous source evaluator used by the REPL worker; the engine accepts native `BaseAudioContext` and a public structural `EngineClock` contract. Actual audio rendering/comparison and reference approval are not implemented yet.
 
-This record supports Phase 0 and Steps 1.1–1.2 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
+This record supports Phase 0 and Steps 1.1–1.3 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
 
 Audited production revision: `02059e5755d7011310593bfa38912786bf767cc7`. No production implementation was changed during Phase 0. Re-read these consumers before Phase 1 if other work changes them.
 
@@ -216,7 +216,7 @@ Changed only context annotations in eight production modules under `packages/aud
 - `utils/reversed-buffer-cache.ts`: reversed buffer creation.
 - `utils/register-worklets.ts`: real worklet registration.
 
-All use native `BaseAudioContext`, which supports their existing operations and node constructors. No custom context interface or unsafe cast was needed. Scheduling, envelopes, sample loading/error behavior, routing, worklet registration/lifecycle, and runtime cleanup are unchanged. Real-time `AudioClock`, managed context creation/resume/suspend/close, and the app player remain untouched. The engine still requires a concrete `AudioClock` until Step 1.3.
+All use native `BaseAudioContext`, which supports their existing operations and node constructors. No custom context interface or unsafe cast was needed. Scheduling, envelopes, sample loading/error behavior, routing, worklet registration/lifecycle, and runtime cleanup are unchanged. Real-time `AudioClock`, managed context creation/resume/suspend/close, and the app player remain untouched. At Step 1.2 closeout, the engine still required a concrete `AudioClock`; Step 1.3 below removes that requirement.
 
 Added `packages/audio-engine/src/__tests__/rendering-context.test.ts` (3 type-contract cases). TypeScript checks an uninvoked `new AudioEngine(ctx, clock)` call where `ctx` is `AudioContext | OfflineAudioContext`, exact common-context annotations across rendering consumers/helpers, and the clock's retained `AudioContext` boundary. Tests remain in the existing `src` TypeScript inclusion. These are compile-time compatibility checks, not browser construction/rendering evidence.
 
@@ -239,4 +239,33 @@ pnpm test
 
 Engine passed all 319 tests in 21 files (316 unchanged tests plus 3 type-contract cases). Forced dependency/production builds and tests passed (10 tasks, none cached). The unchanged worker and AudioPlayer browser suites each passed all 8 tests against freshly built dependencies. Workspace checking verifies existing app callers remain valid; workspace check/lint/tests, changed-file/document formatting, and `git diff --check` passed. Unchanged workspace tasks may be cached. Existing Vite config-loader and tsdown experimental-tsgo notices remain unrelated warnings.
 
-Step 1.3 (engine-facing clock capabilities) is next. No actual offline audio render or reference has been produced; browser/worklet feasibility and repeatability are still explicit future gates.
+## Step 1.3 — Engine-facing clock capabilities (complete)
+
+Added the public `EngineClock` type to `packages/audio-engine/src/types.ts`: `Pick<AudioClock, 'on' | 'bpm' | 'barDuration'>` composed with the MIDI scheduler's existing `SchedulerClock`. The scheduler only gained a type export; its boundary and construction invariant are unchanged. Its `ctx` requires only read-only `currentTime`, allowing a native offline context without a real-time context cast. The built package entry point exports `EngineClock` alongside the unchanged default AudioEngine export.
+
+Engine constructor/state annotations now use `EngineClock`. Base/synth/sampler instrument consumers use `InstrumentClock`, a pick of `barDuration` only. Both live in the existing root types module; a separate clock-only file is unnecessary. All production runtime logic, real-time clock implementation, managed context lifecycle, and app callers are unchanged. There is no new real-time scheduler, general scheduling abstraction, or duplicated event compiler.
+
+Added a cast-free manual driver in `src/__tests__/support/manual-clock.ts` for testing only. It registers/emits callbacks, recomputes four-beat bar duration when BPM changes, and supplies the existing scheduler timing/conversion members. It has no transport/start/getter-state clone or wall-clock timers; the production offline driver remains harness work.
+
+Three new type-contract cases in `src/__tests__/clock-contract.test.ts` check production-clock compatibility, minimal-driver/native-context construction, the exact engine capability set/currentTime boundary, and duration-only instrument consumers. Three behavior cases added to the existing engine suite reuse its Web Audio/instrument mocks to prove real engine subscription/commit/routing and exact bar/bus timestamps, committed/default BPM, stop/unsubscription cleanup, and rejected invalid MIDI lead. No new unsafe clock/context cast was added. These tests do not claim real audio/worklet execution.
+
+Validation:
+
+```sh
+pnpm --filter @web-audio/audio-engine check
+pnpm --filter @web-audio/audio-engine lint
+pnpm --filter @web-audio/audio-engine test:ci
+pnpm exec turbo run build test:ci --force \
+  --filter=@web-audio/fluid --filter=@web-audio/clock \
+  --filter=@web-audio/audio-engine --filter=@web-audio/worklets \
+  --output-logs=errors-only
+pnpm --filter web test:unit --run --project server src/lib/globals/__tests__/eval.worker.test.ts
+pnpm --filter web test:unit --run --project client src/lib/globals/audio-player.svelte.test.ts
+pnpm check
+pnpm lint
+pnpm test
+```
+
+Engine passed all 325 tests in 22 files (6 new cases). Forced dependency/production builds and tests passed (10 tasks, none cached), including the unchanged clock and MIDI scheduler tests. Worker and AudioPlayer browser suites each passed all 8 tests against freshly built dependencies. Built declarations were inspected to confirm the public structural contract. Workspace check/lint/tests, changed-file/document formatting, and `git diff --check` passed; unchanged workspace tasks may be cached. Existing Vite config-loader and tsdown experimental-tsgo notices remain unrelated warnings.
+
+Step 1.4 (owned browser harness and real synth rendering) is next. No actual offline audio render or reference has been produced; browser/worklet feasibility and repeatability are still explicit future gates.
