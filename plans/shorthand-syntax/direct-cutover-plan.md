@@ -964,7 +964,7 @@ The reorganization's `pitch/`, `samples/`, `inputs/guards.ts`, `inputs/types.ts`
 - [x] Legacy wrappers and compiler code are deleted or explicitly narrowed.
 - [x] Golden schema fixtures pass with corrected expectations unchanged.
 - [x] Coverage transfer is recorded and verified before legacy test deletion.
-- [ ] Setter, transform, schema, and deletion commits were reviewed separately and merge together.
+- [x] Setter, transform, schema, and deletion commits were reviewed separately and merge together.
 - [x] Temporary differential wiring is deleted; native scenario replay and regression tests remain.
 - [x] No adapter, dual state, or mixed event-lane state remains.
 
