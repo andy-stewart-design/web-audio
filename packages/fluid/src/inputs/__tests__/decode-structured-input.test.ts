@@ -127,11 +127,14 @@ describe("structured expression decoding", () => {
         ],
       }),
     );
-    const legacy = new Synthesizer()
+    const publicSchema = new Synthesizer()
       .notes([[60, null, undefined, 60], [null, undefined], [67]])
       .getSchema().eventPattern;
-    expect(timing(native)).toEqual(legacy.timing.cycle);
-    expect(legacy.notes).toEqual({ type: "static", cycle: [[[60, 60], [67]]] });
+    expect(timing(native)).toEqual(publicSchema.timing.cycle);
+    expect(publicSchema.notes).toEqual({
+      type: "static",
+      cycle: [[[60, 60], [67]]],
+    });
   });
 
   it("treats sparse note slots and voice placeholders like undefined", () => {
@@ -300,11 +303,11 @@ describe("consumer validation and bounds", () => {
   });
 
   it("records empty-note-bar timing priority as a native transition feasibility case", () => {
-    const legacy = new Sampler("bd")
+    const publicSchema = new Sampler("bd")
       .notes([], [60])
       .variation([0, 1])
       .getSchema().eventPattern;
-    expect(legacy.timing.cycle).toEqual([
+    expect(publicSchema.timing.cycle).toEqual([
       [],
       [
         { offset: 0, duration: 0.5 },
@@ -359,7 +362,7 @@ describe("consumer validation and bounds", () => {
     "rejects invalid names without relying on trim() type errors: %s",
     (value) => {
       expect(() => decodeSampleNamesInput([value])).toThrow(
-        "name() sample names must be non-empty strings",
+        "name() sample names must be non-empty.",
       );
     },
   );

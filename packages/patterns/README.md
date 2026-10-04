@@ -2,7 +2,7 @@
 
 Generic pattern mechanics used by Fluid: fluent array cycles, readonly expressions, canonical event cycles, rhythm generators, and bounded numeric support.
 
-The expression and event-cycle foundations are tested independently; production Fluid event authoring has not yet cut over to native event state. Shorthand parsing is still planned, not implemented.
+Production Fluid event authoring now uses the readonly expression evaluator and native event cycles. The obsolete masked cycle and chord serializer have been removed after verified [coverage transfer](../../plans/shorthand-syntax/phase-5-coverage-transfer.md); random and processing-value primitives remain. Shorthand parsing is still planned, not implemented.
 
 ## Source map
 
@@ -33,6 +33,7 @@ Not every existing cycle class is disposable legacy code: random and processing-
 - Patterns owns generic structure, evaluation, geometry, transforms, and limits. Fluid owns target validation, authored intent, lane coordination, timing selection, and event compilation.
 - Schema owns schema types; import them directly from `@web-audio/schema`.
 - `src/index.ts` is the only code entry point, using explicit named re-exports directly from owning modules. There are no internal subpaths, wildcard exports, or folder barrels.
+- Named pure `euclid`, `hex`, and `sequence` generators are exported for Fluid's rhythm setters. Retained fluent cycle classes support random and processing-value callers; Fluid event setters do not construct them to generate masks.
 - Root exports require demonstrated cross-package consumers, including integration tests. Add a name when a real consumer needs it, not for hypothetical future use.
 - Inspectable, inferred expression data does not require a named root export for every constituent type. Event-cycle integration exports are not a Fluid extension API.
 - Internal imports go directly to owning modules. Source files are not supported deep-import entry points.

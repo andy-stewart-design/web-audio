@@ -1,5 +1,7 @@
 import type { SynthesizerSchema, Waveform } from "@web-audio/schema";
 import Instrument from "./instrument";
+import { createSynthEventState } from "@/events/transitions";
+import { compileSynthEventState } from "@/events/compiler";
 import { MidiOut } from "@/midi/builders";
 import type Drome from "@/drome";
 import { resolveWaveform, type WaveformAlias } from "@/inputs/waveform";
@@ -10,11 +12,12 @@ interface SynthesizerOptions {
 }
 
 class Synthesizer extends Instrument {
+  protected _eventState = createSynthEventState();
   private _type: Waveform;
   private _notesOut: MidiOut | undefined;
 
   constructor({ type = "sine", host }: SynthesizerOptions = {}) {
-    super([60], host, { a: 0.005, r: 0.005 });
+    super(host, { a: 0.005, r: 0.005 });
     this._type = resolveWaveform(type);
   }
 
@@ -32,7 +35,7 @@ class Synthesizer extends Instrument {
     return {
       type: "synthesizer" as const,
       waveform: this._type,
-      eventPattern: this._getPitchEventPattern(),
+      eventPattern: compileSynthEventState(this._eventState),
       detune: this._detune.getSchema("detune"),
       gain: this._gain.getSchema(),
       effects: this._effects.map((e) => e.getSchema()),

@@ -23,12 +23,7 @@ function isMidiCcTuple(v: unknown[]): v is [MidiCc] {
   return v.length === 1 && v[0] instanceof MidiCc;
 }
 
-function isDefined<T>(input: T | undefined): input is T {
-  return input !== undefined;
-}
-
 export {
-  isDefined,
   isEnvelopeTuple,
   isLfoTuple,
   isMidiCcTuple,

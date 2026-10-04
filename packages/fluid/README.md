@@ -29,20 +29,20 @@ src/
 ├── midi/                 # MIDI schema builders, not the Web MIDI runtime
 │   └── __tests__/
 ├── pitch/                # Scale aliases, note types, and MIDI conversion
-├── samples/              # Manifest types, normalization, and built-in bank registry
-│   ├── banks/            # Built-in bank data
-│   └── __tests__/
-└── patterns/             # Temporary legacy authored wrappers and timing helpers
+└── samples/              # Manifest types, normalization, and built-in bank registry
+    ├── banks/            # Built-in bank data
     └── __tests__/
 ```
 
-Production instruments still use the legacy authored wrappers and `instruments/event-compiler.ts`. The native `events/` pipeline is independently tested; PR 5 will switch all event lanes and both schema getters together after the standalone reorganization is merged. Shorthand parsing and public shorthand dispatch are not implemented yet.
+Production instruments use one native event state for notes, timing, sample names, and variations. Structured setters decode into expressions, evaluate immediately into event cycles, and update state through pure transitions; both schema getters use the native `events/` compiler. The legacy authored wrappers, compiler, and temporary comparison oracle have been removed after verified [assertion-level coverage transfer](../../plans/shorthand-syntax/phase-5-coverage-transfer.md). Shorthand parsing and public shorthand dispatch are not implemented yet.
+
+Hex, Euclid, and sequence setters call named pure generators from the patterns entry point, then decode and compose their transient masks through native timing transitions. They do not construct timing-cycle wrappers.
 
 Native event helpers do not import instrument classes, legacy wrappers, or test support. Sampler fit/chop configuration stays in `instruments/sampler-event-timing.ts`, outside authored event state. Processing parameters remain separate from event lanes.
 
 Import internal modules directly from their owners; source paths are not supported package subpaths. `src/index.ts` exposes only the existing default `Drome` export, with no folder barrels or compatibility re-export shims. Schema-owned types come directly from `@web-audio/schema`.
 
-Unit tests live in domain-local `__tests__/`; cross-domain suites live in `src/__tests__/`, with fixture/replay helpers in the relevant suite's `support/`. Tests remain TypeScript-checked, and production modules never import test support. See the [reorganization record](../../plans/fluid-package-reorg/plan.md) and [active shorthand plan](../../plans/shorthand-syntax/direct-cutover-plan.md) for the cutover and coverage-transfer gates.
+Unit tests live in domain-local `__tests__/`; cross-domain suites live in `src/__tests__/`, with fixture/replay helpers in the relevant suite's `support/`. Tests remain TypeScript-checked, and production modules never import test support. See the [reorganization record](../../plans/completed/fluid-package-reorg/plan.md) and [active shorthand plan](../../plans/shorthand-syntax/direct-cutover-plan.md) for the cutover and coverage-transfer gates.
 
 ## Compiled event model
 
@@ -65,6 +65,9 @@ These are intentional changes to structured event authoring (not new shorthand s
 - **Candidate-ordinal rests:** sampler note and variation rests now filter the ordered hits in a bar, wrapping by hit ordinal rather than resampling their offsets. For example, `.var([0, null, 2]).xox([1, 1, 1, 1])` keeps hits at offsets `0`, `1/2`, and `3/4` with variations `0`, `2`, and `0`. Sample-name rests already followed this rule.
 - **Authored scalars are patterns:** values set with `.notes()`, `.name()`, or `.var()` behave like one-step arrays. `.var(1).slow(2)` has an event bar followed by a rest bar; that rest suppresses hits when another lane owns timing. Replace an authored scalar after a transform if you want an untransformed repeating one-step pattern.
 - **Constructor defaults are fallbacks:** a constructor sample name, the default pitch, and the default variation `0` do not compete with or filter externally owned timing. Their values fill surviving hits, never create hits in a silent bar, and their transformed cycles provide timing only when no stronger source exists. Calling a setter replaces the default with an authored pattern even if its value is unchanged. For example, `.sample("bd").slow(2)` retains fallback `bd`, while `.sample().name("bd").slow(2)` has an authored rest bar under stronger timing.
+
+- **Immediate event transforms and pure reads:** fluent speed transforms operate on the result of each preceding call. `.notes(60).fast(2).slow(2)` produces two event bars with half-bar gates, rather than cancelling to the original one-bar gate. Calling `getSchema()` between transforms does not change the outcome; shorthand expression-chain cancellation remains future work.
+- **Synth availability survives materialization:** slowdown-created note rests continue filtering replacement timing by candidate ordinal. For example, `.notes([60, 64]).slow(2).xox(d.rand().bin().steps(4).chance(1))` keeps offsets `0` and `1/2` in both bars with quarter-bar gates. Inherited timing gaps remain transparent. This intentionally replaces the legacy synth behavior that lost those rests during materialization.
 
 ## Sampler names
 

@@ -1,4 +1,16 @@
-import AuthoredPitches from "@/patterns/authored-pitches";
+import type { EventCycleTransform } from "@web-audio/patterns";
+import type { SamplerEventState, StaticEventSource } from "@/events/state";
+import {
+  createSamplerEventState,
+  replaceSampleNames,
+  replaceEventVariation,
+  transformEventState,
+} from "@/events/transitions";
+import { compileSamplerEventState } from "@/events/compiler";
+import {
+  decodeSampleNamesInput,
+  decodeVariationsInputGeometry,
+} from "@/inputs/decode-structured-input";
 import Parameter from "@/parameters/parameter";
 import type {
   CycleInput,
@@ -11,24 +23,16 @@ import type {
   SampleDirection,
   SamplerSchema,
 } from "@web-audio/schema";
-import AuthoredEventValues from "@/patterns/authored-event-values";
+import { getRegion, type ChopState, type RegionState } from "./sampler-utils";
 import {
-  getChopTiming,
-  getDistributedTiming,
-  getRegion,
-  type ChopState,
-  type RegionState,
-} from "./sampler-utils";
-import {
-  compileSamplerEvents,
-  getSamplerEventTiming,
-  getSamplerTimingSelection,
-} from "./event-compiler";
+  getGeneratedSamplerTiming,
+  setSamplerEventFit,
+  setSamplerEventChop,
+} from "./sampler-event-timing";
 import { DEFAULT_BANK } from "@/samples/built-in-banks";
 import Instrument from "./instrument";
 import type Drome from "@/drome";
 import { normalizeBankName } from "@/samples/normalize-bank";
-import { isRandomCycleTuple } from "@/inputs/guards";
 
 interface SamplerOptions {
   bank?: string;
@@ -39,8 +43,7 @@ type SampleDirectionInput = SampleDirection | "for" | "rev" | "alt";
 
 class Sampler extends Instrument {
   private _bank: string;
-  private _sampleNames: AuthoredEventValues<string> | undefined;
-  private _variation: AuthoredEventValues<number>;
+  protected _eventState: SamplerEventState;
   private _fit: FitSchema | null = null;
   private _region: RegionState | null = null;
   private _chop: ChopState | null = null;
@@ -55,51 +58,11 @@ class Sampler extends Instrument {
     sample: string | undefined,
     { bank = DEFAULT_BANK, host }: SamplerOptions = {},
   ) {
-    super([0], host, { a: 0.0025, r: 0.005 });
-    this._pitches = new AuthoredPitches([0]);
+    super(host, { a: 0.0025, r: 0.005 });
+    this._eventState = createSamplerEventState(sample);
     this._bank = normalizeBankName(bank);
-    this._sampleNames = sample
-      ? AuthoredEventValues.fromDefault(sample.trim())
-      : undefined;
-    this._variation = AuthoredEventValues.fromDefault(0);
     this.dur = this.duration.bind(this);
     this.dir = this.direction.bind(this);
-  }
-
-  override reverse() {
-    this._materializeEventsForTransform();
-    this._pitches.reverse();
-    this._timing.reverse();
-    this._variation.reverse();
-    this._sampleNames?.reverse();
-    return this;
-  }
-
-  override fast(multiplier: number) {
-    this._materializeEventsForTransform();
-    this._pitches.fast(multiplier);
-    this._timing.fast(multiplier);
-    this._variation.fast(multiplier);
-    this._sampleNames?.fast(multiplier);
-    return this;
-  }
-
-  override slow(multiplier: number) {
-    this._materializeEventsForTransform();
-    this._pitches.slow(multiplier);
-    this._timing.slow(multiplier);
-    this._variation.slow(multiplier);
-    this._sampleNames?.slow(multiplier);
-    return this;
-  }
-
-  override stretch(bars: number, steps?: number) {
-    this._materializeEventsForTransform();
-    this._pitches.stretch(bars, steps);
-    this._timing.stretch(bars, steps);
-    this._variation.stretch(bars, steps);
-    this._sampleNames?.stretch(bars, steps);
-    return this;
   }
 
   // METHOD ALIASES
@@ -109,23 +72,10 @@ class Sampler extends Instrument {
 
   // INSTANCE METHODS
   name(...input: StaticNullableCycleInput<string>) {
-    if (input.length === 0) {
-      throw new Error("[Sampler] name() requires at least one pattern.");
-    }
-    if (isRandomCycleTuple(input)) {
-      throw new Error("[Sampler] name() does not support random patterns.");
-    }
-
-    this._sampleNames = AuthoredEventValues.fromInput(input, {
-      normalizeValue: (value) => value.trim(),
-      validateValue: (value) => value.length > 0,
-      invalidValueMessage: "[Sampler] name() sample names must be non-empty.",
-      invalidGroupMessage:
-        "[Sampler] name() simultaneous voice groups cannot be empty.",
-      invalidRestMessage:
-        "[Sampler] name() null is only allowed as a whole-hit rest.",
-    });
-    this._releaseMaterializedTimingForValueSetter();
+    this._eventState = replaceSampleNames(
+      this._eventState,
+      decodeSampleNamesInput(input),
+    );
     return this;
   }
 
@@ -135,33 +85,23 @@ class Sampler extends Instrument {
   }
 
   variation(...input: NullableCycleInput<number>) {
-    if (input.length === 0) {
-      throw new Error("[Sampler] variation() requires at least one pattern.");
-    }
-
-    this._variation = AuthoredEventValues.fromInput(input, {
-      validateValue: Number.isFinite,
-      invalidValueMessage:
-        "[Sampler] variation() values must be finite numbers.",
-      invalidGroupMessage:
-        "[Sampler] variation() simultaneous voice groups cannot be empty.",
-      invalidRestMessage:
-        "[Sampler] variation() null is only allowed as a whole-hit rest.",
-    });
-    this._releaseMaterializedTimingForValueSetter();
+    const decoded = decodeVariationsInputGeometry(input);
+    this._eventState = replaceEventVariation(
+      this._eventState,
+      decoded.cycle,
+      decoded.zeroWidthPatterns,
+    );
     return this;
   }
 
   fit(bars: number) {
-    if (!Number.isInteger(bars) || bars <= 0) {
-      throw new Error("[Sampler] fit() bars must be a positive integer.");
-    }
-
-    const hadOverride = this._getTimingOverride() !== undefined;
-    this._fit = { type: "fit", bars };
-    if (hadOverride || this._getTimingOverride() !== undefined) {
-      this._releaseMaterializedTiming();
-    }
+    const result = setSamplerEventFit(
+      this._eventState,
+      this._getTimingConfiguration(),
+      bars,
+    );
+    this._eventState = result.state;
+    this._fit = { type: "fit", bars: result.configuration.fitBars };
     return this;
   }
 
@@ -192,17 +132,14 @@ class Sampler extends Instrument {
   }
 
   chop(sliceCount: number, ...sequence: CycleInput<number>) {
-    if (!Number.isInteger(sliceCount) || sliceCount <= 0) {
-      throw new Error(
-        "[Sampler] chop() sliceCount must be a positive integer.",
-      );
-    }
-
-    this._chop = {
+    const result = setSamplerEventChop(
+      this._eventState,
+      this._getTimingConfiguration(),
       sliceCount,
-      sequence: sequence.length > 0 ? new Parameter(...sequence) : null,
-    };
-    this._releaseMaterializedTiming();
+      ...sequence,
+    );
+    this._eventState = result.state;
+    this._chop = result.configuration.chop;
     return this;
   }
 
@@ -246,72 +183,37 @@ class Sampler extends Instrument {
     return this;
   }
 
-  protected override _releaseMaterializedTiming() {
-    super._releaseMaterializedTiming();
-    this._variation.releaseMaterializedTiming();
+  protected override _transformEvents(operation: EventCycleTransform) {
+    this._eventState = transformEventState(this._eventState, operation, {
+      timingOverride: this._getTimingOverride(),
+    });
   }
 
-  private _materializeEventsForTransform() {
-    const timingOverride = this._getTimingOverride();
-    if (timingOverride) return;
-
-    const compilerInput = {
-      pitches: this._pitches,
-      timing: this._timing,
-      variation: this._variation,
-      sampleNames: this._sampleNames,
+  private _getTimingConfiguration() {
+    return {
+      fitBars: this._fit?.bars,
+      chop: this._chop ?? undefined,
+      hasRegion: this._region !== null,
     };
-    const selection = getSamplerTimingSelection(compilerInput);
-    const timing = getSamplerEventTiming(compilerInput);
-
-    // Lanes coupled to an inferred source already encode their intersection in
-    // the selected timing, while their authored availability retains provenance.
-    const pitchesShareSelectedTiming =
-      selection.materializedTiming !== undefined &&
-      this._pitches.materializedTiming === selection.materializedTiming;
-    const variationSharesSelectedTiming =
-      selection.materializedTiming !== undefined &&
-      this._variation.materializedTiming === selection.materializedTiming;
-    if (selection.source !== "notes" && !pitchesShareSelectedTiming) {
-      this._pitches.materializeAvailabilityAgainstTiming(selection.timing);
-    }
-    if (selection.source !== "variation" && !variationSharesSelectedTiming) {
-      this._variation.materializeAvailabilityAgainstTiming(selection.timing);
-    }
-
-    const materializedTiming = {};
-    this._pitches.materializeAgainstTiming(timing, materializedTiming);
-    this._variation.materializeAgainstTiming(timing, materializedTiming);
   }
 
   private _getGeneratedFit() {
-    const unfit = this._pitches.hasAuthoredValues || this._chop || this._region;
+    const unfit =
+      this._eventState.notes.intent === "authored" ||
+      this._chop ||
+      this._region;
     if (unfit) return null;
     return this._fit;
   }
 
   private _getTimingOverride() {
-    if (this._chop) {
-      return getChopTiming(this._chop, this._fit?.bars ?? 1);
-    }
-
-    const generatedFit = this._getGeneratedFit();
-    return generatedFit
-      ? getDistributedTiming(generatedFit.bars, generatedFit.bars)
-      : undefined;
+    return getGeneratedSamplerTiming(
+      this._eventState,
+      this._getTimingConfiguration(),
+    );
   }
 
-  private _getEventPattern(sampleNames: AuthoredEventValues<string>) {
-    return compileSamplerEvents({
-      pitches: this._pitches,
-      timing: this._timing,
-      variation: this._variation,
-      timingOverride: this._getTimingOverride(),
-      sampleNames,
-    });
-  }
-
-  private _warnForMissingSource(sampleNames: AuthoredEventValues<string>) {
+  private _warnForMissingSource(sampleNames: StaticEventSource<string>) {
     if (!this._host) return;
     const bank = this._host._resolveBank(this._bank);
     if (!bank) {
@@ -320,11 +222,12 @@ class Sampler extends Instrument {
       );
       return;
     }
-    if (sampleNames.source.type === "random") return;
     const names = new Set(
-      sampleNames.source.cycle.flatMap((bar) =>
-        bar.flatMap((group) => group ?? []),
-      ),
+      sampleNames.intent === "default"
+        ? sampleNames.fallback
+        : sampleNames.cycle.patterns.flatMap((bar) =>
+            bar.flatMap((step) => (step.type === "event" ? step.values : [])),
+          ),
     );
     for (const sampleName of names) {
       if (!bank.samples[sampleName]) {
@@ -336,15 +239,17 @@ class Sampler extends Instrument {
   }
 
   private _requireSampleNames() {
-    if (!this._sampleNames) {
+    if (!this._eventState.sampleNames) {
       throw new Error("[Sampler] sample name is required before getSchema().");
     }
-    return this._sampleNames;
+    return this._eventState.sampleNames;
   }
 
   getSchema(): SamplerSchema {
     const sampleNames = this._requireSampleNames();
-    const eventPattern = this._getEventPattern(sampleNames);
+    const eventPattern = compileSamplerEventState(this._eventState, {
+      timingOverride: this._getTimingOverride(),
+    });
     this._warnForMissingSource(sampleNames);
     const region = getRegion({
       fitSchema: this._getGeneratedFit(),

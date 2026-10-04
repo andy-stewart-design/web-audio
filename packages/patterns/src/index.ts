@@ -4,9 +4,11 @@ export { default as RandomCycle } from "./cycles/random-cycle";
 
 export { ValueCycle } from "./cycles/value-cycle";
 
-export { MaskedCycle } from "./cycles/masked-cycle";
+export type { ScheduledValue } from "./cycles/types";
 
-export type { Chord, ScheduledValue } from "./cycles/types";
+export { euclid } from "./rhythm/euclid";
+export { hex } from "./rhythm/hex";
+export { sequence } from "./rhythm/sequence";
 
 export {
   assertPatternExpressionLimits,

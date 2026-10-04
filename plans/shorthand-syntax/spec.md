@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. PRs 1–4 are complete; native state and compilation remain isolated from the legacy production path. The standalone [Fluid package reorganization](../completed/fluid-package-reorg/plan.md), including test-directory moves in both Fluid and patterns, merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56). PR 5's production cutover is ready to begin. Implementation locations below use the reorganized paths; shorthand parsing and public shorthand dispatch remain planned.
+Proposed. PRs 1–4 are complete. PR 5's Steps 5.1–5.4 are implemented on the working branch: structured event setters, transforms, and both schema getters use one native event state, and the superseded event infrastructure is deleted after verified coverage transfer. The standalone [Fluid package reorganization](../completed/fluid-package-reorg/plan.md), including test-directory moves in both Fluid and patterns, merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56). The [assertion-level coverage-transfer record](./phase-5-coverage-transfer.md) maps deleted assertions to retained tests or explicit retirement rationales. PR review/commit organization remains before merging; this is not a merge record. Implementation locations below use the reorganized paths; shorthand parsing and public shorthand dispatch remain planned.
 
 This specification defines both:
 
@@ -1095,7 +1095,7 @@ It does not decide whether an atom is a note, sample name, variation, or XOX val
 
 The parsed expression is public through the returned shorthand value so users and tooling can inspect it. The evaluated event-cycle IR remains an internal implementation boundary, not a Fluid extension API. Patterns has one curated root entry point with explicit direct re-exports justified by actual cross-package consumers; it does not expose an `/internal` subpath or re-export schema-owned types.
 
-Current generic foundations live in `packages/patterns/src/expressions/`, `packages/patterns/src/events/`, and `packages/patterns/src/math/`. Fluent/random/processing cycle support remains in `packages/patterns/src/cycles/`, with rhythm generators in `packages/patterns/src/rhythm/`. Domain-local `__tests__/` directories hold unit suites, including `packages/patterns/src/events/__tests__/` and `packages/patterns/src/cycles/operations/__tests__/`. Future shorthand modules and their unit tests belong under `packages/patterns/src/shorthand/` and its `__tests__/` directory.
+Current generic foundations live in `packages/patterns/src/expressions/`, `packages/patterns/src/events/`, and `packages/patterns/src/math/`. Fluent/random/processing cycle support remains in `packages/patterns/src/cycles/`, with rhythm generators in `packages/patterns/src/rhythm/`. The named pure `euclid`, `hex`, and `sequence` generators are exported through the patterns entry point and used directly by Fluid rhythm setters, without temporary timing-cycle instances. Domain-local `__tests__/` directories hold unit suites, including `packages/patterns/src/events/__tests__/` and `packages/patterns/src/cycles/operations/__tests__/`. Future shorthand modules and their unit tests belong under `packages/patterns/src/shorthand/` and its `__tests__/` directory.
 
 ### `@web-audio/fluid`
 
@@ -1117,11 +1117,11 @@ The reorganized layout preserves the existing public API and is not itself a pro
 - `packages/fluid/src/index.ts` directly re-exports the existing default `Drome` from `packages/fluid/src/drome.ts`; internal host type imports target `drome.ts`, while public API suites exercise the entry point.
 - `packages/fluid/src/instruments/` owns fluent facades, sampler helpers, and `sampler-event-timing.ts` for fit/chop configuration and the external generated-timing bridge.
 - `packages/fluid/src/events/state.ts`, `geometry.ts`, `snapshot.ts`, `transitions.ts`, and `compiler.ts` own native event state and emission. Native helpers do not import instrument classes, legacy authored wrappers, or test support.
-- `packages/fluid/src/inputs/` owns structured/random/XOX decoding, guards, waveform interpretation, and cycle input unions. Future target atom interpreters belong here, not in the legacy `patterns/` directory.
+- `packages/fluid/src/inputs/` owns structured/random/XOX decoding, guards, waveform interpretation, and cycle input unions. Future target atom interpreters also belong here.
 - `packages/fluid/src/parameters/parameter.ts` owns processing `Parameter` and audio-parameter input/source types; envelope ADSR stays in `packages/fluid/src/automations/envelope.ts`.
 - `packages/fluid/src/pitch/` owns note types, scale aliases, and MIDI conversion; `packages/fluid/src/samples/` owns manifest types, normalization, the built-in registry, and bank data under `banks/`.
 - `packages/fluid/src/midi/builders.ts` owns the existing MIDI authoring/schema builders, not Web MIDI runtime behavior.
-- `packages/fluid/src/patterns/authored-*`, `packages/fluid/src/patterns/event-timing.ts`, and `packages/fluid/src/instruments/event-compiler.ts` remain temporary legacy implementations until PR 5's verified coverage transfer.
+- PR 5 removes the obsolete `packages/fluid/src/patterns/` domain, `packages/fluid/src/instruments/event-compiler.ts`, and the temporary legacy comparison suite/driver. The [coverage-transfer record](./phase-5-coverage-transfer.md) retains useful assertions in native/public suites; generated operation factories remain test-only support for native/public replay.
 
 Unit tests use the owning domain's `__tests__/`. Complete-schema integration suites live under `packages/fluid/src/__tests__/event-schemas/`; corrected fixtures, native regression fixtures, and independent replay drivers live in its `support/` directory. These are test-only modules, never production dependencies or package exports. Tests remain included in TypeScript checking. Schema-owned types are imported directly from `@web-audio/schema`; no root type bucket, folder barrels, or new package subpaths are introduced.
 
@@ -1222,7 +1222,7 @@ Follow [`direct-cutover-plan.md`](./direct-cutover-plan.md). The redesign lands 
 - Run existing public-API goldens unchanged.
 - Record and verify coverage transfer before deleting superseded wrappers, compiler helpers, and legacy tests.
 - Remove temporary differential wiring with legacy deletion; retain native replay and explicit regressions. Leave processing parameters unchanged.
-- Use the current assertion-level inventory in [Step 5.4](./direct-cutover-plan.md#step-54--delete-superseded-event-infrastructure): retain `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts`, `native-replay.test.ts`, and their `support/`; remove only the obsolete `legacy-comparison.test.ts` suite and temporary legacy-oracle portions of `packages/fluid/src/events/__tests__/transitions.test.ts` after verified coverage transfer. Retain the native materialization suite at `packages/fluid/src/events/__tests__/materialization.test.ts`.
+- Coverage transfer and deletion are recorded in [Step 5.4](./direct-cutover-plan.md#step-54--delete-superseded-event-infrastructure) and the [assertion-level audit](./phase-5-coverage-transfer.md). Retained suites include all unchanged corrected goldens, native/public replay, shared/native/generated `support/`, public setters, native transitions/materialization/compiler, and the explicit coverage-transfer regressions. The obsolete legacy suite, driver, and transition oracle are deleted.
 
 ### PR 6 — Add shorthand parsing and prove equivalence
 
