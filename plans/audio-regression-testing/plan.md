@@ -2,7 +2,7 @@
 
 ## Status and goal
 
-**Phase 0 is complete on the user's Mac. Phase 1 is in progress: Steps 1.1–1.5 are complete; Step 1.6 is next.** Phases 2–3 have not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
+**Phases 0–1 are complete on the user's Mac. Steps 1.1–1.6 are complete; Step 2.1 is next.** Phases 2–3 have not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
 
 The deliverable is a local command that runs saved Fluid sketches through the real engine and compares their audio to listening-approved recordings. It does not require Linux, containers, hosted CI, a report application, or a separate candidate/approval system.
 
@@ -157,13 +157,19 @@ The current phase numbers replace the previous eight-phase plan. All previously 
 
 Measure maximum/RMS differences for the synth/sample/LFO set. Record observations and choose a documented suite-wide tolerance pair; no named profile system, OS certification, or formal budget exercise. Do not automatically relax tolerances until output agrees.
 
-**Validation:** Modulation differs from a static control, worklet errors fail, repeat renders agree at fixed measured tolerances, and prior cases do not change the next case's output.
+**Completed work:** Registered `lfo-filter`, `seeded-multibar`, and `sample-alternate`. Real filter modulation differs from a static control, and endpoint changes affect bar two without altering bar one. Analytical gain-LFO checks exercise authored origin/phase at non-quantum-aligned offsets in 48/44.1 kHz renders. Seeded chance produces hits/misses across three bars; changing the pitch seed changes audio without changing hit timing, while changing the chance seed changes hit timing. Alternate sample direction crosses an odd-hit bar boundary and restarts forward in fresh instances.
 
-- [ ] Real worklet affects audio; no registration/runtime error is hidden.
-- [ ] Isolated renders do not retain voices, caches, or direction state.
-- [ ] Repeatability is measured on the Mac, including a fresh launch.
+The harness observes native worklet-node failure events without changing DSP. Chromium 147 delivers its `onprocessorerror` event with type `error`, so both event names are observed; native error messages are retained. Real module registration, constructor, first-quantum, and final-quantum faults reject renders alongside healthy voices and recover. No arbitrary diagnostic sleep, production implementation, dependency, or lockfile change was needed.
 
-**Phase exit gate:** Real synth/sample/LFO rendering and repeatability are demonstrated. If not, report the specific blocker before creating references; do not substitute mocks or silently accept silence.
+**Measurements:** All six registered cases were rendered four times: baseline, same-order repeat, reversed order after odd alternate-state/different-asset/silence interference, and reversed order in a fresh browser/server launch. All 18 comparisons (both channels, full original frame lengths) measured maximum error **0** and RMS error **0**. A separate fresh process repeated these measurements. Chose immutable suite-wide `COMPARISON_TOLERANCE = { maxError: 0, rmsError: 0 }` in the existing runner audio module and enforce it in repeatability tests. No unexplained variance was accepted, no samples were processed, and no slack was invented; newly supplied sketches and browser/rendering changes still need remeasurement/review. Phase 2 will reuse this pair.
+
+**Validation:** All 77 package tests in 10 files passed, including 7 real worklet cases and 4 measurement/seed/direction/repeatability cases. The three new CLI cases rendered healthy stereo audio at 48 kHz/120 BPM. Package/workspace check/lint/tests, formatting, and `git diff --check` passed; unchanged workspace tasks may be cached. See `feasibility.md` for per-case frame counts, observations, commands, and limits. Output WAVs/reference comparison/listening approval remain Phases 2–3.
+
+- [x] Real worklet affects audio; no registration/runtime error is hidden.
+- [x] Isolated renders do not retain voices, caches, or direction state.
+- [x] Repeatability is measured on the Mac, including a fresh launch.
+
+**Phase exit gate passed:** Real synth/sample/LFO rendering, failure diagnostics, isolation, and local repeatability are demonstrated. Phase 1 is closed; Step 2.1 (standard float-WAV I/O) is next. No listening-approved reference exists yet.
 
 ---
 

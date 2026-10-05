@@ -1,3 +1,8 @@
+// Step 1.6 measured exact raw-sample repeats on the Mac, including fresh launches.
+// Start without numerical slack; remeasure/review instead of widening on failure.
+// Phase 2 will use the same suite-wide pair for reference comparison.
+export const COMPARISON_TOLERANCE = Object.freeze({ maxError: 0, rmsError: 0 });
+
 // Signal health only, not reference comparison or a musical quality assertion.
 export function inspectAudio(channels: Float32Array[], expectSilence = false) {
   if (channels.length === 0 || !channels[0]?.length)

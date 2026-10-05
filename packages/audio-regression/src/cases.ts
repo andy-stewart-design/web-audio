@@ -31,6 +31,29 @@ export const cases: SketchCase[] = [
     bars: 1,
     tailSeconds: 0.1,
   },
+  {
+    id: "lfo-filter",
+    description: "Real LFO filter sweep with changing bar-level endpoints",
+    code: "d.synth('sawtooth').notes(57).gain(0.3).adsr(0.005, 0, 1, 0.02).fx(d.lpf(d.lfo([300, 900], [2500, 4500]).norm().wave('sine').speed(1).off(0.25)).q(0.5)).push();",
+    bars: 2,
+    tailSeconds: 0.15,
+  },
+  {
+    id: "seeded-multibar",
+    description:
+      "Explicitly seeded chance timing and random pitches over three bars",
+    code: "d.synth('sine').notes(d.rand().int().range(57, 81).steps(8).ribbon(11)).xox(d.rand().bin().steps(8).chance(0.6).ribbon(42)).gain(0.4).adsr(0.005, 0, 1, 0.02).push();",
+    bars: 3,
+    tailSeconds: 0.1,
+  },
+  {
+    id: "sample-alternate",
+    description: "Alternate sample direction across an odd-hit bar boundary",
+    code: "d.loadSamples({bank: 'local', samples: {hit: ['/samples/asymmetric.wav']}}); d.sample('hit').bank('local').sequence(3, [0, 1, 2]).direction('alternate').clip(false).push();",
+    resources: { "/samples/asymmetric.wav": "resources/asymmetric.wav" },
+    bars: 2,
+    tailSeconds: 0.1,
+  },
 ];
 
 export function normalizeCase(sketch: SketchCase) {

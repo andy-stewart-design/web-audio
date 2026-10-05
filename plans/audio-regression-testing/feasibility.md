@@ -2,9 +2,9 @@
 
 ## Status
 
-**Phase 0 is complete on the user's Mac; Steps 1.1–1.5 are complete.** The unnecessary Linux/container validation requirement has been removed. Shared source/context/clock seams and an owned local browser harness now render real synth and local sampler audio, including loading-failure detection. LFO execution/repeatability, output WAV/reference comparison, and reference approval remain future work.
+**Phases 0–1 are complete on the user's Mac; Steps 1.1–1.6 are complete.** The unnecessary Linux/container validation requirement has been removed. Shared seams and an owned local browser harness now render real synth/sample/LFO audio with loading/processor-failure detection, seeded multi-bar behavior, isolation, and measured sample-identical repeats including fresh launches. Output WAV/reference comparison and reference approval remain future work; Step 2.1 is next.
 
-This record supports Phase 0 and Steps 1.1–1.5 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
+This record supports Phases 0–1 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
 
 Audited production revision: `02059e5755d7011310593bfa38912786bf767cc7`. No production implementation was changed during Phase 0. Re-read these consumers before Phase 1 if other work changes them.
 
@@ -108,9 +108,9 @@ The engine-facing minimum is the union of `on`, `bpm`, `barDuration`, and the sc
 | Real app MIDI owner behavior                                                         | `apps/web/src/lib/globals/audio-player.svelte.test.ts` (browser suite)                                          |
 | Actual worker evaluation/protocol with real Fluid                                    | New `globals/__tests__/eval.worker.test.ts` (Node host stub)                                                    |
 
-Existing engine unit tests use mocks; they do not prove browser audio. Steps 1.4–1.5's separate regression-package tests now demonstrate real synth/sample output, sample loading failures, and execution timeouts. Existing LFO tests cover parameter offsets and cleanup but do not directly prove processor phase/origin in an actual render; source-string tests do not execute the real worklet. Explicit LFO origin/quantum phase and measured repeatability remain Step 1.6 gates—not evidence inferred from other green tests.
+Existing engine unit tests use mocks; they do not prove browser audio. Steps 1.4–1.6's separate regression-package tests demonstrate actual synth/sample/LFO output, loading/processor failures, origin/quantum phase, execution timeouts, isolation, and measured repeatability. Those claims come from native browser rendering, not source-string/registration-only tests or mocked engine suites.
 
-No numerical audio tolerances or listening-approved references have been selected yet. The simplified spec chooses standard 32-bit float WAV references; richer reporting and provenance are deferred.
+Step 1.6 selected initial suite-wide maximum/RMS tolerance **0/0** from sample-identical local repetitions; no listening-approved references have been selected yet. The simplified spec chooses standard 32-bit float WAV references; richer reporting and provenance are deferred.
 
 ## Local browser setup
 
@@ -328,4 +328,57 @@ All 66 package tests in 8 files passed (22 added): 20 case/settings/layout cases
 
 Observed CLI results on Chromium 147.0.7727.15: both sample cases rendered 105,600 stereo frames at 48,000 Hz/120 BPM. Tone peak/RMS were approximately 0.437513/0.147232 per channel; reverse approximately 0.524995/0.0932111. Package/workspace checking/lint/tests, formatting, and `git diff --check` passed; unchanged workspace tasks may be cached. Root testing still does not run this package's browser suite, which was explicitly executed. No app `dev` command was run.
 
-Step 1.6 (real LFO processor execution, seeded behavior, isolation and repeated-render tolerance measurements) is next. Float-WAV output/references/comparison remain Phase 2; no listening-approved reference has been produced.
+At Step 1.5 closeout, LFO processor execution and repeatability remained Step 1.6; the section below supplies that evidence. Float-WAV output/references/comparison remain Phase 2; no listening-approved reference has been produced.
+
+## Step 1.6 — Real worklets, isolation and repeatability (complete)
+
+Registered three more diagnostic sketches in `src/cases.ts`:
+
+- `lfo-filter`: two bars of real sawtooth/filter audio with normalized sine-LFO phase 0.25 and cutoff endpoint patterns 300→900 / 2500→4500. Static-filter comparison shows real modulation. Freezing endpoints leaves bar one exactly unchanged and changes bar two, proving timestamped endpoint automation.
+- `seeded-multibar`: three bars of random pitches (ribbon 11) and chance timing (ribbon 42), eight candidate steps/bar. Actual audio contains hits and misses with sound in every bar. Changing only the pitch seed changes audio but not the hit mask; changing the chance seed changes the hit mask.
+- `sample-alternate`: three hits/bar of the asymmetric local sample over two bars. Audible beginnings alternate 440/880 Hz and approximately 0.525/0.175 peak, including the bar boundary. Two-bar, odd one-bar, then fresh two-bar renders each begin forward. The fixture uses `.sequence(3, [0, 1, 2])`; separate scalar arguments instead denote separate bar patterns, which the initial audio assertions correctly caught.
+
+Added seven native worklet checks in `src/__tests__/worklets.test.ts`. Besides filter/endpoint comparisons, a gain-LFO is compared with the same native sine carrier and an analytical sine-gain function at 48,000/44,100 Hz with 4,837/4,417-frame starts. Both start positions split 128-frame quanta. These checks establish authored origin/phase without duplicating event compilation. Their `1e-6` ideal-math bound is not the recording-comparison tolerance.
+
+Unexpected native worklet errors were not automatically visible as page exceptions or rejected offline completion. The harness now temporarily subclasses the actual `AudioWorkletNode` constructor to observe native failures; DSP, parameter data/options, connections and production code are untouched. Errors reject the rendering race and retain the processor name/native `ErrorEvent.message`; the constructor is restored in `finally`. Chromium 147 dispatches its `onprocessorerror` event with event type **`error`**, so observing only `processorerror` initially let a broken processor plus healthy sibling pass. Observing both names fixes this; no diagnostic sleeps, extra worklet barriers or production changes remain. Constructor events provide a generic native “invoking user-supplied constructor failed” message rather than the thrown constructor's text.
+
+Expected-error fixtures replace only module bytes, then use native Blob registration, node construction and worklet execution. Syntax/registration failure, throwing constructor, first-quantum process failure, and a final-quantum process failure all reject renders alongside a healthy synth, close their contexts, and recover with the real LFO case. The final-quantum case first emits healthy filter control, then throws in the last quantum of a one-bar/no-tail render. It verifies completion/error ordering rather than relying on silence or arbitrary waits. None of these fault modules become normal fixtures/references.
+
+Four checks in `src/__tests__/repeatability.test.ts` cover raw-metric correctness/invalid shapes, seeded audio, alternate direction, and repeated whole-buffer rendering. Measurement/fault helpers live only in that suite's `support/`; production imports no test helper. Each registered case has four isolated renders: baseline, same-order repeat, reversed order after odd alternate-state/different-file/silence interference, then reversed order in a genuinely fresh browser and server. The old browser is disconnected first. The interference reuses the same logical URL for different file bytes and verifies healthy changed output, while explicit silence checks that no earlier voice survives.
+
+### Measurements and chosen pair
+
+On the same Mac with Chromium **147.0.7727.15**, stereo 48,000 Hz, 120 BPM and default 4,800-frame origin:
+
+| Case               |  Frames | Largest maximum sample error | Largest RMS sample error |
+| ------------------ | ------: | ---------------------------: | -----------------------: |
+| `sine`             | 112,800 |                            0 |                        0 |
+| `sample-tone`      | 105,600 |                            0 |                        0 |
+| `sample-reverse`   | 105,600 |                            0 |                        0 |
+| `lfo-filter`       | 204,000 |                            0 |                        0 |
+| `seeded-multibar`  | 297,600 |                            0 |                        0 |
+| `sample-alternate` | 201,600 |                            0 |                        0 |
+
+These are maxima over the three repetitions and both full-length channels: **18 comparisons / 36 per-channel error pairs**, all exactly zero. A separate fresh Node process also measured all six cases across same-order and fresh-browser repeats with zero error. No audio was aligned, trimmed, normalized, resampled, clipped or quantized; settings/frame count/tempo/browser metadata were checked too.
+
+Chose immutable `COMPARISON_TOLERANCE = { maxError: 0, rmsError: 0 }` in the existing `src/runner/audio.ts`. Repeatability tests enforce the pair; Phase 2 will reuse it for reference comparison. Exact observed equality needs no invented floating-point slack. This does not promise every future sketch or browser/OS to be bit-identical: rerun/review new input and rendering-dependency changes, and report/explain variance rather than automatically widening thresholds. LFO UUIDs were not canonicalized; fresh source/IDs and resource URLs still produced identical audio. The independent audible/silent health checks remain unchanged.
+
+Validation:
+
+```sh
+pnpm --filter @web-audio/audio-regression check
+pnpm --filter @web-audio/audio-regression lint
+pnpm --filter @web-audio/audio-regression test
+pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/worklets.test.ts src/__tests__/repeatability.test.ts
+pnpm --filter @web-audio/audio-regression audio:render --case lfo-filter
+pnpm --filter @web-audio/audio-regression audio:render --case seeded-multibar
+pnpm --filter @web-audio/audio-regression audio:render --case sample-alternate
+pnpm --filter @web-audio/audio-regression format:check
+pnpm check
+pnpm lint
+pnpm test
+```
+
+All **77 package tests in 10 files passed** (66 existing plus 7 worklet and 4 metric/seed/direction/repetition checks). The focused suite was also rerun in fresh processes. CLI channel peak/RMS: LFO approximately 0.188983/0.0465954, seeded approximately 0.186562/0.0738467, alternate approximately 0.524995/0.164802. Package/workspace check/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached, and root tests still do not discover this browser suite, which was explicitly run. No production implementation, dependencies, scripts, lockfile, or sample bytes changed. No app `dev` command was run.
+
+**Phase 1 exit gate passed.** Native synth/sample/LFO rendering, failures, isolation and local repeatability are demonstrated. Step 2.1 (standard float-WAV output/input) is next; comparisons and listening-approved references do not exist yet.

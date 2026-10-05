@@ -1,6 +1,6 @@
 # @web-audio/audio-regression
 
-Private local tooling for Fluid-sketch audio regression tests. **Steps 1.1–1.5 are complete on the user's Mac:** the package renders real synth and local sampler audio through Fluid, AudioEngine, and Chromium's `OfflineAudioContext`. LFO execution/repeatability checks, output WAV files, and reference comparison are still upcoming.
+Private local tooling for Fluid-sketch audio regression tests. **Phase 1 is complete on the user's Mac:** the package renders real synth, local sampler, and LFO audio through Fluid, AudioEngine, and Chromium's `OfflineAudioContext`, with seeded multi-bar and isolation/repeatability checks. Output WAV files and reference comparison remain Phase 2.
 
 See [`spec.md`](../../plans/audio-regression-testing/spec.md), [`plan.md`](../../plans/audio-regression-testing/plan.md), and [`feasibility.md`](../../plans/audio-regression-testing/feasibility.md).
 
@@ -14,6 +14,9 @@ pnpm --filter @web-audio/audio-regression browser:install
 pnpm --filter @web-audio/audio-regression audio:render --case sine
 pnpm --filter @web-audio/audio-regression audio:render --case sample-tone
 pnpm --filter @web-audio/audio-regression audio:render --case sample-reverse
+pnpm --filter @web-audio/audio-regression audio:render --case lfo-filter
+pnpm --filter @web-audio/audio-regression audio:render --case seeded-multibar
+pnpm --filter @web-audio/audio-regression audio:render --case sample-alternate
 pnpm --filter @web-audio/audio-regression test
 pnpm --filter @web-audio/audio-regression check
 pnpm --filter @web-audio/audio-regression lint
@@ -24,7 +27,7 @@ pnpm --filter @web-audio/audio-regression format:check
 
 `audio:render --case sine` prints browser version, sample rate, channels, frame count, BPM, and per-channel peak/RMS. It currently writes **no WAV/reference files** and performs **no reference comparison**. Unknown selectors or invalid arguments exit nonzero. Register trusted sketches in `src/cases.ts`; sample cases use the local resource mapping below.
 
-`test` runs the unit/CLI tests, browser launch checks, and actual synth/sampler render/lifecycle tests. `test:smoke` selects only the original three launch checks. Root `pnpm test` does not yet run this package; root verification integration is planned once actual references exist.
+`test` runs the unit/CLI tests, browser launch checks, and actual synth/sampler/LFO render, lifecycle, and repeatability tests. `test:smoke` selects only the original three launch checks. Root `pnpm test` does not yet run this package; root verification integration is planned once actual references exist.
 
 Install and launch sequentially. `browser:install` downloads only the Chromium headless shell associated with the exact Playwright dependency in package/lockfile; no separate environment manifest or OS-version check is used.
 
@@ -36,10 +39,25 @@ Install and launch sequentially. `browser:install` downloads only the Chromium h
 - Defaults: 48,000 Hz, stereo, four beats per bar, 4,800-frame start offset. Schema BPM or engine default 120 BPM determines duration; bars and tail are explicit, with frame length rounded up.
 - The real engine awaits worklet registration/preparation, commits on `prebar`, and schedules requested `bar` events. Rendering finishes before engine destruction. No speaker capture, musical sleeps, or real-time clock start is used.
 - Original Float32 samples return to Node without normalization, clipping, quantization, alignment, or resampling. Finite peaks above one are legal. Expected audibility uses an initial RMS health floor of `1e-8`; intentional silence requires exact zero. This is not a comparison tolerance or quality certification.
-- External requests are blocked. Page errors, warnings/errors, failed requests, and HTTP errors fail rendering. Already-started requests drain under the same deadline; missing files do not fall back to HTML.
+- External requests are blocked. Page errors, warnings/errors, failed requests, HTTP errors, and native worklet processor failures fail rendering. The harness temporarily subclasses the native worklet node only to observe error events, retaining the native DSP, options, parameters, and connections; the constructor is restored on cleanup. Already-started requests drain under the same deadline; missing files do not fall back to HTML.
 - A Node-side 10-second execution deadline covers navigation/readiness, source execution, rendering, and request draining, including synchronous source hangs. Pages/contexts, browser, and server close on success/failure. Initial fixtures must not author MIDI output.
 
-The current tests verify real synth/sample pitch/output, reversal, forward/reversed regions, sprites, selected variations, explicit built-in mappings, default/schema tempo, multi-bar timing, start silence, release tail, alternate rate/mono output, explicit silence, invalid sources/settings/selectors, diagnostics, a synchronous hang, and startup/failure cleanup. Loading failures alongside healthy voices are rejected; external fetches from an authored worker are also blocked. Registration success does **not** yet prove LFO processor output or measured repeatability; those remain Step 1.6. No numerical comparison tolerances or listening-approved references exist yet.
+The current tests verify real synth/sample pitch/output, reversal, forward/reversed regions, sprites, selected variations, explicit built-in mappings, default/schema tempo, multi-bar timing, start silence, release tail, alternate rate/mono output, explicit silence, invalid sources/settings/selectors, diagnostics, a synchronous hang, and startup/failure cleanup. Loading failures alongside healthy voices are rejected; external fetches from an authored worker are also blocked. Real LFO filter modulation, exact bar-level endpoint changes, and origin/phase at non-quantum-aligned starts in 48/44.1 kHz renders are now tested. Native registration/constructor/process errors, including the final render quantum, reject partial healthy audio and recover. Seeded pitch/chance behavior and odd-hit cross-bar alternate sample direction are exercised. No listening-approved references exist yet.
+
+## Measured repeatability
+
+The six registered cases are each rendered four times: baseline, same-order repeat, reversed order after an odd alternate render/different bytes under the same logical sample URL/explicit silence, and reversed order in a fresh browser/server launch. All full-length Float32 channels measured maximum/RMS error **0/0** on the Mac with Chromium 147.0.7727.15. Separate fresh-process runs also passed.
+
+The initial suite-wide pair is therefore **`maxError: 0`, `rmsError: 0`**, exported as immutable `COMPARISON_TOLERANCE` from `src/runner/audio.ts`. Repeatability tests enforce it; Phase 2's reference comparator will reuse it. No gain/time normalization, trimming, alignment, resampling, or tolerance widening is used. The analytical phase proof's `1e-6` bound is for an ideal mathematical gain versus native floating-point DSP, **not** a recording-comparison tolerance.
+
+This is local repeatability evidence for these inputs, not cross-platform/browser certification or musical quality approval. Recheck new sketches and browser/rendering dependency changes; investigate differences rather than automatically loosening the pair. Detailed observations are in `feasibility.md`.
+
+To rerun only these checks after building dependencies:
+
+```sh
+pnpm --filter @web-audio/audio-regression build:deps
+pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/worklets.test.ts src/__tests__/repeatability.test.ts
+```
 
 ## Local samples
 

@@ -72,6 +72,27 @@ async function renderSketch(
   });
   const driver = createOfflineClock(ctx, sketch.settings.beatsPerBar);
   const engine = new AudioEngine(ctx, driver.clock);
+  const NativeWorkletNode = window.AudioWorkletNode;
+  let processorError: Error | undefined;
+  let rejectRendering: ((error: Error) => void) | undefined;
+  // Native processor failures emit an event, not necessarily a page exception
+  // or rejected startRendering(). Observe every actual node without replacing DSP.
+  window.AudioWorkletNode = class extends NativeWorkletNode {
+    constructor(...args: ConstructorParameters<typeof NativeWorkletNode>) {
+      super(...args);
+      const onError = (event: Event) => {
+        const detail = event instanceof ErrorEvent ? `: ${event.message}` : "";
+        processorError = new Error(
+          `AudioWorklet processorerror: ${args[1]}${detail}`,
+        );
+        rejectRendering?.(processorError);
+      };
+      this.addEventListener("processorerror", onError);
+      // Chromium 147 dispatches an event named "error" to onprocessorerror.
+      // Observe both names without taking over an authored handler property.
+      this.addEventListener("error", onError);
+    }
+  };
   try {
     await engine.ready;
     engine.update(schema);
@@ -84,7 +105,12 @@ async function renderSketch(
         layout.startTime + bar * driver.clock.barDuration,
       );
     }
-    const buffer = await ctx.startRendering();
+    const failedProcessor = new Promise<never>((_, reject) => {
+      rejectRendering = reject;
+      if (processorError) reject(processorError);
+    });
+    const buffer = await Promise.race([ctx.startRendering(), failedProcessor]);
+    if (processorError) throw processorError;
     // JS numbers exactly represent every Float32 sample. Node reconstructs
     // Float32Arrays without quantization, gain changes, or resampling.
     const channels = Array.from(
@@ -102,7 +128,12 @@ async function renderSketch(
   } finally {
     // Future voices must survive until rendering completes. Failure cleanup is
     // also bounded by Node closing this isolated browser context.
-    engine.destroy();
+    try {
+      engine.destroy();
+    } finally {
+      rejectRendering = undefined;
+      window.AudioWorkletNode = NativeWorkletNode;
+    }
   }
 }
 

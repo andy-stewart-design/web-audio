@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-Phase 0 characterization and browser-launch setup are complete on the user's Mac. Steps 1.1–1.5 are complete: shared source/context/clock seams and a local browser harness now render real synth and local sampler audio through AudioEngine, including reversal/regions and loading-failure diagnostics. `audio:render --case sine`, `--case sample-tone`, and `--case sample-reverse` report raw-audio health metrics. LFO execution/repeatability, output WAV/reference storage, and audio comparison are not implemented yet. See [plan.md](./plan.md) for the remaining three phases and [feasibility.md](./feasibility.md) for production constraints and validation evidence.
+Phases 0–1 are complete on the user's Mac. Steps 1.1–1.6 render real synth, local sampler, and LFO audio through AudioEngine, with failure diagnostics, seeded multi-bar behavior, isolation, and measured repeatability across fresh browser launches. All six registered cases repeated with maximum/RMS sample error 0; the initial suite-wide tolerance pair is 0/0. `audio:render --case <id>` reports raw-audio health metrics. Output WAV/reference storage, audio comparison, and listening approval remain Phases 2–3; Step 2.1 is next. See [plan.md](./plan.md) and [feasibility.md](./feasibility.md) for remaining work, evidence, and limits.
 
 Replace routine manual REPL checks with a local command that executes saved Fluid sketches, renders through the real audio engine, and compares the sound with listening-approved recordings. Build a useful regression suite, not a cross-platform testing service.
 
@@ -63,7 +63,7 @@ Use the generated schema's BPM or the engine's default 120 BPM. Calculate frame 
 
 Use explicit random ribbons/seeds; avoid wall-clock input and `Math.random`. Give each render a fresh evaluator, page/context, clock driver, and engine. Run cases sequentially initially.
 
-Before setting initial thresholds/references, repeat synth, sampler, and LFO renders, including a fresh browser launch. Record observed maximum/RMS differences and choose documented tolerances from that evidence. Do not automatically widen tolerances to accept a changed recording.
+Before setting initial thresholds/references, repeat synth, sampler, and LFO renders, including a fresh browser launch. Record observed maximum/RMS differences and choose documented tolerances from that evidence. Step 1.6 measured zero error for all six initial cases on the Mac, including different case order and a fresh launch: the initial suite-wide maximum/RMS pair is **0/0**, exported as `COMPARISON_TOLERANCE` from the runner audio module and enforced by repeatability tests. This is local measured equality, not an OS/browser compatibility promise or listening approval. Recheck new sketches and browser/rendering changes; do not automatically widen tolerances to accept a changed recording.
 
 The browser dependency is pinned in `package.json` and the lockfile; there is no separate environment-pinning framework. Record the actual browser version and render settings beside references for troubleshooting. Browser/OS changes may warrant rechecking repeatability or reviewing differences, but do not prohibit running on a Mac or fail solely because provenance changed. Cross-platform reference compatibility is not promised.
 
