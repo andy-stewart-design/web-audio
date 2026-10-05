@@ -2,9 +2,9 @@
 
 ## Status
 
-**Phase 0 is complete on the user's Mac; Steps 1.1–1.3 are complete.** The unnecessary Linux/container validation requirement has been removed. Fluid exports the shared synchronous source evaluator used by the REPL worker; the engine accepts native `BaseAudioContext` and a public structural `EngineClock` contract. Actual audio rendering/comparison and reference approval are not implemented yet.
+**Phase 0 is complete on the user's Mac; Steps 1.1–1.4 are complete.** The unnecessary Linux/container validation requirement has been removed. Shared source/context/clock seams and an owned local browser harness now render real synth audio. Sample decoding, LFO execution/repeatability, WAV/reference comparison, and reference approval remain future work.
 
-This record supports Phase 0 and Steps 1.1–1.3 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
+This record supports Phase 0 and Steps 1.1–1.4 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
 
 Audited production revision: `02059e5755d7011310593bfa38912786bf767cc7`. No production implementation was changed during Phase 0. Re-read these consumers before Phase 1 if other work changes them.
 
@@ -108,7 +108,7 @@ The engine-facing minimum is the union of `on`, `bpm`, `barDuration`, and the sc
 | Real app MIDI owner behavior                                                         | `apps/web/src/lib/globals/audio-player.svelte.test.ts` (browser suite)                                          |
 | Actual worker evaluation/protocol with real Fluid                                    | New `globals/__tests__/eval.worker.test.ts` (Node host stub)                                                    |
 
-Existing engine tests use mocks; they do not prove browser audio. Existing LFO tests cover parameter offsets and cleanup but do not directly prove processor phase/origin in an actual render. Source-string tests do not execute the real worklet. Explicit origin/quantum phase, real decoding, actual audio output, execution timeouts, and repeatability remain Phase 1 gates—not evidence inferred from these green tests.
+Existing engine unit tests use mocks; they do not prove browser audio. Step 1.4's separate regression-package tests now demonstrate real synth output and execution timeouts. Existing LFO tests cover parameter offsets and cleanup but do not directly prove processor phase/origin in an actual render; source-string tests do not execute the real worklet. Explicit LFO origin/quantum phase, real sample decoding, and measured repeatability remain Steps 1.5–1.6 gates—not evidence inferred from other green tests.
 
 No numerical audio tolerances or listening-approved references have been selected yet. The simplified spec chooses standard 32-bit float WAV references; richer reporting and provenance are deferred.
 
@@ -268,4 +268,33 @@ pnpm test
 
 Engine passed all 325 tests in 22 files (6 new cases). Forced dependency/production builds and tests passed (10 tasks, none cached), including the unchanged clock and MIDI scheduler tests. Worker and AudioPlayer browser suites each passed all 8 tests against freshly built dependencies. Built declarations were inspected to confirm the public structural contract. Workspace check/lint/tests, changed-file/document formatting, and `git diff --check` passed; unchanged workspace tasks may be cached. Existing Vite config-loader and tsdown experimental-tsgo notices remain unrelated warnings.
 
-Step 1.4 (owned browser harness and real synth rendering) is next. No actual offline audio render or reference has been produced; browser/worklet feasibility and repeatability are still explicit future gates.
+## Step 1.4 — Owned harness and real synth render (complete)
+
+Added the loopback harness (`index.html`, `src/browser/render.ts`, `src/runner/with-harness.ts`) and Node renderer/CLI (`src/runner/render.ts`, `src/runner/audio.ts`, `src/cli.ts`). Case types/settings/registry live in `src/types.ts` and `src/cases.ts`. Dependencies were installed through pnpm: workspace Fluid/audio-engine, exact Vite 8.0.12, and tsx 4.21.0. An initial manual lockfile narrowing was incorrect and discarded. `pnpm install --prefer-offline` regenerated the lockfile from the committed baseline and updated package manifests; its shared Vite transitive-resolution changes are retained without hand edits. Frozen installation succeeded, and all six upstream builds passed with caching forced off. `AGENTS.md` now explicitly prohibits manual lockfile edits. Installation warned about the unchanged `unrun@0.2.38` dependency's missing CLI binary; this did not prevent those builds. No production implementation changed.
+
+The Vite server uses an available loopback port with app/config/env isolation and no SPA fallback. Node owns server/browser lifetime; each render gets a fresh page/browser context, evaluator, offline context, driver, and engine. Source uses the shared public evaluator. The real engine awaits worklet registration, update/preparation, commits on `prebar`, and schedules exact requested `bar` events using committed tempo. The audio context renders bars plus tail, then returns original samples through exact Float32 → JS-number → Float32 transfer. Engine destruction occurs only after rendering (or failure), never before future voices run. No speaker capture, real-time transport, musical sleeps, or audio/worklet mocks are used.
+
+`audio:render --case sine` and package tests build changed workspace dependencies with existing Turbo tasks before browser imports. The command prints settings/browser version and peak/RMS metrics; it does not yet write recordings or compare references. Cases reject invalid settings, duplicate/unknown IDs, and missing CLI selectors. Expected audibility uses a small initial RMS health floor (`1e-8`); explicit silence requires zero. Finite values above one remain legal and unchanged. No comparison tolerance has been selected.
+
+The Node-side 10-second execution deadline covers navigation/readiness, source execution, offline rendering, and pending-request draining. A synchronous `while (true) {}` source is terminated by disposing its context, and the next render succeeds. Unexpected page errors, console warnings/errors, failed requests, HTTP errors, and blocked external URLs fail rendering. Draining observed requests prevents fast renders from hiding late HTTP failures. Startup collisions, missing browser executables, callback failures, and successful completion release browser/server resources; the tests verify closed contexts/connections and successful subsequent launches/rebinding.
+
+Current sampler cases explicitly fail until Step 1.5 supplies local resources and decode diagnostics. Authored MIDI output also fails rather than queueing real-time timers. Worklet registration is real and succeeds on OfflineAudioContext, but this synth proof does not instantiate an LFO node or claim processor output/phase/repeatability.
+
+Validation:
+
+```sh
+pnpm --filter @web-audio/audio-regression test
+pnpm --filter @web-audio/audio-regression audio:render --case sine
+pnpm --filter @web-audio/audio-regression check
+pnpm --filter @web-audio/audio-regression lint
+pnpm --filter @web-audio/audio-regression format:check
+pnpm check
+pnpm lint
+pnpm test
+```
+
+All 44 package tests in 6 files passed: 18 case/settings/layout cases, 3 signal-health cases, 2 CLI exit cases, 3 retained launch smoke cases, 3 harness lifecycle cases, and 15 actual render/error/recovery cases. Browser tests use the real built Fluid/AudioEngine and native Chromium audio APIs. They verify 440 Hz sine output, stereo channels, exact initial silence/frame count, release tail, default/schema BPM, multi-bar onset timing, mono/44.1 kHz, explicit silence, failures/diagnostics, and Node-side hang recovery.
+
+Observed CLI result on the Mac: Chromium 147.0.7727.15; 48,000 Hz, stereo, 112,800 frames, 120 BPM; channel peaks 0.162500, RMS approximately 0.106532. Workspace check/lint/tests, package formatting, document formatting, and `git diff --check` passed; unchanged workspace tasks may be cached. Root testing does not yet discover this package, so its real browser tests are explicitly run through its own command. No app `dev` command or container/hosted CI was needed.
+
+Step 1.5 (local samples and load failures) is next. LFO processor execution and repeated-render tolerance measurements remain Step 1.6; float-WAV references/comparison remain Phase 2. No listening-approved reference has been produced.

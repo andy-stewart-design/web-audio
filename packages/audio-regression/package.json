@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run",
+    "build:deps": "turbo run build --filter=@web-audio/audio-engine --filter=@web-audio/fluid --output-logs=errors-only",
+    "test": "pnpm build:deps && vitest run",
     "test:smoke": "vitest run src/__tests__/browser-launch.test.ts",
+    "audio:render": "pnpm build:deps && tsx src/cli.ts",
     "check": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
@@ -16,10 +18,14 @@
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "25.6.2",
+    "@web-audio/audio-engine": "workspace:*",
+    "@web-audio/fluid": "workspace:*",
     "eslint": "9.39.4",
     "playwright": "1.59.1",
     "prettier": "3.8.3",
+    "tsx": "4.21.0",
     "typescript": "6.0.3",
+    "vite": "8.0.12",
     "vitest": "4.1.6"
   }
 }

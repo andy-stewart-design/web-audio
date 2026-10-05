@@ -2,7 +2,7 @@
 
 ## Status and goal
 
-**Phase 0 is complete on the user's Mac. Phase 1 is in progress: Steps 1.1–1.3 are complete; Step 1.4 is next.** Phases 2–3 have not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
+**Phase 0 is complete on the user's Mac. Phase 1 is in progress: Steps 1.1–1.4 are complete; Step 1.5 is next.** Phases 2–3 have not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
 
 The deliverable is a local command that runs saved Fluid sketches through the real engine and compares their audio to listening-approved recordings. It does not require Linux, containers, hosted CI, a report application, or a separate candidate/approval system.
 
@@ -121,11 +121,13 @@ The current phase numbers replace the previous eight-phase plan. All previously 
 - Bound execution from Node, including synchronous evaluation hangs; clean up page/context/server/browser on all exits.
 - Expose `audio:render --case <id>` for initial diagnostic use. It is not yet verification.
 
-**Validation:** Real sine output is finite/audible and has correct channels, frame count, start silence, default/schema BPM timing, and tail. Exercise an invalid sketch, unknown case, timeout, and server/browser startup failure; rerun successfully afterwards.
+**Completed work:** Added the owned loopback Vite harness, validated case registry/settings, real browser source/engine rendering, an offline driver satisfying `EngineClock`, Float32 transfer and signal-health metrics, and `audio:render --case <id>`. Each case has isolated page/context/engine state. A Node-side execution deadline covers navigation/readiness, synchronous source hangs, rendering, and request draining; cleanup runs on success/failure. External requests and unexpected browser/HTTP diagnostics fail. Vite uses no SPA fallback so missing resources remain errors. CLI/tests build changed workspace dependencies through existing Turbo tasks before importing them. Sample-resource entries/decoding remain Step 1.5; sampler cases are explicitly rejected until supported, and authored MIDI output is excluded.
 
-- [ ] Render goes through real engine commit and scheduling, not fake instruments/nodes.
-- [ ] No clock start, musical sleeps, speaker capture, or pre-render destruction.
-- [ ] Failure cleanup and Node-side timeout work.
+**Validation:** All 44 regression-package tests in 6 files passed, including real 440 Hz stereo sine output, default 120/schema 90 BPM, multi-bar onset timing, exact frame count/start silence, release tail, mono/44.1 kHz, explicit silence, invalid settings/source/selectors, browser/network diagnostics, a Node-bounded infinite source loop followed by recovery, and server/browser startup/failure cleanup. The CLI rendered 112,800 stereo frames at 48 kHz/120 BPM, peak 0.1625 and RMS about 0.106532 per channel. Package/workspace checking, linting, tests, formatting, and `git diff --check` passed; unchanged workspace tasks may be cached. No production implementation changed. Worklet registration is real, but sampler decoding and LFO processor output/repeatability are not yet claimed; there are no WAVs/references/comparisons yet.
+
+- [x] Render goes through real engine commit and scheduling, not fake instruments/nodes.
+- [x] No clock start, musical sleeps, speaker capture, or pre-render destruction.
+- [x] Failure cleanup and Node-side timeout work.
 
 ### Step 1.5 — Render local samples and reject loading failures
 
@@ -303,3 +305,4 @@ Deferred enhancements—not completion gates:
 - Candidate/promotion tooling or stronger multi-case write transactions.
 - Hosted CI, container/OS images, other browsers/platforms.
 - Live graph/tempo changes, MIDI input/output, stop/restart rendering, and REPL UI automation.
+- **Workspace tooling dependency normalization (separate follow-up, outside this SOW):** Vite currently resolves to 8.0.12 for web/audio-regression and 8.2.1 through Astro/library-package Vitest. Other shared tooling currently agrees, but declarations mix exact pins and caret ranges. Consider pnpm catalogs for shared tooling versions, a consistent pinning policy, explicit Vite dependencies for library tests, and review of the root Rolldown override. Respect framework compatibility rather than forcing every transitive dependency to one version. Generate all dependency/lockfile changes through pnpm; validate affected builds/tests and reassess audio repeatability/references if browser or rendering dependencies change. This is not a prerequisite for the audio-regression deliverable.
