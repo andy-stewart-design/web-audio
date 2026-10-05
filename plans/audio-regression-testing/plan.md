@@ -2,7 +2,7 @@
 
 ## Status and goal
 
-**Phase 0 is complete on the user's Mac. Phase 1 is in progress: Steps 1.1–1.4 are complete; Step 1.5 is next.** Phases 2–3 have not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
+**Phase 0 is complete on the user's Mac. Phase 1 is in progress: Steps 1.1–1.5 are complete; Step 1.6 is next.** Phases 2–3 have not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
 
 The deliverable is a local command that runs saved Fluid sketches through the real engine and compares their audio to listening-approved recordings. It does not require Linux, containers, hosted CI, a report application, or a separate candidate/approval system.
 
@@ -137,11 +137,15 @@ The current phase numbers replace the previous eight-phase plan. All previously 
 
 **Work:** Serve tiny tone/asymmetric-transient fixtures through inline manifests/local URLs. Use supplied sample files if available, with origin/license notes. Map relevant built-in sources to local copies only when a case needs them. Block external requests, including workers if used; fail on HTTP/decode/resource errors and unexpected sampler warnings despite `prepare()` resolving.
 
-**Validation:** Render a real decoded sample and its reversal/region; assert missing/corrupt samples and external URLs fail. Include a sample failure alongside a healthy voice so partial audio cannot disguise the failure.
+**Completed work:** Added per-case `resources` mappings from exact normalized sample URLs to local files, case-scoped HTTP mounts, and real sampler support. Only declared URLs are remapped in the freshly evaluated schema; bank/name/source-key/variation identity and engine resolution/preparation remain unchanged. Added two tiny procedural PCM16 input WAVs with generator/provenance notes, plus `sample-tone` and `sample-reverse` diagnostic cases. Requests/console diagnostics are observed across the browser context, including worker requests; HTTP/file/decode errors and sampler warnings reject partial renders. Resource mounts are disposed after context cleanup. No production implementation, dependency, or lockfile changed.
 
-- [ ] Fetch/decode/playback are real, not mocked.
-- [ ] No external host is needed or used as fallback.
-- [ ] Loading failures cannot pass as healthy renders.
+**Harness corrections:** Vite treats port zero as its default port, so Node now owns an actual `listen(0)` HTTP listener with Vite in middleware mode; simultaneous default harnesses use distinct ports without probe/rebind races. Frame calculation retains the integer start offset and rounds musical/tail frames, avoiding a floating-point-only extra frame. Both corrections have regression coverage.
+
+**Validation:** All 66 package tests in 8 files passed, including 17 real sampler cases covering decoded pitch/duration, reversal, forward/reversed regions, sprites, selected variations, explicit built-in source mapping, and missing/corrupt/unmapped/external resources. Failures alongside healthy synth/sampler voices are rejected, failed cases recover, and an authored worker's external fetch is blocked. HTTP tests cover original bytes, mount isolation/disposal, missing files/directories, and no HTML fallback. Both sample CLI cases rendered 105,600 stereo frames at 48 kHz/120 BPM; tone peak/RMS about 0.437513/0.147232, reverse about 0.524995/0.0932111. Package/workspace check/lint/tests, formatting, and `git diff --check` passed; unchanged workspace tasks may be cached. Input WAVs are not reference recordings: LFO execution/repeatability remain Step 1.6 and output WAV/comparison remain Phase 2.
+
+- [x] Fetch/decode/playback are real, not mocked.
+- [x] No external host is needed or used as fallback.
+- [x] Loading failures cannot pass as healthy renders.
 
 ### Step 1.6 — Prove worklets, isolation, and repeatability
 

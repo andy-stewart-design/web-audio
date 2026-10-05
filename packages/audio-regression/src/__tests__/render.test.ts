@@ -107,7 +107,7 @@ describe("real engine offline rendering", () => {
       /deliberate page error/,
     ],
     ["fetch('/missing.wav').catch(() => {}); d.synth().push();", /HTTP 404/],
-    ["d.sample('bd').push();", /Step 1.5/],
+    ["d.sample('bd').push();", /Blocked external request/],
     ["d.synth().out(d.midi.out()).push();", /MIDI output/],
   ])(
     "fails bad source/diagnostics without poisoning the next render: %s",

@@ -15,6 +15,22 @@ export const cases: SketchCase[] = [
     bars: 1,
     tailSeconds: 0.25,
   },
+  {
+    id: "sample-tone",
+    description: "Real fetch/decode/playback of a local 440 Hz sample",
+    code: "d.loadSamples({bank: 'local', samples: {tone: ['/samples/tone.wav']}}); d.sample('tone').bank('local').clip(false).push();",
+    resources: { "/samples/tone.wav": "resources/tone.wav" },
+    bars: 1,
+    tailSeconds: 0.1,
+  },
+  {
+    id: "sample-reverse",
+    description: "Real reversal of a local asymmetric sample",
+    code: "d.loadSamples({bank: 'local', samples: {hit: ['/samples/asymmetric.wav']}}); d.sample('hit').bank('local').direction('reverse').clip(false).push();",
+    resources: { "/samples/asymmetric.wav": "resources/asymmetric.wav" },
+    bars: 1,
+    tailSeconds: 0.1,
+  },
 ];
 
 export function normalizeCase(sketch: SketchCase) {
@@ -60,7 +76,19 @@ export function normalizeCase(sketch: SketchCase) {
       `[${sketch.id}] startOffsetFrames must be a non-negative integer`,
     );
   }
-  return { ...sketch, settings, expectSilence: sketch.expectSilence ?? false };
+  const resources = { ...sketch.resources };
+  for (const [source, file] of Object.entries(resources)) {
+    if (!source.trim() || typeof file !== "string" || !file.trim())
+      throw new Error(
+        `[${sketch.id}] Resources need source URLs and local file paths`,
+      );
+  }
+  return {
+    ...sketch,
+    settings,
+    resources,
+    expectSilence: sketch.expectSilence ?? false,
+  };
 }
 
 export function selectCase(registry: SketchCase[], id: string) {
@@ -92,9 +120,13 @@ export function planRender(
   const { sampleRate, startOffsetFrames, beatsPerBar } = sketch.settings;
   const startTime = startOffsetFrames / sampleRate;
   const barDuration = (60 / bpm) * beatsPerBar;
-  const frameCount = Math.ceil(
-    (startTime + sketch.bars * barDuration + sketch.tailSeconds) * sampleRate,
-  );
+  // Keep the integer offset in frames; converting it to seconds and back can
+  // introduce a rounding-only extra frame (e.g. 0.1 + 2 + 0.1 at 48 kHz).
+  const frameCount =
+    startOffsetFrames +
+    Math.ceil(
+      sketch.bars * barDuration * sampleRate + sketch.tailSeconds * sampleRate,
+    );
   if (
     !Number.isSafeInteger(frameCount) ||
     frameCount < 1 ||

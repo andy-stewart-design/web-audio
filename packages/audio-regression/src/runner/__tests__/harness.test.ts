@@ -38,6 +38,16 @@ describe("owned harness lifecycle", () => {
     await expect(fetch(origin)).rejects.toThrow();
   });
 
+  it("allocates distinct ephemeral listeners while another harness is running", async () => {
+    await withHarness(async (first) => {
+      await withHarness(async (second) => {
+        expect(new URL(first).port).not.toBe(new URL(second).port);
+        expect((await fetch(first)).ok).toBe(true);
+        expect((await fetch(second)).ok).toBe(true);
+      });
+    });
+  });
+
   it("rejects an occupied port without invoking the callback and recovers", async () => {
     let port = 0;
     const callback = vi.fn(async () => {});

@@ -1,6 +1,6 @@
 # @web-audio/audio-regression
 
-Private local tooling for Fluid-sketch audio regression tests. **Steps 1.1–1.4 are complete on the user's Mac:** the package renders real synth audio through Fluid, AudioEngine, and Chromium's `OfflineAudioContext`. Sample coverage, LFO execution/repeatability checks, WAV files, and reference comparison are still upcoming.
+Private local tooling for Fluid-sketch audio regression tests. **Steps 1.1–1.5 are complete on the user's Mac:** the package renders real synth and local sampler audio through Fluid, AudioEngine, and Chromium's `OfflineAudioContext`. LFO execution/repeatability checks, output WAV files, and reference comparison are still upcoming.
 
 See [`spec.md`](../../plans/audio-regression-testing/spec.md), [`plan.md`](../../plans/audio-regression-testing/plan.md), and [`feasibility.md`](../../plans/audio-regression-testing/feasibility.md).
 
@@ -12,6 +12,8 @@ From the repository root:
 pnpm install
 pnpm --filter @web-audio/audio-regression browser:install
 pnpm --filter @web-audio/audio-regression audio:render --case sine
+pnpm --filter @web-audio/audio-regression audio:render --case sample-tone
+pnpm --filter @web-audio/audio-regression audio:render --case sample-reverse
 pnpm --filter @web-audio/audio-regression test
 pnpm --filter @web-audio/audio-regression check
 pnpm --filter @web-audio/audio-regression lint
@@ -20,9 +22,9 @@ pnpm --filter @web-audio/audio-regression format:check
 
 `audio:render` and `test` first run `build:deps`, using the existing Turbo workspace builds/cache for Fluid, audio-engine, and their dependencies. Changed production code is rebuilt before browser imports; no app/database build is involved. For first-time type checking without tests/rendering, run `build:deps` first.
 
-`audio:render --case sine` prints browser version, sample rate, channels, frame count, BPM, and per-channel peak/RMS. It currently writes **no WAV/reference files** and performs **no reference comparison**. Unknown selectors or invalid arguments exit nonzero. Register trusted sketches in `src/cases.ts`; sample cases are explicitly rejected until Step 1.5.
+`audio:render --case sine` prints browser version, sample rate, channels, frame count, BPM, and per-channel peak/RMS. It currently writes **no WAV/reference files** and performs **no reference comparison**. Unknown selectors or invalid arguments exit nonzero. Register trusted sketches in `src/cases.ts`; sample cases use the local resource mapping below.
 
-`test` runs the unit/CLI tests, browser launch checks, and actual synth render/lifecycle tests. `test:smoke` selects only the original three launch checks. Root `pnpm test` does not yet run this package; root verification integration is planned once actual references exist.
+`test` runs the unit/CLI tests, browser launch checks, and actual synth/sampler render/lifecycle tests. `test:smoke` selects only the original three launch checks. Root `pnpm test` does not yet run this package; root verification integration is planned once actual references exist.
 
 Install and launch sequentially. `browser:install` downloads only the Chromium headless shell associated with the exact Playwright dependency in package/lockfile; no separate environment manifest or OS-version check is used.
 
@@ -37,7 +39,28 @@ Install and launch sequentially. `browser:install` downloads only the Chromium h
 - External requests are blocked. Page errors, warnings/errors, failed requests, and HTTP errors fail rendering. Already-started requests drain under the same deadline; missing files do not fall back to HTML.
 - A Node-side 10-second execution deadline covers navigation/readiness, source execution, rendering, and request draining, including synchronous source hangs. Pages/contexts, browser, and server close on success/failure. Initial fixtures must not author MIDI output.
 
-The current tests verify real sine pitch/output, default/schema tempo, multi-bar timing, start silence, release tail, alternate rate/mono output, explicit silence, invalid sources/settings/selectors, diagnostics, a synchronous hang, and startup/failure cleanup. Registration success does **not** yet prove LFO processor output or sampler decoding; those remain Steps 1.5–1.6. No numerical comparison tolerances or listening-approved references exist yet.
+The current tests verify real synth/sample pitch/output, reversal, forward/reversed regions, sprites, selected variations, explicit built-in mappings, default/schema tempo, multi-bar timing, start silence, release tail, alternate rate/mono output, explicit silence, invalid sources/settings/selectors, diagnostics, a synchronous hang, and startup/failure cleanup. Loading failures alongside healthy voices are rejected; external fetches from an authored worker are also blocked. Registration success does **not** yet prove LFO processor output or measured repeatability; those remain Step 1.6. No numerical comparison tolerances or listening-approved references exist yet.
+
+## Local samples
+
+Use synchronous inline manifests and map their exact normalized source URLs to local files:
+
+```ts
+{
+  id: "sample-tone",
+  description: "Local sample playback",
+  code: "d.loadSamples({bank: 'local', samples: {tone: ['/samples/tone.wav']}}); d.sample('tone').bank('local').push();",
+  resources: { "/samples/tone.wav": "resources/tone.wav" },
+  bars: 1,
+  tailSeconds: 0.1,
+}
+```
+
+File paths are relative to this package, or absolute for local experimentation. Committed cases should use repository assets with origin/permission notes. Each render mounts files at unique loopback HTTP URLs and replaces only matching sample-entry `src` values after evaluation. Bank names, sample names, source keys, variation order, and sprite bounds remain unchanged. Built-in source URLs can be mapped the same way; unmapped external requests are blocked, never downloaded as fallback. Arbitrary source `fetch()` calls/async manifest loading are not rewritten or awaited.
+
+Files are served as original bytes with caching disabled; missing/unreadable files report HTTP errors plus local paths, while real decoder/resource warnings fail even if other voices sound. Mounts are removed after rendering/failure. This is trusted local tooling, not a filesystem or JavaScript sandbox.
+
+See [`resources/README.md`](./resources/README.md) for the two synthetic PCM16 **input fixtures** and their explicit generator command. Tests/rendering never regenerate them. These input WAVs are not approved references and do not change the planned float-WAV output format.
 
 ## Planned comparison commands — not implemented yet
 

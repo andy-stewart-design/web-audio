@@ -26,6 +26,8 @@ describe("case registry and render settings", () => {
     [{ bars: 1.5 }, /bars/],
     [{ tailSeconds: -1 }, /tailSeconds/],
     [{ tailSeconds: Infinity }, /tailSeconds/],
+    [{ resources: { "": "tone.wav" } }, /Resources/],
+    [{ resources: { "tone.wav": " " } }, /Resources/],
     [{ settings: { sampleRate: 1 } }, /sampleRate/],
     [{ settings: { sampleRate: NaN } }, /sampleRate/],
     [{ settings: { sampleRate: 384_001 } }, /sampleRate/],
@@ -66,6 +68,9 @@ describe("case registry and render settings", () => {
       frameCount: 112_800,
       duration: 2.35,
     });
+    expect(
+      planRender(normalizeCase(sketch({ tailSeconds: 0.1 }))).frameCount,
+    ).toBe(105_600);
     const result = planRender(
       normalizeCase(sketch({ bars: 2, tailSeconds: 0.125 })),
       90,

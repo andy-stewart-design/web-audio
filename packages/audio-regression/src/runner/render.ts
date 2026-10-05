@@ -2,16 +2,28 @@ import type { Browser, Request } from "playwright";
 import { normalizeCase } from "../cases";
 import type { SketchCase } from "../types";
 import { inspectAudio } from "./audio";
+import type { createResourceServer } from "./resources";
 import { withBrowser } from "./with-browser";
 import { withHarness } from "./with-harness";
 
-function createRenderer(browser: Browser, origin: string, timeoutMs: number) {
+function createRenderer(
+  browser: Browser,
+  origin: string,
+  timeoutMs: number,
+  mountResources: ReturnType<typeof createResourceServer>["mount"],
+) {
   return {
     browser,
     origin,
     async render(input: SketchCase) {
       const sketch = normalizeCase(input);
-      const context = await browser.newContext({ serviceWorkers: "block" });
+      const resources = mountResources(sketch.resources);
+      const context = await browser
+        .newContext({ serviceWorkers: "block" })
+        .catch((error: unknown) => {
+          resources.dispose();
+          throw error;
+        });
       let timer: ReturnType<typeof setTimeout> | undefined;
       const diagnostics: string[] = [];
       try {
@@ -31,18 +43,18 @@ function createRenderer(browser: Browser, origin: string, timeoutMs: number) {
             pending.delete(request);
             if (pending.size === 0) requestsSettled?.();
           };
-          page.on("request", (request) => pending.add(request));
-          page.on("requestfinished", finishRequest);
+          context.on("request", (request) => pending.add(request));
+          context.on("requestfinished", finishRequest);
           page.on("pageerror", (error) => diagnostics.push(error.message));
-          page.on("console", (message) => {
+          context.on("console", (message) => {
             if (message.type() === "error" || message.type() === "warning")
               diagnostics.push(message.text());
           });
-          page.on("response", (response) => {
+          context.on("response", (response) => {
             if (response.status() >= 400)
               diagnostics.push(`HTTP ${response.status()}: ${response.url()}`);
           });
-          page.on("requestfailed", (request) => {
+          context.on("requestfailed", (request) => {
             diagnostics.push(
               `Request failed: ${request.url()}: ${request.failure()?.errorText}`,
             );
@@ -55,8 +67,8 @@ function createRenderer(browser: Browser, origin: string, timeoutMs: number) {
             { timeout: timeoutMs },
           );
           const result = await page.evaluate(
-            (value) => window.renderSketch(value),
-            sketch,
+            ({ sketch, urls }) => window.renderSketch(sketch, urls),
+            { sketch, urls: resources.urls },
           );
           // Rendering can finish faster than an already-started fetch. Drain
           // observed requests (under the same deadline) before checking errors.
@@ -65,8 +77,8 @@ function createRenderer(browser: Browser, origin: string, timeoutMs: number) {
               requestsSettled = resolve;
             });
           }
-          if (diagnostics.length)
-            throw new Error("Unexpected browser diagnostics");
+          if (diagnostics.length || resources.errors.length)
+            throw new Error("Unexpected browser/resource diagnostics");
           const channels = result.channels.map((channel) =>
             Float32Array.from(channel),
           );
@@ -87,13 +99,18 @@ function createRenderer(browser: Browser, origin: string, timeoutMs: number) {
         return await Promise.race([work(), timeout]);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        const details = diagnostics.length ? `\n${diagnostics.join("\n")}` : "";
+        const messages = [...diagnostics, ...resources.errors];
+        const details = messages.length ? `\n${messages.join("\n")}` : "";
         throw new Error(`[${sketch.id}] ${message}${details}`, {
           cause: error,
         });
       } finally {
         clearTimeout(timer);
-        await context.close();
+        try {
+          await context.close();
+        } finally {
+          resources.dispose();
+        }
       }
     },
   };
@@ -115,9 +132,10 @@ export async function withRenderer<T>(
   )
     throw new Error("timeoutMs must be a positive timer-safe integer");
   return withHarness(
-    (origin) =>
+    (origin, mountResources) =>
       withBrowser(
-        (browser) => run(createRenderer(browser, origin, timeoutMs)),
+        (browser) =>
+          run(createRenderer(browser, origin, timeoutMs, mountResources)),
         options.launchOptions,
       ),
     options.port,

@@ -13,4 +13,6 @@ export interface SketchCase {
   tailSeconds: number;
   expectSilence?: boolean;
   settings?: Partial<RenderSettings>;
+  // Exact normalized sample URL -> local file (package-relative or absolute).
+  resources?: Record<string, string>;
 }

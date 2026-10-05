@@ -43,14 +43,25 @@ function createOfflineClock(ctx: OfflineAudioContext, beatsPerBar: number) {
   };
 }
 
-async function renderSketch(sketch: ReturnType<typeof normalizeCase>) {
+async function renderSketch(
+  sketch: ReturnType<typeof normalizeCase>,
+  resourceUrls: Record<string, string>,
+) {
   const schema = evaluateSource(sketch.code);
-  // Resource diagnostics/local sample serving are the next step. Do not let
-  // currently unsupported resource cases accidentally pass as partial audio.
+  const localUrls = new Map(Object.entries(resourceUrls));
+  // Only explicitly mapped sample URLs change; no production resolver is replaced.
+  for (const bank of Object.values(schema.banks)) {
+    for (const sources of Object.values(bank.samples)) {
+      for (const variations of Object.values(sources)) {
+        for (const entry of variations) {
+          const local = localUrls.get(entry.src);
+          if (local) entry.src = local;
+        }
+      }
+    }
+  }
   for (const instrument of schema.instruments) {
-    if (instrument.type === "sampler")
-      throw new Error("Sampler cases require Step 1.5 local resource support");
-    if (instrument.notesOut)
+    if ("notesOut" in instrument && instrument.notesOut)
       throw new Error("Offline fixtures must not author MIDI output");
   }
   const layout = planRender(sketch, schema.bpm ?? 120);

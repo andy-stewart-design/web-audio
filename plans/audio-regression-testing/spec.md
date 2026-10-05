@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-Phase 0 characterization and browser-launch setup are complete on the user's Mac. Steps 1.1–1.4 are complete: shared source/context/clock seams and a local browser harness now render real synth audio through AudioEngine. `audio:render --case sine` reports raw-audio health metrics. Sample coverage, LFO execution/repeatability, WAV storage, and audio comparison are not implemented yet. See [plan.md](./plan.md) for the remaining three phases and [feasibility.md](./feasibility.md) for production constraints and validation evidence.
+Phase 0 characterization and browser-launch setup are complete on the user's Mac. Steps 1.1–1.5 are complete: shared source/context/clock seams and a local browser harness now render real synth and local sampler audio through AudioEngine, including reversal/regions and loading-failure diagnostics. `audio:render --case sine`, `--case sample-tone`, and `--case sample-reverse` report raw-audio health metrics. LFO execution/repeatability, output WAV/reference storage, and audio comparison are not implemented yet. See [plan.md](./plan.md) for the remaining three phases and [feasibility.md](./feasibility.md) for production constraints and validation evidence.
 
 Replace routine manual REPL checks with a local command that executes saved Fluid sketches, renders through the real audio engine, and compares the sound with listening-approved recordings. Build a useful regression suite, not a cross-platform testing service.
 
