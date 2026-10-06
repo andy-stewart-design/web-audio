@@ -2,7 +2,7 @@
 
 ## Status and goal
 
-**Phases 0–1 are complete on the user's Mac. Phase 2 is in progress: Steps 2.1–2.2 are complete; Step 2.3 is next.** Phase 3 has not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
+**Phases 0–1 are complete on the user's Mac. Phase 2 is in progress: Steps 2.1–2.3 are complete; Step 2.4 is next.** Phase 3 has not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
 
 The deliverable is a local command that runs saved Fluid sketches through the real engine and compares their audio to listening-approved recordings. It does not require Linux, containers, hosted CI, a report application, or a separate candidate/approval system.
 
@@ -223,11 +223,17 @@ Phase 1's measurement helper now delegates to the production comparator instead 
 
 Fail for missing references, empty suites, and unknown selectors. Always render; no source/asset hash gates or environment-based skips. Browser/version changes may produce a helpful warning but do not prohibit running locally. Never write references during verification.
 
-**Validation:** Known equal renders pass; deliberate mismatch/failed evaluation/missing sample/missing reference fails with useful output. Compare reference files before/after both success and failure. Listen to one failure's A/B files.
+**Completed work:** Added `src/runner/verify.ts`, `src/verify-cli.ts` and `audio:verify [--case <id>]` (dependency builds first). All/selected cases always render sequentially through the owned harness, even with unavailable references; no source/asset hash gate or version skip. References are read from package `references/<id>.wav` plus JSON, with case-ID validation; actual browser changes warn without gating. Output includes case/settings, existing fixed 0/0 numerical metrics/thresholds/worst location, errors and pass/fail summary. Case failures continue to later cases and exit 1; empty/duplicate registries, invalid arguments and unknown selectors fail before launch. Shared registry selection now supports all/one without changing rendering behavior.
 
-- [ ] Default verification is read-only and nonzero failures propagate.
-- [ ] Empty or missing coverage cannot appear green.
-- [ ] Failure recordings are useful without an HTML/plot framework.
+Numerical failures save unmodified reference/current WAVs plus signed **current - reference** Float32 differences/sidecars under ignored `artifacts/verify/<id>/`. Shape mismatches save A/B and explain why no difference is fabricated; unrepresentable differences are reported without clipping. Missing/invalid references provide current-only audio. Failed rendering provides no current/difference buffer but can save a valid reference copy. Selected stale artifacts are removed before each case (unselected files remain), and cleanup/write failures are reported/nonzero. Configurable artifact/reference trees must not overlap. Verification never writes reference files; there is no update command or approved reference yet.
+
+**Validation:** All **189 package tests in 18 files passed** (157 existing plus 18 orchestration units, 4 native integrations and 10 command tests). All six native cases pass temporary unapproved references at 0/0, including a selected rerun; real gain/evaluation/missing-sample/missing-reference failures produce appropriate diagnostics/artifacts and recover. Tests compare complete reference WAV/JSON bytes and filenames before/after successful and failed verification, check A/B sample retention and every signed difference sample, reject incompatible shapes/corrupt metadata/ID mismatches, preserve explicit silence/above-one values, and exercise cleanup/artifact I/O failures. Separate Node/browser command-driver fixtures pass originals and propagate mismatch/evaluation/sample/missing/empty failures as exit 1; actual CLI invalid selectors exit 1.
+
+Normal package `audio:verify` rendered all six cases and exited 1 for six absent references without creating any; targeted sine also exited 1. An ignored manual gain-change demo yielded max/RMS about 0.01625/0.01065321, worst channel 0/frame 6,300/time 0.13125 s, with byte-identical temporary reference files. macOS `afinfo` accepted the difference WAV; **A/B/difference `afplay` commands all completed**. The assistant cannot certify what was heard: human A/B/listening approval remains user review, not claimed by playback success. Demo files persist in `artifacts/verify-demo/sine/` for that review. Package/workspace check/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached. No engine/dependency/lockfile/input asset/tolerance/reference change; root integration remains Phase 3.
+
+- [x] Default verification is read-only and nonzero failures propagate.
+- [x] Empty or missing coverage cannot appear green.
+- [x] Failure recordings are useful without an HTML/plot framework; native sample/player checks passed, human review remains explicit.
 
 ### Step 2.4 — Provide one explicit update command
 

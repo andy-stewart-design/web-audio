@@ -1,6 +1,6 @@
 # @web-audio/audio-regression
 
-Private local tooling for Fluid-sketch audio regression tests. **Phase 1 is complete on the user's Mac:** the package renders real synth, local sampler, and LFO audio through Fluid, AudioEngine, and Chromium's `OfflineAudioContext`, with seeded multi-bar and isolation/repeatability checks. Steps 2.1–2.2 add exact float-WAV/JSON storage, diagnostic recordings and the tested raw-audio comparator. Verify/update commands and listening-approved references remain upcoming.
+Private local tooling for Fluid-sketch audio regression tests. **Phase 1 is complete on the user's Mac:** the package renders real synth, local sampler, and LFO audio through Fluid, AudioEngine, and Chromium's `OfflineAudioContext`, with seeded multi-bar and isolation/repeatability checks. Steps 2.1–2.3 add exact float-WAV/JSON storage, the raw-audio comparator, and read-only `audio:verify` with failure recordings. Explicit updates and listening-approved references remain upcoming.
 
 See [`spec.md`](../../plans/audio-regression-testing/spec.md), [`plan.md`](../../plans/audio-regression-testing/plan.md), and [`feasibility.md`](../../plans/audio-regression-testing/feasibility.md).
 
@@ -17,13 +17,15 @@ pnpm --filter @web-audio/audio-regression audio:render --case sample-reverse
 pnpm --filter @web-audio/audio-regression audio:render --case lfo-filter
 pnpm --filter @web-audio/audio-regression audio:render --case seeded-multibar
 pnpm --filter @web-audio/audio-regression audio:render --case sample-alternate
+pnpm --filter @web-audio/audio-regression audio:verify
+pnpm --filter @web-audio/audio-regression audio:verify --case sine
 pnpm --filter @web-audio/audio-regression test
 pnpm --filter @web-audio/audio-regression check
 pnpm --filter @web-audio/audio-regression lint
 pnpm --filter @web-audio/audio-regression format:check
 ```
 
-`audio:render` and `test` first run `build:deps`, using the existing Turbo workspace builds/cache for Fluid, audio-engine, and their dependencies. Changed production code is rebuilt before browser imports; no app/database build is involved. For first-time type checking without tests/rendering, run `build:deps` first.
+`audio:render`, `audio:verify` and `test` first run `build:deps`, using the existing Turbo workspace builds/cache for Fluid, audio-engine, and their dependencies. Changed production code is rebuilt before browser imports; no app/database build is involved. For first-time type checking without tests/rendering, run `build:deps` first.
 
 `audio:render --case sine` prints browser version, sample rate, channels, frame count, BPM, and per-channel peak/RMS. It writes the successful selected render to **`artifacts/render/sine.wav` plus `sine.json`** (or the selected case ID), prints the paths, and performs **no reference comparison**. These ignored diagnostic files are replaced by subsequent successful renders, never promoted to approved references. Failed rendering never reaches storage; an older diagnostic may remain. Unknown selectors or invalid arguments exit nonzero. Register trusted sketches in `src/cases.ts`; sample cases use the local resource mapping below.
 
@@ -48,7 +50,7 @@ The current tests verify real synth/sample pitch/output, reversal, forward/rever
 
 The six registered cases are each rendered four times: baseline, same-order repeat, reversed order after an odd alternate render/different bytes under the same logical sample URL/explicit silence, and reversed order in a fresh browser/server launch. All full-length Float32 channels measured maximum/RMS error **0/0** on the Mac with Chromium 147.0.7727.15. Separate fresh-process runs also passed.
 
-The initial suite-wide pair is therefore **`maxError: 0`, `rmsError: 0`**, exported as immutable `COMPARISON_TOLERANCE` from `src/runner/audio.ts`. Repeatability tests and the production comparator use it; reference verification will reuse it. No gain/time normalization, trimming, alignment, resampling, or tolerance widening is used. The analytical phase proof's `1e-6` bound is for an ideal mathematical gain versus native floating-point DSP, **not** a recording-comparison tolerance.
+The initial suite-wide pair is therefore **`maxError: 0`, `rmsError: 0`**, exported as immutable `COMPARISON_TOLERANCE` from `src/runner/audio.ts`. Repeatability tests, the production comparator and reference verification use it. No gain/time normalization, trimming, alignment, resampling, or tolerance widening is used. The analytical phase proof's `1e-6` bound is for an ideal mathematical gain versus native floating-point DSP, **not** a recording-comparison tolerance.
 
 This is local repeatability evidence for these inputs, not cross-platform/browser certification or musical quality approval. Recheck new sketches and browser/rendering dependency changes; investigate differences rather than automatically loosening the pair. Detailed observations are in `feasibility.md`.
 
@@ -105,14 +107,49 @@ Each channel reports maximum absolute sample error and RMS sample error (`sqrt(s
 
 Invalid inputs throw labelled diagnostics. Valid but changed audio returns `passed: false` and error metrics, rather than throwing away information needed for later failure recordings. The helper never writes files or aligns, trims, normalizes, resamples or clips audio. Tests cover real stored-WAV versus fresh native synthesis and reject an actual gain change; the six-case repeated native suite also uses this comparator now.
 
-`audio:render` still only saves diagnostic output. The read-only verification command/reference workflow below is **not implemented yet**.
+`audio:render` still only saves diagnostic output. Use the separate verification command below for comparison.
 
-## Planned comparison commands — not implemented yet
+## Read-only verification
 
 ```sh
 pnpm --filter @web-audio/audio-regression audio:verify
 pnpm --filter @web-audio/audio-regression audio:verify --case <id>
+```
+
+Without a selector, verification runs **all registered cases**, sequentially; `--case` selects exactly one. References are intended to be committed as **`references/<id>.wav` plus `<id>.json`** inside this package after listening review. **No approved reference files exist yet**, so normal verification currently fails for missing coverage while still rendering/saving current audio. Tests use temporary, explicitly unapproved fixtures and never populate this reference directory.
+
+Verification always renders through the owned harness, even if a reference is missing or invalid. It never creates, updates or promotes references, and does not skip based on source/assets/version. Browser-version changes produce a warning, not an environment gate. Output identifies cases, browser/rate/channels/frames/BPM, per-channel max/RMS values and fixed **0/0** thresholds, failed gates and worst-error channel/frame/time/sample values where comparison is possible. It continues later cases after individual failures and exits **1** if any case fails. Empty/duplicate registries, unknown selectors and invalid arguments also fail rather than appearing green.
+
+### Failure recordings
+
+For a numerical mismatch, the selected case gets:
+
+```text
+artifacts/verify/<id>/reference.wav + reference.json
+artifacts/verify/<id>/current.wav   + current.json
+artifacts/verify/<id>/difference.wav + difference.json
+```
+
+A/B retain original Float32 samples, rate, channel order and full length. The signed difference is **`current - reference`**, stored as Float32 with current settings; it receives **no playback amplification**, normalization, clipping or alignment. It may be quiet. A rate/channel/frame mismatch saves A/B but reports that difference audio is unavailable instead of resampling, trimming or remapping channels. Unrepresentable Float32 differences are likewise reported, never clipped.
+
+Missing/invalid references yield current-only audio when rendering succeeds. Evaluation/loading/render failures return no accepted current buffer: diagnostics are printed, and only a valid reference copy is saved if available. Partial healthy output from a failed sampler/worklet is not accepted. Filesystem failures are reported and cannot turn a failed case green.
+
+Before each selected case runs, its previous failure directory is removed so a passing rerun or failed render cannot leave misleading stale current/difference files. Unselected case artifacts are left alone. Startup/cleanup errors fail explicitly; older files should not be taken as evidence of a new render. Artifacts are ignored and persist after exit until replaced/cleared by another invocation. Writes are ordinary diagnostic I/O, not a multi-file transaction.
+
+For a mismatch, listen from the repository root:
+
+```sh
+afplay packages/audio-regression/artifacts/verify/<id>/reference.wav
+afplay packages/audio-regression/artifacts/verify/<id>/current.wav
+afplay packages/audio-regression/artifacts/verify/<id>/difference.wav
+```
+
+The Step 2.3 unapproved gain-change demonstration also remains under **`artifacts/verify-demo/sine/`** with the same three filenames. macOS recognized its difference file as stereo 48 kHz Float32; all three playback commands completed. This is player acceptance, **not** human listening approval. Human A/B review and approved reference creation remain separate.
+
+## Explicit reference updates — not implemented yet
+
+```sh
 pnpm --filter @web-audio/audio-regression audio:update --case <id>
 ```
 
-References will be standard 32-bit float WAVs with small settings/browser-version sidecars. Verification will always render and remain read-only. Explicit updates will render/check the selected case before writing; listen and review before committing. Failures will print numerical metrics and save reference/current/difference WAVs under gitignored `artifacts/`. No candidate-promotion workflow, HTML reports, or new CI infrastructure is required.
+Step 2.4 will render/check the selected case before replacing its reference. Listen and review before committing. No candidate-promotion workflow, HTML reports, or new CI infrastructure is required.

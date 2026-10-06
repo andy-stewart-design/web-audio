@@ -114,7 +114,7 @@ export function normalizeCase(sketch: SketchCase) {
   };
 }
 
-export function selectCase(registry: SketchCase[], id: string) {
+export function selectCases(registry: SketchCase[], id?: string) {
   if (registry.length === 0) throw new Error("Case registry is empty");
   const normalized = registry.map(normalizeCase);
   const ids = new Set<string>();
@@ -122,9 +122,14 @@ export function selectCase(registry: SketchCase[], id: string) {
     if (ids.has(sketch.id)) throw new Error(`Duplicate case ID: ${sketch.id}`);
     ids.add(sketch.id);
   }
+  if (id === undefined) return normalized;
   const selected = normalized.find((sketch) => sketch.id === id);
   if (!selected) throw new Error(`Unknown case: ${id}`);
-  return selected;
+  return [selected];
+}
+
+export function selectCase(registry: SketchCase[], id: string) {
+  return selectCases(registry, id)[0]!;
 }
 
 export function parseCaseSelector(args: string[]) {

@@ -2,9 +2,9 @@
 
 ## Status
 
-**Phases 0–1 are complete on the user's Mac; Steps 1.1–1.6 are complete.** The unnecessary Linux/container validation requirement has been removed. Shared seams and an owned local browser harness now render real synth/sample/LFO audio with loading/processor-failure detection, seeded multi-bar behavior, isolation, and measured sample-identical repeats including fresh launches. Steps 2.1–2.2 are also complete: exact Node float-WAV storage/sidecars produce diagnostic recordings, and a tested raw-audio comparator reports shape/health and maximum/RMS errors at unchanged 0/0 defaults. Read-only verification/reference commands, failure recordings and listening approval remain future work; Step 2.3 is next.
+**Phases 0–1 are complete on the user's Mac; Steps 1.1–1.6 are complete.** The unnecessary Linux/container validation requirement has been removed. Shared seams and an owned local browser harness now render real synth/sample/LFO audio with loading/processor-failure detection, seeded multi-bar behavior, isolation, and measured sample-identical repeats including fresh launches. Steps 2.1–2.3 are also complete: exact Node float-WAV storage/sidecars, a tested raw comparator at unchanged 0/0 defaults, and read-only `audio:verify` with failure recordings. Explicit reference updates and listening approval remain future work; Step 2.4 is next. No approved references exist, so normal verification currently fails missing coverage while still rendering.
 
-This record supports Phases 0–1 and Steps 2.1–2.2 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
+This record supports Phases 0–1 and Steps 2.1–2.3 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
 
 Audited production revision: `02059e5755d7011310593bfa38912786bf767cc7`. No production implementation was changed during Phase 0. Re-read these consumers before Phase 1 if other work changes them.
 
@@ -456,4 +456,51 @@ All **157 package tests in 15 files passed** (122 existing plus 35 added):
 
 Package/workspace checking/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached. Root tests still do not discover this package's browser suite, which was explicitly executed. No engine/application implementation, dependencies, scripts, lockfile, input samples, stored references or measured defaults changed. No app `dev` command was run.
 
-**Step 2.3 (read-only `audio:verify` plus failure recordings) is next.** `audio:render` remains diagnostic output only. There is no verify/update CLI yet and no listening-approved reference was created.
+At Step 2.2 closeout, read-only verification remained Step 2.3; the section below supplies it. `audio:render` remains diagnostic output only, and there is still no listening-approved reference.
+
+## Step 2.3 — Read-only verification and failure recordings (complete)
+
+Added `src/runner/verify.ts`, `src/verify-cli.ts` and package `audio:verify [--case <id>]`, building workspace dependencies first. Default selection includes every registered case; targeted selection includes exactly one, with registry/settings validation before launch. Empty/duplicate registries, invalid arguments and unknown IDs fail before any browser starts. Shared `selectCases` validates all/one; existing render selection delegates without changed rendering semantics.
+
+The owned server/browser renders every selected case sequentially, including cases with absent or invalid references. Reference WAV/JSON pairs are read only from package `references/<id>.*`, decoded in Node and validated (including case ID). No source/resource hashing, environment skips or automatic reference generation is involved. Browser-version differences warn but do not prohibit comparison. Valid audio uses the existing `compareAudio` and fixed 0/0 defaults; output includes case/settings, both error gates/thresholds, worst location/values and per-case/final status. Individual failures continue to later cases; failed commands exit 1 and owned contexts/browser/server are cleaned up.
+
+Failures save available accepted audio to ignored `artifacts/verify/<id>/reference.wav`, `current.wav`, and `difference.wav`, each with settings/browser sidecar. A/B preserve original float samples, channels, rate and full frame count. Difference is signed **current - reference**, represented as Float32 for standard WAV; no playback boost or numerical preprocessing. Incompatible shapes provide A/B only, with explicit no-difference/no-resampling diagnostics. Differences overflowing finite Float32 are reported, not clipped. Missing/invalid references provide current-only audio. Evaluation/resource/render failure produces no accepted current buffer; a valid reference copy can still be saved, but partial healthy DSP is never accepted.
+
+Each selected case's old failure directory is cleared before execution, including eventual passes; unselected artifacts remain. Cleanup/write errors are reported/nonzero, and available remaining recordings are still attempted. Artifact/reference configuration must use separate non-overlapping directory trees. Writes are ordinary diagnostic I/O, not a transaction; no code path writes the reference directory. The public CLI uses fixed package paths; test-only options/drivers use temporary, unapproved reference directories. Production imports no test helpers.
+
+Validation:
+
+```sh
+pnpm --filter @web-audio/audio-regression check
+pnpm --filter @web-audio/audio-regression lint
+pnpm --filter @web-audio/audio-regression test
+pnpm --filter @web-audio/audio-regression audio:verify
+pnpm --filter @web-audio/audio-regression audio:verify --case sine
+pnpm --filter @web-audio/audio-regression format:check
+pnpm check
+pnpm lint
+pnpm test
+```
+
+All **189 package tests in 18 files passed** (157 existing plus 32 added):
+
+- **18 orchestration units:** strict all/one selection, empty/duplicate/unknown rejection, overlapping-path rejection before I/O, always-render calls on repeated invocation, version-warning/non-gating behavior, stale-selected cleanup and unselected preservation. Numerical mismatch retains A/B and signed differences, including legal above-one amplitudes. Rate/channel/frame mismatch never fabricates differences. Missing/corrupt WAV/JSON or wrong reference ID produce current-only failure without changing the existing reference bytes/file set. Render failure removes stale current audio, preserves reference files, and continues to later cases. Exact silence forwards correctly. Extreme finite A/B values survive while an overflowing difference is rejected rather than clipped. Cleanup and write errors are explicit; write failures do not prevent attempting other recordings.
+- **4 actual-browser/storage integrations:** all six synth/sample/LFO cases pass 0/0 against fresh temporary unapproved recordings; selected alternate-direction rerun passes too. Gain 0.5→0.55 fails with retained exact A/B and every difference sample checked as `Math.fround(current-reference)`; subsequent healthy rerun removes stale failure output. Real evaluation and missing-sample failures (with a healthy sibling voice) return no current buffer and then recover to a passing case. Missing sampler reference still renders real output, saves current-only and never creates a reference directory. Full reference WAV/JSON bytes and filenames are unchanged after both successful and failed verification; all browser contexts close.
+- **10 command tests:** actual CLI rejects unknown/invalid selections with exit 1. A suite-local child driver uses the production verifier and the same CLI exit policy with temporary unapproved references, avoiding real reference writes: all/targeted originals pass in fresh Node/browser processes, while real gain/evaluation/sample/missing/empty failures propagate exit 1, print useful diagnostics, save appropriate audio, and preserve reference files. All temporary directories are removed.
+
+The normal package CLI rendered all six registered cases and returned **exit 1 / 0 of 6 passed** because no reference WAVs exist. Every case got current-only WAV/JSON; no reference directory/file was created. Targeted sine likewise returned **exit 1 / 0 of 1**. This is intentional missing-coverage detection, not a failing implementation test, and those ignored diagnostics persist after exit.
+
+An ignored manual script rendered original sine into a temporary unapproved directory, verified a real gain 0.5→0.55 change through the production wrapper in a fresh browser, checked both temporary reference files were byte-identical, and then removed the temporary references. It retained A/B/difference under `artifacts/verify-demo/sine/`. Both channels measured max about **0.01625**, RMS about **0.01065321**, worst channel **0**, frame **6,300**, time **0.13125 s**, reference -0.162499994/current -0.178749993, against unchanged **0/0** thresholds.
+
+```sh
+afinfo packages/audio-regression/artifacts/verify-demo/sine/difference.wav
+afplay packages/audio-regression/artifacts/verify-demo/sine/reference.wav
+afplay packages/audio-regression/artifacts/verify-demo/sine/current.wav
+afplay packages/audio-regression/artifacts/verify-demo/sine/difference.wav
+```
+
+`afinfo` recognized stereo 48 kHz interleaved Float32, 112,800 frames/2.35 s and data offset 58. **All three playback commands completed successfully.** The assistant cannot certify what was heard or grant approval: human A/B review remains user validation, and initial reference listening approval remains Phase 3. Diagnostic demo files persist for that review, not as approved references.
+
+Package/workspace checking/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached. Root tests still do not discover this package's browser verification, whose full 189-test suite was explicitly executed. No production engine/app code, dependency resolution, lockfile, input asset, measured tolerance or reference changed. The only package-script addition is `audio:verify`. No app `dev` command was run.
+
+**Step 2.4 (explicit `audio:update --case <id>`) is next.** Verification is usable now but correctly fails until trusted references exist. Update workflow, broader representative mutations, supplied sketches, listening approval and root integration remain later steps.

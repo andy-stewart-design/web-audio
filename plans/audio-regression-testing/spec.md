@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-Phases 0–1 are complete on the user's Mac. Steps 1.1–1.6 render real synth, local sampler, and LFO audio through AudioEngine, with failure diagnostics, seeded multi-bar behavior, isolation, and measured repeatability across fresh browser launches. All six registered cases repeated with maximum/RMS sample error 0; the initial suite-wide tolerance pair is 0/0. Step 2.1 adds exact Node float-WAV storage and small JSON sidecars. `audio:render --case <id>` reports raw-audio health metrics and saves diagnostic recordings under ignored `artifacts/render/`. Step 2.2 adds the tested raw-audio comparator and diagnostics using the unchanged 0/0 defaults. Read-only verification, reference-update commands, failure recordings, and listening approval remain Phases 2–3; Step 2.3 is next. See [plan.md](./plan.md) and [feasibility.md](./feasibility.md) for remaining work, evidence, and limits.
+Phases 0–1 are complete on the user's Mac. Steps 1.1–1.6 render real synth, local sampler, and LFO audio through AudioEngine, with failure diagnostics, seeded multi-bar behavior, isolation, and measured repeatability across fresh browser launches. All six registered cases repeated with maximum/RMS sample error 0; the initial suite-wide tolerance pair is 0/0. Step 2.1 adds exact Node float-WAV storage and small JSON sidecars. `audio:render --case <id>` reports raw-audio health metrics and saves diagnostic recordings under ignored `artifacts/render/`. Step 2.2 adds the tested raw-audio comparator and diagnostics using the unchanged 0/0 defaults. Step 2.3 adds read-only `audio:verify [--case <id>]` and reference/current/difference failure recordings. Explicit reference updates and listening approval remain Phases 2–3; Step 2.4 is next. No approved references exist, so ordinary verification correctly fails missing coverage while still rendering. See [plan.md](./plan.md) and [feasibility.md](./feasibility.md) for remaining work, evidence, and limits.
 
 Replace routine manual REPL checks with a local command that executes saved Fluid sketches, renders through the real audio engine, and compares the sound with listening-approved recordings. Build a useful regression suite, not a cross-platform testing service.
 
@@ -103,7 +103,7 @@ Verification checks:
 - Expected audibility, or explicit silence for a silent case.
 - Per-channel maximum absolute sample error and RMS sample error against documented fixed tolerances.
 
-Step 2.2 implements these checks in `src/runner/compare.ts`: malformed/invalid shape or signal throws labelled errors; valid numerical mismatches return failure plus per-channel maximum/RMS metrics and worst channel/frame/time/sample values. Both gates use inclusive `<=` thresholds and must pass in every channel. Locations include the full recording's initial silence; ties choose the first channel/frame and identity has no fictitious worst error. Formatting reports thresholds and failed gates. The helper does not write files or use provenance as an equality gate; verification/artifact orchestration remains Step 2.3.
+Step 2.2 implements these checks in `src/runner/compare.ts`: malformed/invalid shape or signal throws labelled errors; valid numerical mismatches return failure plus per-channel maximum/RMS metrics and worst channel/frame/time/sample values. Both gates use inclusive `<=` thresholds and must pass in every channel. Locations include the full recording's initial silence; ties choose the first channel/frame and identity has no fictitious worst error. Formatting reports thresholds and failed gates. The helper does not write files or use provenance as an equality gate; Step 2.3 orchestrates verification/artifact storage separately without changing these checks.
 
 Do not time-align recordings, trim silence, or normalize loudness to make them agree. The maximum-error gate helps catch short localized changes that whole-recording RMS alone can hide. Windowed loudness and spectral assertions are follow-ups, not prerequisites.
 
@@ -111,20 +111,21 @@ Finite values above one are legal in Web Audio and must be preserved. Do not imp
 
 ## Commands and baseline review
 
-Planned commands:
+Available read-only commands:
 
 ```sh
 pnpm --filter @web-audio/audio-regression audio:verify
 pnpm --filter @web-audio/audio-regression audio:verify --case <id>
-pnpm --filter @web-audio/audio-regression audio:update --case <id>
 ```
+
+References are intended to be committed as package `references/<id>.wav` plus `.json` after listening review; none are approved yet. Step 2.4 will add the separate, explicitly selected `audio:update --case <id>` command (not implemented yet).
 
 - Verification always renders and compares; it never writes references. Missing references, unknown selectors, or an empty suite fail clearly rather than passing with no coverage.
 - Updating is an explicitly selected action, not a test flag invoked by normal verification. Render and validate output before writing the selected reference. Failed evaluation/loading/rendering must not overwrite the old recording.
 - Generate the reference, listen to it, inspect changed settings/numeric differences where available, and commit only after review. Git review/commit messages are sufficient approval records.
 - Do not auto-update references after a mismatch or force a second candidate/promote workflow. Initial repeatability is established by the render tests and checked for newly added cases.
 
-On failure, print the case ID, relevant errors, maximum/RMS errors, thresholds, and worst-error channel/time. Where audio exists, save reference/current/difference float WAVs under gitignored `artifacts/`; document the difference sign. A missing reference can provide current-only audio. Partial failures should still report their diagnostics.
+On failure, print the case ID, relevant errors, maximum/RMS errors, thresholds, and worst-error channel/time. Step 2.3 saves reference/current/difference float WAVs and small sidecars under gitignored `artifacts/verify/<id>/`. The difference sign is **current - reference**, retained as Float32 without playback amplification. Rate/channel/frame mismatches save A/B but explain that no difference is available; there is no resampling/trimming/channel remapping. Unrepresentable Float32 differences are reported instead of clipped. Missing/invalid references provide current-only audio when possible. Failed evaluation/loading/rendering yields no accepted current buffer (no partial healthy output), but can save a valid reference copy; diagnostics and later cases still run. Selected stale artifacts are cleared before each case; unselected case files remain. Cleanup/write failures are reported and exit nonzero. Verification never writes reference files; ordinary artifact I/O is not a multi-file transaction. Native playback-command success demonstrates player acceptance, not human listening approval.
 
 Plots and richer reports are optional enhancements. Difference recordings may be quiet; do not change measurement data merely to make them louder.
 

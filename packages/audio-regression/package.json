@@ -8,6 +8,7 @@
     "test": "pnpm build:deps && vitest run",
     "test:smoke": "vitest run src/__tests__/browser-launch.test.ts",
     "audio:render": "pnpm build:deps && tsx src/cli.ts",
+    "audio:verify": "pnpm build:deps && tsx src/verify-cli.ts",
     "check": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
