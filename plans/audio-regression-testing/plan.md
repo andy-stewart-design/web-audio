@@ -2,7 +2,7 @@
 
 ## Status and goal
 
-**Phases 0–1 are complete on the user's Mac. Phase 2 is in progress: Steps 2.1–2.4 are complete; Step 2.5 is next.** Phase 3 has not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
+**Phases 0–2 implementation is complete on the user's Mac, including Step 2.5.** Phase 3 has not started: representative user sketches, initial human listening-approved references and routine root verification remain next. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
 
 The deliverable is a local command that runs saved Fluid sketches through the real engine and compares their audio to listening-approved recordings. It does not require Linux, containers, hosted CI, a report application, or a separate candidate/approval system.
 
@@ -263,12 +263,16 @@ The real package CLI generated temporary sine, targeted verification passed at 0
 
 **Work:** Compare a few controlled pitch, timing, gain, filter, sample-selection, and reverse-direction changes against original references through real source rendering. Reuse cases rather than build an exhaustive mutation framework. Keep mutated variants outside approved references.
 
-**Validation:** Originals pass; changed variants fail the intended numerical/resource/evaluation checks. Inspect at least one synth and one sampler failure recording. Unit tests already cover artifact-level corruption/channel guards.
+**Completed work:** Added eight native integration cases in `src/__tests__/regressions.test.ts` with test-only fixtures in `support/regressions.ts`. Reuse the existing synth, LFO and local sampler inputs; authored changes cover an octave pitch shift, half-second rhythm shift, 10% gain change, bar-two filter endpoint, sample variation selection and reverse→forward direction. These six produce healthy same-shape audio and fail specifically with `Audio mismatch` at unchanged 0/0 defaults, not malformed-file/shape/loading checks. Behavioral assertions confirm the intended pitch/onset/gain/filter/sample/direction differences; the filter's first bar is exactly unchanged. Two diagnostic changes (removed notes method and missing mapped sample alongside healthy synth) reject without accepting current/partial audio.
 
-- [ ] The suite detects representative meaningful changes, not just malformed files.
-- [ ] Failed variants do not silently regenerate or alter references.
+Originals are freshly updated only into temporary unapproved reference directories, verify at 0/0, and pass again after each failed variant. Each test checks the full reference file set and WAV/JSON bytes remain unchanged after both pass/failure/recovery, validates all failure A/B/difference shapes and every signed Float32 difference sample, and closes its browser contexts. Variants never enter the production case registry or approved reference tree. No mutation framework, production implementation, dependency/script/lockfile/asset/tolerance change was required.
 
-**Phase exit gate:** Render → compare → listen → explicit update → verify works locally. Supplied sketches can already use this workflow; plots and hosted CI remain optional.
+**Validation:** All **224 package tests in 22 files passed** (216 existing plus 8 focused cases); the focused eight-test suite also passed separately. A separate fresh-browser manual run verified eight originals at 0/0, then rejected six numerical and two diagnostic changes with byte-identical reference files. Numerical A/B/current-minus-reference WAV/JSON sets remain ignored under `artifacts/regressions-demo/<change>/`, with reference-only output for diagnostic failures. Inspected native synth pitch and sampler direction A/B/difference samples in tests, `afinfo` recognized their standard float WAVs, and **all six A/B/difference playback commands completed**. Playback acceptance is not human listening approval; demo files remain available for user review, not promotion. Temporary references/manual script were removed. Package/workspace checking/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached.
+
+- [x] The suite detects representative meaningful changes, not just malformed files.
+- [x] Failed variants do not silently regenerate or alter references.
+
+**Phase 2 technical exit gate passed:** Real render → compare → failure recordings/local playback → explicit update → fresh read-only verify is demonstrated. Human musical-quality/listening approval is not claimed; initial trusted user references and root integration remain Phase 3. Supplied sketches can now use this workflow; plots and hosted CI remain optional.
 
 ---
 

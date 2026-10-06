@@ -1,6 +1,6 @@
 # @web-audio/audio-regression
 
-Private local tooling for Fluid-sketch audio regression tests. **Phase 1 is complete on the user's Mac:** the package renders real synth, local sampler, and LFO audio through Fluid, AudioEngine, and Chromium's `OfflineAudioContext`, with seeded multi-bar and isolation/repeatability checks. Steps 2.1–2.4 add exact float-WAV/JSON storage, the raw-audio comparator, read-only `audio:verify` with failure recordings, and explicitly selected `audio:update`. Broader regression demonstrations and listening-approved user references remain upcoming.
+Private local tooling for Fluid-sketch audio regression tests. **Phase 1 is complete on the user's Mac:** the package renders real synth, local sampler, and LFO audio through Fluid, AudioEngine, and Chromium's `OfflineAudioContext`, with seeded multi-bar and isolation/repeatability checks. **Phase 2 implementation is also complete:** exact float-WAV/JSON storage, numerical comparison, read-only verification/failure recordings and explicit reference updates, with focused real-render regression checks. User sketches, listening-approved references and root verification integration remain Phase 3.
 
 See [`spec.md`](../../plans/audio-regression-testing/spec.md), [`plan.md`](../../plans/audio-regression-testing/plan.md), and [`feasibility.md`](../../plans/audio-regression-testing/feasibility.md).
 
@@ -62,6 +62,39 @@ To rerun only these checks after building dependencies:
 pnpm --filter @web-audio/audio-regression build:deps
 pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/worklets.test.ts src/__tests__/repeatability.test.ts
 ```
+
+## Demonstrated regression detection
+
+`src/__tests__/regressions.test.ts` runs eight focused real-engine cases using test-only `support/regressions.ts` fixtures. Six healthy, same-shape authored changes fail specifically on maximum/RMS error at unchanged **0/0** defaults:
+
+| Change           | Actual protected difference                                                  |
+| ---------------- | ---------------------------------------------------------------------------- |
+| Pitch            | MIDI 69 → 81, native carrier 440 → 880 Hz                                    |
+| Timing           | Sequence hits `[0, 2]` → `[1, 3]`, shifting onsets by 0.5 s                  |
+| Gain             | 0.5 → 0.55, 10% larger native amplitude                                      |
+| Filter           | Bar-two LFO cutoff endpoint 900 → 1800; all bar-one samples stay exact       |
+| Sample selection | Variation 0 (tone) → 1 (asymmetric file), with both local files healthy      |
+| Direction        | Reverse → forward asymmetric sample, swapping loud/quiet and 440/880 Hz ends |
+
+A removed notes method and a missing local sample mapping also fail with evaluation/resource diagnostics, without accepting partial healthy output. Originals pass, every changed variant fails for its intended reason, and originals pass again afterward. Tests check reference filenames/bytes remain unchanged and every stored difference sample equals Float32 **current - reference**. Reference fixtures are temporary/unapproved and cleaned up; variants are not registered production cases. This is a focused proof, not exhaustive mutation testing or musical-quality certification.
+
+After dependency builds, rerun just these checks:
+
+```sh
+pnpm --filter @web-audio/audio-regression build:deps
+pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/regressions.test.ts
+```
+
+Manual unapproved failure sets persist under **`artifacts/regressions-demo/<change>/`** (the six change IDs in the table, with `pitch`, `timing`, `gain`, `filter`, `sample-selection`, `reverse`). Each numerical directory has `reference`, `current` and `difference` WAV/JSON pairs. `evaluation` and `resource` have reference-only recordings because no current buffer was accepted. Native Mac playback completed for the pitch and reverse A/B/difference sets; this does **not** grant listening approval. For example:
+
+```sh
+afplay packages/audio-regression/artifacts/regressions-demo/pitch/reference.wav
+afplay packages/audio-regression/artifacts/regressions-demo/pitch/current.wav
+afplay packages/audio-regression/artifacts/regressions-demo/reverse/reference.wav
+afplay packages/audio-regression/artifacts/regressions-demo/reverse/current.wav
+```
+
+These ignored files are diagnostics, not approved baselines. No production references were created or promoted.
 
 ## Local samples
 

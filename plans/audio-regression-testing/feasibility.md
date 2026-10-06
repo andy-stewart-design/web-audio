@@ -2,9 +2,9 @@
 
 ## Status
 
-**Phases 0–1 are complete on the user's Mac; Steps 1.1–1.6 are complete.** The unnecessary Linux/container validation requirement has been removed. Shared seams and an owned local browser harness now render real synth/sample/LFO audio with loading/processor-failure detection, seeded multi-bar behavior, isolation, and measured sample-identical repeats including fresh launches. Steps 2.1–2.4 are also complete: exact Node float-WAV storage/sidecars, a raw comparator at unchanged 0/0 defaults, read-only verification/failure recordings and explicitly selected `audio:update`. Broader regression demonstrations and initial user listening approval remain future work; Step 2.5 is next. No approved references exist, so normal verification currently fails missing coverage while still rendering.
+**Phases 0–1 are complete on the user's Mac; Steps 1.1–1.6 are complete.** The unnecessary Linux/container validation requirement has been removed. Shared seams and an owned local browser harness now render real synth/sample/LFO audio with loading/processor-failure detection, seeded multi-bar behavior, isolation, and measured sample-identical repeats including fresh launches. **Phase 2 implementation is also complete (Steps 2.1–2.5):** exact Node float-WAV storage/sidecars, comparison at unchanged 0/0, read-only verification/failure recordings, explicit updates and focused real-render regression detection. Representative user sketches, initial human listening-approved references and root verification integration remain Phase 3. No approved references exist, so normal verification currently fails missing coverage while still rendering.
 
-This record supports Phases 0–1 and Steps 2.1–2.4 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
+This record supports Phases 0–2 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
 
 Audited production revision: `02059e5755d7011310593bfa38912786bf767cc7`. No production implementation was changed during Phase 0. Re-read these consumers before Phase 1 if other work changes them.
 
@@ -542,4 +542,68 @@ No actual listening approval or git commit was inferred or performed. A guarded 
 
 Package/workspace checking/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached. Root tests still do not discover this package, whose full browser suite was explicitly executed. No engine/app implementation, dependency/lockfile/input sample or tolerance changed. Only the package `audio:update` script was added; no app `dev` command was run.
 
-**Step 2.5 (focused real-render regression changes) is next.** The explicit update/verify workflow is implemented, but supplied-sketch onboarding, initial trusted coverage and root integration remain later work.
+At Step 2.4 closeout the focused regression proof remained Step 2.5; the section below supplies it. Supplied-sketch onboarding, initial trusted coverage and root integration remain later work.
+
+## Step 2.5 — Focused real-render regression detection (complete)
+
+Added `src/__tests__/regressions.test.ts` and its suite-local `support/regressions.ts` fixtures. No production implementation, registry, dependency/script/lockfile/input asset or tolerance changed. A small explicit list reuses real sine/LFO/local sample cases and makes six authored-source changes; it is not an automatic mutation framework or mocked DSP. Each original/variant shares its ID, render settings, full frame count and healthy audio expectation, so numerical failure cannot be attributed to missing coverage, malformed files or changed shapes.
+
+For each case, the test uses `updateReference` to create only a temporary, explicitly unapproved original reference, then production `verifyCases` for original → changed → original. Original comparisons pass at 0/0, changed comparisons fail specifically with `Audio mismatch` and both max/RMS gates in both channels, and recovery originals pass. Complete reference filenames/WAV/JSON bytes are unchanged throughout. A/B/difference artifacts are decoded in Node, rates/channel/frame counts match, and every difference sample is checked as `Math.fround(current-reference)`—no measurement preprocessing or playback amplification. All contexts/browser/server/temporary paths clean up.
+
+Behavioral checks confirm the changes actually occurred:
+
+- **Pitch:** MIDI 69→81 produces native 440→880 Hz, not only a changed schema.
+- **Timing:** `.sequence(4, [0, 2])`→`[1, 3]` moves onsets by 0.5 s. The old onset has actual sound only in the original; the new onset is audible in current output.
+- **Gain:** 0.5→0.55 produces the expected 1.1 amplitude ratio in native output; comparison still uses raw samples, not normalized samples.
+- **Filter:** the second bar's cutoff-LFO lower endpoint changes 900→1800. All 100,800 frames before bar two (including start silence) remain exactly identical, while bar two changes. This is a localized healthy sound regression, not a worklet error.
+- **Sample selection:** local variation 0 tone→variation 1 asymmetric changes the decoded waveform/amplitude/silent middle, with both files loading successfully.
+- **Direction:** reverse→forward switches the asymmetric sample's opening from quieter 880 Hz to louder 440 Hz; native pitch/amplitude assertions confirm real reversal differences.
+
+Two further cases validate diagnostic regressions: replacing `.notes(69)` with a nonexistent `.missingNotes(69)` method fails actual Fluid evaluation, and mapping the tone to a missing local file fails HTTP/sampler loading despite a separately healthy synth. Both provide valid reference-only artifacts, no accepted current/difference buffer, unchanged original reference bytes and successful healthy recovery. No failed variant is passed to the updater or promoted; fixtures never enter the production registry/reference tree.
+
+Validation:
+
+```sh
+pnpm --filter @web-audio/audio-regression check
+pnpm --filter @web-audio/audio-regression lint
+pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/regressions.test.ts
+pnpm --filter @web-audio/audio-regression test
+pnpm --filter @web-audio/audio-regression format:check
+pnpm check
+pnpm lint
+pnpm test
+```
+
+All **224 package tests in 22 files passed** (216 existing plus 8 added). The focused eight-case suite passed separately; the full browser suite ran uncached, while unchanged workspace tasks may be cached. No engine bug or unexplained variance was found, and no default was relaxed.
+
+A separate fresh-browser manual run reused the same eight original/changed fixtures with temporary unapproved references. Originals passed **8/8 at 0/0**; changed variants failed **8/8**, six numerical and two diagnostic, with the complete reference file set/bytes unchanged. It retained ignored failure artifacts in `artifacts/regressions-demo/<change>/`, then removed the temporary references and ignored script. There is still no production reference directory or listening-approved baseline.
+
+Numerical measurements on Chromium 147.0.7727.15, stereo 48 kHz/120 BPM (both channels agree):
+
+| Change            |  Frames | Maximum sample error | RMS sample error | Worst frame / time (s) |
+| ----------------- | ------: | -------------------: | ---------------: | ---------------------: |
+| Pitch             | 112,800 |            0.2860277 |        0.1506587 |   95,089 / 1.981020833 |
+| Timing            | 112,800 |               0.1625 |        0.1049101 |        5,100 / 0.10625 |
+| Gain              | 112,800 |              0.01625 |       0.01065321 |        6,300 / 0.13125 |
+| Filter            | 204,000 |           0.09038958 |      0.006678424 |  149,138 / 3.107041667 |
+| Sample selection  | 105,600 |            0.5314259 |        0.1318982 |   23,381 / 0.487104167 |
+| Reverse direction | 105,600 |            0.6222883 |        0.1314829 |    6,089 / 0.126854167 |
+
+All use unchanged **max/RMS thresholds 0/0**; these are observed rejected differences, not suggested slack. The synth pitch and sampler reverse A/B/difference sets were inspected through native-sample behavioral checks and independent player acceptance:
+
+```sh
+afinfo packages/audio-regression/artifacts/regressions-demo/pitch/difference.wav
+afinfo packages/audio-regression/artifacts/regressions-demo/reverse/difference.wav
+afplay packages/audio-regression/artifacts/regressions-demo/pitch/reference.wav
+afplay packages/audio-regression/artifacts/regressions-demo/pitch/current.wav
+afplay packages/audio-regression/artifacts/regressions-demo/pitch/difference.wav
+afplay packages/audio-regression/artifacts/regressions-demo/reverse/reference.wav
+afplay packages/audio-regression/artifacts/regressions-demo/reverse/current.wav
+afplay packages/audio-regression/artifacts/regressions-demo/reverse/difference.wav
+```
+
+`afinfo` recognized stereo 48 kHz interleaved Float32 with data offset 58, 112,800 pitch frames/2.35 s and 105,600 sampler frames/2.2 s. **All six playback commands completed.** This proves valid local review recordings, not what was heard or human approval. Diagnostic copies persist for user A/B review, with the signed difference still current - reference and no boost; they are not approved recordings.
+
+Package/workspace checking/lint/tests, formatting and `git diff --check` passed. Root tests still do not discover this package, which was run explicitly; routine root integration remains Phase 3. No app `dev` command was run.
+
+**Phase 2 technical exit gate passed.** Real rendering, raw comparison, useful failure/playback recordings, explicit selected updates and fresh read-only verification are demonstrated. Human musical-quality/listening approval is not claimed. **Phase 3.1—register supplied representative sketches/samples—is next**, followed by trusted initial references and root integration.
