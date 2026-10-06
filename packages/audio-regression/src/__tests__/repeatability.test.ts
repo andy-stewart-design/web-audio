@@ -31,7 +31,7 @@ describe("seeded behavior and isolated audio repeatability", () => {
       measureDifference([Float32Array.of(NaN)], [Float32Array.of(0)]),
     ).toThrow("Non-finite");
     expect(() =>
-      measureDifference([Float32Array.of(0)], [Float32Array.of(Infinity)]),
+      measureDifference([Float32Array.of(1)], [Float32Array.of(Infinity)]),
     ).toThrow("Non-finite");
   });
 

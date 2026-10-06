@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-Phases 0–1 are complete on the user's Mac. Steps 1.1–1.6 render real synth, local sampler, and LFO audio through AudioEngine, with failure diagnostics, seeded multi-bar behavior, isolation, and measured repeatability across fresh browser launches. All six registered cases repeated with maximum/RMS sample error 0; the initial suite-wide tolerance pair is 0/0. Step 2.1 adds exact Node float-WAV storage and small JSON sidecars. `audio:render --case <id>` reports raw-audio health metrics and saves diagnostic recordings under ignored `artifacts/render/`. Audio comparison, reference commands, and listening approval remain Phases 2–3; Step 2.2 is next. See [plan.md](./plan.md) and [feasibility.md](./feasibility.md) for remaining work, evidence, and limits.
+Phases 0–1 are complete on the user's Mac. Steps 1.1–1.6 render real synth, local sampler, and LFO audio through AudioEngine, with failure diagnostics, seeded multi-bar behavior, isolation, and measured repeatability across fresh browser launches. All six registered cases repeated with maximum/RMS sample error 0; the initial suite-wide tolerance pair is 0/0. Step 2.1 adds exact Node float-WAV storage and small JSON sidecars. `audio:render --case <id>` reports raw-audio health metrics and saves diagnostic recordings under ignored `artifacts/render/`. Step 2.2 adds the tested raw-audio comparator and diagnostics using the unchanged 0/0 defaults. Read-only verification, reference-update commands, failure recordings, and listening approval remain Phases 2–3; Step 2.3 is next. See [plan.md](./plan.md) and [feasibility.md](./feasibility.md) for remaining work, evidence, and limits.
 
 Replace routine manual REPL checks with a local command that executes saved Fluid sketches, renders through the real audio engine, and compares the sound with listening-approved recordings. Build a useful regression suite, not a cross-platform testing service.
 
@@ -102,6 +102,8 @@ Verification checks:
 - Finite samples in both current/reference audio.
 - Expected audibility, or explicit silence for a silent case.
 - Per-channel maximum absolute sample error and RMS sample error against documented fixed tolerances.
+
+Step 2.2 implements these checks in `src/runner/compare.ts`: malformed/invalid shape or signal throws labelled errors; valid numerical mismatches return failure plus per-channel maximum/RMS metrics and worst channel/frame/time/sample values. Both gates use inclusive `<=` thresholds and must pass in every channel. Locations include the full recording's initial silence; ties choose the first channel/frame and identity has no fictitious worst error. Formatting reports thresholds and failed gates. The helper does not write files or use provenance as an equality gate; verification/artifact orchestration remains Step 2.3.
 
 Do not time-align recordings, trim silence, or normalize loudness to make them agree. The maximum-error gate helps catch short localized changes that whole-recording RMS alone can hide. Windowed loudness and spectral assertions are follow-ups, not prerequisites.
 

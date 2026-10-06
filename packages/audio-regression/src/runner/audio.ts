@@ -1,10 +1,13 @@
 // Step 1.6 measured exact raw-sample repeats on the Mac, including fresh launches.
 // Start without numerical slack; remeasure/review instead of widening on failure.
-// Phase 2 will use the same suite-wide pair for reference comparison.
+// The raw-audio comparator uses this same suite-wide pair by default.
 export const COMPARISON_TOLERANCE = Object.freeze({ maxError: 0, rmsError: 0 });
 
 // Signal health only, not reference comparison or a musical quality assertion.
-export function inspectAudio(channels: Float32Array[], expectSilence = false) {
+export function inspectAudio(
+  channels: readonly Float32Array[],
+  expectSilence = false,
+) {
   if (channels.length === 0 || !channels[0]?.length)
     throw new Error("Rendered audio is empty");
   const frameCount = channels[0].length;

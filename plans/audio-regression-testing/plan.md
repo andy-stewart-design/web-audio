@@ -2,7 +2,7 @@
 
 ## Status and goal
 
-**Phases 0–1 are complete on the user's Mac. Phase 2 is in progress: Step 2.1 is complete; Step 2.2 is next.** Phase 3 has not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
+**Phases 0–1 are complete on the user's Mac. Phase 2 is in progress: Steps 2.1–2.2 are complete; Step 2.3 is next.** Phase 3 has not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
 
 The deliverable is a local command that runs saved Fluid sketches through the real engine and compares their audio to listening-approved recordings. It does not require Linux, containers, hosted CI, a report application, or a separate candidate/approval system.
 
@@ -203,11 +203,15 @@ The harness observes native worklet-node failure events without changing DSP. Ch
 
 **Work:** Check matching rate/channels/frame count, finite samples, audible-versus-intentionally-silent expectation, and per-channel maximum/RMS sample error. Report threshold values and worst-error channel/sample/time. Do not impose blanket peak limits above one, normalize gain/time, or require schema/windowed/spectral assertions.
 
-**Validation:** Small known arrays cover identity, gain change, dropped transient, sample shift, channel swap, invalid samples, shape mismatch, and explicit/unexpected silence. Test threshold boundaries.
+**Completed work:** Added `src/runner/compare.ts` with `compareAudio` and `formatComparison`. It accepts Node float-WAV/native channels, validates positive matching sample rates, channel/frame counts and rectangular finite Float32 data, and applies the existing audible/exact-silence health policy to both sides. It computes per-channel maximum absolute/RMS errors, independent inclusive gates, per-channel/global worst channel/frame/time and sample values, and readable diagnostics with thresholds. Identity has no fictitious worst error. Invalid inputs throw labelled errors; valid numerical mismatches return `passed: false` plus metrics for Step 2.3. Measured suite-wide 0/0 defaults are unchanged; explicit finite/nonnegative test/caller thresholds never mutate them. No gain/time preprocessing, peak cap, file writes or provenance gate is included.
 
-- [ ] Localized changes fail the maximum-error gate even if overall RMS is small.
-- [ ] Signal health and comparison errors are clearly explained.
-- [ ] No comparison preprocessing can hide a regression.
+Phase 1's measurement helper now delegates to the production comparator instead of retaining a second error algorithm. `inspectAudio` only gained a readonly input annotation; rendering and signal policy are unchanged. Native repeated synth/sample/LFO renders still pass exact defaults. No production engine, dependencies, scripts, lockfile or reference files changed.
+
+**Validation:** All **157 package tests in 15 files passed** (122 existing plus 34 comparator units and one actual-render/WAV comparison integration). Units cover identity/above-one/full finite Float32 range, one-ULP/gain/polarity/shift/channel-swap changes, a dropped transient failing maximum despite passing RMS, first-tie/worst-location diagnostics, independent inclusive threshold boundaries, invalid tolerances, empty/ragged/sparse/mismatched inputs, non-finite samples and explicit/unexpected silence. Real stored sine matches fresh native synthesis at 0/0; changed gain fails and leaves stored samples unchanged. Package/workspace check/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached. CLI remains diagnostic rendering only: read-only `audio:verify` and failure recordings are Step 2.3, reference updates Step 2.4.
+
+- [x] Localized changes fail the maximum-error gate even if overall RMS is small.
+- [x] Signal health and comparison errors are clearly explained.
+- [x] No comparison preprocessing can hide a regression.
 
 ### Step 2.3 — Verify read-only and save failure audio
 

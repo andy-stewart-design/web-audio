@@ -2,9 +2,9 @@
 
 ## Status
 
-**Phases 0–1 are complete on the user's Mac; Steps 1.1–1.6 are complete.** The unnecessary Linux/container validation requirement has been removed. Shared seams and an owned local browser harness now render real synth/sample/LFO audio with loading/processor-failure detection, seeded multi-bar behavior, isolation, and measured sample-identical repeats including fresh launches. Step 2.1 is also complete: exact Node float-WAV storage and small sidecars now produce local diagnostic recordings. Reference comparison/commands and listening approval remain future work; Step 2.2 is next.
+**Phases 0–1 are complete on the user's Mac; Steps 1.1–1.6 are complete.** The unnecessary Linux/container validation requirement has been removed. Shared seams and an owned local browser harness now render real synth/sample/LFO audio with loading/processor-failure detection, seeded multi-bar behavior, isolation, and measured sample-identical repeats including fresh launches. Steps 2.1–2.2 are also complete: exact Node float-WAV storage/sidecars produce diagnostic recordings, and a tested raw-audio comparator reports shape/health and maximum/RMS errors at unchanged 0/0 defaults. Read-only verification/reference commands, failure recordings and listening approval remain future work; Step 2.3 is next.
 
-This record supports Phases 0–1 and Step 2.1 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
+This record supports Phases 0–1 and Steps 2.1–2.2 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
 
 Audited production revision: `02059e5755d7011310593bfa38912786bf767cc7`. No production implementation was changed during Phase 0. Re-read these consumers before Phase 1 if other work changes them.
 
@@ -423,4 +423,37 @@ CLI sine output on Chromium 147.0.7727.15: stereo 48,000 Hz, 112,800 frames, 120
 
 Package/workspace checking, lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached. Root `test:ci` still does not discover this package, whose full browser suite was explicitly run. No app `dev` command was run.
 
-**Step 2.2 (production numerical comparator) is next.** The existing measured suite-wide max/RMS pair remains 0/0. Verify/update commands, failure difference recordings and initial listening-approved references remain later steps.
+At Step 2.1 closeout the production comparator remained Step 2.2; the section below supplies it. Verify/update commands, failure difference recordings and initial listening-approved references remain later steps.
+
+## Step 2.2 — Raw numerical and signal checks (complete)
+
+Added `src/runner/compare.ts` with `compareAudio(reference, current, options)` and `formatComparison(result)`. Inputs are rate plus original readonly Float32 channels, suitable for decoded WAVs and native render output. Checks require positive integer/matching rates, matching channel/frame counts, nonempty rectangular Float32 channels (including rejection of sparse channel lists), finite values and the existing audible/exact-silence policy on both sides. Validation errors identify reference/current or include both mismatched dimensions; finite peaks above one remain legal. `inspectAudio` gained only a readonly input annotation, with unchanged runtime signal policy.
+
+For each channel and full original frame count N, errors are `current[n] - reference[n]`: maximum is the largest absolute error and RMS is `sqrt(sum(error^2)/N)`. Values are computed in Node double precision without touching original audio. Maximum/RMS gates independently use inclusive `<=`; every gate in every channel must pass. Each channel and the whole comparison retain the worst error's channel/frame/time and reference/current sample values. Ties select first frame/channel; identical samples have `worst: null`. Coordinates are zero-based from the beginning of the file, including the authored start offset, not onset-aligned musical time.
+
+Default thresholds use the immutable measured `COMPARISON_TOLERANCE` **0/0**. An explicitly supplied finite/nonnegative pair can exercise test boundaries or a reviewed caller threshold, but never changes suite defaults or adapts to results. Invalid input/configuration throws clear diagnostics; valid changed audio returns `passed: false` with metrics. `formatComparison` prints rates/counts, thresholds, both per-channel errors/gates and worst location/sample values, preserving information for Step 2.3 artifacts. The helper performs no I/O and imposes no browser-version equality gate or blanket peak cap.
+
+The Phase 1 test-only measurement helper now delegates to this comparator and projects just maximum/RMS values, removing its duplicate arithmetic. Its non-finite-current fixture now uses a healthy reference so the new reference-health check cannot fail before reaching that invalid current. All six repeated native cases still pass 0/0 under the production implementation, including different order and fresh browser launches. Production modules never import test helpers.
+
+Validation:
+
+```sh
+pnpm --filter @web-audio/audio-regression check
+pnpm --filter @web-audio/audio-regression lint
+pnpm --filter @web-audio/audio-regression test
+pnpm --filter @web-audio/audio-regression exec vitest run src/runner/__tests__/compare.test.ts src/__tests__/comparison.test.ts
+pnpm --filter @web-audio/audio-regression format:check
+pnpm check
+pnpm lint
+pnpm test
+```
+
+All **157 package tests in 15 files passed** (122 existing plus 35 added):
+
+- **34 comparator units:** identity, legal above-one peaks/silent sibling channels/full finite Float32 range, unchanged inputs, one-frame shift/gain/polarity/channel-swap changes, a one-ULP change failing zero defaults, independent inclusive boundaries, negative/non-finite threshold rejection, worst-error values/coordinates/first ties and formatted diagnostics. Invalid rate/channel/frame/empty/ragged/sparse/non-finite inputs fail explicitly. Unexpected/negligible silence fails, while opted-in silence requires exact zero even if numerical thresholds would allow a difference.
+- The **dropped transient** example changes one sample by 1 in 8,192 frames. With explicit test-only maximum/RMS thresholds 0.5/0.02, RMS is about 0.0110485 (passes) but maximum is 1 (fails), proving RMS cannot hide a localized regression. Its worst location is exactly frame 4,800 / 0.1 s at 48 kHz. This test pair is not a changed suite tolerance.
+- **One real rendering/storage comparison integration:** native sine is stored as an unapproved temporary WAV/sidecar, then matches freshly rendered native audio at 0/0. A real Fluid gain change from 0.5 to 0.55 produces failure with a located error above 0.01; reading the original stored samples again confirms comparison did not mutate them. The temporary directory and all browser contexts are cleaned up. This is implementation proof, not approval/promotion or a full mutation framework.
+
+Package/workspace checking/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached. Root tests still do not discover this package's browser suite, which was explicitly executed. No engine/application implementation, dependencies, scripts, lockfile, input samples, stored references or measured defaults changed. No app `dev` command was run.
+
+**Step 2.3 (read-only `audio:verify` plus failure recordings) is next.** `audio:render` remains diagnostic output only. There is no verify/update CLI yet and no listening-approved reference was created.
