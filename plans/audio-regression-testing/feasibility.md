@@ -2,9 +2,9 @@
 
 ## Status
 
-**Phases 0–1 are complete on the user's Mac; Steps 1.1–1.6 are complete.** The unnecessary Linux/container validation requirement has been removed. Shared seams and an owned local browser harness now render real synth/sample/LFO audio with loading/processor-failure detection, seeded multi-bar behavior, isolation, and measured sample-identical repeats including fresh launches. Output WAV/reference comparison and reference approval remain future work; Step 2.1 is next.
+**Phases 0–1 are complete on the user's Mac; Steps 1.1–1.6 are complete.** The unnecessary Linux/container validation requirement has been removed. Shared seams and an owned local browser harness now render real synth/sample/LFO audio with loading/processor-failure detection, seeded multi-bar behavior, isolation, and measured sample-identical repeats including fresh launches. Step 2.1 is also complete: exact Node float-WAV storage and small sidecars now produce local diagnostic recordings. Reference comparison/commands and listening approval remain future work; Step 2.2 is next.
 
-This record supports Phases 0–1 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
+This record supports Phases 0–1 and Step 2.1 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
 
 Audited production revision: `02059e5755d7011310593bfa38912786bf767cc7`. No production implementation was changed during Phase 0. Re-read these consumers before Phase 1 if other work changes them.
 
@@ -274,7 +274,7 @@ Added the loopback harness (`index.html`, `src/browser/render.ts`, `src/runner/w
 
 The Vite server uses an available loopback port with app/config/env isolation and no SPA fallback. Node owns server/browser lifetime; each render gets a fresh page/browser context, evaluator, offline context, driver, and engine. Source uses the shared public evaluator. The real engine awaits worklet registration, update/preparation, commits on `prebar`, and schedules exact requested `bar` events using committed tempo. The audio context renders bars plus tail, then returns original samples through exact Float32 → JS-number → Float32 transfer. Engine destruction occurs only after rendering (or failure), never before future voices run. No speaker capture, real-time transport, musical sleeps, or audio/worklet mocks are used.
 
-`audio:render --case sine` and package tests build changed workspace dependencies with existing Turbo tasks before browser imports. The command prints settings/browser version and peak/RMS metrics; it does not yet write recordings or compare references. Cases reject invalid settings, duplicate/unknown IDs, and missing CLI selectors. Expected audibility uses a small initial RMS health floor (`1e-8`); explicit silence requires zero. Finite values above one remain legal and unchanged. No comparison tolerance has been selected.
+`audio:render --case sine` and package tests build changed workspace dependencies with existing Turbo tasks before browser imports. At Step 1.4 closeout the command printed settings/browser version and peak/RMS metrics only; Step 2.1 below adds diagnostic recordings, not reference comparison. Cases reject invalid settings, duplicate/unknown IDs, and missing CLI selectors. Expected audibility uses a small initial RMS health floor (`1e-8`); explicit silence requires zero. Finite values above one remain legal and unchanged. No comparison tolerance has been selected.
 
 The Node-side 10-second execution deadline covers navigation/readiness, source execution, offline rendering, and pending-request draining. A synchronous `while (true) {}` source is terminated by disposing its context, and the next render succeeds. Unexpected page errors, console warnings/errors, failed requests, HTTP errors, and blocked external URLs fail rendering. Draining observed requests prevents fast renders from hiding late HTTP failures. Startup collisions, missing browser executables, callback failures, and successful completion release browser/server resources; the tests verify closed contexts/connections and successful subsequent launches/rebinding.
 
@@ -381,4 +381,46 @@ pnpm test
 
 All **77 package tests in 10 files passed** (66 existing plus 7 worklet and 4 metric/seed/direction/repetition checks). The focused suite was also rerun in fresh processes. CLI channel peak/RMS: LFO approximately 0.188983/0.0465954, seeded approximately 0.186562/0.0738467, alternate approximately 0.524995/0.164802. Package/workspace check/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached, and root tests still do not discover this browser suite, which was explicitly run. No production implementation, dependencies, scripts, lockfile, or sample bytes changed. No app `dev` command was run.
 
-**Phase 1 exit gate passed.** Native synth/sample/LFO rendering, failures, isolation and local repeatability are demonstrated. Step 2.1 (standard float-WAV output/input) is next; comparisons and listening-approved references do not exist yet.
+**Phase 1 exit gate passed.** Native synth/sample/LFO rendering, failures, isolation and local repeatability are demonstrated. Float-WAV I/O follows in Step 2.1 below; comparisons and listening-approved references do not exist yet.
+
+## Step 2.1 — Standard float-WAV storage (complete)
+
+Added `src/runner/wav.ts`: dependency-free Node encoding/decoding of little-endian RIFF/WAVE IEEE float32, format tag 3. The writer emits 18-byte WAVEFORMATEX with `cbSize=0`, a 4-byte `fact` count interpreted as frames per channel, and interleaved `data`. The 58-byte preamble follows the [McGill WAVE format documentation](https://www.mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html), including the non-PCM extension/fact requirements. This is a standard WAV, not a custom binary container.
+
+The reader scans chunks rather than assuming a 44-byte header. It checks exact RIFF length, chunk bounds/padding, required unique fmt/fact/data, supported format, rate/channel/alignment/byte-rate consistency, whole nonempty frames and matching fact count; every sample must be finite. Unknown properly padded chunks can appear before/after data. PCM, float64, extensible/RF64/big-endian and nonconforming float headers are deliberately unsupported rather than silently converted. Chunk identifiers use byte-preserving decoding so high-bit bytes cannot alias ASCII magic. Ordered 1–32 channels are supported without speaker-layout metadata. No gain adjustment, clipping, resampling, trimming, alignment or quantization is performed.
+
+Added `src/runner/recording.ts` and `RecordingMetadata` in the existing private `src/types.ts`. The WAV gets a same-stem JSON sidecar containing only ID, settings (sample rate/channels/beats/start frames), bars/tail, committed BPM/frame count and actual browser version. Runtime source/resource paths/metrics are not persisted. Metadata parsing checks fields using real narrowing, reuses existing case/frame validation and checks audio shape; missing/corrupt sidecars or mismatched audio fail with paths. A changed nonempty browser version remains valid diagnostic provenance, not a compatibility prohibition.
+
+All validation/encoding finishes before file I/O, so invalid audio/metadata cannot overwrite an old file. Storage uses ordinary writes; it is not a multi-file or reference-set transaction, and disk-write failures may leave partial diagnostic output. Explicit reference replacement remains Step 2.4. No production module imports test support. Readers use Node bytes/float operations, not browser decode/resampling.
+
+`audio:render --case <id>` now saves successful healthy output to ignored `artifacts/render/<id>.wav` and `.json`, reports paths, and explicitly labels it diagnostic/unapproved. It never creates/promotes references or compares them. Unknown/invalid arguments still exit nonzero. Failed rendering does not call storage; an earlier diagnostic can remain. No dependency, package script, lockfile, production implementation, input sample bytes or tolerance changed.
+
+Validation:
+
+```sh
+pnpm --filter @web-audio/audio-regression check
+pnpm --filter @web-audio/audio-regression lint
+pnpm --filter @web-audio/audio-regression test
+pnpm --filter @web-audio/audio-regression exec vitest run src/runner/__tests__/wav.test.ts src/runner/__tests__/recording.test.ts src/__tests__/recording.test.ts
+pnpm --filter @web-audio/audio-regression audio:render --case sine
+pnpm --filter @web-audio/audio-regression audio:render --case lfo-filter
+afinfo packages/audio-regression/artifacts/render/sine.wav
+afplay packages/audio-regression/artifacts/render/sine.wav
+pnpm --filter @web-audio/audio-regression format:check
+pnpm check
+pnpm lint
+pnpm test
+```
+
+All **122 package tests in 13 files passed** (77 existing plus 45 added):
+
+- **27 codec cases:** independent known standard bytes (not just writer/reader agreement), mono/stereo/four-channel exact bit round trips, channel interleaving, offset byte views, rate/frame count, signed zero, subnormals, maximum finite float and above-one values. Cover invalid magic, truncation/trailing data, PCM/float64/extensible, malformed extensions/chunks/padding, missing/duplicate chunks, fact/alignment/byte-rate mismatches, empty/partial frames and non-finite samples. Test-only RIFF builders live in runner `__tests__/support/`.
+- **16 storage/metadata cases:** real temporary file round trips, small-field sidecar selection, missing/malformed metadata, rate/channel/frame mismatch, changed-browser acceptance, and invalid encoding/metadata preserving existing file bytes. Tests clean up temporary directories.
+- **One real-engine storage integration case:** stereo sine, mono 44.1 kHz and 1.3-peak synthesis all retain every full-length Float32 sample exactly on Node readback, including original rate/frame count and metadata. The above-one render remains legal; it is not clipped for file output.
+- **One added CLI case:** actual child-process rendering saves the diagnostic WAV/sidecar, reports paths, exposes correct metadata/shape and does not claim reference comparison/approval. The existing two CLI error cases still pass.
+
+CLI sine output on Chromium 147.0.7727.15: stereo 48,000 Hz, 112,800 frames, 120 BPM, peak 0.1625/RMS about 0.106532. `afinfo` independently recognized WAVE, interleaved Float32, 2.35-second duration, 902,400 audio bytes/112,800 packets and data offset 58. **`afplay` completed successfully** on the Mac. This verifies local player acceptance/playback-command success; the assistant does not certify what was heard or grant listening approval. No approved reference was created. LFO CLI also saved 204,000 frames with unchanged peak/RMS approximately 0.188983/0.0465954. Both diagnostic pairs remain ignored artifacts, not tracked references.
+
+Package/workspace checking, lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached. Root `test:ci` still does not discover this package, whose full browser suite was explicitly run. No app `dev` command was run.
+
+**Step 2.2 (production numerical comparator) is next.** The existing measured suite-wide max/RMS pair remains 0/0. Verify/update commands, failure difference recordings and initial listening-approved references remain later steps.

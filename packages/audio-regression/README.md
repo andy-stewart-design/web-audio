@@ -1,6 +1,6 @@
 # @web-audio/audio-regression
 
-Private local tooling for Fluid-sketch audio regression tests. **Phase 1 is complete on the user's Mac:** the package renders real synth, local sampler, and LFO audio through Fluid, AudioEngine, and Chromium's `OfflineAudioContext`, with seeded multi-bar and isolation/repeatability checks. Output WAV files and reference comparison remain Phase 2.
+Private local tooling for Fluid-sketch audio regression tests. **Phase 1 is complete on the user's Mac:** the package renders real synth, local sampler, and LFO audio through Fluid, AudioEngine, and Chromium's `OfflineAudioContext`, with seeded multi-bar and isolation/repeatability checks. Step 2.1 adds exact float-WAV/JSON storage and diagnostic recordings. Reference comparison and explicit reference commands remain upcoming.
 
 See [`spec.md`](../../plans/audio-regression-testing/spec.md), [`plan.md`](../../plans/audio-regression-testing/plan.md), and [`feasibility.md`](../../plans/audio-regression-testing/feasibility.md).
 
@@ -25,7 +25,7 @@ pnpm --filter @web-audio/audio-regression format:check
 
 `audio:render` and `test` first run `build:deps`, using the existing Turbo workspace builds/cache for Fluid, audio-engine, and their dependencies. Changed production code is rebuilt before browser imports; no app/database build is involved. For first-time type checking without tests/rendering, run `build:deps` first.
 
-`audio:render --case sine` prints browser version, sample rate, channels, frame count, BPM, and per-channel peak/RMS. It currently writes **no WAV/reference files** and performs **no reference comparison**. Unknown selectors or invalid arguments exit nonzero. Register trusted sketches in `src/cases.ts`; sample cases use the local resource mapping below.
+`audio:render --case sine` prints browser version, sample rate, channels, frame count, BPM, and per-channel peak/RMS. It writes the successful selected render to **`artifacts/render/sine.wav` plus `sine.json`** (or the selected case ID), prints the paths, and performs **no reference comparison**. These ignored diagnostic files are replaced by subsequent successful renders, never promoted to approved references. Failed rendering never reaches storage; an older diagnostic may remain. Unknown selectors or invalid arguments exit nonzero. Register trusted sketches in `src/cases.ts`; sample cases use the local resource mapping below.
 
 `test` runs the unit/CLI tests, browser launch checks, and actual synth/sampler/LFO render, lifecycle, and repeatability tests. `test:smoke` selects only the original three launch checks. Root `pnpm test` does not yet run this package; root verification integration is planned once actual references exist.
 
@@ -79,6 +79,23 @@ File paths are relative to this package, or absolute for local experimentation. 
 Files are served as original bytes with caching disabled; missing/unreadable files report HTTP errors plus local paths, while real decoder/resource warnings fail even if other voices sound. Mounts are removed after rendering/failure. This is trusted local tooling, not a filesystem or JavaScript sandbox.
 
 See [`resources/README.md`](./resources/README.md) for the two synthetic PCM16 **input fixtures** and their explicit generator command. Tests/rendering never regenerate them. These input WAVs are not approved references and do not change the planned float-WAV output format.
+
+## Float-WAV recordings
+
+From the repository root, render and listen locally:
+
+```sh
+pnpm --filter @web-audio/audio-regression audio:render --case sine
+afplay packages/audio-regression/artifacts/render/sine.wav
+```
+
+`src/runner/wav.ts` reads/writes little-endian **32-bit IEEE-float WAV** in Node: tag 3, an 18-byte `fmt` chunk with `cbSize=0`, a per-channel `fact` frame count, and interleaved data. Channel order, full frame count/rate, negative zero, subnormals and finite amplitudes above one are retained. There is no PCM16 conversion, clipping, normalization, trimming or browser decode/resample step. Playback hardware may limit above-one peaks; measurement data is not changed for listening.
+
+The reader is deliberately narrow, not a general sample decoder. It rejects PCM, float64, extensible/RF64/big-endian, incomplete/nonconforming headers, inconsistent lengths/format/fact counts, duplicate required chunks and non-finite samples. Unknown chunks with valid lengths/padding are skipped. The existing PCM16 sample **inputs** still use real browser decoding, independently of this output/reference codec.
+
+`src/runner/recording.ts` writes/reads `.wav` plus same-stem `.json`. Sidecars contain only case ID, settings (rate/channels/beats/start offset), bars/tail, BPM/frame count and actual browser version. Metadata and WAV shape are validated, but provenance changes do not create an environment gate. Encoding/validation completes before writing; these are ordinary diagnostic file writes, not a multi-file reference update transaction. File errors propagate nonzero. `artifacts/` is ignored by git and formatting.
+
+macOS `afinfo` recognized the generated sine file as stereo 48 kHz Float32, and `afplay` completed successfully. This confirms player acceptance, **not** listening approval of a regression reference. No approved references exist yet.
 
 ## Planned comparison commands — not implemented yet
 

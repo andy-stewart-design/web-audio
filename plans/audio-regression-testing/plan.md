@@ -2,7 +2,7 @@
 
 ## Status and goal
 
-**Phases 0–1 are complete on the user's Mac. Steps 1.1–1.6 are complete; Step 2.1 is next.** Phases 2–3 have not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
+**Phases 0–1 are complete on the user's Mac. Phase 2 is in progress: Step 2.1 is complete; Step 2.2 is next.** Phase 3 has not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
 
 The deliverable is a local command that runs saved Fluid sketches through the real engine and compares their audio to listening-approved recordings. It does not require Linux, containers, hosted CI, a report application, or a separate candidate/approval system.
 
@@ -169,7 +169,7 @@ The harness observes native worklet-node failure events without changing DSP. Ch
 - [x] Isolated renders do not retain voices, caches, or direction state.
 - [x] Repeatability is measured on the Mac, including a fresh launch.
 
-**Phase exit gate passed:** Real synth/sample/LFO rendering, failure diagnostics, isolation, and local repeatability are demonstrated. Phase 1 is closed; Step 2.1 (standard float-WAV I/O) is next. No listening-approved reference exists yet.
+**Phase exit gate passed:** Real synth/sample/LFO rendering, failure diagnostics, isolation, and local repeatability are demonstrated. Phase 1 is closed; standard float-WAV I/O follows in Step 2.1 below. No listening-approved reference exists yet.
 
 ---
 
@@ -185,11 +185,15 @@ The harness observes native worklet-node failure events without changing DSP. Ch
 
 **Work:** Use standard 32-bit IEEE-float WAV for references and generated recordings. Preserve channels, sample rate, and Float32 values directly, including finite amplitudes above one. Read samples in Node rather than browser decoding/resampling. Store a small JSON sidecar with render settings and actual browser version; no hashes, schema golden, custom binary container, or compatibility manifest.
 
-**Validation:** Known mono/stereo arrays round-trip exactly; verify sample rate/frame count/channel order, values above one, and clear rejection of malformed/unsupported/truncated WAVs. Play one generated file locally to check it is useful for listening.
+**Completed work:** Added dependency-free Node float-WAV encoding/decoding (`src/runner/wav.ts`) and WAV/JSON storage (`src/runner/recording.ts`), with `RecordingMetadata` in the existing private types module. Writer uses little-endian IEEE float32 tag 3, 18-byte WAVEFORMATEX (`cbSize=0`), a per-channel `fact` frame count, and interleaved `data`. Reader validates lengths/chunks/format/frames/finiteness, skips unknown padded chunks, and returns original Float32 channels without browser decoding. The intentionally narrow codec rejects PCM, float64, extensible/RF64/big-endian and nonconforming headers rather than converting them. Sidecars retain only ID, render settings, bars/tail, BPM/frame count and actual browser version; fields and audio shape are validated, but changed browser provenance is accepted.
 
-- [ ] References retain the actual rendered floats without quantization/clipping.
-- [ ] WAV files work as both references and listening recordings.
-- [ ] Metadata is small and diagnostic, not an environment certification gate.
+`audio:render --case <id>` now saves the successful selected diagnostic recording to ignored `artifacts/render/<id>.wav` plus `.json`, printing paths. It does not create/promote references or compare audio. Validation/encoding happens before file writes; diagnostic storage is ordinary file I/O, not a reference-set transaction. Production engine, dependencies, lockfile, input sample bytes and measured tolerances are unchanged.
+
+**Validation:** All **122 package tests in 13 files passed**: 77 existing plus 27 codec, 16 storage/metadata, one native-render storage integration and one CLI recording check. Independent known bytes, mono/stereo/four-channel ordering, byte-offset views, negative zero/subnormals/largest finite float/above-one peaks, malformed/truncated/unsupported files, padded extra chunks, bad sidecars/shape and validation-before-write are covered. Real stereo, mono/44.1 kHz and above-one synthesis round-trip every sample exactly. CLI saved sine and LFO recordings; macOS `afinfo` recognized sine as stereo 48 kHz Float32, 112,800 frames/2.35 s with data offset 58, and `afplay` completed successfully. Playback command success is not listening approval; no approved reference exists. Package/workspace check/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached.
+
+- [x] Reference storage can retain actual rendered floats without quantization/clipping; references are not approved/generated yet.
+- [x] WAV files work as both exact storage and local playback recordings.
+- [x] Metadata is small and diagnostic, not an environment certification gate.
 
 ### Step 2.2 — Implement basic numerical and signal checks
 

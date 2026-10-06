@@ -1,4 +1,6 @@
+import { fileURLToPath } from "node:url";
 import { cases, parseCaseSelector, selectCase } from "./cases";
+import { writeRecording } from "./runner/recording";
 import { withRenderer } from "./runner/render";
 
 try {
@@ -14,7 +16,14 @@ try {
         `Channel ${channel}: peak=${peak.toPrecision(6)} RMS=${rms.toPrecision(6)}`,
       ),
     );
-    console.log("Render succeeded. No reference comparison or WAV output yet.");
+    const output = fileURLToPath(
+      new URL(`../artifacts/render/${result.id}.wav`, import.meta.url),
+    );
+    const paths = await writeRecording(output, result);
+    console.log(`WAV: ${paths.wav}\nSettings: ${paths.json}`);
+    console.log(
+      "Render succeeded. Diagnostic recording only; no reference comparison or approval.",
+    );
   });
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));

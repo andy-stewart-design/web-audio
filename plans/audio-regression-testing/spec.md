@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-Phases 0–1 are complete on the user's Mac. Steps 1.1–1.6 render real synth, local sampler, and LFO audio through AudioEngine, with failure diagnostics, seeded multi-bar behavior, isolation, and measured repeatability across fresh browser launches. All six registered cases repeated with maximum/RMS sample error 0; the initial suite-wide tolerance pair is 0/0. `audio:render --case <id>` reports raw-audio health metrics. Output WAV/reference storage, audio comparison, and listening approval remain Phases 2–3; Step 2.1 is next. See [plan.md](./plan.md) and [feasibility.md](./feasibility.md) for remaining work, evidence, and limits.
+Phases 0–1 are complete on the user's Mac. Steps 1.1–1.6 render real synth, local sampler, and LFO audio through AudioEngine, with failure diagnostics, seeded multi-bar behavior, isolation, and measured repeatability across fresh browser launches. All six registered cases repeated with maximum/RMS sample error 0; the initial suite-wide tolerance pair is 0/0. Step 2.1 adds exact Node float-WAV storage and small JSON sidecars. `audio:render --case <id>` reports raw-audio health metrics and saves diagnostic recordings under ignored `artifacts/render/`. Audio comparison, reference commands, and listening approval remain Phases 2–3; Step 2.2 is next. See [plan.md](./plan.md) and [feasibility.md](./feasibility.md) for remaining work, evidence, and limits.
 
 Replace routine manual REPL checks with a local command that executes saved Fluid sketches, renders through the real audio engine, and compares the sound with listening-approved recordings. Build a useful regression suite, not a cross-platform testing service.
 
@@ -94,7 +94,7 @@ Bound each case with a Node-side timeout and close its page/context on hangs, in
 
 Store each reference as a standard **32-bit IEEE-float WAV** plus a small JSON file containing render settings and actual browser version. Keep it simple: no source hashes, compatibility certifications, or schema golden files.
 
-Write the rendered Float32 values without PCM16 quantization, gain normalization, clipping, or resampling. Read reference WAV samples directly in Node, rather than decoding/resampling them through the browser. Unit tests must verify exact sample/channel round trips and reject malformed/unsupported files clearly.
+Write the rendered Float32 values without PCM16 quantization, gain normalization, clipping, or resampling. Read reference WAV samples directly in Node, rather than decoding/resampling them through the browser. Step 2.1 implements little-endian IEEE float32 tag 3 with 18-byte WAVEFORMATEX (`cbSize=0`), a `fact` frame count per channel, and interleaved data. The reader validates the container/chunks and finite samples, accepts unknown padded chunks, and deliberately rejects unsupported formats instead of converting them. Unit/native-render tests verify exact sample/channel round trips, including finite values above one. JSON sidecars contain only ID, settings, bars/tail, BPM/frame count and browser version; malformed metadata or mismatched audio shape fails, while browser-version changes alone do not.
 
 Verification checks:
 

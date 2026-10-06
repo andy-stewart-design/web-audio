@@ -5,6 +5,17 @@ export interface RenderSettings {
   startOffsetFrames: number;
 }
 
+// Diagnostic provenance only; not an environment/version compatibility gate.
+export interface RecordingMetadata {
+  id: string;
+  settings: RenderSettings;
+  bars: number;
+  tailSeconds: number;
+  bpm: number;
+  frameCount: number;
+  browserVersion: string;
+}
+
 export interface SketchCase {
   id: string;
   description: string;
