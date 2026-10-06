@@ -2,7 +2,7 @@
 
 ## Status and goal
 
-**Phases 0–1 are complete on the user's Mac. Phase 2 is in progress: Steps 2.1–2.3 are complete; Step 2.4 is next.** Phase 3 has not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
+**Phases 0–1 are complete on the user's Mac. Phase 2 is in progress: Steps 2.1–2.4 are complete; Step 2.5 is next.** Phase 3 has not started. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
 
 The deliverable is a local command that runs saved Fluid sketches through the real engine and compares their audio to listening-approved recordings. It does not require Linux, containers, hosted CI, a report application, or a separate candidate/approval system.
 
@@ -243,11 +243,17 @@ Normal package `audio:verify` rendered all six cases and exited 1 for six absent
 
 **Work:** Update explicitly selected references using fresh, healthy renders. Validate/render before replacing the selected WAV/settings; failed source/loading/rendering leaves old references untouched. No separate candidates, promotion, enforced approval reasons, or reference-set transaction machinery. Document listening and git review before committing intended changes.
 
-**Validation:** Explicit update creates/replaces the chosen reference only, and subsequent verification passes. Failed updates preserve old reference files; ordinary verification never updates. Check repeated output for new cases before accepting their first recording.
+**Completed work:** Added `src/runner/update.ts`, `src/update-cli.ts` and `audio:update --case <id>` with dependency builds first. Exactly one named case is required; empty/all/multiple/unknown selection fails before launch. Each invocation renders fresh through the owned harness, rejects failed/partial output, rechecks signal health, then validates/encodes before writing only the selected WAV/JSON. Other references are untouched; verification has no update flag/path. Shared default reference-directory placement lives in recording storage, not a new path-only module. Output reports case/settings/peak/RMS/paths and explicitly says generation is not listening approval. No candidate/promote/reason system, hashes, tolerance changes or transaction machinery.
 
-- [ ] Reference updates require an explicit separate command.
-- [ ] Broken rendering/loading cannot overwrite an old reference.
-- [ ] Listen/review/commit workflow is documented and tested once manually.
+Source/loading/worklet/timeout/health/metadata/encoding failures preserve existing bytes and create no missing reference path. Writes remain ordinary I/O, not atomic: later disk-write failures may leave a partial selected pair, are nonzero, and require review/restoration. README documents repeatability, listening, intended-change review, read-only verification and staging both files before committing; user approval is never inferred.
+
+**Validation:** All **216 package tests in 21 files passed** (189 existing plus 13 updater units, 5 native integrations and 9 command tests). Units cover explicit selection, selected-only creation/replacement, fresh repeated renders, original Float32/above-one/signed-zero retention, unexpected/exact silence, wrong render ID, invalid metadata/shape/ragged/nonfinite audio, unchanged references on rejection and filesystem error reporting. Native synth/sample updates verify at unchanged 0/0, healthy gain/tail replacement updates only sine while sample bytes remain intact, and old-source verification fails without rewriting. Real source, missing-sample alongside healthy audio, worklet, silence and synchronous-timeout failures preserve every reference byte, close contexts and recover. Seeded multi-bar updates in fresh browsers are byte-identical. Child commands create/replace selected unapproved fixtures and verify them; source/sample failures exit 1 preserving old WAV/JSON; actual CLI invalid/non-explicit selectors exit 1.
+
+The real package CLI generated temporary sine, targeted verification passed at 0/0 and left bytes unchanged, `afinfo` accepted its float WAV and `afplay` completed. Reviewed git status/new sidecar output; a second explicit update was byte-identical. **No listening approval or commit was claimed:** removed the temporary reference pair, leaving only ignored `artifacts/update-demo/sine.*` for user review. Initial trusted references remain Phase 3. Package/workspace check/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached. No production engine/app, dependency/lockfile/input sample/tolerance change; broader regression demonstrations remain Step 2.5.
+
+- [x] Reference updates require an explicit separate command.
+- [x] Broken rendering/loading cannot overwrite an old reference.
+- [x] Listen/review/commit workflow is documented and manually rehearsed through player/git review/verification; actual human approval and commit remain explicit user actions.
 
 ### Step 2.5 — Show that actual regressions are caught
 

@@ -4,12 +4,13 @@ import { fileURLToPath } from "node:url";
 import { cases, selectCases } from "../cases";
 import type { SketchCase } from "../types";
 import { compareAudio, formatComparison } from "./compare";
-import { readRecording, writeRecording } from "./recording";
+import {
+  REFERENCE_DIRECTORY,
+  readRecording,
+  writeRecording,
+} from "./recording";
 import { withRenderer } from "./render";
 
-const referenceDirectory = fileURLToPath(
-  new URL("../../references/", import.meta.url),
-);
 const artifactDirectory = fileURLToPath(
   new URL("../../artifacts/verify/", import.meta.url),
 );
@@ -32,7 +33,7 @@ export function parseVerifySelector(args: string[]) {
 }
 
 function verificationPaths(options: VerificationOptions) {
-  const references = resolve(options.referenceDirectory ?? referenceDirectory);
+  const references = resolve(options.referenceDirectory ?? REFERENCE_DIRECTORY);
   const artifacts = resolve(options.artifactDirectory ?? artifactDirectory);
   // Never allow configurable artifact cleanup/writes to target the reference tree.
   const contains = (parent: string, child: string) => {

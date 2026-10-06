@@ -2,9 +2,9 @@
 
 ## Status
 
-**Phases 0–1 are complete on the user's Mac; Steps 1.1–1.6 are complete.** The unnecessary Linux/container validation requirement has been removed. Shared seams and an owned local browser harness now render real synth/sample/LFO audio with loading/processor-failure detection, seeded multi-bar behavior, isolation, and measured sample-identical repeats including fresh launches. Steps 2.1–2.3 are also complete: exact Node float-WAV storage/sidecars, a tested raw comparator at unchanged 0/0 defaults, and read-only `audio:verify` with failure recordings. Explicit reference updates and listening approval remain future work; Step 2.4 is next. No approved references exist, so normal verification currently fails missing coverage while still rendering.
+**Phases 0–1 are complete on the user's Mac; Steps 1.1–1.6 are complete.** The unnecessary Linux/container validation requirement has been removed. Shared seams and an owned local browser harness now render real synth/sample/LFO audio with loading/processor-failure detection, seeded multi-bar behavior, isolation, and measured sample-identical repeats including fresh launches. Steps 2.1–2.4 are also complete: exact Node float-WAV storage/sidecars, a raw comparator at unchanged 0/0 defaults, read-only verification/failure recordings and explicitly selected `audio:update`. Broader regression demonstrations and initial user listening approval remain future work; Step 2.5 is next. No approved references exist, so normal verification currently fails missing coverage while still rendering.
 
-This record supports Phases 0–1 and Steps 2.1–2.3 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
+This record supports Phases 0–1 and Steps 2.1–2.4 of the [implementation plan](./plan.md). Do not interpret the browser-launch smoke tests as audio regression coverage.
 
 Audited production revision: `02059e5755d7011310593bfa38912786bf767cc7`. No production implementation was changed during Phase 0. Re-read these consumers before Phase 1 if other work changes them.
 
@@ -503,4 +503,43 @@ afplay packages/audio-regression/artifacts/verify-demo/sine/difference.wav
 
 Package/workspace checking/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached. Root tests still do not discover this package's browser verification, whose full 189-test suite was explicitly executed. No production engine/app code, dependency resolution, lockfile, input asset, measured tolerance or reference changed. The only package-script addition is `audio:verify`. No app `dev` command was run.
 
-**Step 2.4 (explicit `audio:update --case <id>`) is next.** Verification is usable now but correctly fails until trusted references exist. Update workflow, broader representative mutations, supplied sketches, listening approval and root integration remain later steps.
+At Step 2.3 closeout, explicit updates remained Step 2.4; the section below supplies them. Broader representative mutations, supplied sketches, listening approval and root integration remain later steps.
+
+## Step 2.4 — Explicit selected reference updates (complete)
+
+Added `src/runner/update.ts`, `src/update-cli.ts` and `audio:update --case <id>`, building workspace dependencies first. Selection requires exactly one named case: no default/all/multiple update or verification update flag. Unknown/invalid selection and invalid registries fail before browser startup. Each invocation renders a fresh isolated case through the existing owned harness, including unchanged source. No pre-render directory/file I/O is done.
+
+Only a successfully accepted render can reach reference writing. The action checks matching case identity and the existing audible/exact-silence policy, then `writeRecording` validates metadata/shape/finiteness and encodes before I/O. Selected original Float32 samples and small settings/browser sidecar create/replace only `references/<id>.wav` and `.json`; other IDs are untouched. The shared default reference directory now lives in `recording.ts`, used by both update and verification without a standalone path module. Verification remains read-only and has no promotion/update path. Output reports Chromium, rate/channels/frames/BPM, peak/RMS and paths, and says explicitly that written audio is not listening approval.
+
+Source/sample/worklet/timeout/signal/metadata/encoding failures leave old references byte-identical, and invalid first renders create no reference path. No candidate/approval-reason system, source hash, profile/tolerance adjustment, or transaction machinery was added. WAV/JSON use ordinary writes: later filesystem failures propagate nonzero and may leave a partial selected pair; there is no rollback guarantee after I/O starts. README documents restoring/reviewing those failures and the repeatability → explicit update → listen/review → read-only verify → stage both files/commit workflow. Initial human approval is not delegated to the command.
+
+Validation:
+
+```sh
+pnpm --filter @web-audio/audio-regression check
+pnpm --filter @web-audio/audio-regression lint
+pnpm --filter @web-audio/audio-regression test
+pnpm --filter @web-audio/audio-regression exec vitest run src/runner/__tests__/update.test.ts src/__tests__/update.test.ts src/__tests__/update-cli.test.ts
+pnpm --filter @web-audio/audio-regression audio:update --case sine
+pnpm --filter @web-audio/audio-regression audio:verify --case sine
+afinfo packages/audio-regression/references/sine.wav
+afplay packages/audio-regression/references/sine.wav
+pnpm --filter @web-audio/audio-regression format:check
+pnpm check
+pnpm lint
+pnpm test
+```
+
+All **216 package tests in 21 files passed** (189 existing plus 27 added; the initial focused run passed 26 before the additional timeout check):
+
+- **13 updater units:** strict explicit selector/registry rejection before browser or file creation; selected-only creation/replacement with fresh calls; no unchanged-source skips. Original above-one samples and signed zero survive storage, and resulting verification passes without changing bytes. Wrong render ID, invalid metadata/frame shape, NaN/ragged channels and unexpected silence reject before replacing old bytes; explicit silence accepts only zeros. Render rejection preserves existing pairs and never creates missing paths. Filesystem failures cannot print successful update status.
+- **5 native browser/storage integrations:** native sine/sample references create and verify at 0/0; healthy gain/tail change replaces only sine (115,200 frames / 0.3 s tail), while sample WAV/JSON bytes remain unchanged. Fresh intended output verifies and old source fails without rewriting. Actual source exception, missing sample alongside a healthy synth, native worklet processor failure and unexpected silence preserve every reference byte, close contexts and recover. Invalid initial output creates no directory; native opted-in silence writes/verifies exactly. A synchronous `while (true) {}` hits the Node-side 1,500 ms test deadline, preserves the old reference, closes its context and then verifies healthy output. Repeated seeded multi-bar updates with genuinely fresh browsers are byte-identical at unchanged defaults.
+- **9 command tests:** actual CLI rejects empty/all/missing/unknown/multiple/update-flag selection with exit 1. A test-only child driver uses the real updater and CLI exit policy with temporary unapproved references; successful commands create and replace sine in fresh processes and subsequent production verification passes without writes. Source/sample failures exit 1 with diagnostics and leave WAV/JSON bytes unchanged. All fixtures are temporary and removed; production imports no suite support.
+
+Manually rehearsed the **actual package command**, initially guarding that no reference directory existed. `audio:update --case sine` generated one temporary unapproved WAV/JSON pair. Targeted `audio:verify` passed both channels at **max/RMS 0/0** / exit 0; byte comparisons against a retained diagnostic copy proved verification made no change. Browser was Chromium 147.0.7727.15, stereo 48 kHz, 112,800 frames/120 BPM; peak/RMS about 0.1625/0.106532. `afinfo` recognized standard interleaved Float32, 2.35 s and data offset 58; **`afplay` completed**. Git status exposed the new reference directory and an explicit new-file sidecar diff showed the 14-line small metadata. A second selected update rendered fresh and produced byte-identical WAV/JSON.
+
+No actual listening approval or git commit was inferred or performed. A guarded cleanup removed just the generated temporary sine pair/directory. An ignored unapproved playback copy remains at `artifacts/update-demo/sine.wav` plus `.json` for the user. There are still **no approved reference files**, so normal default verification continues to fail absent coverage until references are intentionally generated/reviewed. Playback/player acceptance and a numerical pass are not musical-quality approval. Human listen/review/commit remains Phase 3.
+
+Package/workspace checking/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached. Root tests still do not discover this package, whose full browser suite was explicitly executed. No engine/app implementation, dependency/lockfile/input sample or tolerance changed. Only the package `audio:update` script was added; no app `dev` command was run.
+
+**Step 2.5 (focused real-render regression changes) is next.** The explicit update/verify workflow is implemented, but supplied-sketch onboarding, initial trusted coverage and root integration remain later work.

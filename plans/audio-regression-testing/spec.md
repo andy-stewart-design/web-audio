@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-Phases 0–1 are complete on the user's Mac. Steps 1.1–1.6 render real synth, local sampler, and LFO audio through AudioEngine, with failure diagnostics, seeded multi-bar behavior, isolation, and measured repeatability across fresh browser launches. All six registered cases repeated with maximum/RMS sample error 0; the initial suite-wide tolerance pair is 0/0. Step 2.1 adds exact Node float-WAV storage and small JSON sidecars. `audio:render --case <id>` reports raw-audio health metrics and saves diagnostic recordings under ignored `artifacts/render/`. Step 2.2 adds the tested raw-audio comparator and diagnostics using the unchanged 0/0 defaults. Step 2.3 adds read-only `audio:verify [--case <id>]` and reference/current/difference failure recordings. Explicit reference updates and listening approval remain Phases 2–3; Step 2.4 is next. No approved references exist, so ordinary verification correctly fails missing coverage while still rendering. See [plan.md](./plan.md) and [feasibility.md](./feasibility.md) for remaining work, evidence, and limits.
+Phases 0–1 are complete on the user's Mac. Steps 1.1–1.6 render real synth, local sampler, and LFO audio through AudioEngine, with failure diagnostics, seeded multi-bar behavior, isolation, and measured repeatability across fresh browser launches. All six registered cases repeated with maximum/RMS sample error 0; the initial suite-wide tolerance pair is 0/0. Step 2.1 adds exact Node float-WAV storage and small JSON sidecars. `audio:render --case <id>` reports raw-audio health metrics and saves diagnostic recordings under ignored `artifacts/render/`. Step 2.2 adds the tested raw-audio comparator and diagnostics using the unchanged 0/0 defaults. Step 2.3 adds read-only `audio:verify [--case <id>]` and reference/current/difference failure recordings. Step 2.4 adds explicitly selected `audio:update --case <id>` with render/validation before replacement. Broader controlled regressions and initial listening-approved user references remain Phases 2–3; Step 2.5 is next. No approved references exist, so ordinary verification correctly fails missing coverage while still rendering. See [plan.md](./plan.md) and [feasibility.md](./feasibility.md) for remaining work, evidence, and limits.
 
 Replace routine manual REPL checks with a local command that executes saved Fluid sketches, renders through the real audio engine, and compares the sound with listening-approved recordings. Build a useful regression suite, not a cross-platform testing service.
 
@@ -111,14 +111,15 @@ Finite values above one are legal in Web Audio and must be preserved. Do not imp
 
 ## Commands and baseline review
 
-Available read-only commands:
+Available commands (verification is read-only; updating is a separate explicit action):
 
 ```sh
 pnpm --filter @web-audio/audio-regression audio:verify
 pnpm --filter @web-audio/audio-regression audio:verify --case <id>
+pnpm --filter @web-audio/audio-regression audio:update --case <id>
 ```
 
-References are intended to be committed as package `references/<id>.wav` plus `.json` after listening review; none are approved yet. Step 2.4 will add the separate, explicitly selected `audio:update --case <id>` command (not implemented yet).
+References are created/replaced only by explicit update as package `references/<id>.wav` plus `.json`, then committed after human listening/review; none are approved yet. Step 2.4 requires exactly one named case (no all/default/multiple update), validates selection before launch, always renders fresh, and checks accepted audio/metadata/encoding before writing only that pair. Source/resource/worklet/timeout/health/validation failures leave old files untouched and cannot create a first reference. Other references and measured tolerances remain unchanged. Ordinary WAV/JSON disk writes are not transactional: later I/O failures may leave partial output, propagate nonzero and require inspection/restoration. The command reports paths/settings/signal metrics and states that generation is not approval.
 
 - Verification always renders and compares; it never writes references. Missing references, unknown selectors, or an empty suite fail clearly rather than passing with no coverage.
 - Updating is an explicitly selected action, not a test flag invoked by normal verification. Render and validate output before writing the selected reference. Failed evaluation/loading/rendering must not overwrite the old recording.

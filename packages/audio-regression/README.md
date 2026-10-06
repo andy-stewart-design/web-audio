@@ -1,6 +1,6 @@
 # @web-audio/audio-regression
 
-Private local tooling for Fluid-sketch audio regression tests. **Phase 1 is complete on the user's Mac:** the package renders real synth, local sampler, and LFO audio through Fluid, AudioEngine, and Chromium's `OfflineAudioContext`, with seeded multi-bar and isolation/repeatability checks. Steps 2.1–2.3 add exact float-WAV/JSON storage, the raw-audio comparator, and read-only `audio:verify` with failure recordings. Explicit updates and listening-approved references remain upcoming.
+Private local tooling for Fluid-sketch audio regression tests. **Phase 1 is complete on the user's Mac:** the package renders real synth, local sampler, and LFO audio through Fluid, AudioEngine, and Chromium's `OfflineAudioContext`, with seeded multi-bar and isolation/repeatability checks. Steps 2.1–2.4 add exact float-WAV/JSON storage, the raw-audio comparator, read-only `audio:verify` with failure recordings, and explicitly selected `audio:update`. Broader regression demonstrations and listening-approved user references remain upcoming.
 
 See [`spec.md`](../../plans/audio-regression-testing/spec.md), [`plan.md`](../../plans/audio-regression-testing/plan.md), and [`feasibility.md`](../../plans/audio-regression-testing/feasibility.md).
 
@@ -19,13 +19,15 @@ pnpm --filter @web-audio/audio-regression audio:render --case seeded-multibar
 pnpm --filter @web-audio/audio-regression audio:render --case sample-alternate
 pnpm --filter @web-audio/audio-regression audio:verify
 pnpm --filter @web-audio/audio-regression audio:verify --case sine
+# Explicitly writes a reference; listen/review before committing:
+pnpm --filter @web-audio/audio-regression audio:update --case sine
 pnpm --filter @web-audio/audio-regression test
 pnpm --filter @web-audio/audio-regression check
 pnpm --filter @web-audio/audio-regression lint
 pnpm --filter @web-audio/audio-regression format:check
 ```
 
-`audio:render`, `audio:verify` and `test` first run `build:deps`, using the existing Turbo workspace builds/cache for Fluid, audio-engine, and their dependencies. Changed production code is rebuilt before browser imports; no app/database build is involved. For first-time type checking without tests/rendering, run `build:deps` first.
+`audio:render`, `audio:verify`, `audio:update` and `test` first run `build:deps`, using the existing Turbo workspace builds/cache for Fluid, audio-engine, and their dependencies. Changed production code is rebuilt before browser imports; no app/database build is involved. For first-time type checking without tests/rendering, run `build:deps` first.
 
 `audio:render --case sine` prints browser version, sample rate, channels, frame count, BPM, and per-channel peak/RMS. It writes the successful selected render to **`artifacts/render/sine.wav` plus `sine.json`** (or the selected case ID), prints the paths, and performs **no reference comparison**. These ignored diagnostic files are replaced by subsequent successful renders, never promoted to approved references. Failed rendering never reaches storage; an older diagnostic may remain. Unknown selectors or invalid arguments exit nonzero. Register trusted sketches in `src/cases.ts`; sample cases use the local resource mapping below.
 
@@ -146,10 +148,36 @@ afplay packages/audio-regression/artifacts/verify/<id>/difference.wav
 
 The Step 2.3 unapproved gain-change demonstration also remains under **`artifacts/verify-demo/sine/`** with the same three filenames. macOS recognized its difference file as stereo 48 kHz Float32; all three playback commands completed. This is player acceptance, **not** human listening approval. Human A/B review and approved reference creation remain separate.
 
-## Explicit reference updates — not implemented yet
+## Explicit reference updates
 
 ```sh
 pnpm --filter @web-audio/audio-regression audio:update --case <id>
 ```
 
-Step 2.4 will render/check the selected case before replacing its reference. Listen and review before committing. No candidate-promotion workflow, HTML reports, or new CI infrastructure is required.
+This is the **only command that writes reference recordings**. It requires exactly one explicit case ID: no default full-suite update, `--all`, multiple selectors, or update flag on verification. Unknown/invalid selection fails before browser startup. The selected case always gets a fresh real render; unchanged source is not a skip. Healthy output creates/replaces **only `references/<id>.wav` and `<id>.json`**, reporting the paths, browser/settings and per-channel peak/RMS. It does not copy an old diagnostic file, change tolerances, or update any other case.
+
+Source, sample-loading, worklet, timeout, and signal-health failures occur before reference I/O and leave old recordings untouched; an invalid first render creates no reference directory. Metadata/shape/finiteness validation and encoding also finish before writes. Finite peaks above one remain legal; silence requires explicit case opt-in. The WAV/JSON pair uses ordinary writes, **not an atomic transaction**: a later disk-write error can leave partial output, exits nonzero, and requires inspecting/restoring the pair rather than assuming rollback.
+
+### Listen → review → verify → commit
+
+For a new case, first check repeated output in fresh renders (the six initial fixtures have already measured 0/0). For an intended change, inspect the existing verification failure/A/B recordings before choosing to update. Never run update automatically just to make a failing test green.
+
+```sh
+# Explicitly generate/replace this one reference:
+pnpm --filter @web-audio/audio-regression audio:update --case sine
+# Listen and inspect the settings and intended change:
+afplay packages/audio-regression/references/sine.wav
+git status --short -- packages/audio-regression/references/
+git diff -- packages/audio-regression/references/sine.json
+# Fresh comparison; this never writes references:
+pnpm --filter @web-audio/audio-regression audio:verify --case sine
+# Only after human listening/review, stage both files and commit the intended change:
+git add packages/audio-regression/references/sine.wav packages/audio-regression/references/sine.json
+git diff --cached --stat
+git diff --cached -- packages/audio-regression/references/sine.json
+git commit -m "audio: review sine reference"
+```
+
+New untracked sidecars appear in `git status`, not ordinary `git diff`; staged diff above shows them. If output is wrong, fix the sketch/engine and discard or restore the unapproved pair—do not commit it as a reference. Verification can numerically pass an unreviewed generated recording; **generation, comparison and playback-command success are not listening approval**. Git review/commit records suffice; there is no candidate/promotion or approval-reason framework.
+
+The manual Step 2.4 CLI check generated sine, verified it at 0/0 without changing bytes, completed macOS playback, reviewed its sidecar/status and repeated a byte-identical update. The temporary reference was then removed without approval or commit. An ignored copy remains at **`artifacts/update-demo/sine.wav` plus `.json`** for listening; there are still no approved references in this package. Human listening approval and initial committed coverage remain Phase 3.

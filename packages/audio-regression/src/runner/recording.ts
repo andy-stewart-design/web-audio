@@ -1,8 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, extname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { normalizeCase, planRender } from "../cases";
 import type { RecordingMetadata } from "../types";
 import { decodeWav, encodeWav } from "./wav";
+
+export const REFERENCE_DIRECTORY = fileURLToPath(
+  new URL("../../references/", import.meta.url),
+);
 
 function recordingPaths(path: string) {
   const wav = resolve(path);
@@ -110,8 +115,8 @@ export async function writeRecording(
     channels: recording.channels,
   });
   const json = `${JSON.stringify(metadata, null, 2)}\n`;
-  // Validate/encode everything before file I/O. This is not a multi-file update
-  // transaction; explicit reference replacement is Step 2.4, not this helper.
+  // Validate/encode everything before file I/O. Ordinary WAV/JSON writes are
+  // not a transaction: later disk-write failures can leave partial output.
   await mkdir(dirname(paths.wav), { recursive: true });
   await writeFile(paths.wav, wav);
   await writeFile(paths.json, json);
