@@ -50,11 +50,13 @@ The current tests verify real synth/sample pitch/output, reversal, forward/rever
 
 ## Measured repeatability
 
-The six registered cases are each rendered four times: baseline, same-order repeat, reversed order after an odd alternate render/different bytes under the same logical sample URL/explicit silence, and reversed order in a fresh browser/server launch. All full-length Float32 channels measured maximum/RMS error **0/0** on the Mac with Chromium 147.0.7727.15. Separate fresh-process runs also passed.
+The six original cases were each rendered four times: baseline, same-order repeat, reversed order after an odd alternate render/different bytes under the same logical sample URL/explicit silence, and reversed order in a fresh browser/server launch. All full-length Float32 channels measured maximum/RMS error **0/0** on the Mac with Chromium 147.0.7727.15. Separate fresh-process runs also passed.
 
-The initial suite-wide pair is therefore **`maxError: 0`, `rmsError: 0`**, exported as immutable `COMPARISON_TOLERANCE` from `src/runner/audio.ts`. Repeatability tests, the production comparator and reference verification use it. No gain/time normalization, trimming, alignment, resampling, or tolerance widening is used. The analytical phase proof's `1e-6` bound is for an ideal mathematical gain versus native floating-point DSP, **not** a recording-comparison tolerance.
+The reviewed suite-wide pair is now **`maxError: 1e-6`, `rmsError: 1e-7`**, exported as immutable `COMPARISON_TOLERANCE` from `src/runner/audio.ts`. Both inclusive gates must pass in every channel. These fixed absolute limits accommodate measured native Float32 mixing roundoff; they never adapt to a failed comparison. Repeatability checks, the production comparator and reference verification share them. Genuine differences below both limits will not be detected; bit-exact equality is no longer the default promise. No gain/time normalization, trimming, alignment, resampling, clipping or quantization is used. The analytical phase proof's `1e-6` bound remains a separate mathematical check, not the basis for these recording limits.
 
-This is local repeatability evidence for these inputs, not cross-platform/browser certification or musical quality approval. Recheck new sketches and browser/rendering dependency changes; investigate differences rather than automatically loosening the pair. A draft test combining a sample and two fully overlapping synths exhibited maximum/RMS differences around **5.96e-8/6.70e-9**, also reproduced with inline source without file loading. It is not registered/approved coverage; its cause remains open and the **0/0 defaults are unchanged**. Detailed observations are in `feasibility.md`.
+This is local repeatability evidence for these inputs, not cross-platform/browser certification or musical quality approval. Recheck new sketches and browser/rendering dependency changes; investigate differences rather than automatically loosening the pair. A draft test combining a sample and two fully overlapping synths exhibited maximum/RMS differences around **5.96e-8/6.70e-9**, also reproduced with inline source without file loading. That draft was not registered/approved coverage, and its historical diagnostics have since been deleted. Detailed observations are in `feasibility.md`.
+
+The added **`techno-drum-loop`** does not repeat at 0/0: unchanged renders have measured maximum error up to **3.5762786865234375e-7** and RMS around **1.28e-8**. Individual drums are exact; the combined recording's variation is explained exactly by **Chromium's unordered native Float32 mixing order**, also reproduced without Fluid/AudioEngine. The user explicitly approved the small fixed limits after reviewing this cause and trade-off. Fifteen repeated verifications, including three fresh browsers, passed the unchanged reference; six original numerical regressions, two diagnostic regressions and four drum-loop changes still failed, with successful original recovery. The actual loop/sine verification commands also passed. See [the investigation and policy record](../../plans/audio-regression-testing/repeatability.md). No engine graph or reference recording was changed. Remeasure new sketches/platform changes; this is not a guarantee that arbitrary graphs fit these limits.
 
 To rerun only these checks after building dependencies:
 
@@ -65,7 +67,7 @@ pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/worklets
 
 ## Demonstrated regression detection
 
-`src/__tests__/regressions.test.ts` runs eight focused real-engine cases using test-only `support/regressions.ts` fixtures. Six healthy, same-shape authored changes fail specifically on maximum/RMS error at unchanged **0/0** defaults:
+`src/__tests__/regressions.test.ts` runs eight focused real-engine cases using test-only `support/regressions.ts` fixtures. Six healthy, same-shape authored changes fail specifically on maximum/RMS error at the fixed **`1e-6` / `1e-7`** defaults:
 
 | Change           | Actual protected difference                                                  |
 | ---------------- | ---------------------------------------------------------------------------- |
@@ -117,14 +119,11 @@ The folder name is the stable case ID (`a-z`, `0-9`, `_`, `-`, beginning with a 
 {
   "description": "Real fetch/decode/playback of a local 440 Hz sample",
   "bars": 1,
-  "tailSeconds": 0.1,
-  "resources": {
-    "/samples/tone.wav": "./samples/tone.wav"
-  }
+  "tailSeconds": 0.1
 }
 ```
 
-Required fields are `description`, positive integer `bars`, and nonnegative `tailSeconds`. Optional fields are `expectSilence` (boolean, defaults to false), `settings` (partial `sampleRate`, `channels`, `beatsPerBar`, `startOffsetFrames`) and `resources` (exact sample URL → local file). Unknown fields fail to catch typos; do not duplicate `id` or put source in the metadata. Duration remains explicitly configured, not inferred from the pattern. Comparison thresholds are not metadata knobs.
+Required fields are `description`, positive integer `bars`, and nonnegative `tailSeconds`. Optional fields are `expectSilence` (boolean, defaults to false), `settings` (partial `sampleRate`, `channels`, `beatsPerBar`, `startOffsetFrames`) and `resources` (optional exact sample URL → local file overrides). Unknown fields fail to catch typos; do not duplicate `id` or put source in the metadata. Duration remains explicitly configured, not inferred from the pattern. Comparison thresholds are not metadata knobs.
 
 **`sketch.js`:**
 
@@ -142,7 +141,9 @@ Input samples belong beside their sketch; keep origin/permission notes alongside
 
 ## Local samples
 
-Use synchronous inline manifests in `sketch.js` and map their exact normalized source URLs in `metadata.json`. File paths are resolved **relative to the case folder**, independent of the command's working directory, or can be absolute for local experimentation. Shared local assets can be mapped explicitly with `../` paths; the sampler fixtures currently each own their colocated files. Programmatic test-only `SketchCase` inputs may still use package-relative/absolute paths. Committed cases should use repository assets with origin/permission notes. Each render mounts files at unique loopback HTTP URLs and replaces only matching sample-entry `src` values after evaluation. Bank names, sample names, source keys, variation order, and sprite bounds remain unchanged. Built-in source URLs can be mapped the same way; unmapped external requests are blocked, never downloaded as fallback. Arbitrary source `fetch()` calls/async manifest loading are not rewritten or awaited.
+Use synchronous inline manifests in `sketch.js` and put local files in the case's **`samples/`** folder. The runner automatically maps **`/samples/<path>` → `cases/<id>/samples/<path>`**, including nested folders; no `resources` metadata is needed for colocated samples. Each case owns its mappings, so identical sample URLs in different cases resolve to different files.
+
+Use optional **`resources`** metadata only for exceptions: shared assets, built-in/remote URLs mapped to local files, or overrides. Explicit mappings take precedence over automatic mappings, even if the explicitly selected file is missing (there is no fallback). Their file paths are resolved **relative to the case folder**, independent of the command's working directory, or can be absolute for local experimentation. Shared local assets can be mapped explicitly with `../` paths. Programmatic test-only `SketchCase` inputs may still use package-relative/absolute paths. Committed cases should use repository assets with origin/permission notes. Each render mounts files at unique loopback HTTP URLs and replaces only matching sample-entry `src` values after evaluation. Bank names, sample names, source keys, variation order, and sprite bounds remain unchanged. Built-in source URLs can be mapped the same way; unmapped external requests are blocked, never downloaded as fallback. Arbitrary source `fetch()` calls/async manifest loading are not rewritten or awaited.
 
 Files are served as original bytes with caching disabled; missing/unreadable files report HTTP errors plus local paths, while real decoder/resource warnings fail even if other voices sound. Mounts are removed after rendering/failure. This is trusted local tooling, not a filesystem or JavaScript sandbox.
 
@@ -169,7 +170,7 @@ macOS `afinfo` recognized the generated sine file as stereo 48 kHz Float32, and 
 
 `src/runner/compare.ts` provides `compareAudio(reference, current, options)` and `formatComparison(result)`. Inputs have `{ sampleRate, channels }`, using original Float32 channels (including directly decoded WAVs). It checks matching rates/channel/frame counts, finite rectangular data and signal health on **both** sides. Audible cases require at least one channel above the existing RMS floor; `expectSilence: true` requires exact zeros, independently of numerical thresholds. Finite peaks above one remain legal.
 
-Each channel reports maximum absolute sample error and RMS sample error (`sqrt(sum((current-reference)^2)/frames)`) with independent inclusive gates. The report includes the fixed thresholds and worst channel/frame/time/reference/current values. Frame/time are zero-based relative to the entire untrimmed recording, including start silence; ties use the first channel/frame, and identity has no worst-error location. Default thresholds remain measured **0/0**, not automatically widened.
+Each channel reports maximum absolute sample error and RMS sample error (`sqrt(sum((current-reference)^2)/frames)`) with independent inclusive gates. The report includes the fixed thresholds and worst channel/frame/time/reference/current values. Frame/time are zero-based relative to the entire untrimmed recording, including start silence; ties use the first channel/frame, and identity has no worst-error location. Default thresholds are the reviewed fixed **maximum `1e-6` / RMS `1e-7`**, not automatically widened. Callers can still explicitly request `{ maxError: 0, rmsError: 0 }` for strict comparison; the suite/CLI use the shared defaults.
 
 Invalid inputs throw labelled diagnostics. Valid but changed audio returns `passed: false` and error metrics, rather than throwing away information needed for later failure recordings. The helper never writes files or aligns, trims, normalizes, resamples or clips audio. Tests cover real stored-WAV versus fresh native synthesis and reject an actual gain change; the six-case repeated native suite also uses this comparator now.
 
@@ -190,9 +191,9 @@ cases/sine/             references/sine/
   sketch.js              render.wav
 ```
 
-If you already have an ID-named WAV/JSON pair, move/rename it to `references/<id>/render.wav` and `metadata.json` without changing the contents; do not regenerate audio just to rearrange files. Verification reads only the folder layout and never migrates or falls back to flat references. **No approved reference files exist yet**, so normal verification currently fails for missing coverage while still rendering/saving current audio. Tests use temporary, explicitly unapproved fixtures and never populate this reference directory.
+If you already have an ID-named WAV/JSON pair, move/rename it to `references/<id>/render.wav` and `metadata.json` without changing the contents; do not regenerate audio just to rearrange files. Verification reads only the folder layout and never migrates or falls back to flat references. Verification fails any selected case without a valid reference pair, even if other cases have recordings. A generated pair alone is not listening approval. Tests use temporary, explicitly unapproved fixtures and never populate this reference directory.
 
-Verification always renders through the owned harness, even if a reference is missing or invalid. It never creates, updates or promotes references, and does not skip based on source/assets/version. Browser-version changes produce a warning, not an environment gate. Output identifies cases, browser/rate/channels/frames/BPM, per-channel max/RMS values and fixed **0/0** thresholds, failed gates and worst-error channel/frame/time/sample values where comparison is possible. It continues later cases after individual failures and exits **1** if any case fails. Empty/duplicate registries, unknown selectors and invalid arguments also fail rather than appearing green.
+Verification always renders through the owned harness, even if a reference is missing or invalid. It never creates, updates or promotes references, and does not skip based on source/assets/version. Browser-version changes produce a warning, not an environment gate. Output identifies cases, browser/rate/channels/frames/BPM, per-channel max/RMS values and fixed **`1e-6` / `1e-7`** thresholds, failed gates and worst-error channel/frame/time/sample values where comparison is possible. It continues later cases after individual failures and exits **1** if any case fails. Empty/duplicate registries, unknown selectors and invalid arguments also fail rather than appearing green.
 
 ### Failure recordings
 

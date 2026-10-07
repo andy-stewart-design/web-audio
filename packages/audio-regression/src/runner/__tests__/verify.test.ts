@@ -165,7 +165,9 @@ describe("read-only verification orchestration", () => {
       expect(all.passed).toBe(true);
       expect(all.results.map(({ id }) => id)).toEqual(["test", "other"]);
       expect(outputOf(all)).toContain("Warning: browser version changed");
-      expect(outputOf(all)).toContain("Thresholds: max <= 0, RMS <= 0");
+      expect(outputOf(all)).toContain(
+        "Thresholds: max <= 0.000001, RMS <= 1e-7",
+      );
       expect(report).toHaveBeenLastCalledWith(
         "Audio verification passed: 2/2 cases passed. References were not updated.",
       );

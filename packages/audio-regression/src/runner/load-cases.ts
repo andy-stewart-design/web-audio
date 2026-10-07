@@ -1,5 +1,5 @@
 import { readFile, readdir } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_SETTINGS, selectCases } from "../cases";
 
@@ -87,6 +87,27 @@ function parseMetadata(value: unknown) {
   };
 }
 
+async function sampleResources(folder: string) {
+  const samples = join(folder, "samples");
+  let entries;
+  try {
+    entries = await readdir(samples, { recursive: true, withFileTypes: true });
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return {};
+    throw error;
+  }
+  return Object.fromEntries(
+    entries
+      .filter((entry) => entry.isFile())
+      .map((entry) => {
+        const file = join(entry.parentPath, entry.name);
+        const source = relative(samples, file).split(sep).join("/");
+        return [`/samples/${source}`, file] as const;
+      }),
+  );
+}
+
 // Node-only discovery. Browser-safe validation/planning stays in ../cases.
 // Read source as text: importing/executing it here would change REPL semantics.
 export async function loadCases(directory = CASE_DIRECTORY) {
@@ -106,12 +127,14 @@ export async function loadCases(directory = CASE_DIRECTORY) {
         ...metadata,
         id: entry.name,
         code,
-        resources: Object.fromEntries(
-          Object.entries(metadata.resources ?? {}).map(([source, file]) => [
-            source,
-            resolve(folder, file),
-          ]),
-        ),
+        resources: {
+          ...(await sampleResources(folder)),
+          ...Object.fromEntries(
+            Object.entries(metadata.resources ?? {}).map(
+              ([source, file]) => [source, resolve(folder, file)] as const,
+            ),
+          ),
+        },
       });
     } catch (error) {
       throw new Error(

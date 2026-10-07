@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { selectCase } from "../cases";
+import { COMPARISON_TOLERANCE } from "../runner/audio";
 import type { SketchCase } from "../types";
 import {
   readRecording,
@@ -40,7 +41,7 @@ const sameSamples = (a: readonly Float32Array[], b: typeof a) =>
   );
 
 describe("native read-only verification and failure recordings", () => {
-  it("verifies all six registered synth/sample/LFO cases at 0/0, then always renders a selected case again", async () => {
+  it("verifies all discovered cases within fixed gates, then always renders a selected case again", async () => {
     await withDirectories(async (paths) => {
       await withRenderer(async (renderer) => {
         for (const input of cases)
@@ -51,11 +52,13 @@ describe("native read-only verification and failure recordings", () => {
         const before = await snapshot(paths.referenceDirectory);
         const all = await verifyCases(renderer, cases, paths);
         expect(all.passed).toBe(true);
-        expect(all.results).toHaveLength(6);
+        expect(all.results).toHaveLength(cases.length);
         expect(
           all.results.every(({ comparison }) =>
             comparison?.channels.every(
-              ({ maxError, rmsError }) => maxError === 0 && rmsError === 0,
+              ({ maxError, rmsError }) =>
+                maxError <= COMPARISON_TOLERANCE.maxError &&
+                rmsError <= COMPARISON_TOLERANCE.rmsError,
             ),
           ),
         ).toBe(true);
@@ -90,7 +93,7 @@ describe("native read-only verification and failure recordings", () => {
         expect(result.passed).toBe(false);
         expect(failed.comparison?.worst?.error).toBeGreaterThan(0.01);
         expect(failed.messages.join("\n")).toContain(
-          "Thresholds: max <= 0, RMS <= 0",
+          "Thresholds: max <= 0.000001, RMS <= 1e-7",
         );
         const a = await readRecording(failed.artifacts.reference!.wav);
         const b = await readRecording(failed.artifacts.current!.wav);

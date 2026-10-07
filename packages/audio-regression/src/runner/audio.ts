@@ -1,7 +1,10 @@
-// Step 1.6 measured exact raw-sample repeats on the Mac, including fresh launches.
-// Start without numerical slack; remeasure/review instead of widening on failure.
-// The raw-audio comparator uses this same suite-wide pair by default.
-export const COMPARISON_TOLERANCE = Object.freeze({ maxError: 0, rmsError: 0 });
+// Reviewed native Float32 mixing variation: max up to ~3.58e-7, RMS ~1.28e-8.
+// Fixed suite-wide gates with a small margin; never adapt them to failed comparisons.
+// Evidence and trade-offs: plans/audio-regression-testing/repeatability.md.
+export const COMPARISON_TOLERANCE = Object.freeze({
+  maxError: 1e-6,
+  rmsError: 1e-7,
+});
 
 // Signal health only, not reference comparison or a musical quality assertion.
 export function inspectAudio(

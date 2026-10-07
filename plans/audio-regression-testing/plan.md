@@ -2,7 +2,7 @@
 
 ## Status and goal
 
-**Phases 0–2 implementation is complete on the user's Mac, including Step 2.5.** Phase 3 has not started: representative user sketches, initial human listening-approved references and routine root verification remain next. This simplified plan implements [spec.md](./spec.md); production characterization and test evidence are in [feasibility.md](./feasibility.md).
+**Phases 0–2 implementation is complete on the user's Mac, including Step 2.5.** User-case onboarding is underway with `techno-drum-loop`; listening review, representative trusted coverage and root integration remain Phase 3. The reviewed fixed comparison limits are now **maximum `1e-6` / RMS `1e-7`**, following causal investigation of native mixing roundoff. Current references are `references/<id>/render.wav` and `metadata.json`; samples map automatically from each case's `samples/` folder, with optional explicit overrides. This plan implements [spec.md](./spec.md); historical characterization/test evidence is in [feasibility.md](./feasibility.md), and the later policy/evidence is in [repeatability.md](./repeatability.md). Earlier numbered validation records retain their historical paths/0/0 policy.
 
 The deliverable is a local command that runs saved Fluid sketches through the real engine and compares their audio to listening-approved recordings. It does not require Linux, containers, hosted CI, a report application, or a separate candidate/approval system.
 
@@ -299,6 +299,19 @@ Changed update/verification to share `referencePath` in existing recording stora
 - [x] Reference output folders match case IDs.
 - [x] Update and verification agree on paths; verification stays read-only.
 - [x] Layout does not implicitly regenerate or approve recordings.
+
+---
+
+## Comparison policy follow-up — User-reviewed native mixing roundoff (complete)
+
+Investigated unchanged `techno-drum-loop` differences rather than assuming a source regression or automatically changing references. All five individual drums rendered exactly; native-only controls and whole-buffer addition-order reconstruction isolated Chromium's unordered Float32 accumulation. After reviewing the cause, measurements and loss of sub-threshold detection, the user approved frozen suite-wide **maximum `1e-6` / RMS `1e-7`** defaults. Both independent inclusive gates remain mandatory in every channel; raw samples/metrics, signal health, resource errors and incompatible-shape checks are unchanged. Explicit comparator callers can still select 0/0. No production graph, dependency, source/sample input or reference was changed for acceptance.
+
+**Direct validation:** 15/15 unchanged loop verifications passed against the existing reference, including three fresh browser/server launches. Six numerical and two diagnostic fixture regressions were rejected, as were four actual drum-loop gain/hit-mask/pitch/sample-selection changes; unchanged originals recovered. Actual loop and sine verification commands both exited 0 without rewriting references. A later loop command measured maximum `3.5762786865234375e-7`, recorded without changing the proposed fixed limits. All input/reference file sets and bytes were preserved. Tests' expected gates were updated, explicit zero comparison retained, sparse-roundoff/default-gate coverage added and the all-case verification assertion no longer assumes six exact cases. Sources remain TypeScript-checked; check/lint/format passed. **No automated test suite was run**; see [the full experiment/policy record](./repeatability.md).
+
+- [x] Cause identified and independently reproduced without Fluid/AudioEngine.
+- [x] Fixed limits explicitly reviewed by the user, not adapted to failures.
+- [x] Unchanged output passes while meaningful changes/errors still fail.
+- [x] References and production DSP remain untouched.
 
 ---
 

@@ -48,7 +48,6 @@ for (const [step, note] of [69, 69].entries()) {
         description: "Multiline synth and local sampler",
         bars: 1,
         tailSeconds: 0.1,
-        resources: { "/samples/tone.wav": "./samples/tone.wav" },
       }),
     );
     await writeFile(source, code);

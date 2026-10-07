@@ -1,8 +1,5 @@
 {
   "description": "Alternate sample direction across an odd-hit bar boundary",
   "bars": 2,
-  "tailSeconds": 0.1,
-  "resources": {
-    "/samples/asymmetric.wav": "./samples/asymmetric.wav"
-  }
+  "tailSeconds": 0.1
 }

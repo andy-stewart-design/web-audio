@@ -49,7 +49,7 @@ async function renderSketch(
 ) {
   const schema = evaluateSource(sketch.code);
   const localUrls = new Map(Object.entries(resourceUrls));
-  // Only explicitly mapped sample URLs change; no production resolver is replaced.
+  // Only mapped sample URLs change; no production resolver is replaced.
   for (const bank of Object.values(schema.banks)) {
     for (const sources of Object.values(bank.samples)) {
       for (const variations of Object.values(sources)) {

@@ -88,6 +88,44 @@ describe("folder-authored case discovery", () => {
     });
   });
 
+  it("automatically maps colocated samples, including nested files, separately for each case", async () => {
+    await withDirectory(async (directory) => {
+      for (const id of ["one", "two"]) {
+        const folder = await writeCase(directory, id);
+        await mkdir(join(folder, "samples/drums"), { recursive: true });
+        await writeFile(join(folder, "samples/hit.wav"), id);
+        await writeFile(join(folder, "samples/drums/hit #1.wav"), id);
+      }
+      for (const input of await loadCases(directory))
+        expect(input.resources).toEqual({
+          "/samples/hit.wav": join(directory, input.id, "samples/hit.wav"),
+          "/samples/drums/hit #1.wav": join(
+            directory,
+            input.id,
+            "samples/drums/hit #1.wav",
+          ),
+        });
+    });
+  });
+
+  it("lets explicit resources override automatic mappings without falling back when the override is missing", async () => {
+    await withDirectory(async (directory) => {
+      const folder = await writeCase(directory, "override", {
+        ...metadata,
+        resources: {
+          "/samples/hit.wav": "../missing.wav",
+          "https://example.invalid/shared.wav": "../shared.wav",
+        },
+      });
+      await mkdir(join(folder, "samples"));
+      await writeFile(join(folder, "samples/hit.wav"), "local input");
+      expect((await loadCases(directory))[0]!.resources).toEqual({
+        "/samples/hit.wav": join(directory, "missing.wav"),
+        "https://example.invalid/shared.wav": join(directory, "shared.wav"),
+      });
+    });
+  });
+
   it("applies optional settings and exact-silence opt-in through existing validation", async () => {
     await withDirectory(async (directory) => {
       await writeCase(
@@ -208,16 +246,18 @@ describe("folder-authored case discovery", () => {
     });
   });
 
-  it("loads the six migrated case files and colocated resources", async () => {
+  it("loads the migrated case files and colocated resources, allowing newly authored cases", async () => {
     const registry = await loadCases();
-    expect(registry.map(({ id }) => id)).toEqual([
-      "lfo-filter",
-      "sample-alternate",
-      "sample-reverse",
-      "sample-tone",
-      "seeded-multibar",
-      "sine",
-    ]);
+    expect(registry.map(({ id }) => id)).toEqual(
+      expect.arrayContaining([
+        "lfo-filter",
+        "sample-alternate",
+        "sample-reverse",
+        "sample-tone",
+        "seeded-multibar",
+        "sine",
+      ]),
+    );
     for (const input of registry) {
       expect(input.code.trim()).not.toBe("");
       for (const file of Object.values(input.resources)) {

@@ -117,7 +117,7 @@ describe("focused real-render regression detection", () => {
           expect(result.comparison?.worst?.frame).toBeGreaterThanOrEqual(4800);
           expect(result.messages.join("\n")).toContain("Worst error:");
           expect(result.messages.join("\n")).toContain(
-            "Thresholds: max <= 0, RMS <= 0",
+            "Thresholds: max <= 0.000001, RMS <= 1e-7",
           );
           expect(Object.keys(result.artifacts).sort()).toEqual([
             "current",

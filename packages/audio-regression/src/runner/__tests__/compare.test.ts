@@ -129,7 +129,7 @@ describe("raw audio comparison", () => {
     expect(report).toContain(
       "Audio comparison FAILED: 4 Hz, 2 channels, 4 frames",
     );
-    expect(report).toContain("Thresholds: max <= 0, RMS <= 0");
+    expect(report).toContain("Thresholds: max <= 0.000001, RMS <= 1e-7");
     expect(report).toContain("Channel 1: max=5.000000e-1 (FAIL)");
     expect(report).toContain("frame 2, time 0.500000000 s");
     expect(report).toContain("reference=1, current=1.5");
@@ -167,15 +167,58 @@ describe("raw audio comparison", () => {
       });
       expect(result.tolerance).toEqual(tolerance);
       expect(result.tolerance).not.toBe(tolerance);
-      expect(COMPARISON_TOLERANCE).toEqual({ maxError: 0, rmsError: 0 });
+      expect(COMPARISON_TOLERANCE).toEqual({ maxError: 1e-6, rmsError: 1e-7 });
     },
   );
 
-  it("does not silently relax zero defaults for a one-ULP change", () => {
-    const result = compareAudio(mono(1), mono(1 + 2 ** -23));
+  it("supports explicit exact comparison for a one-ULP change without altering defaults", () => {
+    const result = compareAudio(mono(1), mono(1 + 2 ** -23), {
+      tolerance: { maxError: 0, rmsError: 0 },
+    });
     expect(result.passed).toBe(false);
     expect(result.channels[0]?.maxError).toBe(2 ** -23);
     expect(result.tolerance).toEqual({ maxError: 0, rmsError: 0 });
+    expect(COMPARISON_TOLERANCE).toEqual({ maxError: 1e-6, rmsError: 1e-7 });
+  });
+
+  it("accepts measured-scale sparse roundoff with fixed defaults while retaining errors and unchanged samples", () => {
+    const reference = new Float32Array(1024).fill(1);
+    const current = reference.slice();
+    current[11] = 1 + 2 ** -22;
+    const before = current.slice();
+    const result = compareAudio(audio([reference]), audio([current]));
+    expect(result.passed).toBe(true);
+    expect(result.channels[0]).toMatchObject({
+      maxError: 2 ** -22,
+      rmsError: 2 ** -22 / 32,
+      maxPassed: true,
+      rmsPassed: true,
+    });
+    expect(result.worst?.frame).toBe(11);
+    expect(current).toEqual(before);
+    expect(reference.every((sample) => sample === 1)).toBe(true);
+    expect(result.tolerance).toEqual({ maxError: 1e-6, rmsError: 1e-7 });
+    expect(Object.isFrozen(COMPARISON_TOLERANCE)).toBe(true);
+  });
+
+  it("enforces both fixed default gates independently for localized and sustained differences", () => {
+    const reference = new Float32Array(1024).fill(1);
+    const transient = reference.slice();
+    transient[0] = 1 + 9 * 2 ** -23;
+    const localized = compareAudio(audio([reference]), audio([transient]));
+    expect(localized.passed).toBe(false);
+    expect(localized.channels[0]).toMatchObject({
+      maxPassed: false,
+      rmsPassed: true,
+    });
+    const persistent = new Float32Array(1024).fill(1 + 2 ** -23);
+    const sustained = compareAudio(audio([reference]), audio([persistent]));
+    expect(sustained.passed).toBe(false);
+    expect(sustained.channels[0]).toMatchObject({
+      maxPassed: true,
+      rmsPassed: false,
+    });
+    expect(COMPARISON_TOLERANCE).toEqual({ maxError: 1e-6, rmsError: 1e-7 });
   });
 
   it.each([

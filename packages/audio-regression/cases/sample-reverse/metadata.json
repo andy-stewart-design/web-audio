@@ -1,8 +1,5 @@
 {
   "description": "Real reversal of a local asymmetric sample",
   "bars": 1,
-  "tailSeconds": 0.1,
-  "resources": {
-    "/samples/asymmetric.wav": "./samples/asymmetric.wav"
-  }
+  "tailSeconds": 0.1
 }
