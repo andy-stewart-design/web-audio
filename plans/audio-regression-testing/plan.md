@@ -2,7 +2,7 @@
 
 ## Status and goal
 
-**Phases 0–2 implementation is complete on the user's Mac, including Step 2.5.** User-case onboarding is underway with `techno-drum-loop`; listening review, representative trusted coverage and root integration remain Phase 3. The reviewed fixed comparison limits are now **maximum `1e-6` / RMS `1e-7`**, following causal investigation of native mixing roundoff. Current references are `references/<id>/render.wav` and `metadata.json`; samples map automatically from each case's `samples/` folder, with optional explicit overrides. This plan implements [spec.md](./spec.md); historical characterization/test evidence is in [feasibility.md](./feasibility.md), and the later policy/evidence is in [repeatability.md](./repeatability.md). Earlier numbered validation records retain their historical paths/0/0 policy.
+**The initial local suite is implemented, with 11 listening-approved cases and root test integration.** The user confirmed listening review is complete and everything sounds good. Tooling tests have been simplified to independent fixtures and focused contracts; root testing freshly verifies all authored cases once. Earlier numbered validation records below are historical: some characterization suites and helper paths were retired during simplification, not retained as duplicate routine checks. The reviewed fixed comparison limits are now **maximum `1e-6` / RMS `1e-7`**, following causal investigation of native mixing roundoff. Current references are `references/<id>/render.wav` and `metadata.json`; samples map automatically from each case's `samples/` folder, with optional explicit overrides. This plan implements [spec.md](./spec.md); historical characterization/test evidence is in [feasibility.md](./feasibility.md), and the later policy/evidence is in [repeatability.md](./repeatability.md). Earlier numbered validation records retain their historical paths/0/0 policy.
 
 The deliverable is a local command that runs saved Fluid sketches through the real engine and compares their audio to listening-approved recordings. It does not require Linux, containers, hosted CI, a report application, or a separate candidate/approval system.
 
@@ -329,9 +329,11 @@ Investigated unchanged `techno-drum-loop` differences rather than assuming a sou
 
 **Validation:** Render each case with external networking blocked and inspect errors. Check repeatability for new cases, including investigation of the reported fully overlapping three-voice variance before approving such coverage. Identify async/live-control/hardware-dependent cases as deferred rather than silently rewriting their behavior.
 
-- [ ] Each case has an ID, purpose, adequate duration, and local resources.
-- [ ] Source/resource adaptations and sample permissions are explicit.
-- [ ] Missing behaviors are noted without requiring a comprehensive coverage program.
+**Completed work:** The initial set contains `bends`, `ch-ch-chocolate`, `lfo-filter`, `multisample-files`, `multisample-sprite`, `sample-alternate`, `sample-reverse`, `sample-tone`, `seeded-multibar`, `sine` and `techno-drum-loop`. Each has metadata/source and local resources where needed. User-supplied WAV, MP3 and MP4 inputs use native decoding; no WAV-only authoring restriction or source rewrite is needed. Asset origin/permission notes remain the case author's responsibility, not a decoder/test gate. Live control, async manifests and hardware/MIDI output remain outside the initial scope.
+
+- [x] Each case has an ID, purpose, adequate duration, and local resources.
+- [x] Source/resource handling is explicit; inputs are preserved rather than adapted to tooling tests.
+- [x] Missing behaviors are noted without requiring a comprehensive coverage program.
 
 ### Step 3.2 — Listen and commit initial references
 
@@ -341,8 +343,10 @@ Investigated unchanged `techno-drum-loop` differences rather than assuming a sou
 
 **Validation:** User listening approval plus repeated renders for initial cases, then full read-only verification on the Mac. Use recordings for listening; the app is optional and starting it requires permission.
 
-- [ ] Initial representative references are trusted by listening, not just generated.
-- [ ] Full verification passes without external resources or warnings.
+**Completed work:** Six pairs were supplied by the user; five missing pairs were generated with separately selected update commands. All 11 pairs are now present in the repository. The user explicitly confirmed listening review is done and everything sounds good. Full native read-only verification passes 11/11; generation/player success was not substituted for that human approval.
+
+- [x] Initial representative references are trusted by listening, not just generated.
+- [x] Full verification passes without external resources or warnings.
 
 ### Step 3.3 — Connect normal local testing and document operation
 
@@ -354,10 +358,16 @@ Investigated unchanged `techno-drum-loop` differences rather than assuming a sou
 
 **Validation:** Run package/root tests locally; rerun unchanged and confirm audio verification executes. Deliberately fail a case and confirm root exit propagation and unchanged references. Run checking/lint/format and relevant production tests after shared changes.
 
-- [ ] One documented local command runs all approved user cases.
-- [ ] Root tests discover audio verification and propagate failures.
-- [ ] Verification always renders and never updates references.
-- [ ] Package/workspace verification is green and setup has no hidden app/container requirements.
+**Completed work:** Added package `test:ci` (`pnpm test && tsx src/verify-cli.ts`) and package-specific Turbo `cache: false` with dependency builds. Other tasks keep their existing caching. The README now documents setup, normal/targeted verification, format-independent local inputs, failure recordings and selected update/listen/review/commit operation.
+
+At the user's request, removed obsolete migration assertions, copied CLI drivers, duplicate update/verify/comparison workflows, exact musical peak/frequency/phase checks and repeated temporary baselines for every authored case. Tooling fixtures no longer load the authored registry; sample inputs are generated only in temporary test files. Core storage/comparison/discovery/reference-safety units remain, with native diagnostics/cleanup and one end-to-end file-authored update → verify → numerical/resource failure → recovery workflow. Musical behavior is protected by the approved recordings. Broad repeatability is an explicit onboarding/dependency-change diagnostic, not four full-collection renders on every test run.
+
+**Validation:** All **166 tooling tests in 15 files passed**, about **19 seconds**, versus 264/24 and about 154 seconds immediately before simplification. Root testing passed 11/11 fresh comparisons in about 31 seconds, with audio explicitly bypassing cache and unchanged production tasks using their existing caches. A temporary 1% kick-gain reduction in `techno-drum-loop` left all tooling tests green but failed real root reference verification (10/11 passed, root exit 1; max about `0.008745`, RMS about `0.002334`). Original source was restored automatically; complete input/reference hashes match, and no reference update was invoked. Passing recovery/repeat execution, checks/lint/format and final preservation checks are recorded in ignored `artifacts/root-workflow/` logs.
+
+- [x] One documented local command runs all approved user cases.
+- [x] Root tests discover audio verification and propagate failures.
+- [x] Verification always renders and never updates references.
+- [x] Package/workspace verification is green and setup has no hidden app/container requirements.
 
 **Completion:** The initial suite replaces routine manual REPL regression checks with repeatable audio comparison and useful recordings. It does not certify musical quality, real-time transport behavior, or other platforms.
 
@@ -365,7 +375,7 @@ Investigated unchanged `techno-drum-loop` differences rather than assuming a sou
 
 ## Verification and scope guard
 
-At each changed step, run package check/lint/format and relevant unit/integration tests. For shared evaluation/context/clock changes, build and test Fluid, clock, audio-engine, touched dependencies, and relevant worker/player app suites. Run workspace `pnpm check`, `pnpm lint`, `pnpm test`, planning-document formatting, and `git diff --check` at closeout. Root tests before Step 3.3 do not yet include this package's audio verification.
+At each changed step, run package check/lint/format and relevant unit/integration tests. For shared evaluation/context/clock changes, build and test Fluid, clock, audio-engine, touched dependencies, and relevant worker/player app suites. Run workspace `pnpm check`, `pnpm lint`, `pnpm test`, planning-document formatting, and `git diff --check` at closeout. Root tests now include uncached audio reference verification. Historical test counts above describe their implementation stages, not today's simplified suite.
 
 Stop and reassess if implementation requires mocked worklets, a duplicate event compiler, altered production musical semantics, unsafe context/clock casts, external sample fallbacks, or unexplained tolerance widening. Keep fixes narrow.
 

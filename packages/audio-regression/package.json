@@ -6,7 +6,7 @@
   "scripts": {
     "build:deps": "turbo run build --filter=@web-audio/audio-engine --filter=@web-audio/fluid --output-logs=errors-only",
     "test": "pnpm build:deps && vitest run",
-    "test:smoke": "vitest run src/__tests__/browser-launch.test.ts",
+    "test:ci": "pnpm test && tsx src/verify-cli.ts",
     "audio:render": "pnpm build:deps && tsx src/cli.ts",
     "audio:verify": "pnpm build:deps && tsx src/verify-cli.ts",
     "audio:update": "pnpm build:deps && tsx src/update-cli.ts",

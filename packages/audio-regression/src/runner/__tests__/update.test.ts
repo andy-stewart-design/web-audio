@@ -15,7 +15,6 @@ import {
   snapshot,
 } from "../../__tests__/support/reference-files";
 import { parseUpdateSelector, update, updateReference } from "../update";
-import { verifyCases } from "../verify";
 
 const sketch: SketchCase = {
   id: "test",
@@ -103,7 +102,7 @@ describe("explicit reference updating", () => {
     });
   });
 
-  it("creates only the selected reference after fresh rendering, retains above-one/signed-zero values, and subsequently verifies read-only", async () => {
+  it("creates only the selected reference after fresh rendering and retains above-one/signed-zero values", async () => {
     await withDirectories(async (paths) => {
       const other = { ...sketch, id: "other" };
       const rendered = recording();
@@ -115,13 +114,13 @@ describe("explicit reference updating", () => {
           return rendered;
         }),
       };
-      const report = vi.fn();
-      const result = await updateReference(renderer, [sketch, other], "test", {
-        ...paths,
-        report,
-      });
+      const result = await updateReference(
+        renderer,
+        [sketch, other],
+        "test",
+        paths,
+      );
       expect(renderer.render).toHaveBeenCalledOnce();
-      expect(renderer.render.mock.calls[0]).toHaveLength(1);
       expect(await readdir(paths.referenceDirectory)).toEqual(["test"]);
       expect(result.paths.wav).toBe(
         join(paths.referenceDirectory, "test", "render.wav"),
@@ -135,17 +134,6 @@ describe("explicit reference updating", () => {
       const stored = await readRecording(result.paths.wav);
       expect(stored.channels[0]![0]).toBe(1.25);
       expect(Object.is(stored.channels[1]![0], -0)).toBe(true);
-      expect(report).toHaveBeenLastCalledWith(
-        expect.stringContaining("Not listening approval"),
-      );
-      const before = await snapshot(paths.referenceDirectory);
-      const verified = await verifyCases(
-        { render: async () => rendered },
-        [sketch, other],
-        { ...paths, caseId: "test" },
-      );
-      expect(verified.passed).toBe(true);
-      await expectUnchanged(paths.referenceDirectory, before);
     });
   });
 
@@ -277,16 +265,14 @@ describe("explicit reference updating", () => {
   it("reports filesystem errors instead of claiming a successful update", async () => {
     await withDirectories(async (paths) => {
       await writeFile(paths.referenceDirectory, "not a directory");
-      const report = vi.fn();
       await expect(
-        updateReference({ render: async () => recording() }, [sketch], "test", {
-          ...paths,
-          report,
-        }),
+        updateReference(
+          { render: async () => recording() },
+          [sketch],
+          "test",
+          paths,
+        ),
       ).rejects.toThrow();
-      expect(report).not.toHaveBeenCalledWith(
-        expect.stringContaining("Reference recording written"),
-      );
     });
   });
 });

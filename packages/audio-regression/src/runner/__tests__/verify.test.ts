@@ -11,17 +11,16 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { normalizeCase, planRender } from "../../cases";
 import type { SketchCase } from "../../types";
-import { inspectAudio } from "../audio";
 import { readRecording, referencePath, writeRecording } from "../recording";
 import {
-  expectUnchanged as expectTreeUnchanged,
+  expectUnchanged,
   snapshot,
 } from "../../__tests__/support/reference-files";
 import { parseVerifySelector, verify, verifyCases } from "../verify";
 
 const sketch: SketchCase = {
   id: "test",
-  description: "Unapproved verification unit fixture",
+  description: "Temporary verification fixture",
   code: "unused by unit renderer",
   bars: 1,
   tailSeconds: 0,
@@ -31,15 +30,14 @@ const sketch: SketchCase = {
 function recording(input = sketch, value = 1.25) {
   const normalized = normalizeCase(input);
   const layout = planRender(normalized);
-  const channels = Array.from({ length: normalized.settings.channels }, () =>
-    new Float32Array(layout.frameCount).fill(value),
-  );
   return {
     ...normalized,
     ...layout,
-    channels,
-    metrics: inspectAudio(channels, normalized.expectSilence),
-    browserVersion: "147.0.7727.15",
+    channels: Array.from({ length: normalized.settings.channels }, () =>
+      new Float32Array(layout.frameCount).fill(value),
+    ),
+    metrics: [],
+    browserVersion: "test-browser",
   };
 }
 
@@ -60,29 +58,8 @@ async function withDirectories<T>(
   }
 }
 
-async function referenceBytes(directory: string, id = "test") {
-  return Promise.all([
-    readFile(join(directory, id, "render.wav")),
-    readFile(join(directory, id, "metadata.json")),
-  ]);
-}
-
-async function expectUnchanged(
-  directory: string,
-  before: Buffer[],
-  id = "test",
-) {
-  const after = await referenceBytes(directory, id);
-  expect(after.every((bytes, index) => bytes.equals(before[index]!))).toBe(
-    true,
-  );
-}
-
-const outputOf = (result: Awaited<ReturnType<typeof verifyCases>>) =>
-  result.results.flatMap((entry) => entry.messages).join("\n");
-
-describe("read-only verification orchestration", () => {
-  it("strictly parses an optional single selector", () => {
+describe("read-only verification", () => {
+  it("accepts all/one selection, rejecting invalid arguments and empty/duplicate/unknown coverage", async () => {
     expect(parseVerifySelector([])).toBeUndefined();
     expect(parseVerifySelector(["--case", "test"])).toBe("test");
     for (const args of [
@@ -90,54 +67,41 @@ describe("read-only verification orchestration", () => {
       ["--case"],
       ["--case", ""],
       ["--update"],
-      ["--case", "test", "--case", "other"],
+      ["--case", "test", "extra"],
     ])
-      expect(() => parseVerifySelector(args)).toThrow(
-        "Usage: audio:verify [--case <id>]",
-      );
+      expect(() => parseVerifySelector(args)).toThrow();
+    await expect(verify([], { registry: [] })).rejects.toThrow();
+    await expect(verify([], { registry: [sketch, sketch] })).rejects.toThrow();
+    await expect(
+      verify(["--case", "unknown"], { registry: [sketch] }),
+    ).rejects.toThrow();
   });
 
-  it("rejects empty/duplicate registries and unknown selectors before launching a browser", async () => {
-    for (const [registry, args, message] of [
-      [[], [], "Case registry is empty"],
-      [[sketch, sketch], [], "Duplicate case ID"],
-      [[sketch], ["--case", "unknown"], "Unknown case"],
-    ] as const) {
-      await expect(
-        verify([...args], { registry: [...registry] }),
-      ).rejects.toThrow(message);
-    }
-    await expect(verify(["--update"])).rejects.toThrow("Usage");
-  });
-
-  it("rejects overlapping reference/artifact trees before any cleanup or rendering", async () => {
+  it("rejects overlapping artifact/reference trees before cleanup or rendering", async () => {
     await withDirectories(async (paths) => {
       await writeRecording(
         referencePath("test", paths.referenceDirectory),
         recording(),
       );
-      const before = await referenceBytes(paths.referenceDirectory);
-      const renderer = {
-        render: vi.fn(async (input: SketchCase) => recording(input)),
-      };
+      const before = await snapshot(paths.referenceDirectory);
+      const renderer = { render: vi.fn(async () => recording()) };
       for (const [referenceDirectory, artifactDirectory] of [
         [paths.referenceDirectory, paths.referenceDirectory],
         [paths.referenceDirectory, join(paths.referenceDirectory, "nested")],
         [join(paths.referenceDirectory, "nested"), paths.referenceDirectory],
-      ]) {
+      ])
         await expect(
           verifyCases(renderer, [sketch], {
             referenceDirectory,
             artifactDirectory,
           }),
-        ).rejects.toThrow("non-overlapping");
-      }
+        ).rejects.toThrow();
       expect(renderer.render).not.toHaveBeenCalled();
       await expectUnchanged(paths.referenceDirectory, before);
     });
   });
 
-  it("renders all or selected cases on every invocation, warns without gating on browser changes, and clears stale selected artifacts", async () => {
+  it("renders every invocation, ignores provenance as a gate, and cleans only selected artifacts", async () => {
     await withDirectories(async (paths) => {
       const other = { ...sketch, id: "other" };
       for (const input of [sketch, other])
@@ -145,69 +109,52 @@ describe("read-only verification orchestration", () => {
           referencePath(input.id, paths.referenceDirectory),
           recording(input),
         );
-      const before = await referenceBytes(paths.referenceDirectory);
-      await mkdir(join(paths.artifactDirectory, "test"), { recursive: true });
-      await writeFile(
-        join(paths.artifactDirectory, "test", "current.wav"),
-        "stale",
-      );
+      const before = await snapshot(paths.referenceDirectory);
       const renderer = {
         render: vi.fn(async (input: SketchCase) => ({
           ...recording(input),
-          browserVersion: "999.0.0.0",
+          browserVersion: "different-browser",
         })),
       };
-      const report = vi.fn();
-      const all = await verifyCases(renderer, [sketch, other], {
-        ...paths,
-        report,
-      });
-      expect(all.passed).toBe(true);
-      expect(all.results.map(({ id }) => id)).toEqual(["test", "other"]);
-      expect(outputOf(all)).toContain("Warning: browser version changed");
-      expect(outputOf(all)).toContain(
-        "Thresholds: max <= 0.000001, RMS <= 1e-7",
+      expect((await verifyCases(renderer, [sketch, other], paths)).passed).toBe(
+        true,
       );
-      expect(report).toHaveBeenLastCalledWith(
-        "Audio verification passed: 2/2 cases passed. References were not updated.",
-      );
-      await expect(
-        readdir(join(paths.artifactDirectory, "test")),
-      ).rejects.toMatchObject({ code: "ENOENT" });
-      await mkdir(join(paths.artifactDirectory, "other"), { recursive: true });
-      await writeFile(
-        join(paths.artifactDirectory, "other", "sentinel"),
-        "unselected",
-      );
+      for (const id of ["test", "other"]) {
+        await mkdir(join(paths.artifactDirectory, id), { recursive: true });
+        await writeFile(join(paths.artifactDirectory, id, "sentinel"), "stale");
+      }
       const selected = await verifyCases(renderer, [sketch, other], {
         ...paths,
         caseId: "test",
       });
       expect(selected.passed).toBe(true);
-      expect(selected.results).toHaveLength(1);
-      expect(
-        await readFile(
-          join(paths.artifactDirectory, "other", "sentinel"),
-          "utf8",
-        ),
-      ).toBe("unselected");
+      expect(selected.results.map(({ id }) => id)).toEqual(["test"]);
       expect(renderer.render.mock.calls.map(([input]) => input.id)).toEqual([
         "test",
         "other",
         "test",
       ]);
+      await expect(
+        readdir(join(paths.artifactDirectory, "test")),
+      ).rejects.toMatchObject({ code: "ENOENT" });
+      expect(
+        await readFile(
+          join(paths.artifactDirectory, "other", "sentinel"),
+          "utf8",
+        ),
+      ).toBe("stale");
       await expectUnchanged(paths.referenceDirectory, before);
     });
   });
 
-  it("saves raw A/B and signed current-minus-reference differences without changing references or inputs", async () => {
+  it("saves original A/B and signed current-minus-reference differences without changing references", async () => {
     await withDirectories(async (paths) => {
       const original = recording();
       await writeRecording(
         referencePath("test", paths.referenceDirectory),
         original,
       );
-      const before = await referenceBytes(paths.referenceDirectory);
+      const before = await snapshot(paths.referenceDirectory);
       const current = recording();
       current.channels[0]![11] = -0.75;
       const result = await verifyCases(
@@ -216,26 +163,28 @@ describe("read-only verification orchestration", () => {
         paths,
       );
       expect(result.passed).toBe(false);
-      expect(outputOf(result)).toContain("Worst error: channel 0, frame 11");
-      expect(outputOf(result)).toContain(
-        "Difference sign: current - reference",
-      );
+      expect(result.results[0]!.comparison?.worst).toMatchObject({
+        channel: 0,
+        frame: 11,
+      });
       const artifacts = result.results[0]!.artifacts;
       const a = await readRecording(artifacts.reference!.wav);
       const b = await readRecording(artifacts.current!.wav);
       const difference = await readRecording(artifacts.difference!.wav);
-      expect(a.channels[0]![11]).toBe(1.25);
-      expect(b.channels[0]![11]).toBe(-0.75);
+      expect(a.channels).toEqual(original.channels);
+      expect(b.channels).toEqual(current.channels);
       expect(difference.channels[0]![11]).toBe(-2);
       expect(difference.channels[1]!.every((value) => value === 0)).toBe(true);
-      expect(current.channels[0]![11]).toBe(-0.75);
-      expect(original.channels[0]![11]).toBe(1.25);
       await expectUnchanged(paths.referenceDirectory, before);
     });
   });
 
-  it.each([{ sampleRate: 6000 }, { channels: 1 }, { bars: 2 }])(
-    "saves A/B but never fabricates differences for incompatible shapes %j",
+  it.each([
+    { settings: { sampleRate: 6000 } },
+    { settings: { channels: 1 } },
+    { bars: 2 },
+  ])(
+    "saves A/B but no fabricated difference for incompatible shape %j",
     async (change) => {
       await withDirectories(async (paths) => {
         await writeRecording(
@@ -244,14 +193,8 @@ describe("read-only verification orchestration", () => {
         );
         const input = {
           ...sketch,
-          bars: change.bars ?? 1,
-          settings: {
-            ...sketch.settings,
-            ...("sampleRate" in change
-              ? { sampleRate: change.sampleRate }
-              : {}),
-            ...("channels" in change ? { channels: change.channels } : {}),
-          },
+          ...change,
+          settings: { ...sketch.settings, ...change.settings },
         };
         const result = await verifyCases(
           { render: async () => recording(input) },
@@ -259,10 +202,6 @@ describe("read-only verification orchestration", () => {
           paths,
         );
         expect(result.passed).toBe(false);
-        expect(outputOf(result)).toContain("Comparison failed:");
-        expect(outputOf(result)).toContain(
-          "Difference unavailable: audio shapes differ",
-        );
         expect(result.results[0]!.artifacts.reference).toBeDefined();
         expect(result.results[0]!.artifacts.current).toBeDefined();
         expect(result.results[0]!.artifacts.difference).toBeUndefined();
@@ -270,103 +209,59 @@ describe("read-only verification orchestration", () => {
     },
   );
 
-  it.each([
-    "wav-missing",
-    "json-missing",
-    "wav-corrupt",
-    "json-corrupt",
-    "id-mismatch",
-  ])(
-    "renders and saves current-only for unavailable reference: %s",
+  it.each(["missing", "corrupt", "wrong-id"])(
+    "fails %s references without creating/replacing coverage",
     async (failure) => {
       await withDirectories(async (paths) => {
-        const wav = referencePath("test", paths.referenceDirectory);
-        const stored = await writeRecording(wav, recording());
-        if (failure === "wav-missing") await rm(stored.wav);
-        if (failure === "json-missing") await rm(stored.json);
-        if (failure === "wav-corrupt") await writeFile(stored.wav, "broken");
-        if (failure === "json-corrupt") await writeFile(stored.json, "{broken");
-        if (failure === "id-mismatch")
-          await writeFile(
-            stored.json,
-            JSON.stringify({
-              ...recording(),
-              channels: undefined,
-              id: "wrong",
-            }),
+        const stored = await writeRecording(
+          referencePath("test", paths.referenceDirectory),
+          recording(),
+        );
+        if (failure === "missing") await rm(stored.wav);
+        if (failure === "corrupt") await writeFile(stored.json, "{broken");
+        if (failure === "wrong-id")
+          await writeRecording(
+            stored.wav,
+            recording({ ...sketch, id: "wrong" }),
           );
         const before = await snapshot(paths.referenceDirectory);
         const renderer = { render: vi.fn(async () => recording()) };
         const result = await verifyCases(renderer, [sketch], paths);
-        await expectTreeUnchanged(paths.referenceDirectory, before);
         expect(result.passed).toBe(false);
         expect(renderer.render).toHaveBeenCalledOnce();
-        expect(outputOf(result)).toContain(
-          "Reference unavailable (missing or invalid)",
-        );
-        expect(result.results[0]!.artifacts.current).toBeDefined();
-        expect(result.results[0]!.artifacts.reference).toBeUndefined();
-        expect(result.results[0]!.artifacts.difference).toBeUndefined();
-        expect(
-          (await readRecording(result.results[0]!.artifacts.current!.wav))
-            .metadata.id,
-        ).toBe("test");
+        expect(Object.keys(result.results[0]!.artifacts)).toEqual(["current"]);
+        await expectUnchanged(paths.referenceDirectory, before);
       });
     },
   );
 
-  it("does not consume, migrate or overwrite legacy flat references during verification", async () => {
+  it("rejects render errors without partial/stale current audio and continues later cases", async () => {
     await withDirectories(async (paths) => {
-      await writeRecording(
-        join(paths.referenceDirectory, "test.wav"),
-        recording(),
-      );
+      const next = { ...sketch, id: "next" };
+      for (const input of [sketch, next])
+        await writeRecording(
+          referencePath(input.id, paths.referenceDirectory),
+          recording(input),
+        );
       const before = await snapshot(paths.referenceDirectory);
-      const renderer = { render: vi.fn(async () => recording()) };
-      const result = await verifyCases(renderer, [sketch], paths);
-      expect(result.passed).toBe(false);
-      expect(result.results[0]!.errors[0]).toContain("Reference unavailable");
-      expect(result.results[0]!.errors[0]).toContain(
-        join("test", "render.wav"),
-      );
-      expect(renderer.render).toHaveBeenCalledOnce();
-      expect(result.results[0]!.artifacts.reference).toBeUndefined();
-      expect(result.results[0]!.artifacts.current).toBeDefined();
-      await expectTreeUnchanged(paths.referenceDirectory, before);
-      expect(await readdir(paths.referenceDirectory)).not.toContain("test");
-    });
-  });
-
-  it("reports render errors without invented current audio, cleans stale failures, and continues later cases", async () => {
-    await withDirectories(async (paths) => {
-      await writeRecording(
-        referencePath("test", paths.referenceDirectory),
-        recording(),
-      );
-      const before = await referenceBytes(paths.referenceDirectory);
       await mkdir(join(paths.artifactDirectory, "test"), { recursive: true });
       await writeFile(
         join(paths.artifactDirectory, "test", "current.wav"),
         "stale",
       );
-      const renderer = {
-        render: vi.fn(async (input: SketchCase) => {
-          if (input.id === "test") throw new Error("deliberate render failure");
-          return recording(input);
-        }),
-      };
       const result = await verifyCases(
-        renderer,
-        [sketch, { ...sketch, id: "next" }],
+        {
+          render: async (input) => {
+            if (input.id === "test") throw new Error("render failure");
+            return recording(input);
+          },
+        },
+        [sketch, next],
         paths,
       );
       expect(result.passed).toBe(false);
-      expect(renderer.render).toHaveBeenCalledTimes(2);
-      expect(outputOf(result)).toContain("deliberate render failure");
-      expect(outputOf(result)).toContain("No current recording:");
-      expect(result.results[0]!.artifacts.current).toBeUndefined();
-      expect(result.results[0]!.artifacts.reference).toBeDefined();
-      expect(result.results[1]!.artifacts.current).toBeDefined();
+      expect(result.results.map(({ passed }) => passed)).toEqual([false, true]);
+      expect(Object.keys(result.results[0]!.artifacts)).toEqual(["reference"]);
       await expect(
         readFile(join(paths.artifactDirectory, "test", "current.wav")),
       ).rejects.toMatchObject({ code: "ENOENT" });
@@ -374,9 +269,9 @@ describe("read-only verification orchestration", () => {
     });
   });
 
-  it("rejects an unrepresentable Float32 difference instead of clipping while preserving legal A/B amplitudes", async () => {
+  it("preserves legal A/B when Float32 subtraction overflows instead of clipping a difference", async () => {
     await withDirectories(async (paths) => {
-      const largest = new Float32Array([3.4028234663852886e38])[0]!;
+      const largest = Float32Array.of(3.4028234663852886e38)[0]!;
       await writeRecording(
         referencePath("test", paths.referenceDirectory),
         recording(sketch, largest),
@@ -387,7 +282,6 @@ describe("read-only verification orchestration", () => {
         paths,
       );
       expect(result.passed).toBe(false);
-      expect(outputOf(result)).toContain("non-finite Float32 difference");
       expect(result.results[0]!.artifacts.difference).toBeUndefined();
       expect(
         (await readRecording(result.results[0]!.artifacts.current!.wav))
@@ -396,65 +290,39 @@ describe("read-only verification orchestration", () => {
     });
   });
 
-  it("passes explicitly silent references using the case's exact-silence policy", async () => {
+  it("passes opted-in silence", async () => {
     await withDirectories(async (paths) => {
       const input = { ...sketch, expectSilence: true };
-      const silent = recording(input, 0);
       await writeRecording(
         referencePath("test", paths.referenceDirectory),
-        silent,
+        recording(input, 0),
       );
-      const result = await verifyCases(
-        { render: async () => silent },
-        [input],
-        paths,
-      );
-      expect(result.passed).toBe(true);
-      expect(result.results[0]!.comparison?.worst).toBeNull();
+      expect(
+        (
+          await verifyCases(
+            { render: async () => recording(input, 0) },
+            [input],
+            paths,
+          )
+        ).passed,
+      ).toBe(true);
     });
   });
 
-  it("reports artifact write failures and still attempts remaining recordings", async () => {
+  it("fails artifact I/O without skipping rendering or modifying references", async () => {
     await withDirectories(async (paths) => {
       await writeRecording(
         referencePath("test", paths.referenceDirectory),
         recording(),
       );
-      const before = await referenceBytes(paths.referenceDirectory);
-      const renderer = {
-        render: async () => {
-          await mkdir(join(paths.artifactDirectory, "test", "current.wav"), {
-            recursive: true,
-          });
-          return recording(sketch, 0.75);
-        },
-      };
-      const result = await verifyCases(renderer, [sketch], paths);
-      expect(result.passed).toBe(false);
-      expect(outputOf(result)).toContain("Could not save current artifact:");
-      expect(result.results[0]!.artifacts.current).toBeUndefined();
-      expect(result.results[0]!.artifacts.reference).toBeDefined();
-      expect(result.results[0]!.artifacts.difference).toBeDefined();
-      await expectUnchanged(paths.referenceDirectory, before);
-    });
-  });
-
-  it("reports artifact filesystem errors without skipping rendering or touching references", async () => {
-    await withDirectories(async (paths) => {
-      await writeRecording(
-        referencePath("test", paths.referenceDirectory),
-        recording(),
-      );
-      const before = await referenceBytes(paths.referenceDirectory);
+      const before = await snapshot(paths.referenceDirectory);
       await writeFile(paths.artifactDirectory, "not a directory");
       const renderer = { render: vi.fn(async () => recording()) };
       const result = await verifyCases(renderer, [sketch], paths);
       expect(result.passed).toBe(false);
       expect(renderer.render).toHaveBeenCalledOnce();
       expect(result.results[0]!.comparison?.passed).toBe(true);
-      expect(outputOf(result)).toContain(
-        "Could not clear stale failure artifacts",
-      );
+      expect(result.results[0]!.errors.length).toBeGreaterThan(0);
       await expectUnchanged(paths.referenceDirectory, before);
     });
   });

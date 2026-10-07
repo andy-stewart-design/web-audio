@@ -23,16 +23,6 @@ export const throwingProcessor = `
   });
 `;
 
-export const throwingConstructor = `
-  registerProcessor('lfo-processor', class extends AudioWorkletProcessor {
-    static get parameterDescriptors() {
-      return [{name: 'outputA', defaultValue: 0}, {name: 'outputB', defaultValue: 0}];
-    }
-    constructor() { super(); throw new Error('deliberate constructor failure'); }
-    process() { return true; }
-  });
-`;
-
 // The one-bar/no-tail fault case ends at 2.1 s. Fail in its final quantum,
 // after producing healthy audio, to exercise completion/error event ordering.
 export const throwingLateProcessor = `
