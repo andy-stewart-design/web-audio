@@ -4,7 +4,9 @@ import { withHarness } from "../with-harness";
 describe("case-local HTTP resources", () => {
   it("serves original bytes with isolated URLs and removes mounts", async () => {
     await withHarness(async (origin, mount) => {
-      const first = mount({ "/tone.wav": "resources/tone.wav" });
+      const first = mount({
+        "/tone.wav": "cases/sample-tone/samples/tone.wav",
+      });
       const second = mount({
         "/tone.wav": "src/__tests__/support/not-audio.txt",
       });
@@ -37,8 +39,8 @@ describe("case-local HTTP resources", () => {
   it("reports missing files and refuses directories without HTML fallback", async () => {
     await withHarness(async (origin, mount) => {
       const resources = mount({
-        missing: "resources/no-such-file.wav",
-        directory: "resources",
+        missing: "cases/sample-tone/samples/no-such-file.wav",
+        directory: "cases/sample-tone/samples",
       });
       try {
         expect((await fetch(origin + resources.urls.missing)).status).toBe(404);

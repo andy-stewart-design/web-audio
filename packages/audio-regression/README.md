@@ -29,7 +29,7 @@ pnpm --filter @web-audio/audio-regression format:check
 
 `audio:render`, `audio:verify`, `audio:update` and `test` first run `build:deps`, using the existing Turbo workspace builds/cache for Fluid, audio-engine, and their dependencies. Changed production code is rebuilt before browser imports; no app/database build is involved. For first-time type checking without tests/rendering, run `build:deps` first.
 
-`audio:render --case sine` prints browser version, sample rate, channels, frame count, BPM, and per-channel peak/RMS. It writes the successful selected render to **`artifacts/render/sine.wav` plus `sine.json`** (or the selected case ID), prints the paths, and performs **no reference comparison**. These ignored diagnostic files are replaced by subsequent successful renders, never promoted to approved references. Failed rendering never reaches storage; an older diagnostic may remain. Unknown selectors or invalid arguments exit nonzero. Register trusted sketches in `src/cases.ts`; sample cases use the local resource mapping below.
+`audio:render --case sine` prints browser version, sample rate, channels, frame count, BPM, and per-channel peak/RMS. It writes the successful selected render to **`artifacts/render/sine.wav` plus `sine.json`** (or the selected case ID), prints the paths, and performs **no reference comparison**. These ignored diagnostic files are replaced by subsequent successful renders, never promoted to approved references. Failed rendering never reaches storage; an older diagnostic may remain. Unknown selectors or invalid arguments exit nonzero. Add trusted sketches as folders under `cases/`; discovery is automatic, with no central registry edit.
 
 `test` runs the unit/CLI tests, browser launch checks, and actual synth/sampler/LFO render, lifecycle, and repeatability tests. `test:smoke` selects only the original three launch checks. Root `pnpm test` does not yet run this package; root verification integration is planned once actual references exist.
 
@@ -54,7 +54,7 @@ The six registered cases are each rendered four times: baseline, same-order repe
 
 The initial suite-wide pair is therefore **`maxError: 0`, `rmsError: 0`**, exported as immutable `COMPARISON_TOLERANCE` from `src/runner/audio.ts`. Repeatability tests, the production comparator and reference verification use it. No gain/time normalization, trimming, alignment, resampling, or tolerance widening is used. The analytical phase proof's `1e-6` bound is for an ideal mathematical gain versus native floating-point DSP, **not** a recording-comparison tolerance.
 
-This is local repeatability evidence for these inputs, not cross-platform/browser certification or musical quality approval. Recheck new sketches and browser/rendering dependency changes; investigate differences rather than automatically loosening the pair. Detailed observations are in `feasibility.md`.
+This is local repeatability evidence for these inputs, not cross-platform/browser certification or musical quality approval. Recheck new sketches and browser/rendering dependency changes; investigate differences rather than automatically loosening the pair. A draft test combining a sample and two fully overlapping synths exhibited maximum/RMS differences around **5.96e-8/6.70e-9**, also reproduced with inline source without file loading. It is not registered/approved coverage; its cause remains open and the **0/0 defaults are unchanged**. Detailed observations are in `feasibility.md`.
 
 To rerun only these checks after building dependencies:
 
@@ -96,26 +96,57 @@ afplay packages/audio-regression/artifacts/regressions-demo/reverse/current.wav
 
 These ignored files are diagnostics, not approved baselines. No production references were created or promoted.
 
-## Local samples
+## Authoring cases
 
-Use synchronous inline manifests and map their exact normalized source URLs to local files:
+Each case is an immediate folder under **`cases/`**:
 
-```ts
+```text
+cases/
+  sample-tone/
+    metadata.json
+    sketch.js
+    samples/
+      tone.wav
+```
+
+The folder name is the stable case ID (`a-z`, `0-9`, `_`, `-`, beginning with a letter or digit). The Node runner discovers folders in sorted ID order on every command; adding/editing a case needs no registry change or build. Root files and hidden folders are ignored. Every discovered case must contain both files; missing files, invalid metadata or empty coverage fails before browser launch. Sketch syntax/runtime errors are detected during browser evaluation, not Node discovery. `src/cases.ts` now contains only shared validation/selection/frame planning, not sketches.
+
+**`metadata.json`:**
+
+```json
 {
-  id: "sample-tone",
-  description: "Local sample playback",
-  code: "d.loadSamples({bank: 'local', samples: {tone: ['/samples/tone.wav']}}); d.sample('tone').bank('local').push();",
-  resources: { "/samples/tone.wav": "resources/tone.wav" },
-  bars: 1,
-  tailSeconds: 0.1,
+  "description": "Real fetch/decode/playback of a local 440 Hz sample",
+  "bars": 1,
+  "tailSeconds": 0.1,
+  "resources": {
+    "/samples/tone.wav": "./samples/tone.wav"
+  }
 }
 ```
 
-File paths are relative to this package, or absolute for local experimentation. Committed cases should use repository assets with origin/permission notes. Each render mounts files at unique loopback HTTP URLs and replaces only matching sample-entry `src` values after evaluation. Bank names, sample names, source keys, variation order, and sprite bounds remain unchanged. Built-in source URLs can be mapped the same way; unmapped external requests are blocked, never downloaded as fallback. Arbitrary source `fetch()` calls/async manifest loading are not rewritten or awaited.
+Required fields are `description`, positive integer `bars`, and nonnegative `tailSeconds`. Optional fields are `expectSilence` (boolean, defaults to false), `settings` (partial `sampleRate`, `channels`, `beatsPerBar`, `startOffsetFrames`) and `resources` (exact sample URL → local file). Unknown fields fail to catch typos; do not duplicate `id` or put source in the metadata. Duration remains explicitly configured, not inferred from the pattern. Comparison thresholds are not metadata knobs.
+
+**`sketch.js`:**
+
+```js
+d.loadSamples({
+  bank: "local",
+  samples: { tone: ["/samples/tone.wav"] },
+});
+d.sample("tone").bank("local").clip(false).push();
+```
+
+Write ordinary multiline REPL JavaScript: variables, functions, loops, comments and `d`/`drome` aliases work. The runner reads the entire file as source without importing/executing it in Node, then evaluates it synchronously in the owned browser through the existing public helper. It is not an ES module: no `import`/`export` or top-level `await`; returned promises are still not awaited. Sketch JS is formatted/linted with the REPL globals declared. Source remains trusted, not sandboxed.
+
+Input samples belong beside their sketch; keep origin/permission notes alongside them or in `cases/README.md`. Reference WAV/JSON pairs remain **separate in `references/`**, so adding an input folder never creates or approves a baseline. Existing render/verify/update commands and IDs are unchanged.
+
+## Local samples
+
+Use synchronous inline manifests in `sketch.js` and map their exact normalized source URLs in `metadata.json`. File paths are resolved **relative to the case folder**, independent of the command's working directory, or can be absolute for local experimentation. Shared local assets can be mapped explicitly with `../` paths; the sampler fixtures currently each own their colocated files. Programmatic test-only `SketchCase` inputs may still use package-relative/absolute paths. Committed cases should use repository assets with origin/permission notes. Each render mounts files at unique loopback HTTP URLs and replaces only matching sample-entry `src` values after evaluation. Bank names, sample names, source keys, variation order, and sprite bounds remain unchanged. Built-in source URLs can be mapped the same way; unmapped external requests are blocked, never downloaded as fallback. Arbitrary source `fetch()` calls/async manifest loading are not rewritten or awaited.
 
 Files are served as original bytes with caching disabled; missing/unreadable files report HTTP errors plus local paths, while real decoder/resource warnings fail even if other voices sound. Mounts are removed after rendering/failure. This is trusted local tooling, not a filesystem or JavaScript sandbox.
 
-See [`resources/README.md`](./resources/README.md) for the two synthetic PCM16 **input fixtures** and their explicit generator command. Tests/rendering never regenerate them. These input WAVs are not approved references and do not change the planned float-WAV output format.
+See [`cases/README.md`](./cases/README.md) for the synthetic PCM16 **input fixtures**, their colocated paths and explicit generator command. Tests/rendering never regenerate them. These input WAVs are not approved references and do not change the planned float-WAV output format.
 
 ## Float-WAV recordings
 
@@ -130,7 +161,7 @@ afplay packages/audio-regression/artifacts/render/sine.wav
 
 The reader is deliberately narrow, not a general sample decoder. It rejects PCM, float64, extensible/RF64/big-endian, incomplete/nonconforming headers, inconsistent lengths/format/fact counts, duplicate required chunks and non-finite samples. Unknown chunks with valid lengths/padding are skipped. The existing PCM16 sample **inputs** still use real browser decoding, independently of this output/reference codec.
 
-`src/runner/recording.ts` writes/reads `.wav` plus same-stem `.json`. Sidecars contain only case ID, settings (rate/channels/beats/start offset), bars/tail, BPM/frame count and actual browser version. Metadata and WAV shape are validated, but provenance changes do not create an environment gate. Encoding/validation completes before writing; these are ordinary diagnostic file writes, not a multi-file reference update transaction. File errors propagate nonzero. `artifacts/` is ignored by git and formatting.
+`src/runner/recording.ts` pairs reference `render.wav` with `metadata.json`; other diagnostic WAVs retain same-stem JSON sidecars. Sidecars contain only case ID, settings (rate/channels/beats/start offset), bars/tail, BPM/frame count and actual browser version. Metadata and WAV shape are validated, but provenance changes do not create an environment gate. Encoding/validation completes before writing; these are ordinary diagnostic file writes, not a multi-file reference update transaction. File errors propagate nonzero. `artifacts/` is ignored by git and formatting.
 
 macOS `afinfo` recognized the generated sine file as stereo 48 kHz Float32, and `afplay` completed successfully. This confirms player acceptance, **not** listening approval of a regression reference. No approved references exist yet.
 
@@ -151,7 +182,15 @@ pnpm --filter @web-audio/audio-regression audio:verify
 pnpm --filter @web-audio/audio-regression audio:verify --case <id>
 ```
 
-Without a selector, verification runs **all registered cases**, sequentially; `--case` selects exactly one. References are intended to be committed as **`references/<id>.wav` plus `<id>.json`** inside this package after listening review. **No approved reference files exist yet**, so normal verification currently fails for missing coverage while still rendering/saving current audio. Tests use temporary, explicitly unapproved fixtures and never populate this reference directory.
+Without a selector, verification runs **all registered cases**, sequentially; `--case` selects exactly one. References are intended to be committed as **`references/<id>/render.wav` plus `references/<id>/metadata.json`** inside this package after listening review. Each reference folder matches its corresponding case folder:
+
+```text
+cases/sine/             references/sine/
+  metadata.json          metadata.json
+  sketch.js              render.wav
+```
+
+If you already have an ID-named WAV/JSON pair, move/rename it to `references/<id>/render.wav` and `metadata.json` without changing the contents; do not regenerate audio just to rearrange files. Verification reads only the folder layout and never migrates or falls back to flat references. **No approved reference files exist yet**, so normal verification currently fails for missing coverage while still rendering/saving current audio. Tests use temporary, explicitly unapproved fixtures and never populate this reference directory.
 
 Verification always renders through the owned harness, even if a reference is missing or invalid. It never creates, updates or promotes references, and does not skip based on source/assets/version. Browser-version changes produce a warning, not an environment gate. Output identifies cases, browser/rate/channels/frames/BPM, per-channel max/RMS values and fixed **0/0** thresholds, failed gates and worst-error channel/frame/time/sample values where comparison is possible. It continues later cases after individual failures and exits **1** if any case fails. Empty/duplicate registries, unknown selectors and invalid arguments also fail rather than appearing green.
 
@@ -187,7 +226,7 @@ The Step 2.3 unapproved gain-change demonstration also remains under **`artifact
 pnpm --filter @web-audio/audio-regression audio:update --case <id>
 ```
 
-This is the **only command that writes reference recordings**. It requires exactly one explicit case ID: no default full-suite update, `--all`, multiple selectors, or update flag on verification. Unknown/invalid selection fails before browser startup. The selected case always gets a fresh real render; unchanged source is not a skip. Healthy output creates/replaces **only `references/<id>.wav` and `<id>.json`**, reporting the paths, browser/settings and per-channel peak/RMS. It does not copy an old diagnostic file, change tolerances, or update any other case.
+This is the **only command that writes reference recordings**. It requires exactly one explicit case ID: no default full-suite update, `--all`, multiple selectors, or update flag on verification. Unknown/invalid selection fails before browser startup. The selected case always gets a fresh real render; unchanged source is not a skip. Healthy output creates/replaces **only `references/<id>/render.wav` and `references/<id>/metadata.json`**, reporting the paths, browser/settings and per-channel peak/RMS. It does not copy an old diagnostic file, change tolerances, or update any other case.
 
 Source, sample-loading, worklet, timeout, and signal-health failures occur before reference I/O and leave old recordings untouched; an invalid first render creates no reference directory. Metadata/shape/finiteness validation and encoding also finish before writes. Finite peaks above one remain legal; silence requires explicit case opt-in. The WAV/JSON pair uses ordinary writes, **not an atomic transaction**: a later disk-write error can leave partial output, exits nonzero, and requires inspecting/restoring the pair rather than assuming rollback.
 
@@ -199,15 +238,15 @@ For a new case, first check repeated output in fresh renders (the six initial fi
 # Explicitly generate/replace this one reference:
 pnpm --filter @web-audio/audio-regression audio:update --case sine
 # Listen and inspect the settings and intended change:
-afplay packages/audio-regression/references/sine.wav
+afplay packages/audio-regression/references/sine/render.wav
 git status --short -- packages/audio-regression/references/
-git diff -- packages/audio-regression/references/sine.json
+git diff -- packages/audio-regression/references/sine/metadata.json
 # Fresh comparison; this never writes references:
 pnpm --filter @web-audio/audio-regression audio:verify --case sine
 # Only after human listening/review, stage both files and commit the intended change:
-git add packages/audio-regression/references/sine.wav packages/audio-regression/references/sine.json
+git add packages/audio-regression/references/sine/render.wav packages/audio-regression/references/sine/metadata.json
 git diff --cached --stat
-git diff --cached -- packages/audio-regression/references/sine.json
+git diff --cached -- packages/audio-regression/references/sine/metadata.json
 git commit -m "audio: review sine reference"
 ```
 

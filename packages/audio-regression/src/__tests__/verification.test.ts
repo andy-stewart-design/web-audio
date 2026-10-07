@@ -1,13 +1,18 @@
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { cases, selectCase } from "../cases";
+import { selectCase } from "../cases";
 import type { SketchCase } from "../types";
-import { readRecording, writeRecording } from "../runner/recording";
+import {
+  readRecording,
+  referencePath,
+  writeRecording,
+} from "../runner/recording";
 import { withRenderer } from "../runner/render";
 import { verifyCases } from "../runner/verify";
-import { sketch } from "./support/cases";
+import { cases, sketch } from "./support/cases";
+import { expectUnchanged, snapshot } from "./support/reference-files";
 
 async function withDirectories<T>(
   run: (paths: {
@@ -26,27 +31,6 @@ async function withDirectories<T>(
   }
 }
 
-async function snapshot(directory: string) {
-  const names = (await readdir(directory)).sort();
-  return Promise.all(
-    names.map(async (name) => ({
-      name,
-      bytes: await readFile(join(directory, name)),
-    })),
-  );
-}
-
-async function expectUnchanged(
-  directory: string,
-  before: Awaited<ReturnType<typeof snapshot>>,
-) {
-  const after = await snapshot(directory);
-  expect(after.map(({ name }) => name)).toEqual(before.map(({ name }) => name));
-  expect(
-    after.every(({ bytes }, index) => bytes.equals(before[index]!.bytes)),
-  ).toBe(true);
-}
-
 const sameSamples = (a: readonly Float32Array[], b: typeof a) =>
   a.length === b.length &&
   a.every(
@@ -61,7 +45,7 @@ describe("native read-only verification and failure recordings", () => {
       await withRenderer(async (renderer) => {
         for (const input of cases)
           await writeRecording(
-            join(paths.referenceDirectory, `${input.id}.wav`),
+            referencePath(input.id, paths.referenceDirectory),
             await renderer.render(input),
           );
         const before = await snapshot(paths.referenceDirectory);
@@ -94,7 +78,7 @@ describe("native read-only verification and failure recordings", () => {
       await withRenderer(async (renderer) => {
         const original = await renderer.render(sketch());
         await writeRecording(
-          join(paths.referenceDirectory, "sine.wav"),
+          referencePath("sine", paths.referenceDirectory),
           original,
         );
         const before = await snapshot(paths.referenceDirectory);
@@ -144,7 +128,7 @@ describe("native read-only verification and failure recordings", () => {
       await withRenderer(async (renderer) => {
         const original = await renderer.render(sketch());
         for (const id of ["evaluation", "missing-sample", "sine"])
-          await writeRecording(join(paths.referenceDirectory, `${id}.wav`), {
+          await writeRecording(referencePath(id, paths.referenceDirectory), {
             ...original,
             id,
           });

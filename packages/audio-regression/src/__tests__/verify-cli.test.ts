@@ -24,7 +24,7 @@ async function withFixture<T>(
     const artifactDirectory = join(directory, "artifacts");
     await withRenderer(async (renderer) => {
       await writeRecording(
-        join(referenceDirectory, "sine.wav"),
+        join(referenceDirectory, "sine", "render.wav"),
         await renderer.render(sketch()),
       );
     });
@@ -52,8 +52,8 @@ const runDriver = (
 
 async function bytes(referenceDirectory: string) {
   return Promise.all([
-    readFile(join(referenceDirectory, "sine.wav")),
-    readFile(join(referenceDirectory, "sine.json")),
+    readFile(join(referenceDirectory, "sine", "render.wav")),
+    readFile(join(referenceDirectory, "sine", "metadata.json")),
   ]);
 }
 
@@ -133,8 +133,10 @@ describe("verification command exit policy", () => {
 
   it("fails missing coverage with real current-only audio, not an automatically created reference", async () => {
     await withFixture(async (referenceDirectory, artifactDirectory) => {
-      await rm(join(referenceDirectory, "sine.wav"));
-      const sidecar = await readFile(join(referenceDirectory, "sine.json"));
+      await rm(join(referenceDirectory, "sine", "render.wav"));
+      const sidecar = await readFile(
+        join(referenceDirectory, "sine", "metadata.json"),
+      );
       await expect(
         runDriver(referenceDirectory, artifactDirectory, "original"),
       ).rejects.toMatchObject({
@@ -148,10 +150,12 @@ describe("verification command exit policy", () => {
           .frameCount,
       ).toBe(112_800);
       await expect(
-        readFile(join(referenceDirectory, "sine.wav")),
+        readFile(join(referenceDirectory, "sine", "render.wav")),
       ).rejects.toMatchObject({ code: "ENOENT" });
       expect(
-        (await readFile(join(referenceDirectory, "sine.json"))).equals(sidecar),
+        (
+          await readFile(join(referenceDirectory, "sine", "metadata.json"))
+        ).equals(sidecar),
       ).toBe(true);
     });
   });

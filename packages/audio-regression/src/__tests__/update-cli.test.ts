@@ -44,8 +44,8 @@ async function withDirectories<T>(
 
 async function bytes(directory: string) {
   return Promise.all([
-    readFile(join(directory, "sine.wav")),
-    readFile(join(directory, "sine.json")),
+    readFile(join(directory, "sine", "render.wav")),
+    readFile(join(directory, "sine", "metadata.json")),
   ]);
 }
 
@@ -83,10 +83,10 @@ describe("explicit update command exit policy", () => {
       expect(created.stdout).toContain(
         "Reference recording written. Not listening approval",
       );
-      expect((await readdir(paths.referenceDirectory)).sort()).toEqual([
-        "sine.json",
-        "sine.wav",
-      ]);
+      expect(await readdir(paths.referenceDirectory)).toEqual(["sine"]);
+      expect(
+        (await readdir(join(paths.referenceDirectory, "sine"))).sort(),
+      ).toEqual(["metadata.json", "render.wav"]);
       expect(
         (await verify(["--case", "sine"], { ...paths, registry: [sketch()] }))
           .passed,
@@ -99,12 +99,12 @@ describe("explicit update command exit policy", () => {
         "sine",
       );
       expect(replaced.stdout).toContain(
-        `Reference WAV: ${join(paths.referenceDirectory, "sine.wav")}`,
+        `Reference WAV: ${join(paths.referenceDirectory, "sine", "render.wav")}`,
       );
       const after = await bytes(paths.referenceDirectory);
       expect(after[0]!.equals(before[0]!)).toBe(false);
       const stored = await readRecording(
-        join(paths.referenceDirectory, "sine.wav"),
+        join(paths.referenceDirectory, "sine", "render.wav"),
       );
       expect(stored.metadata.id).toBe("sine");
       expect(stored.frameCount).toBe(112_800);

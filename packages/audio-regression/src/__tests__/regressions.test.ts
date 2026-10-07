@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -8,6 +8,7 @@ import { withRenderer } from "../runner/render";
 import { updateReference } from "../runner/update";
 import { verifyCases } from "../runner/verify";
 import { estimateFrequency, windowPeak } from "./support/cases";
+import { expectUnchanged, snapshot } from "./support/reference-files";
 import {
   diagnosticRegressions,
   numericalRegressions,
@@ -28,27 +29,6 @@ async function withDirectories<T>(
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-}
-
-async function snapshot(directory: string) {
-  const names = (await readdir(directory)).sort();
-  return Promise.all(
-    names.map(async (name) => ({
-      name,
-      bytes: await readFile(join(directory, name)),
-    })),
-  );
-}
-
-async function expectUnchanged(
-  directory: string,
-  before: Awaited<ReturnType<typeof snapshot>>,
-) {
-  const after = await snapshot(directory);
-  expect(after.map(({ name }) => name)).toEqual(before.map(({ name }) => name));
-  expect(
-    after.every(({ bytes }, index) => bytes.equals(before[index]!.bytes)),
-  ).toBe(true);
 }
 
 function expectAuthoredChange(

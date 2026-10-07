@@ -1,12 +1,14 @@
 import { rm } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cases, selectCases } from "../cases";
+import { selectCases } from "../cases";
 import type { SketchCase } from "../types";
 import { compareAudio, formatComparison } from "./compare";
+import { loadCases } from "./load-cases";
 import {
   REFERENCE_DIRECTORY,
   readRecording,
+  referencePath,
   writeRecording,
 } from "./recording";
 import { withRenderer } from "./render";
@@ -103,7 +105,7 @@ export async function verifyCases(
       },
     );
     const reference = await readRecording(
-      join(paths.references, `${sketch.id}.wav`),
+      referencePath(sketch.id, paths.references),
     )
       .then((recording) => {
         if (recording.metadata.id !== sketch.id)
@@ -227,7 +229,7 @@ export async function verify(
   } = {},
 ) {
   const caseId = parseVerifySelector(args);
-  const registry = options.registry ?? cases;
+  const registry = options.registry ?? (await loadCases());
   // Validate selection/paths before launching; zero selected cases must never pass.
   selectCases(registry, caseId);
   verificationPaths(options);

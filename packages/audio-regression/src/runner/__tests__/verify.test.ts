@@ -12,7 +12,11 @@ import { describe, expect, it, vi } from "vitest";
 import { normalizeCase, planRender } from "../../cases";
 import type { SketchCase } from "../../types";
 import { inspectAudio } from "../audio";
-import { readRecording, writeRecording } from "../recording";
+import { readRecording, referencePath, writeRecording } from "../recording";
+import {
+  expectUnchanged as expectTreeUnchanged,
+  snapshot,
+} from "../../__tests__/support/reference-files";
 import { parseVerifySelector, verify, verifyCases } from "../verify";
 
 const sketch: SketchCase = {
@@ -58,8 +62,8 @@ async function withDirectories<T>(
 
 async function referenceBytes(directory: string, id = "test") {
   return Promise.all([
-    readFile(join(directory, `${id}.wav`)),
-    readFile(join(directory, `${id}.json`)),
+    readFile(join(directory, id, "render.wav")),
+    readFile(join(directory, id, "metadata.json")),
   ]);
 }
 
@@ -109,7 +113,7 @@ describe("read-only verification orchestration", () => {
   it("rejects overlapping reference/artifact trees before any cleanup or rendering", async () => {
     await withDirectories(async (paths) => {
       await writeRecording(
-        join(paths.referenceDirectory, "test.wav"),
+        referencePath("test", paths.referenceDirectory),
         recording(),
       );
       const before = await referenceBytes(paths.referenceDirectory);
@@ -138,7 +142,7 @@ describe("read-only verification orchestration", () => {
       const other = { ...sketch, id: "other" };
       for (const input of [sketch, other])
         await writeRecording(
-          join(paths.referenceDirectory, `${input.id}.wav`),
+          referencePath(input.id, paths.referenceDirectory),
           recording(input),
         );
       const before = await referenceBytes(paths.referenceDirectory);
@@ -198,7 +202,7 @@ describe("read-only verification orchestration", () => {
     await withDirectories(async (paths) => {
       const original = recording();
       await writeRecording(
-        join(paths.referenceDirectory, "test.wav"),
+        referencePath("test", paths.referenceDirectory),
         original,
       );
       const before = await referenceBytes(paths.referenceDirectory);
@@ -233,7 +237,7 @@ describe("read-only verification orchestration", () => {
     async (change) => {
       await withDirectories(async (paths) => {
         await writeRecording(
-          join(paths.referenceDirectory, "test.wav"),
+          referencePath("test", paths.referenceDirectory),
           recording(),
         );
         const input = {
@@ -274,7 +278,7 @@ describe("read-only verification orchestration", () => {
     "renders and saves current-only for unavailable reference: %s",
     async (failure) => {
       await withDirectories(async (paths) => {
-        const wav = join(paths.referenceDirectory, "test.wav");
+        const wav = referencePath("test", paths.referenceDirectory);
         const stored = await writeRecording(wav, recording());
         if (failure === "wav-missing") await rm(stored.wav);
         if (failure === "json-missing") await rm(stored.json);
@@ -289,19 +293,10 @@ describe("read-only verification orchestration", () => {
               id: "wrong",
             }),
           );
-        const names = (await readdir(paths.referenceDirectory)).sort();
-        const before = await Promise.all(
-          names.map((name) => readFile(join(paths.referenceDirectory, name))),
-        );
+        const before = await snapshot(paths.referenceDirectory);
         const renderer = { render: vi.fn(async () => recording()) };
         const result = await verifyCases(renderer, [sketch], paths);
-        expect((await readdir(paths.referenceDirectory)).sort()).toEqual(names);
-        const after = await Promise.all(
-          names.map((name) => readFile(join(paths.referenceDirectory, name))),
-        );
-        expect(
-          after.every((bytes, index) => bytes.equals(before[index]!)),
-        ).toBe(true);
+        await expectTreeUnchanged(paths.referenceDirectory, before);
         expect(result.passed).toBe(false);
         expect(renderer.render).toHaveBeenCalledOnce();
         expect(outputOf(result)).toContain(
@@ -318,10 +313,32 @@ describe("read-only verification orchestration", () => {
     },
   );
 
-  it("reports render errors without invented current audio, cleans stale failures, and continues later cases", async () => {
+  it("does not consume, migrate or overwrite legacy flat references during verification", async () => {
     await withDirectories(async (paths) => {
       await writeRecording(
         join(paths.referenceDirectory, "test.wav"),
+        recording(),
+      );
+      const before = await snapshot(paths.referenceDirectory);
+      const renderer = { render: vi.fn(async () => recording()) };
+      const result = await verifyCases(renderer, [sketch], paths);
+      expect(result.passed).toBe(false);
+      expect(result.results[0]!.errors[0]).toContain("Reference unavailable");
+      expect(result.results[0]!.errors[0]).toContain(
+        join("test", "render.wav"),
+      );
+      expect(renderer.render).toHaveBeenCalledOnce();
+      expect(result.results[0]!.artifacts.reference).toBeUndefined();
+      expect(result.results[0]!.artifacts.current).toBeDefined();
+      await expectTreeUnchanged(paths.referenceDirectory, before);
+      expect(await readdir(paths.referenceDirectory)).not.toContain("test");
+    });
+  });
+
+  it("reports render errors without invented current audio, cleans stale failures, and continues later cases", async () => {
+    await withDirectories(async (paths) => {
+      await writeRecording(
+        referencePath("test", paths.referenceDirectory),
         recording(),
       );
       const before = await referenceBytes(paths.referenceDirectory);
@@ -359,7 +376,7 @@ describe("read-only verification orchestration", () => {
     await withDirectories(async (paths) => {
       const largest = new Float32Array([3.4028234663852886e38])[0]!;
       await writeRecording(
-        join(paths.referenceDirectory, "test.wav"),
+        referencePath("test", paths.referenceDirectory),
         recording(sketch, largest),
       );
       const result = await verifyCases(
@@ -381,7 +398,10 @@ describe("read-only verification orchestration", () => {
     await withDirectories(async (paths) => {
       const input = { ...sketch, expectSilence: true };
       const silent = recording(input, 0);
-      await writeRecording(join(paths.referenceDirectory, "test.wav"), silent);
+      await writeRecording(
+        referencePath("test", paths.referenceDirectory),
+        silent,
+      );
       const result = await verifyCases(
         { render: async () => silent },
         [input],
@@ -395,7 +415,7 @@ describe("read-only verification orchestration", () => {
   it("reports artifact write failures and still attempts remaining recordings", async () => {
     await withDirectories(async (paths) => {
       await writeRecording(
-        join(paths.referenceDirectory, "test.wav"),
+        referencePath("test", paths.referenceDirectory),
         recording(),
       );
       const before = await referenceBytes(paths.referenceDirectory);
@@ -420,7 +440,7 @@ describe("read-only verification orchestration", () => {
   it("reports artifact filesystem errors without skipping rendering or touching references", async () => {
     await withDirectories(async (paths) => {
       await writeRecording(
-        join(paths.referenceDirectory, "test.wav"),
+        referencePath("test", paths.referenceDirectory),
         recording(),
       );
       const before = await referenceBytes(paths.referenceDirectory);

@@ -1,13 +1,14 @@
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { cases, selectCase } from "../cases";
+import { selectCase } from "../cases";
 import { readRecording } from "../runner/recording";
 import { withRenderer } from "../runner/render";
 import { update, updateReference } from "../runner/update";
 import { verifyCases } from "../runner/verify";
-import { sketch } from "./support/cases";
+import { cases, sketch } from "./support/cases";
+import { expectUnchanged, snapshot } from "./support/reference-files";
 import {
   throwingProcessor,
   withBrokenWorklet,
@@ -28,27 +29,6 @@ async function withDirectories<T>(
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-}
-
-async function snapshot(directory: string) {
-  const names = (await readdir(directory)).sort();
-  return Promise.all(
-    names.map(async (name) => ({
-      name,
-      bytes: await readFile(join(directory, name)),
-    })),
-  );
-}
-
-async function expectUnchanged(
-  directory: string,
-  before: Awaited<ReturnType<typeof snapshot>>,
-) {
-  const after = await snapshot(directory);
-  expect(after.map(({ name }) => name)).toEqual(before.map(({ name }) => name));
-  expect(
-    after.every(({ bytes }, index) => bytes.equals(before[index]!.bytes)),
-  ).toBe(true);
 }
 
 describe("real-engine explicit reference update workflow", () => {
@@ -78,16 +58,16 @@ describe("real-engine explicit reference update workflow", () => {
         );
         expect(
           after
-            .filter(({ name }) => name.startsWith("sample-tone."))
+            .filter(({ name }) => name.startsWith("sample-tone/"))
             .every(({ name, bytes }) =>
               bytes.equals(before.find((entry) => entry.name === name)!.bytes),
             ),
         ).toBe(true);
         expect(
           after
-            .find(({ name }) => name === "sine.wav")!
+            .find(({ name }) => name === "sine/render.wav")!
             .bytes.equals(
-              before.find(({ name }) => name === "sine.wav")!.bytes,
+              before.find(({ name }) => name === "sine/render.wav")!.bytes,
             ),
         ).toBe(false);
         const stored = await readRecording(replacement.paths.wav);
@@ -212,8 +192,8 @@ describe("real-engine explicit reference update workflow", () => {
       await update(["--case", input.id], { ...paths, registry: [input] });
       await expectUnchanged(paths.referenceDirectory, before);
       expect(before.map(({ name }) => name)).toEqual([
-        "seeded-multibar.json",
-        "seeded-multibar.wav",
+        "seeded-multibar/metadata.json",
+        "seeded-multibar/render.wav",
       ]);
     });
   });

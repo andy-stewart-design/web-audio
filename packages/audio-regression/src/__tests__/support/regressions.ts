@@ -1,5 +1,6 @@
-import { cases, selectCase } from "../../cases";
+import { selectCase } from "../../cases";
 import type { SketchCase } from "../../types";
+import { cases } from "./cases";
 
 // Focused authored-source changes, not engine/DSP mocks or an automatic mutation framework.
 // These cases and their generated recordings are test-only and never approved references.
@@ -28,8 +29,8 @@ const selection: SketchCase = {
   ...selectCase(cases, "sample-tone"),
   code: "d.loadSamples({bank: 'local', samples: {tone: ['/samples/tone.wav', '/samples/asymmetric.wav']}}); d.sample('tone', 0).bank('local').clip(false).push();",
   resources: {
-    "/samples/tone.wav": "resources/tone.wav",
-    "/samples/asymmetric.wav": "resources/asymmetric.wav",
+    "/samples/tone.wav": "cases/sample-tone/samples/tone.wav",
+    "/samples/asymmetric.wav": "cases/sample-reverse/samples/asymmetric.wav",
   },
 };
 
@@ -57,8 +58,8 @@ export const numericalRegressions = [
   sourceChange(
     "reverse",
     selectCase(cases, "sample-reverse"),
-    ".direction('reverse')",
-    ".direction('forward')",
+    '.direction("reverse")',
+    '.direction("forward")',
   ),
 ];
 
@@ -80,7 +81,9 @@ export const diagnosticRegressions = [
     original: resource,
     changed: {
       ...resource,
-      resources: { "/samples/tone.wav": "resources/absent-regression.wav" },
+      resources: {
+        "/samples/tone.wav": "cases/sample-tone/samples/absent-regression.wav",
+      },
     },
     diagnostic: "Failed to load",
   },

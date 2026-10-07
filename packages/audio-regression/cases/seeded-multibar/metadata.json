@@ -1,0 +1,5 @@
+{
+  "description": "Explicitly seeded chance timing and random pitches over three bars",
+  "bars": 3,
+  "tailSeconds": 0.1
+}

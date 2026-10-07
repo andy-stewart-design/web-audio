@@ -1,10 +1,12 @@
 import { fileURLToPath } from "node:url";
-import { cases, parseCaseSelector, selectCase } from "./cases";
+import { parseCaseSelector, selectCase } from "./cases";
+import { loadCases } from "./runner/load-cases";
 import { writeRecording } from "./runner/recording";
 import { withRenderer } from "./runner/render";
 
 try {
-  const selected = selectCase(cases, parseCaseSelector(process.argv.slice(2)));
+  const caseId = parseCaseSelector(process.argv.slice(2));
+  const selected = selectCase(await loadCases(), caseId);
   await withRenderer(async (renderer) => {
     const result = await renderer.render(selected);
     console.log(`[${result.id}] Chromium ${result.browserVersion}`);

@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, extname, resolve } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeCase, planRender } from "../cases";
 import type { RecordingMetadata } from "../types";
@@ -9,11 +9,21 @@ export const REFERENCE_DIRECTORY = fileURLToPath(
   new URL("../../references/", import.meta.url),
 );
 
+export function referencePath(id: string, directory = REFERENCE_DIRECTORY) {
+  return join(directory, id, "render.wav");
+}
+
 function recordingPaths(path: string) {
   const wav = resolve(path);
   if (extname(wav).toLowerCase() !== ".wav")
     throw new Error("Recording path must end in .wav");
-  return { wav, json: `${wav.slice(0, -4)}.json` };
+  return {
+    wav,
+    json:
+      basename(wav) === "render.wav"
+        ? join(dirname(wav), "metadata.json")
+        : `${wav.slice(0, -4)}.json`,
+  };
 }
 
 export function parseRecordingMetadata(input: unknown) {

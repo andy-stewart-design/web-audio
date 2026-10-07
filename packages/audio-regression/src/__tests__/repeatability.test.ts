@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { cases, selectCase } from "../cases";
+import { selectCase } from "../cases";
 import { COMPARISON_TOLERANCE } from "../runner/audio";
 import { withRenderer } from "../runner/render";
-import { estimateFrequency, sketch, windowPeak } from "./support/cases";
+import { cases, estimateFrequency, sketch, windowPeak } from "./support/cases";
 import { measureDifference } from "./support/repeatability";
 
 const seeded = selectCase(cases, "seeded-multibar");
@@ -174,7 +174,9 @@ describe("seeded behavior and isolated audio repeatability", () => {
         ...alternate,
         id: "different-asset",
         bars: 1,
-        resources: { "/samples/asymmetric.wav": "resources/tone.wav" },
+        resources: {
+          "/samples/asymmetric.wav": "cases/sample-tone/samples/tone.wav",
+        },
       });
       expect(differentAsset.metrics[0]?.peak).toBeCloseTo(0.437513, 4);
       const silent = await renderer.render(

@@ -1,8 +1,13 @@
-import { join, resolve } from "node:path";
-import { cases, selectCase } from "../cases";
+import { resolve } from "node:path";
+import { selectCase } from "../cases";
 import type { SketchCase } from "../types";
 import { inspectAudio } from "./audio";
-import { REFERENCE_DIRECTORY, writeRecording } from "./recording";
+import { loadCases } from "./load-cases";
+import {
+  REFERENCE_DIRECTORY,
+  referencePath,
+  writeRecording,
+} from "./recording";
 import { withRenderer } from "./render";
 
 type UpdateOptions = {
@@ -40,7 +45,7 @@ export async function updateReference(
   // Storage validates all metadata/shape/finite samples and encodes before I/O.
   // This is one selected ordinary WAV/JSON write, not an atomic transaction.
   const paths = await writeRecording(
-    join(referenceDirectory, `${selected.id}.wav`),
+    referencePath(selected.id, referenceDirectory),
     result,
   );
   report(
@@ -63,7 +68,7 @@ export async function update(
   options: UpdateOptions & { registry?: SketchCase[] } = {},
 ) {
   const caseId = parseUpdateSelector(args);
-  const registry = options.registry ?? cases;
+  const registry = options.registry ?? (await loadCases());
   selectCase(registry, caseId); // Reject invalid selection before browser startup.
   return withRenderer((renderer) =>
     updateReference(renderer, registry, caseId, options),

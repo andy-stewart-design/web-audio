@@ -1,10 +1,19 @@
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { normalizeCase, planRender } from "../../cases";
 import type { SketchCase } from "../../types";
-import { readRecording, writeRecording } from "../recording";
+import {
+  REFERENCE_DIRECTORY,
+  readRecording,
+  referencePath,
+  writeRecording,
+} from "../recording";
+import {
+  expectUnchanged,
+  snapshot,
+} from "../../__tests__/support/reference-files";
 import { parseUpdateSelector, update, updateReference } from "../update";
 import { verifyCases } from "../verify";
 
@@ -50,28 +59,16 @@ async function withDirectories<T>(
   }
 }
 
-async function snapshot(directory: string) {
-  const names = (await readdir(directory)).sort();
-  return Promise.all(
-    names.map(async (name) => ({
-      name,
-      bytes: await readFile(join(directory, name)),
-    })),
-  );
-}
-
-async function expectUnchanged(
-  directory: string,
-  before: Awaited<ReturnType<typeof snapshot>>,
-) {
-  const after = await snapshot(directory);
-  expect(after.map(({ name }) => name)).toEqual(before.map(({ name }) => name));
-  expect(
-    after.every(({ bytes }, index) => bytes.equals(before[index]!.bytes)),
-  ).toBe(true);
-}
-
 describe("explicit reference updating", () => {
+  it("uses matching case folders for default and configured reference trees", () => {
+    expect(referencePath("sine")).toBe(
+      join(REFERENCE_DIRECTORY, "sine", "render.wav"),
+    );
+    expect(referencePath("sample-tone", "custom-references")).toBe(
+      join("custom-references", "sample-tone", "render.wav"),
+    );
+  });
+
   it("requires exactly one named case and rejects all/update flags", () => {
     expect(parseUpdateSelector(["--case", "test"])).toBe("test");
     for (const args of [
@@ -125,10 +122,16 @@ describe("explicit reference updating", () => {
       });
       expect(renderer.render).toHaveBeenCalledOnce();
       expect(renderer.render.mock.calls[0]).toHaveLength(1);
-      expect((await readdir(paths.referenceDirectory)).sort()).toEqual([
-        "test.json",
-        "test.wav",
-      ]);
+      expect(await readdir(paths.referenceDirectory)).toEqual(["test"]);
+      expect(result.paths.wav).toBe(
+        join(paths.referenceDirectory, "test", "render.wav"),
+      );
+      expect(result.paths.json).toBe(
+        join(paths.referenceDirectory, "test", "metadata.json"),
+      );
+      expect(
+        (await snapshot(paths.referenceDirectory)).map(({ name }) => name),
+      ).toEqual(["test/metadata.json", "test/render.wav"]);
       const stored = await readRecording(result.paths.wav);
       expect(stored.channels[0]![0]).toBe(1.25);
       expect(Object.is(stored.channels[1]![0], -0)).toBe(true);
@@ -150,12 +153,16 @@ describe("explicit reference updating", () => {
     await withDirectories(async (paths) => {
       const other = { ...sketch, id: "other" };
       await writeRecording(
-        join(paths.referenceDirectory, "test.wav"),
+        referencePath("test", paths.referenceDirectory),
         recording(),
       );
       await writeRecording(
-        join(paths.referenceDirectory, "other.wav"),
+        referencePath("other", paths.referenceDirectory),
         recording(other),
+      );
+      await writeFile(
+        join(paths.referenceDirectory, "other", "notes"),
+        "preserve unexpected sibling files",
       );
       const before = await snapshot(paths.referenceDirectory);
       const renderer = { render: vi.fn(async () => recording(sketch, 0.75)) };
@@ -171,7 +178,7 @@ describe("explicit reference updating", () => {
       );
       expect(
         after
-          .filter(({ name }) => name.startsWith("other."))
+          .filter(({ name }) => name.startsWith("other/"))
           .every(({ name, bytes }) =>
             bytes.equals(before.find((entry) => entry.name === name)!.bytes),
           ),
@@ -187,7 +194,7 @@ describe("explicit reference updating", () => {
   it("preserves every old byte and never creates missing references on render failure", async () => {
     await withDirectories(async (paths) => {
       await writeRecording(
-        join(paths.referenceDirectory, "test.wav"),
+        referencePath("test", paths.referenceDirectory),
         recording(),
       );
       const before = await snapshot(paths.referenceDirectory);
@@ -215,7 +222,7 @@ describe("explicit reference updating", () => {
     async (failure) => {
       await withDirectories(async (paths) => {
         await writeRecording(
-          join(paths.referenceDirectory, "test.wav"),
+          referencePath("test", paths.referenceDirectory),
           recording(),
         );
         const before = await snapshot(paths.referenceDirectory);

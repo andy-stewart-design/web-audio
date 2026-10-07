@@ -1,5 +1,8 @@
-import { cases, selectCase } from "../../cases";
+import { selectCase } from "../../cases";
+import { loadCases } from "../../runner/load-cases";
 import type { SketchCase } from "../../types";
+
+export const cases = await loadCases();
 
 export function sketch(overrides: Partial<SketchCase> = {}) {
   return { ...selectCase(cases, "sine"), ...overrides };

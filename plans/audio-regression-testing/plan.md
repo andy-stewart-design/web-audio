@@ -276,6 +276,32 @@ Originals are freshly updated only into temporary unapproved reference directori
 
 ---
 
+## Case authoring follow-up — Folder-based inputs (complete)
+
+Requested after Step 2.5, before supplied-sketch onboarding. Migrated all six cases to `cases/<id>/metadata.json` and multiline `sketch.js`, colocating original PCM16 inputs under each sampler case's `samples/`. Added Node-only `src/runner/load-cases.ts`: stable sorted immediate-folder discovery, folder-derived IDs, runtime metadata validation and case-relative resource resolution. Sketch files are read as text, never imported/executed in Node; existing browser REPL evaluation, renderer, comparator, explicit selected updates and separate `references/` outputs are unchanged. Browser-safe `src/cases.ts` retains only helpers. Defaults/commands/IDs/sample bytes/tolerances/dependencies remain unchanged; discovery does not generate references.
+
+**Validation:** Captured all six pre-migration native renders as ignored/unapproved WAVs, then compared fresh file-authored renders against them at **0/0 in both channels**. Input SHA-256 values are unchanged, including the additional byte-identical asymmetric copy owned by `sample-alternate`. All **258 tests in 24 files passed** (224 existing plus 33 discovery/metadata units and one file-authored native integration). New tests cover sorted discovery, missing/invalid files/settings, exact multiline source preservation without Node execution, case-relative/shared/absolute mappings and fresh discovery after edits. The native test exercises variables, a two-iteration loop, both REPL aliases, colocated fetch/decode, source edits producing numerical failure, missing sample rejection alongside healthy synthesis, unchanged reference bytes and recovery. It passed in four separate focused processes before the full suite. Package/workspace checking/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached. No approved references were created.
+
+**Reported finding, not hidden:** An initial draft with a sample and two fully overlapping synths had intermittent raw differences (max/RMS about **5.96e-8/6.70e-9**). Equivalent pre-migration-style inline source reproduced this in **2/10** repeats; file discovery is not required to trigger it. Native cause is not established. The final authoring integration uses loop voices on separate sequence steps to test file authoring without treating this new mixing shape as measured trusted coverage. No threshold was relaxed, audio preprocessed or engine behavior changed. Unapproved source/A-B/report remain ignored under `artifacts/three-voice-repeatability/`. Investigate before approving cases relying on this shape; see feasibility details.
+
+- [x] Cases can be added as source/metadata/sample folders without a registry edit.
+- [x] All migrated cases retain the original numerical output and sample bytes.
+- [x] Source/resource failures, read-only verification and explicit-update policy remain tested.
+
+---
+
+## Reference layout follow-up — Matching case folders (complete)
+
+Changed update/verification to share `referencePath` in existing recording storage, using **`references/<id>/<id>.wav` and `<id>.json`**. This mirrors input case-ID folders without mixing source/assets with expected output. WAV samples/metadata encoding, commands, render artifacts and comparison defaults are unchanged. Verification only reads the folder layout and never migrates or consumes flat legacy pairs; existing pairs can be manually moved unchanged rather than regenerated. No automatic migration command or new path-only production module was added.
+
+**Validation:** All **260 tests in 24 files passed** (258 existing plus default/configured folder-path and flat-reference rejection tests); the focused 69-test update/verify/regression/command set also passed. Tests check exact selected output paths/file set, fresh nested verification, unchanged reference trees including unrelated non-WAV sibling files, replacement isolation, invalid/partial references, failure preservation/recovery and command exits. Shared test-only snapshots now recurse through nested reference files. Package/workspace checks/lint/tests, formatting and `git diff --check` passed; unchanged workspace tasks may be cached. No engine, dependency/lockfile, input sample, tolerance or approved recording changed.
+
+- [x] Reference output folders match case IDs.
+- [x] Update and verification agree on paths; verification stays read-only.
+- [x] Layout does not implicitly regenerate or approve recordings.
+
+---
+
 ## Phase 3 — Use the suite for real sketches
 
 **Usable outcome:** The user's manual regression sketches have trusted references and run with one local command, including normal root test invocation.
@@ -284,11 +310,11 @@ Originals are freshly updated only into temporary unapproved reference directori
 
 **Depends on:** Rendering/comparison support and supplied sketches; start importing during Phases 1–2 whenever supported.
 
-**Files/areas:** Case registry, source/sample fixtures, brief coverage notes.
+**Files/areas:** `cases/<id>/metadata.json`, `sketch.js`, optional colocated sample fixtures and brief coverage notes.
 
 **Work:** Obtain sketches, intended protected behavior, and sample files suitable for committing. Preserve source where possible; document and get agreement for resource/nondeterministic-input changes. Use local resources, explicit seeds, and enough bars/tail for each pattern. Start with the available representative set; no required case-count target before the suite is useful.
 
-**Validation:** Render each case with external networking blocked and inspect errors. Check repeatability for new cases. Identify async/live-control/hardware-dependent cases as deferred rather than silently rewriting their behavior.
+**Validation:** Render each case with external networking blocked and inspect errors. Check repeatability for new cases, including investigation of the reported fully overlapping three-voice variance before approving such coverage. Identify async/live-control/hardware-dependent cases as deferred rather than silently rewriting their behavior.
 
 - [ ] Each case has an ID, purpose, adequate duration, and local resources.
 - [ ] Source/resource adaptations and sample permissions are explicit.

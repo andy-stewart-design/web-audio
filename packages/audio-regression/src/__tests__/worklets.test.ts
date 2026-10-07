@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { cases, selectCase } from "../cases";
+import { selectCase } from "../cases";
 import { withRenderer } from "../runner/render";
-import { sketch, windowPeak } from "./support/cases";
+import { cases, sketch, windowPeak } from "./support/cases";
 import { measureDifference } from "./support/repeatability";
 import {
   throwingConstructor,
@@ -22,7 +22,7 @@ describe("real LFO processing", () => {
         ...filtered,
         id: "static-filter",
         code: filtered.code.replace(
-          "d.lfo([300, 900], [2500, 4500]).norm().wave('sine').speed(1).off(0.25)",
+          /d\s*\.lfo\(\[300, 900\], \[2500, 4500\]\)[\s\S]*?\.off\(0\.25\)/,
           "1400",
         ),
       });

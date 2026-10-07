@@ -1,12 +1,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 
-// Input fixtures only: PCM16 WAVs, not the forthcoming float-WAV reference codec.
+// Case-local input fixtures only: PCM16 WAVs, not float-WAV references.
 const sampleRate = 48_000;
 const frames = sampleRate / 2;
-const directory = new URL("../../resources/", import.meta.url);
-await mkdir(directory, { recursive: true });
-
-for (const name of ["tone", "asymmetric"]) {
+for (const [caseId, name] of [
+  ["sample-tone", "tone"],
+  ["sample-reverse", "asymmetric"],
+  ["sample-alternate", "asymmetric"],
+]) {
+  const directory = new URL(`../../cases/${caseId}/samples/`, import.meta.url);
+  await mkdir(directory, { recursive: true });
   const data = Buffer.alloc(44 + frames * 2);
   data.write("RIFF", 0);
   data.writeUInt32LE(data.length - 8, 4);

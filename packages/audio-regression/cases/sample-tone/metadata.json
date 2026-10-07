@@ -1,0 +1,8 @@
+{
+  "description": "Real fetch/decode/playback of a local 440 Hz sample",
+  "bars": 1,
+  "tailSeconds": 0.1,
+  "resources": {
+    "/samples/tone.wav": "./samples/tone.wav"
+  }
+}

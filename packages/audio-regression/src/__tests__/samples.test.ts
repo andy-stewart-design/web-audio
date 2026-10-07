@@ -1,9 +1,9 @@
 import { evaluateSource } from "@web-audio/fluid";
 import { describe, expect, it } from "vitest";
-import { cases, selectCase } from "../cases";
+import { selectCase } from "../cases";
 import { withRenderer } from "../runner/render";
 import type { SketchCase } from "../types";
-import { estimateFrequency, sketch, windowPeak } from "./support/cases";
+import { cases, estimateFrequency, sketch, windowPeak } from "./support/cases";
 
 const toneSource = "/samples/tone.wav";
 const asymmetricSource = "/samples/asymmetric.wav";
@@ -15,7 +15,7 @@ const healthyVoice = "d.synth('sine').notes(69).gain(0.5).push();";
 function sampleSketch(
   code: string,
   resources: SketchCase["resources"] = {
-    [asymmetricSource]: "resources/asymmetric.wav",
+    [asymmetricSource]: "cases/sample-reverse/samples/asymmetric.wav",
   },
 ) {
   return sketch({ id: "sample", code, resources });
@@ -93,7 +93,7 @@ describe("real local sampler rendering", () => {
     const resources = Object.fromEntries(
       Object.values(sources)
         .flat()
-        .map((entry) => [entry.src, "resources/tone.wav"]),
+        .map((entry) => [entry.src, "cases/sample-tone/samples/tone.wav"]),
     );
     await withRenderer(async (renderer) => {
       const result = await renderer.render(sampleSketch(code, resources));
@@ -107,7 +107,7 @@ describe("real local sampler rendering", () => {
   it.each([
     [
       manifest(toneSource) + sampleVoice,
-      { [toneSource]: "resources/no-such-file.wav" },
+      { [toneSource]: "cases/sample-tone/samples/no-such-file.wav" },
       /HTTP 404[\s\S]*no-such-file.wav/,
     ],
     [
@@ -124,7 +124,7 @@ describe("real local sampler rendering", () => {
     ["d.sample('hit').bank('absent').push();", {}, /Bank "absent" not found/],
     [
       manifest(toneSource) + "d.sample('absent').bank('local').push();",
-      { [toneSource]: "resources/tone.wav" },
+      { [toneSource]: "cases/sample-tone/samples/tone.wav" },
       /Sample "absent" not found/,
     ],
     [
@@ -135,7 +135,7 @@ describe("real local sampler rendering", () => {
     [
       manifest(toneSource) +
         "d.sample('hit').bank('local').start(0.9).end(0.2).push();",
-      { [toneSource]: "resources/tone.wav" },
+      { [toneSource]: "cases/sample-tone/samples/tone.wav" },
       /start\(\) must be less than end/,
     ],
   ])(
@@ -180,7 +180,7 @@ describe("real local sampler rendering", () => {
         renderer
           .render(
             sampleSketch(code, {
-              [toneSource]: "resources/tone.wav",
+              [toneSource]: "cases/sample-tone/samples/tone.wav",
               "/samples/bad.wav": "src/__tests__/support/not-audio.txt",
             }),
           )
