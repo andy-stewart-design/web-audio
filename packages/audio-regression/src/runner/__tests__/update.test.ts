@@ -1,9 +1,6 @@
-import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { normalizeCase, planRender } from "../../cases";
-import type { SketchCase } from "../../types";
 import {
   REFERENCE_DIRECTORY,
   readRecording,
@@ -16,47 +13,7 @@ import {
 } from "../../__tests__/support/reference-files";
 import { parseUpdateSelector, update, updateReference } from "../update";
 
-const sketch: SketchCase = {
-  id: "test",
-  description: "Unapproved update unit fixture",
-  code: "not evaluated by unit renderer",
-  bars: 1,
-  tailSeconds: 0,
-  settings: { sampleRate: 3000, channels: 2, startOffsetFrames: 0 },
-};
-
-function recording(input = sketch, value = 1.25) {
-  const normalized = normalizeCase(input);
-  const layout = planRender(normalized);
-  const channels = Array.from({ length: normalized.settings.channels }, () =>
-    new Float32Array(layout.frameCount).fill(value),
-  );
-  channels[1]![0] = -0;
-  return {
-    ...normalized,
-    ...layout,
-    channels,
-    metrics: [],
-    browserVersion: "147.0.7727.15",
-  };
-}
-
-async function withDirectories<T>(
-  run: (paths: {
-    referenceDirectory: string;
-    artifactDirectory: string;
-  }) => Promise<T>,
-) {
-  const directory = await mkdtemp(join(tmpdir(), "audio-update-unit-"));
-  try {
-    return await run({
-      referenceDirectory: join(directory, "references"),
-      artifactDirectory: join(directory, "artifacts"),
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-}
+import { recording, sketch, withDirectories } from "./support/recordings";
 
 describe("explicit reference updating", () => {
   it("uses matching case folders for default and configured reference trees", () => {
@@ -106,6 +63,7 @@ describe("explicit reference updating", () => {
     await withDirectories(async (paths) => {
       const other = { ...sketch, id: "other" };
       const rendered = recording();
+      rendered.channels[1]![0] = -0;
       const renderer = {
         render: vi.fn(async () => {
           await expect(readdir(paths.referenceDirectory)).rejects.toMatchObject(

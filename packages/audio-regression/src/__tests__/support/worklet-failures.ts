@@ -23,18 +23,21 @@ export const throwingProcessor = `
   });
 `;
 
-// The one-bar/no-tail fault case ends at 2.1 s. Fail in its final quantum,
-// after producing healthy audio, to exercise completion/error event ordering.
-export const throwingLateProcessor = `
-  registerProcessor('lfo-processor', class extends AudioWorkletProcessor {
-    static get parameterDescriptors() {
-      return [{name: 'outputA', defaultValue: 0}, {name: 'outputB', defaultValue: 0}];
-    }
-    process(_inputs, outputs) {
-      outputs[0][0].fill(1400);
-      if (currentFrame >= Math.floor((2.1 * sampleRate - 1) / 128) * 128)
-        throw new Error('deliberate late processor failure');
-      return true;
-    }
-  });
-`;
+// Fail in the actual recording's final quantum, after producing healthy audio,
+// to exercise completion/error event ordering without assuming a duration/rate.
+export function throwingLateProcessor(frameCount: number) {
+  return `
+    registerProcessor('lfo-processor', class extends AudioWorkletProcessor {
+      static get parameterDescriptors() {
+        return [{name: 'outputA', defaultValue: 0}, {name: 'outputB', defaultValue: 0}];
+      }
+      process(_inputs, outputs) {
+        const output = outputs[0][0];
+        output.fill(1400);
+        if (currentFrame + output.length >= ${frameCount})
+          throw new Error('deliberate late processor failure');
+        return true;
+      }
+    });
+  `;
+}

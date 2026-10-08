@@ -1,16 +1,13 @@
 import {
   mkdir,
-  mkdtemp,
   readFile,
   readdir,
   rm,
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { normalizeCase, planRender } from "../../cases";
 import type { SketchCase } from "../../types";
 import { readRecording, referencePath, writeRecording } from "../recording";
 import {
@@ -19,45 +16,7 @@ import {
 } from "../../__tests__/support/reference-files";
 import { parseVerifySelector, verify, verifyCases } from "../verify";
 
-const sketch: SketchCase = {
-  id: "test",
-  description: "Temporary verification fixture",
-  code: "unused by unit renderer",
-  bars: 1,
-  tailSeconds: 0,
-  settings: { sampleRate: 3000, channels: 2, startOffsetFrames: 0 },
-};
-
-function recording(input = sketch, value = 1.25) {
-  const normalized = normalizeCase(input);
-  const layout = planRender(normalized);
-  return {
-    ...normalized,
-    ...layout,
-    channels: Array.from({ length: normalized.settings.channels }, () =>
-      new Float32Array(layout.frameCount).fill(value),
-    ),
-    metrics: [],
-    browserVersion: "test-browser",
-  };
-}
-
-async function withDirectories<T>(
-  run: (paths: {
-    referenceDirectory: string;
-    artifactDirectory: string;
-  }) => Promise<T>,
-) {
-  const directory = await mkdtemp(join(tmpdir(), "audio-verify-unit-"));
-  try {
-    return await run({
-      referenceDirectory: join(directory, "references"),
-      artifactDirectory: join(directory, "artifacts"),
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-}
+import { recording, sketch, withDirectories } from "./support/recordings";
 
 describe("read-only verification", () => {
   it("accepts all/one selection, rejecting invalid arguments and empty/duplicate/unknown coverage", async () => {

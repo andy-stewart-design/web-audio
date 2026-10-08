@@ -134,17 +134,38 @@ describe("raw audio comparison", () => {
   });
 
   it.each([
-    [mono(1), audio([Float32Array.of(1)], 44_100)],
-    [mono(1), audio([Float32Array.of(1), Float32Array.of(1)])],
-    [mono(1), mono(1, 2)],
-    [audio([]), audio([])],
-    [mono(), mono()],
-    [audio([Float32Array.of(1), Float32Array.of(1, 2)]), mono(1)],
-    [audio([Float32Array.of(1)], 0), mono(1)],
-    [mono(1), mono(NaN)],
-    [mono(Infinity), mono(1)],
-  ])("rejects invalid shapes, rates and samples", (reference, current) => {
-    expect(() => compareAudio(reference, current)).toThrow();
+    [
+      "sample rate",
+      mono(1),
+      audio([Float32Array.of(1)], 44_100),
+      /Sample rate mismatch/,
+    ],
+    [
+      "channel count",
+      mono(1),
+      audio([Float32Array.of(1), Float32Array.of(1)]),
+      /Channel count mismatch/,
+    ],
+    ["frame count", mono(1), mono(1, 2), /Frame count mismatch/],
+    [
+      "invalid rate",
+      audio([Float32Array.of(1)], 0),
+      mono(1),
+      /Reference sample rate/,
+    ],
+  ])("rejects %s mismatches", (_label, reference, current, message) => {
+    expect(() => compareAudio(reference, current)).toThrow(message);
+  });
+
+  // inspectAudio owns the exhaustive health matrix; here protect delegation
+  // and reference/current labels so callers can identify the invalid recording.
+  it.each([
+    ["Reference", mono(NaN), mono(1)],
+    ["Current", mono(1), mono(NaN)],
+  ])("labels invalid %s audio", (label, reference, current) => {
+    expect(() => compareAudio(reference, current)).toThrow(
+      `${label}: Non-finite sample`,
+    );
   });
 
   it("rejects sparse channel lists rather than skipping missing channels", () => {

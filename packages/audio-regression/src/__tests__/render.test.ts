@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { normalizeCase, planRender } from "../cases";
 import { withRenderer } from "../runner/render";
 import { sketch } from "./support/cases";
+import { withDiagnosticReady } from "./support/diagnostics";
 
 describe("native rendering", () => {
   it("returns the requested stereo/mono shape and closes its browser and server", async () => {
@@ -58,26 +59,37 @@ describe("native rendering", () => {
     await expect(fetch(origin)).rejects.toThrow();
   });
 
-  it.each([
-    ["throw new Error('invalid sketch');", /invalid sketch/],
-    [
-      "console.warn('deliberate warning'); d.synth().push();",
-      /deliberate warning/,
-    ],
-    [
-      "setTimeout(() => { throw new Error('deliberate page error'); }, 0); d.synth().push();",
-      /deliberate page error/,
-    ],
-    ["d.synth().out(d.midi.out()).push();", /MIDI output/],
-  ])("rejects source/diagnostic failures: %s", async (code, message) => {
+  it("rejects source/diagnostic failures, closes each context, and recovers", async () => {
+    const failures = [
+      ["source error", "throw new Error('invalid sketch');", /invalid sketch/],
+      [
+        "console warning",
+        "console.warn('deliberate warning'); d.synth().push();",
+        /deliberate warning/,
+      ],
+      [
+        "page error",
+        withDiagnosticReady(
+          sketch().code,
+          `addEventListener('error', () => resolve(), {once: true});
+           setTimeout(() => { throw new Error('deliberate page error'); }, 0);`,
+        ),
+        /deliberate page error/,
+      ],
+      ["MIDI output", "d.synth().out(d.midi.out()).push();", /MIDI output/],
+    ] as const;
     await withRenderer(async (renderer) => {
-      await expect(
-        renderer.render(sketch({ code })).then(() => undefined),
-      ).rejects.toThrow(message);
-      expect(renderer.browser.contexts()).toHaveLength(0);
+      for (const [label, code, message] of failures) {
+        await expect(
+          renderer.render(sketch({ code })).then(() => undefined),
+          label,
+        ).rejects.toThrow(message);
+        expect(renderer.browser.contexts(), label).toHaveLength(0);
+      }
       expect(
         (await renderer.render(sketch())).metrics.some(({ rms }) => rms > 0),
       ).toBe(true);
+      expect(renderer.browser.contexts()).toHaveLength(0);
     });
   });
 
