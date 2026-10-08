@@ -93,7 +93,7 @@ current.wav + current.json
 difference.wav + difference.json
 ```
 
-Difference is signed **current - reference**, without playback amplification. Shape mismatches or unrepresentable differences save available A/B but do not fabricate aligned/clipped audio. Missing references provide current-only recordings; render failures never invent current/partial audio. Selected stale artifacts are cleared on the next verification. All `artifacts/` are disposable.
+Difference is signed **current - reference**, without playback amplification. Shape mismatches or unrepresentable differences save available A/B but do not fabricate aligned/clipped audio. Missing references provide current-only recordings; render failures never invent current/partial audio. Selected stale artifacts are cleared on the next verification. Reference/artifact roots are checked for overlap after resolving symlinks, including existing ancestors of uncreated directories; overlapping aliases are rejected before browser startup or cleanup. All `artifacts/` are disposable.
 
 ```sh
 afplay packages/audio-regression/artifacts/verify/<id>/reference.wav

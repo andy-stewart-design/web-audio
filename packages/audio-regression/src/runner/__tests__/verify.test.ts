@@ -4,10 +4,11 @@ import {
   readFile,
   readdir,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { normalizeCase, planRender } from "../../cases";
 import type { SketchCase } from "../../types";
@@ -97,6 +98,56 @@ describe("read-only verification", () => {
           }),
         ).rejects.toThrow();
       expect(renderer.render).not.toHaveBeenCalled();
+      await expectUnchanged(paths.referenceDirectory, before);
+    });
+  });
+
+  it("rejects symlinked overlap, including missing descendants, without touching references", async () => {
+    await withDirectories(async (paths) => {
+      await writeRecording(
+        referencePath("test", paths.referenceDirectory),
+        recording(),
+      );
+      const before = await snapshot(paths.referenceDirectory);
+      await symlink(paths.referenceDirectory, paths.artifactDirectory, "dir");
+      const parentAlias = join(
+        dirname(paths.referenceDirectory),
+        "parent-alias",
+      );
+      await symlink(dirname(paths.referenceDirectory), parentAlias, "dir");
+      const renderer = { render: vi.fn(async () => recording()) };
+      for (const [referenceDirectory, artifactDirectory] of [
+        [paths.referenceDirectory, paths.artifactDirectory],
+        [paths.artifactDirectory, paths.referenceDirectory],
+        [paths.referenceDirectory, join(parentAlias, "references")],
+        [
+          paths.referenceDirectory,
+          join(parentAlias, "references", "missing", "nested"),
+        ],
+        [join(parentAlias, "references", "missing"), paths.referenceDirectory],
+      ]) {
+        await expect(
+          verifyCases(renderer, [sketch], {
+            referenceDirectory,
+            artifactDirectory,
+          }),
+        ).rejects.toThrow(/non-overlapping/);
+        await expectUnchanged(paths.referenceDirectory, before);
+      }
+      expect(renderer.render).not.toHaveBeenCalled();
+      await expect(
+        verify([], { ...paths, registry: [sketch] }),
+      ).rejects.toThrow(/non-overlapping/);
+      await expectUnchanged(paths.referenceDirectory, before);
+
+      // A safe symlinked parent with an uncreated artifact directory still works.
+      await rm(paths.artifactDirectory);
+      const independent = await verifyCases(renderer, [sketch], {
+        referenceDirectory: join(parentAlias, "references"),
+        artifactDirectory: join(parentAlias, "artifacts", "missing"),
+      });
+      expect(independent.passed).toBe(true);
+      expect(renderer.render).toHaveBeenCalledOnce();
       await expectUnchanged(paths.referenceDirectory, before);
     });
   });

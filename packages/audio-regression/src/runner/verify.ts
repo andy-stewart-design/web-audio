@@ -1,5 +1,13 @@
-import { rm } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { realpath, rm } from "node:fs/promises";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 import { fileURLToPath } from "node:url";
 import { selectCases } from "../cases";
 import type { SketchCase } from "../types";
@@ -34,10 +42,36 @@ export function parseVerifySelector(args: string[]) {
   return args[1];
 }
 
-function verificationPaths(options: VerificationOptions) {
-  const references = resolve(options.referenceDirectory ?? REFERENCE_DIRECTORY);
-  const artifacts = resolve(options.artifactDirectory ?? artifactDirectory);
-  // Never allow configurable artifact cleanup/writes to target the reference tree.
+async function canonicalPath(path: string) {
+  let ancestor = resolve(path);
+  const missing: string[] = [];
+  while (true) {
+    try {
+      return join(await realpath(ancestor), ...missing);
+    } catch (error) {
+      // Resolve existing ancestors even when the final directory is not created
+      // yet. Non-directory ancestors still fail in the normal I/O diagnostics.
+      if (
+        !(error instanceof Error) ||
+        !("code" in error) ||
+        (error.code !== "ENOENT" && error.code !== "ENOTDIR") ||
+        dirname(ancestor) === ancestor
+      )
+        throw error;
+      missing.unshift(basename(ancestor));
+      ancestor = dirname(ancestor);
+    }
+  }
+}
+
+async function verificationPaths(options: VerificationOptions) {
+  const references = await canonicalPath(
+    options.referenceDirectory ?? REFERENCE_DIRECTORY,
+  );
+  const artifacts = await canonicalPath(
+    options.artifactDirectory ?? artifactDirectory,
+  );
+  // Check physical paths and use them for I/O, not the original symlink aliases.
   const contains = (parent: string, child: string) => {
     const path = relative(parent, child);
     return path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path);
@@ -84,7 +118,7 @@ export async function verifyCases(
   options: VerificationOptions = {},
 ) {
   const selected = selectCases(registry, options.caseId);
-  const paths = verificationPaths(options);
+  const paths = await verificationPaths(options);
   const results = [];
   for (const sketch of selected) {
     const messages: string[] = [];
@@ -232,7 +266,7 @@ export async function verify(
   const registry = options.registry ?? (await loadCases());
   // Validate selection/paths before launching; zero selected cases must never pass.
   selectCases(registry, caseId);
-  verificationPaths(options);
+  await verificationPaths(options);
   return withRenderer((renderer) =>
     verifyCases(renderer, registry, { ...options, caseId }),
   );
