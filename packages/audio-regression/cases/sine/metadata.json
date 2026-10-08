@@ -1,0 +1,5 @@
+{
+  "description": "Real sine synthesis through engine commit and bar scheduling",
+  "bars": 1,
+  "tailSeconds": 0.25
+}

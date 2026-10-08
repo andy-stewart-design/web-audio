@@ -22,6 +22,10 @@
     "test:ci": {
       "dependsOn": ["^build"]
     },
+    "@web-audio/audio-regression#test:ci": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
     "format": {
       "cache": false
     },

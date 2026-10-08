@@ -34,7 +34,7 @@ interface RuntimeBusOptions {
 
 class RuntimeBus {
   readonly input: GainNode;
-  private readonly _ctx: AudioContext;
+  private readonly _ctx: BaseAudioContext;
   private readonly _effects: RuntimeEffect[];
   private readonly _output: GainNode;
   private readonly _valuePatternResolver = new ValuePatternResolver();
@@ -43,7 +43,7 @@ class RuntimeBus {
   private _destroyed = false;
 
   constructor(
-    ctx: AudioContext,
+    ctx: BaseAudioContext,
     schema: BusSchema,
     destination: AudioNode,
     options: RuntimeBusOptions = {
@@ -144,7 +144,7 @@ class RuntimeBus {
   }
 }
 
-function buildEffect(ctx: AudioContext, effect: EffectSchema) {
+function buildEffect(ctx: BaseAudioContext, effect: EffectSchema) {
   if (effect.type === "filter") {
     const node = new BiquadFilterNode(ctx, {
       type: FILTER_TYPE_MAP[effect.filterType],

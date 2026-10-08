@@ -1,0 +1,5 @@
+{
+  "description": "Real LFO filter sweep with changing bar-level endpoints",
+  "bars": 2,
+  "tailSeconds": 0.15
+}

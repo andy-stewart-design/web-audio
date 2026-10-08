@@ -1,12 +1,12 @@
 import { getReversedBuffer } from "@/utils/reversed-buffer-cache";
 
 class SampleBufferCache {
-  private readonly ctx: AudioContext;
+  private readonly ctx: BaseAudioContext;
   private readonly resolved = new Map<string, AudioBuffer>();
   private readonly loading = new Map<string, Promise<AudioBuffer | null>>();
   private readonly reversed = new WeakMap<AudioBuffer, AudioBuffer>();
 
-  constructor(ctx: AudioContext) {
+  constructor(ctx: BaseAudioContext) {
     this.ctx = ctx;
   }
 

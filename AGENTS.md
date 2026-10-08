@@ -8,6 +8,7 @@
 
 **In general:**
 
+- Never manually edit lockfiles. Generate dependency and resolution changes with package-manager commands.
 - When asking questions, ask them one at a time.
 - Read the full contents of a file every time, never subsets so you don't miss important context.
 

@@ -1,0 +1,14 @@
+{
+  "id": "multisample-sprite",
+  "settings": {
+    "sampleRate": 48000,
+    "channels": 2,
+    "beatsPerBar": 4,
+    "startOffsetFrames": 4800
+  },
+  "bars": 2,
+  "tailSeconds": 0.25,
+  "bpm": 120,
+  "frameCount": 208800,
+  "browserVersion": "147.0.7727.15"
+}

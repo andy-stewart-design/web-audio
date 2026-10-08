@@ -331,4 +331,4 @@ class MidiOutputScheduler {
 }
 
 export default MidiOutputScheduler;
-export type { LogicalNote };
+export type { LogicalNote, SchedulerClock };
