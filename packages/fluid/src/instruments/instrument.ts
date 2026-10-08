@@ -1,13 +1,25 @@
 import {
-  RandomCycle,
-  type Chord,
+  euclid,
+  hex,
+  sequence,
+  type EventCycleTransform,
+  type RandomCycle,
   type ScheduledValue,
 } from "@web-audio/patterns";
 import Envelope, { type ADSR } from "@/automations/envelope";
 import Filter from "@/effects/filter";
 import GainEffect from "@/effects/gain";
-import AuthoredPitches from "@/patterns/authored-pitches";
-import AuthoredTiming from "@/patterns/authored-timing";
+import type { InstrumentEventState } from "@/events/state";
+import {
+  composeEventTiming,
+  replaceEventNotes,
+  replaceEventTiming,
+  setEventRoot,
+  setEventScale,
+  transformEventState,
+} from "@/events/transitions";
+import { decodeNotesInputGeometry } from "@/inputs/decode-structured-input";
+import { decodeXoxInputGeometry } from "@/inputs/decode-xox-input";
 import Parameter, {
   type AudioParamInput,
   type AudioParamSource,
@@ -21,11 +33,7 @@ import {
 import type { CycleInput } from "@/inputs/types";
 import type { NoteName, NoteValue } from "@/pitch/types";
 import type { ScaleAlias } from "@/pitch/get-scale";
-import type {
-  SamplerSchema,
-  SynthesizerSchema,
-  TimingPattern,
-} from "@web-audio/schema";
+import type { SamplerSchema, SynthesizerSchema } from "@web-audio/schema";
 import type Drome from "@/drome";
 
 type NoteOrChord<T> = T | T[];
@@ -34,8 +42,7 @@ type NoteInput<T> = (NoteOrChord<T> | NoteOrChord<T>[])[];
 const DEFAULT_GAIN_ENVELOPE = { a: 0.01, d: 0, s: 1, r: 0.01 } satisfies ADSR;
 
 abstract class Instrument {
-  protected _pitches: AuthoredPitches;
-  protected _timing: AuthoredTiming;
+  protected abstract _eventState: InstrumentEventState;
   protected _detune: AudioParamSource;
   protected _gain: Envelope;
   protected _effects: (Filter | GainEffect)[] = [];
@@ -44,13 +51,7 @@ abstract class Instrument {
   protected _route = "main";
   protected _sends = new Map<string, number>();
 
-  constructor(
-    defaultPattern: Chord,
-    host?: Drome,
-    gainEnvelope: Partial<ADSR> = {},
-  ) {
-    this._pitches = new AuthoredPitches(defaultPattern);
-    this._timing = new AuthoredTiming();
+  constructor(host?: Drome, gainEnvelope: Partial<ADSR> = {}) {
     this._detune = new Parameter(0);
     const { a, d, s, r } = { ...DEFAULT_GAIN_ENVELOPE, ...gainEnvelope };
     this._gain = new Envelope().adsr(a, d, s, r);
@@ -65,18 +66,23 @@ abstract class Instrument {
   }
 
   notes(...input: NoteInput<ScheduledValue> | [RandomCycle]) {
-    this._pitches.notes(...input);
-    this._releaseMaterializedTimingForValueSetter();
+    const decoded = decodeNotesInputGeometry(input);
+    this._eventState = replaceEventNotes(
+      this._eventState,
+      decoded.cycle,
+      decoded.zeroWidthPatterns,
+      "noteValueSlots" in decoded ? decoded.noteValueSlots : undefined,
+    );
     return this;
   }
 
   root(n: NoteName | NoteValue | number) {
-    this._pitches.root(n);
+    this._eventState = setEventRoot(this._eventState, n);
     return this;
   }
 
   scale(name: ScaleAlias) {
-    this._pitches.scale(name);
+    this._eventState = setEventScale(this._eventState, name);
     return this;
   }
 
@@ -85,85 +91,67 @@ abstract class Instrument {
     steps: number,
     rotation: number | number[] = 0,
   ) {
-    this._timing.euclid(pulses, steps, rotation);
-    this._releaseMaterializedTiming();
+    this._composeTiming(euclid(pulses, steps, rotation));
     return this;
   }
 
   hex(...hexes: (string | number)[]) {
-    this._timing.hex(...hexes);
-    this._releaseMaterializedTiming();
+    this._composeTiming(hexes.map(hex));
     return this;
   }
 
   reverse() {
-    this._materializePitchesForTransform();
-    this._pitches.reverse();
-    this._timing.reverse();
+    this._transformEvents({ type: "reverse" });
     return this;
   }
 
   sequence(steps: number, ...pulses: (number | number[])[]) {
-    this._timing.sequence(steps, ...pulses);
-    this._releaseMaterializedTiming();
+    this._composeTiming(sequence(steps, ...pulses));
     return this;
   }
 
   xox(...input: (number | number[])[] | [RandomCycle]) {
-    if (isRandomCycleTuple(input)) {
-      const cycle = input[0];
-      if (cycle.dataType !== "binary") {
-        throw new Error("Instrument.xox() random masks must be binary");
-      }
-      this._timing.setRandomXox(cycle);
-    } else {
-      this._timing.xox(...input);
-    }
-    this._releaseMaterializedTiming();
+    const decoded = decodeXoxInputGeometry(input);
+    this._eventState = isRandomCycleTuple(input)
+      ? replaceEventTiming(
+          this._eventState,
+          decoded.cycle,
+          decoded.condition,
+          decoded.zeroWidthPatterns,
+        )
+      : composeEventTiming(
+          this._eventState,
+          decoded.cycle,
+          decoded.zeroWidthPatterns,
+        );
     return this;
   }
 
   fast(multiplier: number) {
-    this._materializePitchesForTransform();
-    this._pitches.fast(multiplier);
-    this._timing.fast(multiplier);
+    this._transformEvents({ type: "fast", multiplier });
     return this;
   }
 
   slow(multiplier: number) {
-    this._materializePitchesForTransform();
-    this._pitches.slow(multiplier);
-    this._timing.slow(multiplier);
+    this._transformEvents({ type: "slow", multiplier });
     return this;
   }
 
   stretch(bars: number, steps?: number) {
-    this._materializePitchesForTransform();
-    this._pitches.stretch(bars, steps);
-    this._timing.stretch(bars, steps);
+    this._transformEvents({ type: "stretch", bars, steps });
     return this;
   }
 
-  protected _materializePitchesForTransform(timing?: TimingPattern) {
-    const selectedTiming =
-      timing ??
-      this._timing.getTimingPattern() ??
-      this._pitches.getEventPattern().timing;
-    this._pitches.materializeAvailabilityAgainstTiming(selectedTiming);
-    this._pitches.materializeAgainstTiming(selectedTiming);
+  protected _transformEvents(operation: EventCycleTransform) {
+    this._eventState = transformEventState(this._eventState, operation);
   }
 
-  protected _releaseMaterializedTimingForValueSetter() {
-    if (!this._timing.isExplicit) this._releaseMaterializedTiming();
-  }
-
-  protected _releaseMaterializedTiming() {
-    this._pitches.releaseMaterializedTiming();
-  }
-
-  protected _getPitchEventPattern(timingOverride?: TimingPattern) {
-    return this._pitches.getEventPattern(
-      timingOverride ?? this._timing.getTimingPattern(),
+  private _composeTiming(input: (number | number[])[]) {
+    const decoded = decodeXoxInputGeometry(input);
+    this._eventState = composeEventTiming(
+      this._eventState,
+      decoded.cycle,
+      decoded.zeroWidthPatterns,
     );
   }
 

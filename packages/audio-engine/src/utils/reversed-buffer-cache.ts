@@ -1,5 +1,5 @@
 function getReversedBuffer(
-  ctx: AudioContext,
+  ctx: BaseAudioContext,
   cache: WeakMap<AudioBuffer, AudioBuffer>,
   original: AudioBuffer,
 ) {

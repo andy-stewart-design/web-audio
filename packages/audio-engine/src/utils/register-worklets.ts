@@ -1,5 +1,5 @@
 export function registerWorklets(
-  ctx: AudioContext,
+  ctx: BaseAudioContext,
   sources: string[],
 ): Promise<void> {
   return Promise.all(

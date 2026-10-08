@@ -31,30 +31,7 @@ import {
   getSelectedEventTiming,
   makeCycle,
 } from "@/events/geometry";
-import Sampler from "@/instruments/sampler";
 import Synthesizer from "@/instruments/synthesizer";
-import AuthoredEventValues from "@/patterns/authored-event-values";
-import { getSamplerEventTiming } from "@/instruments/event-compiler";
-
-// Temporary oracle only. Inspect independently initialized legacy state without
-// passing any legacy data to native helpers or reconstructing native state.
-class LegacySampler extends Sampler {
-  inspectTiming() {
-    const variation: unknown = Reflect.get(this, "_variation");
-    const sampleNames: unknown = Reflect.get(this, "_sampleNames");
-    if (
-      !(variation instanceof AuthoredEventValues) ||
-      !(sampleNames instanceof AuthoredEventValues)
-    )
-      throw new Error("Expected legacy sampler lanes");
-    return getSamplerEventTiming({
-      pitches: this._pitches,
-      timing: this._timing,
-      variation,
-      sampleNames,
-    });
-  }
-}
 
 const event = <T>(...values: [T, ...T[]]) =>
   ({ type: "event", values }) as const;
@@ -359,12 +336,12 @@ describe("availability and materialization feasibility", () => {
       expect(state.notes.noteValueSlots?.patterns).toEqual([
         [event(1), rest, event(1)],
       ]);
-      const legacy = new Synthesizer()
+      const publicSchema = new Synthesizer()
         .notes([60, placeholder, 64])
         .reverse()
         .getSchema().eventPattern;
-      expect(geometry(staticNotes(state))).toEqual(legacy.timing.cycle);
-      expect(legacy.notes).toEqual({ type: "static", cycle: [[[60]]] });
+      expect(geometry(staticNotes(state))).toEqual(publicSchema.timing.cycle);
+      expect(publicSchema.notes).toEqual({ type: "static", cycle: [[[60]]] });
     },
   );
 
@@ -711,73 +688,4 @@ describe("timing, random lanes, and generated overrides", () => {
       expect(state).not.toHaveProperty("timingOverride");
     },
   );
-});
-
-// Step 4.5 adds complete-schema replay. These bounded prefix comparisons test
-// transition geometry against independently initialized public legacy facades.
-describe("temporary transition timing comparisons", () => {
-  it("replays reproducible setter/transform prefixes including timing replacement", () => {
-    for (let seed = 1; seed <= 32; seed++) {
-      let state = createSamplerEventState("bd");
-      const legacy = new LegacySampler("bd");
-      let random = seed;
-      const sequence: string[] = [];
-      for (let index = 0; index < 8; index++) {
-        random = (Math.imul(random, 1664525) + 1013904223) >>> 0;
-        const choice = (random >>> 16) % 8;
-        sequence.push(String(choice));
-        switch (choice) {
-          case 0:
-            state = samplerNotes(state, [[60, null, 64]]);
-            legacy.notes([60, null, 64]);
-            break;
-          case 1:
-            state = replaceEventVariation(
-              state,
-              decodeVariationsInput([[0, null, 2]]),
-            );
-            legacy.variation([0, null, 2]);
-            break;
-          case 2:
-            state = replaceSampleNames(
-              state,
-              decodeSampleNamesInput([["bd", null, "sd"]]),
-            );
-            legacy.name(["bd", null, "sd"]);
-            break;
-          case 3:
-            state = samplerTiming(state, [[1, 0, 1]], true);
-            legacy.xox([1, 0, 1]);
-            break;
-          case 4:
-            state = samplerTiming(state, [
-              new RandomCycle().bin().steps(4).chance(1),
-            ]);
-            legacy.xox(new RandomCycle().bin().steps(4).chance(1));
-            break;
-          case 5:
-            state = transformEventState(state, reverse);
-            legacy.reverse();
-            break;
-          case 6:
-            state = transformEventState(state, slow);
-            legacy.slow(2);
-            break;
-          case 7:
-            state = transformEventState(state, { type: "fast", multiplier: 2 });
-            legacy.fast(2);
-            break;
-        }
-        const expected = legacy.inspectTiming().cycle;
-        // Establish a materialized legacy prefix boundary for compatibility
-        // comparisons. Native no-read chains follow the spec tests above, not
-        // legacy deferred-speed cancellation.
-        legacy.getSchema();
-        expect(
-          geometry(getFilteredEventTiming(state).cycle),
-          `seed=${seed}, prefix=${sequence.join(",")}`,
-        ).toEqual(expected);
-      }
-    }
-  });
 });

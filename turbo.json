@@ -6,7 +6,12 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".svelte-kit/output/**", "build/**", "dist/**"],
+      "outputs": [
+        ".svelte-kit/output/**",
+        ".vercel/output/**",
+        "build/**",
+        "dist/**"
+      ],
       "env": ["DATABASE_URL", "ADMIN_DID", "APP_URL"]
     },
     "lint": {
@@ -21,6 +26,10 @@
     },
     "test:ci": {
       "dependsOn": ["^build"]
+    },
+    "@web-audio/audio-regression#test:ci": {
+      "dependsOn": ["^build"],
+      "cache": false
     },
     "format": {
       "cache": false

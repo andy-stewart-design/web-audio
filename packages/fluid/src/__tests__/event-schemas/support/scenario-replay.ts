@@ -1,6 +1,6 @@
 // Test-only replay drivers. Neither path adapts the other's state; the native
 // driver delegates decoding, transitions, configuration, and compilation to
-// the same isolated helpers intended for the production cutover.
+// the same helpers used by the native-backed production facades.
 import { RandomCycle } from "@web-audio/patterns";
 import Drome from "@/index";
 import Sampler from "@/instruments/sampler";

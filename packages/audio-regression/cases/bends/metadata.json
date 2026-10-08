@@ -1,0 +1,5 @@
+{
+  "description": "Testing out LFOs on a synthesizer’s detune param",
+  "bars": 4,
+  "tailSeconds": 0.25
+}

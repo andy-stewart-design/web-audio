@@ -113,10 +113,11 @@ function decodeStructuredInputGeometry<T>(
       if (isArray(voice)) {
         throw fail("simultaneous voices cannot contain extra array nesting.");
       }
-      if (voice === null || voice === undefined) {
-        throw fail(
-          "null and undefined are only allowed as a whole-hit rest, not simultaneous voices.",
-        );
+      if (voice === null) {
+        throw fail("null is only allowed as a whole-hit rest.");
+      }
+      if (voice === undefined) {
+        throw fail("undefined is only allowed as a whole-hit rest.");
       }
       const node = decodeValue(voice);
       if (node.type === "rest")
@@ -196,9 +197,7 @@ function decodeSampleNamesExpression(input: readonly unknown[]) {
     randomPatternError: "does not support random patterns.",
     interpretValue: (value) => {
       if (typeof value !== "string" || value.trim().length === 0) {
-        throw new Error(
-          "[Sampler] name() sample names must be non-empty strings.",
-        );
+        throw new Error("[Sampler] name() sample names must be non-empty.");
       }
       // Alphanumeric-only aliases and ':' rejection land together in Step 7.3.
       return { type: "event", value: value.trim() } as const;

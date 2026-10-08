@@ -1,4 +1,4 @@
-import type AudioClock from "@web-audio/clock";
+import type { EngineClock } from "./types";
 import type { Midi } from "@web-audio/midi";
 import { validateDromeGraph } from "@web-audio/schema";
 import type { DromeSchema } from "@web-audio/schema";
@@ -20,8 +20,8 @@ interface RuntimeGraph {
 }
 
 class AudioEngine {
-  private _ctx: AudioContext;
-  private _clock: AudioClock;
+  private _ctx: BaseAudioContext;
+  private _clock: EngineClock;
   private _master: GainNode;
   private _analyser: AnalyserNode;
   private _activeGraph: RuntimeGraph = { instruments: [], buses: new Map() };
@@ -39,7 +39,7 @@ class AudioEngine {
   private readonly _sampleBufferCache: SampleBufferCache;
   readonly ready: Promise<void>;
 
-  constructor(ctx: AudioContext, clock: AudioClock) {
+  constructor(ctx: BaseAudioContext, clock: EngineClock) {
     this._ctx = ctx;
     this._clock = clock;
     this._master = ctx.createGain();
@@ -235,3 +235,4 @@ class AudioEngine {
 }
 
 export default AudioEngine;
+export type { EngineClock } from "./types";

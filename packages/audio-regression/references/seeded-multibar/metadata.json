@@ -1,0 +1,14 @@
+{
+  "id": "seeded-multibar",
+  "settings": {
+    "sampleRate": 48000,
+    "channels": 2,
+    "beatsPerBar": 4,
+    "startOffsetFrames": 4800
+  },
+  "bars": 3,
+  "tailSeconds": 0.1,
+  "bpm": 120,
+  "frameCount": 297600,
+  "browserVersion": "147.0.7727.15"
+}

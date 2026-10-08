@@ -1,4 +1,4 @@
-import Drome from '@web-audio/fluid';
+import { evaluateSource } from '@web-audio/fluid';
 import type { DromeSchema } from '@web-audio/schema';
 
 interface EvalRequest {
@@ -15,9 +15,7 @@ interface EvalResponse {
 self.onmessage = (e: MessageEvent<EvalRequest>) => {
 	const { id, code } = e.data;
 	try {
-		const d = new Drome();
-		new Function('drome', 'd', code)(d, d);
-		const schema = d.getSchema();
+		const schema = evaluateSource(code);
 		self.postMessage({ id, schema } satisfies EvalResponse);
 	} catch (err) {
 		self.postMessage({ id, error: (err as Error).message } satisfies EvalResponse);

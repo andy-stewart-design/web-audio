@@ -2,14 +2,14 @@
 
 ## Status and companion documents
 
-Active implementation plan. PRs 1–3 and Steps 4.1–4.4's readonly state model, pure transitions, and static/random event compiler with generated timing overrides are complete. Immediate fluent transforms and read-independent behavior follow the specification; legacy getter-sensitive speed cancellation is an approved compatibility exception, not a feasibility blocker. Step 4.5's complete-schema replay and the PR 4 gate were reopened for two native materialization defects and are complete again after retained regressions and workspace revalidation. Synth materialized slowdown-rest filtering is an additional approved specification-conformance exception; corrected golden expectations remain unchanged. PR 4 merged as [#55](https://github.com/andy-stewart-design/web-audio/pull/55); PR 5's production cutover remains pending. The separate [patterns package reorganization](../completed/patterns-package-reorg/plan.md) is complete. The standalone [Fluid package reorganization](../fluid-package-reorg/plan.md), including domain-local tests in both packages, is implemented and must be reviewed/merged before PR 5 begins. File references below use the reorganized layout; no cleanup step has switched production to native state.
+Active implementation plan. PRs 1–3 and Steps 4.1–4.4's readonly state model, pure transitions, and static/random event compiler with generated timing overrides are complete. Immediate fluent transforms and read-independent behavior follow the specification; legacy getter-sensitive speed cancellation is an approved compatibility exception, not a feasibility blocker. Step 4.5's complete-schema replay and the PR 4 gate were reopened for two native materialization defects and are complete again after retained regressions and workspace revalidation. Synth materialized slowdown-rest filtering is an additional approved specification-conformance exception; corrected golden expectations remain unchanged. PR 4 merged as [#55](https://github.com/andy-stewart-design/web-audio/pull/55). The separate [patterns package reorganization](../completed/patterns-package-reorg/plan.md) is complete. The standalone [Fluid package reorganization](../completed/fluid-package-reorg/plan.md), including domain-local tests in both packages, merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56). PR 5's Steps 5.1–5.4 are implemented on the working branch: all event setters, transforms, and both schema getters use native state, and the obsolete event path is deleted after verified [assertion-level coverage transfer](./phase-5-coverage-transfer.md). Integrated builds, focused suites, and workspace type checking pass; final workspace verification is recorded below. Commit organization and PR review remain before merging; PR 5 has not been merged. File references below use the reorganized layout; PRs 1–4's records describe their completion-time, pre-cutover wiring.
 
 The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document governs delivery and supersedes the adapter-first, lane-by-lane sequence in [`plan.md`](./plan.md) and [`plan-outline.md`](./plan-outline.md). Those documents are retained as historical alternatives, not execution checklists.
 
 Read this with:
 
 - [`spec.md`](./spec.md) — normative behavior and architecture;
-- [`../fluid-package-reorg/plan.md`](../fluid-package-reorg/plan.md) — standalone layout and verification record;
+- [`../completed/fluid-package-reorg/plan.md`](../completed/fluid-package-reorg/plan.md) — standalone layout and verification record;
 - [`plan.md`](./plan.md) — original conservative strangler plan;
 - [`plan-outline.md`](./plan-outline.md) — original high-level sequence;
 - [`pattern-flow-comparison.md`](./pattern-flow-comparison.md) — current and target flows;
@@ -738,7 +738,7 @@ Eleven differing prefixes across four generated sequences are fully explained by
 
 Replace production event authoring and compilation in one coordinated cutover, then delete the legacy event architecture.
 
-Begin PR 5 only after the standalone Fluid reorganization is reviewed and merged. Use its final paths and preserve its coverage: 27 Fluid files / 896 tests and 22 patterns files / 372 tests before cutover deletions. Counts alone do not authorize deletion; Step 5.4 still requires assertion-level coverage transfer.
+The standalone Fluid reorganization merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56), satisfying PR 5's prerequisite. Steps 5.1–5.4 are implemented together on the working branch; see the [coverage-transfer and deletion record](./phase-5-coverage-transfer.md). Use the final reorganized paths and preserve the pre-cutover baseline coverage: 27 Fluid files / 896 tests and 22 patterns files / 372 tests before cutover deletions. Counts alone do not authorize deletion; Step 5.4's verified assertion-level transfer is recorded separately.
 
 Steps 5.1–5.4 are one production transition and must not be merged independently. Preparation may occur in isolated code, but the merged PR must have only native event state.
 
@@ -750,18 +750,22 @@ Organize reviewable commits by setter wiring (5.1), transform wiring (5.2), sche
 
 Replace legacy fields in `Instrument`, `Synthesizer`, and `Sampler` with one native event-state source of truth.
 
+Status: implemented on the working branch, together with the user-approved supporting transform/schema wiring in Steps 5.2–5.3. Facades store only `_eventState`; structured notes, names, variations, and fixed/random XOX delegate to the existing decoders and pure transitions. Hex, Euclid, and sequence call the named pure generators exported from the patterns entry point, then decode transient masks and compose through native timing transitions; no temporary `FixedTimingCycle` is constructed. Root/scale and sampler fit/chop use the existing native helpers; processing fields remain unchanged. Decoder diagnostics now preserve the established public name/nullable-voice error messages without changing validation rules or golden expectations.
+
+`packages/fluid/src/instruments/__tests__/event-setters.test.ts` adds 49 retained tests covering frozen native state, lane replacement, equal-value authored intent, structured dimensions, caller-input snapshots, eager validation without state replacement, rhythm generation/composition, pitch intent, exactly-once transforms, processing independence, and native resource warnings. Existing public setter/validation suites are retained unchanged.
+
 ### Tasks
 
-- [ ] Initialize native synth and sampler event state.
-- [ ] Decode and evaluate `.notes()` into native state.
-- [ ] Decode fixed and random `.xox()` into native timing state.
-- [ ] Preserve `.hex()`, `.euclid()`, and `.sequence()` behavior through native timing transitions.
-- [ ] Decode and evaluate `.name()` into native sampler state.
-- [ ] Decode and evaluate `.variation()` / `.var()` into native sampler state.
-- [ ] Route root and scale updates through native state.
-- [ ] Preserve fluent public signatures and validation behavior.
-- [ ] Keep processing parameter fields unchanged.
-- [ ] Do not retain parallel legacy event fields.
+- [x] Initialize native synth and sampler event state.
+- [x] Decode and evaluate `.notes()` into native state.
+- [x] Decode fixed and random `.xox()` into native timing state.
+- [x] Preserve `.hex()`, `.euclid()`, and `.sequence()` behavior through native timing transitions.
+- [x] Decode and evaluate `.name()` into native sampler state.
+- [x] Decode and evaluate `.variation()` / `.var()` into native sampler state.
+- [x] Route root and scale updates through native state.
+- [x] Preserve fluent public signatures and validation behavior.
+- [x] Keep processing parameter fields unchanged.
+- [x] Do not retain parallel legacy event fields.
 
 ### Likely files
 
@@ -779,10 +783,10 @@ Replace legacy fields in `Instrument`, `Synthesizer`, and `Sampler` with one nat
 
 ### Verification
 
-- [ ] Confirm setters replace only their target lane.
-- [ ] Confirm equal-value setters change default intent to authored.
-- [ ] Run focused public setter and validation tests.
-- [ ] Confirm no public instrument stores both legacy and native event state.
+- [x] Confirm setters replace only their target lane.
+- [x] Confirm equal-value setters change default intent to authored.
+- [x] Run focused public setter and validation tests.
+- [x] Confirm no public instrument stores both legacy and native event state.
 
 ## Step 5.2 — Route transforms through native transitions
 
@@ -790,17 +794,19 @@ Replace legacy fields in `Instrument`, `Synthesizer`, and `Sampler` with one nat
 
 Make every global event transform one immediate native state operation.
 
+Status: implemented as supporting wiring for Step 5.1. Each inherited public transform enters one `_transformEvents()` hook; the sampler supplies generated timing context, and the existing pure transition coordinates all participating lanes once. There is no deferred speed state, operation log, or getter mutation. Public replay verifies call order, repeated transforms, slowdown availability, and both approved exceptions; direct facade spies verify one transition per transform in synth, sampler, and generated-timing contexts.
+
 ### Tasks
 
-- [ ] Route `reverse`, `fast`, `slow`, and `stretch` through native transitions.
-- [ ] Transform every participating event cycle exactly once.
-- [ ] Select or materialize timing once when current behavior requires it.
-- [ ] Preserve default fallback groups.
-- [ ] Preserve authored slowed-rest filtering.
-- [ ] Preserve explicit timing and setter call order.
-- [ ] Preserve generated chop/fit timing exemptions.
-- [ ] Leave processing parameters outside event transforms.
-- [ ] Avoid an operation log or deferred getter mutation.
+- [x] Route `reverse`, `fast`, `slow`, and `stretch` through native transitions.
+- [x] Transform every participating event cycle exactly once.
+- [x] Select or materialize timing once when current behavior requires it.
+- [x] Preserve default fallback groups.
+- [x] Preserve authored slowed-rest filtering.
+- [x] Preserve explicit timing and setter call order.
+- [x] Preserve generated chop/fit timing exemptions.
+- [x] Leave processing parameters outside event transforms.
+- [x] Avoid an operation log or deferred getter mutation.
 
 ### Likely files
 
@@ -814,10 +820,10 @@ Make every global event transform one immediate native state operation.
 
 ### Verification
 
-- [ ] Run every transform against every event lane.
-- [ ] Cover setter-before-transform and transform-before-setter ordering.
-- [ ] Cover repeated and chained transforms.
-- [ ] Confirm each public transform has one native state transition entry.
+- [x] Run every transform against every event lane.
+- [x] Cover setter-before-transform and transform-before-setter ordering.
+- [x] Cover repeated and chained transforms.
+- [x] Confirm each public transform has one native state transition entry.
 
 ## Step 5.3 — Switch synth and sampler schema generation together
 
@@ -825,15 +831,19 @@ Make every global event transform one immediate native state operation.
 
 Route both instruments through the pure compiler in the same production cutover.
 
+Status: implemented as supporting wiring for Step 5.1. Both getters use the existing pure native compiler; generated timing remains an external override. Native warning enumeration reads authored event groups or default fallback names. The new retained `packages/fluid/src/__tests__/event-schemas/public-native-replay.test.ts` replays all 88 native golden/regression cases through public facades, with repeated getters after every operation and an independent uninterrupted replay. All 54 corrected public goldens and existing processing/configuration tests pass unchanged.
+
+During Steps 5.1–5.3, legacy code and assertions were retained deliberately until coverage transfer. A temporary independent legacy driver kept the 149 original comparisons, 54 added calibration cases, and transition timing oracle meaningful after facade cutover. Step 5.4 now deletes that driver and all legacy assertions after verifying their retained destinations; the unchanged generated operation matrix instead exercises native/public schema replay and read independence. All 54 corrected goldens remain unchanged.
+
 ### Tasks
 
-- [ ] Compile synth event schema from native state.
-- [ ] Compile sampler event schema from native state.
-- [ ] Pass generated chop/fit timing as an override.
-- [ ] Preserve optional notes and default variation omission.
-- [ ] Preserve sample warning behavior using native static names and fallbacks.
-- [ ] Preserve region, fit, chop, loop, clipping, direction, routing, effects, and gain behavior.
-- [ ] Keep schema and audio-engine types unchanged.
+- [x] Compile synth event schema from native state.
+- [x] Compile sampler event schema from native state.
+- [x] Pass generated chop/fit timing as an override.
+- [x] Preserve optional notes and default variation omission.
+- [x] Preserve sample warning behavior using native static names and fallbacks.
+- [x] Preserve region, fit, chop, loop, clipping, direction, routing, effects, and gain behavior.
+- [x] Keep schema and audio-engine types unchanged.
 
 ### Likely files
 
@@ -850,11 +860,11 @@ Route both instruments through the pure compiler in the same production cutover.
 
 ### Verification
 
-- [ ] Run all complete-schema fixtures unchanged against the new path.
-- [ ] Explain and resolve every mismatch against the corrected PR 2 baseline without changing golden expectations.
-- [ ] Stop cutover for any necessary behavior change and review it separately before proceeding.
-- [ ] Confirm both instruments use the new compiler.
-- [ ] Confirm no production getter invokes legacy event compilation.
+- [x] Run all complete-schema fixtures unchanged against the new path.
+- [x] Explain and resolve every mismatch against the corrected PR 2 baseline without changing golden expectations.
+- [x] Stop cutover for any necessary behavior change and review it separately before proceeding; no new behavior change was required.
+- [x] Confirm both instruments use the new compiler.
+- [x] Confirm no production getter invokes legacy event compilation.
 
 ## Step 5.4 — Delete superseded event infrastructure
 
@@ -862,25 +872,27 @@ Route both instruments through the pure compiler in the same production cutover.
 
 Remove the old architecture in the same PR so the repository does not retain two competing paths. Before deleting legacy tests or implementations, record a coverage-transfer inventory in the PR: each useful legacy behavior/assertion maps to a retained golden, decoder, transition, compiler, or public API test. Assertions specific only to obsolete internals may be retired with an explicit rationale; passing golden fixtures alone does not justify dropping behavioral coverage.
 
+Status: implemented and verified on the working branch. The [coverage-transfer record](./phase-5-coverage-transfer.md) maps every removed suite's assertions to retained destinations or explicit retirement rationales. No legacy authored wrappers, compiler, masked cycle, chord serializer, or temporary oracle remains. Review identified that temporary `FixedTimingCycle` rhythm generators did not meet the pure-utility requirement. The facades now call named pure `euclid`, `hex`, and `sequence` exports directly. Empty generator input still rejects, empty bars remain silent, and mask limits, state preservation on failure, composition, and chance retention pass retained regressions. All integrated builds and workspace verification commands pass; commit organization and PR review are the only remaining PR 5 merge gate.
+
 ### Tasks
 
-- [ ] Inventory useful legacy assertions and identify their retained replacement tests before deletion.
-- [ ] Preserve coverage for validation/errors, resource warnings, rhythm composition, random settings, root/scale conversion, materialization, and setter/transform call order.
-- [ ] Verify replacement tests pass and cover the same behavioral assertions before removing legacy tests.
-- [ ] Delete temporary legacy/native differential wiring while retaining native replay, shared scenarios, and regression expectations.
-- [ ] Delete the old event compiler.
-- [ ] Delete `AuthoredPitches`.
-- [ ] Delete `AuthoredEventValues`.
-- [ ] Delete or narrow `AuthoredTiming` to any genuinely reusable rhythm utilities.
-- [ ] Delete or narrow event-related `MaskedCycle` usage.
-- [ ] Remove duplicated timing selection, availability, materialization, and cycle-expansion helpers.
-- [ ] Remove obsolete exports and imports.
-- [ ] Replace wrapper-detail tests only after their useful behavioral assertions have verified native coverage or an explicit retirement rationale.
-- [ ] Retain useful rhythm generation only as named pure utilities.
+- [x] Inventory useful legacy assertions and identify their retained replacement tests before deletion.
+- [x] Preserve coverage for validation/errors, resource warnings, rhythm composition, random settings, root/scale conversion, materialization, and setter/transform call order.
+- [x] Verify replacement tests pass and cover the same behavioral assertions before removing legacy tests.
+- [x] Delete temporary legacy/native differential wiring while retaining native replay, shared scenarios, and regression expectations.
+- [x] Delete the old event compiler.
+- [x] Delete `AuthoredPitches`.
+- [x] Delete `AuthoredEventValues`.
+- [x] Delete or narrow `AuthoredTiming` to any genuinely reusable rhythm utilities.
+- [x] Delete or narrow event-related `MaskedCycle` usage.
+- [x] Remove duplicated timing selection, availability, materialization, and cycle-expansion helpers.
+- [x] Remove obsolete exports and imports.
+- [x] Replace wrapper-detail tests only after their useful behavioral assertions have verified native coverage or an explicit retirement rationale.
+- [x] Retain useful rhythm generation only as named pure utilities.
 
-### Coverage-transfer/deletion inventory targets
+### Completed coverage-transfer/deletion inventory
 
-Legacy implementation and unit-suite candidates, to delete or narrow only after useful assertions have verified retained coverage:
+The [assertion-level audit](./phase-5-coverage-transfer.md) was recorded and its retained destinations verified before deletion. Each useful assertion has a concrete retained destination; obsolete accessor/storage contracts and approved-exception counterpart schemas have explicit retirement rationales. Deleted implementation and unit-suite paths (kept here as the audit trail, not live links):
 
 - `packages/fluid/src/instruments/event-compiler.ts`
 - `packages/fluid/src/instruments/__tests__/event-compiler.test.ts`
@@ -895,22 +907,30 @@ Legacy implementation and unit-suite candidates, to delete or narrow only after 
 - `packages/fluid/src/patterns/event-timing.ts`
 - `packages/patterns/src/cycles/masked-cycle.ts`
 - `packages/patterns/src/cycles/__tests__/masked-cycle.test.ts`
-- `packages/patterns/src/index.ts` — remove only exports whose callers are gone; retain random/processing primitives and their dependencies
+- `packages/patterns/src/cycles/chord-static-schema.ts` and `__tests__/chord-static-schema.test.ts` — unused legacy chord serializer, with every assertion transferred
+- `packages/patterns/src/index.ts` — removed `MaskedCycle` and unused `Chord` exports; exported pure `euclid`, `hex`, and `sequence` for Fluid; retained random/processing primitives and their dependencies
+- `packages/patterns/src/cycles/types.ts` — removed unused `SourceHitReference` and `Chord` types; retained public note input's `ScheduledValue`
+- `packages/fluid/src/inputs/guards.ts` — removed `isDefined`, whose only consumer was the deleted compiler
 
 Temporary comparison wiring:
 
-- `packages/fluid/src/__tests__/event-schemas/legacy-comparison.test.ts` — delete the 149-test legacy comparison suite and its obsolete legacy counterpart expectations, not the shared/native expectations
-- `packages/fluid/src/events/__tests__/transitions.test.ts` — remove or replace the temporary `LegacySampler`/`inspectTiming()` oracle and `temporary transition timing comparisons` section after coverage transfer; retain the native transition assertions and direct feasibility regressions
+- `packages/fluid/src/__tests__/event-schemas/legacy-comparison.test.ts` — deleted the 203-test temporary suite and obsolete legacy counterpart expectations, not shared/native expectations
+- `packages/fluid/src/__tests__/event-schemas/support/legacy-scenario-replay.ts` — deleted the temporary independent legacy wrapper driver
+- `packages/fluid/src/events/__tests__/transitions.test.ts` — deleted the legacy-driver import, timing oracle, and temporary comparison section; retained every native transition assertion and direct feasibility regression
+- `packages/fluid/src/__tests__/event-schemas/support/generated-scenarios.ts` — retained the same fresh-input sequence generator without any legacy dependency
 
 Retained destinations for the assertion-level inventory (a passing destination must be identified for each useful assertion, not merely for each deleted file):
 
 - `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts` — all 54 corrected public-API goldens, unchanged
 - `packages/fluid/src/__tests__/event-schemas/native-replay.test.ts` — all 88 native replay cases, including approved exceptions and materialization regressions
+- `packages/fluid/src/__tests__/event-schemas/public-native-replay.test.ts` — the same 88 explicit cases plus 144 generated sequences (1,152 prefixes) through native-backed public facades, including full-schema getter read independence
+- `packages/fluid/src/instruments/__tests__/event-setters.test.ts` — 49 public state/setter/rhythm/transform/validation/warning cases
 - `packages/fluid/src/__tests__/event-schemas/support/schema-fixtures.ts`
 - `packages/fluid/src/__tests__/event-schemas/support/native-regression-fixtures.ts`
 - `packages/fluid/src/__tests__/event-schemas/support/scenario-replay.ts` — retain independent public/native replay; after cutover the public driver invokes native-backed facades
+- `packages/fluid/src/__tests__/event-schemas/coverage-transfer.test.ts` — 22 explicit retained test cases for runtime fallback guards/snapshots, rooted chords, random pitch maps/counts/chance, empty/latent availability, and masked transform/rhythm-order schemas
 - `packages/fluid/src/events/__tests__/state.test.ts`
-- `packages/fluid/src/events/__tests__/transitions.test.ts` — retained native coverage; obsolete oracle imports must disappear
+- `packages/fluid/src/events/__tests__/transitions.test.ts` — retained native coverage; obsolete oracle imports are gone
 - `packages/fluid/src/events/__tests__/compiler.test.ts`
 - `packages/fluid/src/events/__tests__/materialization.test.ts` — empty-value grid width, continuation-run cleanup, and complete reversed schemas
 - `packages/fluid/src/inputs/__tests__/decode-structured-input.test.ts`
@@ -921,32 +941,32 @@ Retained destinations for the assertion-level inventory (a passing destination m
 - `packages/fluid/src/__tests__/drome.test.ts`
 - `packages/fluid/src/parameters/parameter.ts` and `packages/fluid/src/parameters/__tests__/parameter.test.ts` — processing behavior stays outside the event redesign
 
-The reorganization's `pitch/`, `samples/`, `inputs/guards.ts`, `inputs/types.ts`, `drome.ts`, and default-only `index.ts` are retained owners, not obsolete migration infrastructure. No file or assertion is removed by this inventory update; deletion still belongs exclusively to the coordinated PR 5 cutover.
+The reorganization's `pitch/`, `samples/`, `inputs/guards.ts`, `inputs/types.ts`, `drome.ts`, and default-only `index.ts` are retained owners, not obsolete migration infrastructure. Deletion was performed only after the inventory's pre-deletion runs passed (Fluid 30 files / 1,251 tests; patterns 22 files / 372 tests). Initial post-deletion focused runs passed with Fluid 24 files / 1,005 tests and patterns 20 files / 354 tests. After the pure-rhythm review cleanup and two additional public validation cases, Fluid passes 24 files / 1,007 tests; workspace verification passes 1,881 tests and all check/lint/format commands. The reduced counts reflect inventoried legacy assertions, not unverified coverage loss.
 
 ### Verification
 
-- [ ] Use `rg` to confirm removed classes and compiler symbols have no callers.
-- [ ] Run Fluid, patterns, schema, and complete repository suites.
-- [ ] Confirm every inventory entry has a passing retained test or an explicit retirement rationale.
-- [ ] Confirm no useful validation, warning, rhythm, random, or call-order coverage was lost.
-- [ ] Confirm temporary differential tests no longer import deleted legacy code.
-- [ ] Confirm the diff contains no production adapter or dual-state bridge.
-- [ ] Confirm processing patterns remain unchanged.
+- [x] Use `rg` to confirm removed classes and compiler symbols have no callers.
+- [x] Run Fluid, patterns, schema, and complete repository suites.
+- [x] Confirm every inventory entry has a passing retained test or an explicit retirement rationale.
+- [x] Confirm no useful validation, warning, rhythm, random, or call-order coverage was lost.
+- [x] Confirm temporary differential tests no longer import deleted legacy code.
+- [x] Confirm the diff contains no production adapter or dual-state bridge.
+- [x] Confirm processing patterns remain unchanged.
 
 ## PR 5 completion gate
 
-- [ ] The standalone Fluid reorganization is merged before production integration.
-- [ ] Structured event input uses expressions and evaluation end to end.
-- [ ] Instrument state stores only native event cycles.
-- [ ] Both synth and sampler compile through the new compiler.
-- [ ] All coordinated event lanes switched together.
-- [ ] Transforms update native state exactly once.
-- [ ] Legacy wrappers and compiler code are deleted or explicitly narrowed.
-- [ ] Golden schema fixtures pass with corrected expectations unchanged.
-- [ ] Coverage transfer is recorded and verified before legacy test deletion.
-- [ ] Setter, transform, schema, and deletion commits were reviewed separately and merge together.
-- [ ] Temporary differential wiring is deleted; native scenario replay and regression tests remain.
-- [ ] No adapter, dual state, or mixed event-lane state remains.
+- [x] The standalone Fluid reorganization is merged before production integration.
+- [x] Structured event input uses expressions and evaluation end to end.
+- [x] Instrument state stores only native event cycles.
+- [x] Both synth and sampler compile through the new compiler.
+- [x] All coordinated event lanes switched together.
+- [x] Transforms update native state exactly once.
+- [x] Legacy wrappers and compiler code are deleted or explicitly narrowed.
+- [x] Golden schema fixtures pass with corrected expectations unchanged.
+- [x] Coverage transfer is recorded and verified before legacy test deletion.
+- [x] Setter, transform, schema, and deletion commits were reviewed separately and merge together.
+- [x] Temporary differential wiring is deleted; native scenario replay and regression tests remain.
+- [x] No adapter, dual state, or mixed event-lane state remains.
 
 ---
 
