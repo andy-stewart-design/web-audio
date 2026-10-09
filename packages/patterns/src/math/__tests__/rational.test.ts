@@ -7,6 +7,7 @@ import {
   divideRational,
   leastCommonMultiple,
   multiplyRational,
+  parseRational,
   rationalToGridIndex,
   subtractRational,
 } from "../rational";
@@ -36,6 +37,16 @@ describe("exact rational geometry", () => {
       expect(() => createRational(1, value)).toThrow("safe integers");
     },
   );
+
+  it("parses finite decimal amounts into exact bounded rationals", () => {
+    expect(parseRational("02.00")).toEqual(createRational(2));
+    expect(parseRational("1.25")).toEqual(createRational(5, 4));
+    expect(parseRational(".5")).toEqual(createRational(1, 2));
+    expect(parseRational("+2e-1")).toEqual(createRational(1, 5));
+    expect(() => parseRational("-1")).toThrow("finite decimal amount");
+    expect(() => parseRational("1e-5")).toThrow("Rational denominator exceeds");
+    expect(() => parseRational("1e20")).toThrow("safe integer precision");
+  });
 
   it("rejects zero denominators and division by zero", () => {
     expect(() => createRational(1, 0)).toThrow("denominator cannot be zero");

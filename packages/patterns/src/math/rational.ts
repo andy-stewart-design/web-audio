@@ -13,6 +13,32 @@ function createRational(numerator: number, denominator = 1) {
   return normalizeRational(BigInt(numerator), BigInt(denominator));
 }
 
+function parseRational(value: string) {
+  const match =
+    /^(?:\+)?(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:[eE]([+-]?\d+))?$/.exec(value);
+  if (!match) {
+    throw new Error(`[Pattern] '${value}' is not a finite decimal amount.`);
+  }
+
+  const integer = match[1] ?? "0";
+  const fraction = match[2] ?? match[3] ?? "";
+  const exponent = Number(match[4] ?? 0);
+  if (!Number.isSafeInteger(exponent) || Math.abs(exponent) > 20) {
+    throw new Error(`[Pattern] Rational amount '${value}' is too large.`);
+  }
+
+  let numerator = BigInt(`${integer}${fraction}`);
+  let scale = fraction.length - exponent;
+  while (scale > 0 && numerator % 10n === 0n) {
+    numerator /= 10n;
+    scale--;
+  }
+  if (scale >= 0) {
+    return normalizeRational(numerator, 10n ** BigInt(scale));
+  }
+  return normalizeRational(numerator * 10n ** BigInt(-scale), 1n);
+}
+
 function normalizeRational(numerator: bigint, denominator: bigint) {
   if (denominator === 0n) {
     throw new Error("[Pattern] Rational denominator cannot be zero.");
@@ -134,6 +160,7 @@ function rationalToGridIndex(value: Rational, resolution: number) {
 
 export {
   createRational,
+  parseRational,
   addRational,
   subtractRational,
   multiplyRational,

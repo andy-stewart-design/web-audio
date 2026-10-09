@@ -14,11 +14,15 @@ export {
   assertPatternExpressionLimits,
   type PatternExpression,
   type PatternNode,
+  type PatternRange,
 } from "./expressions/model";
+export { parseShorthand } from "./shorthand/parser";
+export { ShorthandSyntaxError } from "./shorthand/errors";
 
 export {
   evaluatePatternExpression,
   type AtomInterpretation,
+  type AtomInterpreter,
 } from "./expressions/evaluate";
 
 export {
@@ -42,6 +46,8 @@ export {
   assertCycleBarLimit,
   assertCycleLimits,
   MAX_EXPRESSION_NODES,
+  MAX_SHORTHAND_SOURCE_LENGTH,
+  MAX_SHORTHAND_TOKENS,
   MAX_EVENT_CYCLE_PATTERNS,
   MAX_EVENT_CYCLE_STEPS,
   MAX_EVENT_CYCLE_VOICES,

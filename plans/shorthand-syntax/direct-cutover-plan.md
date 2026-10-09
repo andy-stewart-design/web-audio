@@ -2,7 +2,7 @@
 
 ## Status and companion documents
 
-Active implementation plan. PRs 1–3 and Steps 4.1–4.4's readonly state model, pure transitions, and static/random event compiler with generated timing overrides are complete. Immediate fluent transforms and read-independent behavior follow the specification; legacy getter-sensitive speed cancellation is an approved compatibility exception, not a feasibility blocker. Step 4.5's complete-schema replay and the PR 4 gate were reopened for two native materialization defects and are complete again after retained regressions and workspace revalidation. Synth materialized slowdown-rest filtering is an additional approved specification-conformance exception; corrected golden expectations remain unchanged. PR 4 merged as [#55](https://github.com/andy-stewart-design/web-audio/pull/55). The separate [patterns package reorganization](../completed/patterns-package-reorg/plan.md) is complete. The standalone [Fluid package reorganization](../completed/fluid-package-reorg/plan.md), including domain-local tests in both packages, merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56). PR 5's Steps 5.1–5.4 are implemented on the working branch: all event setters, transforms, and both schema getters use native state, and the obsolete event path is deleted after verified [assertion-level coverage transfer](./phase-5-coverage-transfer.md). Integrated builds, focused suites, and workspace type checking pass; final workspace verification is recorded below. Commit organization and PR review remain before merging; PR 5 has not been merged. File references below use the reorganized layout; PRs 1–4's records describe their completion-time, pre-cutover wiring.
+Active implementation plan. PRs 1–3 and Steps 4.1–4.4's readonly state model, pure transitions, and static/random event compiler with generated timing overrides are complete. Immediate fluent transforms and read-independent behavior follow the specification; legacy getter-sensitive speed cancellation is an approved compatibility exception, not a feasibility blocker. Step 4.5's complete-schema replay and the PR 4 gate were reopened for two native materialization defects and are complete again after retained regressions and workspace revalidation. Synth materialized slowdown-rest filtering is an additional approved specification-conformance exception; corrected golden expectations remain unchanged. PR 4 merged as [#55](https://github.com/andy-stewart-design/web-audio/pull/55). The separate [patterns package reorganization](../completed/patterns-package-reorg/plan.md) is complete. The standalone [Fluid package reorganization](../completed/fluid-package-reorg/plan.md), including domain-local tests in both packages, merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56). PR 5's Steps 5.1–5.4 are complete and merged: all event setters, transforms, and both schema getters use native state, and the obsolete event path was deleted after verified [assertion-level coverage transfer](./phase-5-coverage-transfer.md). Integrated builds, focused suites, and workspace type checking pass; final workspace verification is recorded below. File references below use the reorganized layout; PRs 1–4's records describe their completion-time, pre-cutover wiring.
 
 The normative behavior and target architecture remain defined by [`spec.md`](./spec.md). This document governs delivery and supersedes the adapter-first, lane-by-lane sequence in [`plan.md`](./plan.md) and [`plan-outline.md`](./plan-outline.md). Those documents are retained as historical alternatives, not execution checklists.
 
@@ -738,9 +738,9 @@ Eleven differing prefixes across four generated sequences are fully explained by
 
 Replace production event authoring and compilation in one coordinated cutover, then delete the legacy event architecture.
 
-The standalone Fluid reorganization merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56), satisfying PR 5's prerequisite. Steps 5.1–5.4 are implemented together on the working branch; see the [coverage-transfer and deletion record](./phase-5-coverage-transfer.md). Use the final reorganized paths and preserve the pre-cutover baseline coverage: 27 Fluid files / 896 tests and 22 patterns files / 372 tests before cutover deletions. Counts alone do not authorize deletion; Step 5.4's verified assertion-level transfer is recorded separately.
+The standalone Fluid reorganization merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56), satisfying PR 5's prerequisite. Steps 5.1–5.4 are complete and merged; see the [coverage-transfer and deletion record](./phase-5-coverage-transfer.md). Use the final reorganized paths and preserve the pre-cutover baseline coverage: 27 Fluid files / 896 tests and 22 patterns files / 372 tests before cutover deletions. Counts alone did not authorize deletion; Step 5.4's verified assertion-level transfer is recorded separately.
 
-Steps 5.1–5.4 are one production transition and must not be merged independently. Preparation may occur in isolated code, but the merged PR must have only native event state.
+Steps 5.1–5.4 formed one production transition and were merged together. Preparation could occur in isolated code, but the merged PR contains only native event state.
 
 Organize reviewable commits by setter wiring (5.1), transform wiring (5.2), schema wiring (5.3), and legacy deletion after verified coverage transfer (5.4). These are review boundaries, not separately deployable production states; merge them together only after the final integrated path passes all cutover gates. Keep representation changes in PR 4 and newly discovered behavior changes out of PR 5. Corrected golden expectations must remain unchanged.
 
@@ -750,7 +750,7 @@ Organize reviewable commits by setter wiring (5.1), transform wiring (5.2), sche
 
 Replace legacy fields in `Instrument`, `Synthesizer`, and `Sampler` with one native event-state source of truth.
 
-Status: implemented on the working branch, together with the user-approved supporting transform/schema wiring in Steps 5.2–5.3. Facades store only `_eventState`; structured notes, names, variations, and fixed/random XOX delegate to the existing decoders and pure transitions. Hex, Euclid, and sequence call the named pure generators exported from the patterns entry point, then decode transient masks and compose through native timing transitions; no temporary `FixedTimingCycle` is constructed. Root/scale and sampler fit/chop use the existing native helpers; processing fields remain unchanged. Decoder diagnostics now preserve the established public name/nullable-voice error messages without changing validation rules or golden expectations.
+Status: complete and merged, together with the user-approved supporting transform/schema wiring in Steps 5.2–5.3. Facades store only `_eventState`; structured notes, names, variations, and fixed/random XOX delegate to the existing decoders and pure transitions. Hex, Euclid, and sequence call the named pure generators exported from the patterns entry point, then decode transient masks and compose through native timing transitions; no temporary `FixedTimingCycle` is constructed. Root/scale and sampler fit/chop use the existing native helpers; processing fields remain unchanged. Decoder diagnostics now preserve the established public name/nullable-voice error messages without changing validation rules or golden expectations.
 
 `packages/fluid/src/instruments/__tests__/event-setters.test.ts` adds 49 retained tests covering frozen native state, lane replacement, equal-value authored intent, structured dimensions, caller-input snapshots, eager validation without state replacement, rhythm generation/composition, pitch intent, exactly-once transforms, processing independence, and native resource warnings. Existing public setter/validation suites are retained unchanged.
 
@@ -872,7 +872,7 @@ During Steps 5.1–5.3, legacy code and assertions were retained deliberately un
 
 Remove the old architecture in the same PR so the repository does not retain two competing paths. Before deleting legacy tests or implementations, record a coverage-transfer inventory in the PR: each useful legacy behavior/assertion maps to a retained golden, decoder, transition, compiler, or public API test. Assertions specific only to obsolete internals may be retired with an explicit rationale; passing golden fixtures alone does not justify dropping behavioral coverage.
 
-Status: implemented and verified on the working branch. The [coverage-transfer record](./phase-5-coverage-transfer.md) maps every removed suite's assertions to retained destinations or explicit retirement rationales. No legacy authored wrappers, compiler, masked cycle, chord serializer, or temporary oracle remains. Review identified that temporary `FixedTimingCycle` rhythm generators did not meet the pure-utility requirement. The facades now call named pure `euclid`, `hex`, and `sequence` exports directly. Empty generator input still rejects, empty bars remain silent, and mask limits, state preservation on failure, composition, and chance retention pass retained regressions. All integrated builds and workspace verification commands pass; commit organization and PR review are the only remaining PR 5 merge gate.
+Status: complete, verified, and merged. The [coverage-transfer record](./phase-5-coverage-transfer.md) maps every removed suite's assertions to retained destinations or explicit retirement rationales. No legacy authored wrappers, compiler, masked cycle, chord serializer, or temporary oracle remains. Review identified that temporary `FixedTimingCycle` rhythm generators did not meet the pure-utility requirement. The facades now call named pure `euclid`, `hex`, and `sequence` exports directly. Empty generator input still rejects, empty bars remain silent, and mask limits, state preservation on failure, composition, and chance retention pass retained regressions. All integrated builds and workspace verification commands pass; PR 5 is complete.
 
 ### Tasks
 
@@ -982,15 +982,17 @@ Add shorthand as a second frontend to the expression evaluator already used by s
 
 Parse shorthand directly into `PatternExpression<string>`.
 
+Status: complete. `@web-audio/patterns` now lexes and parses shorthand directly into the shared expression model. The lexer preserves UTF-16 source ranges and authored lexemes, rejects reserved future syntax, and bounds source length and token count. The parser validates structural grouping, alternation, postfix attachment, simultaneous-voice restrictions, and empty forms before applying the shared expression node and depth limits. No target-specific atom interpretation or second AST was introduced.
+
 ### Tasks
 
-- [ ] Tokenize atoms, delimiters, rests, and postfix modifiers.
-- [ ] Treat spaces, tabs, and newlines as equivalent separators.
-- [ ] Preserve atom and modifier amount lexemes as strings.
-- [ ] Populate source ranges on parsed nodes.
-- [ ] Reject unsupported reserved constructs and empty structures.
-- [ ] Bound source length, token count, expression depth, and node count.
-- [ ] Do not introduce `ShorthandNode` or another AST.
+- [x] Tokenize atoms, delimiters, rests, and postfix modifiers.
+- [x] Treat spaces, tabs, and newlines as equivalent separators.
+- [x] Preserve atom and modifier amount lexemes as strings.
+- [x] Populate source ranges on parsed nodes.
+- [x] Reject unsupported reserved constructs and empty structures.
+- [x] Bound source length, token count, expression depth, and node count.
+- [x] Do not introduce `ShorthandNode` or another AST.
 
 ### Likely files
 
@@ -1004,9 +1006,9 @@ Parse shorthand directly into `PatternExpression<string>`.
 
 ### Verification
 
-- [ ] Verify exact ranges for valid and invalid input.
-- [ ] Cover all syntax and invalid-form examples from the specification.
-- [ ] Confirm parsing performs no target-specific atom interpretation.
+- [x] Verify exact ranges for valid and invalid input.
+- [x] Cover all syntax and invalid-form examples from the specification.
+- [x] Confirm parsing performs no target-specific atom interpretation.
 
 ## Step 6.2 — Complete shorthand-only expression evaluation
 
@@ -1014,17 +1016,19 @@ Parse shorthand directly into `PatternExpression<string>`.
 
 Extend the same evaluator with shorthand structures and operators.
 
+Status: complete. The shared evaluator now handles nested groups, deterministic and weighted alternation, structural repetition, acceleration, slowdown, and relative weighting. Speed chains accumulate exact bounded rational rates before transformation, while interrupted chains retain written operation order. Alternation periods, repetition, normalized grids, event-cycle steps, and voices remain bounded, and structured input continues through the same evaluator path.
+
 ### Tasks
 
-- [ ] Evaluate nested groups and deterministic alternation.
-- [ ] Evaluate structural repetition `!`.
-- [ ] Evaluate acceleration `*` and slowdown `/`.
-- [ ] Evaluate relative weighting `@` with continuations.
-- [ ] Combine uninterrupted speed chains as exact rational rates.
-- [ ] Preserve written operator order.
-- [ ] Implement weighted alternation as whole-pattern retrigger frequency.
-- [ ] Bound alternation periods and normalized expansion.
-- [ ] Keep structured evaluation on the same code path.
+- [x] Evaluate nested groups and deterministic alternation.
+- [x] Evaluate structural repetition `!`.
+- [x] Evaluate acceleration `*` and slowdown `/`.
+- [x] Evaluate relative weighting `@` with continuations.
+- [x] Combine uninterrupted speed chains as exact rational rates.
+- [x] Preserve written operator order.
+- [x] Implement weighted alternation as whole-pattern retrigger frequency.
+- [x] Bound alternation periods and normalized expansion.
+- [x] Keep structured evaluation on the same code path.
 
 ### Likely files
 
@@ -1037,11 +1041,11 @@ Extend the same evaluator with shorthand structures and operators.
 
 ### Verification
 
-- [ ] Test `60/2 1` exactly.
-- [ ] Test `[0 2]*2/2` for geometry and duration cancellation.
-- [ ] Test `<0@2 2 3>*2` as `[0, 0]` followed by `[2, 3]`.
-- [ ] Verify weighting distinguishes continuations from rests.
-- [ ] Verify no second evaluator was introduced.
+- [x] Test `60/2 1` exactly.
+- [x] Test `[0 2]*2/2` for geometry and duration cancellation.
+- [x] Test `<0@2 2 3>*2` as `[0, 0]` followed by `[2, 3]`.
+- [x] Verify weighting distinguishes continuations from rests.
+- [x] Verify no second evaluator was introduced.
 
 ## Step 6.3 — Add target atom interpreters and compact XOX decoding
 
@@ -1049,22 +1053,24 @@ Extend the same evaluator with shorthand structures and operators.
 
 Interpret shorthand leaves during shared evaluation without creating a converted expression tree.
 
+Status: complete. Fluid now provides target-specific numeric, sample-name, and XOX atom interpreters for the shared evaluator. Numeric interpreters preserve signed/fractional values while rejecting non-finite or non-strict text; sample names enforce the notation-safe alias shape; XOX interpreters map onset/rest atoms and report target-specific source ranges. Legacy compact XOX sources decode into the shared expression model, while general XOX shorthand continues through the generic parser and the same evaluator callback. Public method dispatch remains deferred to PR 7.
+
 ### Tasks
 
-- [ ] Define the consumer atom-interpreter callback contract.
-- [ ] Parse notes and variations as strict finite numbers.
-- [ ] Preserve signed and fractional values.
-- [ ] Validate sample names under the specified alias rules.
-- [ ] Map XOX onset and rest atoms.
-- [ ] Reject XOX polyphony and unsupported values.
-- [ ] Include target method and source range in errors.
-- [ ] Decode legacy compact XOX into `PatternExpression<string>`.
-- [ ] Apply compact decoding to direct strings and reusable shorthand sources.
+- [x] Define the consumer atom-interpreter callback contract.
+- [x] Parse notes and variations as strict finite numbers.
+- [x] Preserve signed and fractional values.
+- [x] Validate sample names under the specified alias rules.
+- [x] Map XOX onset and rest atoms.
+- [x] Reject XOX polyphony and unsupported values.
+- [x] Include target method and source range in errors.
+- [x] Decode legacy compact XOX into `PatternExpression<string>`.
+- [x] Apply compact decoding to direct strings and reusable shorthand sources.
 
 ### Likely files
 
-- `packages/fluid/src/inputs/atom-interpreters.ts` — **new, suggested**
-- `packages/fluid/src/inputs/__tests__/atom-interpreters.test.ts` — **new, suggested**
+- `packages/fluid/src/inputs/atom-interpreters.ts`
+- `packages/fluid/src/inputs/__tests__/atom-interpreters.test.ts`
 - `packages/fluid/src/inputs/decode-xox-input.ts`
 - `packages/fluid/src/inputs/__tests__/decode-xox-input.test.ts`
 - `packages/fluid/src/samples/normalize-bank.ts`
@@ -1073,10 +1079,10 @@ Interpret shorthand leaves during shared evaluation without creating a converted
 
 ### Verification
 
-- [ ] Confirm interpretation occurs leaf-by-leaf during evaluation.
-- [ ] Confirm no converted expression copy is created.
-- [ ] Compare compact and general XOX event cycles.
-- [ ] Verify target-specific errors include source ranges.
+- [x] Confirm interpretation occurs leaf-by-leaf during evaluation.
+- [x] Confirm no converted expression copy is created.
+- [x] Compare compact and general XOX event cycles.
+- [x] Verify target-specific errors include source ranges.
 
 ## Step 6.4 — Prove structured and shorthand equivalence
 
@@ -1084,38 +1090,41 @@ Interpret shorthand leaves during shared evaluation without creating a converted
 
 Compare equivalent inputs at expression, event-cycle, and final-schema boundaries before public shorthand dispatch lands.
 
+Status: complete. Equivalence coverage now compares shared expression geometry for atoms, rests, sequences, chords, repetition, slowdown, weighting, and alternation. Native compiler tests verify continuation transparency, authored-rest filtering, candidate ordinals, and final schema parity for notes, sample names, variations, and XOX. Public method dispatch remains structured-only until PR 7.
+
 ### Tasks
 
-- [ ] Compare atoms, rests, sequences, and chords.
-- [ ] Compare `"1!2"` with `[1, 1]`.
-- [ ] Compare `"1/2"` with scalar input followed by `.slow(2)`.
-- [ ] Compare continuations and weighted durations.
-- [ ] Compare alternation over its complete finite period.
-- [ ] Verify continuations occupy candidate ordinals without suppressing them.
-- [ ] Verify authored rests suppress candidates.
-- [ ] Compare final schema output for every supported consumer.
+- [x] Compare atoms, rests, sequences, and chords.
+- [x] Compare `"1!2"` with `[1, 1]`.
+- [x] Compare `"1/2"` with scalar input followed by `.slow(2)`.
+- [x] Compare continuations and weighted durations.
+- [x] Compare alternation over its complete finite period.
+- [x] Verify continuations occupy candidate ordinals without suppressing them.
+- [x] Verify authored rests suppress candidates.
+- [x] Compare final schema output for every supported consumer.
 
 ### Likely files
 
 - `packages/patterns/src/expressions/__tests__/evaluate.test.ts`
-- `packages/fluid/src/inputs/__tests__/atom-interpreters.test.ts` — **planned; Step 6.3**
+- `packages/fluid/src/inputs/__tests__/atom-interpreters.test.ts`
+- `packages/fluid/src/inputs/__tests__/shorthand-equivalence.test.ts`
 - `packages/fluid/src/inputs/__tests__/decode-structured-input.test.ts`
 - `packages/fluid/src/events/__tests__/compiler.test.ts`
 - `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts`
 
 ### Verification
 
-- [ ] Run patterns and Fluid suites.
-- [ ] Confirm comparisons include geometry, rests, continuations, and schema.
-- [ ] Confirm production method dispatch remains structured-only.
+- [x] Run patterns and Fluid suites.
+- [x] Confirm comparisons include geometry, rests, continuations, and schema.
+- [x] Confirm production method dispatch remains structured-only.
 
 ## PR 6 completion gate
 
-- [ ] Shorthand parses directly into `PatternExpression<string>`.
-- [ ] One evaluator handles structured and shorthand geometry.
-- [ ] Consumer callbacks interpret atoms during evaluation.
-- [ ] Structured and shorthand equivalents compile identically.
-- [ ] No shorthand public API is connected yet.
+- [x] Shorthand parses directly into `PatternExpression<string>`.
+- [x] One evaluator handles structured and shorthand geometry.
+- [x] Consumer callbacks interpret atoms during evaluation.
+- [x] Structured and shorthand equivalents compile identically.
+- [x] No shorthand public API is connected yet.
 
 ---
 

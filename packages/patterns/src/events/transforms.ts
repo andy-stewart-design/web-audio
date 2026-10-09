@@ -243,6 +243,32 @@ function transformCycle<T>(
   return result;
 }
 
+function transformEventCycleSpeedRatio<T>(
+  cycle: StaticEventCycle<T>,
+  numerator: number,
+  denominator: number,
+) {
+  if (
+    !Number.isSafeInteger(numerator) ||
+    numerator <= 0 ||
+    !Number.isSafeInteger(denominator) ||
+    denominator <= 0
+  ) {
+    throw new Error(
+      "[Pattern] Speed ratios must use positive safe integer components.",
+    );
+  }
+  const result = transformCycle(cycle, {
+    type: "speed",
+    numerator,
+    denominator,
+  });
+  if (result.type !== "static-event-cycle") {
+    throw new Error("[Pattern] Expected a static event-cycle transform.");
+  }
+  return result;
+}
+
 // Overloads preserve static payload inference and the separate random branch;
 // the shared implementation never converts generated values into static data.
 function reverseEventCycle<T>(cycle: StaticEventCycle<T>): StaticEventCycle<T>;
@@ -514,6 +540,7 @@ function transformEventCycleGeometry<T>(
 }
 
 export {
+  transformEventCycleSpeedRatio,
   reverseEventCycle,
   fastEventCycle,
   slowEventCycle,

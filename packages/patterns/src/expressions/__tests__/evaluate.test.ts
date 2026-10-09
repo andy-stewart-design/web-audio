@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { evaluatePatternExpression, type AtomInterpreter } from "../evaluate";
+import { parseShorthand } from "../../shorthand/parser";
 import { getEventPatternGeometry } from "../../events/grid";
 import type { PatternExpression, PatternNode, PatternRange } from "../model";
 import type { StaticEventCycle } from "../../events/cycle";
@@ -345,28 +346,217 @@ describe("evaluation validation and limits", () => {
     );
   });
 
-  it.each(["repeat", "accelerate", "slow", "weight"] as const)(
-    "rejects deferred %s modifiers explicitly",
-    (operator) => {
-      expect(() =>
-        evaluatePatternExpression(
-          expression({
-            type: "modifier",
-            operator,
-            amount: "2",
-            child: atom(60),
-          }),
-        ),
-      ).toThrow("Modifier evaluation is not supported yet");
-    },
-  );
+  it("evaluates parsed shorthand through the same expression path", () => {
+    expect(
+      evaluatePatternExpression(parseShorthand("60/2 1")).patterns,
+    ).toEqual([
+      [event("60"), event("1")],
+      [rest, event("1")],
+    ]);
+  });
 
-  it("rejects deferred alternation explicitly", () => {
+  it("evaluates structural repetition before parent allocation", () => {
+    expect(
+      evaluatePatternExpression(
+        expression(
+          sequence(
+            {
+              type: "modifier",
+              operator: "repeat",
+              amount: "3",
+              child: atom(60),
+            },
+            atom(67),
+          ),
+        ),
+      ).patterns,
+    ).toEqual([[event(60), event(60), event(60), event(67)]]);
+  });
+
+  it("slows a sibling without changing the other sibling's allocation", () => {
+    expect(
+      evaluatePatternExpression(
+        expression(
+          sequence(
+            {
+              type: "modifier",
+              operator: "slow",
+              amount: "2",
+              child: atom(60),
+            },
+            atom(1),
+          ),
+        ),
+      ).patterns,
+    ).toEqual([
+      [event(60), event(1)],
+      [rest, event(1)],
+    ]);
+  });
+
+  it("evaluates alternation and nested alternation as deterministic cycles", () => {
+    expect(
+      evaluatePatternExpression(
+        expression({
+          type: "alternate",
+          children: [atom(0), atom(1), atom(2)],
+        }),
+      ).patterns,
+    ).toEqual([[event(0)], [event(1)], [event(2)]]);
+    expect(
+      evaluatePatternExpression(
+        expression({
+          type: "alternate",
+          children: [
+            atom(0),
+            { type: "alternate", children: [atom(2), atom(3)] },
+          ],
+        }),
+      ).patterns,
+    ).toEqual([[event(0)], [event(2)], [event(0)], [event(3)]]);
+  });
+
+  it("slows a nested sequence without extending its gates", () => {
+    expect(
+      evaluatePatternExpression(
+        expression({
+          type: "modifier",
+          operator: "slow",
+          amount: "2",
+          child: sequence(atom(0), atom(2), atom(4), atom(6)),
+        }),
+      ).patterns,
+    ).toEqual([
+      [event(0), rest, event(2), rest],
+      [event(4), rest, event(6), rest],
+    ]);
+  });
+
+  it("cancels acceleration and slowdown without materializing intermediate gates", () => {
+    expect(
+      evaluatePatternExpression(
+        expression({
+          type: "modifier",
+          operator: "slow",
+          amount: "2",
+          child: {
+            type: "modifier",
+            operator: "accelerate",
+            amount: "2",
+            child: sequence(atom(0), atom(2)),
+          },
+        }),
+      ).patterns,
+    ).toEqual([[event(0), event(2)]]);
+  });
+
+  it("accelerates weighted alternation after it has selected whole bars", () => {
+    expect(
+      evaluatePatternExpression(
+        expression({
+          type: "modifier",
+          operator: "accelerate",
+          amount: "2",
+          child: {
+            type: "alternate",
+            children: [
+              {
+                type: "modifier",
+                operator: "weight",
+                amount: "2",
+                child: atom(0),
+              },
+              atom(2),
+              atom(3),
+            ],
+          },
+        }),
+      ).patterns,
+    ).toEqual([
+      [event(0), event(0)],
+      [event(2), event(3)],
+    ]);
+  });
+
+  it("keeps weighted rests as rests rather than continuations", () => {
+    expect(
+      evaluatePatternExpression(
+        expression(
+          sequence(
+            {
+              type: "modifier",
+              operator: "weight",
+              amount: "2",
+              child: rest,
+            },
+            atom(2),
+          ),
+        ),
+      ).patterns,
+    ).toEqual([[rest, rest, event(2)]]);
+  });
+
+  it("uses continuations for relative sequence weight", () => {
+    expect(
+      evaluatePatternExpression(
+        expression(
+          sequence(
+            {
+              type: "modifier",
+              operator: "weight",
+              amount: "3",
+              child: atom(0),
+            },
+            atom(2),
+            atom(3),
+          ),
+        ),
+      ).patterns,
+    ).toEqual([[event(0), continuation, continuation, event(2), event(3)]]);
+  });
+
+  it("weights alternation by retriggering selected whole bars", () => {
+    expect(
+      evaluatePatternExpression(
+        expression({
+          type: "alternate",
+          children: [
+            {
+              type: "modifier",
+              operator: "weight",
+              amount: "2",
+              child: atom(0),
+            },
+            atom(2),
+            atom(3),
+          ],
+        }),
+      ).patterns,
+    ).toEqual([[event(0)], [event(0)], [event(2)], [event(3)]]);
+  });
+
+  it("rejects invalid modifier amounts with their source range", () => {
     expect(() =>
       evaluatePatternExpression(
-        expression({ type: "alternate", children: [atom(60), atom(64)] }),
+        expression({
+          type: "modifier",
+          operator: "repeat",
+          amount: "0",
+          child: atom(60),
+          range: { start: 0, end: 3 },
+        }),
       ),
-    ).toThrow("Alternation evaluation is not supported yet");
+    ).toThrow("Modifier amounts must be positive. at source range [0, 3)");
+    expect(() =>
+      evaluatePatternExpression(
+        expression({
+          type: "modifier",
+          operator: "repeat",
+          amount: "1.5",
+          child: atom(60),
+        }),
+      ),
+    ).toThrow("Repeat amounts must be positive whole numbers");
   });
 
   it("accepts exactly the pattern limit and rejects additional bars", () => {
@@ -410,6 +600,66 @@ describe("evaluation validation and limits", () => {
     expect(() =>
       evaluatePatternExpression(expression(subdivide(14), atom(67))),
     ).toThrow("more than 16384 steps");
+  });
+
+  it("rejects sequence cross-products before materializing expanded spans", () => {
+    const input = expression(
+      sequence(...Array.from({ length: 15_000 }, () => atom(60)), {
+        type: "alternate",
+        children: Array.from({ length: MAX_EVENT_CYCLE_PATTERNS }, () =>
+          atom(64),
+        ),
+      }),
+    );
+    expect(() => evaluatePatternExpression(input)).toThrow(
+      "Sequence expands to more than 16384 steps",
+    );
+  });
+
+  it("rejects sequence child spans before evaluating later children", () => {
+    const sentinel = new Error("third atom interpreted");
+    const interpret = (value: string) => {
+      if (value === "bad") throw sentinel;
+      return { type: "event" as const, value };
+    };
+    const wideChild = (value: string) => {
+      const slots = () =>
+        sequence(...Array.from({ length: 9 }, () => atom(value)));
+      let child: PatternNode<string> = slots();
+      for (let index = 0; index < 10; index++) {
+        child = {
+          type: "alternate",
+          children: [slots(), child],
+        };
+      }
+      return child;
+    };
+    expect(() =>
+      evaluatePatternExpression(
+        expression(sequence(wideChild("0"), wideChild("1"), atom("bad"))),
+        interpret,
+      ),
+    ).toThrow("Sequence expands to more than 16384 steps");
+  });
+
+  it("rejects alternation choice spans before evaluating later choices", () => {
+    const sentinel = new Error("third atom interpreted");
+    const interpret = (value: string) => {
+      if (value === "bad") throw sentinel;
+      return { type: "event" as const, value };
+    };
+    expect(() =>
+      evaluatePatternExpression(
+        parseShorthand("<[0!9000] [1!9000] bad>"),
+        interpret,
+      ),
+    ).toThrow("Alternation expands to more than 16384 steps");
+  });
+
+  it("rejects alternation span copies before materializing weighted selections", () => {
+    expect(() =>
+      evaluatePatternExpression(parseShorthand("<[0!15000]@1024>")),
+    ).toThrow("Alternation expands to more than 16384 steps");
   });
 
   it("rejects excessive common grids even when individual rational denominators fit", () => {
