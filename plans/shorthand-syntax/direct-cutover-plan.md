@@ -1090,38 +1090,41 @@ Status: complete. Fluid now provides target-specific numeric, sample-name, and X
 
 Compare equivalent inputs at expression, event-cycle, and final-schema boundaries before public shorthand dispatch lands.
 
+Status: complete. Equivalence coverage now compares shared expression geometry for atoms, rests, sequences, chords, repetition, slowdown, weighting, and alternation. Native compiler tests verify continuation transparency, authored-rest filtering, candidate ordinals, and final schema parity for notes, sample names, variations, and XOX. Public method dispatch remains structured-only until PR 7.
+
 ### Tasks
 
-- [ ] Compare atoms, rests, sequences, and chords.
-- [ ] Compare `"1!2"` with `[1, 1]`.
-- [ ] Compare `"1/2"` with scalar input followed by `.slow(2)`.
-- [ ] Compare continuations and weighted durations.
-- [ ] Compare alternation over its complete finite period.
-- [ ] Verify continuations occupy candidate ordinals without suppressing them.
-- [ ] Verify authored rests suppress candidates.
-- [ ] Compare final schema output for every supported consumer.
+- [x] Compare atoms, rests, sequences, and chords.
+- [x] Compare `"1!2"` with `[1, 1]`.
+- [x] Compare `"1/2"` with scalar input followed by `.slow(2)`.
+- [x] Compare continuations and weighted durations.
+- [x] Compare alternation over its complete finite period.
+- [x] Verify continuations occupy candidate ordinals without suppressing them.
+- [x] Verify authored rests suppress candidates.
+- [x] Compare final schema output for every supported consumer.
 
 ### Likely files
 
 - `packages/patterns/src/expressions/__tests__/evaluate.test.ts`
-- `packages/fluid/src/inputs/__tests__/atom-interpreters.test.ts` — **planned; Step 6.3**
+- `packages/fluid/src/inputs/__tests__/atom-interpreters.test.ts`
+- `packages/fluid/src/inputs/__tests__/shorthand-equivalence.test.ts`
 - `packages/fluid/src/inputs/__tests__/decode-structured-input.test.ts`
 - `packages/fluid/src/events/__tests__/compiler.test.ts`
 - `packages/fluid/src/__tests__/event-schemas/compatibility.test.ts`
 
 ### Verification
 
-- [ ] Run patterns and Fluid suites.
-- [ ] Confirm comparisons include geometry, rests, continuations, and schema.
-- [ ] Confirm production method dispatch remains structured-only.
+- [x] Run patterns and Fluid suites.
+- [x] Confirm comparisons include geometry, rests, continuations, and schema.
+- [x] Confirm production method dispatch remains structured-only.
 
 ## PR 6 completion gate
 
-- [ ] Shorthand parses directly into `PatternExpression<string>`.
-- [ ] One evaluator handles structured and shorthand geometry.
-- [ ] Consumer callbacks interpret atoms during evaluation.
-- [ ] Structured and shorthand equivalents compile identically.
-- [ ] No shorthand public API is connected yet.
+- [x] Shorthand parses directly into `PatternExpression<string>`.
+- [x] One evaluator handles structured and shorthand geometry.
+- [x] Consumer callbacks interpret atoms during evaluation.
+- [x] Structured and shorthand equivalents compile identically.
+- [x] No shorthand public API is connected yet.
 
 ---
 
