@@ -982,15 +982,17 @@ Add shorthand as a second frontend to the expression evaluator already used by s
 
 Parse shorthand directly into `PatternExpression<string>`.
 
+Status: complete. `@web-audio/patterns` now lexes and parses shorthand directly into the shared expression model. The lexer preserves UTF-16 source ranges and authored lexemes, rejects reserved future syntax, and bounds source length and token count. The parser validates structural grouping, alternation, postfix attachment, simultaneous-voice restrictions, and empty forms before applying the shared expression node and depth limits. No target-specific atom interpretation or second AST was introduced.
+
 ### Tasks
 
-- [ ] Tokenize atoms, delimiters, rests, and postfix modifiers.
-- [ ] Treat spaces, tabs, and newlines as equivalent separators.
-- [ ] Preserve atom and modifier amount lexemes as strings.
-- [ ] Populate source ranges on parsed nodes.
-- [ ] Reject unsupported reserved constructs and empty structures.
-- [ ] Bound source length, token count, expression depth, and node count.
-- [ ] Do not introduce `ShorthandNode` or another AST.
+- [x] Tokenize atoms, delimiters, rests, and postfix modifiers.
+- [x] Treat spaces, tabs, and newlines as equivalent separators.
+- [x] Preserve atom and modifier amount lexemes as strings.
+- [x] Populate source ranges on parsed nodes.
+- [x] Reject unsupported reserved constructs and empty structures.
+- [x] Bound source length, token count, expression depth, and node count.
+- [x] Do not introduce `ShorthandNode` or another AST.
 
 ### Likely files
 
@@ -1004,9 +1006,9 @@ Parse shorthand directly into `PatternExpression<string>`.
 
 ### Verification
 
-- [ ] Verify exact ranges for valid and invalid input.
-- [ ] Cover all syntax and invalid-form examples from the specification.
-- [ ] Confirm parsing performs no target-specific atom interpretation.
+- [x] Verify exact ranges for valid and invalid input.
+- [x] Cover all syntax and invalid-form examples from the specification.
+- [x] Confirm parsing performs no target-specific atom interpretation.
 
 ## Step 6.2 — Complete shorthand-only expression evaluation
 

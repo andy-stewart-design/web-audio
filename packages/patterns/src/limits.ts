@@ -6,6 +6,8 @@ const MAX_COMPILED_EVENTS = 16_384;
 // Expression nodes include structural wrappers as well as atoms and rests.
 const MAX_EXPRESSION_NODES = 16_384;
 const MAX_EXPRESSION_DEPTH = 128;
+const MAX_SHORTHAND_SOURCE_LENGTH = 65_536;
+const MAX_SHORTHAND_TOKENS = 16_384;
 
 // Canonical event cycles count all normalized steps, including rests and
 // continuations. Onset counts are consequently bounded by the step limit too.
@@ -42,6 +44,8 @@ export {
   MAX_COMPILED_EVENTS,
   MAX_EXPRESSION_NODES,
   MAX_EXPRESSION_DEPTH,
+  MAX_SHORTHAND_SOURCE_LENGTH,
+  MAX_SHORTHAND_TOKENS,
   MAX_EVENT_CYCLE_PATTERNS,
   MAX_EVENT_CYCLE_STEPS,
   MAX_RATIONAL_DENOMINATOR,
