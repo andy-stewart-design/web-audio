@@ -154,6 +154,25 @@ describe("parseShorthand", () => {
     );
   });
 
+  it.each([
+    { source: "[0!2,1]", range: { start: 1, end: 4 } },
+    { source: "[0,<1 2>]", range: { start: 3, end: 8 } },
+    { source: "[0,[1 2]]", range: { start: 3, end: 8 } },
+  ])(
+    "rejects time-varying simultaneous voices during parsing: $source",
+    ({ source, range }) => {
+      expect(() => parseShorthand(source)).toThrow(
+        "Simultaneous voices must be atoms or grouped simultaneous voices",
+      );
+      try {
+        parseShorthand(source);
+        expect.fail("Expected a shorthand syntax error");
+      } catch (error) {
+        expect(error).toMatchObject({ source, range });
+      }
+    },
+  );
+
   it.each(["0,1", "<0,1>"])(
     "rejects comma outside voice groups: %s",
     (source) => {

@@ -1,6 +1,7 @@
 import {
   assertRandomGenerationMetadata,
   evaluatePatternExpression,
+  MAX_EXPRESSION_NODES,
   MAX_SHORTHAND_SOURCE_LENGTH,
   parseShorthand,
   type PatternExpression,
@@ -50,6 +51,16 @@ function decodeCompactXoxExpression(source: string) {
     const character = source[index];
     const value = character.toLowerCase();
     if (value !== "x" && value !== "o" && value !== ".") return undefined;
+    // A multi-character compact expression adds one sequence node around its
+    // atoms. Reject before the next atom allocation can exceed the expression
+    // node budget; the general lexer/parser has an equivalent bound.
+    if (nodes.length >= MAX_EXPRESSION_NODES - 1) {
+      throw targetAtomError(
+        "[Instrument] xox()",
+        `shorthand expression contains more than ${MAX_EXPRESSION_NODES} nodes`,
+        { start: index, end: index + 1 },
+      );
+    }
     nodes.push({
       type: "atom",
       value: character,

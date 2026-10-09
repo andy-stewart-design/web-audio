@@ -209,6 +209,14 @@ function parseSquareGroup(parser: Parser, depth: number): PatternNode<string> {
           "Rests cannot be simultaneous voices",
         );
       }
+      const invalidVoice = children.find((child) => !isParallelVoice(child));
+      if (invalidVoice) {
+        throw shorthandSyntaxError(
+          parser.source,
+          invalidVoice.range!,
+          "Simultaneous voices must be atoms or grouped simultaneous voices, not sequential or time-varying structures",
+        );
+      }
       mode = "parallel";
       parser.index++;
       afterComma = true;
@@ -251,6 +259,13 @@ function parseSquareGroup(parser: Parser, depth: number): PatternNode<string> {
         parser.source,
         child.range!,
         "Rests cannot be simultaneous voices",
+      );
+    }
+    if (mode === "parallel" && !isParallelVoice(child)) {
+      throw shorthandSyntaxError(
+        parser.source,
+        child.range!,
+        "Simultaneous voices must be atoms or grouped simultaneous voices, not sequential or time-varying structures",
       );
     }
     children.push(child);
@@ -396,6 +411,19 @@ function isRestLike(node: PatternNode<string>): boolean {
   if (node.type === "group" || node.type === "modifier")
     return isRestLike(node.child);
   return false;
+}
+
+function isParallelVoice(node: PatternNode<string>): boolean {
+  switch (node.type) {
+    case "atom":
+      return true;
+    case "group":
+      return isParallelVoice(node.child);
+    case "parallel":
+      return node.children.every(isParallelVoice);
+    default:
+      return false;
+  }
 }
 
 function assertDepth(parser: Parser, depth: number) {

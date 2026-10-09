@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseShorthand } from "@web-audio/patterns";
+import { MAX_EXPRESSION_NODES, parseShorthand } from "@web-audio/patterns";
 import {
   decodeXoxShorthandExpression,
   evaluateXoxShorthand,
@@ -107,6 +107,13 @@ describe("XOX shorthand decoding", () => {
   it("uses the general parser for non-compact shorthand", () => {
     expect(decodeXoxShorthandExpression("1!2 0")).toEqual(
       parseShorthand("1!2 0"),
+    );
+  });
+
+  it("enforces the expression node limit before compact allocation grows", () => {
+    const source = "x".repeat(MAX_EXPRESSION_NODES);
+    expect(() => decodeXoxShorthandExpression(source)).toThrow(
+      `[Instrument] xox() shorthand expression contains more than ${MAX_EXPRESSION_NODES} nodes at source range [${MAX_EXPRESSION_NODES - 1}, ${MAX_EXPRESSION_NODES}).`,
     );
   });
 

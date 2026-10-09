@@ -1,4 +1,8 @@
-import { MAX_EVENT_CYCLE_PATTERNS, MAX_EVENT_GROUP_VOICES } from "../limits";
+import {
+  MAX_EVENT_CYCLE_PATTERNS,
+  MAX_EVENT_CYCLE_STEPS,
+  MAX_EVENT_GROUP_VOICES,
+} from "../limits";
 import type { PatternNode, PatternRange } from "./model";
 import { expressionError } from "./evaluate-cycle";
 import type {
@@ -99,6 +103,7 @@ function evaluateSequence<TAtom, TValue>(
     createRational(0),
   );
   const evaluations: NodeEvaluation<TValue>[] = [];
+  let evaluatedSpanCount = 0;
   let childOffset = offset;
   for (const child of weighted) {
     const childDuration = multiplyRational(
@@ -111,6 +116,16 @@ function evaluateSequence<TAtom, TValue>(
       childDuration,
       interpretAtom,
     );
+    evaluatedSpanCount += result.reduce(
+      (total, pattern) => total + pattern.length,
+      0,
+    );
+    if (evaluatedSpanCount > MAX_EVENT_CYCLE_STEPS) {
+      throw expressionError(
+        source,
+        `Sequence expands to more than ${MAX_EVENT_CYCLE_STEPS} steps.`,
+      );
+    }
     evaluations.push(result);
     childOffset = addRational(childOffset, childDuration);
   }
@@ -123,6 +138,25 @@ function evaluateSequence<TAtom, TValue>(
       MAX_EVENT_CYCLE_PATTERNS,
     );
   }
+
+  // Every span contributes at least one normalized step. Check the complete
+  // phrase before flatMap can allocate the cross-product of child patterns.
+  let expandedSpanCount = 0;
+  for (const evaluation of evaluations) {
+    const repetitions = patternCount / evaluation.length;
+    const spanCount = evaluation.reduce(
+      (total, pattern) => total + pattern.length,
+      0,
+    );
+    expandedSpanCount += repetitions * spanCount;
+    if (expandedSpanCount > MAX_EVENT_CYCLE_STEPS) {
+      throw expressionError(
+        source,
+        `Sequence expands to more than ${MAX_EVENT_CYCLE_STEPS} steps.`,
+      );
+    }
+  }
+
   return Array.from({ length: patternCount }, (_, patternIndex) =>
     evaluations.flatMap(
       (evaluation) => evaluation[patternIndex % evaluation.length],

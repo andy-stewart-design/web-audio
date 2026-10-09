@@ -121,28 +121,38 @@ function evaluateAlternate<TAtom, TValue>(
       "Alternations cannot be empty; use a rest for silence.",
     );
   }
-  const choices = node.children.map((child) => {
-    if (child.type === "modifier" && child.operator === "weight") {
-      return {
-        evaluation: evaluateNode(
-          child.child,
-          createRational(0),
-          createRational(1),
-          interpretAtom,
-        ),
-        weight: parsePositiveAmount(child.amount, child),
-      };
+  const choices: {
+    evaluation: NodeEvaluation<TValue>;
+    weight: Rational;
+  }[] = [];
+  let evaluatedSpanCount = 0;
+  for (const child of node.children) {
+    const evaluation = evaluateNode(
+      child.type === "modifier" && child.operator === "weight"
+        ? child.child
+        : child,
+      createRational(0),
+      createRational(1),
+      interpretAtom,
+    );
+    evaluatedSpanCount += evaluation.reduce(
+      (total, pattern) => total + pattern.length,
+      0,
+    );
+    if (evaluatedSpanCount > MAX_EVENT_CYCLE_STEPS) {
+      throw expressionError(
+        node,
+        `Alternation expands to more than ${MAX_EVENT_CYCLE_STEPS} steps.`,
+      );
     }
-    return {
-      evaluation: evaluateNode(
-        child,
-        createRational(0),
-        createRational(1),
-        interpretAtom,
-      ),
-      weight: createRational(1),
-    };
-  });
+    choices.push({
+      evaluation,
+      weight:
+        child.type === "modifier" && child.operator === "weight"
+          ? parsePositiveAmount(child.amount, child)
+          : createRational(1),
+    });
+  }
 
   let weightScale = 1;
   for (const choice of choices) {
@@ -192,6 +202,23 @@ function evaluateAlternate<TAtom, TValue>(
   }
 
   const cursors = Array<number>(choices.length).fill(0);
+  let expandedSpanCount = 0;
+  for (let round = 0; round < rounds; round++) {
+    for (const choiceIndex of schedule) {
+      const choice = choices[choiceIndex];
+      const selected =
+        choice.evaluation[cursors[choiceIndex]++ % choice.evaluation.length];
+      expandedSpanCount += selected.length;
+      if (expandedSpanCount > MAX_EVENT_CYCLE_STEPS) {
+        throw expressionError(
+          node,
+          `Alternation expands to more than ${MAX_EVENT_CYCLE_STEPS} steps.`,
+        );
+      }
+    }
+  }
+
+  cursors.fill(0);
   const patterns: SpanPattern<TValue>[] = [];
   for (let round = 0; round < rounds; round++) {
     for (const choiceIndex of schedule) {

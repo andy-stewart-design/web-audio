@@ -602,6 +602,66 @@ describe("evaluation validation and limits", () => {
     ).toThrow("more than 16384 steps");
   });
 
+  it("rejects sequence cross-products before materializing expanded spans", () => {
+    const input = expression(
+      sequence(...Array.from({ length: 15_000 }, () => atom(60)), {
+        type: "alternate",
+        children: Array.from({ length: MAX_EVENT_CYCLE_PATTERNS }, () =>
+          atom(64),
+        ),
+      }),
+    );
+    expect(() => evaluatePatternExpression(input)).toThrow(
+      "Sequence expands to more than 16384 steps",
+    );
+  });
+
+  it("rejects sequence child spans before evaluating later children", () => {
+    const sentinel = new Error("third atom interpreted");
+    const interpret = (value: string) => {
+      if (value === "bad") throw sentinel;
+      return { type: "event" as const, value };
+    };
+    const wideChild = (value: string) => {
+      const slots = () =>
+        sequence(...Array.from({ length: 9 }, () => atom(value)));
+      let child: PatternNode<string> = slots();
+      for (let index = 0; index < 10; index++) {
+        child = {
+          type: "alternate",
+          children: [slots(), child],
+        };
+      }
+      return child;
+    };
+    expect(() =>
+      evaluatePatternExpression(
+        expression(sequence(wideChild("0"), wideChild("1"), atom("bad"))),
+        interpret,
+      ),
+    ).toThrow("Sequence expands to more than 16384 steps");
+  });
+
+  it("rejects alternation choice spans before evaluating later choices", () => {
+    const sentinel = new Error("third atom interpreted");
+    const interpret = (value: string) => {
+      if (value === "bad") throw sentinel;
+      return { type: "event" as const, value };
+    };
+    expect(() =>
+      evaluatePatternExpression(
+        parseShorthand("<[0!9000] [1!9000] bad>"),
+        interpret,
+      ),
+    ).toThrow("Alternation expands to more than 16384 steps");
+  });
+
+  it("rejects alternation span copies before materializing weighted selections", () => {
+    expect(() =>
+      evaluatePatternExpression(parseShorthand("<[0!15000]@1024>")),
+    ).toThrow("Alternation expands to more than 16384 steps");
+  });
+
   it("rejects excessive common grids even when individual rational denominators fit", () => {
     const input = expression(
       sequence(
