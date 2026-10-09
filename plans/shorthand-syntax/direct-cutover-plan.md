@@ -1053,22 +1053,24 @@ Status: complete. The shared evaluator now handles nested groups, deterministic 
 
 Interpret shorthand leaves during shared evaluation without creating a converted expression tree.
 
+Status: complete. Fluid now provides target-specific numeric, sample-name, and XOX atom interpreters for the shared evaluator. Numeric interpreters preserve signed/fractional values while rejecting non-finite or non-strict text; sample names enforce the notation-safe alias shape; XOX interpreters map onset/rest atoms and report target-specific source ranges. Legacy compact XOX sources decode into the shared expression model, while general XOX shorthand continues through the generic parser and the same evaluator callback. Public method dispatch remains deferred to PR 7.
+
 ### Tasks
 
-- [ ] Define the consumer atom-interpreter callback contract.
-- [ ] Parse notes and variations as strict finite numbers.
-- [ ] Preserve signed and fractional values.
-- [ ] Validate sample names under the specified alias rules.
-- [ ] Map XOX onset and rest atoms.
-- [ ] Reject XOX polyphony and unsupported values.
-- [ ] Include target method and source range in errors.
-- [ ] Decode legacy compact XOX into `PatternExpression<string>`.
-- [ ] Apply compact decoding to direct strings and reusable shorthand sources.
+- [x] Define the consumer atom-interpreter callback contract.
+- [x] Parse notes and variations as strict finite numbers.
+- [x] Preserve signed and fractional values.
+- [x] Validate sample names under the specified alias rules.
+- [x] Map XOX onset and rest atoms.
+- [x] Reject XOX polyphony and unsupported values.
+- [x] Include target method and source range in errors.
+- [x] Decode legacy compact XOX into `PatternExpression<string>`.
+- [x] Apply compact decoding to direct strings and reusable shorthand sources.
 
 ### Likely files
 
-- `packages/fluid/src/inputs/atom-interpreters.ts` — **new, suggested**
-- `packages/fluid/src/inputs/__tests__/atom-interpreters.test.ts` — **new, suggested**
+- `packages/fluid/src/inputs/atom-interpreters.ts`
+- `packages/fluid/src/inputs/__tests__/atom-interpreters.test.ts`
 - `packages/fluid/src/inputs/decode-xox-input.ts`
 - `packages/fluid/src/inputs/__tests__/decode-xox-input.test.ts`
 - `packages/fluid/src/samples/normalize-bank.ts`
@@ -1077,10 +1079,10 @@ Interpret shorthand leaves during shared evaluation without creating a converted
 
 ### Verification
 
-- [ ] Confirm interpretation occurs leaf-by-leaf during evaluation.
-- [ ] Confirm no converted expression copy is created.
-- [ ] Compare compact and general XOX event cycles.
-- [ ] Verify target-specific errors include source ranges.
+- [x] Confirm interpretation occurs leaf-by-leaf during evaluation.
+- [x] Confirm no converted expression copy is created.
+- [x] Compare compact and general XOX event cycles.
+- [x] Verify target-specific errors include source ranges.
 
 ## Step 6.4 — Prove structured and shorthand equivalence
 

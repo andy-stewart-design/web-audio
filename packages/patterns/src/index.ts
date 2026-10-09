@@ -14,6 +14,7 @@ export {
   assertPatternExpressionLimits,
   type PatternExpression,
   type PatternNode,
+  type PatternRange,
 } from "./expressions/model";
 export { parseShorthand } from "./shorthand/parser";
 export { ShorthandSyntaxError } from "./shorthand/errors";
@@ -21,6 +22,7 @@ export { ShorthandSyntaxError } from "./shorthand/errors";
 export {
   evaluatePatternExpression,
   type AtomInterpretation,
+  type AtomInterpreter,
 } from "./expressions/evaluate";
 
 export {
