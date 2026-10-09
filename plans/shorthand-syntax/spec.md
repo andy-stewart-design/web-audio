@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. PRs 1–4 are complete. PR 5's Steps 5.1–5.4 are implemented on the working branch: structured event setters, transforms, and both schema getters use one native event state, and the superseded event infrastructure is deleted after verified coverage transfer. The standalone [Fluid package reorganization](../completed/fluid-package-reorg/plan.md), including test-directory moves in both Fluid and patterns, merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56). The [assertion-level coverage-transfer record](./phase-5-coverage-transfer.md) maps deleted assertions to retained tests or explicit retirement rationales. PR review/commit organization remains before merging; this is not a merge record. Implementation locations below use the reorganized paths; shorthand parsing and public shorthand dispatch remain planned.
+Active specification. PRs 1–4 are complete, and PR 5's Steps 5.1–5.4 are complete and merged: structured event setters, transforms, and both schema getters use one native event state, and the superseded event infrastructure was deleted after verified coverage transfer. The standalone [Fluid package reorganization](../completed/fluid-package-reorg/plan.md), including test-directory moves in both Fluid and patterns, merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56). The [assertion-level coverage-transfer record](./phase-5-coverage-transfer.md) maps deleted assertions to retained tests or explicit retirement rationales. Implementation locations below use the reorganized paths; shorthand parsing and public shorthand dispatch remain planned.
 
 This specification defines both:
 

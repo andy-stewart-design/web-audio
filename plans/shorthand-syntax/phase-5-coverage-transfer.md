@@ -191,4 +191,4 @@ Two added public regression cases (synth and sampler) passed before replacement 
 
 Follow-up verification passes: **303 focused tests**, both production builds, `pnpm check`, `pnpm lint`, `pnpm test` (**18 successful tasks; 1,881 tests**, including Fluid **24 files / 1,007 tests** and patterns **20 files / 354 tests**), `pnpm format`, and plan/spec/inventory formatting checks. The two new cases explain the increase from the initial post-deletion counts above.
 
-Implementation is complete on the working branch. No commit or merge is recorded here: organize and review setter/transform/schema/deletion boundaries together before merging PR 5, as required by the plan.
+Implementation is complete and PR 5 is merged. The setter/transform/schema/deletion boundaries were reviewed separately and merged together, as required by the plan.
