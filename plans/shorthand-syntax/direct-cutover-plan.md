@@ -1016,17 +1016,19 @@ Status: complete. `@web-audio/patterns` now lexes and parses shorthand directly 
 
 Extend the same evaluator with shorthand structures and operators.
 
+Status: complete. The shared evaluator now handles nested groups, deterministic and weighted alternation, structural repetition, acceleration, slowdown, and relative weighting. Speed chains accumulate exact bounded rational rates before transformation, while interrupted chains retain written operation order. Alternation periods, repetition, normalized grids, event-cycle steps, and voices remain bounded, and structured input continues through the same evaluator path.
+
 ### Tasks
 
-- [ ] Evaluate nested groups and deterministic alternation.
-- [ ] Evaluate structural repetition `!`.
-- [ ] Evaluate acceleration `*` and slowdown `/`.
-- [ ] Evaluate relative weighting `@` with continuations.
-- [ ] Combine uninterrupted speed chains as exact rational rates.
-- [ ] Preserve written operator order.
-- [ ] Implement weighted alternation as whole-pattern retrigger frequency.
-- [ ] Bound alternation periods and normalized expansion.
-- [ ] Keep structured evaluation on the same code path.
+- [x] Evaluate nested groups and deterministic alternation.
+- [x] Evaluate structural repetition `!`.
+- [x] Evaluate acceleration `*` and slowdown `/`.
+- [x] Evaluate relative weighting `@` with continuations.
+- [x] Combine uninterrupted speed chains as exact rational rates.
+- [x] Preserve written operator order.
+- [x] Implement weighted alternation as whole-pattern retrigger frequency.
+- [x] Bound alternation periods and normalized expansion.
+- [x] Keep structured evaluation on the same code path.
 
 ### Likely files
 
@@ -1039,11 +1041,11 @@ Extend the same evaluator with shorthand structures and operators.
 
 ### Verification
 
-- [ ] Test `60/2 1` exactly.
-- [ ] Test `[0 2]*2/2` for geometry and duration cancellation.
-- [ ] Test `<0@2 2 3>*2` as `[0, 0]` followed by `[2, 3]`.
-- [ ] Verify weighting distinguishes continuations from rests.
-- [ ] Verify no second evaluator was introduced.
+- [x] Test `60/2 1` exactly.
+- [x] Test `[0 2]*2/2` for geometry and duration cancellation.
+- [x] Test `<0@2 2 3>*2` as `[0, 0]` followed by `[2, 3]`.
+- [x] Verify weighting distinguishes continuations from rests.
+- [x] Verify no second evaluator was introduced.
 
 ## Step 6.3 — Add target atom interpreters and compact XOX decoding
 
