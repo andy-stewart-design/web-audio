@@ -285,11 +285,14 @@ describe("static consumer evaluation", () => {
     expectTypeOf(names).toEqualTypeOf<patterns.StaticEventCycle<string>>();
   });
 
-  it("retains current sample-name validation until the Step 7.3 alias cutover", () => {
-    expect(
-      decodeSampleNamesInput([" bd:2 ", "kick-drum", "two words"]).patterns,
-    ).toEqual([[event("bd:2")], [event("kick-drum")], [event("two words")]]);
-  });
+  it.each(["bd:2", "kick-drum", "two words"])(
+    "rejects non-alphanumeric structured sample names: %s",
+    (value) => {
+      expect(() => decodeSampleNamesInput([value])).toThrow(
+        "sample names must match [A-Za-z0-9]+",
+      );
+    },
+  );
 });
 
 describe("consumer validation and bounds", () => {

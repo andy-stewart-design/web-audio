@@ -11,11 +11,19 @@ import { noteStringToMidi } from "@/pitch/note-string-to-midi";
 
 const invalidManifestMessage =
   "Invalid sample manifest: expected a sample bank, banked sample bank, multisample bank, or sprite bank";
+const ALIAS_PATTERN = /^[A-Za-z0-9]+$/;
+
+function isAlias(value: string) {
+  return ALIAS_PATTERN.test(value);
+}
 
 function normalizeBankName(name: string) {
   const normalized = name.trim();
   if (normalized === "") {
     throw new Error("[Bank] name cannot be empty.");
+  }
+  if (!isAlias(normalized)) {
+    throw new Error("[Bank] name must match [A-Za-z0-9]+.");
   }
   return normalized;
 }
@@ -24,6 +32,9 @@ function normalizeSampleName(name: string) {
   const normalized = name.trim();
   if (normalized === "") {
     throw new Error("[Samples] sample name cannot be empty.");
+  }
+  if (!isAlias(normalized)) {
+    throw new Error("[Samples] sample name must match [A-Za-z0-9]+.");
   }
   return normalized;
 }
@@ -166,6 +177,8 @@ function resolveBank(def: BankDefinition): BankSchema {
 }
 
 function normalizeSampleBank(input: unknown): BankSchema {
+  if (isBanked(input)) normalizeBankName(input.bank);
+
   if (isBankedBank(input)) {
     return { samples: _normalizeSimpleSamples(input.samples, input.baseUrl) };
   }
@@ -309,6 +322,7 @@ function isMultiSampleBank(obj: unknown): obj is MultiSampleBank {
 
 export {
   invalidManifestMessage,
+  isAlias,
   normalizeBankName,
   normalizeSampleName,
   isMultiSampleBank,

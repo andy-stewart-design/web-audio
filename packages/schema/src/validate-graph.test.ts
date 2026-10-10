@@ -337,6 +337,27 @@ describe("validateDromeGraph", () => {
     ).not.toThrow();
   });
 
+  it("rejects non-alphanumeric sample aliases and bank keys", () => {
+    expect(() =>
+      validateDromeGraph(schema({}, [], { "my-kit": validBank })),
+    ).toThrow('[Schema] Bank name "my-kit" is not canonical.');
+    expect(() => validateDromeGraph(schema({}, [sampler("my-kit")]))).toThrow(
+      "[Schema] Instrument 0.bank is not canonical.",
+    );
+    expect(() =>
+      validateDromeGraph(
+        schema({}, [
+          sampler("drums", {
+            timing: timing(),
+            sampleNames: { type: "static", cycle: [[["bd:2"]]] },
+          }),
+        ]),
+      ),
+    ).toThrow(
+      "[Schema] Instrument 0.eventPattern.sampleNames.cycle[0][0][0] is not a valid sample name.",
+    );
+  });
+
   it("accepts empty timing bars and durations longer than one bar", () => {
     const event = instrument(
       "main",

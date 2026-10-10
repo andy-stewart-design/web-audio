@@ -540,6 +540,7 @@ describe("Drome", () => {
       "bd:Infinity",
       "bd:NaN",
       "bd:1:2",
+      "kick-drum",
     ])("rejects invalid sample shorthand %j", (token) => {
       expect(() => new Drome().sample(token)).toThrow();
     });
@@ -606,13 +607,10 @@ describe("Drome", () => {
       });
     });
 
-    it("treats colons in structured name patterns literally", () => {
-      const schema = new Drome().sample().name(["bd:2"]).getSchema();
-
-      expect(schema.eventPattern.sampleNames).toEqual({
-        type: "static",
-        cycle: [[["bd:2"]]],
-      });
+    it("rejects non-alphanumeric structured sample names", () => {
+      expect(() => new Drome().sample().name(["bd:2"])).toThrow(
+        "sample names must match [A-Za-z0-9]+",
+      );
     });
 
     it("rejects invalid sample-name patterns", () => {
@@ -1773,6 +1771,17 @@ describe("Drome", () => {
       expect(() =>
         d.loadSamples({ bank: "   ", samples: { kick: ["url.wav"] } }),
       ).toThrow("[Bank] name cannot be empty.");
+    });
+
+    it("rejects non-alphanumeric bank aliases", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").bank("my-kit")).toThrow(
+        "[Bank] name must match [A-Za-z0-9]+",
+      );
+      expect(() =>
+        d.loadSamples({ bank: "my-kit", samples: { kick: ["url.wav"] } }),
+      ).toThrow("[Bank] name must match [A-Za-z0-9]+");
     });
 
     it("rejects named-bank collisions created by trimming", () => {

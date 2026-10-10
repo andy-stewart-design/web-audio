@@ -15,6 +15,7 @@ import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import {
   isBanked,
+  isAlias,
   normalizeBankName,
   normalizeSampleBank,
   resolveBank,
@@ -91,6 +92,9 @@ class Drome {
     const sampleName = parts[0].trim();
     if (sampleName === "") {
       throw new Error("[Drome] sample() name cannot be empty.");
+    }
+    if (!isAlias(sampleName)) {
+      throw new Error("[Drome] sample() name must match [A-Za-z0-9]+.");
     }
 
     let resolvedVariation = variation;

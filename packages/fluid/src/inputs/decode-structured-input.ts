@@ -16,6 +16,7 @@ import {
   interpretSampleNameAtom,
   interpretVariationAtom,
 } from "./atom-interpreters";
+import { isAlias } from "@/samples/normalize-bank";
 
 // Bound raw traversal independently of emitted nodes and surviving voices.
 // Count argument, bar, and chord slots, including holes and omitted placeholders.
@@ -205,8 +206,13 @@ function decodeSampleNamesExpression(input: readonly unknown[]) {
       if (typeof value !== "string" || value.trim().length === 0) {
         throw new Error("[Sampler] name() sample names must be non-empty.");
       }
-      // Alphanumeric-only aliases and ':' rejection land together in Step 7.3.
-      return { type: "event", value: value.trim() } as const;
+      const normalized = value.trim();
+      if (!isAlias(normalized)) {
+        throw new Error(
+          "[Sampler] name() sample names must match [A-Za-z0-9]+.",
+        );
+      }
+      return { type: "event", value: normalized } as const;
     },
   });
 }

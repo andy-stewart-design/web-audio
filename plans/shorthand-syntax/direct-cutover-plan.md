@@ -1140,7 +1140,7 @@ Expose reusable shorthand and direct-string dispatch after the target structured
 
 Expose immutable reusable shorthand values containing the shared expression model.
 
-Status: complete. `@web-audio/patterns` now owns `createShorthand()` and the public `Shorthand` type. Fluid exposes eager `d.shorthand()` and `d.sh()` factories; both return frozen, target-independent wrappers with recursively frozen, enumerable parsed expressions. Public method dispatch remains deferred to Step 7.2.
+Status: complete. `@web-audio/patterns` now owns `createShorthand()` and the public `Shorthand` type. Fluid exposes eager `d.shorthand()` and `d.sh()` factories; both return frozen, target-independent wrappers with recursively frozen, enumerable parsed expressions. Public method dispatch is completed in Step 7.2.
 
 ### Tasks
 
@@ -1210,15 +1210,17 @@ Status: complete. Supported instrument consumers now distinguish direct shorthan
 
 Apply the notation-safe sample-name rules defined by the specification.
 
+Status: complete. Fluid normalizes sample and bank aliases to `[A-Za-z0-9]+`, structured and shorthand `.name()` inputs reject unsupported selectors and punctuation, constructor `d.sample("bd:2")` variation shorthand remains compatible, source URLs remain unrestricted, and schema validation enforces the same alias boundary.
+
 ### Tasks
 
-- [ ] Restrict aliases to `[A-Za-z0-9]+` in names and bank keys.
-- [ ] Reject `:` in structured and shorthand `.name()` input.
-- [ ] Preserve constructor `d.sample("bd:2")` behavior.
-- [ ] Reject combined selectors in `.name()`.
-- [ ] Preserve unrestricted URLs.
-- [ ] Tighten direct schema validation.
-- [ ] Add focused migration errors and tests.
+- [x] Restrict aliases to `[A-Za-z0-9]+` in names and bank keys.
+- [x] Reject `:` in structured and shorthand `.name()` input.
+- [x] Preserve constructor `d.sample("bd:2")` behavior.
+- [x] Reject combined selectors in `.name()`.
+- [x] Preserve unrestricted URLs.
+- [x] Tighten direct schema validation.
+- [x] Add focused migration errors and tests.
 
 ### Likely files
 
@@ -1233,9 +1235,9 @@ Apply the notation-safe sample-name rules defined by the specification.
 
 ### Verification
 
-- [ ] Run Fluid and schema suites.
-- [ ] Verify constructor shorthand and `.name()` differ only as specified.
-- [ ] Confirm URL handling remains unchanged.
+- [x] Run Fluid and schema suites.
+- [x] Verify constructor shorthand and `.name()` differ only as specified.
+- [x] Confirm URL handling remains unchanged.
 
 ## Step 7.4 — Complete end-to-end coverage and documentation
 

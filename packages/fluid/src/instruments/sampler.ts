@@ -33,7 +33,10 @@ import {
 import { DEFAULT_BANK } from "@/samples/built-in-banks";
 import Instrument from "./instrument";
 import type Drome from "@/drome";
-import { normalizeBankName } from "@/samples/normalize-bank";
+import {
+  normalizeBankName,
+  normalizeSampleName,
+} from "@/samples/normalize-bank";
 
 interface SamplerOptions {
   bank?: string;
@@ -60,7 +63,9 @@ class Sampler extends Instrument {
     { bank = DEFAULT_BANK, host }: SamplerOptions = {},
   ) {
     super(host, { a: 0.0025, r: 0.005 });
-    this._eventState = createSamplerEventState(sample);
+    this._eventState = createSamplerEventState(
+      sample === undefined ? undefined : normalizeSampleName(sample),
+    );
     this._bank = normalizeBankName(bank);
     this.dur = this.duration.bind(this);
     this.dir = this.direction.bind(this);
