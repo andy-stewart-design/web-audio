@@ -226,7 +226,7 @@ describe("native public event setters", () => {
         error: "[Sampler] name() requires at least one pattern.",
       },
       {
-        apply: () => sampler.name(" "),
+        apply: () => sampler.name([" "]),
         error: "[Sampler] name() sample names must be non-empty.",
       },
       {

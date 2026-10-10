@@ -50,6 +50,54 @@ describe("Drome", () => {
       );
       expect(() => new Drome().shorthand("<>")).toThrow("source range [0, 2)");
     });
+
+    it("dispatches direct strings and reusable values through each consumer", () => {
+      const d = new Drome();
+      const notes = d.sh("60 [64 67]");
+      const names = d.sh("bd sd");
+      const variations = d.sh("0 <1 2>");
+      const timing = d.sh("xoxo");
+
+      expect(new Drome().synth().notes("60 [64 67]").getSchema()).toEqual(
+        new Drome().synth().notes(notes).getSchema(),
+      );
+      expect(new Drome().sample().name("bd sd").getSchema()).toEqual(
+        new Drome().sample().name(names).getSchema(),
+      );
+      expect(new Drome().sample("bd").variation("0 <1 2>").getSchema()).toEqual(
+        new Drome().sample("bd").var(variations).getSchema(),
+      );
+      expect(new Drome().synth().xox("xoxo").getSchema()).toEqual(
+        new Drome().synth().xox(timing).getSchema(),
+      );
+    });
+
+    it("rejects shorthand values mixed with other arguments", () => {
+      const shorthand = new Drome().sh("60");
+      const notes = new Drome().synth();
+      const names = new Drome().sample();
+      const variations = new Drome().sample();
+      const timing = new Drome().synth();
+      const invoke = (method: object, receiver: object, args: unknown[]) =>
+        Reflect.apply(
+          method as (...values: unknown[]) => unknown,
+          receiver,
+          args,
+        );
+
+      expect(() => invoke(notes.notes, notes, [shorthand, 64])).toThrow(
+        "shorthand input must be the sole argument",
+      );
+      expect(() => invoke(names.name, names, [shorthand, "sd"])).toThrow(
+        "shorthand input must be the sole argument",
+      );
+      expect(() =>
+        invoke(variations.variation, variations, [shorthand, 1]),
+      ).toThrow("shorthand input must be the sole argument");
+      expect(() => invoke(timing.xox, timing, [shorthand, 1])).toThrow(
+        "shorthand input must be the sole argument",
+      );
+    });
   });
 
   describe("default schema", () => {
@@ -558,8 +606,8 @@ describe("Drome", () => {
       });
     });
 
-    it("treats colons in name patterns literally", () => {
-      const schema = new Drome().sample().name("bd:2").getSchema();
+    it("treats colons in structured name patterns literally", () => {
+      const schema = new Drome().sample().name(["bd:2"]).getSchema();
 
       expect(schema.eventPattern.sampleNames).toEqual({
         type: "static",

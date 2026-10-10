@@ -1174,17 +1174,19 @@ Status: complete. `@web-audio/patterns` now owns `createShorthand()` and the pub
 
 Route supported direct strings and reusable shorthand values through the parser and evaluator already proved in PR 6.
 
+Status: complete. Supported instrument consumers now distinguish direct shorthand strings and reusable `Shorthand` values from existing structured arguments, while preserving structured multi-argument dispatch and legacy compact XOX compatibility. `Shorthand` remains owned by `@web-audio/patterns`; Fluid references it without re-exporting it.
+
 ### Tasks
 
-- [ ] Dispatch one string, one `Shorthand`, or structured arguments.
-- [ ] Require a `Shorthand` value to be the sole argument.
-- [ ] Add shorthand to `.notes()`.
-- [ ] Add shorthand to `.name()`.
-- [ ] Add shorthand to `.variation()` / `.var()`.
-- [ ] Add shorthand to `.xox()`.
-- [ ] Preserve multiple structured arguments under existing dispatch rules.
-- [ ] Preserve legacy compact XOX compatibility.
-- [ ] Route direct strings and reusable shorthand through the same parser/evaluator path.
+- [x] Dispatch one string, one `Shorthand`, or structured arguments.
+- [x] Require a `Shorthand` value to be the sole argument.
+- [x] Add shorthand to `.notes()`.
+- [x] Add shorthand to `.name()`.
+- [x] Add shorthand to `.variation()` / `.var()`.
+- [x] Add shorthand to `.xox()`.
+- [x] Preserve multiple structured arguments under existing dispatch rules.
+- [x] Preserve legacy compact XOX compatibility.
+- [x] Route direct strings and reusable shorthand through the same parser/evaluator path.
 
 ### Likely files
 
@@ -1198,9 +1200,9 @@ Route supported direct strings and reusable shorthand values through the parser 
 
 ### Verification
 
-- [ ] Run direct-string and reusable-value tests for every consumer.
-- [ ] Run retained structured golden fixtures unchanged.
-- [ ] Verify invalid mixed argument forms fail eagerly.
+- [x] Run direct-string and reusable-value tests for every consumer.
+- [x] Run retained structured golden fixtures unchanged.
+- [x] Verify invalid mixed argument forms fail eagerly.
 
 ## Step 7.3 — Enforce sample alias compatibility changes
 

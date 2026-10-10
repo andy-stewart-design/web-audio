@@ -15,6 +15,7 @@ import {
   decodeStructuredInputGeometry,
 } from "./decode-structured-input";
 import { interpretXoxAtom, targetAtomError } from "./atom-interpreters";
+import { getShorthandSource } from "./decode-shorthand-input";
 
 /** Structured numeric XOX retains the established nonzero-number mask behavior. */
 function xoxDecodeOptions() {
@@ -125,7 +126,24 @@ function evaluateXoxShorthand(source: string) {
   );
 }
 
-function decodeXoxInputGeometry(input: readonly unknown[]) {
+function decodeXoxInputGeometry(
+  input: readonly unknown[],
+  { allowShorthand = false } = {},
+) {
+  const shorthand = allowShorthand
+    ? getShorthandSource(input, "[Instrument] xox()")
+    : undefined;
+  if (shorthand !== undefined) {
+    const cycle = evaluatePatternExpression(
+      decodeXoxShorthandExpression(shorthand),
+      interpretXoxAtom,
+    );
+    return Object.freeze({
+      cycle,
+      zeroWidthPatterns: Object.freeze(cycle.patterns.map(() => false)),
+      condition: undefined,
+    });
+  }
   if (input.length === 1 && isRandomCycle(input[0])) {
     const source = input[0];
     if (source.dataType !== "binary") {

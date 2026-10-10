@@ -15,6 +15,7 @@ import Parameter from "@/parameters/parameter";
 import type {
   CycleInput,
   NullableCycleInput,
+  ShorthandInput,
   StaticNullableCycleInput,
 } from "@/inputs/types";
 import type {
@@ -66,15 +67,19 @@ class Sampler extends Instrument {
   }
 
   // METHOD ALIASES
-  var(...input: NullableCycleInput<number>) {
-    return this.variation(...input);
+  var(input: ShorthandInput): this;
+  var(...input: NullableCycleInput<number>): this;
+  var(...input: NullableCycleInput<number> | [ShorthandInput]) {
+    return this._setVariation(...input);
   }
 
   // INSTANCE METHODS
-  name(...input: StaticNullableCycleInput<string>) {
+  name(input: ShorthandInput): this;
+  name(...input: StaticNullableCycleInput<string>): this;
+  name(...input: StaticNullableCycleInput<string> | [ShorthandInput]) {
     this._eventState = replaceSampleNames(
       this._eventState,
-      decodeSampleNamesInput(input),
+      decodeSampleNamesInput(input, { allowShorthand: true }),
     );
     return this;
   }
@@ -84,8 +89,18 @@ class Sampler extends Instrument {
     return this;
   }
 
-  variation(...input: NullableCycleInput<number>) {
-    const decoded = decodeVariationsInputGeometry(input);
+  variation(input: ShorthandInput): this;
+  variation(...input: NullableCycleInput<number>): this;
+  variation(...input: NullableCycleInput<number> | [ShorthandInput]) {
+    return this._setVariation(...input);
+  }
+
+  private _setVariation(
+    ...input: NullableCycleInput<number> | [ShorthandInput]
+  ) {
+    const decoded = decodeVariationsInputGeometry(input, {
+      allowShorthand: true,
+    });
     this._eventState = replaceEventVariation(
       this._eventState,
       decoded.cycle,

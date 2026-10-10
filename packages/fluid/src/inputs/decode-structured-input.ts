@@ -10,6 +10,12 @@ import {
 } from "@web-audio/patterns";
 import { isRandomCycle } from "./guards";
 import { decodeRandomEventInputGeometry } from "./decode-random-input";
+import { decodeShorthandInput } from "./decode-shorthand-input";
+import {
+  interpretNoteAtom,
+  interpretSampleNameAtom,
+  interpretVariationAtom,
+} from "./atom-interpreters";
 
 // Bound raw traversal independently of emitted nodes and surviving voices.
 // Count argument, bar, and chord slots, including holes and omitted placeholders.
@@ -212,18 +218,17 @@ function decodeVariationsExpression(input: readonly unknown[]) {
   });
 }
 
-function decodeNotesInputGeometry(input: readonly unknown[]) {
-  if (input.length === 1 && isRandomCycle(input[0]))
-    return decodeRandomEventInputGeometry(input[0]);
-  const geometry = decodeStructuredInputGeometry(input, notesDecodeOptions());
-  const cycle = evaluatePatternExpression(geometry.expression);
-  const noteValueSlots = Object.freeze({
+function createNoteValueSlots(
+  cycle: ReturnType<typeof evaluatePatternExpression>,
+  zeroWidthPatterns: readonly boolean[],
+) {
+  return Object.freeze({
     type: "static-event-cycle",
     patterns: Object.freeze(
       cycle.patterns.map((pattern, index) =>
         Object.freeze(
           pattern.map(() =>
-            geometry.zeroWidthPatterns[index]
+            zeroWidthPatterns[index]
               ? ({ type: "rest" } as const)
               : Object.freeze({
                   type: "event",
@@ -234,10 +239,35 @@ function decodeNotesInputGeometry(input: readonly unknown[]) {
       ),
     ),
   } as const);
+}
+
+function decodeNotesInputGeometry(
+  input: readonly unknown[],
+  { allowShorthand = false } = {},
+) {
+  const shorthand = allowShorthand
+    ? decodeShorthandInput(input, "[Instrument] notes()")
+    : undefined;
+  if (shorthand) {
+    const cycle = evaluatePatternExpression(
+      shorthand.expression,
+      interpretNoteAtom,
+    );
+    const zeroWidthPatterns = Object.freeze(cycle.patterns.map(() => false));
+    return Object.freeze({
+      cycle,
+      zeroWidthPatterns,
+      noteValueSlots: createNoteValueSlots(cycle, zeroWidthPatterns),
+    });
+  }
+  if (input.length === 1 && isRandomCycle(input[0]))
+    return decodeRandomEventInputGeometry(input[0]);
+  const geometry = decodeStructuredInputGeometry(input, notesDecodeOptions());
+  const cycle = evaluatePatternExpression(geometry.expression);
   return Object.freeze({
     cycle,
     zeroWidthPatterns: geometry.zeroWidthPatterns,
-    noteValueSlots,
+    noteValueSlots: createNoteValueSlots(cycle, geometry.zeroWidthPatterns),
   });
 }
 
@@ -245,11 +275,37 @@ function decodeNotesInput(input: readonly unknown[]) {
   return decodeNotesInputGeometry(input).cycle;
 }
 
-function decodeSampleNamesInput(input: readonly unknown[]) {
-  return evaluatePatternExpression(decodeSampleNamesExpression(input));
+function decodeSampleNamesInput(
+  input: readonly unknown[],
+  { allowShorthand = false } = {},
+) {
+  const shorthand = allowShorthand
+    ? decodeShorthandInput(input, "[Sampler] name()", {
+        allowMultipleStrings: true,
+      })
+    : undefined;
+  return shorthand
+    ? evaluatePatternExpression(shorthand.expression, interpretSampleNameAtom)
+    : evaluatePatternExpression(decodeSampleNamesExpression(input));
 }
 
-function decodeVariationsInputGeometry(input: readonly unknown[]) {
+function decodeVariationsInputGeometry(
+  input: readonly unknown[],
+  { allowShorthand = false } = {},
+) {
+  const shorthand = allowShorthand
+    ? decodeShorthandInput(input, "[Sampler] variation()")
+    : undefined;
+  if (shorthand) {
+    const cycle = evaluatePatternExpression(
+      shorthand.expression,
+      interpretVariationAtom,
+    );
+    return Object.freeze({
+      cycle,
+      zeroWidthPatterns: Object.freeze(cycle.patterns.map(() => false)),
+    });
+  }
   if (input.length === 1 && isRandomCycle(input[0]))
     return decodeRandomEventInputGeometry(input[0]);
   const cycle = evaluatePatternExpression(decodeVariationsExpression(input));
