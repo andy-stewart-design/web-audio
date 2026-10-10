@@ -2,7 +2,7 @@
 
 Generic pattern mechanics used by Fluid: fluent array cycles, readonly expressions, canonical event cycles, rhythm generators, and bounded numeric support.
 
-Production Fluid event authoring now uses the readonly expression evaluator and native event cycles. The obsolete masked cycle and chord serializer have been removed after verified [coverage transfer](../../plans/shorthand-syntax/phase-5-coverage-transfer.md); random and processing-value primitives remain. Shorthand parsing is still planned, not implemented.
+Production Fluid event authoring now uses the readonly expression evaluator and native event cycles. The obsolete masked cycle and chord serializer have been removed after verified [coverage transfer](../../plans/shorthand-syntax/phase-5-coverage-transfer.md); random and processing-value primitives remain. Patterns owns the generic shorthand lexer, parser, immutable reusable value, expression model, and evaluator; Fluid supplies target-specific atom interpretation and public method dispatch.
 
 ## Source map
 
@@ -35,7 +35,7 @@ Not every existing cycle class is disposable legacy code: random and processing-
 - `src/index.ts` is the only code entry point, using explicit named re-exports directly from owning modules. There are no internal subpaths, wildcard exports, or folder barrels.
 - Named pure `euclid`, `hex`, and `sequence` generators are exported for Fluid's rhythm setters. Retained fluent cycle classes support random and processing-value callers; Fluid event setters do not construct them to generate masks.
 - Root exports require demonstrated cross-package consumers, including integration tests. Add a name when a real consumer needs it, not for hypothetical future use.
-- Inspectable, inferred expression data does not require a named root export for every constituent type. Event-cycle integration exports are not a Fluid extension API.
+- Inspectable, inferred expression data does not require a named root export for every constituent type. `Shorthand` is exported here because Fluid method signatures consume reusable values; event-cycle integration exports are not a Fluid extension API.
 - Internal imports go directly to owning modules. Source files are not supported deep-import entry points.
 
 The reorganization intentionally narrows the import API without changing musical behavior, validation, or limits. See the [reorganization record](../../plans/completed/patterns-package-reorg/plan.md) for removed exports and the [active shorthand plan](../../plans/shorthand-syntax/direct-cutover-plan.md) for remaining compatibility gates.

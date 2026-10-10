@@ -34,7 +34,7 @@ src/
     └── __tests__/
 ```
 
-Production instruments use one native event state for notes, timing, sample names, and variations. Structured setters decode into expressions, evaluate immediately into event cycles, and update state through pure transitions; both schema getters use the native `events/` compiler. The legacy authored wrappers, compiler, and temporary comparison oracle have been removed after verified [assertion-level coverage transfer](../../plans/shorthand-syntax/phase-5-coverage-transfer.md). Shorthand parsing and public shorthand dispatch are not implemented yet.
+Production instruments use one native event state for notes, timing, sample names, and variations. Structured setters and shorthand values decode into the shared expression model, evaluate immediately into event cycles, and update state through pure transitions; both schema getters use the native `events/` compiler. The legacy authored wrappers, compiler, and temporary comparison oracle have been removed after verified [assertion-level coverage transfer](../../plans/shorthand-syntax/phase-5-coverage-transfer.md).
 
 Hex, Euclid, and sequence setters call named pure generators from the patterns entry point, then decode and compose their transient masks through native timing transitions. They do not construct timing-cycle wrappers.
 
@@ -66,8 +66,33 @@ These are intentional changes to structured event authoring (not new shorthand s
 - **Authored scalars are patterns:** values set with `.notes()`, `.name()`, or `.var()` behave like one-step arrays. `.var(1).slow(2)` has an event bar followed by a rest bar; that rest suppresses hits when another lane owns timing. Replace an authored scalar after a transform if you want an untransformed repeating one-step pattern.
 - **Constructor defaults are fallbacks:** a constructor sample name, the default pitch, and the default variation `0` do not compete with or filter externally owned timing. Their values fill surviving hits, never create hits in a silent bar, and their transformed cycles provide timing only when no stronger source exists. Calling a setter replaces the default with an authored pattern even if its value is unchanged. For example, `.sample("bd").slow(2)` retains fallback `bd`, while `.sample().name("bd").slow(2)` has an authored rest bar under stronger timing.
 
-- **Immediate event transforms and pure reads:** fluent speed transforms operate on the result of each preceding call. `.notes(60).fast(2).slow(2)` produces two event bars with half-bar gates, rather than cancelling to the original one-bar gate. Calling `getSchema()` between transforms does not change the outcome; shorthand expression-chain cancellation remains future work.
+- **Immediate event transforms and pure reads:** fluent speed transforms operate on the result of each preceding call. `.notes(60).fast(2).slow(2)` produces two event bars with half-bar gates, rather than cancelling to the original one-bar gate. Calling `getSchema()` between transforms does not change the outcome; uninterrupted shorthand `*`/`/` chains still cancel during expression evaluation.
 - **Synth availability survives materialization:** slowdown-created note rests continue filtering replacement timing by candidate ordinal. For example, `.notes([60, 64]).slow(2).xox(d.rand().bin().steps(4).chance(1))` keeps offsets `0` and `1/2` in both bars with quarter-bar gates. Inherited timing gaps remain transparent. This intentionally replaces the legacy synth behavior that lost those rests during materialization.
+
+## Shorthand patterns
+
+A single string passed to `.notes()`, `.name()`, `.variation()`/`.var()`, or `.xox()` is shorthand. Use `d.sh()` or `d.shorthand()` when the parsed value should be reused:
+
+```ts
+d.synth().notes("60 [64 67]").push();
+d.sample().name("bd sd").push();
+d.sample("bd").variation("0 <1 2>").push();
+d.synth().xox("xoxo").push();
+
+const reusable = d.sh("0 <1 2>");
+d.sample("bd").var(reusable).push();
+```
+
+A shorthand value must be the only argument. Existing structured arguments remain structured, so `.name("bd", "sd")` creates two bars while `.name("bd sd")` creates two steps in one bar. Shorthand errors are reported at the direct method call when a string is used, or at `d.sh()`/`d.shorthand()` when a reusable value is created.
+
+Notes and variations accept strict finite numeric atoms. XOX accepts `1`, `0`, `x`, `o`, and `.` atoms, including compact legacy strings. Sample aliases and bank keys use `[A-Za-z0-9]+`; constructor `d.sample("bd:2")` remains the supported name/variation shorthand, while `.name("bd:2")` is rejected.
+
+Constructor defaults remain fallback values, while shorthand and structured setters create authored patterns:
+
+```ts
+d.sample("bd").slow(2).xox("11"); // fallback bd fills surviving hits
+d.sample().name("bd").slow(2).xox("11"); // authored name rest filters the second bar
+```
 
 ## Sampler names
 

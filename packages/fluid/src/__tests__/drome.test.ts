@@ -1,4 +1,8 @@
-import { RandomCycle, type Shorthand } from "@web-audio/patterns";
+import {
+  MAX_EXPRESSION_NODES,
+  RandomCycle,
+  type Shorthand,
+} from "@web-audio/patterns";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { SamplerSchema } from "@web-audio/schema";
 import Drome from "@/index";
@@ -97,6 +101,25 @@ describe("Drome", () => {
       expect(() => invoke(timing.xox, timing, [shorthand, 1])).toThrow(
         "shorthand input must be the sole argument",
       );
+    });
+
+    it("reports target errors and expansion limits during public dispatch", () => {
+      expect(() => new Drome().synth().notes("oops")).toThrow(
+        "[Instrument] notes() atom 'oops' must be a finite numeric value at source range [0, 4)",
+      );
+      expect(() => new Drome().sample().name("kick-drum")).toThrow(
+        "[Sampler] name() sample atoms must match [A-Za-z0-9]+ at source range [0, 9)",
+      );
+      expect(() => new Drome().sample().var("fast")).toThrow(
+        "[Sampler] variation() atom 'fast' must be a finite numeric value at source range [0, 4)",
+      );
+      expect(() => new Drome().synth().xox("bad")).toThrow(
+        "[Instrument] xox() atoms must be one of '1', 'x', '0', 'o', or '.' at source range [0, 3)",
+      );
+      expect(() => new Drome().synth().notes("[60")).toThrow("Expected ']'");
+      expect(() =>
+        new Drome().synth().notes("0 ".repeat(MAX_EXPRESSION_NODES)),
+      ).toThrow(`more than ${MAX_EXPRESSION_NODES} nodes`);
     });
   });
 

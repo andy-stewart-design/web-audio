@@ -1245,16 +1245,18 @@ Status: complete. Fluid normalizes sample and bank aliases to `[A-Za-z0-9]+`, st
 
 Finalize public examples, diagnostics, cleanup, and architectural verification.
 
+Status: complete. Public documentation now covers direct strings, reusable shorthand, target-specific consumers, authored/default behavior, and alias restrictions. End-to-end dispatch tests cover malformed syntax, target errors, expansion limits, and reusable/direct equivalence. The unused root `ShorthandSyntaxError` export and stale migration wording were removed; schema and audio-engine boundaries remain shorthand-free.
+
 ### Tasks
 
-- [ ] Add public examples for every supported consumer.
-- [ ] Add malformed syntax, invalid target, and expansion-limit tests.
-- [ ] Add exact slowdown, cancellation, weighting, alternation, and continuation tests.
-- [ ] Document reusable `d.sh()` and direct strings.
-- [ ] Document authored patterns versus default fallbacks.
-- [ ] Document sample-name restrictions and intentional changes.
-- [ ] Remove migration-only exports, comments, and scaffolding.
-- [ ] Confirm schema and audio engine contain no shorthand or event-cycle concepts.
+- [x] Add public examples for every supported consumer.
+- [x] Add malformed syntax, invalid target, and expansion-limit tests.
+- [x] Add exact slowdown, cancellation, weighting, alternation, and continuation tests.
+- [x] Document reusable `d.sh()` and direct strings.
+- [x] Document authored patterns versus default fallbacks.
+- [x] Document sample-name restrictions and intentional changes.
+- [x] Remove migration-only exports, comments, and scaffolding.
+- [x] Confirm schema and audio engine contain no shorthand or event-cycle concepts.
 
 ### Likely files
 
@@ -1266,44 +1268,44 @@ Finalize public examples, diagnostics, cleanup, and architectural verification.
 
 ### Verification
 
-- [ ] Run the complete repository suite.
-- [ ] Review public exports and generated declarations.
-- [ ] Use `rg` to confirm no obsolete wrappers, adapters, or compiler symbols remain.
-- [ ] Confirm `git diff --check` passes.
+- [x] Run the complete repository suite.
+- [x] Review public exports and generated declarations.
+- [x] Use `rg` to confirm no obsolete wrappers, adapters, or compiler symbols remain.
+- [x] Confirm `git diff --check` passes.
 
 ## PR 7 completion gate
 
-- [ ] Supported consumers accept direct strings and reusable shorthand values.
-- [ ] Parsed expression data is readonly, enumerable, inspectable, and source-aware.
-- [ ] Structured and shorthand input share one expression model and evaluator.
-- [ ] Instrument state stores only event cycles.
-- [ ] Legacy event abstractions and migration code are gone.
-- [ ] Compatibility changes are documented and tested.
-- [ ] Schema and audio engine remain unchanged by shorthand concepts.
+- [x] Supported consumers accept direct strings and reusable shorthand values.
+- [x] Parsed expression data is readonly, enumerable, inspectable, and source-aware.
+- [x] Structured and shorthand input share one expression model and evaluator.
+- [x] Instrument state stores only event cycles.
+- [x] Legacy event abstractions and migration code are gone.
+- [x] Compatibility changes are documented and tested.
+- [x] Schema and audio engine remain unchanged by shorthand concepts.
 
 ---
 
 # Global review checklist
 
-- [ ] PR 2 is the final modification to legacy event semantics.
-- [ ] New foundations are tested before production wiring.
-- [ ] The standalone package reorganization is merged before PR 5; current paths and assertion-level coverage-transfer requirements are used.
-- [ ] Representation feasibility is proven before cutover, including timing gaps, authored rests, shared materialization, and later timing replacement.
-- [ ] New compiler tests construct native state directly, and complete native scenarios exercise decoding through compilation.
-- [ ] Test-only differential comparisons use independently initialized paths and are removed with legacy deletion.
-- [ ] Golden schema fixtures remain the compatibility authority and their corrected expectations do not change in PR 5.
-- [ ] Useful legacy coverage is inventoried and verified in retained tests before deletion.
-- [ ] Atomic cutover has separately reviewable setter, transform, schema, and deletion commits.
-- [ ] No production adapter exists without a documented blocker.
-- [ ] No event lane is represented in both legacy and native state.
-- [ ] All coordinated event lanes switch in one production cutover.
-- [ ] Expressions remain transient input-boundary values.
-- [ ] Event cycles remain canonical internal state.
-- [ ] Random sources remain a separate branch.
-- [ ] Defaults retain nonempty fallback groups and never create or filter hits.
-- [ ] Authored rests filter by candidate ordinal.
-- [ ] Continuations occupy ordinals without suppressing external candidates.
-- [ ] Transforms update native state exactly once.
-- [ ] Processing parameters remain outside the redesign.
-- [ ] Superseded wrappers and compiler helpers are deleted at cutover.
-- [ ] Type checking, linting, tests, formatting, and `git diff --check` pass.
+- [x] PR 2 is the final modification to legacy event semantics.
+- [x] New foundations are tested before production wiring.
+- [x] The standalone package reorganization is merged before PR 5; current paths and assertion-level coverage-transfer requirements are used.
+- [x] Representation feasibility is proven before cutover, including timing gaps, authored rests, shared materialization, and later timing replacement.
+- [x] New compiler tests construct native state directly, and complete native scenarios exercise decoding through compilation.
+- [x] Test-only differential comparisons use independently initialized paths and are removed with legacy deletion.
+- [x] Golden schema fixtures remain the compatibility authority and their corrected expectations do not change in PR 5.
+- [x] Useful legacy coverage is inventoried and verified in retained tests before deletion.
+- [x] Atomic cutover has separately reviewable setter, transform, schema, and deletion commits.
+- [x] No production adapter exists without a documented blocker.
+- [x] No event lane is represented in both legacy and native state.
+- [x] All coordinated event lanes switch in one production cutover.
+- [x] Expressions remain transient input-boundary values.
+- [x] Event cycles remain canonical internal state.
+- [x] Random sources remain a separate branch.
+- [x] Defaults retain nonempty fallback groups and never create or filter hits.
+- [x] Authored rests filter by candidate ordinal.
+- [x] Continuations occupy ordinals without suppressing external candidates.
+- [x] Transforms update native state exactly once.
+- [x] Processing parameters remain outside the redesign.
+- [x] Superseded wrappers and compiler helpers are deleted at cutover.
+- [x] Type checking, linting, tests, formatting, and `git diff --check` pass.
