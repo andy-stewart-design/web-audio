@@ -124,13 +124,30 @@ function evaluateAlternate<TAtom, TValue>(
   const choices: {
     evaluation: NodeEvaluation<TValue>;
     weight: Rational;
+    repeats: number;
   }[] = [];
   let evaluatedSpanCount = 0;
   for (const child of node.children) {
+    // Repetition duplicates alternatives as sibling bars, not as events
+    // squeezed into one alternative's bar. Keep the child evaluation intact
+    // so successive selections advance a nested alternation's own cycle.
+    let choice = child;
+    let repeats = 1;
+    while (choice.type === "modifier" && choice.operator === "repeat") {
+      const count = parsePositiveInteger(choice.amount, choice);
+      if (count > MAX_EVENT_CYCLE_PATTERNS / repeats) {
+        throw expressionError(
+          choice,
+          `Alternation expands beyond ${MAX_EVENT_CYCLE_PATTERNS} patterns.`,
+        );
+      }
+      repeats *= count;
+      choice = choice.child;
+    }
     const evaluation = evaluateNode(
-      child.type === "modifier" && child.operator === "weight"
-        ? child.child
-        : child,
+      choice.type === "modifier" && choice.operator === "weight"
+        ? choice.child
+        : choice,
       createRational(0),
       createRational(1),
       interpretAtom,
@@ -148,9 +165,10 @@ function evaluateAlternate<TAtom, TValue>(
     choices.push({
       evaluation,
       weight:
-        child.type === "modifier" && child.operator === "weight"
-          ? parsePositiveAmount(child.amount, child)
+        choice.type === "modifier" && choice.operator === "weight"
+          ? parsePositiveAmount(choice.amount, choice)
           : createRational(1),
+      repeats,
     });
   }
 
@@ -164,6 +182,7 @@ function evaluateAlternate<TAtom, TValue>(
   }
   const counts = choices.map((choice) => {
     const count =
+      BigInt(choice.repeats) *
       BigInt(choice.weight.numerator) *
       BigInt(weightScale / choice.weight.denominator);
     if (count <= 0n || count > BigInt(MAX_EVENT_CYCLE_PATTERNS)) {

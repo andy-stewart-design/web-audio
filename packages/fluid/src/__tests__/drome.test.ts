@@ -76,6 +76,36 @@ describe("Drome", () => {
       );
     });
 
+    it("distinguishes repeated alternation bars from accelerated bars", () => {
+      const repeated = new Drome()
+        .synth()
+        .notes("<<[0 2]>!3 [4 6]>")
+        .getSchema().eventPattern;
+      const accelerated = new Drome()
+        .synth()
+        .notes("<<[0 2]>*3 [4 6]>")
+        .getSchema().eventPattern;
+
+      expect(repeated.timing.cycle).toHaveLength(4);
+      expect(repeated.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[0], [2]],
+          [[0], [2]],
+          [[0], [2]],
+          [[4], [6]],
+        ],
+      });
+      expect(accelerated.timing.cycle).toHaveLength(2);
+      expect(accelerated.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[0], [2], [0], [2], [0], [2]],
+          [[4], [6]],
+        ],
+      });
+    });
+
     it("keeps shorthand note hits through reverse transforms", () => {
       for (const source of ["60@3 67", "60 ~ 67"]) {
         const eventPattern = new Drome()

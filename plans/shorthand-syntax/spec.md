@@ -380,7 +380,10 @@ is equivalent to:
 60 60 60 67
 ```
 
-The count must be a positive whole number.
+The count must be a positive whole number. Inside an alternation, the
+repeated choice occupies separate bars: `<60!3 67>` selects `60`, `60`, `60`,
+then `67` across four bars. This also applies when the repeated choice is a
+nested alternation; each selected bar advances that choice's cycle.
 
 ### Acceleration: `*`
 

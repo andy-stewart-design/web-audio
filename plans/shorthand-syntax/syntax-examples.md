@@ -85,9 +85,13 @@ Fallback values never create hits or activate silent timing bars.
 
 Duplicate a node as sibling structure.
 
-| Shorthand | Closest structured form    | Equivalence |
-| --------- | -------------------------- | ----------- |
-| `60!3 67` | `.notes([60, 60, 60, 67])` | Exact       |
+| Shorthand   | Closest structured form    | Equivalence |
+| ----------- | -------------------------- | ----------- |
+| `60!3 67`   | `.notes([60, 60, 60, 67])` | Exact       |
+| `<60!3 67>` | `.notes(60, 60, 60, 67)`   | Exact       |
+
+Inside an alternation, `!3` repeats a choice across three bars; `*3` instead
+repeats its events within one selected bar.
 
 ## Relative weight: `@`
 

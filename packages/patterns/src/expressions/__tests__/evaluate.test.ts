@@ -416,6 +416,58 @@ describe("evaluation validation and limits", () => {
     ).toEqual([[event(0)], [event(2)], [event(0)], [event(3)]]);
   });
 
+  it("repeats alternation choices as bars instead of accelerating one bar", () => {
+    expect(
+      evaluatePatternExpression(parseShorthand("<0!3 1>")).patterns,
+    ).toEqual([[event("0")], [event("0")], [event("0")], [event("1")]]);
+    expect(
+      evaluatePatternExpression(parseShorthand("<0*3 1>")).patterns,
+    ).toEqual([[event("0"), event("0"), event("0")], [event("1")]]);
+    expect(evaluatePatternExpression(parseShorthand("0!3 1")).patterns).toEqual(
+      [[event("0"), event("0"), event("0"), event("1")]],
+    );
+  });
+
+  it("repeats a nested alternative across bars without shortening its gates", () => {
+    const source =
+      "<<[[-5, -1] ~ 0 ~ -5 ~ -4 0 ~ 0 5 ~!5]>!3 [~!2 [-3, -1] ~ -3 -2 ~ 0 ~ 0 7 ~ 0 ~ 4 ~]>";
+    const bars = evaluatePatternExpression(parseShorthand(source)).patterns;
+    expect(bars).toHaveLength(4);
+    expect(bars[0]).toEqual(bars[1]);
+    expect(bars[1]).toEqual(bars[2]);
+    expect(
+      bars
+        .slice(0, 3)
+        .map((bar) => bar.filter((step) => step.type === "event").length),
+    ).toEqual([7, 7, 7]);
+    expect(bars[3].filter((step) => step.type === "event")).toHaveLength(8);
+  });
+
+  it("advances nested choices across repeated bars and retains postfix order", () => {
+    expect(
+      evaluatePatternExpression(parseShorthand("<<0 2>!3 4>")).patterns,
+    ).toEqual([
+      [event("0")],
+      [event("2")],
+      [event("0")],
+      [event("4")],
+      [event("2")],
+      [event("0")],
+      [event("2")],
+      [event("4")],
+    ]);
+    expect(
+      evaluatePatternExpression(parseShorthand("<0!2!3 1>")).patterns,
+    ).toEqual([...Array.from({ length: 6 }, () => [event("0")]), [event("1")]]);
+    expect(
+      evaluatePatternExpression(parseShorthand("<0!3@2 1>")).patterns,
+    ).toEqual([
+      [event("0"), event("0"), event("0")],
+      [event("0"), event("0"), event("0")],
+      [event("1")],
+    ]);
+  });
+
   it("slows a nested sequence without extending its gates", () => {
     expect(
       evaluatePatternExpression(
@@ -573,6 +625,20 @@ describe("evaluation validation and limits", () => {
     expect(() =>
       evaluatePatternExpression(expression(...patterns, atom(60)), interpret),
     ).toThrow("more than 1024 patterns");
+    expect(interpret).not.toHaveBeenCalled();
+  });
+
+  it("bounds repeated alternation bars before interpreting atoms", () => {
+    expect(
+      evaluatePatternExpression(parseShorthand("<0!1024>")).patterns,
+    ).toHaveLength(MAX_EVENT_CYCLE_PATTERNS);
+    const interpret = vi.fn((value: string) => ({
+      type: "event" as const,
+      value,
+    }));
+    expect(() =>
+      evaluatePatternExpression(parseShorthand("<0!1025 1>"), interpret),
+    ).toThrow("Alternation expands beyond 1024 patterns");
     expect(interpret).not.toHaveBeenCalled();
   });
 
