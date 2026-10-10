@@ -1,5 +1,5 @@
-import { RandomCycle } from "@web-audio/patterns";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { RandomCycle, type Shorthand } from "@web-audio/patterns";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { SamplerSchema } from "@web-audio/schema";
 import Drome from "@/index";
 import type Sampler from "@/instruments/sampler";
@@ -30,6 +30,28 @@ function getStaticChopFixture(schema: SamplerSchema) {
 }
 
 describe("Drome", () => {
+  describe("shorthand factories", () => {
+    it("provides shorthand() and sh() aliases with eager parsing", () => {
+      const d = new Drome();
+      const shorthand = d.shorthand("0 <1 2>");
+      const alias = d.sh;
+
+      expectTypeOf(shorthand).toEqualTypeOf<Shorthand>();
+      expect(alias("0 <1 2>")).toEqual(shorthand);
+      expect(shorthand.type).toBe("shorthand");
+      expect(shorthand.source).toBe("0 <1 2>");
+      expect(Object.isFrozen(shorthand)).toBe(true);
+      expect(Object.isFrozen(shorthand.expression)).toBe(true);
+    });
+
+    it("reports syntax errors at the shorthand call site", () => {
+      expect(() => new Drome().shorthand("<>")).toThrow(
+        "Alternations cannot be empty",
+      );
+      expect(() => new Drome().shorthand("<>")).toThrow("source range [0, 2)");
+    });
+  });
+
   describe("default schema", () => {
     it("emits canonical empty buses, main routes, and send maps", () => {
       const d = new Drome();

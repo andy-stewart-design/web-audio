@@ -1140,15 +1140,17 @@ Expose reusable shorthand and direct-string dispatch after the target structured
 
 Expose immutable reusable shorthand values containing the shared expression model.
 
+Status: complete. `@web-audio/patterns` now owns `createShorthand()` and the public `Shorthand` type. Fluid exposes eager `d.shorthand()` and `d.sh()` factories; both return frozen, target-independent wrappers with recursively frozen, enumerable parsed expressions. Public method dispatch remains deferred to Step 7.2.
+
 ### Tasks
 
-- [ ] Define `Shorthand` with `source` and `expression`.
-- [ ] Add `d.shorthand()` and `d.sh()`.
-- [ ] Parse eagerly at shorthand construction.
-- [ ] Freeze the wrapper and expression recursively.
-- [ ] Export `Shorthand`; add named expression/supporting-type exports only for demonstrated consumers, not every constituent type.
-- [ ] Keep parsed expression data enumerable and inspectable.
-- [ ] Test alias equivalence and eager syntax errors.
+- [x] Define `Shorthand` with `source` and `expression`.
+- [x] Add `d.shorthand()` and `d.sh()`.
+- [x] Parse eagerly at shorthand construction.
+- [x] Freeze the wrapper and expression recursively.
+- [x] Export `Shorthand`; add named expression/supporting-type exports only for demonstrated consumers, not every constituent type.
+- [x] Keep parsed expression data enumerable and inspectable.
+- [x] Test alias equivalence and eager syntax errors.
 
 ### Likely files
 
@@ -1162,9 +1164,9 @@ Expose immutable reusable shorthand values containing the shared expression mode
 
 ### Verification
 
-- [ ] Inspect inferred public declarations.
-- [ ] Verify returned values and nested expressions are immutable.
-- [ ] Confirm no avoidable explicit return types are added.
+- [x] Inspect inferred public declarations.
+- [x] Verify returned values and nested expressions are immutable.
+- [x] Confirm no avoidable explicit return types are added.
 
 ## Step 7.2 — Add public method dispatch
 

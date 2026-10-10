@@ -1,4 +1,8 @@
-import { RandomCycle } from "@web-audio/patterns";
+import {
+  createShorthand,
+  RandomCycle,
+  type Shorthand,
+} from "@web-audio/patterns";
 import Envelope from "./automations/envelope";
 import Lfo, { type LfoInput } from "./automations/lfo";
 import { BUILT_IN_BANKS } from "./samples/built-in-banks";
@@ -29,16 +33,22 @@ class Drome {
   private _banks: Record<string, BankSchema>;
   private _bankNames: Record<string, string>;
   private _buses = new Map<string, Bus>();
+  sh: (source: string) => Shorthand;
 
   constructor() {
     this._instruments = new Set();
     this._banks = {};
     this._bankNames = {};
+    this.sh = this.shorthand.bind(this);
   }
 
   bpm(value: number) {
     this._bpm = value;
     return this;
+  }
+
+  shorthand(source: string) {
+    return createShorthand(source);
   }
 
   synth(type?: WaveformAlias) {
