@@ -76,6 +76,58 @@ describe("Drome", () => {
       );
     });
 
+    it("keeps shorthand note hits through reverse transforms", () => {
+      for (const source of ["60@3 67", "60 ~ 67"]) {
+        const eventPattern = new Drome()
+          .synth()
+          .notes(source)
+          .reverse()
+          .getSchema().eventPattern;
+
+        expect(eventPattern.notes).toEqual({
+          type: "static",
+          cycle: [[[67], [60]]],
+        });
+      }
+    });
+
+    it("keeps shorthand note values aligned through fast transforms", () => {
+      for (const source of ["60@3 67", "60 ~ 67"]) {
+        const eventPattern = new Drome()
+          .synth()
+          .notes(source)
+          .fast(2)
+          .getSchema().eventPattern;
+
+        expect(eventPattern.notes).toEqual({
+          type: "static",
+          cycle: [[[60], [67], [60], [67]]],
+        });
+      }
+    });
+
+    it("keeps shorthand note values aligned with external timing", () => {
+      const weighted = new Drome()
+        .synth()
+        .xox("1 1 1 1 1")
+        .notes("60@3 67")
+        .getSchema().eventPattern;
+      const rested = new Drome()
+        .synth()
+        .xox("1 1 1 1")
+        .notes("60 ~ 67")
+        .getSchema().eventPattern;
+
+      expect(weighted.notes).toEqual({
+        type: "static",
+        cycle: [[[60], [67], [60], [67], [60]]],
+      });
+      expect(rested.notes).toEqual({
+        type: "static",
+        cycle: [[[60], [67], [60]]],
+      });
+    });
+
     it("rejects shorthand values mixed with other arguments", () => {
       const shorthand = new Drome().sh("60");
       const notes = new Drome().synth();
@@ -1806,6 +1858,19 @@ describe("Drome", () => {
         d.loadSamples({ bank: "my-kit", samples: { kick: ["url.wav"] } }),
       ).toThrow("[Bank] name must match [A-Za-z0-9]+");
     });
+
+    it.each(["constructor", "toString"])(
+      "accepts prototype-named bank aliases: %s",
+      (bank) => {
+        const d = new Drome();
+        d.loadSamples({ bank, samples: { bd: ["bd.wav"] } });
+        d.sample("bd").bank(bank).push();
+
+        expect(d.getSchema().banks[bank].samples.bd).toEqual({
+          "0": [{ type: "file", src: "bd.wav" }],
+        });
+      },
+    );
 
     it("rejects named-bank collisions created by trimming", () => {
       const d = new Drome();

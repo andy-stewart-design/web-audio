@@ -224,17 +224,22 @@ function decodeVariationsExpression(input: readonly unknown[]) {
   });
 }
 
+// Structured nulls are authored value placeholders; shorthand rests and
+// continuations are timing-only cells and must not consume note values.
 function createNoteValueSlots(
   cycle: ReturnType<typeof evaluatePatternExpression>,
   zeroWidthPatterns: readonly boolean[],
+  preserveRestSlots: boolean,
 ) {
   return Object.freeze({
     type: "static-event-cycle",
     patterns: Object.freeze(
       cycle.patterns.map((pattern, index) =>
         Object.freeze(
-          pattern.map(() =>
-            zeroWidthPatterns[index]
+          pattern.map((step) =>
+            zeroWidthPatterns[index] ||
+            step.type === "continuation" ||
+            (step.type === "rest" && !preserveRestSlots)
               ? ({ type: "rest" } as const)
               : Object.freeze({
                   type: "event",
@@ -263,7 +268,7 @@ function decodeNotesInputGeometry(
     return Object.freeze({
       cycle,
       zeroWidthPatterns,
-      noteValueSlots: createNoteValueSlots(cycle, zeroWidthPatterns),
+      noteValueSlots: createNoteValueSlots(cycle, zeroWidthPatterns, false),
     });
   }
   if (input.length === 1 && isRandomCycle(input[0]))
@@ -273,7 +278,11 @@ function decodeNotesInputGeometry(
   return Object.freeze({
     cycle,
     zeroWidthPatterns: geometry.zeroWidthPatterns,
-    noteValueSlots: createNoteValueSlots(cycle, geometry.zeroWidthPatterns),
+    noteValueSlots: createNoteValueSlots(
+      cycle,
+      geometry.zeroWidthPatterns,
+      true,
+    ),
   });
 }
 
