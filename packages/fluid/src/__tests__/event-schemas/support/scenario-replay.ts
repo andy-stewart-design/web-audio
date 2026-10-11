@@ -23,8 +23,7 @@ import {
   replaceEventVariation,
   replaceEventTiming,
   composeEventTiming,
-  setEventRoot,
-  setEventScale,
+  setEventPitch,
   transformEventState,
 } from "@/events/transitions";
 import {
@@ -104,9 +103,9 @@ function applyNativeOperation(
       );
     }
     case "root":
-      return updated(setEventRoot(state, ...operation.args));
+      return updated(setEventPitch(state, { root: operation.args[0] }));
     case "scale":
-      return updated(setEventScale(state, ...operation.args));
+      return updated(setEventPitch(state, { scale: operation.args[0] }));
     case "reverse":
     case "fast":
     case "slow":

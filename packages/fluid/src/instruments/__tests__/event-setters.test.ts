@@ -198,6 +198,77 @@ describe("native public event setters", () => {
   );
 
   it.each(constructors)(
+    "$name key updates both pitch fields in one transition without changing lanes",
+    ({ create }) => {
+      const instrument = create().notes([0, -1, 2]).xox([1, 0, 1]);
+      const before = instrument.inspectEventState();
+      const pitch = vi.mocked(transitions.setEventPitch);
+      pitch.mockClear();
+      expect(instrument.key("c4min")).toBe(instrument);
+      expect(pitch).toHaveBeenCalledExactlyOnceWith(before, {
+        root: "c4",
+        scale: "min",
+      });
+      const after = instrument.inspectEventState();
+      expect(after.pitch).toEqual({
+        root: 60,
+        scale: [0, 2, 3, 5, 7, 8, 10],
+        hasRequestedTransform: true,
+      });
+      expect(after.notes).toEqual(before.notes);
+      expect(after.timing).toEqual(before.timing);
+      expect(instrument.getSchema()).toEqual(
+        create()
+          .notes([0, -1, 2])
+          .xox([1, 0, 1])
+          .root("c4")
+          .scale("min")
+          .getSchema(),
+      );
+      assertFrozen(after);
+    },
+  );
+
+  it.each(constructors)(
+    "$name root and scale can independently override a key",
+    ({ create }) => {
+      const instrument = create().key("c4min").root("d4");
+      expect(instrument.inspectEventState().pitch).toMatchObject({
+        root: 62,
+        scale: [0, 2, 3, 5, 7, 8, 10],
+      });
+      instrument.scale("maj");
+      expect(instrument.inspectEventState().pitch).toMatchObject({
+        root: 62,
+        scale: [0, 2, 4, 5, 7, 9, 11],
+      });
+    },
+  );
+
+  it.each(constructors)(
+    "$name malformed key throws without replacing state",
+    ({ create }) => {
+      const instrument = create().key("a3maj");
+      const before = instrument.inspectEventState();
+      const schema = instrument.getSchema();
+      const pitch = vi.mocked(transitions.setEventPitch);
+      pitch.mockClear();
+      expect(() => Reflect.apply(instrument.key, instrument, ["cmin"])).toThrow(
+        '[Instrument] key() cannot parse "cmin".',
+      );
+      expect(instrument.inspectEventState()).toBe(before);
+      expect(instrument.getSchema()).toEqual(schema);
+      expect(pitch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("key explicitly requests default sampler notes", () => {
+    expect(
+      new InspectSampler("bd").key("c4min").getSchema().eventPattern.notes,
+    ).toEqual({ type: "static", cycle: [[[60]]] });
+  });
+
+  it.each(constructors)(
     "$name rejects invalid notes/timing eagerly without replacing state",
     ({ create }) => {
       const instrument = create().notes([60, 64]).xox([1, 0, 1]);

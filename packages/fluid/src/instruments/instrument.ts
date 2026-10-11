@@ -14,8 +14,7 @@ import {
   composeEventTiming,
   replaceEventNotes,
   replaceEventTiming,
-  setEventRoot,
-  setEventScale,
+  setEventPitch,
   transformEventState,
 } from "@/events/transitions";
 import { decodeNotesInputGeometry } from "@/inputs/decode-structured-input";
@@ -31,7 +30,8 @@ import {
   isRandomCycleTuple,
 } from "@/inputs/guards";
 import type { CycleInput, ShorthandInput } from "@/inputs/types";
-import type { NoteName, NoteValue } from "@/pitch/types";
+import type { KeyNotation, NoteName, NoteValue } from "@/pitch/types";
+import { parseKey } from "@/pitch/parse-key";
 import type { ScaleAlias } from "@/pitch/get-scale";
 import type { SamplerSchema, SynthesizerSchema } from "@web-audio/schema";
 import type Drome from "@/drome";
@@ -81,12 +81,17 @@ abstract class Instrument {
   }
 
   root(n: NoteName | NoteValue | number) {
-    this._eventState = setEventRoot(this._eventState, n);
+    this._eventState = setEventPitch(this._eventState, { root: n });
     return this;
   }
 
   scale(name: ScaleAlias) {
-    this._eventState = setEventScale(this._eventState, name);
+    this._eventState = setEventPitch(this._eventState, { scale: name });
+    return this;
+  }
+
+  key(notation: KeyNotation) {
+    this._eventState = setEventPitch(this._eventState, parseKey(notation));
     return this;
   }
 

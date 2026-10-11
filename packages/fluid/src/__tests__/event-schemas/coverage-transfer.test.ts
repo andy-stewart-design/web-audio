@@ -5,7 +5,7 @@ import { defaultSource, getFixedAvailability } from "@/events/geometry";
 import {
   createSynthEventState,
   replaceEventTiming,
-  setEventRoot,
+  setEventPitch,
   transformEventState,
 } from "@/events/transitions";
 import { decodeXoxInputGeometry } from "@/inputs/decode-xox-input";
@@ -52,9 +52,9 @@ describe("native coverage transferred from legacy event infrastructure", () => {
 
   it("fills external timing from a rooted default chord without activating silent bars", () => {
     const slowed = transformEventState(
-      setEventRoot(
+      setEventPitch(
         { ...createSynthEventState(), notes: defaultSource([0, 7]) },
-        "a3",
+        { root: "a3" },
       ),
       { type: "slow", multiplier: 2 },
     );
