@@ -268,6 +268,7 @@ class Sampler extends Instrument {
   getSchema(): SamplerSchema {
     const sampleNames = this._requireSampleNames();
     const eventPattern = compileSamplerEventState(this._eventState, {
+      legato: this._legato,
       timingOverride: this._getTimingOverride(),
     });
     this._warnForMissingSource(sampleNames);

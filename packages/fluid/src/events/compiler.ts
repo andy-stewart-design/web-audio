@@ -349,8 +349,29 @@ function compileValues<T>(
   } satisfies StaticPattern<T[] | null>;
 }
 
+type EventCompilerOptions = { legato?: boolean };
+
+/** Operate only on fresh compiled timing, after silent events have been removed. */
+function extendTimingToNextOnset(cycle: TimingStep[][]) {
+  const events = cycle.flatMap((bar, barIndex) =>
+    bar.map((step) => ({ step, barIndex })),
+  );
+  for (let index = 0; index < events.length; index++) {
+    const current = events[index];
+    const next = events[(index + 1) % events.length];
+    current.step.duration =
+      next.barIndex -
+      current.barIndex +
+      (next.step.offset - current.step.offset) +
+      (index === events.length - 1 ? cycle.length : 0);
+  }
+}
+
 /** Compile native synth state without evaluating random values or timing chance. */
-function compileSynthEventState(input: SynthEventState) {
+function compileSynthEventState(
+  input: SynthEventState,
+  { legato = false }: EventCompilerOptions = {},
+) {
   const state = snapshotEventState(input);
   const notes = numericLane(state.notes, true);
   const selected = getFilteredEventTiming(state, { filterSynth: true });
@@ -370,6 +391,7 @@ function compileSynthEventState(input: SynthEventState) {
       ? []
       : timing[index % timing.length].map((step) => ({ ...step })),
   );
+  if (legato) extendTimingToNextOnset(cycle);
   return {
     timing: { cycle, condition: compileCondition(selected.condition) },
     notes: compileNoteLane(notes, cycle, state.pitch),
@@ -379,7 +401,10 @@ function compileSynthEventState(input: SynthEventState) {
 /** Names/variations retain compact value sequences; notes resolve final hit counts. */
 function compileSamplerEventState(
   input: SamplerEventState,
-  { timingOverride }: Omit<SamplerEventCompilerInput, "state"> = {},
+  {
+    timingOverride,
+    legato = false,
+  }: Omit<SamplerEventCompilerInput, "state"> & EventCompilerOptions = {},
 ) {
   const state = snapshotEventState(input);
   if (!state.sampleNames)
@@ -430,6 +455,7 @@ function compileSamplerEventState(
       ? []
       : timing[index % timing.length].map((step) => ({ ...step })),
   );
+  if (legato) extendTimingToNextOnset(cycle);
   return {
     timing: { cycle, condition: compileCondition(selected.condition) },
     sampleNames: compileValues(names, length),

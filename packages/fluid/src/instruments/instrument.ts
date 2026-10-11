@@ -48,14 +48,17 @@ abstract class Instrument {
   protected _effects: (Filter | GainEffect)[] = [];
   protected _host: Drome | undefined;
   protected _muted = false;
+  protected _legato = false;
   protected _route = "main";
   protected _sends = new Map<string, number>();
+  leg: (enabled?: boolean) => this;
 
   constructor(host?: Drome, gainEnvelope: Partial<ADSR> = {}) {
     this._detune = new Parameter(0);
     const { a, d, s, r } = { ...DEFAULT_GAIN_ENVELOPE, ...gainEnvelope };
     this._gain = new Envelope().adsr(a, d, s, r);
     this._host = host;
+    this.leg = this.legato.bind(this);
   }
 
   abstract getSchema(): SynthesizerSchema | SamplerSchema;
@@ -92,6 +95,11 @@ abstract class Instrument {
 
   key(notation: KeyNotation) {
     this._eventState = setEventPitch(this._eventState, parseKey(notation));
+    return this;
+  }
+
+  legato(enabled = true) {
+    this._legato = enabled;
     return this;
   }
 
