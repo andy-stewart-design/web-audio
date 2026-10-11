@@ -16,8 +16,9 @@ export {
   type PatternNode,
   type PatternRange,
 } from "./expressions/model";
+export { createShorthand } from "./shorthand/create";
 export { parseShorthand } from "./shorthand/parser";
-export { ShorthandSyntaxError } from "./shorthand/errors";
+export type { Shorthand } from "./shorthand/create";
 
 export {
   evaluatePatternExpression,

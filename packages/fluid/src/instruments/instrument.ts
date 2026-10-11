@@ -30,7 +30,7 @@ import {
   isMidiCcTuple,
   isRandomCycleTuple,
 } from "@/inputs/guards";
-import type { CycleInput } from "@/inputs/types";
+import type { CycleInput, ShorthandInput } from "@/inputs/types";
 import type { NoteName, NoteValue } from "@/pitch/types";
 import type { ScaleAlias } from "@/pitch/get-scale";
 import type { SamplerSchema, SynthesizerSchema } from "@web-audio/schema";
@@ -65,8 +65,12 @@ abstract class Instrument {
     return this;
   }
 
-  notes(...input: NoteInput<ScheduledValue> | [RandomCycle]) {
-    const decoded = decodeNotesInputGeometry(input);
+  notes(input: ShorthandInput): this;
+  notes(...input: NoteInput<ScheduledValue> | [RandomCycle]): this;
+  notes(
+    ...input: NoteInput<ScheduledValue> | [RandomCycle] | [ShorthandInput]
+  ) {
+    const decoded = decodeNotesInputGeometry(input, { allowShorthand: true });
     this._eventState = replaceEventNotes(
       this._eventState,
       decoded.cycle,
@@ -110,8 +114,10 @@ abstract class Instrument {
     return this;
   }
 
-  xox(...input: (number | number[])[] | [RandomCycle]) {
-    const decoded = decodeXoxInputGeometry(input);
+  xox(input: ShorthandInput): this;
+  xox(...input: (number | number[])[] | [RandomCycle]): this;
+  xox(...input: (number | number[])[] | [RandomCycle] | [ShorthandInput]) {
+    const decoded = decodeXoxInputGeometry(input, { allowShorthand: true });
     this._eventState = isRandomCycleTuple(input)
       ? replaceEventTiming(
           this._eventState,

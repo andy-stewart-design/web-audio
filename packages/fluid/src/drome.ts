@@ -1,4 +1,8 @@
-import { RandomCycle } from "@web-audio/patterns";
+import {
+  createShorthand,
+  RandomCycle,
+  type Shorthand,
+} from "@web-audio/patterns";
 import Envelope from "./automations/envelope";
 import Lfo, { type LfoInput } from "./automations/lfo";
 import { BUILT_IN_BANKS } from "./samples/built-in-banks";
@@ -11,6 +15,7 @@ import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
 import {
   isBanked,
+  isAlias,
   normalizeBankName,
   normalizeSampleBank,
   resolveBank,
@@ -29,16 +34,22 @@ class Drome {
   private _banks: Record<string, BankSchema>;
   private _bankNames: Record<string, string>;
   private _buses = new Map<string, Bus>();
+  sh: (source: string) => Shorthand;
 
   constructor() {
     this._instruments = new Set();
-    this._banks = {};
-    this._bankNames = {};
+    this._banks = Object.create(null);
+    this._bankNames = Object.create(null);
+    this.sh = this.shorthand.bind(this);
   }
 
   bpm(value: number) {
     this._bpm = value;
     return this;
+  }
+
+  shorthand(source: string) {
+    return createShorthand(source);
   }
 
   synth(type?: WaveformAlias) {
@@ -81,6 +92,9 @@ class Drome {
     const sampleName = parts[0].trim();
     if (sampleName === "") {
       throw new Error("[Drome] sample() name cannot be empty.");
+    }
+    if (!isAlias(sampleName)) {
+      throw new Error("[Drome] sample() name must match [A-Za-z0-9]+.");
     }
 
     let resolvedVariation = variation;
@@ -139,13 +153,20 @@ class Drome {
 
     if (isBanked(input)) {
       const bankName = normalizeBankName(input.bank);
-      const previousName = this._bankNames[bankName];
+      const hasBankName = Object.prototype.hasOwnProperty.call(
+        this._bankNames,
+        bankName,
+      );
+      const previousName = hasBankName ? this._bankNames[bankName] : undefined;
       if (previousName !== undefined && previousName !== input.bank) {
         throw new Error(
           `[Drome] Bank name "${input.bank}" conflicts with existing bank "${bankName}".`,
         );
       }
-      if (previousName === undefined && this._banks[bankName]) {
+      if (
+        !hasBankName &&
+        Object.prototype.hasOwnProperty.call(this._banks, bankName)
+      ) {
         throw new Error(
           `[Drome] Bank name "${input.bank}" conflicts with existing bank "${bankName}".`,
         );
@@ -198,8 +219,10 @@ class Drome {
 
   _resolveBank(name: string): BankSchema | null {
     const normalized = normalizeBankName(name);
-    if (this._banks[normalized]) return this._banks[normalized];
-    if (BUILT_IN_BANKS[normalized]) {
+    if (Object.prototype.hasOwnProperty.call(this._banks, normalized)) {
+      return this._banks[normalized];
+    }
+    if (Object.prototype.hasOwnProperty.call(BUILT_IN_BANKS, normalized)) {
       return resolveBank(BUILT_IN_BANKS[normalized]);
     }
     return null;
@@ -213,7 +236,11 @@ class Drome {
       if (instrument.type === "sampler") {
         const bankName = normalizeBankName(instrument.bank);
         const resolvedBank = this._resolveBank(bankName);
-        if (!banks[bankName] && resolvedBank) banks[bankName] = resolvedBank;
+        if (
+          !Object.prototype.hasOwnProperty.call(banks, bankName) &&
+          resolvedBank
+        )
+          banks[bankName] = resolvedBank;
       }
     }
 

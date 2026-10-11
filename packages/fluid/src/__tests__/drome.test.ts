@@ -1,5 +1,9 @@
-import { RandomCycle } from "@web-audio/patterns";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  MAX_EXPRESSION_NODES,
+  RandomCycle,
+  type Shorthand,
+} from "@web-audio/patterns";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { SamplerSchema } from "@web-audio/schema";
 import Drome from "@/index";
 import type Sampler from "@/instruments/sampler";
@@ -30,6 +34,177 @@ function getStaticChopFixture(schema: SamplerSchema) {
 }
 
 describe("Drome", () => {
+  describe("shorthand factories", () => {
+    it("provides shorthand() and sh() aliases with eager parsing", () => {
+      const d = new Drome();
+      const shorthand = d.shorthand("0 <1 2>");
+      const alias = d.sh;
+
+      expectTypeOf(shorthand).toEqualTypeOf<Shorthand>();
+      expect(alias("0 <1 2>")).toEqual(shorthand);
+      expect(shorthand.type).toBe("shorthand");
+      expect(shorthand.source).toBe("0 <1 2>");
+      expect(Object.isFrozen(shorthand)).toBe(true);
+      expect(Object.isFrozen(shorthand.expression)).toBe(true);
+    });
+
+    it("reports syntax errors at the shorthand call site", () => {
+      expect(() => new Drome().shorthand("<>")).toThrow(
+        "Alternations cannot be empty",
+      );
+      expect(() => new Drome().shorthand("<>")).toThrow("source range [0, 2)");
+    });
+
+    it("dispatches direct strings and reusable values through each consumer", () => {
+      const d = new Drome();
+      const notes = d.sh("60 [64 67]");
+      const names = d.sh("bd sd");
+      const variations = d.sh("0 <1 2>");
+      const timing = d.sh("xoxo");
+
+      expect(new Drome().synth().notes("60 [64 67]").getSchema()).toEqual(
+        new Drome().synth().notes(notes).getSchema(),
+      );
+      expect(new Drome().sample().name("bd sd").getSchema()).toEqual(
+        new Drome().sample().name(names).getSchema(),
+      );
+      expect(new Drome().sample("bd").variation("0 <1 2>").getSchema()).toEqual(
+        new Drome().sample("bd").var(variations).getSchema(),
+      );
+      expect(new Drome().synth().xox("xoxo").getSchema()).toEqual(
+        new Drome().synth().xox(timing).getSchema(),
+      );
+    });
+
+    it("distinguishes repeated alternation bars from accelerated bars", () => {
+      const repeated = new Drome()
+        .synth()
+        .notes("<<[0 2]>!3 [4 6]>")
+        .getSchema().eventPattern;
+      const accelerated = new Drome()
+        .synth()
+        .notes("<<[0 2]>*3 [4 6]>")
+        .getSchema().eventPattern;
+
+      expect(repeated.timing.cycle).toHaveLength(4);
+      expect(repeated.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[0], [2]],
+          [[0], [2]],
+          [[0], [2]],
+          [[4], [6]],
+        ],
+      });
+      expect(accelerated.timing.cycle).toHaveLength(2);
+      expect(accelerated.notes).toEqual({
+        type: "static",
+        cycle: [
+          [[0], [2], [0], [2], [0], [2]],
+          [[4], [6]],
+        ],
+      });
+    });
+
+    it("keeps shorthand note hits through reverse transforms", () => {
+      for (const source of ["60@3 67", "60 ~ 67"]) {
+        const eventPattern = new Drome()
+          .synth()
+          .notes(source)
+          .reverse()
+          .getSchema().eventPattern;
+
+        expect(eventPattern.notes).toEqual({
+          type: "static",
+          cycle: [[[67], [60]]],
+        });
+      }
+    });
+
+    it("keeps shorthand note values aligned through fast transforms", () => {
+      for (const source of ["60@3 67", "60 ~ 67"]) {
+        const eventPattern = new Drome()
+          .synth()
+          .notes(source)
+          .fast(2)
+          .getSchema().eventPattern;
+
+        expect(eventPattern.notes).toEqual({
+          type: "static",
+          cycle: [[[60], [67], [60], [67]]],
+        });
+      }
+    });
+
+    it("keeps shorthand note values aligned with external timing", () => {
+      const weighted = new Drome()
+        .synth()
+        .xox("1 1 1 1 1")
+        .notes("60@3 67")
+        .getSchema().eventPattern;
+      const rested = new Drome()
+        .synth()
+        .xox("1 1 1 1")
+        .notes("60 ~ 67")
+        .getSchema().eventPattern;
+
+      expect(weighted.notes).toEqual({
+        type: "static",
+        cycle: [[[60], [67], [60], [67], [60]]],
+      });
+      expect(rested.notes).toEqual({
+        type: "static",
+        cycle: [[[60], [67], [60]]],
+      });
+    });
+
+    it("rejects shorthand values mixed with other arguments", () => {
+      const shorthand = new Drome().sh("60");
+      const notes = new Drome().synth();
+      const names = new Drome().sample();
+      const variations = new Drome().sample();
+      const timing = new Drome().synth();
+      const invoke = (method: object, receiver: object, args: unknown[]) =>
+        Reflect.apply(
+          method as (...values: unknown[]) => unknown,
+          receiver,
+          args,
+        );
+
+      expect(() => invoke(notes.notes, notes, [shorthand, 64])).toThrow(
+        "shorthand input must be the sole argument",
+      );
+      expect(() => invoke(names.name, names, [shorthand, "sd"])).toThrow(
+        "shorthand input must be the sole argument",
+      );
+      expect(() =>
+        invoke(variations.variation, variations, [shorthand, 1]),
+      ).toThrow("shorthand input must be the sole argument");
+      expect(() => invoke(timing.xox, timing, [shorthand, 1])).toThrow(
+        "shorthand input must be the sole argument",
+      );
+    });
+
+    it("reports target errors and expansion limits during public dispatch", () => {
+      expect(() => new Drome().synth().notes("oops")).toThrow(
+        "[Instrument] notes() atom 'oops' must be a finite numeric value at source range [0, 4)",
+      );
+      expect(() => new Drome().sample().name("kick-drum")).toThrow(
+        "[Sampler] name() sample atoms must match [A-Za-z0-9]+ at source range [0, 9)",
+      );
+      expect(() => new Drome().sample().var("fast")).toThrow(
+        "[Sampler] variation() atom 'fast' must be a finite numeric value at source range [0, 4)",
+      );
+      expect(() => new Drome().synth().xox("bad")).toThrow(
+        "[Instrument] xox() atoms must be one of '1', 'x', '0', 'o', or '.' at source range [0, 3)",
+      );
+      expect(() => new Drome().synth().notes("[60")).toThrow("Expected ']'");
+      expect(() =>
+        new Drome().synth().notes("0 ".repeat(MAX_EXPRESSION_NODES)),
+      ).toThrow(`more than ${MAX_EXPRESSION_NODES} nodes`);
+    });
+  });
+
   describe("default schema", () => {
     it("emits canonical empty buses, main routes, and send maps", () => {
       const d = new Drome();
@@ -470,6 +645,7 @@ describe("Drome", () => {
       "bd:Infinity",
       "bd:NaN",
       "bd:1:2",
+      "kick-drum",
     ])("rejects invalid sample shorthand %j", (token) => {
       expect(() => new Drome().sample(token)).toThrow();
     });
@@ -536,13 +712,10 @@ describe("Drome", () => {
       });
     });
 
-    it("treats colons in name patterns literally", () => {
-      const schema = new Drome().sample().name("bd:2").getSchema();
-
-      expect(schema.eventPattern.sampleNames).toEqual({
-        type: "static",
-        cycle: [[["bd:2"]]],
-      });
+    it("rejects non-alphanumeric structured sample names", () => {
+      expect(() => new Drome().sample().name(["bd:2"])).toThrow(
+        "sample names must match [A-Za-z0-9]+",
+      );
     });
 
     it("rejects invalid sample-name patterns", () => {
@@ -1704,6 +1877,30 @@ describe("Drome", () => {
         d.loadSamples({ bank: "   ", samples: { kick: ["url.wav"] } }),
       ).toThrow("[Bank] name cannot be empty.");
     });
+
+    it("rejects non-alphanumeric bank aliases", () => {
+      const d = new Drome();
+
+      expect(() => d.sample("bd").bank("my-kit")).toThrow(
+        "[Bank] name must match [A-Za-z0-9]+",
+      );
+      expect(() =>
+        d.loadSamples({ bank: "my-kit", samples: { kick: ["url.wav"] } }),
+      ).toThrow("[Bank] name must match [A-Za-z0-9]+");
+    });
+
+    it.each(["constructor", "toString"])(
+      "accepts prototype-named bank aliases: %s",
+      (bank) => {
+        const d = new Drome();
+        d.loadSamples({ bank, samples: { bd: ["bd.wav"] } });
+        d.sample("bd").bank(bank).push();
+
+        expect(d.getSchema().banks[bank].samples.bd).toEqual({
+          "0": [{ type: "file", src: "bd.wav" }],
+        });
+      },
+    );
 
     it("rejects named-bank collisions created by trimming", () => {
       const d = new Drome();

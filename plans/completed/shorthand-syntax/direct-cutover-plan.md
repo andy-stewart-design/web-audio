@@ -1140,15 +1140,17 @@ Expose reusable shorthand and direct-string dispatch after the target structured
 
 Expose immutable reusable shorthand values containing the shared expression model.
 
+Status: complete. `@web-audio/patterns` now owns `createShorthand()` and the public `Shorthand` type. Fluid exposes eager `d.shorthand()` and `d.sh()` factories; both return frozen, target-independent wrappers with recursively frozen, enumerable parsed expressions. Public method dispatch is completed in Step 7.2.
+
 ### Tasks
 
-- [ ] Define `Shorthand` with `source` and `expression`.
-- [ ] Add `d.shorthand()` and `d.sh()`.
-- [ ] Parse eagerly at shorthand construction.
-- [ ] Freeze the wrapper and expression recursively.
-- [ ] Export `Shorthand`; add named expression/supporting-type exports only for demonstrated consumers, not every constituent type.
-- [ ] Keep parsed expression data enumerable and inspectable.
-- [ ] Test alias equivalence and eager syntax errors.
+- [x] Define `Shorthand` with `source` and `expression`.
+- [x] Add `d.shorthand()` and `d.sh()`.
+- [x] Parse eagerly at shorthand construction.
+- [x] Freeze the wrapper and expression recursively.
+- [x] Export `Shorthand`; add named expression/supporting-type exports only for demonstrated consumers, not every constituent type.
+- [x] Keep parsed expression data enumerable and inspectable.
+- [x] Test alias equivalence and eager syntax errors.
 
 ### Likely files
 
@@ -1162,9 +1164,9 @@ Expose immutable reusable shorthand values containing the shared expression mode
 
 ### Verification
 
-- [ ] Inspect inferred public declarations.
-- [ ] Verify returned values and nested expressions are immutable.
-- [ ] Confirm no avoidable explicit return types are added.
+- [x] Inspect inferred public declarations.
+- [x] Verify returned values and nested expressions are immutable.
+- [x] Confirm no avoidable explicit return types are added.
 
 ## Step 7.2 — Add public method dispatch
 
@@ -1172,17 +1174,19 @@ Expose immutable reusable shorthand values containing the shared expression mode
 
 Route supported direct strings and reusable shorthand values through the parser and evaluator already proved in PR 6.
 
+Status: complete. Supported instrument consumers now distinguish direct shorthand strings and reusable `Shorthand` values from existing structured arguments, while preserving structured multi-argument dispatch and legacy compact XOX compatibility. `Shorthand` remains owned by `@web-audio/patterns`; Fluid references it without re-exporting it.
+
 ### Tasks
 
-- [ ] Dispatch one string, one `Shorthand`, or structured arguments.
-- [ ] Require a `Shorthand` value to be the sole argument.
-- [ ] Add shorthand to `.notes()`.
-- [ ] Add shorthand to `.name()`.
-- [ ] Add shorthand to `.variation()` / `.var()`.
-- [ ] Add shorthand to `.xox()`.
-- [ ] Preserve multiple structured arguments under existing dispatch rules.
-- [ ] Preserve legacy compact XOX compatibility.
-- [ ] Route direct strings and reusable shorthand through the same parser/evaluator path.
+- [x] Dispatch one string, one `Shorthand`, or structured arguments.
+- [x] Require a `Shorthand` value to be the sole argument.
+- [x] Add shorthand to `.notes()`.
+- [x] Add shorthand to `.name()`.
+- [x] Add shorthand to `.variation()` / `.var()`.
+- [x] Add shorthand to `.xox()`.
+- [x] Preserve multiple structured arguments under existing dispatch rules.
+- [x] Preserve legacy compact XOX compatibility.
+- [x] Route direct strings and reusable shorthand through the same parser/evaluator path.
 
 ### Likely files
 
@@ -1196,9 +1200,9 @@ Route supported direct strings and reusable shorthand values through the parser 
 
 ### Verification
 
-- [ ] Run direct-string and reusable-value tests for every consumer.
-- [ ] Run retained structured golden fixtures unchanged.
-- [ ] Verify invalid mixed argument forms fail eagerly.
+- [x] Run direct-string and reusable-value tests for every consumer.
+- [x] Run retained structured golden fixtures unchanged.
+- [x] Verify invalid mixed argument forms fail eagerly.
 
 ## Step 7.3 — Enforce sample alias compatibility changes
 
@@ -1206,15 +1210,17 @@ Route supported direct strings and reusable shorthand values through the parser 
 
 Apply the notation-safe sample-name rules defined by the specification.
 
+Status: complete. Fluid normalizes sample and bank aliases to `[A-Za-z0-9]+`, structured and shorthand `.name()` inputs reject unsupported selectors and punctuation, constructor `d.sample("bd:2")` variation shorthand remains compatible, source URLs remain unrestricted, and schema validation enforces the same alias boundary.
+
 ### Tasks
 
-- [ ] Restrict aliases to `[A-Za-z0-9]+` in names and bank keys.
-- [ ] Reject `:` in structured and shorthand `.name()` input.
-- [ ] Preserve constructor `d.sample("bd:2")` behavior.
-- [ ] Reject combined selectors in `.name()`.
-- [ ] Preserve unrestricted URLs.
-- [ ] Tighten direct schema validation.
-- [ ] Add focused migration errors and tests.
+- [x] Restrict aliases to `[A-Za-z0-9]+` in names and bank keys.
+- [x] Reject `:` in structured and shorthand `.name()` input.
+- [x] Preserve constructor `d.sample("bd:2")` behavior.
+- [x] Reject combined selectors in `.name()`.
+- [x] Preserve unrestricted URLs.
+- [x] Tighten direct schema validation.
+- [x] Add focused migration errors and tests.
 
 ### Likely files
 
@@ -1229,9 +1235,9 @@ Apply the notation-safe sample-name rules defined by the specification.
 
 ### Verification
 
-- [ ] Run Fluid and schema suites.
-- [ ] Verify constructor shorthand and `.name()` differ only as specified.
-- [ ] Confirm URL handling remains unchanged.
+- [x] Run Fluid and schema suites.
+- [x] Verify constructor shorthand and `.name()` differ only as specified.
+- [x] Confirm URL handling remains unchanged.
 
 ## Step 7.4 — Complete end-to-end coverage and documentation
 
@@ -1239,16 +1245,18 @@ Apply the notation-safe sample-name rules defined by the specification.
 
 Finalize public examples, diagnostics, cleanup, and architectural verification.
 
+Status: complete. Public documentation now covers direct strings, reusable shorthand, target-specific consumers, authored/default behavior, and alias restrictions. End-to-end dispatch tests cover malformed syntax, target errors, expansion limits, and reusable/direct equivalence. The unused root `ShorthandSyntaxError` export and stale migration wording were removed; schema and audio-engine boundaries remain shorthand-free.
+
 ### Tasks
 
-- [ ] Add public examples for every supported consumer.
-- [ ] Add malformed syntax, invalid target, and expansion-limit tests.
-- [ ] Add exact slowdown, cancellation, weighting, alternation, and continuation tests.
-- [ ] Document reusable `d.sh()` and direct strings.
-- [ ] Document authored patterns versus default fallbacks.
-- [ ] Document sample-name restrictions and intentional changes.
-- [ ] Remove migration-only exports, comments, and scaffolding.
-- [ ] Confirm schema and audio engine contain no shorthand or event-cycle concepts.
+- [x] Add public examples for every supported consumer.
+- [x] Add malformed syntax, invalid target, and expansion-limit tests.
+- [x] Add exact slowdown, cancellation, weighting, alternation, and continuation tests.
+- [x] Document reusable `d.sh()` and direct strings.
+- [x] Document authored patterns versus default fallbacks.
+- [x] Document sample-name restrictions and intentional changes.
+- [x] Remove migration-only exports, comments, and scaffolding.
+- [x] Confirm schema and audio engine contain no shorthand or event-cycle concepts.
 
 ### Likely files
 
@@ -1260,44 +1268,44 @@ Finalize public examples, diagnostics, cleanup, and architectural verification.
 
 ### Verification
 
-- [ ] Run the complete repository suite.
-- [ ] Review public exports and generated declarations.
-- [ ] Use `rg` to confirm no obsolete wrappers, adapters, or compiler symbols remain.
-- [ ] Confirm `git diff --check` passes.
+- [x] Run the complete repository suite.
+- [x] Review public exports and generated declarations.
+- [x] Use `rg` to confirm no obsolete wrappers, adapters, or compiler symbols remain.
+- [x] Confirm `git diff --check` passes.
 
 ## PR 7 completion gate
 
-- [ ] Supported consumers accept direct strings and reusable shorthand values.
-- [ ] Parsed expression data is readonly, enumerable, inspectable, and source-aware.
-- [ ] Structured and shorthand input share one expression model and evaluator.
-- [ ] Instrument state stores only event cycles.
-- [ ] Legacy event abstractions and migration code are gone.
-- [ ] Compatibility changes are documented and tested.
-- [ ] Schema and audio engine remain unchanged by shorthand concepts.
+- [x] Supported consumers accept direct strings and reusable shorthand values.
+- [x] Parsed expression data is readonly, enumerable, inspectable, and source-aware.
+- [x] Structured and shorthand input share one expression model and evaluator.
+- [x] Instrument state stores only event cycles.
+- [x] Legacy event abstractions and migration code are gone.
+- [x] Compatibility changes are documented and tested.
+- [x] Schema and audio engine remain unchanged by shorthand concepts.
 
 ---
 
 # Global review checklist
 
-- [ ] PR 2 is the final modification to legacy event semantics.
-- [ ] New foundations are tested before production wiring.
-- [ ] The standalone package reorganization is merged before PR 5; current paths and assertion-level coverage-transfer requirements are used.
-- [ ] Representation feasibility is proven before cutover, including timing gaps, authored rests, shared materialization, and later timing replacement.
-- [ ] New compiler tests construct native state directly, and complete native scenarios exercise decoding through compilation.
-- [ ] Test-only differential comparisons use independently initialized paths and are removed with legacy deletion.
-- [ ] Golden schema fixtures remain the compatibility authority and their corrected expectations do not change in PR 5.
-- [ ] Useful legacy coverage is inventoried and verified in retained tests before deletion.
-- [ ] Atomic cutover has separately reviewable setter, transform, schema, and deletion commits.
-- [ ] No production adapter exists without a documented blocker.
-- [ ] No event lane is represented in both legacy and native state.
-- [ ] All coordinated event lanes switch in one production cutover.
-- [ ] Expressions remain transient input-boundary values.
-- [ ] Event cycles remain canonical internal state.
-- [ ] Random sources remain a separate branch.
-- [ ] Defaults retain nonempty fallback groups and never create or filter hits.
-- [ ] Authored rests filter by candidate ordinal.
-- [ ] Continuations occupy ordinals without suppressing external candidates.
-- [ ] Transforms update native state exactly once.
-- [ ] Processing parameters remain outside the redesign.
-- [ ] Superseded wrappers and compiler helpers are deleted at cutover.
-- [ ] Type checking, linting, tests, formatting, and `git diff --check` pass.
+- [x] PR 2 is the final modification to legacy event semantics.
+- [x] New foundations are tested before production wiring.
+- [x] The standalone package reorganization is merged before PR 5; current paths and assertion-level coverage-transfer requirements are used.
+- [x] Representation feasibility is proven before cutover, including timing gaps, authored rests, shared materialization, and later timing replacement.
+- [x] New compiler tests construct native state directly, and complete native scenarios exercise decoding through compilation.
+- [x] Test-only differential comparisons use independently initialized paths and are removed with legacy deletion.
+- [x] Golden schema fixtures remain the compatibility authority and their corrected expectations do not change in PR 5.
+- [x] Useful legacy coverage is inventoried and verified in retained tests before deletion.
+- [x] Atomic cutover has separately reviewable setter, transform, schema, and deletion commits.
+- [x] No production adapter exists without a documented blocker.
+- [x] No event lane is represented in both legacy and native state.
+- [x] All coordinated event lanes switch in one production cutover.
+- [x] Expressions remain transient input-boundary values.
+- [x] Event cycles remain canonical internal state.
+- [x] Random sources remain a separate branch.
+- [x] Defaults retain nonempty fallback groups and never create or filter hits.
+- [x] Authored rests filter by candidate ordinal.
+- [x] Continuations occupy ordinals without suppressing external candidates.
+- [x] Transforms update native state exactly once.
+- [x] Processing parameters remain outside the redesign.
+- [x] Superseded wrappers and compiler helpers are deleted at cutover.
+- [x] Type checking, linting, tests, formatting, and `git diff --check` pass.

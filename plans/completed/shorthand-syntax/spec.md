@@ -2,7 +2,7 @@
 
 ## Status
 
-Active specification. PRs 1–4 are complete, and PR 5's Steps 5.1–5.4 are complete and merged: structured event setters, transforms, and both schema getters use one native event state, and the superseded event infrastructure was deleted after verified coverage transfer. PR 6.1–6.4 are complete: source-aware shorthand lexing/parsing, shared shorthand evaluation, target atom interpretation, compact XOX decoding, and structured/shorthand equivalence now produce bounded event cycles; public shorthand dispatch remains planned. The standalone [Fluid package reorganization](../completed/fluid-package-reorg/plan.md), including test-directory moves in both Fluid and patterns, merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56). The [assertion-level coverage-transfer record](./phase-5-coverage-transfer.md) maps deleted assertions to retained tests or explicit retirement rationales. Implementation locations below use the reorganized paths.
+Active specification. PRs 1–4 are complete, and PR 5's Steps 5.1–5.4 are complete and merged: structured event setters, transforms, and both schema getters use one native event state, and the superseded event infrastructure was deleted after verified coverage transfer. PR 6.1–6.4 are complete: source-aware shorthand lexing/parsing, shared shorthand evaluation, target atom interpretation, compact XOX decoding, and structured/shorthand equivalence now produce bounded event cycles. PR 7.1 through Step 7.4 are complete: eager immutable `d.shorthand()`/`d.sh()` values expose the shared expression model, supported consumers dispatch direct strings and reusable shorthand values through the shared evaluator, sample aliases use notation-safe compatibility rules, and public documentation and cleanup are complete. The standalone [Fluid package reorganization](../completed/fluid-package-reorg/plan.md), including test-directory moves in both Fluid and patterns, merged as [#56](https://github.com/andy-stewart-design/web-audio/pull/56). The [assertion-level coverage-transfer record](./phase-5-coverage-transfer.md) maps deleted assertions to retained tests or explicit retirement rationales. Implementation locations below use the reorganized paths.
 
 This specification defines both:
 
@@ -87,7 +87,7 @@ interface Shorthand {
 
 The returned object is ordinary frozen data. Its `expression` is enumerable, inspectable, source-aware, and fully typed. There is no separate public shorthand AST representation: the parser directly produces the same expression model used by structured input.
 
-Fluid exports `Shorthand`. Expression and supporting types are exported from package roots only when demonstrated consumers need those names; fully typed, inspectable data does not require a named export for every constituent type. `d.shorthand()` and `d.sh()` remain the public parser entry points; a separate `parseShorthand()` function is not part of the REPL-facing API.
+`Shorthand` is owned and exported by `@web-audio/patterns`; Fluid references that type in its public method signatures without re-exporting it. Expression and supporting types are exported from package roots only when demonstrated consumers need those names; fully typed, inspectable data does not require a named export for every constituent type. `d.shorthand()` and `d.sh()` remain the public parser entry points; a separate `parseShorthand()` function is not part of the REPL-facing API.
 
 ### Direct strings
 
@@ -380,7 +380,10 @@ is equivalent to:
 60 60 60 67
 ```
 
-The count must be a positive whole number.
+The count must be a positive whole number. Inside an alternation, the
+repeated choice occupies separate bars: `<60!3 67>` selects `60`, `60`, `60`,
+then `67` across four bars. This also applies when the repeated choice is a
+nested alternation; each selected bar advances that choice's cycle.
 
 ### Acceleration: `*`
 

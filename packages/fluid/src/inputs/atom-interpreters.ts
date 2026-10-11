@@ -1,8 +1,8 @@
 import type { AtomInterpreter, PatternRange } from "@web-audio/patterns";
+import { isAlias } from "@/samples/normalize-bank";
 
 const STRICT_FINITE_NUMBER =
   /^[+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:[eE][+-]?\d+)?$/;
-const SAMPLE_ALIAS = /^[A-Za-z0-9]+$/;
 
 function targetAtomError(
   method: string,
@@ -38,7 +38,7 @@ function finiteNumberInterpreter(method: string) {
 }
 
 function interpretSampleNameAtom(value: string, range?: PatternRange) {
-  if (!SAMPLE_ALIAS.test(value)) {
+  if (!isAlias(value)) {
     throw targetAtomError(
       "[Sampler] name()",
       "sample atoms must match [A-Za-z0-9]+",

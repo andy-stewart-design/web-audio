@@ -128,15 +128,18 @@ describe("native public event setters", () => {
     });
   });
 
-  it("does not tighten sample aliases or interpret a single name string as shorthand yet", () => {
-    expect(
-      new InspectSampler(undefined)
-        .name("two words", "bd:2", "kick-drum")
-        .getSchema().eventPattern.sampleNames,
-    ).toEqual({
-      type: "static",
-      cycle: [[["two words"]], [["bd:2"]], [["kick-drum"]]],
-    });
+  it("enforces notation-safe sample aliases", () => {
+    expect(() => new InspectSampler(undefined).name("bd:2")).toThrow(
+      "Reserved character ':' is not supported",
+    );
+    expect(() => new InspectSampler(undefined).name("kick-drum")).toThrow(
+      "sample atoms must match [A-Za-z0-9]+",
+    );
+    for (const value of ["two words", "bd:2", "kick-drum"]) {
+      expect(() => new InspectSampler(undefined).name([value])).toThrow(
+        "sample names must match [A-Za-z0-9]+",
+      );
+    }
   });
 
   it("snapshots static arrays and random sources without freezing or aliasing caller data", () => {
@@ -226,7 +229,7 @@ describe("native public event setters", () => {
         error: "[Sampler] name() requires at least one pattern.",
       },
       {
-        apply: () => sampler.name(" "),
+        apply: () => sampler.name([" "]),
         error: "[Sampler] name() sample names must be non-empty.",
       },
       {

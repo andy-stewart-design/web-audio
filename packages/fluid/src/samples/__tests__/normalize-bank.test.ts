@@ -23,6 +23,15 @@ describe("sample-utils", () => {
         "[Bank] name cannot be empty.",
       );
     });
+
+    it.each(["my-kit", "my kit", "kit:2"])(
+      "rejects non-alphanumeric bank aliases: %s",
+      (name) => {
+        expect(() => normalizeBankName(name)).toThrow(
+          "[Bank] name must match [A-Za-z0-9]+",
+        );
+      },
+    );
   });
 
   describe("normalizeSampleName", () => {
@@ -35,6 +44,15 @@ describe("sample-utils", () => {
         "[Samples] sample name cannot be empty.",
       );
     });
+
+    it.each(["kick-drum", "two words", "bd:2"])(
+      "rejects non-alphanumeric sample aliases: %s",
+      (name) => {
+        expect(() => normalizeSampleName(name)).toThrow(
+          "[Samples] sample name must match [A-Za-z0-9]+",
+        );
+      },
+    );
   });
 
   describe("normalizeSampleBank", () => {

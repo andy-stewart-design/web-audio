@@ -6,6 +6,20 @@ Illustrative companion to [`spec.md`](./spec.md). The specification is authorita
 
 These examples show the closest structured authoring form for each shorthand expression. `.notes()` is used illustratively; the same structural relationship applies to other supported consumers.
 
+Public consumers accept direct strings and reusable values from `d.sh()`/`d.shorthand()`:
+
+```ts
+d.synth().notes("60 [64 67]").push();
+d.sample().name("bd sd").push();
+d.sample("bd").var("0 <1 2>").push();
+d.synth().xox("xoxo").push();
+
+const reusable = d.sh("0 <1 2>");
+d.sample("bd").variation(reusable).push();
+```
+
+A reusable value must be the sole argument. Structured multi-argument calls remain structured, so `.name("bd", "sd")` is two bars while `.name("bd sd")` is one bar with two steps. Sample aliases and bank keys are restricted to `[A-Za-z0-9]+`; `d.sample("bd:2")` is constructor variation shorthand, not a valid `.name()` selector.
+
 A structured `null` is an explicit rest and cannot represent a shorthand continuation. Rows marked **onsets only** therefore match event positions but not sustained duration or availability semantics. A future `.legato()` can make some of those forms exact, but it is not part of v1.
 
 ## Group: square brackets `[]`
@@ -71,9 +85,13 @@ Fallback values never create hits or activate silent timing bars.
 
 Duplicate a node as sibling structure.
 
-| Shorthand | Closest structured form    | Equivalence |
-| --------- | -------------------------- | ----------- |
-| `60!3 67` | `.notes([60, 60, 60, 67])` | Exact       |
+| Shorthand   | Closest structured form    | Equivalence |
+| ----------- | -------------------------- | ----------- |
+| `60!3 67`   | `.notes([60, 60, 60, 67])` | Exact       |
+| `<60!3 67>` | `.notes(60, 60, 60, 67)`   | Exact       |
+
+Inside an alternation, `!3` repeats a choice across three bars; `*3` instead
+repeats its events within one selected bar.
 
 ## Relative weight: `@`
 

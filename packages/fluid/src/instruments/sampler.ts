@@ -15,6 +15,7 @@ import Parameter from "@/parameters/parameter";
 import type {
   CycleInput,
   NullableCycleInput,
+  ShorthandInput,
   StaticNullableCycleInput,
 } from "@/inputs/types";
 import type {
@@ -32,7 +33,10 @@ import {
 import { DEFAULT_BANK } from "@/samples/built-in-banks";
 import Instrument from "./instrument";
 import type Drome from "@/drome";
-import { normalizeBankName } from "@/samples/normalize-bank";
+import {
+  normalizeBankName,
+  normalizeSampleName,
+} from "@/samples/normalize-bank";
 
 interface SamplerOptions {
   bank?: string;
@@ -59,22 +63,28 @@ class Sampler extends Instrument {
     { bank = DEFAULT_BANK, host }: SamplerOptions = {},
   ) {
     super(host, { a: 0.0025, r: 0.005 });
-    this._eventState = createSamplerEventState(sample);
+    this._eventState = createSamplerEventState(
+      sample === undefined ? undefined : normalizeSampleName(sample),
+    );
     this._bank = normalizeBankName(bank);
     this.dur = this.duration.bind(this);
     this.dir = this.direction.bind(this);
   }
 
   // METHOD ALIASES
-  var(...input: NullableCycleInput<number>) {
-    return this.variation(...input);
+  var(input: ShorthandInput): this;
+  var(...input: NullableCycleInput<number>): this;
+  var(...input: NullableCycleInput<number> | [ShorthandInput]) {
+    return this._setVariation(...input);
   }
 
   // INSTANCE METHODS
-  name(...input: StaticNullableCycleInput<string>) {
+  name(input: ShorthandInput): this;
+  name(...input: StaticNullableCycleInput<string>): this;
+  name(...input: StaticNullableCycleInput<string> | [ShorthandInput]) {
     this._eventState = replaceSampleNames(
       this._eventState,
-      decodeSampleNamesInput(input),
+      decodeSampleNamesInput(input, { allowShorthand: true }),
     );
     return this;
   }
@@ -84,8 +94,18 @@ class Sampler extends Instrument {
     return this;
   }
 
-  variation(...input: NullableCycleInput<number>) {
-    const decoded = decodeVariationsInputGeometry(input);
+  variation(input: ShorthandInput): this;
+  variation(...input: NullableCycleInput<number>): this;
+  variation(...input: NullableCycleInput<number> | [ShorthandInput]) {
+    return this._setVariation(...input);
+  }
+
+  private _setVariation(
+    ...input: NullableCycleInput<number> | [ShorthandInput]
+  ) {
+    const decoded = decodeVariationsInputGeometry(input, {
+      allowShorthand: true,
+    });
     this._eventState = replaceEventVariation(
       this._eventState,
       decoded.cycle,

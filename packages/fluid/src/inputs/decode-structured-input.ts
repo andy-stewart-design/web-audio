@@ -10,6 +10,13 @@ import {
 } from "@web-audio/patterns";
 import { isRandomCycle } from "./guards";
 import { decodeRandomEventInputGeometry } from "./decode-random-input";
+import { decodeShorthandInput } from "./decode-shorthand-input";
+import {
+  interpretNoteAtom,
+  interpretSampleNameAtom,
+  interpretVariationAtom,
+} from "./atom-interpreters";
+import { isAlias } from "@/samples/normalize-bank";
 
 // Bound raw traversal independently of emitted nodes and surviving voices.
 // Count argument, bar, and chord slots, including holes and omitted placeholders.
@@ -199,8 +206,13 @@ function decodeSampleNamesExpression(input: readonly unknown[]) {
       if (typeof value !== "string" || value.trim().length === 0) {
         throw new Error("[Sampler] name() sample names must be non-empty.");
       }
-      // Alphanumeric-only aliases and ':' rejection land together in Step 7.3.
-      return { type: "event", value: value.trim() } as const;
+      const normalized = value.trim();
+      if (!isAlias(normalized)) {
+        throw new Error(
+          "[Sampler] name() sample names must match [A-Za-z0-9]+.",
+        );
+      }
+      return { type: "event", value: normalized } as const;
     },
   });
 }
@@ -212,18 +224,22 @@ function decodeVariationsExpression(input: readonly unknown[]) {
   });
 }
 
-function decodeNotesInputGeometry(input: readonly unknown[]) {
-  if (input.length === 1 && isRandomCycle(input[0]))
-    return decodeRandomEventInputGeometry(input[0]);
-  const geometry = decodeStructuredInputGeometry(input, notesDecodeOptions());
-  const cycle = evaluatePatternExpression(geometry.expression);
-  const noteValueSlots = Object.freeze({
+// Structured nulls are authored value placeholders; shorthand rests and
+// continuations are timing-only cells and must not consume note values.
+function createNoteValueSlots(
+  cycle: ReturnType<typeof evaluatePatternExpression>,
+  zeroWidthPatterns: readonly boolean[],
+  preserveRestSlots: boolean,
+) {
+  return Object.freeze({
     type: "static-event-cycle",
     patterns: Object.freeze(
       cycle.patterns.map((pattern, index) =>
         Object.freeze(
-          pattern.map(() =>
-            geometry.zeroWidthPatterns[index]
+          pattern.map((step) =>
+            zeroWidthPatterns[index] ||
+            step.type === "continuation" ||
+            (step.type === "rest" && !preserveRestSlots)
               ? ({ type: "rest" } as const)
               : Object.freeze({
                   type: "event",
@@ -234,10 +250,39 @@ function decodeNotesInputGeometry(input: readonly unknown[]) {
       ),
     ),
   } as const);
+}
+
+function decodeNotesInputGeometry(
+  input: readonly unknown[],
+  { allowShorthand = false } = {},
+) {
+  const shorthand = allowShorthand
+    ? decodeShorthandInput(input, "[Instrument] notes()")
+    : undefined;
+  if (shorthand) {
+    const cycle = evaluatePatternExpression(
+      shorthand.expression,
+      interpretNoteAtom,
+    );
+    const zeroWidthPatterns = Object.freeze(cycle.patterns.map(() => false));
+    return Object.freeze({
+      cycle,
+      zeroWidthPatterns,
+      noteValueSlots: createNoteValueSlots(cycle, zeroWidthPatterns, false),
+    });
+  }
+  if (input.length === 1 && isRandomCycle(input[0]))
+    return decodeRandomEventInputGeometry(input[0]);
+  const geometry = decodeStructuredInputGeometry(input, notesDecodeOptions());
+  const cycle = evaluatePatternExpression(geometry.expression);
   return Object.freeze({
     cycle,
     zeroWidthPatterns: geometry.zeroWidthPatterns,
-    noteValueSlots,
+    noteValueSlots: createNoteValueSlots(
+      cycle,
+      geometry.zeroWidthPatterns,
+      true,
+    ),
   });
 }
 
@@ -245,11 +290,37 @@ function decodeNotesInput(input: readonly unknown[]) {
   return decodeNotesInputGeometry(input).cycle;
 }
 
-function decodeSampleNamesInput(input: readonly unknown[]) {
-  return evaluatePatternExpression(decodeSampleNamesExpression(input));
+function decodeSampleNamesInput(
+  input: readonly unknown[],
+  { allowShorthand = false } = {},
+) {
+  const shorthand = allowShorthand
+    ? decodeShorthandInput(input, "[Sampler] name()", {
+        allowMultipleStrings: true,
+      })
+    : undefined;
+  return shorthand
+    ? evaluatePatternExpression(shorthand.expression, interpretSampleNameAtom)
+    : evaluatePatternExpression(decodeSampleNamesExpression(input));
 }
 
-function decodeVariationsInputGeometry(input: readonly unknown[]) {
+function decodeVariationsInputGeometry(
+  input: readonly unknown[],
+  { allowShorthand = false } = {},
+) {
+  const shorthand = allowShorthand
+    ? decodeShorthandInput(input, "[Sampler] variation()")
+    : undefined;
+  if (shorthand) {
+    const cycle = evaluatePatternExpression(
+      shorthand.expression,
+      interpretVariationAtom,
+    );
+    return Object.freeze({
+      cycle,
+      zeroWidthPatterns: Object.freeze(cycle.patterns.map(() => false)),
+    });
+  }
   if (input.length === 1 && isRandomCycle(input[0]))
     return decodeRandomEventInputGeometry(input[0]);
   const cycle = evaluatePatternExpression(decodeVariationsExpression(input));
