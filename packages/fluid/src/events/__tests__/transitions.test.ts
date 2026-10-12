@@ -21,8 +21,7 @@ import {
   replaceEventVariation,
   replaceEventTiming,
   composeEventTiming,
-  setEventRoot,
-  setEventScale,
+  setEventPitch,
   transformEventState,
 } from "@/events/transitions";
 import {
@@ -156,7 +155,7 @@ describe("native constructors and setters", () => {
 
   it("root and scale preserve geometry and explicitly request even root(0)", () => {
     const initial = samplerNotes(createSamplerEventState("bd"), [[0, -1, 2]]);
-    const result = setEventScale(setEventRoot(initial, "c4"), "maj");
+    const result = setEventPitch(initial, { root: "c4", scale: "maj" });
     expect(result.pitch).toEqual({
       root: 60,
       scale: [0, 2, 4, 5, 7, 9, 11],
@@ -165,10 +164,32 @@ describe("native constructors and setters", () => {
     expect(result.notes).toEqual(initial.notes);
     expect(result.timing).toEqual(initial.timing);
     expect(
-      setEventRoot(createSamplerEventState("bd"), 0).pitch
+      setEventPitch(createSamplerEventState("bd"), { root: 0 }).pitch
         .hasRequestedTransform,
     ).toBe(true);
     assertFrozen(result);
+  });
+
+  it("partial pitch updates preserve omitted fields and previous snapshots", () => {
+    const initial = createSynthEventState();
+    const rooted = setEventPitch(initial, { root: "a3" });
+    const scaled = setEventPitch(rooted, { scale: "min" });
+    const zeroRoot = setEventPitch(scaled, { root: 0 });
+    expect(rooted.pitch).toEqual({
+      root: 57,
+      scale: undefined,
+      hasRequestedTransform: true,
+    });
+    expect(scaled.pitch).toEqual({
+      root: 57,
+      scale: [0, 2, 3, 5, 7, 8, 10],
+      hasRequestedTransform: true,
+    });
+    expect(zeroRoot.pitch).toEqual({ ...scaled.pitch, root: 0 });
+    expect(initial).toEqual(createSynthEventState());
+    assertFrozen(rooted);
+    assertFrozen(scaled);
+    assertFrozen(zeroRoot);
   });
 
   it.each(operations)(

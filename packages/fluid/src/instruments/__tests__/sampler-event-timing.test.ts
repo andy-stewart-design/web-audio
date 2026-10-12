@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createSamplerEventState,
   replaceEventNotes,
-  setEventRoot,
+  setEventPitch,
 } from "@/events/transitions";
 import { decodeNotesInputGeometry } from "@/inputs/decode-structured-input";
 import {
@@ -15,7 +15,7 @@ const hit = (offset: number, duration: number) => ({ offset, duration });
 
 describe("native sampler timing configuration", () => {
   it("keeps generated fit outside authored IR and leaves caller state/configuration untouched", () => {
-    const state = setEventRoot(createSamplerEventState("bd"), 57);
+    const state = setEventPitch(createSamplerEventState("bd"), { root: 57 });
     const configuration = { hasRegion: false };
     const before = structuredClone(state);
     const next = setSamplerEventFit(state, configuration, 2);

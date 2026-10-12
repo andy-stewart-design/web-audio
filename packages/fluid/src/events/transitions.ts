@@ -253,50 +253,38 @@ function composeEventTiming(
   return replaceEventTiming(snapshot, makeCycle<1>(patterns), undefined, flags);
 }
 
-function setEventRoot(
+type EventPitchInput = {
+  root?: NoteName | NoteValue | number;
+  scale?: ScaleAlias;
+};
+
+function setEventPitch(
   state: SynthEventState,
-  root: NoteName | NoteValue | number,
+  input: EventPitchInput,
 ): SynthEventState;
-function setEventRoot(
+function setEventPitch(
   state: SamplerEventState,
-  root: NoteName | NoteValue | number,
+  input: EventPitchInput,
 ): SamplerEventState;
-function setEventRoot(
+function setEventPitch(
   state: InstrumentEventState,
-  root: NoteName | NoteValue | number,
+  input: EventPitchInput,
 ): InstrumentEventState;
-function setEventRoot(
+function setEventPitch(
   state: InstrumentEventState,
-  root: NoteName | NoteValue | number,
+  { root, scale }: EventPitchInput,
 ) {
   return snapshotEventState({
     ...state,
     pitch: {
       ...state.pitch,
-      root: typeof root === "number" ? root : noteStringToMidi(root) || 0,
-      hasRequestedTransform: true,
-    },
-  });
-}
-
-function setEventScale(
-  state: SynthEventState,
-  name: ScaleAlias,
-): SynthEventState;
-function setEventScale(
-  state: SamplerEventState,
-  name: ScaleAlias,
-): SamplerEventState;
-function setEventScale(
-  state: InstrumentEventState,
-  name: ScaleAlias,
-): InstrumentEventState;
-function setEventScale(state: InstrumentEventState, name: ScaleAlias) {
-  return snapshotEventState({
-    ...state,
-    pitch: {
-      ...state.pitch,
-      scale: getScale(name),
+      root:
+        root === undefined
+          ? state.pitch.root
+          : typeof root === "number"
+            ? root
+            : noteStringToMidi(root) || 0,
+      scale: scale === undefined ? state.pitch.scale : getScale(scale),
       hasRequestedTransform: true,
     },
   });
@@ -402,8 +390,7 @@ export {
   replaceEventVariation,
   replaceEventTiming,
   composeEventTiming,
-  setEventRoot,
-  setEventScale,
+  setEventPitch,
   transformEventState,
   releaseEventTiming,
 };

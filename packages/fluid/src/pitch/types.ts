@@ -1,3 +1,5 @@
+import type { ScaleAlias } from "./get-scale";
+
 type NaturalNote = "A" | "B" | "C" | "D" | "E" | "F" | "G";
 type Accidental = "#" | "b";
 type AccidentalNote = Exclude<
@@ -7,5 +9,6 @@ type AccidentalNote = Exclude<
 type NoteNameUpper = NaturalNote | AccidentalNote;
 type NoteName = NoteNameUpper | Lowercase<NoteNameUpper>;
 type NoteValue = `${NoteName}${number}`;
+type KeyNotation = `${NoteValue}${ScaleAlias}`;
 
-export type { NoteName, NoteValue };
+export type { NoteName, NoteValue, KeyNotation };
