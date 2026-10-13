@@ -231,6 +231,12 @@ interface BusSchema {
   effects: EffectSchema[];
 }
 
+interface DuckSchema {
+  depth: number;
+  onset: number;
+  recovery: number;
+}
+
 // ---------------------------------------------------
 // INSTRUMENTS ---------------------------------------
 // ---------------------------------------------------
@@ -257,6 +263,7 @@ interface InstrumentSchema<TEventPattern extends EventPattern> {
   muted: boolean;
   route: string;
   sends: Record<string, number>;
+  ducks: Record<string, DuckSchema>;
 }
 
 interface SynthesizerSchema extends InstrumentSchema<SynthEventPattern> {
@@ -297,6 +304,7 @@ export type {
   ChopSliceSchema,
   ClipMode,
   DromeSchema,
+  DuckSchema,
   EffectSchema,
   EventPattern,
   EnvelopeMode,

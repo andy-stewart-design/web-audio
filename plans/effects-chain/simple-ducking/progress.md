@@ -46,3 +46,28 @@ No material contradiction with the governing simple-ducking spec was found.
 ## Phase 0 gate result
 
 Inventory, seam inspection, assumption review, and focused baselines are complete. There is no unaddressed blocker or spec contradiction for Phase 1. The required `ducks: {}` migration must be kept atomic across schema types, Fluid serializers, direct fixtures, and affected expectations.
+
+## Phase 1.1 implementation
+
+- Added exported `DuckSchema` and required `ducks: Record<string, DuckSchema>` to `InstrumentSchema`.
+- Shared validation now rejects missing/malformed duck records, `main`, unresolved or noncanonical targets, non-finite values, depth outside `[0, 1]`, and negative onset/recovery values with target-indexed paths.
+- Fluid instruments now expose `.duck()` for scalar or array targets, use defaults `1`, `0`, `1`, trim target names, clamp finite values to the canonical ranges, and replace duplicate target entries. Serializers emit `{}` when no ducks are configured.
+- Migrated schema helpers, engine fixtures, Fluid expectations, and direct-schema documentation examples to the required field. Runtime `InstrumentRouting.sends` references were confirmed unrelated to the schema migration.
+- Added schema and Fluid coverage for canonical/invalid records, forward references, target arrays, replacement semantics, defaults, clamping, and unchanged routing/send behavior.
+
+## Phase 1.1 verification
+
+All checks below passed after the final changes:
+
+- `pnpm --filter @web-audio/schema check`
+- `pnpm --filter @web-audio/fluid check`
+- `pnpm --filter @web-audio/audio-engine check`
+- `pnpm check` — 14 workspace checks successful.
+- `pnpm --filter @web-audio/schema test:ci` — 112 tests passed.
+- `pnpm --filter @web-audio/fluid test:ci` — 30 files, 1128 tests passed.
+- `pnpm --filter @web-audio/audio-engine test:ci` — 22 files, 325 tests passed.
+- `pnpm --filter @web-audio/schema lint`
+- `pnpm --filter @web-audio/fluid lint`
+- Targeted schema/Fluid/audio-engine suites passed; Prettier checks and `git diff --check` passed.
+
+The existing Vite `configLoader: 'native'` / `__dirname` warning remains in Fluid and audio-engine test runs. No new failure or runtime ducking claim is recorded here; engine last-valid-write and runtime behavior remain Phase 2/Step 2.3 work.

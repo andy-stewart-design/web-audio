@@ -165,6 +165,44 @@ function validateInstrumentCommon(
     }
   }
 
+  if (!isRecord(instrument.ducks)) {
+    throw new Error(`[Schema] ${path}.ducks must be an object.`);
+  }
+  for (const [target, duck] of Object.entries(instrument.ducks)) {
+    if (!isCanonicalName(target)) {
+      throw new Error(
+        `[Schema] ${path} duck target "${target}" is not canonical.`,
+      );
+    }
+    if (target === "main") {
+      throw new Error(`[Schema] ${path} duck cannot target main.`);
+    }
+    if (!schema.buses[target]) {
+      throw new Error(
+        `[Schema] ${path} duck "${target}" does not reference a declared bus.`,
+      );
+    }
+    const duckPath = `${path}.ducks["${target}"]`;
+    if (!isRecord(duck)) {
+      throw new Error(`[Schema] ${duckPath} must be an object.`);
+    }
+    if (!isFiniteNumber(duck.depth) || duck.depth < 0 || duck.depth > 1) {
+      throw new Error(
+        `[Schema] ${duckPath}.depth must be a finite number in [0, 1].`,
+      );
+    }
+    if (!isFiniteNumber(duck.onset) || duck.onset < 0) {
+      throw new Error(
+        `[Schema] ${duckPath}.onset must be a finite number greater than or equal to 0.`,
+      );
+    }
+    if (!isFiniteNumber(duck.recovery) || duck.recovery < 0) {
+      throw new Error(
+        `[Schema] ${duckPath}.recovery must be a finite number greater than or equal to 0.`,
+      );
+    }
+  }
+
   if (typeof instrument.muted !== "boolean") {
     throw new Error(`[Schema] ${path}.muted must be a boolean.`);
   }

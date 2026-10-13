@@ -211,7 +211,7 @@ Transitions begin at the bar boundary. Their duration is the greater of 10 ms an
 
 Bus output `gain()` remains constant. Envelopes, LFOs, MIDI CC, patterned sends, main effects, and bus-to-bus routing remain unsupported. Random validation is intentionally limited to the bus-safe subset; global random-schema hardening remains separate follow-up work. A bus named `verb` is only a name until a reverb processor is implemented.
 
-Fluid always emits the canonical graph fields expected by AudioEngine. With no explicit routing configuration, `getSchema()` includes `buses: {}`, and each instrument includes `route: "main"` and `sends: {}`. It also emits `bpm: undefined` when BPM has not been configured, which resets playback to the default 120 BPM when committed. Fluid validates the completed graph, allowing buses to be declared after instruments that reference them.
+Fluid always emits the canonical graph fields expected by AudioEngine. With no explicit routing configuration, `getSchema()` includes `buses: {}`, and each instrument includes `route: "main"`, `sends: {}`, and `ducks: {}`. It also emits `bpm: undefined` when BPM has not been configured, which resets playback to the default 120 BPM when committed. Fluid validates the completed graph, allowing buses to be declared after instruments that reference them.
 
 ## LFO automation
 

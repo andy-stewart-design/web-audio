@@ -81,19 +81,19 @@ Expected files:
 
 Tasks:
 
-- [ ] Add `DuckSchema` and required `ducks: Record<string, DuckSchema>` to the shared instrument type; validate record shape, canonical target names, declared named targets only, finite canonical values, and useful indexed paths.
-- [ ] Implement instrument-owned `.duck(target | targets, depth?, onset?, recovery?)`; normalize names, apply recorded defaults/input policy, and replace earlier entries for the same target without changing route/send/mute.
-- [ ] Serialize `{}` for instruments with no duck; migrate all typed/direct fixtures and consumers atomically without silently normalizing direct schemas.
-- [ ] Test Fluid/direct equivalence, arrays/chained calls, forward references, main/unresolved/noncanonical targets, malformed records, non-finite and out-of-domain settings, and unchanged authoring without ducks.
+- [x] Add `DuckSchema` and required `ducks: Record<string, DuckSchema>` to the shared instrument type; validate record shape, canonical target names, declared named targets only, finite canonical values, and useful indexed paths.
+- [x] Implement instrument-owned `.duck(target | targets, depth?, onset?, recovery?)`; normalize names, apply recorded defaults/input policy, and replace earlier entries for the same target without changing route/send/mute.
+- [x] Serialize `{}` for instruments with no duck; migrate all typed/direct fixtures and consumers atomically without silently normalizing direct schemas.
+- [x] Test Fluid/direct equivalence, arrays/chained calls, forward references, main/unresolved/noncanonical targets, malformed records, non-finite and out-of-domain settings, and unchanged authoring without ducks.
 
 Verification:
 
 - Automated (root): `pnpm --filter @web-audio/schema exec vitest run src/validate-graph.test.ts`; `pnpm --filter @web-audio/fluid exec vitest run src/__tests__/drome.test.ts`; `pnpm --filter @web-audio/schema check`; `pnpm --filter @web-audio/fluid check`; `pnpm --filter @web-audio/audio-engine check`; `pnpm check`. The workspace check catches other direct schema producers affected by the required field; valid/invalid graphs meet AC1/AC2 (except runtime state).
 - Manual: Not needed; authoring/validation are covered by deterministic tests at this boundary.
 
-- [ ] Completion gate: No remaining legacy graph producers (search before review); tests exercise accepted and rejected canonical forms, all three affected packages type-check, and reviewers approve the _whole_ schema migration as one unit. A required-field break without its consumers/fixtures is not complete.
+- [x] Completion gate: No remaining legacy graph producers (search before review); tests exercise accepted and rejected canonical forms, all three affected packages type-check, and reviewers approve the _whole_ schema migration as one unit. A required-field break without its consumers/fixtures is not complete.
 
-- [ ] Phase exit gate: Run `pnpm --filter @web-audio/schema test:ci`, `pnpm --filter @web-audio/fluid test:ci`, `pnpm --filter @web-audio/schema lint`, `pnpm --filter @web-audio/fluid lint`, plus Step 1.1 checks after its final changes. Verify the accepted Fluid graph survives shared validation and unsupported targets fail before engine commit; no runtime ducking claim yet.
+- [x] Phase exit gate: Run `pnpm --filter @web-audio/schema test:ci`, `pnpm --filter @web-audio/fluid test:ci`, `pnpm --filter @web-audio/schema lint`, `pnpm --filter @web-audio/fluid lint`, plus Step 1.1 checks after its final changes. Verify the accepted Fluid graph survives shared validation and unsupported targets fail before engine commit; no runtime ducking claim yet.
 
 ## Phase 2 — Bus automation and pattern-trigger dispatch
 

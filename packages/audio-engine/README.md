@@ -58,6 +58,7 @@ Direct `AudioEngine.update()` callers must provide explicit graph fields. Fluid 
     {
       route: "main",
       sends: {},
+      ducks: {},
       // remaining synthesizer or sampler fields
     },
   ],
