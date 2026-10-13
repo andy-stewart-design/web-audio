@@ -71,3 +71,17 @@ All checks below passed after the final changes:
 - Targeted schema/Fluid/audio-engine suites passed; Prettier checks and `git diff --check` passed.
 
 The existing Vite `configLoader: 'native'` / `__dirname` warning remains in Fluid and audio-engine test runs. No new failure or runtime ducking claim is recorded here; engine last-valid-write and runtime behavior remain Phase 2/Step 2.3 work.
+
+## Phase 2.1 implementation
+
+- Added `DuckAutomation` with the canonical depth-to-gain mapping, proportional onset/recovery scheduling, positive minimum ramps, zero-depth no-op behavior, hold-and-retrigger replacement, conservative shallower retriggers, Stop recovery, and destruction guards.
+- Added one unity duck gain to each `RuntimeBus` after effects and before the existing output gain. Duck scheduling and cleanup remain separate from effect-parameter automation and preserve existing routing/output ownership.
+- Updated runtime-bus and engine topology tests for the added node, and added focused duck-automation coverage for timing, retriggers, Stop, and destruction.
+
+## Phase 2.1 verification
+
+- `pnpm --filter @web-audio/audio-engine exec vitest run src/buses/runtime-bus.test.ts src/buses/__tests__/duck-automation.test.ts` — passed: 2 files, 25 tests.
+- `pnpm --filter @web-audio/audio-engine test:ci` — passed: 23 files, 335 tests.
+- `pnpm --filter @web-audio/audio-engine check` and formatting checks passed during the implementation.
+
+The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audio-engine test runs. Runtime instrument trigger emission, graph-local dispatch, and the browser audible gate remain Phase 2.2, 2.3, and 3.1 work.

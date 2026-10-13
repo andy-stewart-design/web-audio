@@ -97,11 +97,13 @@ beforeEach(() => {
 describe("RuntimeBus", () => {
   it("connects an empty chain directly through output gain to main", () => {
     const { bus, gains, main } = createBus();
-    const [input, output] = gains;
+    const [input, duck, output] = gains;
 
     expect(bus.input).toBe(input);
     expect(input.connect).toHaveBeenCalledOnce();
-    expect(input.connect).toHaveBeenCalledWith(output);
+    expect(input.connect).toHaveBeenCalledWith(duck);
+    expect(duck.gain.value).toBe(1);
+    expect(duck.connect).toHaveBeenCalledWith(output);
     expect(output.gain.value).toBe(0.75);
     expect(output.connect).toHaveBeenCalledWith(main);
   });
@@ -118,7 +120,7 @@ describe("RuntimeBus", () => {
         gain: staticParam(4),
       },
     ]);
-    const [input, output] = gains;
+    const [input, duck, output] = gains;
     const effectGain = FakeEffectGainNode.instances[0];
     const filter = FakeFilterNode.instances[0];
 
@@ -130,7 +132,8 @@ describe("RuntimeBus", () => {
     expect(filter.gain.value).toBe(4);
     expect(input.connect).toHaveBeenCalledWith(effectGain);
     expect(effectGain.connect).toHaveBeenCalledWith(filter);
-    expect(filter.connect).toHaveBeenCalledWith(output);
+    expect(filter.connect).toHaveBeenCalledWith(duck);
+    expect(duck.connect).toHaveBeenCalledWith(output);
     expect(output.connect).toHaveBeenCalledWith(main);
     expect(input.connect).toHaveBeenCalledOnce();
   });
@@ -207,6 +210,49 @@ describe("RuntimeBus", () => {
 
     expect(target.setValueAtTime).toHaveBeenCalledWith(1, 10);
     expect(target.linearRampToValueAtTime).toHaveBeenCalledWith(0.5, 10.5);
+  });
+
+  it("schedules duck automation on its dedicated post-effects gain", () => {
+    const { bus, gains } = createBus([
+      { type: "gain", gain: staticParam(0.5) },
+    ]);
+    const duck = gains[1];
+    const output = gains[2];
+
+    bus.scheduleDuck({
+      depth: 0.25,
+      onset: 0.2,
+      recovery: 0.5,
+      duration: 0.5,
+      startTime: 10,
+    });
+
+    expect(duck.gain.setValueAtTime).toHaveBeenCalledWith(1, 10);
+    expect(duck.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0.5, 10.1);
+    expect(duck.gain.linearRampToValueAtTime).toHaveBeenCalledWith(1, 10.35);
+    expect(output.gain.setValueAtTime).not.toHaveBeenCalled();
+    expect(output.gain.linearRampToValueAtTime).not.toHaveBeenCalled();
+  });
+
+  it("stops duck automation independently from effect automation", () => {
+    const { bus, gains } = createBus([
+      { type: "gain", gain: staticParam(0.5, 1) },
+    ]);
+    const duck = gains[1].gain;
+    const effect = FakeEffectGainNode.instances[0].gain;
+
+    bus.scheduleDuck({
+      depth: 0.25,
+      onset: 0.2,
+      recovery: 0.5,
+      duration: 0.5,
+      startTime: 10,
+    });
+    bus.scheduleBar(1, 12);
+    bus.stop(10.05);
+
+    expect(duck.cancelAndHoldAtTime).toHaveBeenCalledWith(10.05);
+    expect(effect.cancelAndHoldAtTime).toHaveBeenCalledWith(10.05);
   });
 
   it("resolves every binding before scheduling any target", () => {
@@ -335,9 +381,8 @@ describe("RuntimeBus", () => {
     targets.forEach((target) => {
       expect(target.cancelAndHoldAtTime.mock.calls).toEqual([[4], [5]]);
     });
-    expect(gains[0].disconnect).not.toHaveBeenCalled();
+    gains.forEach((gain) => expect(gain.disconnect).not.toHaveBeenCalled());
     expect(filter.disconnect).not.toHaveBeenCalled();
-    expect(gains[1].disconnect).not.toHaveBeenCalled();
   });
 
   it("destroys every owned node idempotently", () => {
@@ -348,8 +393,7 @@ describe("RuntimeBus", () => {
     bus.destroy();
     bus.destroy();
 
-    expect(gains[0].disconnect).toHaveBeenCalledOnce();
+    gains.forEach((gain) => expect(gain.disconnect).toHaveBeenCalledOnce());
     expect(FakeEffectGainNode.instances[0].disconnect).toHaveBeenCalledOnce();
-    expect(gains[1].disconnect).toHaveBeenCalledOnce();
   });
 });

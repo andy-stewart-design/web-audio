@@ -90,7 +90,12 @@ class FakeAudioNode {
 }
 
 class FakeGainNode extends FakeAudioNode {
-  gain = { value: 1 };
+  gain = {
+    value: 1,
+    setValueAtTime: vi.fn(),
+    linearRampToValueAtTime: vi.fn(),
+    cancelAndHoldAtTime: vi.fn(),
+  };
 }
 
 class FakeAudioParam {
@@ -530,10 +535,12 @@ describe("AudioEngine", () => {
       clock.emit("prebar");
 
       const input = createGainMock.mock.results[1]?.value;
-      const output = createGainMock.mock.results[2]?.value;
+      const duck = createGainMock.mock.results[2]?.value;
+      const output = createGainMock.mock.results[3]?.value;
       expect(instances()[0]._destination).toBe(input);
       expect(instances()[0]._destination).not.toBe(master);
-      expect(input.connect).toHaveBeenCalledWith(output);
+      expect(input.connect).toHaveBeenCalledWith(duck);
+      expect(duck.connect).toHaveBeenCalledWith(output);
       expect(output.gain.value).toBe(0.75);
       expect(output.connect).toHaveBeenCalledWith(master);
     });
@@ -570,7 +577,7 @@ describe("AudioEngine", () => {
       clock.emit("prebar");
 
       const drumsInput = createGainMock.mock.results[1]?.value;
-      const verbInput = createGainMock.mock.results[3]?.value;
+      const verbInput = createGainMock.mock.results[4]?.value;
       expect(instances()[0]._routing).toEqual({
         primary: drumsInput,
         sends: [{ destination: verbInput, amount: 0.3 }],
@@ -651,9 +658,11 @@ describe("AudioEngine", () => {
 
       const master = createGainMock.mock.results[0]?.value;
       const drumsInput = createGainMock.mock.results[1]?.value;
-      const drumsOutput = createGainMock.mock.results[2]?.value;
-      const verbInput = createGainMock.mock.results[3]?.value;
-      const verbOutput = createGainMock.mock.results[4]?.value;
+      const drumsDuck = createGainMock.mock.results[2]?.value;
+      const drumsOutput = createGainMock.mock.results[3]?.value;
+      const verbInput = createGainMock.mock.results[4]?.value;
+      const verbDuck = createGainMock.mock.results[5]?.value;
+      const verbOutput = createGainMock.mock.results[6]?.value;
       const filter = FakeFilterNode.instances[0];
 
       expect(samplerInstances()[0]._routing).toEqual({
@@ -670,8 +679,10 @@ describe("AudioEngine", () => {
       });
       expect(drumsInput.connect).toHaveBeenCalledOnce();
       expect(drumsInput.connect).toHaveBeenCalledWith(filter);
-      expect(filter.connect).toHaveBeenCalledWith(drumsOutput);
-      expect(verbInput.connect).toHaveBeenCalledWith(verbOutput);
+      expect(filter.connect).toHaveBeenCalledWith(drumsDuck);
+      expect(drumsDuck.connect).toHaveBeenCalledWith(drumsOutput);
+      expect(verbInput.connect).toHaveBeenCalledWith(verbDuck);
+      expect(verbDuck.connect).toHaveBeenCalledWith(verbOutput);
       expect(drumsOutput.connect).toHaveBeenCalledWith(master);
       expect(verbOutput.connect).toHaveBeenCalledWith(master);
       expect(master.connect).toHaveBeenCalledWith(destinationNode);
@@ -766,8 +777,8 @@ describe("AudioEngine", () => {
       clock.emit("prebar");
 
       const drumsInput = createGainMock.mock.results[1]?.value;
-      const drumsOutput = createGainMock.mock.results[2]?.value;
-      const verbInput = createGainMock.mock.results[3]?.value;
+      const drumsOutput = createGainMock.mock.results[3]?.value;
+      const verbInput = createGainMock.mock.results[4]?.value;
       expect(instances()[0]._routing).toEqual({
         primary: drumsInput,
         sends: [{ destination: verbInput, amount: 0.2 }],
@@ -1015,7 +1026,7 @@ describe("AudioEngine", () => {
       engine.update(routed);
       clock.emit("prebar");
       const oldInput = createGainMock.mock.results[1]?.value;
-      const oldOutput = createGainMock.mock.results[2]?.value;
+      const oldOutput = createGainMock.mock.results[3]?.value;
 
       engine.update(makeSchema());
       clock.emit("prebar");

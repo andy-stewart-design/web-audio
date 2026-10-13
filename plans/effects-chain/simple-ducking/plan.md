@@ -114,18 +114,18 @@ Expected files:
 
 Tasks:
 
-- [ ] Insert one unity duck gain between effects and the existing output gain; preserve output identity and routing, including self-inclusive routes/sends.
-- [ ] Convert validated static depth/onset/recovery plus resolved event duration to target and times; zero depth does nothing, recovery begins immediately after onset, and a positive minimum ramp prevents discontinuity.
-- [ ] Process requests in chronological order on the bus, holding the native AudioParam value at each retrigger rather than dropping or resetting to unity; track only enough previous target/recovery state to avoid a shallower request lifting the bus during onset.
-- [ ] On Stop cancel pending duck automation and restore unity safely, separately from existing effect-parameter Stop behavior; disconnect duck node idempotently on destroy.
-- [ ] Test initial unity, node connection order, 0.5-second timing example, zero depth, early/onset/recovery/cross-bar retriggers, no shallower lift, Stop, and destruction using recorded AudioParam calls. Do not infer native rendered values solely from spies.
+- [x] Insert one unity duck gain between effects and the existing output gain; preserve output identity and routing, including self-inclusive routes/sends.
+- [x] Convert validated static depth/onset/recovery plus resolved event duration to target and times; zero depth does nothing, recovery begins immediately after onset, and a positive minimum ramp prevents discontinuity.
+- [x] Process requests in chronological order on the bus, holding the native AudioParam value at each retrigger rather than dropping or resetting to unity; track only enough previous target/recovery state to avoid a shallower request lifting the bus during onset.
+- [x] On Stop cancel pending duck automation and restore unity safely, separately from existing effect-parameter Stop behavior; disconnect duck node idempotently on destroy.
+- [x] Test initial unity, node connection order, 0.5-second timing example, zero depth, early/onset/recovery/cross-bar retriggers, no shallower lift, Stop, and destruction using recorded AudioParam calls. Do not infer native rendered values solely from spies.
 
 Verification:
 
 - Automated (root): `pnpm --filter @web-audio/audio-engine exec vitest run src/buses/runtime-bus.test.ts src/buses/__tests__/duck-automation.test.ts` (second suite will be added by this step); `pnpm --filter @web-audio/audio-engine check`. Assertions cover the dedicated path and scheduled call timing, not live interpolation.
 - Manual: Deferred to Phase 3's audible gate, which tests real browser behavior and the assumed curve/floor.
 
-- [ ] Completion gate: The bus seam handles ordered requests in isolation with focused invariant tests; output gain and pre-existing bus scheduling tests remain unchanged, and code type-checks.
+- [x] Completion gate: The bus seam handles ordered requests in isolation with focused invariant tests; output gain and pre-existing bus scheduling tests remain unchanged, and code type-checks.
 
 ### Step 2.2 — Emit one trigger per resolved pattern onset
 
