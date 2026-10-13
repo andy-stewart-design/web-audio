@@ -47,19 +47,19 @@ Expected files:
 
 Tasks:
 
-- [ ] Inventory direct synth/sampler schema writers, fixtures, and tests using `sends`/`route`; note every producer requiring `ducks: {}`.
-- [ ] Inspect existing fake AudioParam support, clock/manual engine tests, and the Fluid bus example; identify the smallest reusable trigger/duck test seams.
-- [ ] Review candidate assumed API/defaults, depth mapping, positive floor/minimum ramp, and whether Fluid clamps finite out-of-range values. Put findings in `progress.md`; if any conflict with the spec or product intent is material, revise the spec with the user **before** dependent work rather than silently changing behavior.
-- [ ] Run existing focused schema, Fluid, and engine tests; put results in `progress.md`, distinguishing existing failures from regressions.
+- [x] Inventory direct synth/sampler schema writers, fixtures, and tests using `sends`/`route`; note every producer requiring `ducks: {}`.
+- [x] Inspect existing fake AudioParam support, clock/manual engine tests, and the Fluid bus example; identify the smallest reusable trigger/duck test seams.
+- [x] Review candidate assumed API/defaults, depth mapping, positive floor/minimum ramp, and whether Fluid clamps finite out-of-range values. Put findings in `progress.md`; if any conflict with the spec or product intent is material, revise the spec with the user **before** dependent work rather than silently changing behavior.
+- [x] Run existing focused schema, Fluid, and engine tests; put results in `progress.md`, distinguishing existing failures from regressions.
 
 Verification:
 
 - Automated (repository root): `pnpm --filter @web-audio/schema exec vitest run src/validate-graph.test.ts`; `pnpm --filter @web-audio/fluid exec vitest run src/__tests__/drome.test.ts`; `pnpm --filter @web-audio/audio-engine exec vitest run src/buses/runtime-bus.test.ts src/engine.test.ts`. These establish existing local baselines, not duck behavior.
 - Manual: Not needed; no audible behavior exists yet.
 
-- [ ] Completion gate: Inventory/assumption review and baseline checks completed, results kept in `progress.md`, with no unaddressed spec contradiction.
+- [x] Completion gate: Inventory/assumption review and baseline checks completed, results kept in `progress.md`, with no unaddressed spec contradiction.
 
-- [ ] Phase exit gate: Confirm dependent phases are not premised on an unexamined blocker; if an assumption becomes a material product decision, stop for spec resolution before Phase 1.
+- [x] Phase exit gate: Confirm dependent phases are not premised on an unexamined blocker; if an assumption becomes a material product decision, stop for spec resolution before Phase 1.
 
 ## Phase 1 — Canonical duck contract and Fluid authoring
 
