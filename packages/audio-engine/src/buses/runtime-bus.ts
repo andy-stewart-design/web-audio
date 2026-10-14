@@ -6,6 +6,7 @@ import type {
 } from "@web-audio/schema";
 import { FILTER_TYPE_MAP, MIN_RAMP } from "@/constants";
 import ValuePatternResolver from "@/instruments/value-pattern-resolver";
+import { DuckAutomation, type DuckRequest } from "./duck-automation";
 
 interface ActiveTransition {
   from: number;
@@ -36,7 +37,9 @@ class RuntimeBus {
   readonly input: GainNode;
   private readonly _ctx: BaseAudioContext;
   private readonly _effects: RuntimeEffect[];
+  private readonly _duckGain: GainNode;
   private readonly _output: GainNode;
+  private readonly _duckAutomation: DuckAutomation;
   private readonly _valuePatternResolver = new ValuePatternResolver();
   private readonly _transition: number;
   private _lastSchedule: { barIndex: number; startTime: number } | null = null;
@@ -54,8 +57,11 @@ class RuntimeBus {
     this._ctx = ctx;
     this.input = ctx.createGain();
     this._effects = schema.effects.map((effect) => buildEffect(ctx, effect));
+    this._duckGain = ctx.createGain();
+    this._duckGain.gain.value = 1;
     this._output = ctx.createGain();
     this._output.gain.value = schema.gain;
+    this._duckAutomation = new DuckAutomation(ctx, this._duckGain.gain);
     this._transition = schema.transition;
 
     let previous: AudioNode = this.input;
@@ -63,7 +69,8 @@ class RuntimeBus {
       previous.connect(effect.node);
       previous = effect.node;
     }
-    previous.connect(this._output);
+    previous.connect(this._duckGain);
+    this._duckGain.connect(this._output);
     this._output.connect(destination);
 
     this.scheduleBar(options.startingBar, options.barStartTime);
@@ -121,6 +128,10 @@ class RuntimeBus {
       startTime === undefined ? null : { barIndex, startTime };
   }
 
+  scheduleDuck(request: DuckRequest) {
+    this._duckAutomation.schedule(request);
+  }
+
   stop(stopTime: number) {
     this._effects.forEach(({ bindings }) => {
       bindings.forEach((binding) => {
@@ -132,14 +143,17 @@ class RuntimeBus {
         binding.state = heldValue;
       });
     });
+    this._duckAutomation.stop(stopTime);
     this._lastSchedule = null;
   }
 
   destroy() {
     if (this._destroyed) return;
     this._destroyed = true;
+    this._duckAutomation.destroy();
     this.input.disconnect();
     this._effects.forEach((effect) => effect.node.disconnect());
+    this._duckGain.disconnect();
     this._output.disconnect();
   }
 }

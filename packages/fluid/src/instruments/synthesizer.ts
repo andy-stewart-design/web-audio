@@ -44,6 +44,7 @@ class Synthesizer extends Instrument {
       muted: this._muted,
       route: this._route,
       sends: Object.fromEntries(this._sends),
+      ducks: Object.fromEntries(this._ducks),
       notesOut: this._notesOut?.getSchema(),
     };
   }

@@ -1,0 +1,143 @@
+# Phase 0 progress
+
+## Baseline
+
+Run from the repository root on 2026-10-13 (working tree was clean before the run):
+
+- `pnpm --filter @web-audio/schema exec vitest run src/validate-graph.test.ts` — passed: 1 file, 102 tests.
+- `pnpm --filter @web-audio/fluid exec vitest run src/__tests__/drome.test.ts` — passed: 1 file, 148 tests. Vitest emitted the existing Vite `configLoader: 'native'` / `__dirname` warning.
+- `pnpm --filter @web-audio/audio-engine exec vitest run src/buses/runtime-bus.test.ts src/engine.test.ts` — passed: 2 files, 67 tests. The same existing Vite warning was emitted.
+
+No pre-existing failures were found in the focused baseline. No product files were changed in Phase 0.
+
+## Schema-writer inventory
+
+The required `InstrumentSchema.ducks` migration will affect these typed/direct producers and fixtures:
+
+- `packages/schema/src/validate-graph.test.ts`: local `instrument()` and `sampler()` direct-schema helpers, plus their typed object variants/spreads.
+- `packages/audio-engine/src/test-utils/schema-fixtures.ts`: `defaultSynthSchema()`, `defaultSamplerSchema()`, and `defaultSamplerGraph()`; these feed engine, instrument, preload, and sampler tests.
+- `packages/fluid/src/instruments/synthesizer.ts` and `packages/fluid/src/instruments/sampler.ts`: canonical Fluid serializers.
+- `packages/fluid/src/__tests__/drome.test.ts`: expected complete/partial Fluid schema shapes involving route/send fields.
+- `packages/fluid/src/__tests__/evaluate-source.test.ts`: expected schema projections of Fluid output; the direct sampler projection is intentionally partial but should be reviewed during migration.
+- `apps/web/src/lib/globals/__tests__/eval.worker.test.ts`: partial schema projections only; it does not construct a direct instrument schema. Review expectations after the required field is emitted, but it is not a direct-schema writer.
+- `packages/audio-engine/README.md` and `packages/fluid/README.md`: canonical direct-schema/output examples documenting route/send fields; documentation updates belong to Phase 3.
+
+Runtime routing structures in `packages/audio-engine/src/instruments/instrument.ts` and its tests use `InstrumentRouting`, not `InstrumentSchema`, and do not require a `ducks` field. The `sends` references in `packages/midi` are unrelated MIDI output state. No other tracked direct instrument-schema producers were found by repository-wide `git grep` searches.
+
+## Reusable test seams
+
+- `packages/audio-engine/src/buses/runtime-bus.ts` owns the current `input -> effects -> output -> destination` chain, persistent effect bindings, `stop()`, and idempotent `destroy()`. The duck gain can be tested as a bus-owned node inserted between the final effect (or input) and the existing output gain.
+- `packages/audio-engine/src/buses/runtime-bus.test.ts` has reusable fake gain/filter nodes and a fake AudioParam with call spies for `setValueAtTime`, `linearRampToValueAtTime`, and `cancelAndHoldAtTime`. These tests prove scheduled calls and connection ownership, not native rendered curves.
+- `packages/audio-engine/src/__tests__/support/manual-clock.ts` exposes deterministic `prebar`, `bar`, and `stop` emission with a mutable `currentTime` context and resolved `barDuration`. `packages/audio-engine/src/engine.test.ts` has a second controllable clock and graph/retirement fixtures.
+- `packages/audio-engine/src/instruments/resolve-timing.ts` resolves chance-filtered events and assigns consecutive hit indices. `resolve-synth-events.ts` returns one resolved event with shared duration for all notes; `resolve-sampler-events.ts` returns one event with all sampler voices before source lookup.
+- The current synth scheduler expands one resolved event into voices in `Synthesizer._scheduleResolvedBar()`. The current sampler scheduler enters source lookup in `_scheduleResolvedSampleNote()`, so a future duck trigger seam must be emitted before that source-availability early-exit path and before per-voice expansion.
+- `AudioEngine` currently schedules active instruments and buses independently on each `bar` callback, while `update()` clones/validates before replacing `_pending`; that last-valid-write behavior is covered by existing engine tests and must remain intact.
+
+## Phase 0 assumption review
+
+No material contradiction with the governing simple-ducking spec was found.
+
+- The proposed API/defaults remain the active assumptions: `.duck(target | targets, depth?, onset?, recovery?)`, defaults `1`, `0`, `1`, one normalized configuration per target, and later calls replacing earlier target entries.
+- The active contract requires Fluid-side normalization/clamping of finite out-of-range values while direct canonical schemas reject out-of-domain values. Existing Fluid builders more commonly reject invalid static ranges (`send()`, bus transition, static sampler regions), although MIDI defaults and some random sampler-region values are clamped. This is an explicit duck-specific spec assumption, not an existing general builder convention; Phase 1 must implement the stated split rather than silently broaden it.
+- The proposed depth mapping is `clamp(1 - sqrt(depth), 0.01, 1)`, with depth `0` a true no-op. The positive floor and exact minimum ramp remain implementation assumptions requiring deterministic call tests and the Phase 3 browser gate.
+- Existing bus automation uses `MIN_RAMP = 0.0025` and a 10 ms effective minimum (`MIN_RAMP * 4`) for bus effect transitions, with linear ramps. No existing fake AudioParam supports exponential-ramp methods. The duck implementation must keep its curve/floor choice explicit and add a focused fake only for the calls it actually schedules; fake-call tests cannot establish native browser interpolation.
+- The deprecated signal-processing reference describes exponential duck ramps and the same defaults/depth mapping, but it is not authority for this SOW. Browser behavior, including repeated `cancelAndHoldAtTime()` and the audible curve, remains unobserved and must not be claimed from mocks.
+
+## Phase 0 gate result
+
+Inventory, seam inspection, assumption review, and focused baselines are complete. There is no unaddressed blocker or spec contradiction for Phase 1. The required `ducks: {}` migration must be kept atomic across schema types, Fluid serializers, direct fixtures, and affected expectations.
+
+## Phase 1.1 implementation
+
+- Added exported `DuckSchema` and required `ducks: Record<string, DuckSchema>` to `InstrumentSchema`.
+- Shared validation now rejects missing/malformed duck records, `main`, unresolved or noncanonical targets, non-finite values, depth outside `[0, 1]`, and negative onset/recovery values with target-indexed paths.
+- Fluid instruments now expose `.duck()` for scalar or array targets, use defaults `1`, `0`, `1`, trim target names, clamp finite values to the canonical ranges, and replace duplicate target entries. Serializers emit `{}` when no ducks are configured.
+- Migrated schema helpers, engine fixtures, Fluid expectations, and direct-schema documentation examples to the required field. Runtime `InstrumentRouting.sends` references were confirmed unrelated to the schema migration.
+- Added schema and Fluid coverage for canonical/invalid records, forward references, target arrays, replacement semantics, defaults, clamping, and unchanged routing/send behavior.
+
+## Phase 1.1 verification
+
+All checks below passed after the final changes:
+
+- `pnpm --filter @web-audio/schema check`
+- `pnpm --filter @web-audio/fluid check`
+- `pnpm --filter @web-audio/audio-engine check`
+- `pnpm check` — 14 workspace checks successful.
+- `pnpm --filter @web-audio/schema test:ci` — 112 tests passed.
+- `pnpm --filter @web-audio/fluid test:ci` — 30 files, 1128 tests passed.
+- `pnpm --filter @web-audio/audio-engine test:ci` — 22 files, 325 tests passed.
+- `pnpm --filter @web-audio/schema lint`
+- `pnpm --filter @web-audio/fluid lint`
+- Targeted schema/Fluid/audio-engine suites passed; Prettier checks and `git diff --check` passed.
+
+The existing Vite `configLoader: 'native'` / `__dirname` warning remains in Fluid and audio-engine test runs. No new failure or runtime ducking claim is recorded here; engine last-valid-write and runtime behavior remain Phase 2/Step 2.3 work.
+
+## Phase 2.1 implementation
+
+- Added `DuckAutomation` with the canonical depth-to-gain mapping, proportional onset/recovery scheduling, positive minimum ramps, zero-depth no-op behavior, hold-and-retrigger replacement, conservative shallower retriggers, Stop hold behavior, and destruction guards.
+- Added one unity duck gain to each `RuntimeBus` after effects and before the existing output gain. Duck scheduling and cleanup remain separate from effect-parameter automation and preserve existing routing/output ownership.
+- Updated runtime-bus and engine topology tests for the added node, and added focused duck-automation coverage for timing, retriggers, Stop, and destruction.
+
+## Phase 2.1 verification
+
+- `pnpm --filter @web-audio/audio-engine exec vitest run src/buses/runtime-bus.test.ts src/buses/__tests__/duck-automation.test.ts` — passed: 2 files, 25 tests.
+- `pnpm --filter @web-audio/audio-engine test:ci` — passed: 23 files, 335 tests.
+- `pnpm --filter @web-audio/audio-engine check` and formatting checks passed during the implementation.
+
+The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audio-engine test runs. Runtime instrument trigger emission, graph-local dispatch, and the browser audible gate remain Phase 2.2, 2.3, and 3.1 work.
+
+## Phase 2.2 implementation
+
+- Added a narrow instrument-owned duck trigger callback carrying target, static duck settings, scheduled onset time, and pattern-event duration.
+- Synthesizers emit once per resolved timing event before expanding chord voices. Samplers emit once per resolved timing event before source lookup, buffer availability checks, or playback-duration calculation.
+- Trigger generation remains independent of mute state, sampler availability, and sampler voice count; chance-masked and empty timing bars emit nothing. Sampler alternate-direction state and audio scheduling remain unchanged.
+
+## Phase 2.2 verification
+
+- `pnpm --filter @web-audio/audio-engine exec vitest run src/instruments/synthesizer.test.ts src/instruments/sampler.test.ts` — passed: 2 files, 44 tests.
+- `pnpm --filter @web-audio/audio-engine test:ci` — passed: 23 files, 341 tests.
+- `pnpm --filter @web-audio/audio-engine check`, lint, and formatting checks passed.
+
+The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audio-engine test runs. Graph-local dispatch, lifecycle integration, and the browser audible gate remain Phase 2.3 and 3.1 work.
+
+## Phase 2.3 implementation
+
+- Added graph-local trigger queues to `AudioEngine`; active instruments collect resolved duck triggers during bar scheduling, exact same-target/time requests are reduced to the deepest request, and the remaining triggers are ordered by onset time with deterministic insertion-order ties before dispatching to that graph's named buses.
+- Instrument callbacks are bound to the graph created at commit time. Unknown targets are ignored defensively, main remains outside the bus map, and replacement graphs cannot dispatch through retiring graph buses or vice versa.
+- Stop continues to cancel future duck automation and holds the current duck gain on active and retiring graph buses, while graph retirement and destruction preserve existing voice and connection lifecycle behavior.
+- Added engine coverage for mixed synth/sampler ordering, replacement isolation, and active/retiring Stop behavior.
+
+## Phase 2.3 verification
+
+- `pnpm --filter @web-audio/audio-engine test:ci` — passed: 23 files, 344 tests.
+- `pnpm --filter @web-audio/audio-engine check`, lint, and formatting checks passed.
+- `pnpm --filter @web-audio/audio-engine build` — passed.
+- `git diff --check` passed.
+
+The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audio-engine test runs. Phase 2 is complete; documentation, workspace verification, and the browser audible gate remain Phase 3.1 work.
+
+## Phase 3.1 implementation
+
+- Added public Fluid and audio-engine README documentation covering `.duck()`, named-bus-only targeting, defaults and timing, immediate recovery, mute/unavailable-sample semantics, hold-and-retrigger behavior, Stop hold/replacement lifecycle, and the deliberate SOW 7 limitations.
+- Updated the governing spec and implementation notes to record the simple exact same-target/time policy: keep the deepest request and use its timing.
+
+## Phase 3.1 automated verification
+
+- `pnpm --filter @web-audio/schema test:ci` — passed: 112 tests.
+- `pnpm --filter @web-audio/fluid test:ci` — passed on rerun: 30 files, 1128 tests.
+- `pnpm --filter @web-audio/audio-engine test:ci` — passed: 23 files, 344 tests.
+- `pnpm --filter @web-audio/fluid build` and `pnpm --filter @web-audio/audio-engine build` — passed.
+- `pnpm check`, `pnpm lint`, and `pnpm test` — passed. Workspace test verification also passed all 11 audio-regression cases in Chromium.
+- Required Prettier checks and `git diff --check` passed.
+
+The first standalone Fluid test invocation was run concurrently with package builds and temporarily failed to resolve the not-yet-built `@web-audio/patterns` entry; the rerun after builds completed passed without source changes. No product regression is recorded.
+
+## Post-review fixes
+
+- Changed route, send, and duck bus-reference validation to own-property checks, preventing inherited `constructor`, `toString`, and `__proto__` properties from being treated as declared buses. Added schema regressions for all three prototype names.
+- Added runtime guards that skip duck scheduling before any `AudioParam` call when finite schema values produce non-finite start, onset, or recovery times. Added coverage for `Number.MAX_VALUE` recovery settings.
+- Re-ran package and workspace checks after the prototype/timing fixes: schema tests passed with 115 tests, audio-engine tests passed with 346 tests, and `pnpm check`, `pnpm lint`, `pnpm test`, formatting, diff, and audio-engine build all passed. A subsequent Stop-handling correction passed the focused suites, the full audio-engine suite with 347 tests, type-check/lint, formatting, diff, and the audio-engine build.
+
+## Phase 3.1 manual gate
+
+The user completed the prepared browser kick/music listening review and reported that the single-trigger, retrigger/recovery, Stop, restart, and replacement behavior felt good. After the native hold/timeline correction, the Stop-time gain jump was no longer observed. Browser/BPM/listener metadata was not captured in the session transcript. The Stop contract holds the native current duck gain via `cancelAndHoldAtTime()` rather than overwriting it; future retrigger segments retain the earlier timeline so Stop cannot calculate from a later scheduled request. Replacement graphs still start at unity.

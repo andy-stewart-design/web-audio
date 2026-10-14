@@ -33,7 +33,11 @@ import type { CycleInput, ShorthandInput } from "@/inputs/types";
 import type { KeyNotation, NoteName, NoteValue } from "@/pitch/types";
 import { parseKey } from "@/pitch/parse-key";
 import type { ScaleAlias } from "@/pitch/get-scale";
-import type { SamplerSchema, SynthesizerSchema } from "@web-audio/schema";
+import type {
+  DuckSchema,
+  SamplerSchema,
+  SynthesizerSchema,
+} from "@web-audio/schema";
 import type Drome from "@/drome";
 
 type NoteOrChord<T> = T | T[];
@@ -51,6 +55,7 @@ abstract class Instrument {
   protected _legato = false;
   protected _route = "main";
   protected _sends = new Map<string, number>();
+  protected _ducks = new Map<string, DuckSchema>();
   leg: (enabled?: boolean) => this;
 
   constructor(host?: Drome, gainEnvelope: Partial<ADSR> = {}) {
@@ -210,6 +215,33 @@ abstract class Instrument {
         throw new Error("[Instrument] send() cannot target main.");
       }
       this._sends.set(normalized, amount);
+    }
+    return this;
+  }
+
+  duck(target: string | string[], depth = 1, onset = 0, recovery = 1) {
+    if (!Number.isFinite(depth)) {
+      throw new Error("[Instrument] duck() depth must be finite.");
+    }
+    if (!Number.isFinite(onset)) {
+      throw new Error("[Instrument] duck() onset must be finite.");
+    }
+    if (!Number.isFinite(recovery)) {
+      throw new Error("[Instrument] duck() recovery must be finite.");
+    }
+
+    const configuration = {
+      depth: Math.min(1, Math.max(0, depth)),
+      onset: Math.max(0, onset),
+      recovery: Math.max(0, recovery),
+    } satisfies DuckSchema;
+    const targets = Array.isArray(target) ? target : [target];
+    for (const value of targets) {
+      const normalized = normalizeTarget(value, "duck()");
+      if (normalized === "main") {
+        throw new Error("[Instrument] duck() cannot target main.");
+      }
+      this._ducks.set(normalized, configuration);
     }
     return this;
   }

@@ -215,10 +215,14 @@ describe("Drome", () => {
 
       expect(schema.buses).toEqual({});
       expect(
-        schema.instruments.map(({ route, sends }) => ({ route, sends })),
+        schema.instruments.map(({ route, sends, ducks }) => ({
+          route,
+          sends,
+          ducks,
+        })),
       ).toEqual([
-        { route: "main", sends: {} },
-        { route: "main", sends: {} },
+        { route: "main", sends: {}, ducks: {} },
+        { route: "main", sends: {}, ducks: {} },
       ]);
     });
 
@@ -589,6 +593,90 @@ describe("Drome", () => {
           "[Instrument] send() amount must be a finite number in [0, 1].",
         );
       }
+    });
+  });
+
+  describe("instrument ducks", () => {
+    it("serializes normalized configurations for synths and samplers", () => {
+      const d = new Drome();
+      d.synth()
+        .route("main")
+        .send("verb", 0.2)
+        .duck([" music ", "pads"], 0.75, 0, 0.5)
+        .duck("music", 0.5)
+        .push();
+      d.sample("bd").duck("music").push();
+
+      d.bus("music");
+      d.bus("pads");
+      d.bus("verb");
+      const [synth, sampler] = d.getSchema().instruments;
+
+      expect(synth.ducks).toEqual({
+        music: { depth: 0.5, onset: 0, recovery: 1 },
+        pads: { depth: 0.75, onset: 0, recovery: 0.5 },
+      });
+      expect(sampler.ducks).toEqual({
+        music: { depth: 1, onset: 0, recovery: 1 },
+      });
+      expect(synth.route).toBe("main");
+      expect(synth.sends).toEqual({ verb: 0.2 });
+    });
+
+    it("supports forward references and clamps finite values to canonical ranges", () => {
+      const d = new Drome();
+      d.synth().duck(" music ", 2, -1, 3).push();
+      d.bus("music");
+
+      expect(d.getSchema().instruments[0].ducks).toEqual({
+        music: { depth: 1, onset: 0, recovery: 3 },
+      });
+    });
+
+    it("replaces earlier target configurations without duplicating targets", () => {
+      const d = new Drome();
+      const synth = d
+        .synth()
+        .duck(["music", "pads"], 0.25)
+        .duck("music", 0.75, 0.1, 0.2);
+      d.bus("music");
+      d.bus("pads");
+      synth.push();
+
+      expect(d.getSchema().instruments[0].ducks).toEqual({
+        music: { depth: 0.75, onset: 0.1, recovery: 0.2 },
+        pads: { depth: 0.25, onset: 0, recovery: 1 },
+      });
+    });
+
+    it.each([
+      [
+        "main target",
+        () => new Drome().synth().duck("main"),
+        "cannot target main",
+      ],
+      [
+        "empty target",
+        () => new Drome().synth().duck(" "),
+        "target cannot be empty",
+      ],
+      [
+        "non-finite depth",
+        () => new Drome().synth().duck("music", Number.NaN),
+        "depth must be finite",
+      ],
+      [
+        "non-finite onset",
+        () => new Drome().synth().duck("music", 1, Number.POSITIVE_INFINITY),
+        "onset must be finite",
+      ],
+      [
+        "non-finite recovery",
+        () => new Drome().synth().duck("music", 1, 0, Number.NaN),
+        "recovery must be finite",
+      ],
+    ])("rejects %s", (_label, invoke, message) => {
+      expect(invoke).toThrow(message);
     });
   });
 

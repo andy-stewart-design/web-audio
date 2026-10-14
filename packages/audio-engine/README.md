@@ -58,6 +58,7 @@ Direct `AudioEngine.update()` callers must provide explicit graph fields. Fluid 
     {
       route: "main",
       sends: {},
+      ducks: {},
       // remaining synthesizer or sampler fields
     },
   ],
@@ -71,6 +72,20 @@ Bus parameter changes begin at the bar boundary and ramp for the greater of 10 m
 Transport Stop calls `cancelAndHoldAtTime()` at the exact Clock event time for every effect parameter on active and retiring buses. This cancels future values while preserving the currently audible value and graph connections. A later restart can schedule the same bar at its new audio time.
 
 Bus output gain remains constant. Intra-bar bus automation, envelopes, LFOs, MIDI CC, patterned sends, main effects, and bus-to-bus routing remain unsupported. Bus random validation covers only the safely resolvable subset.
+
+### Pattern-triggered ducking
+
+Synthesizer and sampler pattern onsets can trigger ducking on declared named buses. The engine emits one trigger per resolved onset and configured target, before synth voice expansion or sampler source/buffer availability checks. Instrument mute does not suppress a trigger, and sampler duck timing uses the scheduled pattern duration rather than clip, region, loop, or one-shot playback length.
+
+```text
+named bus input → effects → duck gain → output gain → persistent main
+```
+
+Depth maps to a bounded gain target using `1 - sqrt(depth)`, with a positive floor. Onset and recovery are proportional to the pattern-event duration; recovery begins immediately when the duck target is reached. For example, a 0.5-second event with `onset = 0.2` and `recovery = 0.5` ramps for 0.1 seconds and then recovers for 0.25 seconds. Zero depth leaves existing duck automation unchanged.
+
+Triggers targeting the same bus at the same exact start time are reduced to the deepest request. Other retriggers hold the current gain and replace the remaining dip/recovery rather than stacking gains or jumping to unity. This is intentionally simpler than sample-frame-normalized timeline scheduling: dense or nearly simultaneous requests can remain order-dependent, and interrupted ramps are not analytically reconstructed. The engine does not perform audio-reactive sidechain compression.
+
+Duck gains belong to their runtime graph. Stop cancels future duck automation and holds each active and still-audible retiring bus at its current duck gain; replacement graphs start at unity and old graph callbacks cannot target same-named buses in the new graph. Destroyed graphs take their duck gains with them. Main cannot be ducked, and ducking does not alter instrument routing, sends, mute, bus output gain, or destination connections.
 
 At commit, an undefined BPM resets the clock to the default 120 BPM rather than inheriting the previous sketch's tempo.
 

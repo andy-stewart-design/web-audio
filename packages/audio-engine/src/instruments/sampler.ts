@@ -3,7 +3,7 @@ import type {
   SamplerSchema,
   SampleVariationSchema,
 } from "@web-audio/schema";
-import Instrument, { type InstrumentRouting } from "./instrument";
+import Instrument, { type InstrumentOptions } from "./instrument";
 import { SAMPLE_BASE_GAIN } from "@/constants";
 import { planSamplerPreloads } from "@/utils/preload-samples";
 import {
@@ -22,14 +22,10 @@ import type {
 } from "@/types";
 import { resolveSamplerEvents } from "./resolve-sampler-events";
 
-interface SamplerOptions {
+interface SamplerOptions extends InstrumentOptions {
   schema: SamplerSchema;
-  destination?: AudioNode;
-  routing?: InstrumentRouting;
   banks: Record<string, BankSchema>;
   cache: SampleBufferCache;
-  startingBar?: number;
-  barStartTime?: number;
 }
 
 class Sampler extends Instrument {
@@ -49,6 +45,7 @@ class Sampler extends Instrument {
       cache,
       startingBar = 0,
       barStartTime,
+      onDuck,
     }: SamplerOptions,
   ) {
     super(ctx, clock, {
@@ -56,6 +53,7 @@ class Sampler extends Instrument {
       routing,
       baseGain: SAMPLE_BASE_GAIN,
       muted: schema.muted,
+      onDuck,
     });
     this._schema = schema;
     this._banks = banks;
@@ -93,7 +91,12 @@ class Sampler extends Instrument {
       this._valuePatternResolver,
     );
 
+    const barDuration = this._clock.barDuration;
     for (const event of events) {
+      const startTime = barStartTime + event.offset * barDuration;
+      const duration = event.duration * barDuration;
+      this._emitDuckTriggers(this._schema.ducks, startTime, duration);
+
       const reversed = this._isNextEventReversed();
       let emitted = false;
       for (const voice of event.voices) {

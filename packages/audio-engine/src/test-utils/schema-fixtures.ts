@@ -100,6 +100,7 @@ type SynthSchemaOverrides = Partial<
     | "muted"
     | "route"
     | "sends"
+    | "ducks"
   >
 >;
 
@@ -114,6 +115,7 @@ function defaultSynthSchema(overrides: SynthSchemaOverrides = {}) {
     muted: false,
     route: "main",
     sends: {},
+    ducks: {},
     ...overrides,
   } satisfies SynthesizerSchema;
 }
@@ -141,6 +143,7 @@ type SamplerSchemaOverrides = Partial<
     | "muted"
     | "route"
     | "sends"
+    | "ducks"
     | "loop"
     | "clipMode"
     | "direction"
@@ -160,6 +163,7 @@ function defaultSamplerSchema(overrides: SamplerSchemaOverrides = {}) {
     muted: false,
     route: "main",
     sends: {},
+    ducks: {},
     loop: false,
     clipMode: "clipped",
     direction: "forward",

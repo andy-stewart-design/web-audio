@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   BankSchema,
   DromeSchema,
+  DuckSchema,
   EffectSchema,
   RandomNumberPattern,
   SamplerSchema,
@@ -61,6 +62,7 @@ function instrument(
     timing: timing(),
     notes: { type: "static", cycle: [[[60]]] },
   },
+  ducks: Record<string, DuckSchema> = {},
 ): SynthesizerSchema {
   return {
     type: "synthesizer",
@@ -72,6 +74,7 @@ function instrument(
     muted: false,
     route,
     sends,
+    ducks,
   };
 }
 
@@ -92,6 +95,7 @@ function sampler(
     muted: false,
     route: "main",
     sends: {},
+    ducks: {},
     fit: null,
     region: null,
     loop: false,
@@ -327,6 +331,110 @@ describe("validateDromeGraph", () => {
     ).toThrow(
       '[Schema] Instrument 0 send "verb" amount must be a finite number in [0, 1].',
     );
+  });
+
+  it("accepts canonical duck configurations and forward bus references", () => {
+    expect(() =>
+      validateDromeGraph(
+        schema({ music: { gain: 1, transition: 0, effects: [] } }, [
+          instrument("main", {}, undefined, {
+            music: { depth: 0.75, onset: 0, recovery: 0.5 },
+          }),
+        ]),
+      ),
+    ).not.toThrow();
+  });
+
+  it.each(["constructor", "toString", "__proto__"])(
+    "rejects inherited prototype duck target %j",
+    (target) => {
+      const ducks = Object.fromEntries([
+        [target, { depth: 0.5, onset: 0, recovery: 1 }],
+      ]);
+
+      expect(() =>
+        validateDromeGraph(
+          schema({}, [instrument("main", {}, undefined, ducks)]),
+        ),
+      ).toThrow(
+        `[Schema] Instrument 0 duck "${target}" does not reference a declared bus.`,
+      );
+    },
+  );
+
+  it.each([
+    [
+      "main target",
+      { main: { depth: 0.5, onset: 0, recovery: 1 } },
+      {},
+      "duck cannot target main",
+    ],
+    [
+      "unresolved target",
+      { missing: { depth: 0.5, onset: 0, recovery: 1 } },
+      {},
+      'duck "missing" does not reference a declared bus',
+    ],
+    [
+      "non-canonical target",
+      { " music ": { depth: 0.5, onset: 0, recovery: 1 } },
+      { music: { gain: 1, transition: 0, effects: [] } },
+      'duck target " music " is not canonical',
+    ],
+    [
+      "invalid depth",
+      { music: { depth: 1.1, onset: 0, recovery: 1 } },
+      { music: { gain: 1, transition: 0, effects: [] } },
+      ".depth must be a finite number in [0, 1]",
+    ],
+    [
+      "invalid onset",
+      { music: { depth: 0.5, onset: -1, recovery: 1 } },
+      { music: { gain: 1, transition: 0, effects: [] } },
+      ".onset must be a finite number greater than or equal to 0",
+    ],
+    [
+      "invalid recovery",
+      { music: { depth: 0.5, onset: 0, recovery: Number.NaN } },
+      { music: { gain: 1, transition: 0, effects: [] } },
+      ".recovery must be a finite number greater than or equal to 0",
+    ],
+  ])("rejects %s duck configuration", (_label, ducks, buses, message) => {
+    expect(() =>
+      validateDromeGraph(
+        schema(buses, [
+          instrument(
+            "main",
+            {},
+            undefined,
+            ducks as Record<string, DuckSchema>,
+          ),
+        ]),
+      ),
+    ).toThrow(message);
+  });
+
+  it.each([
+    [
+      "missing ducks",
+      undefined,
+      "[Schema] Instrument 0.ducks must be an object.",
+    ],
+    ["non-object ducks", [], "[Schema] Instrument 0.ducks must be an object."],
+    [
+      "malformed duck",
+      { music: null },
+      '[Schema] Instrument 0.ducks["music"] must be an object.',
+    ],
+  ])("rejects %s with a scoped path", (_label, ducks, message) => {
+    const value = instrument();
+    Object.assign(value, { ducks });
+
+    expect(() =>
+      validateDromeGraph(
+        schema({ music: { gain: 1, transition: 0, effects: [] } }, [value]),
+      ),
+    ).toThrow(message);
   });
 
   it("accepts complete synth and sampler plans with missing external resources", () => {

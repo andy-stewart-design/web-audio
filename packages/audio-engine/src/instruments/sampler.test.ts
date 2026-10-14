@@ -11,6 +11,7 @@ import {
   randomNumberPattern,
   staticNumberPattern,
 } from "../test-utils/schema-fixtures";
+import type { DuckTrigger } from "@/types";
 import SampleBufferCache from "./sample-buffer-cache";
 import Sampler from "./sampler";
 
@@ -95,11 +96,12 @@ async function sampler(
   banks: Record<string, BankSchema> = fileBank(),
   buffers = cache({ "https://example.com/bd.wav": buffer() }),
   shouldLoad = true,
+  onDuck?: (trigger: DuckTrigger) => void,
 ) {
   const instance = new Sampler(
     new FakeAudioContext() as unknown as AudioContext,
     { barDuration: 2 } as AudioClock,
-    { schema: samplerSchema, banks, cache: buffers },
+    { schema: samplerSchema, banks, cache: buffers, onDuck },
   );
   if (shouldLoad) await instance.load();
   return instance;
@@ -115,6 +117,114 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Sampler scheduling", () => {
+  it("emits one pattern-duration duck trigger before unavailable sample audio", async () => {
+    const onDuck = vi.fn();
+    const instance = await sampler(
+      schema({
+        muted: true,
+        ducks: {
+          music: { depth: 0.25, onset: 0.2, recovery: 0.5 },
+        },
+        eventPattern: {
+          timing: timing([[{ offset: 0.25, duration: 0.5 }]]),
+          sampleNames: { type: "static", cycle: [[["missing"]]] },
+        },
+      }),
+      fileBank("kit", "missing", ["https://example.com/missing.wav"]),
+      cache({}),
+      false,
+      onDuck,
+    );
+
+    instance.scheduleBar(2, 10);
+
+    expect(onDuck).toHaveBeenCalledWith({
+      target: "music",
+      depth: 0.25,
+      onset: 0.2,
+      recovery: 0.5,
+      duration: 1,
+      startTime: 10.5,
+    });
+    expect(FakeBufferSourceNode.instances).toHaveLength(0);
+  });
+
+  it("uses pattern duration instead of one-shot playback duration", async () => {
+    const onDuck = vi.fn();
+    const instance = await sampler(
+      schema({
+        ducks: { music: { depth: 1, onset: 0, recovery: 1 } },
+        eventPattern: {
+          timing: timing([[{ offset: 0, duration: 0.25 }]]),
+          sampleNames: { type: "static", cycle: [[["bd"]]] },
+        },
+        clipMode: "one-shot",
+      }),
+      fileBank(),
+      cache({ "https://example.com/bd.wav": buffer(4) }),
+      true,
+      onDuck,
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(onDuck.mock.calls[0][0].duration).toBe(0.5);
+    expect(FakeBufferSourceNode.instances[0].stop).toHaveBeenCalledWith(
+      expect.closeTo(14.0525),
+    );
+  });
+
+  it("does not emit duck triggers for an empty timing bar", async () => {
+    const onDuck = vi.fn();
+    const instance = await sampler(
+      schema({
+        ducks: { music: { depth: 1, onset: 0, recovery: 1 } },
+        eventPattern: {
+          timing: timing([[]]),
+          sampleNames: { type: "static", cycle: [[null]] },
+        },
+      }),
+      fileBank(),
+      cache({ "https://example.com/bd.wav": buffer() }),
+      true,
+      onDuck,
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(onDuck).not.toHaveBeenCalled();
+  });
+
+  it("does not emit duck triggers for chance-masked events", async () => {
+    const onDuck = vi.fn();
+    const instance = await sampler(
+      schema({
+        ducks: { music: { depth: 1, onset: 0, recovery: 1 } },
+        eventPattern: {
+          timing: {
+            cycle: [[{ offset: 0, duration: 1 }]],
+            condition: {
+              type: "chance",
+              probability: 0,
+              segments: [{ seed: 42 }],
+              algorithm: "xor",
+              order: "forward",
+            },
+          },
+          sampleNames: { type: "static", cycle: [[["bd"]]] },
+        },
+      }),
+      fileBank(),
+      cache({ "https://example.com/bd.wav": buffer() }),
+      true,
+      onDuck,
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(onDuck).not.toHaveBeenCalled();
+  });
+
   it("plays cached names while new names load and retries them later", async () => {
     const banks: Record<string, BankSchema> = fileBank();
     banks.kit.samples.sd = {
