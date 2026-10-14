@@ -21,6 +21,7 @@ class DuckAutomation {
   private readonly _target: AudioParam;
   private readonly _ctx: BaseAudioContext;
   private _segments: DuckSegment[] = [];
+  private _heldValue = 1;
   private _scheduled = false;
   private _destroyed = false;
 
@@ -62,7 +63,15 @@ class DuckAutomation {
     this._target.linearRampToValueAtTime(effectiveTarget, onsetEnd);
     this._target.linearRampToValueAtTime(1, recoveryEnd);
 
+    const retainedSegments = this._segments.flatMap((segment) => {
+      if (segment.endTime <= startTime) return [segment];
+      if (segment.startTime < startTime) {
+        return [{ ...segment, to: heldValue, endTime: startTime }];
+      }
+      return [];
+    });
     this._segments = [
+      ...retainedSegments,
       {
         from: heldValue,
         to: effectiveTarget,
@@ -84,25 +93,10 @@ class DuckAutomation {
 
     const heldValue = this._valueAt(stopTime);
     this._target.cancelAndHoldAtTime(stopTime);
-    this._target.setValueAtTime(heldValue, stopTime);
 
-    if (heldValue === 1) {
-      this._segments = [];
-      this._scheduled = false;
-      return;
-    }
-
-    const resetEnd = stopTime + MIN_DUCK_RAMP;
-    this._target.linearRampToValueAtTime(1, resetEnd);
-    this._segments = [
-      {
-        from: heldValue,
-        to: 1,
-        startTime: stopTime,
-        endTime: resetEnd,
-      },
-    ];
-    this._scheduled = true;
+    this._segments = [];
+    this._heldValue = heldValue;
+    this._scheduled = false;
   }
 
   destroy() {
@@ -112,7 +106,7 @@ class DuckAutomation {
   }
 
   private _valueAt(time: number) {
-    if (this._segments.length === 0) return 1;
+    if (this._segments.length === 0) return this._heldValue;
 
     for (const segment of this._segments) {
       if (time <= segment.startTime) return segment.from;

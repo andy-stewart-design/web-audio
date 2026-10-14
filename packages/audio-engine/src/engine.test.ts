@@ -663,14 +663,10 @@ describe("AudioEngine", () => {
 
       expect(oldDuck.gain.cancelAndHoldAtTime).toHaveBeenCalledWith(10.05);
       expect(newDuck.gain.cancelAndHoldAtTime).toHaveBeenCalledWith(10.05);
-      expect(oldDuck.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(
-        1,
-        10.06,
-      );
-      expect(newDuck.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(
-        1,
-        10.06,
-      );
+      expect(oldDuck.gain.linearRampToValueAtTime).toHaveBeenCalledTimes(2);
+      expect(newDuck.gain.linearRampToValueAtTime).toHaveBeenCalledTimes(2);
+      expect(oldDuck.gain.setValueAtTime).toHaveBeenCalledTimes(1);
+      expect(newDuck.gain.setValueAtTime).toHaveBeenCalledTimes(1);
     });
 
     it("routes an instrument exclusively to a named bus feeding main", () => {

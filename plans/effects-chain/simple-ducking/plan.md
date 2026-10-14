@@ -117,7 +117,7 @@ Tasks:
 - [x] Insert one unity duck gain between effects and the existing output gain; preserve output identity and routing, including self-inclusive routes/sends.
 - [x] Convert validated static depth/onset/recovery plus resolved event duration to target and times; zero depth does nothing, recovery begins immediately after onset, and a positive minimum ramp prevents discontinuity.
 - [x] Process requests in chronological order on the bus, holding the native AudioParam value at each retrigger rather than dropping or resetting to unity; track only enough previous target/recovery state to avoid a shallower request lifting the bus during onset.
-- [x] On Stop cancel pending duck automation and restore unity safely, separately from existing effect-parameter Stop behavior; disconnect duck node idempotently on destroy.
+- [x] On Stop cancel pending duck automation and hold the current duck gain, separately from existing effect-parameter Stop behavior; disconnect duck node idempotently on destroy.
 - [x] Test initial unity, node connection order, 0.5-second timing example, zero depth, early/onset/recovery/cross-bar retriggers, no shallower lift, Stop, and destruction using recorded AudioParam calls. Do not infer native rendered values solely from spies.
 
 Verification:
@@ -167,7 +167,7 @@ Tasks:
 
 - [x] Collect requests after instrument onset resolution and before submitting duck automation, coalesce exact same-target/time requests to the deepest request, order chronologically within the scheduled bar, and route only to validated named bus objects in the active graph; retain deterministic iteration order for equal-time requests targeting different buses without promising SOW 7 equivalence.
 - [x] Keep new graph ducks at unity and prevent old graph requests from touching new same-named buses; preserve already-scheduled retiring-graph duck behavior until Stop or graph destruction.
-- [x] Apply Stop to active and still-audible retiring buses, cancelling future ducks and restoring unity; resume cleanly without resetting bus output gain or ending voices.
+- [x] Apply Stop to active and still-audible retiring buses, cancelling future ducks and holding their current duck gains; resume cleanly without resetting bus output gain or ending voices.
 - [x] Test Fluid/direct canonical graph behavior through the engine, mixed synth/sampler timing across instruments, self-inclusive route/send topology, invalid update retaining pending/active state, cross-bar retrigger, nonzero-bar replacement, and destruction; do not hide pre-existing bus-effect validation failures as duck regressions.
 
 Verification:

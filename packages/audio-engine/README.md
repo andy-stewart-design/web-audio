@@ -85,7 +85,7 @@ Depth maps to a bounded gain target using `1 - sqrt(depth)`, with a positive flo
 
 Triggers targeting the same bus at the same exact start time are reduced to the deepest request. Other retriggers hold the current gain and replace the remaining dip/recovery rather than stacking gains or jumping to unity. This is intentionally simpler than sample-frame-normalized timeline scheduling: dense or nearly simultaneous requests can remain order-dependent, and interrupted ramps are not analytically reconstructed. The engine does not perform audio-reactive sidechain compression.
 
-Duck gains belong to their runtime graph. Stop restores duck gains on active and still-audible retiring graphs; replacement graphs start at unity and old graph callbacks cannot target same-named buses in the new graph. Main cannot be ducked, and ducking does not alter instrument routing, sends, mute, bus output gain, or destination connections.
+Duck gains belong to their runtime graph. Stop cancels future duck automation and holds each active and still-audible retiring bus at its current duck gain; replacement graphs start at unity and old graph callbacks cannot target same-named buses in the new graph. Destroyed graphs take their duck gains with them. Main cannot be ducked, and ducking does not alter instrument routing, sends, mute, bus output gain, or destination connections.
 
 At commit, an undefined BPM resets the clock to the default 120 BPM rather than inheriting the previous sketch's tempo.
 

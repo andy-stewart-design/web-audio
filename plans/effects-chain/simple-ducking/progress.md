@@ -74,7 +74,7 @@ The existing Vite `configLoader: 'native'` / `__dirname` warning remains in Flui
 
 ## Phase 2.1 implementation
 
-- Added `DuckAutomation` with the canonical depth-to-gain mapping, proportional onset/recovery scheduling, positive minimum ramps, zero-depth no-op behavior, hold-and-retrigger replacement, conservative shallower retriggers, Stop recovery, and destruction guards.
+- Added `DuckAutomation` with the canonical depth-to-gain mapping, proportional onset/recovery scheduling, positive minimum ramps, zero-depth no-op behavior, hold-and-retrigger replacement, conservative shallower retriggers, Stop hold behavior, and destruction guards.
 - Added one unity duck gain to each `RuntimeBus` after effects and before the existing output gain. Duck scheduling and cleanup remain separate from effect-parameter automation and preserve existing routing/output ownership.
 - Updated runtime-bus and engine topology tests for the added node, and added focused duck-automation coverage for timing, retriggers, Stop, and destruction.
 
@@ -104,7 +104,7 @@ The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audi
 
 - Added graph-local trigger queues to `AudioEngine`; active instruments collect resolved duck triggers during bar scheduling, exact same-target/time requests are reduced to the deepest request, and the remaining triggers are ordered by onset time with deterministic insertion-order ties before dispatching to that graph's named buses.
 - Instrument callbacks are bound to the graph created at commit time. Unknown targets are ignored defensively, main remains outside the bus map, and replacement graphs cannot dispatch through retiring graph buses or vice versa.
-- Stop continues to cancel duck automation on active and retiring graph buses, while graph retirement and destruction preserve existing voice and connection lifecycle behavior.
+- Stop continues to cancel future duck automation and holds the current duck gain on active and retiring graph buses, while graph retirement and destruction preserve existing voice and connection lifecycle behavior.
 - Added engine coverage for mixed synth/sampler ordering, replacement isolation, and active/retiring Stop behavior.
 
 ## Phase 2.3 verification
@@ -118,7 +118,7 @@ The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audi
 
 ## Phase 3.1 implementation
 
-- Added public Fluid and audio-engine README documentation covering `.duck()`, named-bus-only targeting, defaults and timing, immediate recovery, mute/unavailable-sample semantics, hold-and-retrigger behavior, Stop/replacement lifecycle, and the deliberate SOW 7 limitations.
+- Added public Fluid and audio-engine README documentation covering `.duck()`, named-bus-only targeting, defaults and timing, immediate recovery, mute/unavailable-sample semantics, hold-and-retrigger behavior, Stop hold/replacement lifecycle, and the deliberate SOW 7 limitations.
 - Updated the governing spec and implementation notes to record the simple exact same-target/time policy: keep the deepest request and use its timing.
 
 ## Phase 3.1 automated verification
@@ -136,8 +136,8 @@ The first standalone Fluid test invocation was run concurrently with package bui
 
 - Changed route, send, and duck bus-reference validation to own-property checks, preventing inherited `constructor`, `toString`, and `__proto__` properties from being treated as declared buses. Added schema regressions for all three prototype names.
 - Added runtime guards that skip duck scheduling before any `AudioParam` call when finite schema values produce non-finite start, onset, or recovery times. Added coverage for `Number.MAX_VALUE` recovery settings.
-- Re-ran package and workspace checks after the fixes: schema tests passed with 115 tests, audio-engine tests passed with 345 tests, and `pnpm check`, `pnpm lint`, `pnpm test`, formatting, diff, and audio-engine build all passed.
+- Re-ran package and workspace checks after the prototype/timing fixes: schema tests passed with 115 tests, audio-engine tests passed with 346 tests, and `pnpm check`, `pnpm lint`, `pnpm test`, formatting, diff, and audio-engine build all passed. A subsequent Stop-handling correction passed the focused suites, the full audio-engine suite with 347 tests, type-check/lint, formatting, diff, and the audio-engine build.
 
 ## Phase 3.1 manual gate
 
-The required browser listening review of a prepared kick/music example has not been run. No `dev` or new preview process was started without permission, so audible acceptance remains pending; the feature must not be called release-complete until the single/retrigger/recovery/Stop/replacement observations are recorded.
+The required browser listening review of a prepared kick/music example has not been run. No `dev` or new preview process was started without permission, so audible acceptance remains pending; the feature must not be called release-complete until the single/retrigger/recovery/Stop/replacement observations are recorded. The Stop contract now holds the native current duck gain via `cancelAndHoldAtTime()` rather than overwriting it; future retrigger segments retain the earlier timeline so Stop cannot calculate from a later scheduled request. Replacement graphs still start at unity.

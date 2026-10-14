@@ -135,20 +135,42 @@ describe("DuckAutomation", () => {
     expect(retriggerTarget).toBeLessThanOrEqual(heldValue);
   });
 
-  it("cancels future ducking and restores unity on Stop", () => {
+  it("keeps the earlier timeline when a future retrigger is scheduled", () => {
+    const { target, automation } = createAutomation();
+
+    automation.schedule(request({ depth: 0.25, onset: 1, duration: 1 }));
+    automation.schedule(
+      request({ depth: 1, onset: 0.1, recovery: 0.5, startTime: 10.5 }),
+    );
+    automation.stop(10.1);
+    automation.schedule(request({ startTime: 20 }));
+
+    const resumedCall = target.setValueAtTime.mock.calls.at(-1)!;
+    expect(resumedCall[0]).toBeCloseTo(0.95);
+    expect(resumedCall[1]).toBe(20);
+  });
+
+  it("cancels future ducking and holds the current value on Stop", () => {
     const { target, automation } = createAutomation();
 
     automation.schedule(request({ startTime: 10 }));
     automation.stop(10.05);
 
     expect(target.cancelAndHoldAtTime).toHaveBeenLastCalledWith(10.05);
-    const heldCall = target.setValueAtTime.mock.calls.at(-1)!;
-    expect(heldCall[0]).toBeCloseTo(0.75);
-    expect(heldCall[1]).toBe(10.05);
-    expect(target.linearRampToValueAtTime).toHaveBeenLastCalledWith(
-      1,
-      10.05 + MIN_DUCK_RAMP,
-    );
+    expect(target.setValueAtTime).toHaveBeenCalledTimes(1);
+    expect(target.linearRampToValueAtTime).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses the held value when scheduling after Stop", () => {
+    const { target, automation } = createAutomation();
+
+    automation.schedule(request({ startTime: 10 }));
+    automation.stop(10.05);
+    automation.schedule(request({ startTime: 20 }));
+
+    const resumedCall = target.setValueAtTime.mock.calls.at(-1)!;
+    expect(resumedCall[0]).toBeCloseTo(0.75);
+    expect(resumedCall[1]).toBe(20);
   });
 
   it("does not schedule after destruction", () => {
