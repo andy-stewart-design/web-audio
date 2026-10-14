@@ -140,17 +140,17 @@ Expected files:
 
 Tasks:
 
-- [ ] Derive one duck request per target from each resolved, unmasked synth/sampler onset, before expanding polyphonic voices or checking sample audio availability; skip silent or chance-masked onsets.
-- [ ] Use the resolved timing event's duration times the **scheduled** bar duration; do not substitute loop/one-shot/clip/buffer/region playback duration or MIDI events.
-- [ ] Keep muted triggers but leave muted audio/route/send behavior and sampler alternate-direction advancement unchanged when audio cannot play.
-- [ ] Return/collect requests through a narrow engine-facing seam rather than mutating a global bus or requiring a general event manager; include synth/sampler, muted/unavailable, polyphonic, chance and empty-bar tests.
+- [x] Derive one duck request per target from each resolved, unmasked synth/sampler onset, before expanding polyphonic voices or checking sample audio availability; skip silent or chance-masked onsets.
+- [x] Use the resolved timing event's duration times the **scheduled** bar duration; do not substitute loop/one-shot/clip/buffer/region playback duration or MIDI events.
+- [x] Keep muted triggers but leave muted audio/route/send behavior and sampler alternate-direction advancement unchanged when audio cannot play.
+- [x] Return/collect requests through a narrow engine-facing seam rather than mutating a global bus or requiring a general event manager; include synth/sampler, muted/unavailable, polyphonic, chance and empty-bar tests.
 
 Verification:
 
 - Automated (root): `pnpm --filter @web-audio/audio-engine exec vitest run src/instruments/synthesizer.test.ts src/instruments/sampler.test.ts` (plus any new domain-local test paths added here); `pnpm --filter @web-audio/audio-engine check`. Assert requests precede sampler audio-only exits, use pattern duration, and do not change source scheduling/mute or alternation.
 - Manual: Not needed for the request seam; audio rendering still awaits integration.
 
-- [ ] Completion gate: Both instrument classes expose testable trigger requests without needing live samples, a bus reference, or duplicated per-voice triggers; existing instrument tests pass.
+- [x] Completion gate: Both instrument classes expose testable trigger requests without needing live samples, a bus reference, or duplicated per-voice triggers; existing instrument tests pass.
 
 ### Step 2.3 — Graph-local dispatch, lifecycle, and integration
 

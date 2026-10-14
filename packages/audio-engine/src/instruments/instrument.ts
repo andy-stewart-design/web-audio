@@ -1,6 +1,7 @@
 import type { Midi } from "@web-audio/midi";
 import type {
   AudioParamSchema,
+  DuckSchema,
   EffectSchema,
   EnvelopeSchema,
   EventPattern,
@@ -10,6 +11,7 @@ import type {
   NumberPattern,
 } from "@web-audio/schema";
 import type {
+  DuckTrigger,
   EventScheduleContext,
   InstrumentClock,
   ResolvedDetune,
@@ -32,6 +34,15 @@ interface InstrumentRouting {
 interface InstrumentOptions {
   destination?: AudioNode;
   routing?: InstrumentRouting;
+  startingBar?: number;
+  barStartTime?: number;
+  onDuck?: (trigger: DuckTrigger) => void;
+}
+
+interface BaseInstrumentOptions extends Pick<
+  InstrumentOptions,
+  "destination" | "routing" | "onDuck"
+> {
   baseGain?: number;
   muted?: boolean;
 }
@@ -68,6 +79,7 @@ abstract class Instrument {
   protected readonly _balancingNode: GainNode;
   protected readonly _muteNode: GainNode;
   private readonly _sendNodes: GainNode[];
+  private readonly _onDuck?: (trigger: DuckTrigger) => void;
 
   // Voice state
   private _scheduled: Set<ScheduledNote> = new Set();
@@ -100,10 +112,12 @@ abstract class Instrument {
       routing,
       baseGain = SYNTH_BASE_GAIN,
       muted = false,
-    }: InstrumentOptions = {},
+      onDuck,
+    }: BaseInstrumentOptions = {},
   ) {
     this._ctx = ctx;
     this._clock = clock;
+    this._onDuck = onDuck;
     this._balancingNode = ctx.createGain();
     this._muteNode = ctx.createGain();
     this._balancingNode.gain.value = baseGain;
@@ -183,6 +197,24 @@ abstract class Instrument {
   // ---------------------------------------------------------------------------
   // Voice scheduling
   // ---------------------------------------------------------------------------
+
+  protected _emitDuckTriggers(
+    ducks: Record<string, DuckSchema>,
+    startTime: number,
+    duration: number,
+  ) {
+    if (!this._onDuck || this._destroyed) return;
+    for (const [target, duck] of Object.entries(ducks)) {
+      this._onDuck({
+        target,
+        depth: duck.depth,
+        onset: duck.onset,
+        recovery: duck.recovery,
+        duration,
+        startTime,
+      });
+    }
+  }
 
   protected _scheduleVoice(params: ScheduleVoiceParams) {
     const { source, event, detune, gainEnvelope, effects } = params;
@@ -557,4 +589,4 @@ abstract class Instrument {
 }
 
 export default Instrument;
-export type { InstrumentRouting, ScheduledNote };
+export type { InstrumentOptions, InstrumentRouting, ScheduledNote };

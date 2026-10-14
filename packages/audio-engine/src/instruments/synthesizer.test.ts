@@ -6,6 +6,7 @@ import type {
 } from "@web-audio/schema";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type MidiOutputScheduler from "@/midi-output-scheduler";
+import type { DuckTrigger } from "@/types";
 import RandomResolver from "@/resolvers/random-resolver";
 import { midiToFrequency } from "@/utils/midi-to-frequency";
 import {
@@ -95,11 +96,12 @@ function schema(overrides: Partial<SynthesizerSchema> = {}) {
 function synth(
   instrumentSchema: SynthesizerSchema,
   midiOutputScheduler?: MidiOutputScheduler,
+  onDuck?: (trigger: DuckTrigger) => void,
 ) {
   return new Synthesizer(
     new FakeAudioContext() as unknown as AudioContext,
     { barDuration: 2 } as AudioClock,
-    { schema: instrumentSchema, midiOutputScheduler },
+    { schema: instrumentSchema, midiOutputScheduler, onDuck },
   );
 }
 
@@ -115,6 +117,70 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Synthesizer scheduling", () => {
+  it("emits one duck trigger per resolved onset before polyphonic voices", () => {
+    const onDuck = vi.fn();
+    const instance = synth(
+      schema({
+        muted: true,
+        ducks: {
+          music: { depth: 0.25, onset: 0.2, recovery: 0.5 },
+        },
+        eventPattern: {
+          timing: timing([
+            [
+              { offset: 0.25, duration: 0.5 },
+              { offset: 0.75, duration: 0.25 },
+            ],
+          ]),
+          notes: { type: "static", cycle: [[[60, 64], [67]]] },
+        },
+      }),
+      undefined,
+      onDuck,
+    );
+
+    instance.scheduleBar(3, 10);
+
+    expect(onDuck.mock.calls.map(([trigger]) => trigger)).toEqual([
+      {
+        target: "music",
+        depth: 0.25,
+        onset: 0.2,
+        recovery: 0.5,
+        duration: 1,
+        startTime: 10.5,
+      },
+      {
+        target: "music",
+        depth: 0.25,
+        onset: 0.2,
+        recovery: 0.5,
+        duration: 0.5,
+        startTime: 11.5,
+      },
+    ]);
+    expect(FakeOscillatorNode.instances).toHaveLength(3);
+  });
+
+  it("does not emit duck triggers for an empty timing bar", () => {
+    const onDuck = vi.fn();
+    const instance = synth(
+      schema({
+        ducks: { music: { depth: 1, onset: 0, recovery: 1 } },
+        eventPattern: {
+          timing: timing([[]]),
+          notes: { type: "static", cycle: [[null]] },
+        },
+      }),
+      undefined,
+      onDuck,
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(onDuck).not.toHaveBeenCalled();
+  });
+
   it("schedules static notes using explicit timing", () => {
     const instance = synth(
       schema({
@@ -197,19 +263,24 @@ describe("Synthesizer scheduling", () => {
       algorithm: "xor",
       order: "forward",
     };
+    const onDuck = vi.fn();
     const instance = synth(
       schema({
+        ducks: { music: { depth: 1, onset: 0, recovery: 1 } },
         eventPattern: {
           timing: candidateTiming,
           notes: { type: "static", cycle: [[[60], [64]]] },
         },
         detune: staticNumberPattern([10, 20]),
       }),
+      undefined,
+      onDuck,
     );
 
     instance.scheduleBar(0, 10);
 
     expect(FakeOscillatorNode.instances).toHaveLength(6);
+    expect(onDuck).toHaveBeenCalledTimes(6);
     expect(
       FakeOscillatorNode.instances.map(({ options }) => options.detune),
     ).toEqual([10, 20, 10, 20, 10, 20]);

@@ -1,4 +1,4 @@
-import Instrument, { type InstrumentRouting } from "./instrument";
+import Instrument, { type InstrumentOptions } from "./instrument";
 import MidiOutputScheduler from "@/midi-output-scheduler";
 import { midiToFrequency } from "@/utils/midi-to-frequency";
 import { resolveSynthEvents } from "./resolve-synth-events";
@@ -6,12 +6,8 @@ import { resolveSynthEvents } from "./resolve-synth-events";
 import type { SynthesizerSchema } from "@web-audio/schema";
 import type { EventScheduleContext, InstrumentClock } from "@/types";
 
-interface SynthesizerOptions {
+interface SynthesizerOptions extends InstrumentOptions {
   schema: SynthesizerSchema;
-  destination?: AudioNode;
-  routing?: InstrumentRouting;
-  startingBar?: number;
-  barStartTime?: number;
   midiOutputScheduler?: MidiOutputScheduler;
 }
 
@@ -28,6 +24,7 @@ class Synthesizer extends Instrument {
       destination: opts.destination,
       routing: opts.routing,
       muted: opts.schema.muted,
+      onDuck: opts.onDuck,
     });
     this._schema = opts.schema;
     this._midiOutputScheduler = opts.midiOutputScheduler;
@@ -59,6 +56,7 @@ class Synthesizer extends Instrument {
         endTime: startTime + duration,
       } satisfies EventScheduleContext;
 
+      this._emitDuckTriggers(this._schema.ducks, startTime, duration);
       for (const midiNote of resolved.notes) {
         this._scheduleSynthNote(midiNote, event);
       }

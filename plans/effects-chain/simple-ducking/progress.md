@@ -85,3 +85,17 @@ The existing Vite `configLoader: 'native'` / `__dirname` warning remains in Flui
 - `pnpm --filter @web-audio/audio-engine check` and formatting checks passed during the implementation.
 
 The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audio-engine test runs. Runtime instrument trigger emission, graph-local dispatch, and the browser audible gate remain Phase 2.2, 2.3, and 3.1 work.
+
+## Phase 2.2 implementation
+
+- Added a narrow instrument-owned duck trigger callback carrying target, static duck settings, scheduled onset time, and pattern-event duration.
+- Synthesizers emit once per resolved timing event before expanding chord voices. Samplers emit once per resolved timing event before source lookup, buffer availability checks, or playback-duration calculation.
+- Trigger generation remains independent of mute state, sampler availability, and sampler voice count; chance-masked and empty timing bars emit nothing. Sampler alternate-direction state and audio scheduling remain unchanged.
+
+## Phase 2.2 verification
+
+- `pnpm --filter @web-audio/audio-engine exec vitest run src/instruments/synthesizer.test.ts src/instruments/sampler.test.ts` — passed: 2 files, 44 tests.
+- `pnpm --filter @web-audio/audio-engine test:ci` — passed: 23 files, 341 tests.
+- `pnpm --filter @web-audio/audio-engine check`, lint, and formatting checks passed.
+
+The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audio-engine test runs. Graph-local dispatch, lifecycle integration, and the browser audible gate remain Phase 2.3 and 3.1 work.

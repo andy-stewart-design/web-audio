@@ -22,6 +22,15 @@ interface ScheduledNote {
   startTime: number;
 }
 
+interface DuckTrigger {
+  target: string;
+  depth: number;
+  onset: number;
+  recovery: number;
+  duration: number;
+  startTime: number;
+}
+
 interface EventScheduleContext {
   barIndex: number;
   hitIndex: number;
@@ -85,6 +94,7 @@ type ResolvedDetune =
   | { type: "midi-cc"; value: number; schema: MidiCcSchema };
 
 export type {
+  DuckTrigger,
   EngineClock,
   EnvelopeParams,
   EventScheduleContext,
