@@ -529,7 +529,7 @@ describe("AudioEngine", () => {
       expect(activeFrequency.setValueAtTime.mock.calls).toEqual([[800, 12]]);
     });
 
-    it("collects mixed instrument duck triggers and dispatches them in time order", () => {
+    it("orders mixed instrument duck triggers by time, not instrument order", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);
       const schema = makeSchema(2);
@@ -558,10 +558,10 @@ describe("AudioEngine", () => {
           depth: 0.01,
           startTime: 10,
         });
-        samplerInstances()[0]._emitDuck({ ...trigger, startTime: 11 });
+        samplerInstances()[0]._emitDuck({ ...trigger, startTime: 10 });
       });
       instances()[0].scheduleBar.mockImplementationOnce(() =>
-        instances()[0]._emitDuck({ ...trigger, startTime: 10 }),
+        instances()[0]._emitDuck({ ...trigger, startTime: 11 }),
       );
 
       expect(musicDuck.gain.setValueAtTime).not.toHaveBeenCalled();
