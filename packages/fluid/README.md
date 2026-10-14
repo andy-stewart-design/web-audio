@@ -185,6 +185,21 @@ d.synth().send("verb", 0.2).push();
 
 Routes and sends branch after instrument balancing and mute. Sending to main is rejected because it would normally duplicate the dry signal. Repeated sends to one target use the most recent amount.
 
+### Pattern-triggered ducking
+
+An instrument can duck a declared named bus when each resolved pattern event starts. Ducking follows the pattern, not the source amplitude, and never targets `main`:
+
+```ts
+d.bus("music").gain(0.8);
+d.sample("bd").route("drums").duck("music", 0.75, 0.2, 0.5).push();
+```
+
+`.duck(target, depth, onset, recovery)` accepts one target or an array of named targets. The defaults are `depth = 1`, `onset = 0`, and `recovery = 1`. Fluid trims target names, clamps finite values to the canonical ranges, and replaces an earlier configuration for the same target. Direct schemas must contain canonical values and are validated against declared buses; forward bus declarations are allowed.
+
+Onset and recovery are proportions of the resolved pattern-event duration. For a 0.5-second event, `onset = 0.2` reaches the duck target after 0.1 seconds, then `recovery = 0.5` returns to unity over 0.25 seconds immediately afterward—it does not wait for the event to end. Zero depth is a no-op. Muted instruments still trigger ducks, and sampler triggers still occur when a sample is unavailable; sample playback length does not change duck timing.
+
+A retrigger during an unfinished dip or recovery holds the current bus gain and starts a fresh dip instead of jumping to unity or dropping the trigger. Exact same-target/time collisions keep the deepest request; other dense or nearly simultaneous requests use the simple ordered retrigger behavior and are not guaranteed to be sample-frame deterministic. This is event-triggered ducking, not sidechain compression, and patterned duck settings, MIDI-triggered ducking, and main ducking are unsupported. Transport Stop restores bus duck gains to unity, and graph replacement isolates old and new bus generations.
+
 Named-bus gain and filter effect parameters accept static cycles and deterministic random values. They resolve once per bar using the first step in each represented bar:
 
 ```ts

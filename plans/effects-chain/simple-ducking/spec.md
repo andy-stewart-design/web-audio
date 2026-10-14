@@ -2,7 +2,7 @@
 
 ## Status
 
-- Readiness: Ready for planning; not implemented.
+- Readiness: Implemented through schema, Fluid, and audio-engine phases; browser audible acceptance remains pending.
 - Blocking decisions: None identified. The API defaults and curve below are carried forward from an older, deprecated design as explicit assumptions, not as decisions confirmed in the interview.
 - Source: discussion following [`bus-followup-roadmap.md`](../bus-followup-roadmap.md), especially SOW 6 and its Recommended order; [`deprecated/signal-processing-spec.md`](../deprecated/signal-processing-spec.md) is a reference for proposed API/defaults, **not** the active implementation scope.
 
@@ -29,12 +29,12 @@ Non-goals:
 
 ## Current behavior and evidence
 
-Static source inspection, not an audible runtime check:
+Static source inspection and deterministic tests establish the implementation; audible browser behavior remains unverified:
 
-- `packages/schema/src/index.ts` defines instrument `route` and `sends`, `TimingPattern` steps with offset/duration, and numeric `BusSchema.gain`; there is no duck schema field. `packages/schema/src/validate-graph.ts` validates routes, sends, timing, and effect parameters, but no duck targets.
-- `packages/fluid/src/instruments/instrument.ts` exposes `route()`, `send()`, and `mute()`, but no `duck()`. `packages/fluid/src/drome.ts` assembles and validates the completed graph, allowing a new duck target to be a forward reference.
-- `packages/audio-engine/src/instruments/resolve-timing.ts` filters chance-masked onsets. Synth and sampler schedulers consume resolved events in `packages/audio-engine/src/instruments/synthesizer.ts` and `sampler.ts`. Synth voices may be polyphonic; sampler voice creation can fail for unavailable sources. Both receive an instrument mute node rather than suppressing event resolution when muted.
-- `packages/audio-engine/src/buses/runtime-bus.ts` currently wires input → effects → output gain and can cancel/hold its scheduled bus-effect automation on Stop. `packages/audio-engine/src/index.ts` schedules instruments and buses each bar, commits replacement graphs, and keeps retiring graphs alive for existing voices. The new duck state must follow that graph ownership.
+- `packages/schema/src/index.ts` defines canonical instrument `ducks` records, and `packages/schema/src/validate-graph.ts` validates named-bus targets and direct-schema settings before engine commit.
+- `packages/fluid/src/instruments/instrument.ts` exposes `.duck()` for scalar or array targets. Fluid normalizes and serializes the same target-keyed configuration used by direct schemas, including forward bus references.
+- Synth and sampler schedulers emit one trigger per resolved onset before polyphonic expansion or sampler source availability checks. Muted instruments still trigger ducks, and sampler timing uses pattern duration.
+- `packages/audio-engine/src/buses/runtime-bus.ts` owns a dedicated post-effects duck gain. `packages/audio-engine/src/index.ts` collects graph-local triggers, reduces exact same-target/time collisions to the deepest request, dispatches in onset order, and preserves Stop and replacement-graph ownership.
 
 ## Requirements and invariants
 

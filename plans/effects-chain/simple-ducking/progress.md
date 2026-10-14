@@ -115,3 +115,23 @@ The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audi
 - `git diff --check` passed.
 
 The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audio-engine test runs. Phase 2 is complete; documentation, workspace verification, and the browser audible gate remain Phase 3.1 work.
+
+## Phase 3.1 implementation
+
+- Added public Fluid and audio-engine README documentation covering `.duck()`, named-bus-only targeting, defaults and timing, immediate recovery, mute/unavailable-sample semantics, hold-and-retrigger behavior, Stop/replacement lifecycle, and the deliberate SOW 7 limitations.
+- Updated the governing spec and implementation notes to record the simple exact same-target/time policy: keep the deepest request and use its timing.
+
+## Phase 3.1 automated verification
+
+- `pnpm --filter @web-audio/schema test:ci` — passed: 112 tests.
+- `pnpm --filter @web-audio/fluid test:ci` — passed on rerun: 30 files, 1128 tests.
+- `pnpm --filter @web-audio/audio-engine test:ci` — passed: 23 files, 344 tests.
+- `pnpm --filter @web-audio/fluid build` and `pnpm --filter @web-audio/audio-engine build` — passed.
+- `pnpm check`, `pnpm lint`, and `pnpm test` — passed. Workspace test verification also passed all 11 audio-regression cases in Chromium.
+- Required Prettier checks and `git diff --check` passed.
+
+The first standalone Fluid test invocation was run concurrently with package builds and temporarily failed to resolve the not-yet-built `@web-audio/patterns` entry; the rerun after builds completed passed without source changes. No product regression is recorded.
+
+## Phase 3.1 manual gate
+
+The required browser listening review of a prepared kick/music example has not been run. No `dev` or new preview process was started without permission, so audible acceptance remains pending; the feature must not be called release-complete until the single/retrigger/recovery/Stop/replacement observations are recorded.

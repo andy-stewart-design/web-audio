@@ -198,9 +198,9 @@ Expected files:
 
 Tasks:
 
-- [ ] Document the pattern-triggered (not audio-reactive) API, named-bus restrictions, timing example, immediate recovery, mute/unavailable-sample semantics, hold-and-retrigger, and SOW 7 limitations.
-- [ ] Review AC1–AC10 evidence against the spec, adding only uncovered public integration cases rather than duplicating every unit matrix.
-- [ ] Run changed-package and workspace checks, formatting, lint, builds and tests; distinguish existing failures from regressions and document any accepted deviation in `progress.md`.
+- [x] Document the pattern-triggered (not audio-reactive) API, named-bus restrictions, timing example, immediate recovery, mute/unavailable-sample semantics, hold-and-retrigger, and SOW 7 limitations.
+- [x] Review AC1–AC10 evidence against the spec, adding only uncovered public integration cases rather than duplicating every unit matrix.
+- [x] Run changed-package and workspace checks, formatting, lint, builds and tests; distinguish existing failures from regressions and document any accepted deviation in `progress.md`.
 - [ ] In a supported browser with audio enabled and a prepared short kick/music example, listen to single and closely spaced kicks, then a longer recovery and Stop/restart/replacement; confirm dips, immediate swell, retriggers instead of skips, no pops/stuck attenuation, and old/new isolation. Keep browser, BPM/settings, listener, and observations in `progress.md`. If the assumed defaults, curve, or `cancelAndHoldAtTime()` behavior fail, revisit spec and the responsible runtime step; do not declare completion on mocks alone.
 
 Verification:
