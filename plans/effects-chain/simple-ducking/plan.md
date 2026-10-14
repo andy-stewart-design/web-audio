@@ -201,16 +201,16 @@ Tasks:
 - [x] Document the pattern-triggered (not audio-reactive) API, named-bus restrictions, timing example, immediate recovery, mute/unavailable-sample semantics, hold-and-retrigger, and SOW 7 limitations.
 - [x] Review AC1–AC10 evidence against the spec, adding only uncovered public integration cases rather than duplicating every unit matrix.
 - [x] Run changed-package and workspace checks, formatting, lint, builds and tests; distinguish existing failures from regressions and document any accepted deviation in `progress.md`.
-- [ ] In a supported browser with audio enabled and a prepared short kick/music example, listen to single and closely spaced kicks, then a longer recovery and Stop/restart/replacement; confirm dips, immediate swell, retriggers instead of skips, no pops/stuck attenuation, and old/new isolation. Keep browser, BPM/settings, listener, and observations in `progress.md`. If the assumed defaults, curve, or `cancelAndHoldAtTime()` behavior fail, revisit spec and the responsible runtime step; do not declare completion on mocks alone.
+- [x] In a supported browser with audio enabled and a prepared short kick/music example, listen to single and closely spaced kicks, then a longer recovery and Stop/restart/replacement; confirm dips, immediate swell, retriggers instead of skips, no pops/stuck attenuation, and old/new isolation. Keep browser, BPM/settings, listener, and observations in `progress.md`. If the assumed defaults, curve, or `cancelAndHoldAtTime()` behavior fail, revisit spec and the responsible runtime step; do not declare completion on mocks alone.
 
 Verification:
 
 - Automated (root): `pnpm --filter @web-audio/schema test:ci`, `pnpm --filter @web-audio/fluid test:ci`, `pnpm --filter @web-audio/audio-engine test:ci`, `pnpm --filter @web-audio/fluid build`, `pnpm --filter @web-audio/audio-engine build`, `pnpm check`, `pnpm lint`, `pnpm test`, `pnpm exec prettier --check plans/effects-chain/simple-ducking/{spec,plan}.md packages/{schema,fluid,audio-engine}/src`, `git diff --check`. Expect all new duck cases and unchanged routing/sampler/synth cases to pass; format only modified files if the whole-tree check finds unrelated drift.
 - Manual: Human-access/browser audio gate described above. Do **not** run `dev` to set it up without the user's permission; a pre-existing preview or approved launch method is required. Automated fake nodes cannot replace this gate.
 
-- [ ] Completion gate: AC1–AC10 all have test/manual proof (outside this plan), doc examples match the delivered API, workspace verification is green or material deviations are documented without claiming a pass, and audible acceptance is recorded before declaring the feature complete.
+- [x] Completion gate: AC1–AC10 all have test/manual proof (outside this plan), doc examples match the delivered API, workspace verification is green or material deviations are documented without claiming a pass, and audible acceptance is recorded before declaring the feature complete.
 
-- [ ] Phase exit gate: After Step 3.1 checks, review the final acceptance mapping against the actual revision in `progress.md`. Do not call the PR ready for release while the human audible gate is pending.
+- [x] Phase exit gate: After Step 3.1 checks, review the final acceptance mapping against the actual revision in `progress.md`. Do not call the PR ready for release while the human audible gate is pending.
 
 ## Final acceptance
 
