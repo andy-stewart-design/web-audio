@@ -132,6 +132,12 @@ The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audi
 
 The first standalone Fluid test invocation was run concurrently with package builds and temporarily failed to resolve the not-yet-built `@web-audio/patterns` entry; the rerun after builds completed passed without source changes. No product regression is recorded.
 
+## Post-review fixes
+
+- Changed route, send, and duck bus-reference validation to own-property checks, preventing inherited `constructor`, `toString`, and `__proto__` properties from being treated as declared buses. Added schema regressions for all three prototype names.
+- Added runtime guards that skip duck scheduling before any `AudioParam` call when finite schema values produce non-finite start, onset, or recovery times. Added coverage for `Number.MAX_VALUE` recovery settings.
+- Re-ran package and workspace checks after the fixes: schema tests passed with 115 tests, audio-engine tests passed with 345 tests, and `pnpm check`, `pnpm lint`, `pnpm test`, formatting, diff, and audio-engine build all passed.
+
 ## Phase 3.1 manual gate
 
 The required browser listening review of a prepared kick/music example has not been run. No `dev` or new preview process was started without permission, so audible acceptance remains pending; the feature must not be called release-complete until the single/retrigger/recovery/Stop/replacement observations are recorded.

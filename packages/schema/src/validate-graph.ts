@@ -131,7 +131,10 @@ function validateInstrumentCommon(
       `[Schema] ${path} route "${String(instrument.route)}" is not canonical.`,
     );
   }
-  if (instrument.route !== "main" && !schema.buses[instrument.route]) {
+  if (
+    instrument.route !== "main" &&
+    !Object.hasOwn(schema.buses, instrument.route)
+  ) {
     throw new Error(
       `[Schema] ${path} route "${instrument.route}" does not reference a declared bus.`,
     );
@@ -153,7 +156,7 @@ function validateInstrumentCommon(
     if (target === "main") {
       throw new Error(`[Schema] ${path} send cannot target main.`);
     }
-    if (!schema.buses[target]) {
+    if (!Object.hasOwn(schema.buses, target)) {
       throw new Error(
         `[Schema] ${path} send "${target}" does not reference a declared bus.`,
       );
@@ -177,7 +180,7 @@ function validateInstrumentCommon(
     if (target === "main") {
       throw new Error(`[Schema] ${path} duck cannot target main.`);
     }
-    if (!schema.buses[target]) {
+    if (!Object.hasOwn(schema.buses, target)) {
       throw new Error(
         `[Schema] ${path} duck "${target}" does not reference a declared bus.`,
       );

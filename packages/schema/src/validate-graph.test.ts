@@ -345,6 +345,23 @@ describe("validateDromeGraph", () => {
     ).not.toThrow();
   });
 
+  it.each(["constructor", "toString", "__proto__"])(
+    "rejects inherited prototype duck target %j",
+    (target) => {
+      const ducks = Object.fromEntries([
+        [target, { depth: 0.5, onset: 0, recovery: 1 }],
+      ]);
+
+      expect(() =>
+        validateDromeGraph(
+          schema({}, [instrument("main", {}, undefined, ducks)]),
+        ),
+      ).toThrow(
+        `[Schema] Instrument 0 duck "${target}" does not reference a declared bus.`,
+      );
+    },
+  );
+
   it.each([
     [
       "main target",

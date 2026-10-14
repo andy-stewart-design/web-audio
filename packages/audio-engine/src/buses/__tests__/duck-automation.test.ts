@@ -83,6 +83,16 @@ describe("DuckAutomation", () => {
     expect(target.cancelAndHoldAtTime).not.toHaveBeenCalled();
   });
 
+  it("skips timing that would produce non-finite AudioParam times", () => {
+    const { target, automation } = createAutomation();
+
+    automation.schedule(request({ duration: 2, recovery: Number.MAX_VALUE }));
+
+    expect(target.setValueAtTime).not.toHaveBeenCalled();
+    expect(target.linearRampToValueAtTime).not.toHaveBeenCalled();
+    expect(target.cancelAndHoldAtTime).not.toHaveBeenCalled();
+  });
+
   it("holds and replaces automation for onset, recovery, and cross-bar retriggers", () => {
     const { target, automation } = createAutomation();
 

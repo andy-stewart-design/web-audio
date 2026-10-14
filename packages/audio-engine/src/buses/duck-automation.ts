@@ -44,8 +44,18 @@ class DuckAutomation {
       MIN_DUCK_RAMP,
       request.recovery * request.duration,
     );
+    if (
+      !Number.isFinite(startTime) ||
+      !Number.isFinite(target) ||
+      !Number.isFinite(onsetDuration) ||
+      !Number.isFinite(recoveryDuration)
+    ) {
+      return;
+    }
+
     const onsetEnd = startTime + onsetDuration;
     const recoveryEnd = onsetEnd + recoveryDuration;
+    if (!Number.isFinite(onsetEnd) || !Number.isFinite(recoveryEnd)) return;
 
     if (this._scheduled) this._target.cancelAndHoldAtTime(startTime);
     this._target.setValueAtTime(heldValue, startTime);
