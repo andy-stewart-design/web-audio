@@ -22,6 +22,7 @@ vi.mock("./instruments/synthesizer", () => {
       destination?: unknown;
       routing?: unknown;
       midiOutputScheduler?: unknown;
+      onDuck?: (trigger: unknown) => void;
     },
   ) {
     this.scheduleBar = vi.fn();
@@ -37,6 +38,7 @@ vi.mock("./instruments/synthesizer", () => {
     ).gain?.value;
     this._routing = opts.routing;
     this._midiOutputScheduler = opts.midiOutputScheduler;
+    this._emitDuck = (trigger: unknown) => opts.onDuck?.(trigger);
     let resolve: () => void;
     this.finished = new Promise<void>((r) => {
       resolve = r;
@@ -57,6 +59,7 @@ vi.mock("./instruments/sampler", () => {
       cache: unknown;
       destination?: unknown;
       routing?: unknown;
+      onDuck?: (trigger: unknown) => void;
     },
   ) {
     this.scheduleBar = vi.fn();
@@ -69,6 +72,7 @@ vi.mock("./instruments/sampler", () => {
     this._banks = opts.banks;
     this._destination = opts.destination;
     this._routing = opts.routing;
+    this._emitDuck = (trigger: unknown) => opts.onDuck?.(trigger);
     this.load = vi.fn();
     this._cache = opts.cache;
     let resolve: () => void;
@@ -215,6 +219,7 @@ function instances() {
     _midiOutputScheduler: unknown;
     _destinationGainAtConstruction: number | undefined;
     _resolveFinished: () => void;
+    _emitDuck: (trigger: unknown) => void;
   }>;
 }
 
@@ -237,6 +242,7 @@ function samplerInstances() {
       sends: { destination: unknown; amount: number }[];
     };
     _resolveFinished: () => void;
+    _emitDuck: (trigger: unknown) => void;
   }>;
 }
 
@@ -521,6 +527,150 @@ describe("AudioEngine", () => {
 
       expect(retiringFrequency.setValueAtTime.mock.calls).toEqual([[400, 10]]);
       expect(activeFrequency.setValueAtTime.mock.calls).toEqual([[800, 12]]);
+    });
+
+    it("collects mixed instrument duck triggers and dispatches them in time order", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSchema(2);
+      schema.instruments[0].ducks = {
+        music: { depth: 0.25, onset: 0.2, recovery: 0.5 },
+      };
+      schema.instruments[1] = defaultSamplerSchema({
+        ducks: { music: { depth: 0.25, onset: 0.2, recovery: 0.5 } },
+      });
+      schema.buses = { music: { gain: 1, transition: 0, effects: [] } };
+
+      engine.update(schema);
+      clock.emit("prebar");
+
+      const musicDuck = createGainMock.mock.results[2]?.value;
+      const trigger = {
+        target: "music",
+        depth: 0.25,
+        onset: 0.2,
+        recovery: 0.5,
+        duration: 0.5,
+      };
+      samplerInstances()[0].scheduleBar.mockImplementationOnce(() => {
+        samplerInstances()[0]._emitDuck({
+          ...trigger,
+          depth: 0.01,
+          startTime: 10,
+        });
+        samplerInstances()[0]._emitDuck({ ...trigger, startTime: 11 });
+      });
+      instances()[0].scheduleBar.mockImplementationOnce(() =>
+        instances()[0]._emitDuck({ ...trigger, startTime: 10 }),
+      );
+
+      expect(musicDuck.gain.setValueAtTime).not.toHaveBeenCalled();
+      clock.emit("bar", 0, 10);
+
+      expect(musicDuck.gain.setValueAtTime.mock.calls).toEqual([
+        [1, 10],
+        [1, 11],
+      ]);
+      expect(musicDuck.gain.linearRampToValueAtTime.mock.calls).toEqual([
+        [0.5, 10.1],
+        [1, 10.35],
+        [0.5, 11.1],
+        [1, 11.35],
+      ]);
+    });
+
+    it("keeps old graph duck callbacks isolated from a replacement bus", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSchema();
+      schema.buses = { music: { gain: 1, transition: 0, effects: [] } };
+      schema.instruments[0].ducks = {
+        music: { depth: 0.25, onset: 0.2, recovery: 0.5 },
+      };
+
+      engine.update(schema);
+      clock.emit("prebar");
+      const oldInstrument = instances()[0];
+      const oldDuck = createGainMock.mock.results[2]?.value;
+
+      engine.update(schema);
+      clock.emit("prebar");
+      const newInstrument = instances()[1];
+      const newDuck = createGainMock.mock.results[5]?.value;
+      const trigger = {
+        target: "music",
+        depth: 0.25,
+        onset: 0.2,
+        recovery: 0.5,
+        duration: 0.5,
+        startTime: 10,
+      };
+
+      oldInstrument._emitDuck(trigger);
+      clock.emit("bar", 0, 10);
+      expect(oldDuck.gain.setValueAtTime).not.toHaveBeenCalled();
+      expect(newDuck.gain.setValueAtTime).not.toHaveBeenCalled();
+
+      newInstrument.scheduleBar.mockImplementationOnce(() =>
+        newInstrument._emitDuck(trigger),
+      );
+      clock.emit("bar", 0, 10);
+      expect(newDuck.gain.setValueAtTime).toHaveBeenCalledWith(1, 10);
+      expect(oldDuck.gain.setValueAtTime).not.toHaveBeenCalled();
+    });
+
+    it("stops active and retiring graph duck automation", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const schema = makeSchema();
+      schema.buses = { music: { gain: 1, transition: 0, effects: [] } };
+      schema.instruments[0].ducks = {
+        music: { depth: 0.25, onset: 0.2, recovery: 0.5 },
+      };
+
+      engine.update(schema);
+      clock.emit("prebar");
+      const oldInstrument = instances()[0];
+      const oldDuck = createGainMock.mock.results[2]?.value;
+      oldInstrument.scheduleBar.mockImplementationOnce(() =>
+        oldInstrument._emitDuck({
+          target: "music",
+          depth: 0.25,
+          onset: 0.2,
+          recovery: 0.5,
+          duration: 0.5,
+          startTime: 10,
+        }),
+      );
+      clock.emit("bar", 0, 10);
+
+      engine.update(schema);
+      clock.emit("prebar");
+      const newInstrument = instances()[1];
+      const newDuck = createGainMock.mock.results[5]?.value;
+      newInstrument.scheduleBar.mockImplementationOnce(() =>
+        newInstrument._emitDuck({
+          target: "music",
+          depth: 0.25,
+          onset: 0.2,
+          recovery: 0.5,
+          duration: 0.5,
+          startTime: 10,
+        }),
+      );
+      clock.emit("bar", 0, 10);
+      clock.emit("stop", 0, 10.05);
+
+      expect(oldDuck.gain.cancelAndHoldAtTime).toHaveBeenCalledWith(10.05);
+      expect(newDuck.gain.cancelAndHoldAtTime).toHaveBeenCalledWith(10.05);
+      expect(oldDuck.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(
+        1,
+        10.06,
+      );
+      expect(newDuck.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(
+        1,
+        10.06,
+      );
     });
 
     it("routes an instrument exclusively to a named bus feeding main", () => {

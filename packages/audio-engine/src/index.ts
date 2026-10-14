@@ -1,4 +1,4 @@
-import type { EngineClock } from "./types";
+import type { DuckTrigger, EngineClock } from "./types";
 import type { Midi } from "@web-audio/midi";
 import { validateDromeGraph } from "@web-audio/schema";
 import type { DromeSchema } from "@web-audio/schema";
@@ -17,6 +17,7 @@ type RuntimeInstrument = Synthesizer | Sampler;
 interface RuntimeGraph {
   instruments: RuntimeInstrument[];
   buses: Map<string, RuntimeBus>;
+  duckTriggers: DuckTrigger[];
 }
 
 class AudioEngine {
@@ -24,7 +25,11 @@ class AudioEngine {
   private _clock: EngineClock;
   private _master: GainNode;
   private _analyser: AnalyserNode;
-  private _activeGraph: RuntimeGraph = { instruments: [], buses: new Map() };
+  private _activeGraph: RuntimeGraph = {
+    instruments: [],
+    buses: new Map(),
+    duckTriggers: [],
+  };
   // Retiring instruments retain their original buses until every voice in that
   // committed graph has finished.
   private _retiringGraphs = new Set<RuntimeGraph>();
@@ -54,12 +59,7 @@ class AudioEngine {
     this._unsub = new Set([
       clock.on("prebar", ({ bar }, time) => this._commit(bar, time)),
       clock.on("bar", ({ bar }, time, barDuration) => {
-        this._activeGraph.instruments.forEach((instrument) =>
-          instrument.scheduleBar(bar, time),
-        );
-        this._activeGraph.buses.forEach((bus) =>
-          bus.scheduleBar(bar, time, barDuration),
-        );
+        this._scheduleBar(this._activeGraph, bar, time, barDuration);
       }),
       clock.on("stop", (_metronome, time) => {
         this._activeGraph.instruments.forEach((instrument) =>
@@ -127,6 +127,45 @@ class AudioEngine {
     );
   }
 
+  private _scheduleBar(
+    graph: RuntimeGraph,
+    barIndex: number,
+    barStartTime: number,
+    barDuration: number,
+  ) {
+    graph.duckTriggers.length = 0;
+    graph.instruments.forEach((instrument) =>
+      instrument.scheduleBar(barIndex, barStartTime),
+    );
+    graph.buses.forEach((bus) =>
+      bus.scheduleBar(barIndex, barStartTime, barDuration),
+    );
+
+    const best = new Map<string, DuckTrigger>();
+    for (const trigger of graph.duckTriggers.splice(0)) {
+      const key = JSON.stringify([trigger.target, trigger.startTime]);
+      const existing = best.get(key);
+      if (existing === undefined || trigger.depth > existing.depth) {
+        best.set(key, trigger);
+      }
+    }
+
+    const triggers = [...best.values()];
+    triggers
+      .sort((left, right) => left.startTime - right.startTime)
+      .forEach((trigger) => {
+        const bus = graph.buses.get(trigger.target);
+        if (!bus) return;
+        bus.scheduleDuck({
+          depth: trigger.depth,
+          onset: trigger.onset,
+          recovery: trigger.recovery,
+          duration: trigger.duration,
+          startTime: trigger.startTime,
+        });
+      });
+  }
+
   private _commit(upcomingBar = 0, barStartTime?: number): void {
     if (!this._pending) return;
 
@@ -135,6 +174,8 @@ class AudioEngine {
     const pending = this._pending;
     const buses = new Map<string, RuntimeBus>();
     const instruments: RuntimeInstrument[] = [];
+    const duckTriggers: DuckTrigger[] = [];
+    const onDuck = (trigger: DuckTrigger) => duckTriggers.push(trigger);
     const previousMainGain = this._master.gain.value;
     this._master.gain.value = pending.buses.main?.gain ?? 1;
     try {
@@ -170,6 +211,7 @@ class AudioEngine {
             cache: this._sampleBufferCache,
             startingBar: upcomingBar,
             barStartTime,
+            onDuck,
           });
           // load() hits _cache.resolved synchronously if prepare() ran.
           void instrument.load();
@@ -181,6 +223,7 @@ class AudioEngine {
             startingBar: upcomingBar,
             barStartTime,
             midiOutputScheduler: this._midiOutputScheduler,
+            onDuck,
           });
         }
         if (this._midi) instrument.connectMidi(this._midi);
@@ -194,7 +237,7 @@ class AudioEngine {
     }
 
     const oldGraph = this._activeGraph;
-    this._activeGraph = { instruments, buses };
+    this._activeGraph = { instruments, buses, duckTriggers };
     this._pending = null;
     this._retire(oldGraph);
   }
@@ -226,7 +269,11 @@ class AudioEngine {
       graph.instruments.forEach((instrument) => instrument.destroy());
       graph.buses.forEach((bus) => bus.destroy());
     });
-    this._activeGraph = { instruments: [], buses: new Map() };
+    this._activeGraph = {
+      instruments: [],
+      buses: new Map(),
+      duckTriggers: [],
+    };
     this._retiringGraphs.clear();
     this._pending = null;
     this._master.disconnect();

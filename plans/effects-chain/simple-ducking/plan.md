@@ -165,19 +165,19 @@ Expected files:
 
 Tasks:
 
-- [ ] Collect requests after instrument onset resolution and before submitting duck automation, order chronologically within the scheduled bar, and route only to validated named bus objects in the active graph; retain deterministic iteration order for equal-time requests without promising SOW 7 equivalence.
-- [ ] Keep new graph ducks at unity and prevent old graph requests from touching new same-named buses; preserve already-scheduled retiring-graph duck behavior until Stop or graph destruction.
-- [ ] Apply Stop to active and still-audible retiring buses, cancelling future ducks and restoring unity; resume cleanly without resetting bus output gain or ending voices.
-- [ ] Test Fluid/direct canonical graph behavior through the engine, mixed synth/sampler timing across instruments, self-inclusive route/send topology, invalid update retaining pending/active state, cross-bar retrigger, nonzero-bar replacement, and destruction; do not hide pre-existing bus-effect validation failures as duck regressions.
+- [x] Collect requests after instrument onset resolution and before submitting duck automation, coalesce exact same-target/time requests to the deepest request, order chronologically within the scheduled bar, and route only to validated named bus objects in the active graph; retain deterministic iteration order for equal-time requests targeting different buses without promising SOW 7 equivalence.
+- [x] Keep new graph ducks at unity and prevent old graph requests from touching new same-named buses; preserve already-scheduled retiring-graph duck behavior until Stop or graph destruction.
+- [x] Apply Stop to active and still-audible retiring buses, cancelling future ducks and restoring unity; resume cleanly without resetting bus output gain or ending voices.
+- [x] Test Fluid/direct canonical graph behavior through the engine, mixed synth/sampler timing across instruments, self-inclusive route/send topology, invalid update retaining pending/active state, cross-bar retrigger, nonzero-bar replacement, and destruction; do not hide pre-existing bus-effect validation failures as duck regressions.
 
 Verification:
 
 - Automated (root): `pnpm --filter @web-audio/audio-engine exec vitest run src/__tests__/ducking.test.ts src/engine.test.ts src/buses/runtime-bus.test.ts`; `pnpm --filter @web-audio/audio-engine check`. Tests must inspect both graph connection ownership and timed AudioParam calls using the existing manual-clock/fake-node style.
 - Manual: Deferred to Phase 3; mock calls cannot prove acoustic smoothness or native `cancelAndHoldAtTime()` behavior.
 
-- [ ] Completion gate: From validated instrument schemas, same-graph bus ducks occur in time order; Stop/restart/retirement/replacement and last-valid-write invariants hold in engine integration tests, with type checks passing.
+- [x] Completion gate: From validated instrument schemas, same-graph bus ducks occur in time order; Stop/restart/retirement/replacement and last-valid-write invariants hold in engine integration tests, with type checks passing.
 
-- [ ] Phase exit gate: Run `pnpm --filter @web-audio/audio-engine test:ci`, `pnpm --filter @web-audio/audio-engine check`, `pnpm --filter @web-audio/audio-engine lint`, and `pnpm --filter @web-audio/audio-engine build` after Step 2.3 checks. Review that the implementation did not add a cross-generation registry, audio-reactive detection, or an analytical timeline. No claim of audible acceptance yet.
+- [x] Phase exit gate: Run `pnpm --filter @web-audio/audio-engine test:ci`, `pnpm --filter @web-audio/audio-engine check`, `pnpm --filter @web-audio/audio-engine lint`, and `pnpm --filter @web-audio/audio-engine build` after Step 2.3 checks. Review that the implementation did not add a cross-generation registry, audio-reactive detection, or an analytical timeline. No claim of audible acceptance yet.
 
 ## Phase 3 — Documentation and acceptance
 

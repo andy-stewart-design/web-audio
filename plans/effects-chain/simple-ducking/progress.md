@@ -99,3 +99,19 @@ The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audi
 - `pnpm --filter @web-audio/audio-engine check`, lint, and formatting checks passed.
 
 The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audio-engine test runs. Graph-local dispatch, lifecycle integration, and the browser audible gate remain Phase 2.3 and 3.1 work.
+
+## Phase 2.3 implementation
+
+- Added graph-local trigger queues to `AudioEngine`; active instruments collect resolved duck triggers during bar scheduling, exact same-target/time requests are reduced to the deepest request, and the remaining triggers are ordered by onset time with deterministic insertion-order ties before dispatching to that graph's named buses.
+- Instrument callbacks are bound to the graph created at commit time. Unknown targets are ignored defensively, main remains outside the bus map, and replacement graphs cannot dispatch through retiring graph buses or vice versa.
+- Stop continues to cancel duck automation on active and retiring graph buses, while graph retirement and destruction preserve existing voice and connection lifecycle behavior.
+- Added engine coverage for mixed synth/sampler ordering, replacement isolation, and active/retiring Stop behavior.
+
+## Phase 2.3 verification
+
+- `pnpm --filter @web-audio/audio-engine test:ci` — passed: 23 files, 344 tests.
+- `pnpm --filter @web-audio/audio-engine check`, lint, and formatting checks passed.
+- `pnpm --filter @web-audio/audio-engine build` — passed.
+- `git diff --check` passed.
+
+The existing Vite `configLoader: 'native'` / `__dirname` warning remains in audio-engine test runs. Phase 2 is complete; documentation, workspace verification, and the browser audible gate remain Phase 3.1 work.
