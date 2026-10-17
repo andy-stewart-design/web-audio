@@ -154,6 +154,20 @@ Variation values are resolved per selected source key: Fluid preserves finite au
 
 `fast()`, `slow()`, `stretch()`, and `reverse()` preserve static note/variation event combinations. Random variation shape transforms generate fresh deterministic values rather than repeating prior results. Generated chop/fit timing remains exempt. With `.dir("alt")`, every layer in one event uses the same direction, and direction advances once only when at least one voice plays.
 
+## Per-voice effects
+
+`.fx()` applies its effects independently to every synth or sampler voice, in the authored order, before that voice's amplitude ADSR envelope:
+
+```text
+source → .fx(...) → amplitude envelope → instrument mix
+```
+
+The envelope remains the final per-voice loudness stage, while effect automation and LFOs still target the same effect parameters. Voices do not share effect audio nodes, and the public syntax and schema are unchanged. There is no legacy position selector or compatibility mode.
+
+This placement is an intentional sonic breaking change for effected sketches. For example, a filter can respond differently during note attacks and releases because it now receives the un-enveloped source before the voice envelope gates the processed result. Not every sketch will sound audibly different, and no automatic conversion is provided; adjust the sketch only if its former sound is desired.
+
+Effects on persistent buses remain separate from per-voice `.fx()` processing. Routes and sends still branch from the existing post-voice, post-balancing, post-mute instrument output described below.
+
 ## Buses, routes, and sends
 
 `main` is the persistent engine output. Its gain is configurable, but it does not support effects:

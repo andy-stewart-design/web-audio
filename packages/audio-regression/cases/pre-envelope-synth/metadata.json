@@ -1,0 +1,5 @@
+{
+  "description": "Synth filter runs before the amplitude envelope",
+  "bars": 1,
+  "tailSeconds": 0.3
+}

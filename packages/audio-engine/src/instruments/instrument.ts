@@ -252,9 +252,8 @@ abstract class Instrument {
       this._buildEffectNode(effect, event, completionCleanups),
     );
 
-    source.connect(gain);
-
-    const chain: AudioNode[] = [gain, ...effectNodes];
+    const chain: AudioNode[] = [...effectNodes, gain];
+    source.connect(chain[0]);
     chain.reduce((src, dst) => {
       src.connect(dst);
       return dst;
