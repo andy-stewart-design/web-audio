@@ -3,7 +3,7 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md), ready for planning; R1–R9 and AC1–AC10 govern this work.
-- Delivery state: Planning only. No baseline, implementation, native verification, or listening approval has been performed for supersaw.
+- Delivery state: In progress. Phase 0.1 baseline and Step 1.1 processor verification are complete; source ownership, engine integration, native verification, and listening approval remain pending.
 - Acceptance or release still pending: All steps below, real-time/performance review, individual recording approval, and final integration. Publication/deployment is not included.
 - Blockers: No unresolved product decision. Browser/setup availability and access to a human listener are execution prerequisites, not assumed passing gates.
 
@@ -99,7 +99,7 @@ Review boundary: Internal processor/package/source capabilities only; no supersa
 
 ### Step 1.1 — Implement and bundle the supersaw processor
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R3, R5–R6, R9; AC4/AC5 (processor portion), AC6 (source-time gating portion), AC9 (deterministic DSP portion). Actual engine/native/listening proof remains Steps 2.1–3.1.
 Depends on: Step 0.1 and Phase 0 exit gate.
 Review boundary: Saw stack, bounded controls, deterministic phases, sample-frame gating, and bundled package surface; not engine scheduling or new authoring APIs.
@@ -113,11 +113,11 @@ Expected files (new paths are proposed, not existing):
 
 Tasks:
 
-- [ ] Implement 1–8 fixed-count saws with symmetric cents offsets, one-oscillator centering, symmetric equal-power pan positions, count compensation, and deterministic varied phases. Include safe phase/frequency arithmetic and bounded allocation.
-- [ ] Handle constant/audio-rate frequency, common detune, spread, and width values; apply their resolved bounds. Avoid hot-loop allocation and unnecessary repeated scalar work without introducing a general DSP optimizer.
-- [ ] Implement audio-frame start/stop gates and one terminal completion notification. Preserve full-precision scheduled frame boundaries rather than relying on Float32 timestamp rounding; gate silence independently of main-thread notification delivery. No timers or whole-block start skip.
-- [ ] Test a small discriminating set: counts 1/2/7/8, ±12-cent endpoints, zero width, odd/even pan symmetry, gain-law application, finite extreme values, band-limited wrap correction, deterministic phases, and intra-quantum start/stop/termination. Reuse the current worklet stub approach with a small per-test port/global capture, not a general fake renderer.
-- [ ] Export the bundled source and copied declaration together; preserve existing LFO exports and verify the built package entry point. Do not register/use supersaw in production engine readiness until Step 2.1.
+- [x] Implement 1–8 fixed-count saws with symmetric cents offsets, one-oscillator centering, symmetric equal-power pan positions, count compensation, and deterministic varied phases. Include safe phase/frequency arithmetic and bounded allocation.
+- [x] Handle constant/audio-rate frequency, common detune, spread, and width values; apply their resolved bounds. Avoid hot-loop allocation and unnecessary repeated scalar work without introducing a general DSP optimizer.
+- [x] Implement audio-frame start/stop gates and one terminal completion notification. Preserve full-precision scheduled frame boundaries rather than relying on Float32 timestamp rounding; gate silence independently of main-thread notification delivery. No timers or whole-block start skip.
+- [x] Test a small discriminating set: counts 1/2/7/8, ±12-cent endpoints, zero width, odd/even pan symmetry, gain-law application, finite extreme values, band-limited wrap correction, deterministic phases, and intra-quantum start/stop/termination. Reuse the current worklet stub approach with a small per-test port/global capture, not a general fake renderer.
+- [x] Export the bundled source and copied declaration together; preserve existing LFO exports and verify the built package entry point. Do not register/use supersaw in production engine readiness until Step 2.1.
 
 Verification (new test becomes runnable only when this step creates it):
 
@@ -134,7 +134,7 @@ Automated proof: The real processor math/gates behave under controlled worklet g
 Manual: Review numerical bounds, compensation/pan math, local phase seed use, terminal notification, and absence of per-sample allocation. Acoustic acceptance is deferred, not inferred.
 
 Completion gate: Processor tests, type/lint/build, and built-entry checks pass together with no unsupported public API or changed LFO behavior.
-Evidence: Not run.
+Evidence: [evidence/1.1.md](evidence/1.1.md).
 
 ### Step 1.2 — Fit worklet completion into shared voice ownership
 
