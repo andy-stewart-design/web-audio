@@ -58,7 +58,7 @@ class Drome {
   }
 
   synth(): Synthesizer;
-  synth(type: undefined): Synthesizer;
+  synth(type: undefined | WaveformAlias): Synthesizer;
   synth(type: WaveformAlias): Synthesizer;
   synth(type: "unison" | "uni"): UnisonSynthesizer;
   synth(type: SynthSelector): Synthesizer | UnisonSynthesizer;

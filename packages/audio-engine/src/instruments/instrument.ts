@@ -27,6 +27,16 @@ import { computeEnvelope } from "@/utils/compute-envelope";
 // Types
 // -----------------------------------------------------------------------------
 
+const MAX_AUDIO_PARAM_VALUE = 3.4028234663852886e38;
+
+function safeAudioParamValue(value: number) {
+  if (Number.isNaN(value)) return 0;
+  return Math.max(
+    -MAX_AUDIO_PARAM_VALUE,
+    Math.min(MAX_AUDIO_PARAM_VALUE, value),
+  );
+}
+
 interface InstrumentRouting {
   primary: AudioNode;
   sends: { destination: AudioNode; amount: number }[];
@@ -122,13 +132,13 @@ abstract class Instrument {
     this._onDuck = onDuck;
     this._balancingNode = ctx.createGain();
     this._muteNode = ctx.createGain();
-    this._balancingNode.gain.value = baseGain;
+    this._balancingNode.gain.value = safeAudioParamValue(baseGain);
     this._muteNode.gain.value = muted ? 0 : 1;
     this._balancingNode.connect(this._muteNode);
     this._muteNode.connect(routing?.primary ?? destination);
     this._sendNodes = (routing?.sends ?? []).map((send) => {
       const node = ctx.createGain();
-      node.gain.value = send.amount;
+      node.gain.value = safeAudioParamValue(send.amount);
       this._muteNode.connect(node);
       node.connect(send.destination);
       return node;
@@ -356,7 +366,9 @@ abstract class Instrument {
       );
     } else {
       param.setValueAtTime(
-        this._resolveValue(schema, event.barIndex, event.hitIndex) * scale,
+        safeAudioParamValue(
+          this._resolveValue(schema, event.barIndex, event.hitIndex) * scale,
+        ),
         event.startTime,
       );
     }
@@ -440,11 +452,17 @@ abstract class Instrument {
     const env = computeEnvelope(envelope, event.duration, event.endTime, scale);
     const decay = env.startTime + env.attackDur + env.decayDur;
 
-    param.setValueAtTime(env.min, env.startTime);
-    param.linearRampToValueAtTime(env.max, env.startTime + env.attackDur);
-    param.linearRampToValueAtTime(env.sustain, decay);
-    param.setValueAtTime(env.sustain, env.endTime);
-    param.linearRampToValueAtTime(env.min, env.endTime + env.releaseDur);
+    param.setValueAtTime(safeAudioParamValue(env.min), env.startTime);
+    param.linearRampToValueAtTime(
+      safeAudioParamValue(env.max),
+      env.startTime + env.attackDur,
+    );
+    param.linearRampToValueAtTime(safeAudioParamValue(env.sustain), decay);
+    param.setValueAtTime(safeAudioParamValue(env.sustain), env.endTime);
+    param.linearRampToValueAtTime(
+      safeAudioParamValue(env.min),
+      env.endTime + env.releaseDur,
+    );
 
     return env.releaseDur;
   }
@@ -476,7 +494,7 @@ abstract class Instrument {
     scale: number,
   ) {
     let unsubscribe: (() => void) | null = null;
-    param.value = schema.default * scale;
+    param.value = safeAudioParamValue(schema.default * scale);
 
     return this._registerMidiBinding((midi) => {
       unsubscribe?.();
@@ -498,10 +516,14 @@ abstract class Instrument {
           : schema.default;
         if (!isInitialized) {
           isInitialized = true;
-          param.value = mapped * scale;
+          param.value = safeAudioParamValue(mapped * scale);
           return;
         }
-        param.setTargetAtTime(mapped * scale, this._ctx.currentTime, 0.01);
+        param.setTargetAtTime(
+          safeAudioParamValue(mapped * scale),
+          this._ctx.currentTime,
+          0.01,
+        );
       });
     });
   }
@@ -535,8 +557,8 @@ abstract class Instrument {
         effectiveBarStart - startingBar * this._clock.barDuration;
       const node = new AudioWorkletNode(this._ctx, "lfo-processor", {
         parameterData: {
-          outputA: this._resolveValue(lfo.outputA, 0, 0),
-          outputB: this._resolveValue(lfo.outputB, 0, 0),
+          outputA: safeAudioParamValue(this._resolveValue(lfo.outputA, 0, 0)),
+          outputB: safeAudioParamValue(this._resolveValue(lfo.outputB, 0, 0)),
         },
         processorOptions: {
           waveform: lfo.waveform,
@@ -581,8 +603,12 @@ abstract class Instrument {
       if (!node) continue;
       const outputA = this._resolveValue(schema.outputA, barIndex, 0);
       const outputB = this._resolveValue(schema.outputB, barIndex, 0);
-      node.parameters.get("outputA")!.setValueAtTime(outputA, barStartTime);
-      node.parameters.get("outputB")!.setValueAtTime(outputB, barStartTime);
+      node.parameters
+        .get("outputA")!
+        .setValueAtTime(safeAudioParamValue(outputA), barStartTime);
+      node.parameters
+        .get("outputB")!
+        .setValueAtTime(safeAudioParamValue(outputB), barStartTime);
     }
   }
 
@@ -607,6 +633,7 @@ abstract class Instrument {
 }
 
 export default Instrument;
+export { safeAudioParamValue };
 export type {
   InstrumentOptions,
   InstrumentRouting,

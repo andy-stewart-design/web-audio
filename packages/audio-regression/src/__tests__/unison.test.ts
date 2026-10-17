@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { evaluateSource } from "@web-audio/fluid";
 import { describe, expect, it } from "vitest";
 import { compareAudio } from "../runner/compare";
 import { withRenderer } from "../runner/render";
@@ -98,6 +100,30 @@ function expectHealthy(result: NativeRender) {
 }
 
 describe("native saw-only unison", () => {
+  it("resolves diagnostic passages across each control pattern", async () => {
+    const code = await readFile(
+      new URL("../../cases/unison/sketch.js", import.meta.url),
+      "utf8",
+    );
+    const instrument = evaluateSource(code).instruments[0]!;
+
+    expect(instrument.eventPattern.timing.cycle[0]).toHaveLength(4);
+    if (!("engine" in instrument) || instrument.engine !== "unison")
+      throw new Error("Expected unison");
+    expect(instrument.voices).toMatchObject({
+      type: "static",
+      cycle: [[1, 2, 7, 8]],
+    });
+    expect(instrument.spread).toMatchObject({
+      type: "static",
+      cycle: [[0, 12, 24, 36]],
+    });
+    expect(instrument.width).toMatchObject({
+      type: "static",
+      cycle: [[0, 0.4, 0.8, 1]],
+    });
+  });
+
   it.each([44_100, 48_000])(
     "renders both aliases and saw selection with sample-aligned lifetime at %i Hz",
     async (sampleRate) => {
@@ -132,7 +158,9 @@ describe("native saw-only unison", () => {
             sampleRate,
         );
         const blockStart = Math.floor(eventStart / 128) * 128;
+        const blockEnd = blockStart + 128;
         expect(eventStart).toBeGreaterThan(blockStart);
+        expect(eventStart).toBeLessThan(blockEnd);
         expect(result.frameCount).toBeGreaterThan(sourceStop);
         for (const channel of result.channels) {
           expect(
@@ -142,7 +170,7 @@ describe("native saw-only unison", () => {
           ).toBe(true);
           expect(
             channel
-              .subarray(eventStart, eventStart + 128)
+              .subarray(eventStart, blockEnd)
               .some((value) => Math.abs(value) > 1e-8),
           ).toBe(true);
           expect(
@@ -168,10 +196,14 @@ describe("native saw-only unison", () => {
           channels: 1,
         }),
       );
+      const extreme = await renderer.render(
+        nativeCase(unisonCode({ width: "1e100", spread: "1e100" })),
+      );
 
       expectHealthy(centered);
       expectHealthy(wide);
       expectHealthy(mono);
+      expectHealthy(extreme);
       expect(maxChannelDifference(centered.channels)).toBeLessThan(1e-6);
       expect(maxChannelDifference(wide.channels)).toBeGreaterThan(1e-5);
       expect(mono.channels).toHaveLength(1);

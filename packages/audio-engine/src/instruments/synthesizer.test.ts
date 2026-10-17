@@ -157,6 +157,39 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Synthesizer scheduling", () => {
+  it("bounds finite control values before native parameter calls", () => {
+    const maxFloat32 = 3.4028234663852886e38;
+    const unison = synth(
+      unisonSchema({
+        detune: staticNumberPattern([1e100]),
+        spread: staticNumberPattern([1e100]),
+        width: staticNumberPattern([-1e100]),
+      }),
+    );
+
+    unison.scheduleBar(0, 10);
+
+    const node = FakeAudioWorkletNode.instances[0];
+    expect(node.parameters.get("detune")?.setValueAtTime).toHaveBeenCalledWith(
+      maxFloat32,
+      10,
+    );
+    expect(node.parameters.get("spread")?.setValueAtTime).toHaveBeenCalledWith(
+      maxFloat32,
+      10,
+    );
+    expect(node.parameters.get("width")?.setValueAtTime).toHaveBeenCalledWith(
+      -maxFloat32,
+      10,
+    );
+
+    const basic = synth(schema({ detune: staticNumberPattern([1e100]) }));
+    basic.scheduleBar(0, 10);
+    expect(FakeOscillatorNode.instances.at(-1)?.options.detune).toBe(
+      maxFloat32,
+    );
+  });
+
   it("constructs unison sources with resolved voice frames and controls", () => {
     const instance = synth(
       unisonSchema({

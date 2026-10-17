@@ -1,7 +1,7 @@
 d.bpm(137);
 d.synth("unison")
   .notes([60, 64, 67, 72])
-  .xox("x.o.")
+  .xox("xxxx")
   .voices([1, 2, 7, 8])
   .spread([0, 12, 24, 36])
   .width([0, 0.4, 0.8, 1])

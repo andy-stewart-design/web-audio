@@ -9,7 +9,10 @@ import type {
   UnisonSynthesizerSchema,
   SynthesizerSchema,
 } from "@web-audio/schema";
-import Instrument, { type InstrumentOptions } from "./instrument";
+import Instrument, {
+  safeAudioParamValue,
+  type InstrumentOptions,
+} from "./instrument";
 import MidiOutputScheduler from "@/midi-output-scheduler";
 import { midiToFrequency } from "@/utils/midi-to-frequency";
 import { resolveSynthEvents } from "./resolve-synth-events";
@@ -131,8 +134,8 @@ class Synthesizer extends Instrument {
   ) {
     const osc = new OscillatorNode(this._ctx, {
       type: schema.waveform,
-      frequency: midiToFrequency(midiNote),
-      detune: detune.value,
+      frequency: safeAudioParamValue(midiToFrequency(midiNote)),
+      detune: safeAudioParamValue(detune.value),
     });
 
     this._scheduleVoice({
@@ -171,9 +174,15 @@ class Synthesizer extends Instrument {
       startFrame: toAudioFrame(this._ctx, event.startTime),
       stopFrame: toAudioFrame(this._ctx, stopTime),
     });
-    source.frequency.setValueAtTime(midiToFrequency(midiNote), event.startTime);
+    source.frequency.setValueAtTime(
+      safeAudioParamValue(midiToFrequency(midiNote)),
+      event.startTime,
+    );
     if (detune.type === "static") {
-      source.detune.setValueAtTime(detune.value, event.startTime);
+      source.detune.setValueAtTime(
+        safeAudioParamValue(detune.value),
+        event.startTime,
+      );
     }
 
     this._scheduleVoice({

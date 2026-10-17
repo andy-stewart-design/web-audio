@@ -6,7 +6,9 @@ import {
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { SamplerSchema } from "@web-audio/schema";
 import Drome from "@/index";
+import type { WaveformAlias } from "@/inputs/waveform";
 import type Sampler from "@/instruments/sampler";
+import type Synthesizer from "@/instruments/synthesizer";
 
 function getStaticChopFixture(schema: SamplerSchema) {
   const timingBars = schema.eventPattern.timing.cycle;
@@ -35,6 +37,17 @@ function getStaticChopFixture(schema: SamplerSchema) {
 
 describe("Drome", () => {
   describe("shorthand factories", () => {
+    it("accepts optional waveform selectors in wrappers", () => {
+      const d = new Drome();
+      const createSynth = (type?: WaveformAlias) => d.synth(type);
+
+      expectTypeOf(createSynth).toEqualTypeOf<
+        (type?: WaveformAlias) => Synthesizer
+      >();
+      expectTypeOf(createSynth()).toEqualTypeOf<Synthesizer>();
+      expectTypeOf(createSynth("saw")).toEqualTypeOf<Synthesizer>();
+    });
+
     it("provides shorthand() and sh() aliases with eager parsing", () => {
       const d = new Drome();
       const shorthand = d.shorthand("0 <1 2>");
