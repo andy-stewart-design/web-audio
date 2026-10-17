@@ -296,25 +296,25 @@ Evidence: [evidence/2.1a.md](evidence/2.1a.md).
 
 ### Step 2.2 — Prove actual worklet timing, stereo, and repeatability
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R3–R6, R8–R9; AC3–AC8 (native portions), AC9 (automated portion), AC10 (unchanged recording portion). Human approval/documentation remain Step 3.1.
 Depends on: Steps 2.1 and 2.1a, both verified for their stated scopes.
 Review boundary: Existing native harness with a small saw-only unison test module and musical review material; no new rendering framework or accepted-reference writes.
 
 Expected files:
 
-- Proposed `packages/audio-regression/src/__tests__/unison.test.ts` — real Fluid/AudioEngine native tests using `withRenderer()` and the revised unison/uni API.
-- Optional small test-local helper under that suite's `support/` only where resource/context ownership requires it.
-- Proposed `packages/audio-regression/cases/unison/{sketch.js,metadata.json}` — start with one short saw-only case containing useful static/modulated passages. Add a second case only for a distinct audible contract, not a waveform/parameter matrix.
+- `packages/audio-regression/src/__tests__/unison.test.ts` — real Fluid/AudioEngine native tests using `withRenderer()` and the revised unison/uni API.
+- No additional test-local helper was needed.
+- `packages/audio-regression/cases/unison/{sketch.js,metadata.json}` — one short saw-only diagnostic case with static/modulated passages; no accepted reference pair.
 - No accepted reference pairs yet and no harness/default-tolerance changes.
 
 Tasks:
 
-- [ ] Render real saw-only unison output at 44.1/48 kHz with non-quantum-aligned timing, using both aliases and default/explicit saw selection in focused fixtures. Extend the focused native proof to confirm the integrated engine supplies the correct constructor schedule and initial start/stop behavior does not depend on delivery of port schedule messages; reuse the existing adapter regression rather than creating another harness. Show audio begins in the intended partial quantum rather than the following block, finite output and zero source-outside-lifetime behavior, and a nonempty post-release observation window before scheduled cleanup. Processor unit tests own exact source gating; the voice envelope must not be mistaken for proof that a processor terminated.
-- [ ] Exercise centered/nonzero stereo width and native mono downmix, count/detune effects, and evolving spread/width through existing automation. Use DSP unit expectations plus a few native signal properties; do not build a second supersaw renderer just to duplicate its algorithm or require equality to native saw DSP.
-- [ ] Check repeatable fresh renders with stable phase identity and no ambient randomness. Retain existing browser/resource diagnostics/deadlines and close any additional owned contexts on success/failure. Reuse the existing real-time/native browser seams for a small `AudioContext` smoke when practical; no production test hooks or new public engine exports.
-- [ ] Add diagnostic musical material for default and two-saw sounds, count compensation, spread/width movement, and high notes. Give it adequate attack/release/tail coverage and render it twice before asking for listening approval. Keep temporary synthetic tooling fixtures separate from authored cases.
-- [ ] Reverify all Phase 0 recording IDs unchanged. New cases intentionally have no accepted references yet; missing-new-reference failures are expected and must not hide any existing-case mismatch or native diagnostic failure.
+- [x] Render real saw-only unison output at 44.1/48 kHz with non-quantum-aligned timing, using both aliases and default/explicit saw selection in focused fixtures. Extend the focused native proof to confirm the integrated engine supplies the correct constructor schedule and initial start/stop behavior does not depend on delivery of port schedule messages; reuse the existing adapter regression rather than creating another harness. Show audio begins in the intended partial quantum rather than the following block, finite output and zero source-outside-lifetime behavior, and a nonempty post-release observation window before scheduled cleanup. Processor unit tests own exact source gating; the voice envelope must not be mistaken for proof that a processor terminated.
+- [x] Exercise centered/nonzero stereo width and native mono downmix, count/detune effects, and evolving spread/width through existing automation. Use DSP unit expectations plus a few native signal properties; do not build a second supersaw renderer just to duplicate its algorithm or require equality to native saw DSP.
+- [x] Check repeatable fresh renders with stable phase identity and no ambient randomness. Retain existing browser/resource diagnostics/deadlines and close any additional owned contexts on success/failure. Reuse the existing real-time/native browser seams for a small `AudioContext` smoke when practical; no production test hooks or new public engine exports.
+- [x] Add diagnostic musical material for default and two-saw sounds, count compensation, spread/width movement, and high notes. Give it adequate attack/release/tail coverage and render it twice before asking for listening approval. Keep temporary synthetic tooling fixtures separate from authored cases.
+- [x] Reverify all Phase 0 recording IDs unchanged. New cases intentionally have no accepted references yet; missing-new-reference failures are expected and must not hide any existing-case mismatch or native diagnostic failure.
 
 Verification:
 
@@ -327,13 +327,13 @@ pnpm --filter @web-audio/audio-regression lint
 pnpm --filter @web-audio/audio-regression audio:render --case unison
 ```
 
-Repeat the focused native command and diagnostic render in fresh processes. For existing references use the current `audio:verify --case <existing-id>` selector against the Phase 0 ID inventory; alternatively run full read-only verification and explicitly classify only missing new references. These proposed native tests/case do not exist before this step.
+Repeat the focused native command and diagnostic render in fresh processes. For existing references use the current `audio:verify --case <existing-id>` selector against the Phase 0 ID inventory; alternatively run full read-only verification and explicitly classify only missing new references. The new native tests and diagnostic case are intentionally reference-free.
 
 Automated proof: Both unison selectors and the saw-only shape reach the real processor through the engine; default/explicit saw agree, deterministic settings reproduce, stereo/mono paths remain finite, and existing recordings are unchanged. A copied signal algorithm or fake-node graph is not native acoustic proof.
 Manual: Review the native assertions' sample windows and actual compared data. Timing/suppression checks must reject empty or truncated windows, not reduce an empty slice to a passing zero. Musical and device-performance approval remain pending.
 
 Completion gate: Native saw-only unison proof passes in fresh runs, existing references retain their bytes/output, diagnostic material is reproducible, and all resources close without weakened safeguards. No new reference is accepted yet.
-Evidence: Not run.
+Evidence: [evidence/2.2.md](evidence/2.2.md).
 
 Phase exit gate: After Step 2.2 checks, rebuild dependency artifacts and run relevant package checks/tests together; review the atomic schema/consumer/source path plus native diagnostics. No existing recording may differ unexplained. New missing references are explicitly pending Step 3.1, not a green full-registry claim.
 
@@ -344,7 +344,7 @@ pnpm --filter @web-audio/audio-regression test
 pnpm check
 ```
 
-Evidence: Not run.
+Evidence: [evidence/2.2.md](evidence/2.2.md).
 
 ## Phase 3 — Document, audition, and accept delivery
 
