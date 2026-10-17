@@ -49,7 +49,7 @@ Review boundary: Read-only inspection plus normal build/test artifacts; no produ
 
 ### Step 0.1 — Record the unchanged-code baseline
 
-Status: Pending
+Status: Complete
 Requirements / acceptance: R3–R8; baseline support for AC3, AC5–AC9, not acceptance of the new behavior.
 Depends on: None.
 Review boundary: Existing engine/schema/Fluid tests and native recordings, with failures attributed before implementation.
@@ -61,10 +61,10 @@ Expected files:
 
 Tasks:
 
-- [ ] Record the starting revision/worktree state and verify unrelated changes are preserved; inventory the existing case/reference pairs and their byte identities for later comparison.
-- [ ] Establish browser/tool availability and build the workspace dependencies needed by package tests. If setup needs installation or another machine change, stop for approval.
-- [ ] Run the existing engine, schema, and Fluid suites and the native reference verification before changing wiring; distinguish pre-existing failures from feature regressions.
-- [ ] Record the browser version and baseline result concisely. Preserve any consequential failure evidence outside the runner's disposable per-case diagnostic directories before a later verification replaces it; do not update references.
+- [x] Record the starting revision/worktree state and verify unrelated changes are preserved; inventory the existing case/reference pairs and their byte identities for later comparison.
+- [x] Establish browser/tool availability and build the workspace dependencies needed by package tests. If setup needs installation or another machine change, stop for approval.
+- [x] Run the existing engine, schema, and Fluid suites and the native reference verification before changing wiring; distinguish pre-existing failures from feature regressions.
+- [x] Record the browser version and baseline result concisely. Preserve any consequential failure evidence outside the runner's disposable per-case diagnostic directories before a later verification replaces it; do not update references.
 
 Verification:
 
@@ -76,15 +76,15 @@ pnpm --filter @web-audio/fluid test:ci
 pnpm --filter @web-audio/audio-regression audio:verify
 ```
 
-Expected result: Current tests and reviewed recordings pass, or an existing failure is identified and resolved/explicitly escalated. The native command renders the actual current engine without writing accepted references. Review the worktree afterward for accidental reference/source changes.
+Result: Engine, schema, and Fluid suites passed (347, 115, and 1,128 tests respectively); native verification passed all 11 existing recordings with the unchanged tolerances. The worktree and all reference hashes remained unchanged.
 
 Manual: No listening acceptance is needed for an unchanged, numerically passing baseline. Browser installation approval, if needed, is separate from this test gate.
 
 Completion gate: The baseline is reproducible and reference bytes are untouched; unresolved failures affecting this feature remain Blocked rather than silently waived.
-Evidence: Not run.
+Evidence: [evidence/0.1.md](evidence/0.1.md).
 
 Phase exit gate: After Step 0.1 checks, review the baseline and ensure there are no unexplained failures or reference mutations before Phase 1 or supervised approval to advance. A pre-existing failure is not automatically an accepted deviation.
-Evidence: Not run.
+Evidence: [evidence/0.1.md](evidence/0.1.md).
 
 ## Phase 1 — Relocate voice processing and preserve its boundaries
 
