@@ -15,8 +15,16 @@ type EngineClock = Pick<AudioClock, "on" | "bpm" | "barDuration"> &
 // Instruments only read musical duration; they do not own transport or timers.
 type InstrumentClock = Pick<EngineClock, "barDuration">;
 
+interface ScheduledSource {
+  onended: ((...args: never[]) => void) | null;
+  connect(destination: AudioNode): AudioNode;
+  disconnect(): void;
+  start(when?: number): void;
+  stop(when?: number): void;
+}
+
 interface ScheduledNote {
-  sourceNode: AudioScheduledSourceNode;
+  sourceNode: ScheduledSource;
   audioNodes: AudioNode[];
   completionCleanups: (() => void)[];
   startTime: number;
@@ -107,4 +115,5 @@ export type {
   ResolvedSynthEvent,
   ResolvedTimingEvent,
   ScheduledNote,
+  ScheduledSource,
 };

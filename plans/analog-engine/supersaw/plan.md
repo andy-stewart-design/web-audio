@@ -138,7 +138,7 @@ Evidence: [evidence/1.1.md](evidence/1.1.md).
 
 ### Step 1.2 — Fit worklet completion into shared voice ownership
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R2, R6, R8; AC6/AC7 (adapter ownership portion). Actual supersaw dispatch and engine composition remain Step 2.1; native timing remains Step 2.2.
 Depends on: Step 1.1.
 Review boundary: Narrow source capability and its consumers; keep native synth/sampler behavior and public schema unchanged.
@@ -152,10 +152,10 @@ Expected files:
 
 Tasks:
 
-- [ ] Replace the native-only source assumption with just the operations the common voice path uses. Native oscillators/buffer sources remain usable without a new wrapper per existing source type; buffer `.start(when, offset)` must retain its current path.
-- [ ] Add a supersaw source wrapper exposing frequency/detune/spread/width parameter targets and translating start/stop into the processor's audio-frame schedule. Count/seed are fixed construction data; no continuously modulated count parameter.
-- [ ] Adapt completion to the existing voice callback/cleanup path without pretending the node is an `AudioScheduledSourceNode`. No top-level inheritance from a browser-only constructor, wall-clock lifecycle timer, or general event/engine registry.
-- [ ] Cover completion, stop rescheduling, immediate/future cancellation before processing, ignored duplicate/late notifications, idempotent disconnect/destruction, and port/listener cleanup in the small adapter test. Preserve active Stop and retirement semantics in shared code; use existing suites for their broader contract.
+- [x] Replace the native-only source assumption with just the operations the common voice path uses. Native oscillators/buffer sources remain usable without a new wrapper per existing source type; buffer `.start(when, offset)` must retain its current path.
+- [x] Add a supersaw source wrapper exposing frequency/detune/spread/width parameter targets and translating start/stop into the processor's audio-frame schedule. Count/seed are fixed construction data; no continuously modulated count parameter.
+- [x] Adapt completion to the existing voice callback/cleanup path without pretending the node is an `AudioScheduledSourceNode`. No top-level inheritance from a browser-only constructor, wall-clock lifecycle timer, or general event/engine registry.
+- [x] Cover completion, stop rescheduling, immediate/future cancellation before processing, ignored duplicate/late notifications, idempotent disconnect/destruction, and port/listener cleanup in the small adapter test. Preserve active Stop and retirement semantics in shared code; use existing suites for their broader contract.
 
 Verification:
 
@@ -169,7 +169,7 @@ Automated proof: Adapter ownership and scheduled-source compatibility, not nativ
 Manual: Review every `sourceNode`, `_scheduleVoice`, cancellation/destruction, and offset consumer of the changed capability. Ensure the wrapper's callback cannot complete another voice and import-time behavior remains safe in the existing Node tests.
 
 Completion gate: The new seam and all current consumers remain buildable, with focused adapter tests and existing native-source tests passing. Supersaw remains internal until its vertical slice is complete.
-Evidence: Not run.
+Evidence: [evidence/1.2.md](evidence/1.2.md).
 
 Phase exit gate: After Step 1.2 checks, run the full audio-engine suite, rebuild native dependencies, and run `audio:verify`. All existing recordings must retain their Phase 0 bytes and match at unchanged limits. No supersaw references or expanded schema are needed to pass this gate.
 
@@ -179,7 +179,7 @@ pnpm --filter @web-audio/audio-regression build:deps
 pnpm --filter @web-audio/audio-regression audio:verify
 ```
 
-Evidence: Not run.
+Evidence: [evidence/1.2.md](evidence/1.2.md).
 
 ## Phase 2 — Integrate typed authoring and prove native playback
 

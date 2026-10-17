@@ -17,6 +17,7 @@ import type {
   ResolvedDetune,
   ResolvedEnvelopeSchema,
   ScheduledNote,
+  ScheduledSource,
 } from "@/types";
 import ValuePatternResolver from "@/instruments/value-pattern-resolver";
 import { SYNTH_BASE_GAIN, FILTER_TYPE_MAP } from "@/constants";
@@ -61,7 +62,7 @@ interface BaseScheduleVoiceParams {
 type ScheduleVoiceParams = BaseScheduleVoiceParams &
   (
     | { source: AudioBufferSourceNode; offset: number }
-    | { source: AudioScheduledSourceNode; offset?: undefined }
+    | { source: ScheduledSource; offset?: undefined }
   );
 
 type MidiBinding = (midi: Midi | null) => void;
@@ -306,7 +307,7 @@ abstract class Instrument {
   }
 
   protected _track(
-    sourceNode: AudioScheduledSourceNode,
+    sourceNode: ScheduledSource,
     audioNodes: AudioNode[],
     startTime: number,
     completionCleanups: (() => void)[] = [],
@@ -588,4 +589,9 @@ abstract class Instrument {
 }
 
 export default Instrument;
-export type { InstrumentOptions, InstrumentRouting, ScheduledNote };
+export type {
+  InstrumentOptions,
+  InstrumentRouting,
+  ScheduledNote,
+  ScheduledSource,
+};
