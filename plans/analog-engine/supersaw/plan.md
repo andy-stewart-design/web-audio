@@ -54,7 +54,7 @@ Review boundary: Read-only inspection plus normal build/test artifacts; no produ
 
 ### Step 0.1 — Record baseline and implementation assumptions
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R8–R9; baseline support for AC10, not supersaw acceptance.
 Depends on: None.
 Review boundary: Current revision/tooling/reference inventory and baseline checks only.
@@ -86,10 +86,10 @@ Automated proof: Existing code/tests build and existing authored recordings matc
 Manual: Review assumptions against the current source and record blockers honestly. An unavailable browser/setup prerequisite blocks the relevant gate; it is not a waived test. No new listening approval is needed for numerically unchanged baseline recordings.
 
 Completion gate: Reproducible baseline with untouched reference bytes and no unexplained failures affecting this work.
-Evidence: Not run.
+Evidence: [evidence/0.1.md](evidence/0.1.md).
 
 Phase exit gate: After Step 0.1, review the baseline and assumption record before production work or supervised advancement. A pre-existing failure is not automatically an accepted deviation.
-Evidence: Not run.
+Evidence: [evidence/0.1.md](evidence/0.1.md).
 
 ## Phase 1 — Deliver the processor and lifecycle seam
 
