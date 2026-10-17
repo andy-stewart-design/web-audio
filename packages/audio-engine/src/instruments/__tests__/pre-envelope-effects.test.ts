@@ -1,11 +1,7 @@
 import type AudioClock from "@web-audio/clock";
-import type { Midi } from "@web-audio/midi";
 import type {
   EffectSchema,
   EnvelopeSchema,
-  LfoSchema,
-  MidiCcSchema,
-  NumberPattern,
   SamplerSchema,
   SynthesizerSchema,
   TimingPattern,
@@ -15,7 +11,6 @@ import {
   defaultSamplerSchema,
   defaultSynthSchema,
   fileBank,
-  randomNumberPattern,
   staticNumberPattern,
 } from "../../test-utils/schema-fixtures";
 import SampleBufferCache from "../sample-buffer-cache";
@@ -25,7 +20,6 @@ import Synthesizer from "../synthesizer";
 class FakeAudioParam {
   value = 0;
   setValueAtTime = vi.fn();
-  setTargetAtTime = vi.fn();
   linearRampToValueAtTime = vi.fn();
 }
 
@@ -50,10 +44,7 @@ class FakeFilterNode {
   readonly connect = vi.fn();
   readonly disconnect = vi.fn();
 
-  constructor(
-    _ctx: AudioContext,
-    readonly options: BiquadFilterOptions,
-  ) {
+  constructor() {
     FakeFilterNode.instances.push(this);
   }
 }
@@ -67,10 +58,7 @@ class FakeOscillatorNode {
   readonly connect = vi.fn();
   readonly disconnect = vi.fn();
 
-  constructor(
-    _ctx: AudioContext,
-    readonly options: OscillatorOptions,
-  ) {
+  constructor() {
     FakeOscillatorNode.instances.push(this);
   }
 
@@ -88,55 +76,8 @@ class FakeBufferSourceNode {
   readonly connect = vi.fn();
   readonly disconnect = vi.fn();
 
-  constructor(
-    _ctx: AudioContext,
-    readonly options: AudioBufferSourceOptions,
-  ) {
+  constructor() {
     FakeBufferSourceNode.instances.push(this);
-  }
-
-  fireEnded() {
-    this.onended?.();
-  }
-}
-
-class FakeLfoNode {
-  static instances: FakeLfoNode[] = [];
-  readonly parameters = new Map([
-    ["outputA", new FakeAudioParam()],
-    ["outputB", new FakeAudioParam()],
-  ]);
-  readonly connect = vi.fn();
-  readonly disconnect = vi.fn();
-
-  constructor(
-    _ctx: AudioContext,
-    readonly name: string,
-    readonly options: AudioWorkletNodeOptions,
-  ) {
-    FakeLfoNode.instances.push(this);
-  }
-}
-
-class FakeCcSignal {
-  value = 0;
-  hasValue = false;
-  private readonly subscribers = new Set<(value: number) => void>();
-
-  subscribe(callback: (value: number) => void) {
-    this.subscribers.add(callback);
-    callback(this.value);
-    return () => this.subscribers.delete(callback);
-  }
-
-  emit(raw: number) {
-    this.value = raw / 127;
-    this.hasValue = true;
-    this.subscribers.forEach((callback) => callback(this.value));
-  }
-
-  get subscriberCount() {
-    return this.subscribers.size;
   }
 }
 
@@ -157,7 +98,7 @@ const timing = (
   cycle: TimingPattern["cycle"] = [[{ offset: 0, duration: 1 }]],
 ): TimingPattern => ({ cycle });
 
-function envelope(overrides: Partial<EnvelopeSchema> = {}): EnvelopeSchema {
+function envelope(): EnvelopeSchema {
   return {
     type: "envelope",
     min: 0,
@@ -167,7 +108,6 @@ function envelope(overrides: Partial<EnvelopeSchema> = {}): EnvelopeSchema {
     s: staticNumberPattern([1]),
     r: staticNumberPattern([0]),
     mode: "bleed",
-    ...overrides,
   };
 }
 
@@ -182,34 +122,10 @@ function filterEffect(frequency = 800): EffectSchema {
   };
 }
 
-function gainEffect(value: number | NumberPattern = 0.5): EffectSchema {
+function gainEffect(value = 0.5): EffectSchema {
   return {
     type: "gain",
-    gain: typeof value === "number" ? staticNumberPattern([value]) : value,
-  };
-}
-
-function lfoSchema(id = "filter-lfo"): LfoSchema {
-  return {
-    type: "lfo",
-    id,
-    outputA: staticNumberPattern([400]),
-    outputB: staticNumberPattern([1200]),
-    speed: [1],
-    waveform: ["sine"],
-    phase: 0,
-    norm: true,
-    invert: false,
-  };
-}
-
-function midiCc(overrides: Partial<MidiCcSchema> = {}): MidiCcSchema {
-  return {
-    type: "midi-cc",
-    cc: 74,
-    range: { min: -100, max: 100, curve: "linear" },
-    default: 0,
-    ...overrides,
+    gain: staticNumberPattern([value]),
   };
 }
 
@@ -268,12 +184,10 @@ beforeEach(() => {
   FakeFilterNode.instances = [];
   FakeOscillatorNode.instances = [];
   FakeBufferSourceNode.instances = [];
-  FakeLfoNode.instances = [];
   vi.stubGlobal("GainNode", FakeGainNode);
   vi.stubGlobal("BiquadFilterNode", FakeFilterNode);
   vi.stubGlobal("OscillatorNode", FakeOscillatorNode);
   vi.stubGlobal("AudioBufferSourceNode", FakeBufferSourceNode);
-  vi.stubGlobal("AudioWorkletNode", FakeLfoNode);
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -401,176 +315,7 @@ describe("pre-envelope voice topology", () => {
   });
 });
 
-describe("pre-envelope scheduling parity", () => {
-  it("preserves synth source timing, envelope values, and effect timing", () => {
-    const ctx = new FakeAudioContext();
-    const instance = createSynth(
-      ctx,
-      synthSchema({
-        effects: [filterEffect()],
-        gain: envelope({
-          min: 0.2,
-          max: staticNumberPattern([0.8]),
-          a: staticNumberPattern([0.1]),
-          d: staticNumberPattern([0.2]),
-          s: staticNumberPattern([0.5]),
-          r: staticNumberPattern([0.2]),
-        }),
-        eventPattern: {
-          timing: timing([[{ offset: 0.25, duration: 0.5 }]]),
-          notes: { type: "static", cycle: [[[60]]] },
-        },
-      }),
-    );
-
-    instance.scheduleBar(0, 10);
-
-    const source = FakeOscillatorNode.instances[0];
-    const filter = FakeFilterNode.instances[0];
-    const envelopeNode = voiceEnvelopes(ctx)[0];
-    expect(source.start).toHaveBeenCalledWith(10.5);
-    expect(source.stop).toHaveBeenCalledWith(expect.closeTo(11.75));
-    expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(800, 10.5);
-    expect(envelopeNode.gain.setValueAtTime).toHaveBeenNthCalledWith(
-      1,
-      0.2,
-      10.5,
-    );
-    expect(envelopeNode.gain.linearRampToValueAtTime).toHaveBeenNthCalledWith(
-      1,
-      0.8,
-      10.6,
-    );
-    expect(envelopeNode.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(
-      0.2,
-      11.7,
-    );
-  });
-
-  it("preserves sampler source offset, playback, timing, and envelope values", () => {
-    const ctx = new FakeAudioContext();
-    const instance = createSampler(
-      ctx,
-      samplerSchema({
-        effects: [filterEffect()],
-        gain: envelope({
-          min: 0.25,
-          max: staticNumberPattern([0.75]),
-          r: staticNumberPattern([0.1]),
-        }),
-        eventPattern: {
-          timing: timing([[{ offset: 0.5, duration: 0.5 }]]),
-          sampleNames: { type: "static", cycle: [[["bd"]]] },
-        },
-        region: {
-          type: "static",
-          start: staticNumberPattern([0.25]),
-          duration: staticNumberPattern([0.5]),
-        },
-      }),
-    );
-
-    instance.scheduleBar(0, 10);
-
-    const source = FakeBufferSourceNode.instances[0];
-    const envelopeNode = voiceEnvelopes(ctx)[0];
-    expect(source.options.playbackRate).toBe(1);
-    expect(source.start).toHaveBeenCalledWith(11, 1);
-    expect(source.stop).toHaveBeenCalledWith(expect.closeTo(12.15));
-    expect(envelopeNode.gain.setValueAtTime).toHaveBeenNthCalledWith(
-      1,
-      0.25,
-      11,
-    );
-    expect(envelopeNode.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(
-      0.25,
-      12.1,
-    );
-  });
-
-  it("preserves static, random, envelope, LFO, and MIDI effect automation", () => {
-    const ctx = new FakeAudioContext();
-    const signal = new FakeCcSignal();
-    const instance = createSynth(
-      ctx,
-      synthSchema({
-        effects: [
-          {
-            type: "filter",
-            filterType: "lp",
-            frequency: staticNumberPattern([400, 800]),
-            q: envelope({
-              min: 0.25,
-              max: staticNumberPattern([2]),
-              a: staticNumberPattern([0.1]),
-              d: staticNumberPattern([0]),
-              s: staticNumberPattern([1]),
-              r: staticNumberPattern([0.1]),
-            }),
-            detune: midiCc(),
-            gain: lfoSchema(),
-          },
-          gainEffect(randomNumberPattern({ range: { min: 0.25, max: 0.75 } })),
-        ],
-        eventPattern: {
-          timing: timing([
-            [
-              { offset: 0, duration: 0.5 },
-              { offset: 0.5, duration: 0.5 },
-            ],
-          ]),
-          notes: { type: "static", cycle: [[[60], [64]]] },
-        },
-      }),
-    );
-
-    instance.scheduleBar(0, 10);
-
-    const filters = FakeFilterNode.instances;
-    expect(filters).toHaveLength(2);
-    expect(filters[0].frequency.setValueAtTime.mock.calls).toEqual([[400, 10]]);
-    expect(filters[1].frequency.setValueAtTime.mock.calls).toEqual([[800, 11]]);
-    expect(filters[0].Q.setValueAtTime).toHaveBeenCalledWith(0.25, 10);
-    expect(filters[1].Q.setValueAtTime).toHaveBeenCalledWith(0.25, 11);
-
-    const envelopes = voiceEnvelopes(ctx);
-    const randomGains = FakeGainNode.instances.filter(
-      (node) =>
-        node.role === "voice" &&
-        !envelopes.includes(node) &&
-        node.connect.mock.calls.some(([destination]) =>
-          envelopes.includes(destination as FakeGainNode),
-        ),
-    );
-    expect(randomGains).toHaveLength(2);
-    randomGains.forEach((node) => {
-      const [value, time] = node.gain.setValueAtTime.mock.calls[0];
-      expect(value).toBeGreaterThanOrEqual(0.25);
-      expect(value).toBeLessThanOrEqual(0.75);
-      expect([10, 11]).toContain(time);
-    });
-
-    const lfoNode = FakeLfoNode.instances[0];
-    expect(lfoNode.connect).toHaveBeenCalledWith(filters[0].gain);
-    expect(lfoNode.connect).toHaveBeenCalledWith(filters[1].gain);
-
-    const midi = {
-      in: { cc: vi.fn(() => signal) },
-    } as unknown as Midi;
-    instance.connectMidi(midi);
-    signal.emit(64);
-    expect(filters[0].detune.setTargetAtTime).toHaveBeenCalledWith(
-      expect.closeTo((64 / 127) * 200 - 100),
-      0,
-      0.01,
-    );
-
-    instance.destroy();
-    expect(signal.subscriberCount).toBe(0);
-    expect(lfoNode.disconnect).toHaveBeenCalledWith(filters[0].gain);
-    expect(lfoNode.disconnect).toHaveBeenCalledWith(filters[1].gain);
-  });
-
+describe("pre-envelope voice lifecycle", () => {
   it("cleans only the ended voice and preserves the surviving effected voice", () => {
     const ctx = new FakeAudioContext();
     const instance = createSynth(
@@ -605,52 +350,5 @@ describe("pre-envelope scheduling parity", () => {
     secondSource.fireEnded();
     expect(secondSource.disconnect).toHaveBeenCalledOnce();
     expect(filters[1].disconnect).toHaveBeenCalledOnce();
-  });
-
-  it("cleans a naturally ended sampler voice and future cancellation without extending tails", () => {
-    const naturalCtx = new FakeAudioContext();
-    const natural = createSampler(
-      naturalCtx,
-      samplerSchema({ effects: [filterEffect()] }),
-    );
-    natural.scheduleBar(0, 10);
-    const naturalSource = FakeBufferSourceNode.instances[0];
-    naturalSource.fireEnded();
-    expect(naturalSource.disconnect).toHaveBeenCalledOnce();
-    expect(FakeFilterNode.instances[0].disconnect).toHaveBeenCalledOnce();
-
-    const futureCtx = new FakeAudioContext();
-    const future = createSynth(
-      futureCtx,
-      synthSchema({ effects: [filterEffect()] }),
-    );
-    future.scheduleBar(0, 10);
-    const futureSource = FakeOscillatorNode.instances.at(-1)!;
-    const futureFilter = FakeFilterNode.instances.at(-1)!;
-    const scheduledStopCalls = futureSource.stop.mock.calls.length;
-    future.cancelFutureNotes();
-    expect(futureSource.stop.mock.calls).toHaveLength(scheduledStopCalls + 1);
-    expect(futureSource.stop).toHaveBeenLastCalledWith(0);
-    expect(futureSource.disconnect).toHaveBeenCalledOnce();
-    expect(futureFilter.disconnect).toHaveBeenCalledOnce();
-  });
-
-  it("destroys active effected voices idempotently", () => {
-    const ctx = new FakeAudioContext();
-    const instance = createSynth(
-      ctx,
-      synthSchema({ effects: [filterEffect()] }),
-    );
-    instance.scheduleBar(0, 0);
-    const source = FakeOscillatorNode.instances[0];
-    const filter = FakeFilterNode.instances[0];
-
-    instance.destroy();
-    instance.destroy();
-
-    expect(source.stop.mock.calls).toHaveLength(2);
-    expect(source.stop).toHaveBeenLastCalledWith(0);
-    expect(source.disconnect).toHaveBeenCalledOnce();
-    expect(filter.disconnect).toHaveBeenCalledOnce();
   });
 });

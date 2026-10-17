@@ -6,8 +6,20 @@
 - Delivery state: Feature accepted. Steps 0.1, 1.1, 1.2, 2.1, 2.2, and 2.3 are complete.
 - Acceptance or release: The new topology, documentation, individually approved references, and final workspace/native gates are complete. No publication or deployment is included.
 - Blockers: None. Chromium availability, native verification, listening approval, documentation, reference acceptance, and final integration gates are complete.
+- Pre-PR test simplification: Complete. Current coverage ownership and fresh verification are recorded below and in [evidence/pre-pr-test-simplification.md](evidence/pre-pr-test-simplification.md).
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove verification. Verified means the scoped gate and required implementation review passed; it does not imply human listening approval, publication, or release. In supervised execution, extension state owns manual approval records; evidence entries may link to them without duplicating approval checklists.
+
+## Current test ownership after pre-PR simplification
+
+The original step tasks, expected-file lists, results, and linked step evidence below preserve implementation history, including tests subsequently removed. They are not claims that every originally added assertion remains in the delivered suite. Spec requirements R1–R8 and AC1–AC9 are unchanged.
+
+- **Focused new instrument coverage:** `packages/audio-engine/src/instruments/__tests__/pre-envelope-effects.test.ts` retains all six expanded topology tests (authored order, empty chains, chord/layer isolation) and one independent voice-cleanup test in `pre-envelope voice lifecycle`. It no longer duplicates general timing, automation, sampler completion/cancellation, or destruction coverage.
+- **Existing retained-contract coverage:** Existing `instruments/{instrument,synthesizer,sampler}.test.ts`, `instruments/value-pattern-resolver.test.ts`, and `utils/compute-envelope.test.ts` own scheduling, sample playback/regions, static/random resolution, envelope values/floors, LFO/MIDI bindings, and shared voice lifecycle contracts. Existing `engine.test.ts` and `buses/runtime-bus.test.ts` own routing/sends, graph replacement/retirement, Stop, bus automation, and ducking; existing synth tests cover MIDI note output. These suites are retained unchanged, not new pre-envelope-specific integration tests.
+- **Removed redundant composition suite:** `packages/audio-engine/src/__tests__/pre-envelope-effects.test.ts` is deleted. The initial effect-bearing engine-composition execution remains historical evidence in Step 1.2; it is not a retained dedicated test. Focused topology/cleanup tests establish relocated node placement/ownership, while the existing suites above protect unchanged downstream contracts.
+- **Focused native coverage:** `packages/audio-regression/src/__tests__/pre-envelope-effects.test.ts` still tests both synths and samplers at 44.1 kHz and 48 kHz against explicit intended/old graphs with unchanged comparison limits. The synthetic synth fixture now renders through 2.6 seconds, beyond its 2.5-second release end. Suppression-window assertions require nonnegative start, positive length, and an end within every channel rather than allowing a clamped empty window.
+
+The simplification changes no production code, authored cases, recordings/metadata, or unrelated tests. Fresh package tests, native verification, workspace check/lint, formatting, and diff checks pass; see the current evidence linked above. No reference update or renewed listening approval was needed.
 
 ## Execution constraints
 
@@ -122,7 +134,7 @@ pnpm --filter @web-audio/audio-engine check
 pnpm --filter @web-audio/audio-engine lint
 ```
 
-Result: Direct scheduling assertions prove one correctly ordered path per voice and unchanged timing; existing instrument regressions pass. These fake-node checks do not claim native acoustic parity or listening approval.
+Initial execution result: Direct scheduling assertions proved one correctly ordered path per voice and unchanged timing; existing instrument regressions passed. After pre-PR simplification, the focused suite owns topology/isolation and existing suites own timing/envelope contracts as listed above. These fake-node checks do not claim native acoustic parity or listening approval.
 
 Manual: Review the connection diff and node-tracking list together; no second amplitude envelope, shared per-voice effects, or untracked connection may have appeared.
 
@@ -160,7 +172,7 @@ pnpm --filter @web-audio/schema test:ci
 pnpm --filter @web-audio/fluid test:ci
 ```
 
-Result: Automation schedules, binding ownership, Stop/retirement, routing, and MIDI/duck contracts remain intact. The added effect-bearing engine assertion uses real runtime instruments rather than mocks hiding `_scheduleVoice()`.
+Initial execution result: Automation schedules, binding ownership, Stop/retirement, routing, and MIDI/duck contracts remained intact. The then-added effect-bearing engine assertion used real runtime instruments rather than mocks hiding `_scheduleVoice()`. That composition test and redundant general-contract tests were subsequently removed during pre-PR simplification; current ownership is the focused voice-cleanup test plus unchanged existing contract suites listed above.
 
 Manual: Inspect any change outside the connection order and test/docs surface for scope creep. A discovered unrelated pre-existing defect is reported, not silently repaired here.
 
@@ -306,19 +318,19 @@ Evidence: [evidence/2.3.md](evidence/2.3.md).
 
 ## Final acceptance
 
-This table points to owning gates; their evidence/status entries remain the single execution record.
+This table points to owning gates; their evidence/status entries preserve the initial execution record. For the delivered test inventory and fresh post-simplification results, use the current test ownership section above and [pre-PR evidence](evidence/pre-pr-test-simplification.md), not removed historical assertions.
 
-| Spec acceptance ID | Owning step / gate                     | Verification and expected result                                                                                        | Evidence / status                   |
-| ------------------ | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| AC1                | Step 1.1                               | Real instrument scheduling creates the exact ordered pre-envelope path with no bypass.                                  | Step 1.1 evidence; Complete         |
-| AC2                | Steps 1.1 and 1.2                      | Overlapping synth/sample voices have distinct paths and independent cleanup.                                            | Steps 1.1/1.2 evidence; Complete    |
-| AC3                | Steps 0.1, 1.1, 2.1; final gate in 2.3 | Empty-chain topology and existing no-effects native controls retain their baseline output.                              | Owning step evidence; Complete      |
-| AC4                | Steps 2.1 and 2.3                      | Native output matches the intended graph, rejects the old placement, and focused recordings receive listening approval. | Steps 2.1/2.3 evidence; Complete    |
-| AC5                | Steps 1.1 and 1.2                      | Source/envelope schedules, nonzero floors, parameter automation, and bindings retain their contracts.                   | Steps 1.1/1.2 evidence; Complete    |
-| AC6                | Step 1.2                               | Cancellation, natural end, active Stop, replacement/retirement, and destruction retain ownership/lifetime rules.        | Step 1.2 evidence; Complete         |
-| AC7                | Step 1.2                               | Effect-bearing composition preserves routing, send taps, mute, duck/MIDI timing, and bus behavior.                      | Step 1.2 evidence; Complete         |
-| AC8                | Steps 1.2 and 2.2; final gate in 2.3   | Existing authoring/schema contracts pass and delivered documentation accurately explains the sonic break.               | Owning step evidence; Complete      |
-| AC9                | Step 2.3 / Phase 2 exit                | Attributed, individually approved references and the complete native suite pass without weakened safeguards.            | Step 2.3/Phase 2 evidence; Complete |
+| Spec acceptance ID | Owning step / gate                     | Verification and expected result                                                                                                         | Evidence / status                   |
+| ------------------ | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| AC1                | Step 1.1                               | Real instrument scheduling creates the exact ordered pre-envelope path with no bypass.                                                   | Step 1.1 evidence; Complete         |
+| AC2                | Steps 1.1 and 1.2                      | Overlapping synth/sample voices have distinct paths and independent cleanup.                                                             | Steps 1.1/1.2 evidence; Complete    |
+| AC3                | Steps 0.1, 1.1, 2.1; final gate in 2.3 | Empty-chain topology and existing no-effects native controls retain their baseline output.                                               | Owning step evidence; Complete      |
+| AC4                | Steps 2.1 and 2.3                      | Native output matches the intended graph, rejects the old placement, and focused recordings receive listening approval.                  | Steps 2.1/2.3 evidence; Complete    |
+| AC5                | Steps 1.1 and 1.2                      | Existing scheduling/envelope/automation suites protect source schedules, nonzero floors, parameter values, and bindings.                 | Steps 1.1/1.2 evidence; Complete    |
+| AC6                | Step 1.2                               | Focused independent voice cleanup plus existing lifecycle/engine suites protect completion, Stop, retirement, and destruction contracts. | Step 1.2 evidence; Complete         |
+| AC7                | Step 1.2                               | Focused voice output placement plus existing routing/send, mute, duck/MIDI, and bus suites protect downstream contracts.                 | Step 1.2 evidence; Complete         |
+| AC8                | Steps 1.2 and 2.2; final gate in 2.3   | Existing authoring/schema contracts pass and delivered documentation accurately explains the sonic break.                                | Owning step evidence; Complete      |
+| AC9                | Step 2.3 / Phase 2 exit                | Attributed, individually approved references and the complete native suite pass without weakened safeguards.                             | Step 2.3/Phase 2 evidence; Complete |
 
 ## Rollback and recovery
 
@@ -330,6 +342,6 @@ This table points to owning gates; their evidence/status entries remain the sing
 
 ## Deferred checks and accepted deviations
 
-- None accepted. Every implementation, baseline, and acceptance check above is future work, not a skipped passing gate.
+- None accepted. Original implementation, baseline, and acceptance gates completed as recorded above; fresh pre-PR simplification checks are recorded separately in the current evidence.
 - Browser installation or dependency repair requires separate approval if needed; human listening requires access to a listener and audio playback. Missing prerequisites block their gates rather than reducing coverage.
 - Supersaw, source-layer gain/sub/noise APIs, saturation/compression, shared time-based effects, and generalized tail management remain deferred exactly as in the spec.

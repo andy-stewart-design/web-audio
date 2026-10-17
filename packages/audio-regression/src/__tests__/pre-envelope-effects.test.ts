@@ -23,7 +23,7 @@ function synthCase(sampleRate: number): SketchCase {
   .fx(d.lpf(700).q(12))
   .push();`,
     bars: 1,
-    tailSeconds: 0.3,
+    tailSeconds: 0.5,
     settings: {
       sampleRate,
       channels: 2,
@@ -185,11 +185,16 @@ function finalSuppression(
       input.sampleRate,
   );
   const end = Math.floor((input.stopTime - 0.005) * input.sampleRate);
-  return channels.map((channel) =>
-    channel
-      .subarray(start, Math.max(start, end))
-      .reduce((peak, value) => Math.max(peak, Math.abs(value)), 0),
-  );
+  expect(start).toBeGreaterThanOrEqual(0);
+  expect(end).toBeGreaterThan(start);
+
+  return channels.map((channel) => {
+    expect(end).toBeLessThanOrEqual(channel.length);
+
+    return channel
+      .subarray(start, end)
+      .reduce((peak, value) => Math.max(peak, Math.abs(value)), 0);
+  });
 }
 
 function graphInput(
