@@ -3,9 +3,9 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md), ready for planning; R1–R8 and AC1–AC9 govern this work.
-- Delivery state: Implementation in progress. Steps 0.1, 1.1, 1.2, and 2.1 are complete; documentation, listening, reference acceptance, and final integration gates remain pending.
-- Acceptance or release still pending: Individual human listening approval for new/changed recordings, documentation, reference updates, and final integration gates. No publication or deployment is included.
-- Blockers: No unresolved product decisions or baseline failures. Chromium availability is verified for the existing native runner; remaining gates are still required.
+- Delivery state: Feature accepted. Steps 0.1, 1.1, 1.2, 2.1, 2.2, and 2.3 are complete.
+- Acceptance or release: The new topology, documentation, individually approved references, and final workspace/native gates are complete. No publication or deployment is included.
+- Blockers: None. Chromium availability, native verification, listening approval, documentation, reference acceptance, and final integration gates are complete.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove verification. Verified means the scoped gate and required implementation review passed; it does not imply human listening approval, publication, or release. In supervised execution, extension state owns manual approval records; evidence entries may link to them without duplicating approval checklists.
 
@@ -222,7 +222,7 @@ Evidence: [evidence/2.1.md](evidence/2.1.md).
 
 ### Step 2.2 — Document the new contract and the intentional break
 
-Status: Pending
+Status: Complete
 Requirements / acceptance: R3, R7; AC8 (documentation portion); AC9 communication support, not recording approval.
 Depends on: Step 2.1.
 Review boundary: User-facing signal placement and migration expectations only.
@@ -235,9 +235,9 @@ Expected files:
 
 Tasks:
 
-- [ ] Show effects-before-amplitude-ADSR, authored order, and per-voice ownership; distinguish effect modulation from the final voice envelope.
-- [ ] Explain that syntax/schema remain unchanged, there is no legacy selector, and affected filter attacks/releases may sound different. Do not promise equivalent old sound or imply every sketch changes.
-- [ ] Preserve existing route/send tap points, named-bus restrictions, and current main-gain-only behavior. Do not describe future saturation, layering, compression, or tail handling as implemented.
+- [x] Show effects-before-amplitude-ADSR, authored order, and per-voice ownership; distinguish effect modulation from the final voice envelope.
+- [x] Explain that syntax/schema remain unchanged, there is no legacy selector, and affected filter attacks/releases may sound different. Do not promise equivalent old sound or imply every sketch changes.
+- [x] Preserve existing route/send tap points, named-bus restrictions, and current main-gain-only behavior. Do not describe future saturation, layering, compression, or tail handling as implemented.
 
 Verification:
 
@@ -247,14 +247,16 @@ pnpm exec prettier --check plans/effects-chain/signal-processing.md packages/flu
 
 Include `plans/analog-engine/roadmap.md` in the check if edited. Review remaining envelope/effects diagrams with `rg -n 'envelope|ADSR|effects|\.fx\(' plans/effects-chain/signal-processing.md packages/fluid/README.md`; historical “before” examples may remain only when clearly labeled. Check formatting only on modified files rather than performing an unrelated whole-tree rewrite.
 
-Manual: Read the final explanation against the implemented and natively tested graph and the unchanged public API/schema.
+Result: The signal-flow plan and Fluid README now document effects-before-amplitude-ADSR for synths and samplers, authored effect order, per-voice ownership, the intentional sonic break, unchanged API/schema, and unchanged route/send boundaries. The roadmap marks the feature complete and links the implementation plan.
+
+Manual: The final explanation matches the implemented and natively tested graph and the unchanged public API/schema.
 
 Completion gate: AC8's documentation accurately states the break and existing boundaries, with no unsupported features or stale current-flow claim.
-Evidence: Not run.
+Evidence: [evidence/2.3.md](evidence/2.3.md).
 
 ### Step 2.3 — Individually review recordings, update references, and integrate
 
-Status: Pending
+Status: Complete
 Requirements / acceptance: R3–R8; AC3 and AC4 (final reviewed recording portions), AC8 (integrated result), AC9. Final regression also confirms AC1–AC7 remain satisfied by their owning gates.
 Depends on: Steps 2.1 and 2.2.
 Review boundary: Approval-gated binary reference updates plus final integration; no new behavior or automatic rebaseline.
@@ -267,11 +269,11 @@ Expected files:
 
 Tasks:
 
-- [ ] Run full read-only verification to enumerate changed/missing-reference cases; distinguish expected old-reference mismatches from rendering/diagnostic/shape failures. Preserve baseline before/current/difference material needed for review before a subsequent command clears disposable artifacts.
-- [ ] Provide a human listener the exact new/changed recordings, settings, and attribution. On macOS, playback can use `afplay packages/audio-regression/artifacts/render/<id>.wav` for new diagnostics and the existing `artifacts/verify/<id>/{reference,current,difference}.wav` for changed cases. The listener must hear attacks/releases, no abnormal clicks or unbounded ringing, and judge the resulting sound acceptable. Command success is not approval; pending access or approval leaves this step Blocked.
-- [ ] After each case is individually approved, update exactly that case with the existing explicit command, then reverify it. Inspect the freshly generated reference; if it differs from the reviewed output or cannot be attributed, stop and review again. Do not update unaffected references, loosen limits, or rewrite sketches to disguise differences.
-- [ ] Compare accepted-reference changes to the Phase 0 inventory, including both WAV and metadata. Confirm no unrelated assets, original sample bytes, API/schema, or harness safeguards changed.
-- [ ] Run final workspace gates after the last accepted update; inspect the final diff and acceptance mapping. Record skipped checks or unresolved failures honestly rather than marking the feature complete.
+- [x] Run full read-only verification to enumerate changed/missing-reference cases; distinguish expected old-reference mismatches from rendering/diagnostic/shape failures. Preserve baseline before/current/difference material needed for review before a subsequent command clears disposable artifacts.
+- [x] Provide a human listener the exact new/changed recordings, settings, and attribution. On macOS, playback can use `afplay packages/audio-regression/artifacts/render/<id>.wav` for new diagnostics and the existing `artifacts/verify/<id>/{reference,current,difference}.wav` for changed cases. The listener must hear attacks/releases, no abnormal clicks or unbounded ringing, and judge the resulting sound acceptable. Command success is not approval; pending access or approval leaves this step Blocked.
+- [x] After each case is individually approved, update exactly that case with the existing explicit command, then reverify it. Inspect the freshly generated reference; if it differs from the reviewed output or cannot be attributed, stop and review again. Do not update unaffected references, loosen limits, or rewrite sketches to disguise differences.
+- [x] Compare accepted-reference changes to the Phase 0 inventory, including both WAV and metadata. Confirm no unrelated assets, original sample bytes, API/schema, or harness safeguards changed.
+- [x] Run final workspace gates after the last accepted update; inspect the final diff and acceptance mapping. Record skipped checks or unresolved failures honestly rather than marking the feature complete.
 
 Verification:
 
@@ -294,29 +296,29 @@ git diff --check
 
 `pnpm test` runs workspace `test:ci`, builds dependency artifacts, runs native tooling tests, and freshly verifies all registered recordings; this is the final full-registry gate, not a substitute for human review. Also check Prettier on each modified code/doc file (explicit paths from the final diff, excluding binary assets). All commands use the repository root.
 
-Expected result: Workspace checks and the complete recording suite pass with unchanged tolerances; only individually accepted cases have new reference bytes. Previous gate evidence remains applicable to the final revision or is rerun where subsequent changes affected it.
+Result: The user approved the new and placement-attributable changed recordings. References were updated only for `pre-envelope-synth`, `pre-envelope-sampler`, `bends`, and `lfo-filter`; all four passed selected verification. The full registry passed 13/13 cases with unchanged tolerances. Final workspace check, lint, test, formatting, and diff gates passed.
 
-Completion gate: All spec criteria have proof at the final revision, every required new/changed recording has individual human approval, and the full integration gate passes. If a root failure is demonstrably pre-existing, resolution or an explicitly accepted deviation is required; it is not a passing result.
-Evidence: Not run.
+Completion gate: All spec criteria have proof at the final revision, every required new/changed recording has individual human approval, and the full integration gate passes.
+Evidence: [evidence/2.3.md](evidence/2.3.md).
 
-Phase exit gate: Assess Step 2.3's final integration and approval evidence after its last checks. Confirm no missing references, unexplained audio differences, pending listening reviews, unsupported documentation, or unowned cleanup remain before calling the feature accepted or requesting supervised approval to advance. Publication/deployment is not part of this gate.
-Evidence: Not run.
+Phase exit gate: Step 2.3's final integration and approval evidence confirms no missing references, unexplained audio differences, pending listening reviews, unsupported documentation, or unowned cleanup remain. Publication/deployment is not part of this gate.
+Evidence: [evidence/2.3.md](evidence/2.3.md).
 
 ## Final acceptance
 
 This table points to owning gates; their evidence/status entries remain the single execution record.
 
-| Spec acceptance ID | Owning step / gate                     | Verification and expected result                                                                                        | Evidence / status                  |
-| ------------------ | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| AC1                | Step 1.1                               | Real instrument scheduling creates the exact ordered pre-envelope path with no bypass.                                  | Step 1.1 evidence; Complete        |
-| AC2                | Steps 1.1 and 1.2                      | Overlapping synth/sample voices have distinct paths and independent cleanup.                                            | Steps 1.1/1.2 evidence; Complete   |
-| AC3                | Steps 0.1, 1.1, 2.1; final gate in 2.3 | Empty-chain topology and existing no-effects native controls retain their baseline output.                              | Owning step evidence; Pending      |
-| AC4                | Steps 2.1 and 2.3                      | Native output matches the intended graph, rejects the old placement, and focused recordings receive listening approval. | Steps 2.1/2.3 evidence; Pending    |
-| AC5                | Steps 1.1 and 1.2                      | Source/envelope schedules, nonzero floors, parameter automation, and bindings retain their contracts.                   | Steps 1.1/1.2 evidence; Complete   |
-| AC6                | Step 1.2                               | Cancellation, natural end, active Stop, replacement/retirement, and destruction retain ownership/lifetime rules.        | Step 1.2 evidence; Complete        |
-| AC7                | Step 1.2                               | Effect-bearing composition preserves routing, send taps, mute, duck/MIDI timing, and bus behavior.                      | Step 1.2 evidence; Complete        |
-| AC8                | Steps 1.2 and 2.2; final gate in 2.3   | Existing authoring/schema contracts pass and delivered documentation accurately explains the sonic break.               | Owning step evidence; Pending      |
-| AC9                | Step 2.3 / Phase 2 exit                | Attributed, individually approved references and the complete native suite pass without weakened safeguards.            | Step 2.3/Phase 2 evidence; Pending |
+| Spec acceptance ID | Owning step / gate                     | Verification and expected result                                                                                        | Evidence / status                   |
+| ------------------ | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| AC1                | Step 1.1                               | Real instrument scheduling creates the exact ordered pre-envelope path with no bypass.                                  | Step 1.1 evidence; Complete         |
+| AC2                | Steps 1.1 and 1.2                      | Overlapping synth/sample voices have distinct paths and independent cleanup.                                            | Steps 1.1/1.2 evidence; Complete    |
+| AC3                | Steps 0.1, 1.1, 2.1; final gate in 2.3 | Empty-chain topology and existing no-effects native controls retain their baseline output.                              | Owning step evidence; Complete      |
+| AC4                | Steps 2.1 and 2.3                      | Native output matches the intended graph, rejects the old placement, and focused recordings receive listening approval. | Steps 2.1/2.3 evidence; Complete    |
+| AC5                | Steps 1.1 and 1.2                      | Source/envelope schedules, nonzero floors, parameter automation, and bindings retain their contracts.                   | Steps 1.1/1.2 evidence; Complete    |
+| AC6                | Step 1.2                               | Cancellation, natural end, active Stop, replacement/retirement, and destruction retain ownership/lifetime rules.        | Step 1.2 evidence; Complete         |
+| AC7                | Step 1.2                               | Effect-bearing composition preserves routing, send taps, mute, duck/MIDI timing, and bus behavior.                      | Step 1.2 evidence; Complete         |
+| AC8                | Steps 1.2 and 2.2; final gate in 2.3   | Existing authoring/schema contracts pass and delivered documentation accurately explains the sonic break.               | Owning step evidence; Complete      |
+| AC9                | Step 2.3 / Phase 2 exit                | Attributed, individually approved references and the complete native suite pass without weakened safeguards.            | Step 2.3/Phase 2 evidence; Complete |
 
 ## Rollback and recovery
 

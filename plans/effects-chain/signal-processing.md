@@ -18,14 +18,16 @@ The "main" bus always exists and is the final path to AudioContext.destination.
 
 ## Instrument signal flow
 
-Each voice is processed independently before reaching its instrument output:
+Each synth or sampler voice is processed independently before reaching its instrument output. The authored `.fx()` nodes remain per-voice and retain their order; the existing amplitude envelope is the final voice-level stage:
 
 ```text
   source
-    → per-voice envelope
-    → per-voice effects
+    → per-voice effects (authored order)
+    → per-voice amplitude envelope
     → instrument mix
 ```
+
+This is an intentional sonic breaking change for effected voices: filters and other effects receive the un-enveloped source, then the processed voice is gated by its amplitude ADSR. There is no compatibility selector, and no-effects voices retain the direct source-to-envelope path.
 
 The combined instrument signal then passes through persistent instrument-level output controls:
 

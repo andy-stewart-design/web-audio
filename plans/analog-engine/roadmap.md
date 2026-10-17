@@ -8,7 +8,7 @@ This is a **feature roadmap, not a single-PR scope or a commitment to implement 
 
 ## Feature overview
 
-- [ ] Move per-instrument effects before each note's amplitude envelope.
+- [x] Move per-instrument effects before each note's amplitude envelope ([implementation plan](pre-envelope-effects/plan.md)).
 - [ ] Restore/adapt the supersaw worklet.
 - [ ] Add an optional main-source gain argument to `d.synth()`.
 - [ ] Add `.sub()` to synths.
