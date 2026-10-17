@@ -37,15 +37,17 @@ class FakeAudioWorkletNode {
 }
 
 class FakeAudioContext {
-  readonly sampleRate = 48_000;
+  constructor(readonly sampleRate = 48_000) {}
 }
 
-function source() {
+function source(sampleRate = 48_000) {
   return new SupersawSource(
-    new FakeAudioContext() as unknown as BaseAudioContext,
+    new FakeAudioContext(sampleRate) as unknown as BaseAudioContext,
     {
       voices: 7,
       phaseSeed: 123,
+      startFrame: 0,
+      stopFrame: sampleRate,
     },
   );
 }
@@ -67,7 +69,12 @@ describe("SupersawSource", () => {
       numberOfInputs: 0,
       numberOfOutputs: 1,
       outputChannelCount: [2],
-      processorOptions: { voices: 7, phaseSeed: 123 },
+      processorOptions: {
+        voices: 7,
+        phaseSeed: 123,
+        startFrame: 0,
+        stopFrame: 48_000,
+      },
     });
     expect(supersaw.frequency).toBe(node.parameters.get("frequency"));
     expect(supersaw.detune).toBe(node.parameters.get("detune"));
@@ -75,7 +82,23 @@ describe("SupersawSource", () => {
     expect(supersaw.width).toBe(node.parameters.get("width"));
   });
 
-  it("translates scheduled times to precise sample-frame messages", () => {
+  it.each([44_100, 48_000])(
+    "preserves aligned sample-frame messages at %i Hz",
+    (sampleRate) => {
+      const supersaw = source(sampleRate);
+      const port = FakeAudioWorkletNode.instances[0].port;
+
+      supersaw.start(6007 / sampleRate);
+      supersaw.stop(6008 / sampleRate);
+
+      expect(port.postMessage.mock.calls).toEqual([
+        [{ type: "start", frame: 6007 }],
+        [{ type: "stop", frame: 6008 }],
+      ]);
+    },
+  );
+
+  it("translates fractional scheduled times to precise sample-frame messages", () => {
     const supersaw = source();
     const port = FakeAudioWorkletNode.instances[0].port;
 

@@ -1,8 +1,10 @@
-import type { ScheduledSource } from "@/types";
+import type { ScheduledSource } from "../../types";
 
 interface SupersawSourceOptions {
   voices: number;
   phaseSeed: number;
+  startFrame: number;
+  stopFrame: number;
 }
 
 function isEndedMessage(value: unknown) {
@@ -12,6 +14,15 @@ function isEndedMessage(value: unknown) {
     "type" in value &&
     value.type === "ended"
   );
+}
+
+function toAudioFrame(ctx: BaseAudioContext, time: number) {
+  const frame = time * ctx.sampleRate;
+  const nearestFrame = Math.round(frame);
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(frame)) * 4;
+  if (Math.abs(frame - nearestFrame) <= tolerance)
+    return Math.max(0, nearestFrame);
+  return Math.max(0, Math.ceil(frame));
 }
 
 function getParameter(node: AudioWorkletNode, name: string) {
@@ -43,6 +54,8 @@ class SupersawSource implements ScheduledSource {
       processorOptions: {
         voices: options.voices,
         phaseSeed: options.phaseSeed,
+        startFrame: options.startFrame,
+        stopFrame: options.stopFrame,
       },
     });
     this.frequency = getParameter(this.node, "frequency");
@@ -84,7 +97,7 @@ class SupersawSource implements ScheduledSource {
   }
 
   private _frameAt(time: number) {
-    return Math.max(0, Math.ceil(time * this._ctx.sampleRate));
+    return toAudioFrame(this._ctx, time);
   }
 
   private _finish() {
@@ -95,4 +108,5 @@ class SupersawSource implements ScheduledSource {
 }
 
 export default SupersawSource;
+export { toAudioFrame };
 export type { SupersawSourceOptions };
