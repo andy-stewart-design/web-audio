@@ -1,18 +1,19 @@
-# Supersaw specification
+# Saw-only unison specification
 
 ## Status
 
 - Readiness: Ready for planning.
 - Blocking decisions: None.
-- Source: The supersaw scope interview and subsequent agreement on engine-specific builders and minimal runtime validation; [analog-inspired synthesis roadmap](../roadmap.md).
-- Delivery state: Specification only. Source inspection below is not implementation verification or listening approval.
-- Working defaults, normalization details, and the proposed schema shape are explicitly identified as assumptions, not separately user-approved decisions.
+- Source: The supersaw scope interview, agreement on engine-specific builders/minimal validation, and subsequent decision to expose a saw-only `"unison"` engine (`"uni"` alias) with other waveforms deferred; [analog-inspired synthesis roadmap](../roadmap.md).
+- Delivery state: Phases 0–1, the original supersaw Step 2.1, and the revised saw-only unison Step 2.1a have recorded evidence in [plan.md](plan.md). The original supersaw evidence is historical; the revised unison slice is implemented and revalidated, while native playback and acceptance remain pending.
+- Public engine names, saw-only `.type()` behavior, and separation of engine identity from waveform are agreed decisions. Remaining working defaults, normalization details, and the proposed serialized field layout are assumptions, not separately user-approved decisions.
+- Keep the existing `supersaw/` planning directory and historical evidence paths. Existing internal saw processor/source names may remain; no mechanical rename of verified Phase 1 code is required.
 
 ## Problem and intended outcome
 
 Drome's synth currently provides one native oscillator per note. It cannot directly produce a controllable stack of detuned saws with stereo width. The earlier Drome supersaw supplies a useful starting point, but its unnormalized sum, nondeterministic phase initialization, and block-level start handling should not be copied unchanged.
 
-Users should be able to select supersaw, control its oscillator count, detuning, and width, and modulate its sound through the existing parameter system. Its output must participate in the existing per-voice effects, amplitude envelope, scheduling, and cleanup rather than becoming a separate playback subsystem.
+Users should be able to select a unison engine, control its oscillator count, detuning, and width, and modulate its sound through the existing parameter system. This SOW supports sawtooth only: it produces the supersaw sound, while naming the engine for its mechanism and keeping waveform identity separate. Its output must participate in the existing per-voice effects, amplitude envelope, scheduling, and cleanup rather than becoming a separate playback subsystem.
 
 This also establishes a small, typed boundary for future synthesis engines: the builder returned by `d.synth()` exposes only controls supported by the selected engine. It does not implement future engines or a plugin framework.
 
@@ -20,17 +21,18 @@ This also establishes a small, typed boundary for future synthesis engines: the 
 
 Included:
 
-- `d.synth("supersaw")` backed by an AudioWorklet saw stack with oscillator-count compensation.
-- Engine-specific basic-oscillator and supersaw builders, with shared fluent synth behavior and discriminated schema variants.
+- `d.synth("unison")` and the `"uni"` alias, backed by the existing AudioWorklet saw stack with oscillator-count compensation.
+- Engine-specific basic-oscillator and unison builders, with shared fluent synth behavior and discriminated schema variants.
+- Unison defaults to sawtooth and accepts `.type("saw")` / `.type("sawtooth")` only. Engine identity and oscillator waveform are separate settings; no other unison waveform is enabled in this SOW.
 - Independent oscillator count, cents-based detune spread, and stereo width controls.
 - Existing pattern/random inputs for count; full existing AudioParam inputs for spread and width.
 - Common pitch/detune, sample-aligned scheduling, shared voice processing, and lifecycle integration in both real-time and offline contexts.
-- Small extensions to existing validation, focused tests, documentation, and reviewed native supersaw recordings.
+- Small extensions to existing validation, focused tests, documentation, and reviewed native saw-only unison recordings.
 
 Non-goals:
 
 - FM or other future engines, placeholder engine classes, plugin registries, dynamic engine loading, or a generalized synthesis framework.
-- General unison on native waveforms, sub/noise layers, a second synth gain argument, independent layer envelopes, or new effects.
+- Non-saw waveforms inside the unison engine; their DSP, API/type expansion, validation, and listening acceptance belong to a separate SOW. Also excluded: adding unison controls to basic builders, sub/noise layers, a second synth gain argument, independent layer envelopes, or new effects.
 - Cross-engine mutation through `.type()`, live oscillator-count modulation within a note, new phase/seed controls, or a new public scheduling API.
 - A new validation library, parallel runtime type system, generalized schema walker, new renderer, or broad duplicate tests of unchanged behavior.
 - Exact reproduction of the old supersaw's levels, stereo algorithm, phase randomness, or API units; default compression, limiting, automatic gain control, or voice stealing.
@@ -39,7 +41,7 @@ Non-goals:
 
 ## Current behavior and evidence
 
-Static inspection of the current project and reference implementation establishes the following; no supersaw implementation tests were run to author this spec:
+The following observations describe the original pre-implementation baseline, not the current uncommitted worktree. Preserve them as context for Phases 0–1; implementation evidence is in the plan. The original supersaw-named Step 2.1 is not evidence that the revised unison surface below has passed.
 
 - `packages/fluid/src/drome.ts` always returns the current `Synthesizer` builder from `synth(type?: WaveformAlias)`. `packages/fluid/src/instruments/synthesizer.ts` owns basic waveform selection, `.type()`, synth event compilation, and MIDI-output configuration. Shared instrument methods already return `this`.
 - `packages/schema/src/index.ts`, `constants.ts`, and `packages/fluid/src/inputs/waveform.ts` use the same basic waveform vocabulary for synths and LFOs. Adding supersaw to that shared vocabulary indiscriminately would incorrectly make it an LFO waveform.
@@ -52,27 +54,29 @@ Static inspection of the current project and reference implementation establishe
 
 ## Requirements and invariants
 
-- **R1 — Typed engine selection:** `d.synth()` and basic aliases return a basic-oscillator builder; `d.synth("supersaw")` returns a supersaw builder. Shared fluent calls retain the specific builder type. Unsupported engine controls are unavailable, and unsupported engine names fail rather than selecting a fallback.
+- **R1 — Typed engine selection:** `d.synth()` and basic aliases return a basic-oscillator builder; `d.synth("unison")` and `d.synth("uni")` return the same unison builder type. Its `.type()` accepts only saw aliases in this SOW. Shared fluent calls retain the specific builder type. Unsupported shapes/engine controls are rejected rather than ignored, and unsupported engine names fail rather than selecting a fallback.
 - **R2 — Thin extension boundary:** Share notes/timing, gain/ADSR, detune, effects, routing, and MIDI behavior. Implement only the two current engines. Use small discriminated schemas and engine-specific source creation feeding shared playback; do not duplicate schedulers or build speculative registries/validation infrastructure.
 - **R3 — Control semantics:** Count is resolved by the existing final-hit value model at note-on and fixed for that note. Spread is maximum deviation in cents around common pitch; width is a separate stereo dimension. Support the inputs and bounded resolved values specified below.
 - **R4 — Modulation integration:** Spread and width accept static/pattern/random values, envelopes, LFOs, and MIDI CC with the same event origins, phase/value semantics, initialization, and cleanup as existing AudioParams. Common detune moves the whole stack without replacing spread. Shared LFOs are registered once and do not acquire an accidental intrinsic-value offset.
 - **R5 — DSP and levels:** Produce a band-limited saw stack with independent per-note state, symmetric detuning, useful stereo width, finite output, and deterministic count compensation. Count primarily changes texture rather than yielding the old unscaled sum. No claim of exact perceived-loudness equality, alias-free synthesis, or brick-wall peak protection is made.
 - **R6 — Audio-time scheduling and lifecycle:** Start/stop within render quanta at the scheduled audio sample, emit silence outside source lifetime, and terminate processing/owned resources. Future cancellation, active-voice Stop behavior, graph replacement/retirement, and destruction retain existing semantics; late worklet messages cannot complete or disconnect another voice.
 - **R7 — Minimal validation and failure behavior:** Extend existing graph/parameter validation with small engine-specific checks. Reject invalid engine configurations and nonfinite/malformed parameter inputs before accepting playback configuration, without mutating the active graph. Handle permitted finite out-of-range values through the documented bounded resolution policy. No silent engine substitution or ignored known engine-specific fields.
-- **R8 — Existing behavior preserved:** Basic synth and sampler authoring, event semantics, native waveforms/LFOs, audio output, effect order, amplitude timing, routing/sends, duck triggers, and MIDI note output keep their current contracts. Basic `.type()` remains a waveform switch, not an engine switch.
-- **R9 — Repeatability and bounded verification:** Identical authored inputs and scheduling reproduce supersaw audio in fresh offline renders without relying on wall-clock timing or ambient randomness. Add focused proof of new behavior and human-reviewed native recordings using existing infrastructure; retain existing references/tolerances and avoid duplicate testing machinery. Documentation must distinguish implemented behavior from future engines and source layers.
+- **R8 — Existing behavior preserved:** Basic synth and sampler authoring, event semantics, native waveforms/LFOs, audio output, effect order, amplitude timing, routing/sends, duck triggers, and MIDI note output keep their current contracts. `.type()` selects a supported waveform within the chosen builder, never another engine. Basic builders retain their existing waveforms; unison is saw-only for now.
+- **R9 — Repeatability and bounded verification:** Identical authored inputs and scheduling reproduce unison audio in fresh offline renders without relying on wall-clock timing or ambient randomness. Add focused proof of new behavior and human-reviewed native recordings using existing infrastructure; retain existing references/tolerances and avoid duplicate testing machinery. Documentation must distinguish implemented behavior from future engines and source layers.
 
 ## Behavior and contracts
 
 ### Builders and public API
 
-The names below use the working naming assumption A1:
+The engine selectors and saw-only shape restriction below are agreed; other control defaults remain A1:
 
 ```ts
 d.synth(); // OscillatorSynth, sine by default
 d.synth("saw").type("square"); // OscillatorSynth
 
-d.synth("supersaw")
+d.synth("unison"); // UnisonSynth, sawtooth by default
+d.synth("uni") // same engine and builder
+  .type("saw") // optional; also accepts "sawtooth"
   .notes([60, 64, 67])
   .gain(0.5)
   .voices(7)
@@ -82,13 +86,14 @@ d.synth("supersaw")
   .push();
 ```
 
-Conceptual overloads return the appropriate builder for basic aliases versus the literal `"supersaw"`. A variable typed as a union of engine selectors returns the corresponding builder union, not `any` or a falsely specific type. Preserve the existing optional basic selector, including omitted/undefined input. Internal class names do not need new public package exports.
+Conceptual overloads return the appropriate builder for basic aliases versus `"unison"` / `"uni"`. A variable typed as a union of engine selectors returns the corresponding builder union, not `any` or a falsely specific type. Preserve the existing optional basic selector, including omitted/undefined input. Internal class names do not need new public package exports.
 
-- Basic builders have `.type()` restricted to existing basic waveform aliases. Supersaw does not inherit a cross-engine `.type()` method.
-- `.voices()`, `.spread()`, and `.width()` belong only to supersaw. Shared calls such as `.notes().gain().fx()` must not erase those capabilities from its return type.
+- Basic builders retain `.type()` for their existing basic waveform aliases. The unison builder exposes `.type("saw" | "sawtooth")`, serializing the canonical shape `"sawtooth"`. Both are waveform setters, not engine switches.
+- `.type("square")`, `.type("sine")`, and `.type("triangle")` on unison are compile-time errors and runtime rejections in this SOW. Do not accept, coerce, or silently ignore unsupported shape requests. Future waveform support is a separate SOW, not a stub branch in this one.
+- `.voices()`, `.spread()`, and `.width()` belong only to unison. Shared calls such as `.notes().gain().fx()` must not erase those capabilities from its return type.
 - Invalid calls such as `d.synth("sine").spread(12)` are type errors and are not supported JavaScript authoring. Ordinary missing-method errors are sufficient; no proxy or custom method-interception system is required.
-- `d.synth("fm")` remains unsupported. Do not add a fake FM builder to demonstrate extensibility.
-- `.gain()` still controls the existing final voice amplitude envelope, not a new source-layer gain. Count compensation is internal to supersaw.
+- `d.synth("fm")` remains unsupported. The unshipped `"supersaw"` public selector is replaced, not retained as a compatibility alias. Do not add fake engine builders or compatibility shims to demonstrate extensibility.
+- `.gain()` still controls the existing final voice amplitude envelope, not a new source-layer gain. Count compensation is internal to unison.
 
 ### Controls and defaults
 
@@ -118,9 +123,9 @@ Use varied but deterministically initialized phases per scheduled voice (A3). Do
 
 ### Schemas and validation
 
-Use engine-specific variants built on the existing common synth fields. A minimal proposed shape is to retain the current `waveform` field as the discriminator: existing basic waveform values select the basic variant; `waveform: "supersaw"` selects a variant with `voices: NumberPattern`, `spread: AudioParamSchema`, and `width: AudioParamSchema` (A5). Do not add both an engine tag and a waveform tag solely to represent the same choice. Keep the basic waveform vocabulary used by LFOs separate from synth-engine selectors.
+Use engine-specific variants built on existing common synth fields, with distinct engine identity and oscillator waveform. The revised minimal proposal A5 preserves existing basic schemas without an `engine` field and gives unison schemas `engine: "unison"`, `waveform: "sawtooth"`, `voices: NumberPattern`, `spread: AudioParamSchema`, and `width: AudioParamSchema`. A basic variant can declare `engine?: never` in its TypeScript shape so the explicit tag discriminates unison without migrating basic schemas. These two fields now represent different choices, not redundant tags.
 
-Fluid serializes defaults into the selected canonical variant. Basic synths must not serialize supersaw settings. Direct supersaw schemas must carry the required parameter shapes; no second legacy supersaw format is supported. Basic direct schemas remain valid under the proposed shape.
+Fluid canonicalizes `"uni"` to the engine identity `"unison"` and saw aliases to `"sawtooth"`. Default and explicit saw selection serialize equivalently. Basic synths must not serialize unison controls. Validate required unison parameters and its saw-only shape; reject unknown engine tags, an unison tag paired with another waveform, and the old `waveform: "supersaw"` variant. No dual-format parser is needed for the unshipped 2.1 shape. Keep the basic/LFO waveform vocabulary unchanged: neither `"unison"` nor `"uni"` is an oscillator/LFO waveform.
 
 Extend `validateDromeGraph()` and reuse its existing number-pattern/AudioParam validators. Add only small checks for the selected variant, required controls, unsupported count modulation, and known mismatched engine settings. This does not require making every existing schema object globally strict against every unknown key.
 
@@ -131,7 +136,7 @@ Schema rejection through `AudioEngine.update()` leaves the last valid pending/ac
 ### Source lifecycle and shared processing
 
 ```text
-supersaw stack → existing ordered .fx() → existing amplitude ADSR
+saw-only unison stack → existing ordered .fx() → existing amplitude ADSR
     → instrument balancing/mute → existing routes/sends/buses
 ```
 
@@ -153,28 +158,28 @@ The worklet generates the source; it does not duplicate the voice's amplitude en
 
 ## Acceptance criteria
 
-| ID   | Requirement(s) | Starting condition / action                                                                                                                                      | Expected outcome                                                                                                                                                                                                        | Verification approach                                                                                                                 |
-| ---- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| AC1  | R1, R2, R8     | Construct default/basic and supersaw builders; chain shared methods before engine-specific calls; attempt unsupported engine methods and cross-engine `.type()`. | Correct return types/capabilities survive chaining. Native `.type("square")` remains valid; inappropriate methods and `"fm"` are rejected, not ignored.                                                                 | A few compile-time assertions and representative authoring tests.                                                                     |
-| AC2  | R2, R7, R8     | Serialize both variants; validate a valid direct supersaw schema, malformed/nonfinite controls, wrong-engine settings, and an LFO using supersaw as a waveform.  | Canonical variants validate; invalid configurations fail before replacement playback. Existing basic schemas/LFOs remain valid and supersaw does not leak into the LFO vocabulary.                                      | Small additions to existing schema/builder suites; no new validation harness.                                                         |
-| AC3  | R3, R4         | Author count patterns/randomness and continuous spread/width modulation; schedule multiple hits and a chord.                                                     | Count follows final hit identity and stays fixed per note. Spread/width use existing envelope/LFO/MIDI semantics and correct targets without offsets; controls bound as documented.                                     | Focused resolution/binding assertions, reusing existing parameter coverage rather than repeating its full matrix.                     |
-| AC4  | R3, R5         | Render one oscillator and a two-oscillator stack with spread 12, then zero/nonzero width and odd/even counts.                                                    | One oscillator is centered; two detune offsets are ±12 cents; width is independent of tuning; zero width yields equal source channels; odd counts have no systematic panning assignment bias.                           | Small processor/DSP tests with controlled phases and selected native listening coverage.                                              |
-| AC5  | R5             | Render identical controlled configurations at counts 1, 2, 7, and 8, including high notes and extreme finite modulation.                                         | Documented count compensation is applied rather than unscaled summation. Output stays finite and oscillator allocation bounded; no above-Nyquist frequency wrap or unprotected naive saw fallback.                      | Focused numerical/DSP tests and listening to level/quality changes; not a promise of identical RMS for every phase/pitch combination. |
-| AC6  | R6             | Start/stop at a non-quantum-aligned sample; cancel another voice before start; stop transport with an active voice.                                              | No full-block start delay or source output outside the scheduled interval. Future cancellation does not wait for a worklet message; active Stop behavior stays unchanged.                                               | Processor boundary tests and targeted native/engine integration at 44.1/48 kHz.                                                       |
-| AC7  | R2, R4, R6, R8 | Overlap two supersaw notes with effects/modulation; complete one, replace its graph, and destroy repeatedly.                                                     | Each source uses its own effects → ADSR path, retains stereo, and cleans up once without affecting a surviving/new voice. Existing retirement and binding ownership remain intact.                                      | One focused lifecycle/composition test at the new source seam plus existing lifecycle suites.                                         |
-| AC8  | R6, R7, R8     | Register/render the new source in real-time/offline paths; exercise readiness failure, named routes/sends, MIDI output, and ducking through existing contracts.  | Registration errors surface without fallback. Existing downstream placement/semantics hold; internal oscillator count does not multiply musical events.                                                                 | Targeted registration/source tests and existing downstream/MIDI/duck integration coverage; no wholesale duplicate suite.              |
-| AC9  | R5, R9         | Render the same supersaw sketches in fresh contexts/processes with static and modulated settings.                                                                | Repeatable finite output meets unchanged comparison limits; reviewed recordings demonstrate useful spread/width and acceptable compensated levels without abnormal clicks/ringing.                                      | Existing native harness and individual human listening approval.                                                                      |
-| AC10 | R2, R8, R9     | Run existing basic synth/sampler/audio references after the structural change and inspect delivered documentation.                                               | Existing authored audio remains within its accepted tolerances without unrelated reference rewrites. Documentation states builder boundaries, defaults/units, input modes, normalization limits, and deferred features. | Existing regression suite and documentation review; no blanket rebaseline.                                                            |
+| ID   | Requirement(s) | Starting condition / action                                                                                                                                                                            | Expected outcome                                                                                                                                                                                                                                                            | Verification approach                                                                                                                 |
+| ---- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| AC1  | R1, R2, R8     | Construct default/basic and both unison aliases; chain shared methods before controls/`.type()`; attempt unsupported engine controls and non-saw unison shapes.                                        | Both unison aliases retain the same builder type; default/explicit saw agree. Native `.type("square")` remains valid; unison `.type("square")` and unsupported selectors are rejected, not ignored.                                                                         | A few compile-time assertions and representative authoring tests.                                                                     |
+| AC2  | R2, R7, R8     | Serialize both variants/aliases; validate a direct unison schema, unsupported unison shapes, malformed/nonfinite controls, wrong-engine settings, old supersaw tags, and invalid LFO engine selectors. | Engine and waveform remain distinct; only unison/saw validates for this engine. Invalid configurations fail before replacement playback. Existing basic schemas/LFOs remain valid and engine selectors do not leak into LFO waveforms.                                      | Small additions to existing schema/builder suites; no new validation harness.                                                         |
+| AC3  | R3, R4         | Author count patterns/randomness and continuous spread/width modulation; schedule multiple hits and a chord.                                                                                           | Count follows final hit identity and stays fixed per note. Spread/width use existing envelope/LFO/MIDI semantics and correct targets without offsets; controls bound as documented.                                                                                         | Focused resolution/binding assertions, reusing existing parameter coverage rather than repeating its full matrix.                     |
+| AC4  | R3, R5         | Render one oscillator and a two-oscillator stack with spread 12, then zero/nonzero width and odd/even counts.                                                                                          | One oscillator is centered; two detune offsets are ±12 cents; width is independent of tuning; zero width yields equal source channels; odd counts have no systematic panning assignment bias.                                                                               | Small processor/DSP tests with controlled phases and selected native listening coverage.                                              |
+| AC5  | R5             | Render identical controlled configurations at counts 1, 2, 7, and 8, including high notes and extreme finite modulation.                                                                               | Documented count compensation is applied rather than unscaled summation. Output stays finite and oscillator allocation bounded; no above-Nyquist frequency wrap or unprotected naive saw fallback.                                                                          | Focused numerical/DSP tests and listening to level/quality changes; not a promise of identical RMS for every phase/pitch combination. |
+| AC6  | R6             | Start/stop at a non-quantum-aligned sample; cancel another voice before start; stop transport with an active voice.                                                                                    | No full-block start delay or source output outside the scheduled interval. Future cancellation does not wait for a worklet message; active Stop behavior stays unchanged.                                                                                                   | Processor boundary tests and targeted native/engine integration at 44.1/48 kHz.                                                       |
+| AC7  | R2, R4, R6, R8 | Overlap two unison notes with effects/modulation; complete one, replace its graph, and destroy repeatedly.                                                                                             | Each source uses its own effects → ADSR path, retains stereo, and cleans up once without affecting a surviving/new voice. Existing retirement and binding ownership remain intact.                                                                                          | One focused lifecycle/composition test at the new source seam plus existing lifecycle suites.                                         |
+| AC8  | R6, R7, R8     | Register/render the new source in real-time/offline paths; exercise readiness failure, named routes/sends, MIDI output, and ducking through existing contracts.                                        | Registration errors surface without fallback. Existing downstream placement/semantics hold; internal oscillator count does not multiply musical events.                                                                                                                     | Targeted registration/source tests and existing downstream/MIDI/duck integration coverage; no wholesale duplicate suite.              |
+| AC9  | R5, R9         | Render the same saw-only unison sketches in fresh contexts/processes with static and modulated settings.                                                                                               | Repeatable finite output meets unchanged comparison limits; reviewed recordings demonstrate useful spread/width and acceptable compensated levels without abnormal clicks/ringing.                                                                                          | Existing native harness and individual human listening approval.                                                                      |
+| AC10 | R2, R8, R9     | Run existing basic synth/sampler/audio references after the structural change and inspect delivered documentation.                                                                                     | Existing authored audio remains within its accepted tolerances without unrelated reference rewrites. Documentation states unison/uni aliases, saw-only `.type()`, builder boundaries, defaults/units, input modes, normalization limits, and separate future waveform work. | Existing regression suite and documentation review; no blanket rebaseline.                                                            |
 
 ## Assumptions
 
 These are working design baselines, not additional user-approved decisions. They make planning concrete; validate them in the named manner rather than reopening the settled feature scope.
 
-- **A1 — Surface and defaults:** `.voices()`, `.spread()`, `.width()`; count 1–8/default 7; spread default ±10 cents; width default 0.4. Names came from the interview wrap-up; defaults preserve the old tuning/width intent while fixing its inability to use one oscillator. Confirm clarity in spec/plan review and usefulness through listening.
+- **A1 — Control defaults:** `.voices()`, `.spread()`, `.width()`; count 1–8/default 7; spread default ±10 cents; width default 0.4. These control defaults preserve the old tuning/width intent while fixing its inability to use one oscillator; validate usefulness through listening. The `"unison"` / `"uni"` selectors and saw-only `.type()` restriction are now agreed decisions, not naming assumptions.
 - **A2 — Count gain law:** Start with `1 / sqrt(N)` plus stereo panning, not the old unscaled sum. The agreement is compensation, not a particular formula. Validate nominal levels/headroom with controlled DSP tests and listening; if this law is unsuitable, document the alternative deterministic count-only law and evidence before recording acceptance. No compressor/AGC is authorized by this assumption.
 - **A3 — Stereo and phases:** Symmetric equal-power pan positions and deterministic varied phase initialization replace the old alternating pan/random phases. Validate stereo/mono behavior, absence of odd-count bias, repeatability, and musical quality. An internal event-derived seed is sufficient; no public seed setting is implied.
 - **A4 — Value bounds:** Finite count values round/clamp; width clamps to [0, 1]; spread has a zero floor with frequency-domain protection rather than a new public maximum. This follows existing numeric pattern flexibility without adding static analysis. Cover representative boundaries and document it; malformed/nonfinite input remains invalid.
-- **A5 — Minimal schema evolution:** Reusing `waveform` as the variant discriminator preserves basic direct-schema shapes with little machinery. This is a planning baseline, not an interview-selected wire format. An equivalent small discriminated shape is acceptable if its compatibility consequences are made explicit in the plan; do not silently add dual-format parsing or a migration framework.
+- **A5 — Minimal schema evolution:** The proposed `engine: "unison"` plus `waveform: "sawtooth"` variant separates engine from shape while leaving existing basic schemas untagged and valid. Exact field layout is a planning baseline, not a separately selected wire format; equivalent small variants must preserve this distinction and document compatibility consequences. Do not retain the unshipped supersaw variant through dual-format parsing or add a migration framework.
 
 ## Risks and open decisions
 
@@ -183,11 +188,12 @@ These are working design baselines, not additional user-approved decisions. They
 - **Non-blocking — sound:** Compensation reduces incidental level growth but cannot equalize every correlated phase arrangement or guarantee clipping-free output. The precise law, deterministic phase choices, and stereo mapping require numerical checks and listening before acceptance.
 - **Non-blocking — performance:** Up to eight oscillators per note multiplies work with polyphony. Avoid hot-loop allocation and profile representative overlapping notes on a recorded browser/device. No cross-device latency/CPU guarantee or new global voice budget has been agreed.
 - **Non-blocking — verification scope:** Unit tests cannot establish audible quality or real worklet scheduling alone. Native tests should exercise the new seam, but must not expand into a second renderer or repeat unchanged contracts already covered elsewhere. All observation windows must be nonempty and lie inside the rendered audio, including post-release checks.
-- **Non-blocking — documentation drift:** The roadmap's supersaw API/units were intentionally provisional, and its completed pre-envelope link predates the `_completed/` move. This spec supersedes those provisional supersaw details; reconcile relevant links/descriptions during feature documentation work without unrelated cleanup.
+- **Non-blocking — documentation drift:** The roadmap and original 2.1 evidence use supersaw naming. This agreed saw-only unison revision supersedes those public API details, not the verified saw DSP or historical evidence. Reconcile current roadmap/descriptions during delivery; preserve historical results and internal names where renaming adds no value.
 
 ## Deferred work
 
-- FM and other engine implementations, general native-waveform unison, public engine plugins, and cross-engine builder mutation.
+- Non-saw unison waveforms, including square, sine, and triangle. Their alias/type/schema expansion, band-limited DSP, validation, and listening tests require a separate SOW.
+- FM and other engine implementations, unison controls on basic builders, public engine plugins, and cross-engine builder mutation.
 - Main-source gain argument, sub/noise layers, independent oscillator-layer builders/envelopes, PWM/hard sync, and new effects from the broader roadmap.
 - Continuous oscillator-count modulation, public phase/seed controls, automatic dynamics/limiting, voice stealing, and generalized processor-failure recovery.
 - A larger abstraction should be reconsidered only when another concrete engine demonstrates a repeated need that this two-engine boundary cannot handle cleanly.

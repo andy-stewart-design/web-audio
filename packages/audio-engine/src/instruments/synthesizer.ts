@@ -1,10 +1,19 @@
+import type {
+  EventScheduleContext,
+  InstrumentClock,
+  ResolvedDetune,
+  ResolvedEnvelopeSchema,
+} from "@/types";
+import type {
+  BasicSynthesizerSchema,
+  UnisonSynthesizerSchema,
+  SynthesizerSchema,
+} from "@web-audio/schema";
 import Instrument, { type InstrumentOptions } from "./instrument";
 import MidiOutputScheduler from "@/midi-output-scheduler";
 import { midiToFrequency } from "@/utils/midi-to-frequency";
 import { resolveSynthEvents } from "./resolve-synth-events";
-
-import type { SynthesizerSchema } from "@web-audio/schema";
-import type { EventScheduleContext, InstrumentClock } from "@/types";
+import SupersawSource, { toAudioFrame } from "./sources/supersaw-source";
 
 interface SynthesizerOptions extends InstrumentOptions {
   schema: SynthesizerSchema;
@@ -28,7 +37,14 @@ class Synthesizer extends Instrument {
     });
     this._schema = opts.schema;
     this._midiOutputScheduler = opts.midiOutputScheduler;
-    this._initLfos(opts.schema, opts.startingBar, opts.barStartTime);
+    this._initLfos(
+      opts.schema,
+      opts.startingBar,
+      opts.barStartTime,
+      opts.schema.engine === "unison"
+        ? [opts.schema.spread, opts.schema.width]
+        : [],
+    );
   }
 
   scheduleBar(barIndex: number, barStartTime: number): void {
@@ -57,34 +73,40 @@ class Synthesizer extends Instrument {
       } satisfies EventScheduleContext;
 
       this._emitDuckTriggers(this._schema.ducks, startTime, duration);
-      for (const midiNote of resolved.notes) {
-        this._scheduleSynthNote(midiNote, event);
-      }
+      resolved.notes.forEach((midiNote, voiceIndex) => {
+        this._scheduleSynthNote(midiNote, event, voiceIndex);
+      });
     }
   }
 
   private _scheduleSynthNote(
     midiNote: number,
     event: EventScheduleContext,
+    voiceIndex: number,
   ): void {
     const detune = this._resolveDetune(this._schema.detune, event);
-
-    const osc = new OscillatorNode(this._ctx, {
-      type: this._schema.waveform,
-      frequency: midiToFrequency(midiNote),
-      detune: detune.value,
-    });
     const gainEnvelope = this._resolveEnvelope(this._schema.gain, event);
-
-    this._scheduleVoice({
-      source: osc,
-      detune: { param: osc.detune, resolved: detune },
-      gainEnvelope,
-      effects: this._schema.effects,
-      event,
-    });
-
     const notesOut = this._schema.notesOut;
+
+    if (this._schema.engine === "unison") {
+      this._scheduleUnisonNote(
+        this._schema,
+        midiNote,
+        event,
+        voiceIndex,
+        detune,
+        gainEnvelope,
+      );
+    } else {
+      this._scheduleBasicNote(
+        this._schema,
+        midiNote,
+        event,
+        detune,
+        gainEnvelope,
+      );
+    }
+
     const velocity = Math.min(
       127,
       Math.max(0, Math.round(gainEnvelope.max * 127)),
@@ -99,6 +121,87 @@ class Synthesizer extends Instrument {
       endTime: event.endTime,
     });
   }
+
+  private _scheduleBasicNote(
+    schema: BasicSynthesizerSchema,
+    midiNote: number,
+    event: EventScheduleContext,
+    detune: ResolvedDetune,
+    gainEnvelope: ResolvedEnvelopeSchema,
+  ) {
+    const osc = new OscillatorNode(this._ctx, {
+      type: schema.waveform,
+      frequency: midiToFrequency(midiNote),
+      detune: detune.value,
+    });
+
+    this._scheduleVoice({
+      source: osc,
+      detune: { param: osc.detune, resolved: detune },
+      gainEnvelope,
+      effects: schema.effects,
+      event,
+    });
+  }
+
+  private _scheduleUnisonNote(
+    schema: UnisonSynthesizerSchema,
+    midiNote: number,
+    event: EventScheduleContext,
+    voiceIndex: number,
+    detune: ResolvedDetune,
+    gainEnvelope: ResolvedEnvelopeSchema,
+  ) {
+    const resolvedVoices = this._valuePatternResolver.resolve(
+      schema.voices,
+      event.barIndex,
+      event.hitIndex,
+    );
+    const voices = Math.min(
+      8,
+      Math.max(
+        1,
+        Math.round(Number.isFinite(resolvedVoices) ? resolvedVoices : 7),
+      ),
+    );
+    const stopTime = this._resolveVoiceStopTime(gainEnvelope, event);
+    const source = new SupersawSource(this._ctx, {
+      voices,
+      phaseSeed: phaseSeed(event, midiNote, voiceIndex),
+      startFrame: toAudioFrame(this._ctx, event.startTime),
+      stopFrame: toAudioFrame(this._ctx, stopTime),
+    });
+    source.frequency.setValueAtTime(midiToFrequency(midiNote), event.startTime);
+    if (detune.type === "static") {
+      source.detune.setValueAtTime(detune.value, event.startTime);
+    }
+
+    this._scheduleVoice({
+      source,
+      detune: { param: source.detune, resolved: detune },
+      sourceParams: [
+        { param: source.spread, schema: schema.spread },
+        { param: source.width, schema: schema.width },
+      ],
+      gainEnvelope,
+      effects: schema.effects,
+      event,
+      stopTime,
+    });
+  }
+}
+
+function phaseSeed(
+  event: EventScheduleContext,
+  midiNote: number,
+  voiceIndex: number,
+) {
+  let value = 0x811c9dc5;
+  value = Math.imul(value ^ event.barIndex, 0x01000193);
+  value = Math.imul(value ^ event.hitIndex, 0x01000193);
+  value = Math.imul(value ^ midiNote, 0x01000193);
+  value = Math.imul(value ^ voiceIndex, 0x01000193);
+  return value >>> 0;
 }
 
 export default Synthesizer;

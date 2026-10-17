@@ -2,7 +2,10 @@ import type { DuckTrigger, EngineClock } from "./types";
 import type { Midi } from "@web-audio/midi";
 import { validateDromeGraph } from "@web-audio/schema";
 import type { DromeSchema } from "@web-audio/schema";
-import { lfoProcessorSource } from "@web-audio/worklets";
+import {
+  lfoProcessorSource,
+  supersawProcessorSource,
+} from "@web-audio/worklets";
 import RuntimeBus from "./buses/runtime-bus";
 import { DEFAULT_BPM } from "./constants";
 import Sampler from "./instruments/sampler";
@@ -54,7 +57,10 @@ class AudioEngine {
     this._midiOutputScheduler = new MidiOutputScheduler(clock);
     this._sampleBufferCache = new SampleBufferCache(ctx);
 
-    this.ready = registerWorklets(this._ctx, [lfoProcessorSource]);
+    this.ready = registerWorklets(this._ctx, [
+      lfoProcessorSource,
+      supersawProcessorSource,
+    ]);
 
     this._unsub = new Set([
       clock.on("prebar", ({ bar }, time) => this._commit(bar, time)),

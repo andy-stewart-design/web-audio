@@ -1,9 +1,6 @@
-import type { SynthesizerSchema, Waveform } from "@web-audio/schema";
-import Instrument from "./instrument";
-import { createSynthEventState } from "@/events/transitions";
-import { compileSynthEventState } from "@/events/compiler";
-import { MidiOut } from "@/midi/builders";
+import type { BasicSynthesizerSchema, Waveform } from "@web-audio/schema";
 import type Drome from "@/drome";
+import SynthBase from "./synth-base";
 import { resolveWaveform, type WaveformAlias } from "@/inputs/waveform";
 
 interface SynthesizerOptions {
@@ -11,13 +8,11 @@ interface SynthesizerOptions {
   host?: Drome;
 }
 
-class Synthesizer extends Instrument {
-  protected _eventState = createSynthEventState();
+class Synthesizer extends SynthBase {
   private _type: Waveform;
-  private _notesOut: MidiOut | undefined;
 
   constructor({ type = "sine", host }: SynthesizerOptions = {}) {
-    super(host, { a: 0.005, r: 0.005 });
+    super(host);
     this._type = resolveWaveform(type);
   }
 
@@ -26,26 +21,10 @@ class Synthesizer extends Instrument {
     return this;
   }
 
-  out(output: MidiOut) {
-    this._notesOut = output;
-    return this;
-  }
-
-  getSchema(): SynthesizerSchema {
+  getSchema(): BasicSynthesizerSchema {
     return {
-      type: "synthesizer" as const,
+      ...this._getSynthSchema(),
       waveform: this._type,
-      eventPattern: compileSynthEventState(this._eventState, {
-        legato: this._legato,
-      }),
-      detune: this._detune.getSchema("detune"),
-      gain: this._gain.getSchema(),
-      effects: this._effects.map((e) => e.getSchema()),
-      muted: this._muted,
-      route: this._route,
-      sends: Object.fromEntries(this._sends),
-      ducks: Object.fromEntries(this._ducks),
-      notesOut: this._notesOut?.getSchema(),
     };
   }
 }

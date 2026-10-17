@@ -266,11 +266,25 @@ interface InstrumentSchema<TEventPattern extends EventPattern> {
   ducks: Record<string, DuckSchema>;
 }
 
-interface SynthesizerSchema extends InstrumentSchema<SynthEventPattern> {
+interface SynthesizerCommonSchema extends InstrumentSchema<SynthEventPattern> {
   type: "synthesizer";
-  waveform: Waveform;
   notesOut?: MidiOutSchema;
 }
+
+interface BasicSynthesizerSchema extends SynthesizerCommonSchema {
+  waveform: Waveform;
+  engine?: never;
+}
+
+interface UnisonSynthesizerSchema extends SynthesizerCommonSchema {
+  engine: "unison";
+  waveform: "sawtooth";
+  voices: NumberPattern;
+  spread: AudioParamSchema;
+  width: AudioParamSchema;
+}
+
+type SynthesizerSchema = BasicSynthesizerSchema | UnisonSynthesizerSchema;
 
 interface SamplerSchema extends InstrumentSchema<SamplerEventPattern> {
   type: "sampler";
@@ -299,6 +313,7 @@ export type {
   AudioParamSchema,
   BankDefinition,
   BankSchema,
+  BasicSynthesizerSchema,
   BusSchema,
   ChopRegionSchema,
   ChopSliceSchema,
@@ -321,6 +336,8 @@ export type {
   InstrumentSchema,
   SamplerEventPattern,
   SynthEventPattern,
+  SynthesizerCommonSchema,
+  UnisonSynthesizerSchema,
   NotePattern,
   NormalizedSampleSchema,
   NumberPattern,

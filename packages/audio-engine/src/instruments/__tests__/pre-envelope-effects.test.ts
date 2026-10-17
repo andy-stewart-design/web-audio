@@ -1,9 +1,9 @@
 import type AudioClock from "@web-audio/clock";
 import type {
+  BasicSynthesizerSchema,
   EffectSchema,
   EnvelopeSchema,
   SamplerSchema,
-  SynthesizerSchema,
   TimingPattern,
 } from "@web-audio/schema";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -136,8 +136,8 @@ function effectPair(reversed: boolean): EffectSchema[] {
 }
 
 function synthSchema(
-  overrides: Partial<SynthesizerSchema> = {},
-): SynthesizerSchema {
+  overrides: Partial<BasicSynthesizerSchema> = {},
+): BasicSynthesizerSchema {
   return defaultSynthSchema({
     gain: envelope(),
     ...overrides,
@@ -151,7 +151,7 @@ function samplerSchema(overrides: Partial<SamplerSchema> = {}): SamplerSchema {
   });
 }
 
-function createSynth(ctx: FakeAudioContext, schema: SynthesizerSchema) {
+function createSynth(ctx: FakeAudioContext, schema: BasicSynthesizerSchema) {
   return new Synthesizer(
     ctx as unknown as AudioContext,
     { barDuration: 2 } as AudioClock,

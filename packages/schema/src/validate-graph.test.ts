@@ -7,8 +7,9 @@ import type {
   RandomNumberPattern,
   SamplerSchema,
   StaticPattern,
+  BasicSynthesizerSchema,
   SynthEventPattern,
-  SynthesizerSchema,
+  UnisonSynthesizerSchema,
   TimingPattern,
 } from "./index";
 import { validateDromeGraph } from "./validate-graph";
@@ -63,7 +64,7 @@ function instrument(
     notes: { type: "static", cycle: [[[60]]] },
   },
   ducks: Record<string, DuckSchema> = {},
-): SynthesizerSchema {
+): BasicSynthesizerSchema {
   return {
     type: "synthesizer",
     waveform: "sine",
@@ -435,6 +436,59 @@ describe("validateDromeGraph", () => {
         schema({ music: { gain: 1, transition: 0, effects: [] } }, [value]),
       ),
     ).toThrow(message);
+  });
+
+  it("accepts and validates the unison schema variant", () => {
+    const value = {
+      ...instrument(),
+      engine: "unison" as const,
+      waveform: "sawtooth" as const,
+      voices: staticParam(7),
+      spread: staticParam(10),
+      width: staticParam(0.4),
+    } satisfies UnisonSynthesizerSchema;
+
+    expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
+
+    Object.assign(value, { width: { type: "invalid" } });
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+      "[Schema] Instrument 0.width has an invalid audio parameter type.",
+    );
+  });
+
+  it("rejects unison-only fields on basic synths", () => {
+    const value = instrument();
+    Object.assign(value, { voices: staticParam(7) });
+
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+      "[Schema] Instrument 0.voices is only valid for the unison engine.",
+    );
+  });
+
+  it("rejects unsupported unison shapes and the old supersaw shape", () => {
+    const unison = instrument();
+    Object.assign(unison, {
+      engine: "unison",
+      waveform: "square",
+      voices: staticParam(7),
+      spread: staticParam(10),
+      width: staticParam(0.4),
+    });
+    expect(() => validateDromeGraph(schema({}, [unison]))).toThrow(
+      '[Schema] Instrument 0.waveform must be "sawtooth" for the unison engine.',
+    );
+
+    const oldShape = instrument();
+    Object.assign(oldShape, { waveform: "supersaw" });
+    expect(() => validateDromeGraph(schema({}, [oldShape]))).toThrow(
+      "[Schema] Instrument 0.waveform is invalid.",
+    );
+
+    const unknownEngine = instrument();
+    Object.assign(unknownEngine, { engine: "fm" });
+    expect(() => validateDromeGraph(schema({}, [unknownEngine]))).toThrow(
+      "[Schema] Instrument 0.engine is invalid.",
+    );
   });
 
   it("accepts complete synth and sampler plans with missing external resources", () => {

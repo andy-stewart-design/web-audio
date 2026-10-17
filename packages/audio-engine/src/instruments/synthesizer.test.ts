@@ -1,6 +1,8 @@
 import type AudioClock from "@web-audio/clock";
 import type {
+  BasicSynthesizerSchema,
   EnvelopeSchema,
+  UnisonSynthesizerSchema,
   SynthesizerSchema,
   TimingPattern,
 } from "@web-audio/schema";
@@ -45,6 +47,27 @@ class FakeFilterNode {
   }
 }
 
+class FakeAudioWorkletNode {
+  static instances: FakeAudioWorkletNode[] = [];
+  readonly port = { postMessage: vi.fn(), onmessage: null, close: vi.fn() };
+  readonly parameters = new Map([
+    ["frequency", new FakeAudioParam()],
+    ["detune", new FakeAudioParam()],
+    ["spread", new FakeAudioParam()],
+    ["width", new FakeAudioParam()],
+  ]);
+  connect = vi.fn();
+  disconnect = vi.fn();
+
+  constructor(
+    _ctx: BaseAudioContext,
+    readonly name: string,
+    readonly options: AudioWorkletNodeOptions,
+  ) {
+    FakeAudioWorkletNode.instances.push(this);
+  }
+}
+
 class FakeOscillatorNode {
   static instances: FakeOscillatorNode[] = [];
   detune = new FakeAudioParam();
@@ -63,6 +86,7 @@ class FakeOscillatorNode {
 
 class FakeAudioContext {
   currentTime = 0;
+  sampleRate = 48_000;
   destination = {};
   createGain() {
     return new FakeGainNode();
@@ -86,11 +110,25 @@ function envelope(max = staticNumberPattern([1])): EnvelopeSchema {
   };
 }
 
-function schema(overrides: Partial<SynthesizerSchema> = {}) {
+function schema(overrides: Partial<BasicSynthesizerSchema> = {}) {
   return defaultSynthSchema({
     gain: envelope(),
     ...overrides,
   });
+}
+
+function unisonSchema(
+  overrides: Partial<UnisonSynthesizerSchema> = {},
+): UnisonSynthesizerSchema {
+  return {
+    ...schema(),
+    engine: "unison",
+    waveform: "sawtooth",
+    voices: staticNumberPattern([7]),
+    spread: staticNumberPattern([10]),
+    width: staticNumberPattern([0.4]),
+    ...overrides,
+  };
 }
 
 function synth(
@@ -109,14 +147,51 @@ beforeEach(() => {
   FakeGainNode.instances = [];
   FakeFilterNode.instances = [];
   FakeOscillatorNode.instances = [];
+  FakeAudioWorkletNode.instances = [];
   vi.stubGlobal("GainNode", FakeGainNode);
   vi.stubGlobal("BiquadFilterNode", FakeFilterNode);
   vi.stubGlobal("OscillatorNode", FakeOscillatorNode);
+  vi.stubGlobal("AudioWorkletNode", FakeAudioWorkletNode);
 });
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Synthesizer scheduling", () => {
+  it("constructs unison sources with resolved voice frames and controls", () => {
+    const instance = synth(
+      unisonSchema({
+        gain: {
+          ...envelope(),
+          r: staticNumberPattern([0.25]),
+        },
+        spread: staticNumberPattern([20]),
+        width: staticNumberPattern([0.75]),
+        eventPattern: {
+          timing: timing([[{ offset: 0.25, duration: 0.5 }]]),
+          notes: { type: "static", cycle: [[[60]]] },
+        },
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    const node = FakeAudioWorkletNode.instances[0];
+    expect(node.name).toBe("supersaw-processor");
+    expect(node.options.processorOptions).toMatchObject({
+      voices: 7,
+      startFrame: 504_000,
+      stopFrame: 566_400,
+    });
+    expect(node.parameters.get("spread")?.setValueAtTime).toHaveBeenCalledWith(
+      20,
+      10.5,
+    );
+    expect(node.parameters.get("width")?.setValueAtTime).toHaveBeenCalledWith(
+      0.75,
+      10.5,
+    );
+  });
+
   it("emits one duck trigger per resolved onset before polyphonic voices", () => {
     const onDuck = vi.fn();
     const instance = synth(

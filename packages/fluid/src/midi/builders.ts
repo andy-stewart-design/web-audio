@@ -41,6 +41,14 @@ const MIDI_CC_CONTEXTS = {
     range: { min: -1_200, max: 1_200, curve: "linear" },
     default: 0,
   },
+  spread: {
+    range: { min: 0, max: 100, curve: "linear" },
+    default: 10,
+  },
+  width: {
+    range: { min: 0, max: 1, curve: "linear" },
+    default: 0.4,
+  },
   filterGain: {
     range: { min: -24, max: 24, curve: "linear" },
     default: 0,

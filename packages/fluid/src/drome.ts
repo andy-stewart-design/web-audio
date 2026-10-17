@@ -13,6 +13,7 @@ import Instrument from "./instruments/instrument";
 import { MidiBuilders } from "./midi/builders";
 import Sampler from "./instruments/sampler";
 import Synthesizer from "./instruments/synthesizer";
+import UnisonSynthesizer from "./instruments/unison-synthesizer";
 import {
   isBanked,
   isAlias,
@@ -25,7 +26,11 @@ import type { BankSchema, DromeSchema, FilterType } from "@web-audio/schema";
 import type { AudioParamInput } from "./parameters/parameter";
 import type { CycleInput } from "./inputs/types";
 import type { LoadSamplesInput } from "./samples/types";
-import type { WaveformAlias } from "./inputs/waveform";
+import {
+  waveformAliasMap,
+  type SynthSelector,
+  type WaveformAlias,
+} from "./inputs/waveform";
 
 class Drome {
   readonly midi = new MidiBuilders();
@@ -52,7 +57,18 @@ class Drome {
     return createShorthand(source);
   }
 
-  synth(type?: WaveformAlias) {
+  synth(): Synthesizer;
+  synth(type: undefined): Synthesizer;
+  synth(type: WaveformAlias): Synthesizer;
+  synth(type: "unison" | "uni"): UnisonSynthesizer;
+  synth(type: SynthSelector): Synthesizer | UnisonSynthesizer;
+  synth(type?: SynthSelector) {
+    if (type === "unison" || type === "uni") {
+      return new UnisonSynthesizer({ host: this });
+    }
+    if (type !== undefined && !Object.hasOwn(waveformAliasMap, type)) {
+      throw new TypeError(`[Drome] Unsupported synth engine "${type}".`);
+    }
     return new Synthesizer({ host: this, type });
   }
 

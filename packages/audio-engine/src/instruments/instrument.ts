@@ -54,6 +54,7 @@ interface BaseScheduleVoiceParams {
     param: AudioParam;
     resolved: ResolvedDetune;
   };
+  sourceParams?: { param: AudioParam; schema: AudioParamSchema }[];
   gainEnvelope: ResolvedEnvelopeSchema;
   effects: EffectSchema[];
   stopTime?: number;
@@ -223,11 +224,7 @@ abstract class Instrument {
 
     const gain = new GainNode(this._ctx);
 
-    const releaseDur = this._scheduleParamEnvelope(
-      gain.gain,
-      gainEnvelope,
-      event,
-    );
+    this._scheduleParamEnvelope(gain.gain, gainEnvelope, event);
 
     if (detune) {
       if (detune.resolved.type === "envelope") {
@@ -249,6 +246,10 @@ abstract class Instrument {
       }
     }
 
+    params.sourceParams?.forEach(({ param, schema }) => {
+      this._applyParamSchema(param, schema, event, 1, completionCleanups);
+    });
+
     const effectNodes = effects.map((effect) =>
       this._buildEffectNode(effect, event, completionCleanups),
     );
@@ -268,7 +269,9 @@ abstract class Instrument {
       source.start(event.startTime);
     }
 
-    source.stop(params.stopTime ?? event.endTime + releaseDur + 0.05);
+    source.stop(
+      params.stopTime ?? this._resolveVoiceStopTime(gainEnvelope, event),
+    );
     this._track(source, chain, event.startTime, completionCleanups);
   }
 
@@ -417,6 +420,17 @@ abstract class Instrument {
     } satisfies ResolvedEnvelopeSchema;
   }
 
+  protected _resolveVoiceStopTime(
+    gainEnvelope: ResolvedEnvelopeSchema,
+    event: EventScheduleContext,
+  ) {
+    return (
+      event.endTime +
+      computeEnvelope(gainEnvelope, event.duration, event.endTime).releaseDur +
+      0.05
+    );
+  }
+
   protected _scheduleParamEnvelope(
     param: AudioParam,
     envelope: ResolvedEnvelopeSchema,
@@ -508,6 +522,7 @@ abstract class Instrument {
     schema: InstrumentSchema<EventPattern>,
     startingBar = 0,
     barStartTime?: number,
+    additionalParams: AudioParamSchema[] = [],
   ) {
     const register = (lfo: LfoSchema) => {
       if (this._lfoNodes.has(lfo.id)) return;
@@ -541,6 +556,9 @@ abstract class Instrument {
     };
 
     if (schema.detune.type === "lfo") register(schema.detune);
+    for (const param of additionalParams) {
+      if (param.type === "lfo") register(param);
+    }
     for (const effect of schema.effects) {
       if (effect.type === "filter") {
         for (const param of [
