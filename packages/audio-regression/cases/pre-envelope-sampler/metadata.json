@@ -1,0 +1,8 @@
+{
+  "description": "Sampler filter runs before the amplitude envelope",
+  "bars": 1,
+  "tailSeconds": 0.3,
+  "resources": {
+    "/samples/tone.wav": "../sample-tone/samples/tone.wav"
+  }
+}

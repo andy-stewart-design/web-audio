@@ -3,8 +3,8 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md), ready for planning; R1–R8 and AC1–AC9 govern this work.
-- Delivery state: Implementation in progress. Step 0.1 and Step 1.1 are complete; lifecycle, native regression, documentation, and listening gates remain pending.
-- Acceptance or release still pending: Native regression verification and individual human listening approval for new/changed recordings, plus the remaining implementation gates. No publication or deployment is included.
+- Delivery state: Implementation in progress. Steps 0.1, 1.1, 1.2, and 2.1 are complete; documentation, listening, reference acceptance, and final integration gates remain pending.
+- Acceptance or release still pending: Individual human listening approval for new/changed recordings, documentation, reference updates, and final integration gates. No publication or deployment is included.
 - Blockers: No unresolved product decisions or baseline failures. Chromium availability is verified for the existing native runner; remaining gates are still required.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove verification. Verified means the scoped gate and required implementation review passed; it does not imply human listening approval, publication, or release. In supervised execution, extension state owns manual approval records; evidence entries may link to them without duplicating approval checklists.
@@ -131,7 +131,7 @@ Evidence: [evidence/1.1.md](evidence/1.1.md).
 
 ### Step 1.2 — Prove automation, cleanup, and graph composition
 
-Status: Pending
+Status: Complete
 Requirements / acceptance: R3–R6; AC2 (cleanup portion), AC5, AC6, AC7; AC8 (existing API/schema portion). AC8 documentation and all recording acceptance remain Phase 2.
 Depends on: Step 1.1.
 Review boundary: Fill meaningful integration gaps against the implemented graph; no unrelated scheduler, bus, or lifecycle refactor.
@@ -145,10 +145,10 @@ Expected files:
 
 Tasks:
 
-- [ ] Exercise gain/filter parameters through the real scheduling path using static/hit-patterned/random values, an envelope, an LFO, and MIDI CC. Confirm unchanged values, event origins, phase/target semantics, and binding cleanup using focused examples plus existing coverage.
-- [ ] End one overlapping effected voice while another remains; cancel future voices, stop with an active voice, and destroy repeatedly. Include natural short-buffer completion and verify no lifetime extension or premature cleanup of surviving voices.
-- [ ] Use a manual clock and real runtime instruments for an effected engine graph with named routing/sends; assert balancing/mute/send topology without a duplicated dry route. Check graph replacement keeps old/new voice nodes isolated and retirement still waits for the tracked voices.
-- [ ] Re-run existing bus, ducking, MIDI, source-selection, authoring, and schema regressions. Add only missing effect-bearing composition cases; do not rewrite unchanged suites just to match new file layout.
+- [x] Exercise gain/filter parameters through the real scheduling path using static/hit-patterned/random values, an envelope, an LFO, and MIDI CC. Confirm unchanged values, event origins, phase/target semantics, and binding cleanup using focused examples plus existing coverage.
+- [x] End one overlapping effected voice while another remains; cancel future voices, stop with an active voice, and destroy repeatedly. Include natural short-buffer completion and verify no lifetime extension or premature cleanup of surviving voices.
+- [x] Use a manual clock and real runtime instruments for an effected engine graph with named routing/sends; assert balancing/mute/send topology without a duplicated dry route. Check graph replacement keeps old/new voice nodes isolated and retirement still waits for the tracked voices.
+- [x] Re-run existing bus, ducking, MIDI, source-selection, authoring, and schema regressions. Add only missing effect-bearing composition cases; do not rewrite unchanged suites just to match new file layout.
 
 Verification:
 
@@ -160,15 +160,16 @@ pnpm --filter @web-audio/schema test:ci
 pnpm --filter @web-audio/fluid test:ci
 ```
 
-Expected result: Automation schedules, binding ownership, Stop/retirement, routing, and MIDI/duck contracts remain intact. For effect-bearing engine assertions, do not replace runtime instruments with mocks that hide `_scheduleVoice()`.
+Result: Automation schedules, binding ownership, Stop/retirement, routing, and MIDI/duck contracts remain intact. The added effect-bearing engine assertion uses real runtime instruments rather than mocks hiding `_scheduleVoice()`.
 
 Manual: Inspect any change outside the connection order and test/docs surface for scope creep. A discovered unrelated pre-existing defect is reported, not silently repaired here.
 
 Completion gate: Existing suites and the added composition tests pass, with direct evidence for every retained lifecycle/downstream contract not already established by existing coverage.
-Evidence: Not run.
+Evidence: [evidence/1.2.md](evidence/1.2.md).
 
 Phase exit gate: After Step 1.2 checks, run `pnpm --filter @web-audio/audio-regression build:deps`, then `pnpm --filter @web-audio/audio-regression audio:verify`. Review the composed engine build and all resulting reference mismatches. No-effects controls must retain their baseline output; changed filter cases may still fail against old references, but only classified, placement-attributable differences may advance to Phase 2. Do not update references to pass this gate. Unexplained mismatches, diagnostics, or shape/lifecycle failures block advancement. Record the classified cases, not an assumed green regression suite.
-Evidence: Not run.
+Result: 9/11 existing recordings passed. The `bends` and `lfo-filter` mismatches are classified as placement-attributable filter/envelope changes; no-effects controls and all other cases passed, and no references were updated.
+Evidence: [evidence/1.2.md](evidence/1.2.md).
 
 ## Phase 2 — Native proof, documentation, and recording acceptance
 
@@ -178,7 +179,7 @@ Review boundary: Verification assets and documentation, followed by approval-gat
 
 ### Step 2.1 — Add discriminating native tests and listening material
 
-Status: Pending
+Status: Complete
 Requirements / acceptance: R1, R2, R7, R8; AC3 (native portion), AC4 (automated portion), AC9 (diagnosis/preparation portion). Listening/reference acceptance is Step 2.3.
 Depends on: Step 1.2 and Phase 1 exit gate.
 Review boundary: Prove real filter/envelope behavior with self-contained tooling tests; author two focused listening cases without accepting their references yet.
@@ -192,11 +193,11 @@ Expected files:
 
 Tasks:
 
-- [ ] Add small deterministic synth and sampler fixtures with a resonant filter, zero envelope floor, and nonconstant attack/release. Ensure the source remains live through the observation window, including time after release and before scheduled stop; sample exhaustion must not masquerade as envelope gating.
-- [ ] Render actual Fluid/AudioEngine output through `withRenderer().render()`. In a separately owned test browser context, render explicit native reference graphs for pre-envelope and old post-envelope placement with matching source data, scheduling, gains, sample rate, and frame count. Keep this helper test-local and independent of production routing helpers; close every context on failure and retain diagnostic checks/deadlines.
-- [ ] Compare the engine render to the intended reference with unchanged `compareAudio()` defaults, and assert the old topology fails the same comparison by a meaningful signal difference. Assert finite output and final zero-gain suppression in a window before source cleanup. Exercise both 44.1 kHz and 48 kHz with appropriately aligned frame timing.
-- [ ] Use temporary locally served assets for tooling tests, following existing native sample-test patterns; do not import authored cases into those tests. Resolve fixture mismatch by matching real scheduling/sample decoding, not by increasing tolerances or normalizing output.
-- [ ] Add the two authored cases for musical review, with enough duration/tail and a sample event short enough for its release to complete before the reused half-second input ends. Verify repeatable fresh renders. Keep these cases separate from the synthetic contract tests and do not write accepted references yet.
+- [x] Add small deterministic synth and sampler fixtures with a resonant filter, zero envelope floor, and nonconstant attack/release. Ensure the source remains live through the observation window, including time after release and before scheduled stop; sample exhaustion must not masquerade as envelope gating.
+- [x] Render actual Fluid/AudioEngine output through `withRenderer().render()`. In a separately owned test browser context, render explicit native reference graphs for pre-envelope and old post-envelope placement with matching source data, scheduling, gains, sample rate, and frame count. Keep this helper test-local and independent of production routing helpers; close every context on failure and retain diagnostic checks/deadlines.
+- [x] Compare the engine render to the intended reference with unchanged `compareAudio()` defaults, and assert the old topology fails the same comparison by a meaningful signal difference. Assert finite output and final zero-gain suppression in a window before source cleanup. Exercise both 44.1 kHz and 48 kHz with appropriately aligned frame timing.
+- [x] Use temporary locally served assets for tooling tests, following existing native sample-test patterns; do not import authored cases into those tests. Resolve fixture mismatch by matching real scheduling/sample decoding, not by increasing tolerances or normalizing output.
+- [x] Add the two authored cases for musical review, with enough duration/tail and a sample event short enough for its release to complete before the reused half-second input ends. Verify repeatable fresh renders. Keep these cases separate from the synthetic contract tests and do not write accepted references yet.
 
 Verification (new tests/case IDs below are proposed additions, not existing commands that can pass before this step):
 
@@ -212,10 +213,12 @@ pnpm --filter @web-audio/audio-regression audio:render --case pre-envelope-sampl
 
 Run the focused native test and each diagnostic render again in fresh processes to check determinism. Existing `audio:verify --case sine` and `audio:verify --case sample-tone` must still pass their unchanged references. The full registry is not expected to verify yet: newly added cases intentionally lack accepted references until Step 2.3.
 
-Manual: Review reference-graph timing/levels against the fixture contract and confirm the wrong-topology comparison fails for placement, not unrelated scheduling or decoding differences. This is technical review, not human musical approval.
+Result: The focused native suite passed at both 44.1 kHz and 48 kHz. Both real source families matched the explicit effects-before-envelope graphs at the default comparison limits, and both rejected envelope-first graphs with a meaningful difference. The temporary sample asset and separately owned browser contexts were cleaned up. The two authored diagnostic renders were repeatable; no accepted reference bytes changed. Existing `sine` and `sample-tone` references still pass, while only the classified `bends` and `lfo-filter` references differ.
+
+Manual: Technical review confirms the reference-graph timing/levels match the fixtures and the wrong-topology failures are placement-attributable. Human musical approval remains Step 2.3.
 
 Completion gate: Both source families match explicit intended native graphs and reject the old graphs; unchanged controls pass. Diagnostic recordings are repeatable, native resources clean up, and no accepted reference bytes have changed.
-Evidence: Not run.
+Evidence: [evidence/2.1.md](evidence/2.1.md).
 
 ### Step 2.2 — Document the new contract and the intentional break
 
@@ -305,13 +308,13 @@ This table points to owning gates; their evidence/status entries remain the sing
 
 | Spec acceptance ID | Owning step / gate                     | Verification and expected result                                                                                        | Evidence / status                  |
 | ------------------ | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| AC1                | Step 1.1                               | Real instrument scheduling creates the exact ordered pre-envelope path with no bypass.                                  | Step 1.1 evidence; Pending         |
-| AC2                | Steps 1.1 and 1.2                      | Overlapping synth/sample voices have distinct paths and independent cleanup.                                            | Steps 1.1/1.2 evidence; Pending    |
+| AC1                | Step 1.1                               | Real instrument scheduling creates the exact ordered pre-envelope path with no bypass.                                  | Step 1.1 evidence; Complete        |
+| AC2                | Steps 1.1 and 1.2                      | Overlapping synth/sample voices have distinct paths and independent cleanup.                                            | Steps 1.1/1.2 evidence; Complete   |
 | AC3                | Steps 0.1, 1.1, 2.1; final gate in 2.3 | Empty-chain topology and existing no-effects native controls retain their baseline output.                              | Owning step evidence; Pending      |
 | AC4                | Steps 2.1 and 2.3                      | Native output matches the intended graph, rejects the old placement, and focused recordings receive listening approval. | Steps 2.1/2.3 evidence; Pending    |
-| AC5                | Steps 1.1 and 1.2                      | Source/envelope schedules, nonzero floors, parameter automation, and bindings retain their contracts.                   | Steps 1.1/1.2 evidence; Pending    |
-| AC6                | Step 1.2                               | Cancellation, natural end, active Stop, replacement/retirement, and destruction retain ownership/lifetime rules.        | Step 1.2 evidence; Pending         |
-| AC7                | Step 1.2                               | Effect-bearing composition preserves routing, send taps, mute, duck/MIDI timing, and bus behavior.                      | Step 1.2 evidence; Pending         |
+| AC5                | Steps 1.1 and 1.2                      | Source/envelope schedules, nonzero floors, parameter automation, and bindings retain their contracts.                   | Steps 1.1/1.2 evidence; Complete   |
+| AC6                | Step 1.2                               | Cancellation, natural end, active Stop, replacement/retirement, and destruction retain ownership/lifetime rules.        | Step 1.2 evidence; Complete        |
+| AC7                | Step 1.2                               | Effect-bearing composition preserves routing, send taps, mute, duck/MIDI timing, and bus behavior.                      | Step 1.2 evidence; Complete        |
 | AC8                | Steps 1.2 and 2.2; final gate in 2.3   | Existing authoring/schema contracts pass and delivered documentation accurately explains the sonic break.               | Owning step evidence; Pending      |
 | AC9                | Step 2.3 / Phase 2 exit                | Attributed, individually approved references and the complete native suite pass without weakened safeguards.            | Step 2.3/Phase 2 evidence; Pending |
 
