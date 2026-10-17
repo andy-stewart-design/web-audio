@@ -3,9 +3,9 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md), ready for planning; R1–R8 and AC1–AC9 govern this work.
-- Delivery state: Planning only. All steps are Pending; no baseline, implementation checks, or listening review have been run for this plan.
-- Acceptance or release still pending: All implementation gates, native regression verification, and individual human listening approval for new/changed recordings. No publication or deployment is included.
-- Blockers: No unresolved product decisions. Chromium availability and the current test baseline are unverified; a missing browser or unexplained baseline failure blocks the affected execution gate, not plan authoring.
+- Delivery state: Implementation in progress. Step 0.1 and Step 1.1 are complete; lifecycle, native regression, documentation, and listening gates remain pending.
+- Acceptance or release still pending: Native regression verification and individual human listening approval for new/changed recordings, plus the remaining implementation gates. No publication or deployment is included.
+- Blockers: No unresolved product decisions or baseline failures. Chromium availability is verified for the existing native runner; remaining gates are still required.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove verification. Verified means the scoped gate and required implementation review passed; it does not imply human listening approval, publication, or release. In supervised execution, extension state owns manual approval records; evidence entries may link to them without duplicating approval checklists.
 
@@ -94,7 +94,7 @@ Review boundary: Small production wiring change with immediate tests; no new DSP
 
 ### Step 1.1 — Move the chain with direct topology and isolation proof
 
-Status: Pending
+Status: Complete
 Requirements / acceptance: R1–R4; AC1, AC2 (topology portion), AC3 (connection portion), AC5 (source/envelope schedule portion). Native portions remain owned by Phase 2; broader lifecycle parity is Step 1.2.
 Depends on: Step 0.1 and Phase 0 exit gate.
 Review boundary: Reorder the existing audio path, retain all its nodes/ownership, and prove it through actual synth/sampler scheduling.
@@ -108,11 +108,11 @@ Expected files:
 
 Tasks:
 
-- [ ] Connect `source → effect nodes in authored order → existing envelope gain → balancing gain`, with direct `source → envelope gain` for empty effects. Keep envelope calculation, effect creation/automation, source start/stop, and tracked node ownership unchanged.
-- [ ] Add tests constructing real `Synthesizer` and `Sampler` instances with fake native nodes and a cached sample. Assert exact connection targets/counts for zero, one, and multiple effects, including reversed authored orders; detect bypasses and old envelope-first edges.
-- [ ] Schedule overlapping/chord synth notes and layered sampler voices; assert separate effect/envelope node identities and no cross-voice audio edges.
-- [ ] Assert unchanged amplitude scheduling, configured nonzero floor, source start/stop times, sample offset/playback settings, and skip behavior without renumbering later hits. Reuse existing tests for already-covered selection/region details rather than duplicating their full matrix.
-- [ ] Keep tests type-checked and clean up global stubs/instances between cases. Do not expose private production methods or create a new public position option for testing.
+- [x] Connect `source → effect nodes in authored order → existing envelope gain → balancing gain`, with direct `source → envelope gain` for empty effects. Keep envelope calculation, effect creation/automation, source start/stop, and tracked node ownership unchanged.
+- [x] Add tests constructing real `Synthesizer` and `Sampler` instances with fake native nodes and a cached sample. Assert exact connection targets/counts for zero, one, and multiple effects, including reversed authored orders; detect bypasses and old envelope-first edges.
+- [x] Schedule overlapping/chord synth notes and layered sampler voices; assert separate effect/envelope node identities and no cross-voice audio edges.
+- [x] Assert unchanged amplitude scheduling, configured nonzero floor, source start/stop times, sample offset/playback settings, and skip behavior without renumbering later hits. Reuse existing tests for already-covered selection/region details rather than duplicating their full matrix.
+- [x] Keep tests type-checked and clean up global stubs/instances between cases. Do not expose private production methods or create a new public position option for testing.
 
 Verification (the new test path becomes runnable only after this step adds it):
 
@@ -122,12 +122,12 @@ pnpm --filter @web-audio/audio-engine check
 pnpm --filter @web-audio/audio-engine lint
 ```
 
-Expected result: Direct scheduling assertions prove one correctly ordered path per voice and unchanged timing; existing instrument regressions pass. These fake-node checks do not claim native acoustic parity or listening approval.
+Result: Direct scheduling assertions prove one correctly ordered path per voice and unchanged timing; existing instrument regressions pass. These fake-node checks do not claim native acoustic parity or listening approval.
 
 Manual: Review the connection diff and node-tracking list together; no second amplitude envelope, shared per-voice effects, or untracked connection may have appeared.
 
 Completion gate: The production change and its focused proof pass together and remain buildable, without depending on later native fixtures or accepted reference updates.
-Evidence: Not run.
+Evidence: [evidence/1.1.md](evidence/1.1.md).
 
 ### Step 1.2 — Prove automation, cleanup, and graph composition
 
