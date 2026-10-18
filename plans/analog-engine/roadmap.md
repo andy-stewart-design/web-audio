@@ -9,7 +9,8 @@ This is a **feature roadmap, not a single-PR scope or a commitment to implement 
 ## Feature overview
 
 - [x] Move per-instrument effects before each note's amplitude envelope ([implementation plan](pre-envelope-effects/plan.md)).
-- [ ] Restore/adapt the supersaw worklet.
+- [ ] Deliver the saw-only unison engine with canonical `"unison"` / `"uni"` selectors (implementation complete; listening/reference acceptance pending).
+- [ ] Restore/adapt a separate public supersaw engine and waveform surface.
 - [ ] Add an optional main-source gain argument to `d.synth()`.
 - [ ] Add `.sub()` to synths.
 - [ ] Add `.noise()` to both synths and samplers.
@@ -84,9 +85,15 @@ d.synth("saw", 0.8).sub("square", 0.3).noise("pink", 0.3);
 - Avoid unintentionally replaying the exact same noise burst on every hit; sources can share noise data while using varying offsets or another suitable strategy.
 - For samplers, define how noise ends when sample playback finishes relative to the voice's scheduled envelope/release. Do not leave noise running after voice cleanup.
 
-## Supersaw
+## Supersaw and unison follow-up
 
-Restore/adapt the earlier source used through `d.synth("supersaw")`:
+The delivered saw-only unison engine uses the retained internal supersaw source
+and worklet, but its public surface is `d.synth("unison")` / `d.synth("uni")`
+with `waveform: "sawtooth"`. There is deliberately no public
+`d.synth("supersaw")` compatibility alias. A separate public supersaw engine
+or additional unison waveforms requires a new scope of work.
+
+The retained source was adapted from:
 
 `/Users/andy/Documents/Development/web-audio-examples/drome/packages/audio-worklets/src/worklets/worklet-supersaw.ts`
 

@@ -354,7 +354,7 @@ Review boundary: Documentation, explicit human/device review, approval-gated new
 
 ### Step 3.1 — Accept the sound and integrate the complete feature
 
-Status: Pending
+Status: Blocked — documentation is complete, but human/device listening, performance review, and individual reference approval are still required.
 Requirements / acceptance: R1–R9; AC9 (human/reference portion), AC10 (documentation/final integration), AC5/AC8 (real-time quality/performance portion). Earlier gates own core/type/DSP/lifecycle proof.
 Depends on: Step 2.2 and Phase 2 exit gate.
 Review boundary: No feature expansion or automatic rebaseline. A sound/DSP change discovered here returns to its owning implementation/native checks before approval.
@@ -368,12 +368,12 @@ Expected files:
 
 Tasks:
 
-- [ ] Document basic versus unison overloads, canonical `"unison"` / `"uni"` alias, default/explicit saw-only `.type()`, and engine versus waveform identity. Include `.voices()` versus musical polyphony, cents spread versus width, modulation versus frozen count, MIDI contexts, bounds, phase intent, and normalization limits. Other unison waveforms require a separate SOW; do not imply FM, sub/noise, new gain arguments, a supersaw compatibility alias, or a plugin API exist.
-- [ ] Audition the reproducible diagnostic recordings and real-time engine playback on a recorded browser/device. Compare default, one/two/eight oscillators, mono/stereo, modulation, attacks/releases, and high notes; inspect representative overlapping notes (for example eight notes × eight saws) for obvious glitches or unacceptable CPU cost. Record workload and limitations; no cross-device performance guarantee is claimed.
-- [ ] Use an existing running project REPL/browser session for the real-time check. If unavailable, obtain approval before starting the existing app `dev` workflow; do not create a new demo/harness solely for acceptance. Human access/setup is a prerequisite: missing access leaves this part Blocked, not passed by offline rendering. Musical WAV review can use the existing diagnostic artifacts with `afplay` on macOS.
+- [x] Document basic versus unison overloads, canonical `"unison"` / `"uni"` alias, default/explicit saw-only `.type()`, and engine versus waveform identity. Include `.voices()` versus musical polyphony, cents spread versus width, modulation versus frozen count, MIDI contexts, bounds, phase intent, and normalization limits. Other unison waveforms require a separate SOW; do not imply FM, sub/noise, new gain arguments, a supersaw compatibility alias, or a plugin API exist.
+- [ ] **Blocked pending human/device access:** Audition the reproducible diagnostic recordings and real-time engine playback on a recorded browser/device. Compare default, one/two/eight oscillators, mono/stereo, modulation, attacks/releases, and high notes; inspect representative overlapping notes (for example eight notes × eight saws) for obvious glitches or unacceptable CPU cost. Record workload and limitations; no cross-device performance guarantee is claimed.
+- [ ] **Blocked pending human/device access:** Use an existing running project REPL/browser session for the real-time check. If unavailable, obtain approval before starting the existing app `dev` workflow; do not create a new demo/harness solely for acceptance. Human access/setup is a prerequisite: missing access leaves this part Blocked, not passed by offline rendering. Musical WAV review can use the existing diagnostic artifacts with `afplay` on macOS.
 - [ ] Record individual listener approval for each exact candidate; command success is not approval. If compensation/panning/phase assumptions need adjustment, document the scoped choice, rerun its owning DSP/native tests and repeat review before accepting new bytes.
 - [ ] After approval, update exactly the approved case with the existing updater and reverify it. Confirm the freshly generated output matches the reviewed candidate. Compare existing WAV/metadata identities with Phase 0; do not update old references to disguise a structural regression.
-- [ ] Run final integration/format/diff checks after the last update, inspect the feature-complete diff, and close the acceptance map. Keep requirements/assumptions/evidence honest; mark the roadmap delivered only after all required gates, not after merely generating a recording.
+- [ ] Run final integration/format/diff checks after the last approved reference update, inspect the feature-complete diff, and close the acceptance map. Keep requirements/assumptions/evidence honest; mark the roadmap delivered only after all required gates, not after merely generating a recording.
 
 Verification:
 
@@ -397,10 +397,10 @@ git diff --check
 Also check Prettier on every modified code/document/metadata file using explicit final-diff paths, excluding WAV binaries. `pnpm test` builds dependency artifacts and runs a fresh full native registry via uncached audio-regression `test:ci`; other workspace tasks may use valid Turbo caches. This does not replace human review or real-time profiling.
 
 Completion gate: Earlier proofs remain green, required real-time/listening evidence is present, every new reference is individually approved, old reference bytes are untouched, the full registry passes with unchanged limits, and final documentation/API claims match delivery. No publication/deployment is implied.
-Evidence: Not run.
+Evidence: [evidence/3.1.md](evidence/3.1.md) — preparation complete; acceptance remains blocked.
 
 Phase exit gate: After Step 3.1's final checks, review acceptance evidence against the final revision. No pending human gate, missing reference, unexplained acoustic change, unowned worklet, or stale scope claim may be hidden by successful unit tests.
-Evidence: Not run.
+Evidence: Pending human/device review.
 
 ## Final acceptance
 

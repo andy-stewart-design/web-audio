@@ -50,12 +50,13 @@ function nativeCase(
     sampleRate: 48_000,
     channels: 2,
   },
+  bars = 1,
 ): SketchCase {
   return {
     id: "unison-native",
     description: "Temporary native saw-only unison fixture",
     code,
-    bars: 1,
+    bars,
     tailSeconds: 0.5,
     settings: {
       ...settings,
@@ -108,6 +109,10 @@ describe("native saw-only unison", () => {
     const instrument = evaluateSource(code).instruments[0]!;
 
     expect(instrument.eventPattern.timing.cycle[0]).toHaveLength(4);
+    expect(instrument.eventPattern.notes).toMatchObject({
+      type: "static",
+      cycle: [[[60], [72], [84], [96]]],
+    });
     if (!("engine" in instrument) || instrument.engine !== "unison")
       throw new Error("Expected unison");
     expect(instrument.voices).toMatchObject({
@@ -207,6 +212,48 @@ describe("native saw-only unison", () => {
       expect(maxChannelDifference(centered.channels)).toBeLessThan(1e-6);
       expect(maxChannelDifference(wide.channels)).toBeGreaterThan(1e-5);
       expect(mono.channels).toHaveLength(1);
+      expect(renderer.browser.contexts()).toHaveLength(0);
+    });
+  });
+
+  it("modulates spread and width continuously through LFO AudioParams", async () => {
+    const animated = `d.bpm(120);
+const spread = d.lfo(0, 24).speed(1);
+const width = d.lfo(0, 1).norm().speed(1);
+d.synth("unison")
+  .notes(60)
+  .xox("1")
+  .voices(4)
+  .spread(spread)
+  .width(width)
+  .gain(0.4)
+  .adsr(0, 0, 1, 0.1)
+  .push();`;
+    const frozen = animated
+      .replace("const spread = d.lfo(0, 24).speed(1);", "const spread = 0;")
+      .replace(
+        "const width = d.lfo(0, 1).norm().speed(1);",
+        "const width = 0;",
+      );
+
+    await withRenderer(async (renderer) => {
+      const animatedResult = await renderer.render(
+        nativeCase(animated, undefined, 2),
+      );
+      const frozenResult = await renderer.render(
+        nativeCase(frozen, undefined, 2),
+      );
+
+      expectHealthy(animatedResult);
+      expectHealthy(frozenResult);
+      expect(maxChannelDifference(animatedResult.channels)).toBeGreaterThan(
+        1e-5,
+      );
+      expect(
+        compareAudio(audio(animatedResult), audio(frozenResult), {
+          tolerance: { maxError: 1e-5, rmsError: 1e-6 },
+        }).passed,
+      ).toBe(false);
       expect(renderer.browser.contexts()).toHaveLength(0);
     });
   });

@@ -5,7 +5,7 @@
 - Readiness: Ready for planning.
 - Blocking decisions: None.
 - Source: The supersaw scope interview, agreement on engine-specific builders/minimal validation, and subsequent decision to expose a saw-only `"unison"` engine (`"uni"` alias) with other waveforms deferred; [analog-inspired synthesis roadmap](../roadmap.md).
-- Delivery state: Phases 0–1, the original supersaw Step 2.1, the revised saw-only unison Step 2.1a, and native Step 2.2 have recorded evidence in [plan.md](plan.md). The original supersaw evidence is historical; the revised unison path and native playback proof are complete, while listening/performance acceptance remains pending.
+- Delivery state: Phases 0–1, the original supersaw Step 2.1, the revised saw-only unison Step 2.1a, native Step 2.2, and Phase 3 documentation preparation have recorded evidence in [plan.md](plan.md). The original supersaw evidence is historical; the revised unison path, native playback proof, and API documentation are complete, while listening/performance/reference acceptance remains blocked pending human/device review.
 - Public engine names, saw-only `.type()` behavior, and separation of engine identity from waveform are agreed decisions. Remaining working defaults, normalization details, and the proposed serialized field layout are assumptions, not separately user-approved decisions.
 - Keep the existing `supersaw/` planning directory and historical evidence paths. Existing internal saw processor/source names may remain; no mechanical rename of verified Phase 1 code is required.
 
