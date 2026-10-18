@@ -17,6 +17,7 @@ import type {
   ResolvedDetune,
   ResolvedEnvelopeSchema,
   ScheduledNote,
+  ScheduledSource,
 } from "@/types";
 import ValuePatternResolver from "@/instruments/value-pattern-resolver";
 import { SYNTH_BASE_GAIN, FILTER_TYPE_MAP } from "@/constants";
@@ -25,6 +26,16 @@ import { computeEnvelope } from "@/utils/compute-envelope";
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
+
+const MAX_AUDIO_PARAM_VALUE = 3.4028234663852886e38;
+
+function safeAudioParamValue(value: number) {
+  if (Number.isNaN(value)) return 0;
+  return Math.max(
+    -MAX_AUDIO_PARAM_VALUE,
+    Math.min(MAX_AUDIO_PARAM_VALUE, value),
+  );
+}
 
 interface InstrumentRouting {
   primary: AudioNode;
@@ -53,6 +64,7 @@ interface BaseScheduleVoiceParams {
     param: AudioParam;
     resolved: ResolvedDetune;
   };
+  sourceParams?: { param: AudioParam; schema: AudioParamSchema }[];
   gainEnvelope: ResolvedEnvelopeSchema;
   effects: EffectSchema[];
   stopTime?: number;
@@ -61,7 +73,7 @@ interface BaseScheduleVoiceParams {
 type ScheduleVoiceParams = BaseScheduleVoiceParams &
   (
     | { source: AudioBufferSourceNode; offset: number }
-    | { source: AudioScheduledSourceNode; offset?: undefined }
+    | { source: ScheduledSource; offset?: undefined }
   );
 
 type MidiBinding = (midi: Midi | null) => void;
@@ -120,13 +132,13 @@ abstract class Instrument {
     this._onDuck = onDuck;
     this._balancingNode = ctx.createGain();
     this._muteNode = ctx.createGain();
-    this._balancingNode.gain.value = baseGain;
+    this._balancingNode.gain.value = safeAudioParamValue(baseGain);
     this._muteNode.gain.value = muted ? 0 : 1;
     this._balancingNode.connect(this._muteNode);
     this._muteNode.connect(routing?.primary ?? destination);
     this._sendNodes = (routing?.sends ?? []).map((send) => {
       const node = ctx.createGain();
-      node.gain.value = send.amount;
+      node.gain.value = safeAudioParamValue(send.amount);
       this._muteNode.connect(node);
       node.connect(send.destination);
       return node;
@@ -222,11 +234,7 @@ abstract class Instrument {
 
     const gain = new GainNode(this._ctx);
 
-    const releaseDur = this._scheduleParamEnvelope(
-      gain.gain,
-      gainEnvelope,
-      event,
-    );
+    this._scheduleParamEnvelope(gain.gain, gainEnvelope, event);
 
     if (detune) {
       if (detune.resolved.type === "envelope") {
@@ -248,6 +256,10 @@ abstract class Instrument {
       }
     }
 
+    params.sourceParams?.forEach(({ param, schema }) => {
+      this._applyParamSchema(param, schema, event, 1, completionCleanups);
+    });
+
     const effectNodes = effects.map((effect) =>
       this._buildEffectNode(effect, event, completionCleanups),
     );
@@ -267,7 +279,9 @@ abstract class Instrument {
       source.start(event.startTime);
     }
 
-    source.stop(params.stopTime ?? event.endTime + releaseDur + 0.05);
+    source.stop(
+      params.stopTime ?? this._resolveVoiceStopTime(gainEnvelope, event),
+    );
     this._track(source, chain, event.startTime, completionCleanups);
   }
 
@@ -306,7 +320,7 @@ abstract class Instrument {
   }
 
   protected _track(
-    sourceNode: AudioScheduledSourceNode,
+    sourceNode: ScheduledSource,
     audioNodes: AudioNode[],
     startTime: number,
     completionCleanups: (() => void)[] = [],
@@ -352,7 +366,9 @@ abstract class Instrument {
       );
     } else {
       param.setValueAtTime(
-        this._resolveValue(schema, event.barIndex, event.hitIndex) * scale,
+        safeAudioParamValue(
+          this._resolveValue(schema, event.barIndex, event.hitIndex) * scale,
+        ),
         event.startTime,
       );
     }
@@ -416,6 +432,17 @@ abstract class Instrument {
     } satisfies ResolvedEnvelopeSchema;
   }
 
+  protected _resolveVoiceStopTime(
+    gainEnvelope: ResolvedEnvelopeSchema,
+    event: EventScheduleContext,
+  ) {
+    return (
+      event.endTime +
+      computeEnvelope(gainEnvelope, event.duration, event.endTime).releaseDur +
+      0.05
+    );
+  }
+
   protected _scheduleParamEnvelope(
     param: AudioParam,
     envelope: ResolvedEnvelopeSchema,
@@ -425,11 +452,17 @@ abstract class Instrument {
     const env = computeEnvelope(envelope, event.duration, event.endTime, scale);
     const decay = env.startTime + env.attackDur + env.decayDur;
 
-    param.setValueAtTime(env.min, env.startTime);
-    param.linearRampToValueAtTime(env.max, env.startTime + env.attackDur);
-    param.linearRampToValueAtTime(env.sustain, decay);
-    param.setValueAtTime(env.sustain, env.endTime);
-    param.linearRampToValueAtTime(env.min, env.endTime + env.releaseDur);
+    param.setValueAtTime(safeAudioParamValue(env.min), env.startTime);
+    param.linearRampToValueAtTime(
+      safeAudioParamValue(env.max),
+      env.startTime + env.attackDur,
+    );
+    param.linearRampToValueAtTime(safeAudioParamValue(env.sustain), decay);
+    param.setValueAtTime(safeAudioParamValue(env.sustain), env.endTime);
+    param.linearRampToValueAtTime(
+      safeAudioParamValue(env.min),
+      env.endTime + env.releaseDur,
+    );
 
     return env.releaseDur;
   }
@@ -461,7 +494,7 @@ abstract class Instrument {
     scale: number,
   ) {
     let unsubscribe: (() => void) | null = null;
-    param.value = schema.default * scale;
+    param.value = safeAudioParamValue(schema.default * scale);
 
     return this._registerMidiBinding((midi) => {
       unsubscribe?.();
@@ -483,10 +516,14 @@ abstract class Instrument {
           : schema.default;
         if (!isInitialized) {
           isInitialized = true;
-          param.value = mapped * scale;
+          param.value = safeAudioParamValue(mapped * scale);
           return;
         }
-        param.setTargetAtTime(mapped * scale, this._ctx.currentTime, 0.01);
+        param.setTargetAtTime(
+          safeAudioParamValue(mapped * scale),
+          this._ctx.currentTime,
+          0.01,
+        );
       });
     });
   }
@@ -507,6 +544,7 @@ abstract class Instrument {
     schema: InstrumentSchema<EventPattern>,
     startingBar = 0,
     barStartTime?: number,
+    additionalParams: AudioParamSchema[] = [],
   ) {
     const register = (lfo: LfoSchema) => {
       if (this._lfoNodes.has(lfo.id)) return;
@@ -519,8 +557,8 @@ abstract class Instrument {
         effectiveBarStart - startingBar * this._clock.barDuration;
       const node = new AudioWorkletNode(this._ctx, "lfo-processor", {
         parameterData: {
-          outputA: this._resolveValue(lfo.outputA, 0, 0),
-          outputB: this._resolveValue(lfo.outputB, 0, 0),
+          outputA: safeAudioParamValue(this._resolveValue(lfo.outputA, 0, 0)),
+          outputB: safeAudioParamValue(this._resolveValue(lfo.outputB, 0, 0)),
         },
         processorOptions: {
           waveform: lfo.waveform,
@@ -540,6 +578,9 @@ abstract class Instrument {
     };
 
     if (schema.detune.type === "lfo") register(schema.detune);
+    for (const param of additionalParams) {
+      if (param.type === "lfo") register(param);
+    }
     for (const effect of schema.effects) {
       if (effect.type === "filter") {
         for (const param of [
@@ -562,8 +603,12 @@ abstract class Instrument {
       if (!node) continue;
       const outputA = this._resolveValue(schema.outputA, barIndex, 0);
       const outputB = this._resolveValue(schema.outputB, barIndex, 0);
-      node.parameters.get("outputA")!.setValueAtTime(outputA, barStartTime);
-      node.parameters.get("outputB")!.setValueAtTime(outputB, barStartTime);
+      node.parameters
+        .get("outputA")!
+        .setValueAtTime(safeAudioParamValue(outputA), barStartTime);
+      node.parameters
+        .get("outputB")!
+        .setValueAtTime(safeAudioParamValue(outputB), barStartTime);
     }
   }
 
@@ -588,4 +633,10 @@ abstract class Instrument {
 }
 
 export default Instrument;
-export type { InstrumentOptions, InstrumentRouting, ScheduledNote };
+export { safeAudioParamValue };
+export type {
+  InstrumentOptions,
+  InstrumentRouting,
+  ScheduledNote,
+  ScheduledSource,
+};

@@ -3,7 +3,12 @@
 export function withBrokenWorklet(code: string, moduleSource: string) {
   return `
     const nativeAddModule = AudioWorklet.prototype.addModule;
+    let registrationIndex = 0;
     AudioWorklet.prototype.addModule = function (url, options) {
+      // Engine readiness registers the existing LFO module first. Replace only
+      // that module; let additional engine modules register normally.
+      if (registrationIndex++ !== 0)
+        return nativeAddModule.call(this, url, options);
       const replacement = URL.createObjectURL(new Blob(
         [${JSON.stringify(moduleSource)}], {type: 'text/javascript'}
       ));

@@ -38,6 +38,7 @@ import type {
   SamplerSchema,
   SynthesizerSchema,
 } from "@web-audio/schema";
+import { MidiCc, type MidiCcContext } from "@/midi/builders";
 import type Drome from "@/drome";
 
 type NoteOrChord<T> = T | T[];
@@ -180,16 +181,24 @@ abstract class Instrument {
   }
 
   detune(...input: AudioParamInput) {
-    if (isLfoTuple(input)) {
-      this._detune = input[0];
-    } else if (isEnvelopeTuple(input)) {
-      this._detune = input[0];
-    } else if (isMidiCcTuple(input)) {
-      this._detune = input[0];
-    } else {
-      this._detune = new Parameter(...input);
-    }
+    this._detune = this._resolveAudioParam(input);
     return this;
+  }
+
+  protected _resolveAudioParam(input: AudioParamInput) {
+    if (isLfoTuple(input) || isEnvelopeTuple(input) || isMidiCcTuple(input)) {
+      return input[0];
+    }
+    return new Parameter(...input);
+  }
+
+  protected _getAudioParamSchema(
+    source: AudioParamSource,
+    context: MidiCcContext,
+  ) {
+    return source instanceof MidiCc
+      ? source.getSchema(context)
+      : source.getSchema();
   }
 
   mute(enabled = true) {

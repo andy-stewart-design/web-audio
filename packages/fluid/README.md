@@ -94,6 +94,73 @@ d.sample("bd").slow(2).xox("11"); // fallback bd fills surviving hits
 d.sample().name("bd").slow(2).xox("11"); // authored name rest filters the second bar
 ```
 
+## Synth engines and saw-only unison
+
+`d.synth()` and waveform selectors create the basic synthesizer. The basic
+aliases are `sin`/`sine`, `tri`/`triangle`, `sq`/`square`, and
+`saw`/`sawtooth`; basic synth schemas do not contain an `engine` field.
+
+The saw-only unison engine is selected explicitly with either canonical alias:
+
+```ts
+d.synth("unison");
+d.synth("uni"); // same engine and schema
+```
+
+Both forms return the same `UnisonSynthesizer`. Its schema is identified by
+`engine: "unison"` and `waveform: "sawtooth"`; `"supersaw"` is not a public
+compatibility selector. `.type("saw")` and `.type("sawtooth")` are the only
+unison waveform choices. Other unison waveforms require a separate design and
+are intentionally not implied by this API.
+
+A unison voice is one scheduled note containing a bounded stack of saw
+oscillators. It is separate from musical polyphony: `.notes([60, 64])` creates
+multiple musical notes, while `.voices(8)` makes each note use eight saw
+oscillators. The defaults are 7 oscillators, 10 cents of spread, and 0.4 stereo
+width. The requested count resolves per event, is rounded, and is clamped at playback to
+1–8; it is frozen for that note's lifetime rather than being live-modulated.
+
+```ts
+d.synth("unison")
+  .type("saw")
+  .notes("60 64 67 72")
+  .voices([1, 2, 4, 8])
+  .spread([0, 12, 24, 36]) // outer oscillators: ±spread cents from the note
+  .width([0, 0.35, 0.7, 1]) // normalized stereo width, 0…1
+  .gain(0.35)
+  .adsr(0.01, 0.1, 0.8, 0.1)
+  .push();
+```
+
+`.spread()` is detune in cents: an outer oscillator is offset by up to the
+requested amount in either direction, independently of `.width()`. Width is
+stereo placement, not detune; `0` centers the stack and `1` reaches the full
+stereo range. Mono output is produced by the destination channel layout.
+
+Spread and width accept the normal audio-parameter inputs: static cycles,
+envelopes, LFOs, or MIDI CC sources. For example, `d.lfo(0, 24)` can animate
+spread, while `d.lfo(0, 1).norm()` can animate width. LFO sources connect
+directly to the per-voice AudioParams, so spread and width are evaluated
+continuously during a note; only patterned LFO ranges update at bar boundaries.
+A MIDI CC can be used for interactive control, such as
+`.width(d.midi.cc(75))`; `.out()` remains the separate MIDI note-output
+context. Voices/count are numeric event patterns, not an audio-rate control.
+
+The public ranges are `width: 0…1` and nonnegative finite `spread` in cents.
+`12` cents is a useful example, not a maximum; the default is `10` cents. Width
+is clamped to `0…1`, and negative spread becomes `0`. Spread has no public
+upper cap, while the engine applies an internal maximum finite Float32
+AudioParam value before scheduling so extreme inputs cannot crash native
+automation. Keep authored controls finite; these bounds do not turn the
+controls into a musical loudness limiter. Each oscillator stack uses count compensation, while
+final `.gain()`/ADSR, note pitch, panning, and effects can still change peak
+level. There is no automatic limiter or cross-device loudness guarantee.
+
+Unison phases are deterministic from the event, note, and oscillator identity.
+Fresh renders therefore have stable phase identity without exposing a public
+seed control or depending on ambient randomness. `.detune()` remains the
+common synth detune control; `.spread()` adds the per-oscillator cents offsets.
+
 ## Sampler names
 
 These constructor forms are equivalent where applicable:

@@ -1,0 +1,10 @@
+{
+  "description": "Saw-only unison diagnostic with count, spread, width, and effect movement",
+  "bars": 2,
+  "tailSeconds": 0.5,
+  "settings": {
+    "sampleRate": 48000,
+    "channels": 2,
+    "startOffsetFrames": 4800
+  }
+}

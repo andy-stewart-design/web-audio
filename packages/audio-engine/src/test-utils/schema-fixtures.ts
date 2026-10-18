@@ -1,5 +1,6 @@
 import type {
   BankSchema,
+  BasicSynthesizerSchema,
   ChanceCondition,
   DromeSchema,
   EnvelopeSchema,
@@ -8,7 +9,6 @@ import type {
   SamplerEventPattern,
   SamplerSchema,
   SynthEventPattern,
-  SynthesizerSchema,
   StaticPattern,
   TimingPattern,
   TimingStep,
@@ -90,7 +90,7 @@ function defaultSynthEventPattern(
 
 type SynthSchemaOverrides = Partial<
   Pick<
-    SynthesizerSchema,
+    BasicSynthesizerSchema,
     | "waveform"
     | "eventPattern"
     | "notesOut"
@@ -117,7 +117,7 @@ function defaultSynthSchema(overrides: SynthSchemaOverrides = {}) {
     sends: {},
     ducks: {},
     ...overrides,
-  } satisfies SynthesizerSchema;
+  } satisfies BasicSynthesizerSchema;
 }
 
 function defaultSamplerEventPattern(

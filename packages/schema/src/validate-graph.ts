@@ -91,8 +91,23 @@ function validateDromeGraph(schema: DromeSchema) {
       if (instrument.notesOut !== undefined) {
         validateMidiOut(instrument.notesOut, `${path}.notesOut`);
       }
-      if (!isOneOf(WAVEFORMS, instrument.waveform)) {
-        throw new Error(`[Schema] ${path}.waveform is invalid.`);
+      if (instrument.engine === "unison") {
+        if (instrument.waveform !== "sawtooth") {
+          throw new Error(
+            `[Schema] ${path}.waveform must be "sawtooth" for the unison engine.`,
+          );
+        }
+        validateNumberPattern(instrument.voices, `${path}.voices`);
+        validateAudioParam(instrument.spread, `${path}.spread`);
+        validateAudioParam(instrument.width, `${path}.width`);
+      } else {
+        if (instrument.engine !== undefined) {
+          throw new Error(`[Schema] ${path}.engine is invalid.`);
+        }
+        if (!isOneOf(WAVEFORMS, instrument.waveform)) {
+          throw new Error(`[Schema] ${path}.waveform is invalid.`);
+        }
+        rejectUnisonFields(instrument, path);
       }
       return;
     }
@@ -119,6 +134,16 @@ function validateDromeGraph(schema: DromeSchema) {
       throw new Error(`[Schema] ${path}.direction is invalid.`);
     }
   });
+}
+
+function rejectUnisonFields(instrument: Record<string, unknown>, path: string) {
+  for (const field of ["voices", "spread", "width"]) {
+    if (Object.hasOwn(instrument, field)) {
+      throw new Error(
+        `[Schema] ${path}.${field} is only valid for the unison engine.`,
+      );
+    }
+  }
 }
 
 function validateInstrumentCommon(
