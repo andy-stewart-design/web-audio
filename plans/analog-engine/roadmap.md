@@ -9,8 +9,8 @@ This is a **feature roadmap, not a single-PR scope or a commitment to implement 
 ## Feature overview
 
 - [x] Move per-instrument effects before each note's amplitude envelope ([implementation plan](pre-envelope-effects/plan.md)).
-- [ ] Deliver the saw-only unison engine with canonical `"unison"` / `"uni"` selectors (implementation complete; listening/reference acceptance pending).
-- [ ] Restore/adapt a separate public supersaw engine and waveform surface.
+- [x] Deliver the saw-only unison engine with canonical `"unison"` / `"uni"` selectors.
+- [ ] Design/expose a public waveform API for the Unison engine
 - [ ] Add an optional main-source gain argument to `d.synth()`.
 - [ ] Add `.sub()` to synths.
 - [ ] Add `.noise()` to both synths and samplers.
@@ -92,6 +92,11 @@ and worklet, but its public surface is `d.synth("unison")` / `d.synth("uni")`
 with `waveform: "sawtooth"`. There is deliberately no public
 `d.synth("supersaw")` compatibility alias. A separate public supersaw engine
 or additional unison waveforms requires a new scope of work.
+
+The remaining roadmap item is future scope: it would decide whether to expose a
+separate public `supersaw` selector and/or additional waveform controls. The
+capabilities below are historical/reference notes for that future design, not
+part of the current public API.
 
 The retained source was adapted from:
 

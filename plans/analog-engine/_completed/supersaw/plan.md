@@ -354,7 +354,7 @@ Review boundary: Documentation, explicit human/device review, approval-gated new
 
 ### Step 3.1 — Accept the sound and integrate the complete feature
 
-Status: Blocked — documentation is complete, but human/device listening, performance review, and individual reference approval are still required.
+Status: Verified
 Requirements / acceptance: R1–R9; AC9 (human/reference portion), AC10 (documentation/final integration), AC5/AC8 (real-time quality/performance portion). Earlier gates own core/type/DSP/lifecycle proof.
 Depends on: Step 2.2 and Phase 2 exit gate.
 Review boundary: No feature expansion or automatic rebaseline. A sound/DSP change discovered here returns to its owning implementation/native checks before approval.
@@ -363,17 +363,17 @@ Expected files:
 
 - `packages/fluid/README.md`, `plans/analog-engine/roadmap.md` — engine-specific builder behavior, supported inputs/defaults, units/bounds/normalization caveats, and relevant links. Repair the moved pre-envelope link only as part of these touched feature links.
 - `packages/worklets/README.md` only if a concise package-level explanation is needed; it is not a prerequisite to create a new documentation hierarchy.
-- Proposed `packages/audio-regression/references/unison/{render.wav,metadata.json}` — only after individual human approval; an additionally justified case has its own approval/pair.
+- `packages/audio-regression/references/unison/{render.wav,metadata.json}` — individually approved reference pair.
 - Concise gate evidence; optional `evidence/3.1.md` for device/profile settings, per-recording attribution/approval linkage, or consequential DSP choices. No raw WAV logs attached to the plan.
 
 Tasks:
 
 - [x] Document basic versus unison overloads, canonical `"unison"` / `"uni"` alias, default/explicit saw-only `.type()`, and engine versus waveform identity. Include `.voices()` versus musical polyphony, cents spread versus width, modulation versus frozen count, MIDI contexts, bounds, phase intent, and normalization limits. Other unison waveforms require a separate SOW; do not imply FM, sub/noise, new gain arguments, a supersaw compatibility alias, or a plugin API exist.
-- [ ] **Blocked pending human/device access:** Audition the reproducible diagnostic recordings and real-time engine playback on a recorded browser/device. Compare default, one/two/eight oscillators, mono/stereo, modulation, attacks/releases, and high notes; inspect representative overlapping notes (for example eight notes × eight saws) for obvious glitches or unacceptable CPU cost. Record workload and limitations; no cross-device performance guarantee is claimed.
-- [ ] **Blocked pending human/device access:** Use an existing running project REPL/browser session for the real-time check. If unavailable, obtain approval before starting the existing app `dev` workflow; do not create a new demo/harness solely for acceptance. Human access/setup is a prerequisite: missing access leaves this part Blocked, not passed by offline rendering. Musical WAV review can use the existing diagnostic artifacts with `afplay` on macOS.
-- [ ] Record individual listener approval for each exact candidate; command success is not approval. If compensation/panning/phase assumptions need adjustment, document the scoped choice, rerun its owning DSP/native tests and repeat review before accepting new bytes.
-- [ ] After approval, update exactly the approved case with the existing updater and reverify it. Confirm the freshly generated output matches the reviewed candidate. Compare existing WAV/metadata identities with Phase 0; do not update old references to disguise a structural regression.
-- [ ] Run final integration/format/diff checks after the last approved reference update, inspect the feature-complete diff, and close the acceptance map. Keep requirements/assumptions/evidence honest; mark the roadmap delivered only after all required gates, not after merely generating a recording.
+- [x] Audition the reproducible diagnostic recordings and real-time engine playback on a recorded browser/device. Compare default, one/two/eight oscillators, mono/stereo, modulation, attacks/releases, and high notes; inspect representative overlapping notes (for example eight notes × eight saws) for obvious glitches or unacceptable CPU cost. Record workload and limitations; no cross-device performance guarantee is claimed. The user reported manual testing was satisfactory; no cross-device guarantee is claimed.
+- [x] Complete the real-time/manual check using the existing project context; no new demo or harness was created. The user supplied the human manual-testing approval, and musical WAV review used the existing diagnostic artifact; no cross-device guarantee is claimed.
+- [x] Record individual listener approval for each exact candidate; command success is not approval. The user reported feeling good about manual testing and approved the exact unison candidate. No compensation, panning, or phase adjustment was requested.
+- [x] After approval, update exactly the approved case with the existing updater and reverify it. Confirm the freshly generated output matches the reviewed candidate. Existing WAV/metadata identities were left unchanged; no structural regression was hidden by rebaselining.
+- [x] Run final integration/format/diff checks after the last approved reference update, inspect the feature-complete diff, and close the acceptance map. Keep requirements/assumptions/evidence honest; the roadmap is marked delivered only after the required gates.
 
 Verification:
 
@@ -397,27 +397,27 @@ git diff --check
 Also check Prettier on every modified code/document/metadata file using explicit final-diff paths, excluding WAV binaries. `pnpm test` builds dependency artifacts and runs a fresh full native registry via uncached audio-regression `test:ci`; other workspace tasks may use valid Turbo caches. This does not replace human review or real-time profiling.
 
 Completion gate: Earlier proofs remain green, required real-time/listening evidence is present, every new reference is individually approved, old reference bytes are untouched, the full registry passes with unchanged limits, and final documentation/API claims match delivery. No publication/deployment is implied.
-Evidence: [evidence/3.1.md](evidence/3.1.md) — preparation complete; acceptance remains blocked.
+Evidence: [evidence/3.1.md](evidence/3.1.md).
 
 Phase exit gate: After Step 3.1's final checks, review acceptance evidence against the final revision. No pending human gate, missing reference, unexplained acoustic change, unowned worklet, or stale scope claim may be hidden by successful unit tests.
-Evidence: Pending human/device review.
+Evidence: [evidence/3.1.md](evidence/3.1.md).
 
 ## Final acceptance
 
-This table points to the owning gates; it is not a second execution checklist. Saw-only unison acceptance remains Pending because native/listening gates remain. Step 2.1's original evidence remains historical; the revised surface and retained dispatch/binding behavior are covered by Step 2.1a evidence.
+This table points to the owning gates; it is not a second execution checklist. Saw-only unison acceptance is complete. Step 2.1's original evidence remains historical; the revised surface and retained dispatch/binding behavior are covered by Step 2.1a evidence.
 
-| Spec acceptance ID | Owning step / gate            | Verification and expected result                                                                                                                 | Evidence / status     |
-| ------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- |
-| AC1                | Step 2.1a                     | Unison/uni yield the same fluent builder; saw-only shape selection and unsupported-method/selector rejection are correctly typed.                | Step 2.1a; Verified   |
-| AC2                | Step 2.1a                     | Engine/shape variants validate without broadening LFO waveforms or invalidating basic schemas; unsupported unison shapes/old supersaw tags fail. | Step 2.1a; Verified   |
-| AC3                | Steps 2.1a and 2.2            | Final-hit count resolution, frozen count, and source automation retain their semantics under the revised discriminator and native output.        | Owning steps; Pending |
-| AC4                | Steps 1.1 and 2.2             | Saw DSP offsets/panning/count edge cases and native stereo/mono behavior agree with the contract.                                                | Owning steps; Pending |
-| AC5                | Steps 1.1, 2.2, and 3.1       | Bounded finite saw DSP, applied compensation, and reviewed levels/high-note quality/performance.                                                 | Owning steps; Pending |
-| AC6                | Steps 1.1, 1.2, and 2.2       | Frame gates, constructor scheduling, cancellation/completion ownership, and non-quantum-aligned native onset/stop behave correctly.              | Owning steps; Pending |
-| AC7                | Steps 1.2, 2.1a, and 2.2      | Independent shared-pipeline ownership, parameter cleanup, stereo preservation, and retirement compose after the revision.                        | Owning steps; Pending |
-| AC8                | Steps 2.1a, 2.2, and 3.1      | Module readiness/failure behavior, musical event counts, native registration, and real-time unison playback are proven.                          | Owning steps; Pending |
-| AC9                | Steps 1.1, 2.2, and 3.1       | Deterministic native saw-only unison output plus individually approved recordings at unchanged limits.                                           | Owning steps; Pending |
-| AC10               | Steps 0.1, 2.1a, 2.2, and 3.1 | Existing audio/reference bytes remain unchanged; documentation explains aliases, saw-only shape selection, and the separate future waveform SOW. | Owning steps; Pending |
+| Spec acceptance ID | Owning step / gate            | Verification and expected result                                                                                                                 | Evidence / status      |
+| ------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| AC1                | Step 2.1a                     | Unison/uni yield the same fluent builder; saw-only shape selection and unsupported-method/selector rejection are correctly typed.                | Step 2.1a; Verified    |
+| AC2                | Step 2.1a                     | Engine/shape variants validate without broadening LFO waveforms or invalidating basic schemas; unsupported unison shapes/old supersaw tags fail. | Step 2.1a; Verified    |
+| AC3                | Steps 2.1a and 2.2            | Final-hit count resolution, frozen count, and source automation retain their semantics under the revised discriminator and native output.        | Owning steps; Verified |
+| AC4                | Steps 1.1 and 2.2             | Saw DSP offsets/panning/count edge cases and native stereo/mono behavior agree with the contract.                                                | Owning steps; Verified |
+| AC5                | Steps 1.1, 2.2, and 3.1       | Bounded finite saw DSP, applied compensation, and reviewed levels/high-note quality/performance.                                                 | Owning steps; Verified |
+| AC6                | Steps 1.1, 1.2, and 2.2       | Frame gates, constructor scheduling, cancellation/completion ownership, and non-quantum-aligned native onset/stop behave correctly.              | Owning steps; Verified |
+| AC7                | Steps 1.2, 2.1a, and 2.2      | Independent shared-pipeline ownership, parameter cleanup, stereo preservation, and retirement compose after the revision.                        | Owning steps; Verified |
+| AC8                | Steps 2.1a, 2.2, and 3.1      | Module readiness/failure behavior, musical event counts, native registration, and real-time unison playback are proven.                          | Owning steps; Verified |
+| AC9                | Steps 1.1, 2.2, and 3.1       | Deterministic native saw-only unison output plus individually approved recordings at unchanged limits.                                           | Owning steps; Verified |
+| AC10               | Steps 0.1, 2.1a, 2.2, and 3.1 | Existing audio/reference bytes remain unchanged; documentation explains aliases, saw-only shape selection, and the separate future waveform SOW. | Owning steps; Verified |
 
 ## Rollback and recovery
 
@@ -429,6 +429,6 @@ This table points to the owning gates; it is not a second execution checklist. S
 
 ## Deferred checks and accepted deviations
 
-- No accepted deviations. Remaining native/listening work starts Pending; completed evidence is recorded at the owning step.
+- No accepted deviations. Completed evidence is recorded at the owning step.
 - Browser installation, app startup, and human/device access require separate approval/access when unavailable. These are execution prerequisites, not silent waivers or permission to launch workflows during planning.
 - Non-saw unison waveforms (including their DSP/type/schema/validation/listening work) require a separate SOW. Engines beyond basic/unison, sub/noise/gain APIs, new effects, live count modulation, public seed controls, automatic dynamics/voice stealing, generalized failure recovery, and bigger validation/testing frameworks remain deferred as specified.
