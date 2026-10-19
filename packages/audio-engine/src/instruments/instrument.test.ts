@@ -6,7 +6,7 @@ import type {
   LfoSchema,
   MidiCcSchema,
 } from "@web-audio/schema";
-import type { EventScheduleContext } from "@/types";
+import type { EventScheduleContext, ScheduledSource } from "@/types";
 import Instrument from "./instrument";
 
 // ---------------------------------------------------------------------------
@@ -97,13 +97,13 @@ class TestInstrument extends Instrument {
   scheduleBar() {}
 
   track(
-    sourceNode: FakeSourceNode,
+    sourceNodes: FakeSourceNode[],
     audioNodes: FakeGainNode[],
     startTime: number,
     completionCleanups: (() => void)[] = [],
   ) {
     this._track(
-      sourceNode as unknown as AudioScheduledSourceNode,
+      sourceNodes as unknown as ScheduledSource[],
       audioNodes as unknown as AudioNode[],
       startTime,
       completionCleanups,
@@ -201,8 +201,8 @@ describe("Instrument.finished", () => {
 
     const node1 = new FakeSourceNode();
     const node2 = new FakeSourceNode();
-    instrument.track(node1, [], 0);
-    instrument.track(node2, [], 0);
+    instrument.track([node1], [], 0);
+    instrument.track([node2], [], 0);
     instrument.retire();
 
     // Fire first node — finished should not resolve yet
@@ -229,7 +229,7 @@ describe("Instrument.finished", () => {
     );
 
     const node = new FakeSourceNode();
-    instrument.track(node, [], 1); // startTime=1 > currentTime=0
+    instrument.track([node], [], 1); // startTime=1 > currentTime=0
     instrument.retire();
     instrument.cancelFutureNotes();
 
@@ -286,7 +286,7 @@ describe("Instrument.finished", () => {
     );
 
     const node = new FakeSourceNode();
-    instrument.track(node, [], 0);
+    instrument.track([node], [], 0);
     instrument.retire();
 
     const calls: number[] = [];
@@ -386,7 +386,7 @@ describe("Instrument output lifecycle", () => {
     );
     const source = new FakeSourceNode();
     const voice = new FakeGainNode();
-    instrument.track(source, [voice], 0);
+    instrument.track([source], [voice], 0);
 
     instrument.destroy();
     instrument.destroy();
@@ -588,7 +588,7 @@ describe("Instrument LFO edge lifecycle", () => {
       param as unknown as AudioParam,
       schema,
     );
-    instrument.track(source, [], startTime, cleanups);
+    instrument.track([source], [], startTime, cleanups);
     return { ctx, instrument, lfoNode, param, source };
   }
 
@@ -794,7 +794,7 @@ describe("Instrument MIDI CC parameters", () => {
       midiCc(),
     );
     instrument.connectMidi(midiWithSignal(signal).midi);
-    instrument.track(new FakeSourceNode(), [], 1, bindings);
+    instrument.track([new FakeSourceNode()], [], 1, bindings);
     expect(signal.subscriberCount).toBe(1);
 
     instrument.cancelFutureNotes();
@@ -815,7 +815,7 @@ describe("Instrument MIDI CC parameters", () => {
     );
     instrument.connectMidi(midiWithSignal(signal).midi);
     const source = new FakeSourceNode();
-    instrument.track(source, [], 0, bindings);
+    instrument.track([source], [], 0, bindings);
 
     instrument.cancelFutureNotes();
 

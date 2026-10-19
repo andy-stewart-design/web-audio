@@ -139,7 +139,7 @@ class Synthesizer extends Instrument {
     });
 
     this._scheduleVoice({
-      source: osc,
+      sources: [{ node: osc }],
       detune: { param: osc.detune, resolved: detune },
       gainEnvelope,
       effects: schema.effects,
@@ -186,7 +186,7 @@ class Synthesizer extends Instrument {
     }
 
     this._scheduleVoice({
-      source,
+      sources: [{ node: source }],
       detune: { param: source.detune, resolved: detune },
       sourceParams: [
         { param: source.spread, schema: schema.spread },

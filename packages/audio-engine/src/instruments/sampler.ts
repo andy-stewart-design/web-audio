@@ -224,7 +224,7 @@ class Sampler extends Instrument {
     });
 
     this._scheduleVoice({
-      source,
+      sources: [{ node: source, offset: sourceWindow.offset }],
       detune: {
         param: source.detune,
         resolved: detune,
@@ -232,7 +232,6 @@ class Sampler extends Instrument {
       gainEnvelope: this._resolveEnvelope(this._schema.gain, event),
       effects: this._schema.effects,
       event,
-      offset: sourceWindow.offset,
     });
     return true;
   }

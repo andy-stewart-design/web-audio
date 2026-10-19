@@ -114,7 +114,7 @@ Review boundary: Internal lifecycle/scheduling only; no noise API or DSP yet.
 
 ### Step 1.1 — Track and schedule a source collection
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R7, R9, R10; AC9 (fake scheduling portion), AC10 (source-order portion), AC14 (topology/source-end portion). Native timing remains Step 2.2; full composition remains Step 3.2.
 Depends on: Step 0.1 and Phase 0 exit gate.
 Review boundary: Atomic internal tracking/scheduling contract and all existing consumers.
@@ -127,19 +127,19 @@ Expected files:
 
 Tasks:
 
-- [ ] Normalize existing single-source scheduling into a nonempty owned-source collection, retaining buffer offset type safety and source-specific output/start handling.
-- [ ] Start/stop every owned source against the voice boundary; attach completion tracking before operations that may complete synchronously.
-- [ ] Disconnect each ended source independently, retaining shared effects/envelope and cleanup bindings until all siblings finish; make duplicate completion harmless.
-- [ ] Preserve the exact single-source topology and natural-end cleanup timing; do not add a summing node or hold no-noise samplers open merely for the new abstraction.
-- [ ] Update every tracking-contract consumer/test together; prove both completion orders and unchanged source parameters/offsets with fake sources.
+- [x] Normalize existing single-source scheduling into a nonempty owned-source collection, retaining buffer offset type safety and source-specific output/start handling.
+- [x] Start/stop every owned source against the voice boundary; attach completion tracking before operations that may complete synchronously.
+- [x] Disconnect each ended source independently, retaining shared effects/envelope and cleanup bindings until all siblings finish; make duplicate completion harmless.
+- [x] Preserve the exact single-source topology and natural-end cleanup timing; do not add a summing node or hold no-noise samplers open merely for the new abstraction.
+- [x] Update every tracking-contract consumer/test together; prove both completion orders and unchanged source parameters/offsets with fake sources.
 
 Verification:
 
-- Automated: `pnpm --filter @web-audio/audio-engine exec vitest run src/instruments/instrument.test.ts src/instruments/__tests__/pre-envelope-effects.test.ts src/instruments/__tests__/voice-sources.test.ts`, then engine `check` and `lint`. Assert individual disconnects, one shared cleanup, offset preservation, separate musical voices, and existing topology.
-- Manual: Review the atomic contract and confirm production code does not import test support. Fake sources do not prove native audio timing.
+- Automated: Focused and full audio-engine tests, check, and lint passed; see [evidence/1.1.md](evidence/1.1.md).
+- Manual: The atomic contract and production/test boundary were reviewed. Native timing remains pending for later gates; see [evidence/1.1.md](evidence/1.1.md).
 
 Completion gate: All existing consumers compile and scoped lifecycle assertions pass; no unimplemented noise consumer is required for verification.
-Evidence: Not run.
+Evidence: [evidence/1.1.md](evidence/1.1.md).
 
 ### Step 1.2 — Close cancellation, construction, and retirement paths
 

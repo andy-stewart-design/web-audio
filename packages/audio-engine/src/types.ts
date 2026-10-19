@@ -23,11 +23,17 @@ interface ScheduledSource {
   stop(when?: number): void;
 }
 
+type ScheduledVoiceSource =
+  | { node: AudioBufferSourceNode; offset: number }
+  | { node: ScheduledSource; offset?: undefined };
+
 interface ScheduledNote {
-  sourceNode: ScheduledSource;
+  sourceNodes: ScheduledSource[];
   audioNodes: AudioNode[];
   completionCleanups: (() => void)[];
   startTime: number;
+  endedSourceNodes: Set<ScheduledSource>;
+  released: boolean;
 }
 
 interface DuckTrigger {
@@ -116,4 +122,5 @@ export type {
   ResolvedTimingEvent,
   ScheduledNote,
   ScheduledSource,
+  ScheduledVoiceSource,
 };

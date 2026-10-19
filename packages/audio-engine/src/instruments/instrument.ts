@@ -18,6 +18,7 @@ import type {
   ResolvedEnvelopeSchema,
   ScheduledNote,
   ScheduledSource,
+  ScheduledVoiceSource,
 } from "@/types";
 import ValuePatternResolver from "@/instruments/value-pattern-resolver";
 import { SYNTH_BASE_GAIN, FILTER_TYPE_MAP } from "@/constants";
@@ -59,6 +60,7 @@ interface BaseInstrumentOptions extends Pick<
 }
 
 interface BaseScheduleVoiceParams {
+  sources: readonly [ScheduledVoiceSource, ...ScheduledVoiceSource[]];
   event: EventScheduleContext;
   detune?: {
     param: AudioParam;
@@ -69,12 +71,6 @@ interface BaseScheduleVoiceParams {
   effects: EffectSchema[];
   stopTime?: number;
 }
-
-type ScheduleVoiceParams = BaseScheduleVoiceParams &
-  (
-    | { source: AudioBufferSourceNode; offset: number }
-    | { source: ScheduledSource; offset?: undefined }
-  );
 
 type MidiBinding = (midi: Midi | null) => void;
 
@@ -166,12 +162,7 @@ abstract class Instrument {
     const now = this._ctx.currentTime;
     for (const note of this._scheduled) {
       if (note.startTime <= now) continue;
-      note.completionCleanups.forEach((cleanup) => cleanup());
-      note.sourceNode.onended = null;
-      note.sourceNode.stop(0);
-      note.sourceNode.disconnect();
-      for (const node of note.audioNodes) node.disconnect();
-      this._scheduled.delete(note);
+      this._releaseScheduledNote(note, true);
     }
     this._finish();
   }
@@ -190,11 +181,7 @@ abstract class Instrument {
     this._midiBindings.clear();
 
     for (const note of this._scheduled) {
-      note.completionCleanups.forEach((cleanup) => cleanup());
-      note.sourceNode.onended = null;
-      note.sourceNode.stop(0);
-      note.sourceNode.disconnect();
-      for (const node of note.audioNodes) node.disconnect();
+      this._releaseScheduledNote(note, true);
     }
 
     this._scheduled.clear();
@@ -228,9 +215,10 @@ abstract class Instrument {
     }
   }
 
-  protected _scheduleVoice(params: ScheduleVoiceParams) {
-    const { source, event, detune, gainEnvelope, effects } = params;
+  protected _scheduleVoice(params: BaseScheduleVoiceParams) {
+    const { event, detune, gainEnvelope, effects } = params;
     const completionCleanups: (() => void)[] = [];
+    const sourceNodes = params.sources.map(({ node }) => node);
 
     const gain = new GainNode(this._ctx);
 
@@ -265,7 +253,7 @@ abstract class Instrument {
     );
 
     const chain: AudioNode[] = [...effectNodes, gain];
-    source.connect(chain[0]);
+    sourceNodes.forEach((source) => source.connect(chain[0]));
     chain.reduce((src, dst) => {
       src.connect(dst);
       return dst;
@@ -273,16 +261,16 @@ abstract class Instrument {
 
     chain[chain.length - 1].connect(this._balancingNode);
 
-    if (params.offset !== undefined) {
-      params.source.start(event.startTime, params.offset);
-    } else {
-      source.start(event.startTime);
+    this._track(sourceNodes, chain, event.startTime, completionCleanups);
+    for (const { node, offset } of params.sources) {
+      if (offset === undefined) node.start(event.startTime);
+      else node.start(event.startTime, offset);
     }
-
-    source.stop(
-      params.stopTime ?? this._resolveVoiceStopTime(gainEnvelope, event),
-    );
-    this._track(source, chain, event.startTime, completionCleanups);
+    for (const source of sourceNodes) {
+      source.stop(
+        params.stopTime ?? this._resolveVoiceStopTime(gainEnvelope, event),
+      );
+    }
   }
 
   protected _buildEffectNode(
@@ -320,26 +308,52 @@ abstract class Instrument {
   }
 
   protected _track(
-    sourceNode: ScheduledSource,
+    sourceNodes: readonly ScheduledSource[],
     audioNodes: AudioNode[],
     startTime: number,
     completionCleanups: (() => void)[] = [],
   ) {
-    const scheduled = {
-      sourceNode,
+    if (sourceNodes.length === 0)
+      throw new Error("A scheduled voice requires at least one source.");
+
+    const scheduled: ScheduledNote = {
+      sourceNodes: [...sourceNodes],
       audioNodes,
       completionCleanups,
       startTime,
-    } satisfies ScheduledNote;
+      endedSourceNodes: new Set(),
+      released: false,
+    };
     this._scheduled.add(scheduled);
 
-    sourceNode.onended = () => {
-      sourceNode.disconnect();
-      for (const n of audioNodes) n.disconnect();
-      completionCleanups.forEach((cleanup) => cleanup());
-      this._scheduled.delete(scheduled);
-      this._finish();
-    };
+    for (const sourceNode of scheduled.sourceNodes) {
+      sourceNode.onended = () => {
+        if (scheduled.released || scheduled.endedSourceNodes.has(sourceNode))
+          return;
+        scheduled.endedSourceNodes.add(sourceNode);
+        sourceNode.onended = null;
+        sourceNode.disconnect();
+        if (scheduled.endedSourceNodes.size === scheduled.sourceNodes.length) {
+          this._releaseScheduledNote(scheduled, false);
+          this._finish();
+        }
+      };
+    }
+  }
+
+  private _releaseScheduledNote(note: ScheduledNote, stopSources: boolean) {
+    if (note.released) return;
+    note.released = true;
+    note.completionCleanups.forEach((cleanup) => cleanup());
+    for (const source of note.sourceNodes) {
+      source.onended = null;
+      if (!note.endedSourceNodes.has(source)) {
+        if (stopSources) source.stop(0);
+        source.disconnect();
+      }
+    }
+    for (const node of note.audioNodes) node.disconnect();
+    this._scheduled.delete(note);
   }
 
   // ---------------------------------------------------------------------------
@@ -639,4 +653,5 @@ export type {
   InstrumentRouting,
   ScheduledNote,
   ScheduledSource,
+  ScheduledVoiceSource,
 };
