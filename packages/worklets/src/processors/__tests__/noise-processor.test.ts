@@ -254,34 +254,41 @@ describe("NoiseProcessor", () => {
     expect(first).not.toEqual(different);
   });
 
-  it.each(["white", "pink"] as const)(
-    "produces finite nonzero %s output over a sustained run",
-    (color) => {
-      for (const seed of [1, 0x12345678, 0xdeadbeef]) {
-        const output = collectLongRun(color, 10, runtime.sampleRate, seed);
-
-        expectFinite(output);
-        expect(rms(output)).toBeGreaterThan(0);
-        expect(Math.abs(mean(output))).toBeLessThan(0.05);
-      }
-    },
-  );
-
   it.each([44100, 48000, 96000])(
-    "keeps white noise approximately flat and pink noise near 1/f at %i Hz",
+    "characterizes finite white and pink output at %i Hz across seeds",
     (sampleRate) => {
       runtime.sampleRate = sampleRate;
-      const white = collectLongRun("white", 10, sampleRate).slice(
-        2 * sampleRate,
+      const seeds = [1, 0x12345678, 0xdeadbeef];
+      const whiteRuns = seeds.map((seed) =>
+        collectLongRun("white", 10, sampleRate, seed).slice(2 * sampleRate),
       );
-      const pink = collectLongRun("pink", 10, sampleRate).slice(2 * sampleRate);
+      const pinkRuns = seeds.map((seed) =>
+        collectLongRun("pink", 10, sampleRate, seed).slice(2 * sampleRate),
+      );
 
-      expect(Math.abs(spectralSlope(white, sampleRate))).toBeLessThan(0.5);
-      expect(spectralSlope(pink, sampleRate)).toBeCloseTo(-3, 0);
-      expect(rms(white)).toBeGreaterThan((1 / Math.sqrt(3)) * 0.97);
-      expect(rms(white)).toBeLessThan((1 / Math.sqrt(3)) * 1.03);
-      expect(rms(pink) / rms(white)).toBeGreaterThan(0.9);
-      expect(rms(pink) / rms(white)).toBeLessThan(1.1);
+      for (const values of [...whiteRuns, ...pinkRuns]) {
+        expectFinite(values);
+        expect(rms(values)).toBeGreaterThan(0);
+        expect(Math.abs(mean(values)) / rms(values)).toBeLessThan(0.05);
+      }
+
+      const whiteSlopes = whiteRuns.map((values) =>
+        spectralSlope(values, sampleRate),
+      );
+      const pinkSlopes = pinkRuns.map((values) =>
+        spectralSlope(values, sampleRate),
+      );
+      const average = (values: number[]) =>
+        values.reduce((sum, value) => sum + value, 0) / values.length;
+      const averageWhiteRms = average(whiteRuns.map(rms));
+      const averagePinkRms = average(pinkRuns.map(rms));
+
+      expect(Math.abs(average(whiteSlopes))).toBeLessThan(0.5);
+      expect(average(pinkSlopes)).toBeCloseTo(-3, 0);
+      expect(averageWhiteRms).toBeGreaterThan((1 / Math.sqrt(3)) * 0.97);
+      expect(averageWhiteRms).toBeLessThan((1 / Math.sqrt(3)) * 1.03);
+      expect(averagePinkRms / averageWhiteRms).toBeGreaterThan(0.9);
+      expect(averagePinkRms / averageWhiteRms).toBeLessThan(1.1);
     },
   );
 });

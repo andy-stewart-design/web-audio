@@ -1,5 +1,7 @@
 const UINT32_SCALE = 1 / 0x1_0000_0000;
 const DEFAULT_SEED = 0x6d2b79f5;
+const REFERENCE_SAMPLE_RATE = 48_000;
+const PINK_DC_POLE = 0.9999;
 
 type NoiseColor = "white" | "pink";
 type NoiseMessage =
@@ -36,6 +38,9 @@ class NoiseProcessor extends AudioWorkletProcessor {
   private _pinkB4 = 0;
   private _pinkB5 = 0;
   private _pinkB6 = 0;
+  private _pinkPrevious = 0;
+  private _pinkPreviousOutput = 0;
+  private readonly _pinkDcPole: number;
   private _completed = false;
 
   constructor(options: NoiseProcessorOptions = {}) {
@@ -43,6 +48,7 @@ class NoiseProcessor extends AudioWorkletProcessor {
     const processorOptions = options.processorOptions ?? {};
     this._color = processorOptions.color === "pink" ? "pink" : "white";
     this._state = seedValue(processorOptions.seed);
+    this._pinkDcPole = PINK_DC_POLE ** (REFERENCE_SAMPLE_RATE / sampleRate);
     this._startFrame = finiteOr(
       processorOptions.startFrame,
       Number.POSITIVE_INFINITY,
@@ -99,7 +105,9 @@ class NoiseProcessor extends AudioWorkletProcessor {
     this._pinkB2 = 0.969 * this._pinkB2 + white * 0.153852;
     this._pinkB3 = 0.8665 * this._pinkB3 + white * 0.310486;
     this._pinkB4 = 0.55 * this._pinkB4 + white * 0.532952;
-    this._pinkB5 = 0.7616 * this._pinkB5 - white * 0.016898;
+    // These published Kellett coefficients are a fixed-rate approximation;
+    // the DC pole below is scaled to preserve its time constant per sample rate.
+    this._pinkB5 = -0.7616 * this._pinkB5 - white * 0.016898;
     const pink =
       this._pinkB0 +
       this._pinkB1 +
@@ -110,7 +118,14 @@ class NoiseProcessor extends AudioWorkletProcessor {
       this._pinkB6 +
       white * 0.5362;
     this._pinkB6 = white * 0.115926;
-    return pink * 0.33;
+    const calibrated = pink * 0.33;
+    const filtered =
+      calibrated -
+      this._pinkPrevious +
+      this._pinkDcPole * this._pinkPreviousOutput;
+    this._pinkPrevious = calibrated;
+    this._pinkPreviousOutput = filtered;
+    return filtered;
   }
 
   process(_inputs: Float32Array[][], outputs: Float32Array[][]) {

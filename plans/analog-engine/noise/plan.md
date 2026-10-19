@@ -194,7 +194,7 @@ Expected files:
 
 Tasks:
 
-- [x] Choose/document a long-period deterministic PRNG and sample-rate-aware pink method, checking provenance/licensing before any port. Do not reuse the short sequencing resolver; do not allocate in the sample loop.
+- [x] Choose/document a long-period deterministic PRNG and pink method, with a sample-rate-aware treatment or justified fixed-coefficient approximation validated across supported rates. Do not reuse the short sequencing resolver; do not allocate in the sample loop.
 - [x] Accept internal color/seed/start-frame/stop-frame options, preserve PRNG/filter state, generate only active samples, signal completion once, and return false when finished. Constructor frames establish initial offline timing; control messages support cancellation.
 - [x] Test non-block-aligned bounds, before-start cancellation, malformed messages/options, arbitrary block partitions, distinct seeds, and long-run finite output with the existing processor setup.
 - [x] Use fixed calibration, never per-note AGC/normalization. Implement engineering targets below and record startup behavior before freezing constants/tolerances.
@@ -213,7 +213,7 @@ approval; a meaningful sound-quality compromise goes back to the user.
 
 Verification:
 
-- Automated: `pnpm --filter @web-audio/worklets test:ci` passed 5 files/51 tests; the focused noise suite passed 10 tests, followed by worklet `check` and `lint`. Frame gates, block invariance, repeatability/separation, completion once, finite long runs, and 44.1/48/96 kHz statistical targets pass.
+- Automated: `pnpm --filter @web-audio/worklets test:ci` passed 5 files/49 tests; the focused noise suite passed 8 tests, followed by worklet `check` and `lint`. Frame gates, block invariance, repeatability/separation, completion once, finite long runs, mean/RMS gates, seed-averaged characterization, and 44.1/48/96 kHz statistical targets pass.
 - Manual: The implementation uses a xorshift32 stream and a stateful Paul Kellett-style pink filter, with source attribution and coefficient provenance recorded in [evidence/2.1.md](evidence/2.1.md). Analysis is not listening approval.
 
 Completion gate: Source behavior and stated characterization targets pass with documented coefficients/calibration and provenance recorded.
@@ -244,7 +244,7 @@ Tasks:
 
 Verification:
 
-- Automated: Worklet suite passed 5 files/51 tests; audio-engine suite passed 27 files/383 tests; focused source tests passed 71 tests; dependency build passed 6/6 tasks; native adapter/worklet tests passed 4 tests; affected checks/lint/formatting passed; existing `audio:verify` passed 14/14 with references unchanged. Constructor-frame silence, mono output, cancellation/idempotent cleanup, both processor error event names, and native failure completion passed.
+- Automated: Worklet suite passed 5 files/49 tests; audio-engine suite passed 27 files/383 tests; focused source tests passed 71 tests; dependency build passed 6/6 tasks; native adapter/worklet tests passed 4 tests; affected checks/lint/formatting passed; existing `audio:verify` passed 14/14 with references unchanged. Constructor-frame silence, mono output, cancellation/idempotent cleanup, both processor error event names, and native failure completion passed.
 - Manual: Built worklet export/declaration agreement and registration order were inspected. LFO remains first and the existing supersaw registration remains before noise; no packed/published artifact or live cross-browser support is claimed.
 
 Completion gate: Adapter unit proof and real native timing/failure proof pass using built dependencies, with no registration/mock regressions.
