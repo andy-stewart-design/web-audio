@@ -17,6 +17,14 @@ import { planSamplerPreloads } from "./utils/preload-samples";
 
 type RuntimeInstrument = Synthesizer | Sampler;
 
+function cleanupSafely(cleanup: () => void) {
+  try {
+    cleanup();
+  } catch (error) {
+    console.error("Audio cleanup failed", error);
+  }
+}
+
 interface RuntimeGraph {
   instruments: RuntimeInstrument[];
   buses: Map<string, RuntimeBus>;
@@ -69,16 +77,18 @@ class AudioEngine {
       }),
       clock.on("stop", (_metronome, time) => {
         this._activeGraph.instruments.forEach((instrument) =>
-          instrument.cancelFutureNotes(),
+          cleanupSafely(() => instrument.cancelFutureNotes()),
         );
-        this._activeGraph.buses.forEach((bus) => bus.stop(time));
+        this._activeGraph.buses.forEach((bus) =>
+          cleanupSafely(() => bus.stop(time)),
+        );
         this._retiringGraphs.forEach((graph) => {
           graph.instruments.forEach((instrument) =>
-            instrument.cancelFutureNotes(),
+            cleanupSafely(() => instrument.cancelFutureNotes()),
           );
-          graph.buses.forEach((bus) => bus.stop(time));
+          graph.buses.forEach((bus) => cleanupSafely(() => bus.stop(time)));
         });
-        this._midiOutputScheduler.stop();
+        cleanupSafely(() => this._midiOutputScheduler.stop());
       }),
     ]);
   }
@@ -102,12 +112,14 @@ class AudioEngine {
   disconnectMidi() {
     if (!this._midi) return;
     this._activeGraph.instruments.forEach((instrument) =>
-      instrument.disconnectMidi(),
+      cleanupSafely(() => instrument.disconnectMidi()),
     );
     this._retiringGraphs.forEach((graph) =>
-      graph.instruments.forEach((instrument) => instrument.disconnectMidi()),
+      graph.instruments.forEach((instrument) =>
+        cleanupSafely(() => instrument.disconnectMidi()),
+      ),
     );
-    this._midiOutputScheduler.disconnect();
+    cleanupSafely(() => this._midiOutputScheduler.disconnect());
     this._midi = null;
   }
 
@@ -236,9 +248,13 @@ class AudioEngine {
         instruments.push(instrument);
       }
     } catch (error) {
-      instruments.forEach((instrument) => instrument.destroy());
-      buses.forEach((bus) => bus.destroy());
-      this._master.gain.value = previousMainGain;
+      instruments.forEach((instrument) =>
+        cleanupSafely(() => instrument.destroy()),
+      );
+      buses.forEach((bus) => cleanupSafely(() => bus.destroy()));
+      cleanupSafely(() => {
+        this._master.gain.value = previousMainGain;
+      });
       throw error;
     }
 
@@ -251,13 +267,17 @@ class AudioEngine {
   private _retire(graph: RuntimeGraph) {
     if (graph.instruments.length === 0 && graph.buses.size === 0) return;
     this._retiringGraphs.add(graph);
-    graph.instruments.forEach((instrument) => instrument.retire());
+    graph.instruments.forEach((instrument) =>
+      cleanupSafely(() => instrument.retire()),
+    );
     void Promise.all(
       graph.instruments.map((instrument) => instrument.finished),
     ).then(() => {
       if (!this._retiringGraphs.delete(graph)) return;
-      graph.instruments.forEach((instrument) => instrument.destroy());
-      graph.buses.forEach((bus) => bus.destroy());
+      graph.instruments.forEach((instrument) =>
+        cleanupSafely(() => instrument.destroy()),
+      );
+      graph.buses.forEach((bus) => cleanupSafely(() => bus.destroy()));
     });
   }
 
@@ -266,14 +286,20 @@ class AudioEngine {
   }
 
   destroy(): void {
-    this._unsub.forEach((fn) => fn());
-    this.disconnectMidi();
-    this._midiOutputScheduler.destroy();
-    this._activeGraph.instruments.forEach((instrument) => instrument.destroy());
-    this._activeGraph.buses.forEach((bus) => bus.destroy());
+    this._unsub.forEach((fn) => cleanupSafely(fn));
+    cleanupSafely(() => this.disconnectMidi());
+    cleanupSafely(() => this._midiOutputScheduler.destroy());
+    this._activeGraph.instruments.forEach((instrument) =>
+      cleanupSafely(() => instrument.destroy()),
+    );
+    this._activeGraph.buses.forEach((bus) =>
+      cleanupSafely(() => bus.destroy()),
+    );
     this._retiringGraphs.forEach((graph) => {
-      graph.instruments.forEach((instrument) => instrument.destroy());
-      graph.buses.forEach((bus) => bus.destroy());
+      graph.instruments.forEach((instrument) =>
+        cleanupSafely(() => instrument.destroy()),
+      );
+      graph.buses.forEach((bus) => cleanupSafely(() => bus.destroy()));
     });
     this._activeGraph = {
       instruments: [],
@@ -282,8 +308,8 @@ class AudioEngine {
     };
     this._retiringGraphs.clear();
     this._pending = null;
-    this._master.disconnect();
-    this._analyser.disconnect();
+    cleanupSafely(() => this._master.disconnect());
+    cleanupSafely(() => this._analyser.disconnect());
   }
 }
 

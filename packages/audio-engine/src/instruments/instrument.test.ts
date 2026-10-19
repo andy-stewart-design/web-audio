@@ -102,12 +102,18 @@ class TestInstrument extends Instrument {
     startTime: number,
     completionCleanups: (() => void)[] = [],
   ) {
-    this._track(
+    const scheduled = this._createScheduledNote(
       sourceNodes as unknown as ScheduledSource[],
-      audioNodes as unknown as AudioNode[],
       startTime,
-      completionCleanups,
     );
+    audioNodes.forEach((node) =>
+      scheduled.audioNodes.add(node as unknown as AudioNode),
+    );
+    scheduled.completionCleanups.push(...completionCleanups);
+    sourceNodes.forEach((source) =>
+      scheduled.startedSourceNodes.add(source as unknown as ScheduledSource),
+    );
+    this._track(scheduled);
   }
 
   applyParam(

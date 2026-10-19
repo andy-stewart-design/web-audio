@@ -29,10 +29,12 @@ type ScheduledVoiceSource =
 
 interface ScheduledNote {
   sourceNodes: ScheduledSource[];
-  audioNodes: AudioNode[];
+  startedSourceNodes: Set<ScheduledSource>;
+  endedSourceNodes: Set<ScheduledSource>;
+  disconnectedSourceNodes: Set<ScheduledSource>;
+  audioNodes: Set<AudioNode>;
   completionCleanups: (() => void)[];
   startTime: number;
-  endedSourceNodes: Set<ScheduledSource>;
   released: boolean;
 }
 

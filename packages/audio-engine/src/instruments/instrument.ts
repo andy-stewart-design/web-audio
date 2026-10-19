@@ -38,6 +38,14 @@ function safeAudioParamValue(value: number) {
   );
 }
 
+function cleanupSafely(cleanup: () => void) {
+  try {
+    cleanup();
+  } catch (error) {
+    console.error("Audio cleanup failed", error);
+  }
+}
+
 interface InstrumentRouting {
   primary: AudioNode;
   sends: { destination: AudioNode; amount: number }[];
@@ -153,16 +161,14 @@ abstract class Instrument {
   }
 
   disconnectMidi() {
-    if (!this._midi) return;
-    this._midi = null;
-    this._midiBindings.forEach((bind) => bind(null));
+    this._releaseMidi();
   }
 
   cancelFutureNotes() {
     const now = this._ctx.currentTime;
     for (const note of this._scheduled) {
       if (note.startTime <= now) continue;
-      this._releaseScheduledNote(note, true);
+      this._releaseScheduledNote(note);
     }
     this._finish();
   }
@@ -170,25 +176,22 @@ abstract class Instrument {
   retire() {
     if (this._retired || this._destroyed) return;
     this._retired = true;
-    this.disconnectMidi();
+    this._releaseMidi();
     this._finish();
   }
 
   destroy() {
     if (this._destroyed) return;
     this._destroyed = true;
-    this.disconnectMidi();
+    this._releaseMidi();
     this._midiBindings.clear();
 
-    for (const note of this._scheduled) {
-      this._releaseScheduledNote(note, true);
-    }
+    for (const note of this._scheduled) this._releaseScheduledNote(note);
 
-    this._scheduled.clear();
     this._cleanupLfos();
-    this._balancingNode.disconnect();
-    this._muteNode.disconnect();
-    this._sendNodes.forEach((node) => node.disconnect());
+    cleanupSafely(() => this._balancingNode.disconnect());
+    cleanupSafely(() => this._muteNode.disconnect());
+    this._sendNodes.forEach((node) => cleanupSafely(() => node.disconnect()));
     this._finished = true;
     this._finishedResolve?.();
   }
@@ -217,59 +220,80 @@ abstract class Instrument {
 
   protected _scheduleVoice(params: BaseScheduleVoiceParams) {
     const { event, detune, gainEnvelope, effects } = params;
-    const completionCleanups: (() => void)[] = [];
     const sourceNodes = params.sources.map(({ node }) => node);
+    const scheduled = this._createScheduledNote(sourceNodes, event.startTime);
+    const ownNode = (node: AudioNode) => scheduled.audioNodes.add(node);
 
-    const gain = new GainNode(this._ctx);
+    try {
+      const gain = new GainNode(this._ctx);
+      ownNode(gain);
+      this._scheduleParamEnvelope(gain.gain, gainEnvelope, event);
 
-    this._scheduleParamEnvelope(gain.gain, gainEnvelope, event);
+      if (detune) {
+        if (detune.resolved.type === "envelope") {
+          this._scheduleParamEnvelope(
+            detune.param,
+            this._resolveEnvelope(detune.resolved.schema, event),
+            event,
+          );
+        } else if (detune.resolved.type === "lfo") {
+          this._connectLfo(
+            detune.param,
+            detune.resolved.schema,
+            scheduled.completionCleanups,
+          );
+        } else if (detune.resolved.type === "midi-cc") {
+          scheduled.completionCleanups.push(
+            this._bindMidiParam(detune.param, detune.resolved.schema, 1),
+          );
+        }
+      }
 
-    if (detune) {
-      if (detune.resolved.type === "envelope") {
-        this._scheduleParamEnvelope(
-          detune.param,
-          this._resolveEnvelope(detune.resolved.schema, event),
+      params.sourceParams?.forEach(({ param, schema }) => {
+        this._applyParamSchema(
+          param,
+          schema,
           event,
+          1,
+          scheduled.completionCleanups,
         );
-      } else if (detune.resolved.type === "lfo") {
-        this._connectLfo(
-          detune.param,
-          detune.resolved.schema,
-          completionCleanups,
-        );
-      } else if (detune.resolved.type === "midi-cc") {
-        completionCleanups.push(
-          this._bindMidiParam(detune.param, detune.resolved.schema, 1),
+      });
+
+      const effectNodes = effects.map((effect) =>
+        this._buildEffectNode(
+          effect,
+          event,
+          scheduled.completionCleanups,
+          ownNode,
+        ),
+      );
+      const chain: AudioNode[] = [...effectNodes, gain];
+      sourceNodes.forEach((source) => source.connect(chain[0]));
+      chain.reduce((src, dst) => {
+        src.connect(dst);
+        return dst;
+      });
+
+      chain[chain.length - 1].connect(this._balancingNode);
+
+      this._track(scheduled);
+      for (const { node, offset } of params.sources) {
+        if (scheduled.released) break;
+        if (offset === undefined) node.start(event.startTime);
+        else node.start(event.startTime, offset);
+        if (!scheduled.released) scheduled.startedSourceNodes.add(node);
+      }
+      for (const source of sourceNodes) {
+        if (scheduled.released || scheduled.endedSourceNodes.has(source))
+          continue;
+        source.stop(
+          params.stopTime ?? this._resolveVoiceStopTime(gainEnvelope, event),
         );
       }
-    }
-
-    params.sourceParams?.forEach(({ param, schema }) => {
-      this._applyParamSchema(param, schema, event, 1, completionCleanups);
-    });
-
-    const effectNodes = effects.map((effect) =>
-      this._buildEffectNode(effect, event, completionCleanups),
-    );
-
-    const chain: AudioNode[] = [...effectNodes, gain];
-    sourceNodes.forEach((source) => source.connect(chain[0]));
-    chain.reduce((src, dst) => {
-      src.connect(dst);
-      return dst;
-    });
-
-    chain[chain.length - 1].connect(this._balancingNode);
-
-    this._track(sourceNodes, chain, event.startTime, completionCleanups);
-    for (const { node, offset } of params.sources) {
-      if (offset === undefined) node.start(event.startTime);
-      else node.start(event.startTime, offset);
-    }
-    for (const source of sourceNodes) {
-      source.stop(
-        params.stopTime ?? this._resolveVoiceStopTime(gainEnvelope, event),
-      );
+    } catch (error) {
+      this._releaseScheduledNote(scheduled);
+      this._finish();
+      throw error;
     }
   }
 
@@ -277,12 +301,14 @@ abstract class Instrument {
     effect: EffectSchema,
     event: EventScheduleContext,
     completionCleanups: (() => void)[],
+    ownNode: (node: AudioNode) => void,
   ) {
     switch (effect.type) {
       case "filter": {
         const node = new BiquadFilterNode(this._ctx, {
           type: FILTER_TYPE_MAP[effect.filterType],
         });
+        ownNode(node);
         for (const [param, schema] of [
           [node.frequency, effect.frequency],
           [node.Q, effect.q],
@@ -295,6 +321,7 @@ abstract class Instrument {
       }
       case "gain": {
         const node = new GainNode(this._ctx);
+        ownNode(node);
         this._applyParamSchema(
           node.gain,
           effect.gain,
@@ -307,53 +334,75 @@ abstract class Instrument {
     }
   }
 
-  protected _track(
+  protected _createScheduledNote(
     sourceNodes: readonly ScheduledSource[],
-    audioNodes: AudioNode[],
     startTime: number,
-    completionCleanups: (() => void)[] = [],
   ) {
     if (sourceNodes.length === 0)
       throw new Error("A scheduled voice requires at least one source.");
 
     const scheduled: ScheduledNote = {
       sourceNodes: [...sourceNodes],
-      audioNodes,
-      completionCleanups,
-      startTime,
+      startedSourceNodes: new Set(),
       endedSourceNodes: new Set(),
+      disconnectedSourceNodes: new Set(),
+      audioNodes: new Set(),
+      completionCleanups: [],
+      startTime,
       released: false,
     };
     this._scheduled.add(scheduled);
+    return scheduled;
+  }
 
+  protected _track(scheduled: ScheduledNote) {
     for (const sourceNode of scheduled.sourceNodes) {
       sourceNode.onended = () => {
         if (scheduled.released || scheduled.endedSourceNodes.has(sourceNode))
           return;
         scheduled.endedSourceNodes.add(sourceNode);
-        sourceNode.onended = null;
-        sourceNode.disconnect();
-        if (scheduled.endedSourceNodes.size === scheduled.sourceNodes.length) {
-          this._releaseScheduledNote(scheduled, false);
+        this._releaseScheduledNote(
+          scheduled,
+          scheduled.endedSourceNodes.size === scheduled.sourceNodes.length,
+        );
+        if (scheduled.endedSourceNodes.size === scheduled.sourceNodes.length)
           this._finish();
-        }
       };
     }
   }
 
-  private _releaseScheduledNote(note: ScheduledNote, stopSources: boolean) {
+  private _releaseScheduledNote(note: ScheduledNote, finalize = true) {
     if (note.released) return;
-    note.released = true;
-    note.completionCleanups.forEach((cleanup) => cleanup());
+
     for (const source of note.sourceNodes) {
+      if (
+        !note.endedSourceNodes.has(source) ||
+        note.disconnectedSourceNodes.has(source)
+      )
+        continue;
       source.onended = null;
-      if (!note.endedSourceNodes.has(source)) {
-        if (stopSources) source.stop(0);
-        source.disconnect();
+      note.disconnectedSourceNodes.add(source);
+      cleanupSafely(() => source.disconnect());
+    }
+
+    if (!finalize) return;
+
+    note.released = true;
+    this._scheduled.delete(note);
+    for (const source of note.sourceNodes) source.onended = null;
+    for (const cleanup of note.completionCleanups) cleanupSafely(cleanup);
+    for (const source of note.sourceNodes) {
+      if (
+        !note.endedSourceNodes.has(source) &&
+        note.startedSourceNodes.has(source)
+      )
+        cleanupSafely(() => source.stop(0));
+      if (!note.disconnectedSourceNodes.has(source)) {
+        note.disconnectedSourceNodes.add(source);
+        cleanupSafely(() => source.disconnect());
       }
     }
-    for (const node of note.audioNodes) node.disconnect();
-    this._scheduled.delete(note);
+    for (const node of note.audioNodes) cleanupSafely(() => node.disconnect());
   }
 
   // ---------------------------------------------------------------------------
@@ -542,6 +591,12 @@ abstract class Instrument {
     });
   }
 
+  private _releaseMidi() {
+    if (!this._midi) return;
+    this._midi = null;
+    this._midiBindings.forEach((bind) => cleanupSafely(() => bind(null)));
+  }
+
   private _mapMidiCc(value: number, schema: MidiCcSchema) {
     const { min, max, curve } = schema.range;
     if (curve === "exponential") {
@@ -627,9 +682,8 @@ abstract class Instrument {
   }
 
   private _cleanupLfos() {
-    for (const node of this._lfoNodes.values()) {
-      node.disconnect();
-    }
+    for (const node of this._lfoNodes.values())
+      cleanupSafely(() => node.disconnect());
     this._lfoNodes.clear();
     this._lfoSchemas.clear();
   }

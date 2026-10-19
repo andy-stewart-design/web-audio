@@ -143,7 +143,7 @@ Evidence: [evidence/1.1.md](evidence/1.1.md).
 
 ### Step 1.2 — Close cancellation, construction, and retirement paths
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R7–R10; AC10, AC11 (fake lifecycle/composition portions), AC13 (partial construction portion). Noise processor errors remain Steps 2.2/3.2; native proof remains Phase 4.
 Depends on: Step 1.1.
 Review boundary: Shared teardown and engine composition, not changes to transport stop policy or bus DSP.
@@ -156,21 +156,21 @@ Expected files:
 
 Tasks:
 
-- [ ] Release all future-voice sources on cancellation and all sources on destroy, clearing callbacks before stop/disconnect; preserve currently active stop semantics.
-- [ ] Ensure partial graph/source construction releases already-created nodes and parameter cleanups and leaves failures observable.
-- [ ] Exercise stale callbacks after cancellation/destruction, overlapping voices, LFO/MIDI cleanup ownership, and source start/stop failures through deterministic injection.
-- [ ] Exercise a retiring instrument with one early-ended and one active source, confirming buses remain until the whole voice completes and unrelated voices remain intact.
+- [x] Release all future-voice sources on cancellation and all sources on destroy, clearing callbacks before stop/disconnect; preserve currently active stop semantics.
+- [x] Ensure partial graph/source construction releases already-created nodes and parameter cleanups and leaves failures observable.
+- [x] Exercise stale callbacks after cancellation/destruction, overlapping voices, LFO/MIDI cleanup ownership, and source start/stop failures through deterministic injection.
+- [x] Exercise a retiring instrument with one early-ended and one active source, confirming buses remain until the whole voice completes and unrelated voices remain intact.
 
 Verification:
 
-- Automated: `pnpm --filter @web-audio/audio-engine test:ci`, then engine `check` and `lint`; use the existing test subclasses/manual clock or suite-local fakes. Assert cleanup exactly once, no retained scheduled voice, correct `finished` timing, and unchanged graph routing.
-- Manual: Review resource ownership and failure propagation; no new runtime recovery policy is introduced.
+- Automated: Full audio-engine tests, check, and lint passed; see [evidence/1.2.md](evidence/1.2.md).
+- Manual: Resource ownership and failure propagation were reviewed; no new runtime recovery policy was introduced. See [evidence/1.2.md](evidence/1.2.md).
 
 Completion gate: Whole-voice cancellation/destruction/retirement composes with existing engine behavior, including partial construction and late notifications.
-Evidence: Not run.
+Evidence: [evidence/1.2.md](evidence/1.2.md).
 
-Phase exit gate: After Step 1.2, build dependencies and run existing `audio:verify`; no-noise output must remain unchanged. Engine suites/check/lint pass, with baseline-only failures explicitly classified. Record a concise integration result here; do not rebaseline.
-Evidence: Not run.
+Phase exit gate: Step 1.2 exit verification passed: dependency build, audio-engine tests/check/lint, and existing `audio:verify` are green; no-noise references remain unchanged. Native noise behavior and later graph-retirement corroboration remain pending.
+Evidence: [evidence/1.2.md](evidence/1.2.md).
 
 ## Phase 2 — Deliver a continuous scheduled noise source
 
