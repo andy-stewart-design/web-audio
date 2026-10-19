@@ -13,7 +13,8 @@ This is a **feature roadmap, not a single-PR scope or a commitment to implement 
 - [ ] Design/expose a public waveform API for the Unison engine
 - [ ] Add an optional main-source gain argument to `d.synth()`.
 - [ ] Add `.sub()` to synths.
-- [ ] Add `.noise()` to both synths and samplers.
+- [ ] Add `.noise()` to both synths and samplers ([spec](noise/spec.md), [implementation plan](noise/plan.md)).
+- [ ] Add standalone `d.noise()` instruments as a separate follow-up to noise layers ([scope](#standalone-noise-instrument-follow-up)).
 - [ ] Add a saturator effect.
 - [ ] Add an opt-in compressor effect, primarily for buses.
 
@@ -68,7 +69,7 @@ d.synth("saw", 0.8).sub("square", 0.3).noise("pink", 0.3);
 - Repeated `.sub()` or `.noise()` calls replace that layer's configuration rather than accumulating layers.
 - Adding a layer must not silently reduce the main source's gain. Preserve predictable mixing and document headroom.
 - Integrate layer gains with the existing numeric pattern/automation model rather than inventing a separate value system.
-- Source layers share the voice's amplitude ADSR; independent layer envelopes are deferred.
+- Source layers share the voice's amplitude ADSR. Noise gain additionally accepts the existing envelope input, before mixing/effects; it cannot extend voice lifetime. Independent sub envelopes and independently gated/sustained layers remain deferred.
 
 ### Sub behavior
 
@@ -81,9 +82,42 @@ d.synth("saw", 0.8).sub("square", 0.3).noise("pink", 0.3);
 ### Noise behavior
 
 - Default color: white; pink is explicitly supported by the planned API. Brown can follow separately.
-- Noise is generated/played as a layer of each voice, not as an independently scheduled instrument.
-- Avoid unintentionally replaying the exact same noise burst on every hit; sources can share noise data while using varying offsets or another suitable strategy.
-- For samplers, define how noise ends when sample playback finishes relative to the voice's scheduled envelope/release. Do not leave noise running after voice cleanup.
+- In the noise-layer feature, noise accompanies each voice rather than being independently scheduled. Standalone `d.noise()` is a separate follow-up below.
+- Use a per-voice worklet for continuous noise without a short buffer loop, including sustained notes held for tens of seconds. Deterministic event-derived streams vary across hits and voices while remaining reproducible for regression testing.
+- Noise gain supports the existing numeric patterns, LFO, MIDI CC, and envelope inputs. A noise-gain envelope shapes the layer before mixing/effects; the shared voice ADSR still bounds the complete result and its lifetime.
+- For samplers, preserve existing voice-duration rules. Noise continues through the shared amplitude release even if the sample ends first, without extending sustain. Cleanup must own all voice sources rather than tear down the graph on sample completion alone.
+- See the [noise spec](noise/spec.md) for API, DSP, lifecycle, assumptions, and acceptance details.
+
+## Standalone noise instrument follow-up
+
+Add `d.noise().push()` so users can create noise-only hats, snares, wind, risers,
+and filtered textures without an unwanted oscillator or sample. Deliver this as
+a separate slice after noise layers, reusing their noise source/worklet and the
+existing voice scheduling, effects, amplitude envelope, routing, and cleanup.
+
+Illustrative API, subject to a dedicated feature spec:
+
+```js
+d.noise("pink")
+  .xox("xooo")
+  .gain(0.3)
+  .adsr(0.01, 0.2, 0, 0.1)
+  .fx(d.lpf(2000))
+  .push();
+```
+
+- `instrument.noise(...)` adds an accompanying layer; `d.noise(...)` creates an
+  instrument whose main source is noise. Its `.gain()` / `.adsr()` control the
+  complete voice normally.
+- Reuse white/pink generation rather than implementing a fake synth with a muted
+  oscillator. No main-source gain API is required for noise-only sounds.
+- Treat standalone noise as a first-class instrument through builder, schema
+  validation, engine dispatch, and tests. Define its sequencing and duration
+  defaults and which shared methods are meaningful; do not accidentally promise
+  pitch behavior through `.notes()`, `.root()`, or `.detune()`.
+- This item does not expand the current [noise-layer spec](noise/spec.md) or
+  [implementation plan](noise/plan.md), where standalone noise remains explicitly
+  out of scope. Detailed API/type and acceptance design belongs to the follow-up.
 
 ## Supersaw and unison follow-up
 
@@ -178,4 +212,4 @@ With the restored supersaw, the recipe is a main note at 110 Hz, two saws spread
 - Preserve per-voice gain/headroom predictability and test at supported sample rates.
 - Consult source licenses before directly porting reference code. Felucca's ANALOG engine/shared DSP are MIT, but much of its surrounding firmware and effects is GPL-3.0-only.
 
-Deferred: `d.noise()` and `d.osc()` configuration builders, arbitrary additional oscillator layers, independent layer envelopes, PWM, hard sync, and default safety limiting. These are not prerequisites for the sound-design capabilities above.
+Deferred: `d.osc()` configuration builders, arbitrary additional oscillator layers, independent sub envelopes, independently gated/sustained layers or layer tails beyond the shared voice envelope, PWM, hard sync, and default safety limiting. Standalone `d.noise()` is tracked as a separate follow-up above, not a prerequisite for noise layers. Existing envelope input for noise gain is included in the noise-layer feature. The deferred items are not prerequisites for the sound-design capabilities above.
