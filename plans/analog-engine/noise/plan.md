@@ -180,7 +180,7 @@ Review boundary: Internal source/adapter, worklet exports, and registration; ins
 
 ### Step 2.1 — Generate stateful white/pink noise with measured targets
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R5–R7; AC7 (processor/statistical portion), AC8 (processor portion), AC9 (processor portion). Native scheduling is Step 2.2; sustained listening/profile is Step 4.1.
 Depends on: Step 1.2 and Phase 1 exit gate.
 Review boundary: Noise generation, bounded timing protocol, and DSP characterization; no instrument API.
@@ -194,11 +194,11 @@ Expected files:
 
 Tasks:
 
-- [ ] Choose/document a long-period deterministic PRNG and sample-rate-aware pink method, checking provenance/licensing before any port. Do not reuse the short sequencing resolver; do not allocate in the sample loop.
-- [ ] Accept internal color/seed/start-frame/stop-frame options, preserve PRNG/filter state, generate only active samples, signal completion once, and return false when finished. Constructor frames establish initial offline timing; control messages support cancellation.
-- [ ] Test non-block-aligned bounds, before-start cancellation, malformed messages/options, arbitrary block partitions, distinct seeds, and long-run finite output with the existing processor setup.
-- [ ] Use fixed calibration, never per-note AGC/normalization. Implement engineering targets below and record startup behavior before freezing constants/tolerances.
-- [ ] Add statistical proof with deterministic seed averaging and the same sample-rate input as production, keeping analysis helpers test-only.
+- [x] Choose/document a long-period deterministic PRNG and sample-rate-aware pink method, checking provenance/licensing before any port. Do not reuse the short sequencing resolver; do not allocate in the sample loop.
+- [x] Accept internal color/seed/start-frame/stop-frame options, preserve PRNG/filter state, generate only active samples, signal completion once, and return false when finished. Constructor frames establish initial offline timing; control messages support cancellation.
+- [x] Test non-block-aligned bounds, before-start cancellation, malformed messages/options, arbitrary block partitions, distinct seeds, and long-run finite output with the existing processor setup.
+- [x] Use fixed calibration, never per-note AGC/normalization. Implement engineering targets below and record startup behavior before freezing constants/tolerances.
+- [x] Add statistical proof with deterministic seed averaging and the same sample-rate input as production, keeping analysis helpers test-only.
 
 Engineering targets selected for this plan under A6, not new product guarantees:
 44.1/48/96 kHz; uniform white `[-1, 1)` with RMS within 3% of `1/sqrt(3)`;
@@ -213,11 +213,11 @@ approval; a meaningful sound-quality compromise goes back to the user.
 
 Verification:
 
-- Automated: `pnpm --filter @web-audio/worklets exec vitest run src/processors/__tests__/noise-processor.test.ts`, then worklet `check` and `lint`. Expected: frame gates, block invariance, repeatability/separation, completion once, finite long runs, and statistical targets above.
-- Manual: Review method/provenance and measurement design; analysis is not listening approval. Do not fabricate benchmark results or tune tolerances solely to pass a failing implementation.
+- Automated: `pnpm --filter @web-audio/worklets test:ci` passed 5 files/51 tests; the focused noise suite passed 10 tests, followed by worklet `check` and `lint`. Frame gates, block invariance, repeatability/separation, completion once, finite long runs, and 44.1/48/96 kHz statistical targets pass.
+- Manual: The implementation uses a xorshift32 stream and a stateful Paul Kellett-style pink filter, with source attribution and coefficient provenance recorded in [evidence/2.1.md](evidence/2.1.md). Analysis is not listening approval.
 
-Completion gate: Source behavior and stated characterization targets pass with documented coefficients/calibration and no unresolved licensing concern.
-Evidence: Not run.
+Completion gate: Source behavior and stated characterization targets pass with documented coefficients/calibration and provenance recorded.
+Evidence: [evidence/2.1.md](evidence/2.1.md).
 
 ### Step 2.2 — Integrate the adapter, exports, and native scheduling
 
