@@ -4,6 +4,7 @@ import { validateDromeGraph } from "@web-audio/schema";
 import type { DromeSchema } from "@web-audio/schema";
 import {
   lfoProcessorSource,
+  noiseProcessorSource,
   supersawProcessorSource,
 } from "@web-audio/worklets";
 import RuntimeBus from "./buses/runtime-bus";
@@ -68,6 +69,7 @@ class AudioEngine {
     this.ready = registerWorklets(this._ctx, [
       lfoProcessorSource,
       supersawProcessorSource,
+      noiseProcessorSource,
     ]);
 
     this._unsub = new Set([

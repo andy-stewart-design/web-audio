@@ -221,7 +221,7 @@ Evidence: [evidence/2.1.md](evidence/2.1.md).
 
 ### Step 2.2 — Integrate the adapter, exports, and native scheduling
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R5, R7, R8; AC9 (native/adapter portions), AC13 (failed-source portion). Instrument retirement after failure remains Step 3.2.
 Depends on: Step 2.1.
 Review boundary: Atomic internal adapter/export/declaration/registration group and its native test consumer.
@@ -236,22 +236,22 @@ Expected files:
 
 Tasks:
 
-- [ ] Implement the scheduled-source interface and resource ownership, idempotent start/stop/disconnect, constructor timing, and completion forwarding; expose no new pitch parameters.
-- [ ] Observe both supported processor failure event names without swallowing diagnostics or double-completing. A failed source completes ownership; automatic retry/substitution is excluded.
-- [ ] Update source-string export/declaration and engine registration with affected mocks together. Keep LFO first so existing fault injection is not silently redirected.
-- [ ] Prove constructor-only frame scheduling in native OfflineAudioContext and adapter cancellation/late notifications/port closure with focused tests.
-- [ ] Fault-inject the noise processor in a direct adapter test; prove failure completion and visible diagnostics separately from harness-wide engine destruction.
+- [x] Implement the scheduled-source interface and resource ownership, idempotent start/stop/disconnect, constructor timing, and completion forwarding; expose no new pitch parameters.
+- [x] Observe both supported processor failure event names without swallowing diagnostics or double-completing. A failed source completes ownership; automatic retry/substitution is excluded.
+- [x] Update source-string export/declaration and engine registration with affected mocks together. Keep LFO first so existing fault injection is not silently redirected.
+- [x] Prove constructor-only frame scheduling in native OfflineAudioContext and adapter cancellation/late notifications/port closure with focused tests.
+- [x] Fault-inject the noise processor in a direct adapter test; prove failure completion and visible diagnostics separately from harness-wide engine destruction.
 
 Verification:
 
-- Automated: `pnpm --filter @web-audio/worklets test:ci`; `pnpm --filter @web-audio/audio-engine exec vitest run src/instruments/sources/__tests__/noise-source.test.ts src/instruments/sources/__tests__/supersaw-source.test.ts src/engine.test.ts`; dependency build; `pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/noise-source.test.ts src/__tests__/supersaw-source.test.ts src/__tests__/worklets.test.ts`. New paths are added in this step. Expected: exported dist source loads, real frame silence is exact outside bounds, errors are visible, and contexts/ports close.
-- Manual: Inspect built worklet export/declaration agreement; no packed/published artifact or live cross-browser support is claimed.
+- Automated: Worklet suite passed 5 files/51 tests; audio-engine suite passed 27 files/383 tests; focused source tests passed 71 tests; dependency build passed 6/6 tasks; native adapter/worklet tests passed 4 tests; affected checks/lint/formatting passed; existing `audio:verify` passed 14/14 with references unchanged. Constructor-frame silence, mono output, cancellation/idempotent cleanup, both processor error event names, and native failure completion passed.
+- Manual: Built worklet export/declaration agreement and registration order were inspected. LFO remains first and the existing supersaw registration remains before noise; no packed/published artifact or live cross-browser support is claimed.
 
 Completion gate: Adapter unit proof and real native timing/failure proof pass using built dependencies, with no registration/mock regressions.
-Evidence: Not run.
+Evidence: [evidence/2.2.md](evidence/2.2.md).
 
-Phase exit gate: After Step 2.2, run affected checks and `audio:verify`. Existing instruments still behave identically despite additional module registration; built exports and native adapter checks pass. Record limitations without treating browser-test cleanup as graph-retirement proof.
-Evidence: Not run.
+Phase exit gate: Verified. Dependency build, affected checks, worklet/audio-engine/audio-regression tests, native adapter checks, and existing `audio:verify` passed; existing instruments remain unchanged despite the additional module registration. Browser adapter cleanup was tested separately from engine-wide destruction.
+Evidence: [evidence/2.2.md](evidence/2.2.md).
 
 ## Phase 3 — Connect the public feature atomically
 
