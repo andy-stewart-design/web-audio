@@ -12,8 +12,8 @@ import {
   defaultSynthSchema,
   fileBank,
   staticNumberPattern,
-} from "../../test-utils/schema-fixtures";
-import SampleBufferCache from "../sample-buffer-cache";
+} from "../../__tests__/support/schema-fixtures";
+import SampleBufferCache from "../../samples/sample-buffer-cache";
 import Sampler from "../sampler";
 import Synthesizer from "../synthesizer";
 

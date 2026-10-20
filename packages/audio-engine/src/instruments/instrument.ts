@@ -11,21 +11,19 @@ import type {
   NoiseLayerSchema,
   NumberPattern,
 } from "@web-audio/schema";
+import type { DuckTrigger } from "../buses/duck-automation";
+import type { EventScheduleContext } from "../events/types";
+import type { InstrumentClock, ScheduledNote } from "./types";
 import type {
-  DuckTrigger,
-  EventScheduleContext,
-  InstrumentClock,
   ResolvedDetune,
   ResolvedEnvelopeSchema,
-  ScheduledNote,
-  ScheduledSource,
-  ScheduledVoiceSource,
-} from "@/types";
-import ValuePatternResolver from "@/instruments/value-pattern-resolver";
+} from "../parameters/types";
+import type { ScheduledSource, ScheduledVoiceSource } from "../sources/types";
+import ValuePatternResolver from "@/patterns/value-pattern-resolver";
 import { SYNTH_BASE_GAIN, FILTER_TYPE_MAP } from "@/constants";
-import NoiseSource from "./sources/noise-source";
-import { toAudioFrame } from "./sources/supersaw-source";
-import { computeEnvelope } from "@/utils/compute-envelope";
+import NoiseSource from "../sources/noise-source";
+import { toAudioFrame } from "../sources/supersaw-source";
+import { computeEnvelope } from "@/parameters/compute-envelope";
 
 // -----------------------------------------------------------------------------
 // Types

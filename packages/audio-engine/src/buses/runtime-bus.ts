@@ -5,7 +5,7 @@ import type {
   NumberPattern,
 } from "@web-audio/schema";
 import { FILTER_TYPE_MAP, MIN_RAMP } from "@/constants";
-import ValuePatternResolver from "@/instruments/value-pattern-resolver";
+import ValuePatternResolver from "@/patterns/value-pattern-resolver";
 import { DuckAutomation, type DuckRequest } from "./duck-automation";
 
 interface ActiveTransition {

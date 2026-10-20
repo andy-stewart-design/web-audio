@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AudioParamSchema } from "@web-audio/schema";
 import type { Midi } from "@web-audio/midi";
-import type { ScheduledSource } from "@/types";
+import type { ScheduledSource } from "../../sources/types";
 import Instrument from "../instrument";
 
 class FakeSourceNode implements ScheduledSource {

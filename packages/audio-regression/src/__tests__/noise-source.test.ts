@@ -3,10 +3,7 @@ import { describe, expect, it } from "vitest";
 import { withRenderer } from "../runner/render";
 
 const adapterModule = fileURLToPath(
-  new URL(
-    "../../../audio-engine/src/instruments/sources/noise-source.ts",
-    import.meta.url,
-  ),
+  new URL("../../../audio-engine/src/sources/noise-source.ts", import.meta.url),
 );
 const workletsModule = fileURLToPath(
   new URL("../../../worklets/dist/index.mjs", import.meta.url),

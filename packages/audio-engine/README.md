@@ -2,6 +2,43 @@
 
 Web Audio playback engine for scheduled Fluid schemas.
 
+## Source map and ownership
+
+```text
+src/
+├── index.ts              # Sole code entry point: AudioEngine and EngineClock
+├── audio-engine.ts       # Graph assembly, transport integration, graph retirement
+├── engine-clock.ts       # Host clock contract
+├── constants.ts          # Shared audio defaults and filter mapping
+├── instruments/          # Runtime Instrument, Synthesizer, Sampler; voice ownership
+├── events/               # Timing selection and synth/sampler event expansion
+├── patterns/             # Runtime value-pattern and chance evaluation
+├── samples/              # Sample lookup, preload planning, decoded/reverse caches
+├── parameters/           # Envelope calculation, ADSR normalization, resolved types
+├── sources/              # Noise/supersaw source adapters and source contracts
+├── midi/                 # MIDI output scheduling and note-to-frequency conversion
+├── buses/                # Named-bus runtime and duck automation
+├── worklets/             # Worklet module registration
+└── __tests__/            # Public API and cross-domain integration suites
+    └── support/          # Shared schema fixtures and manual clock
+```
+
+`events/` resolves candidate timing, hit indices, and musical voice groups without creating audio nodes. `patterns/` evaluates the schema's static/random values and chance conditions at playback time; it is not the generic construction and transformation API in `@web-audio/patterns`. Both instruments and buses consume runtime value resolution directly.
+
+`instruments/` owns playback and voice lifecycle, while `samples/` owns resource lookup and loading independently of any instrument. `sources/` adapts worklet nodes to the scheduled-source contract; processor implementations remain in `@web-audio/worklets`. Parameter automation, effect construction, and MIDI input bindings remain in the base instrument; this organization does not redesign that class.
+
+Internal types live with their owners rather than in a package-wide type registry. Unit tests live in each domain's `__tests__/`; cross-domain suites and shared test support live in `src/__tests__/`. Tests remain TypeScript-checked, and production modules never import test support.
+
+## Public API
+
+```ts
+import AudioEngine, { type EngineClock } from "@web-audio/audio-engine";
+```
+
+`src/index.ts` exposes only the default `AudioEngine` class and the `EngineClock` type. The class implementation lives in `src/audio-engine.ts`; implementation classes, helpers, and their types are not package exports. Schema-owned types come directly from `@web-audio/schema`.
+
+Internal modules import directly from their owners, not through folder barrels or compatibility shims. Source paths are not supported package subpaths. Native adapter tests in `audio-regression` intentionally load source files as white-box integration tests, not as a public consumer API.
+
 ## Playback-plan resolution
 
 Synthesizers and samplers receive explicit `events.timing` separately from their event values. For each bar, the engine:
@@ -189,6 +226,7 @@ LFO worklet nodes are instrument-owned and free-running. Their connections to vo
 ## Development
 
 ```bash
+pnpm --filter @web-audio/audio-engine format
 pnpm --filter @web-audio/audio-engine check
 pnpm --filter @web-audio/audio-engine lint
 pnpm --filter @web-audio/audio-engine test:ci
