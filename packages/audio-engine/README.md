@@ -91,6 +91,33 @@ At commit, an undefined BPM resets the clock to the default 120 BPM rather than 
 
 The engine clones and validates each update before retaining it for the next prebar. Later caller mutation cannot alter pending state. A validation or clone failure throws synchronously and preserves the last valid pending update and active graph. This boundary protection does not make Web Audio graph construction transactional.
 
+## Per-voice noise layers
+
+When a schema instrument contains a noise layer, each scheduled musical voice
+owns one mono `noise-processor` source and its local gain node. The noise branch
+is mixed additively with the main source before the voice's ordered effects and
+shared amplitude envelope:
+
+```text
+main source ───────────────────────┐
+noise source → noise gain ─────────┴→ voice effects → shared ADSR
+```
+
+Noise gain reuses the normal parameter scheduler, including static/random
+patterns, envelopes, LFO connections, and MIDI CC bindings. A zero initial LFO
+value does not skip source creation. Noise does not add note or duck events,
+change main-source gain, collapse stereo main audio, or create an independent
+clock or release tail. The shared voice stop time remains authoritative,
+including for sampler loop, clip, fit, region, reverse, and one-shot duration
+branches.
+
+The current internal seed is always `0`, making fresh native renders
+reproducible without instrument-index or voice-index propagation. Public seed
+selection and per-identity variation are deferred. Processor completion,
+processor errors, cancellation, destruction, and partial setup failures all use
+the same multi-source ownership and instrument retirement boundary as the main
+voice.
+
 ## Instrument lifecycle
 
 Engine instruments move through a one-way lifecycle:

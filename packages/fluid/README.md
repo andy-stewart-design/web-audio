@@ -161,6 +161,42 @@ Fresh renders therefore have stable phase identity without exposing a public
 seed control or depending on ambient randomness. `.detune()` remains the
 common synth detune control; `.spread()` adds the per-oscillator cents offsets.
 
+## Per-voice noise layers
+
+Synthesizers and samplers can add one optional noise layer to every emitted
+voice:
+
+```ts
+d.synth("saw").noise(0.3).notes(60).push();
+d.synth("unison").noise("pink", d.lfo(0, 0.4).norm()).push();
+d.sample("hh")
+  .noise("white", d.env(0, 0.5).adsr(0.01, 0.2, 0, 0.1))
+  .push();
+```
+
+`.noise(gainInput)` enables white noise; `.noise(color, gainInput)` selects
+`"white"` or `"pink"`. Omitting the gain input uses gain `1`, so `.noise()` and
+`.noise("pink")` are valid. Calling `.noise()` again replaces the complete
+layer, including its color and omitted defaults. `.noise(0)` is a zero-level
+layer, not a removal operation.
+
+The gain input uses the same numeric cycles, random cycles, envelopes, LFOs,
+and MIDI CC sources as other instrument parameters. Values are not automatically
+clamped at one, and signed or above-one values retain the existing gain
+semantics. Color is static; only the gain is automated.
+
+Noise is generated continuously, is mono/centered and unpitched, and is mixed
+additively with the main source before the instrument's ordered `.fx()` chain
+and shared amplitude ADSR. Adding noise does not reduce or rebalance the main
+source, and there is no automatic limiter or headroom normalization. The shared
+voice envelope and existing sampler duration rules still bound the complete
+voice: noise gain automation cannot extend sustain or create an independent
+tail. A sampler's noise layer is skipped when that sampler voice is skipped.
+
+Noise currently uses a deterministic internal seed of `0` for reproducible
+offline rendering. Seed variation and public seed controls are deferred; this
+API does not create a standalone `d.noise()` instrument.
+
 ## Sampler names
 
 These constructor forms are equivalent where applicable:

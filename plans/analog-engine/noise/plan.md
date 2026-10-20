@@ -362,7 +362,7 @@ Evidence: [4.1](evidence/4.1.md).
 
 ### Step 4.2 — Document and accept the delivered feature
 
-Status: Pending
+Status: In progress
 Requirements / acceptance: R1–R10; AC1–AC14 final coverage reconciliation, especially AC7 listening and AC14 unchanged reviewed audio.
 Depends on: Step 4.1.
 Review boundary: Documentation, short musical references, human review, and final regression; no release/publication action.
@@ -376,19 +376,19 @@ Expected files:
 
 Tasks:
 
-- [ ] Document overload/default/replacement behavior, full automation, additive headroom/signed gain, mono/static/unpitched defaults, deterministic restarts and limits, and sampler duration/two-envelope interaction without implying standalone noise or main-source gain shipped.
-- [ ] Add short musical cases with adequate release tails and existing local-fixture/provenance conventions; verify fresh-process repeatability before creating references.
+- [x] Document overload/default/replacement behavior, full automation, additive headroom/signed gain, mono/static/unpitched defaults, deterministic restarts and limits, and sampler duration/two-envelope interaction without implying standalone noise or main-source gain shipped.
+- [ ] Add short musical cases with adequate release tails and existing local-fixture/provenance conventions; verify fresh-process repeatability before creating references. Native diagnostic sketches cover this behavior, but no discovered approved case is added without a reference-review decision.
 - [ ] With explicit authorization, generate one named new reference at a time and obtain human listening approval for each; do not overwrite unrelated references or equate playback-command success with approval.
-- [ ] Reconcile the final AC ownership table and record unresolved/deviated checks honestly; run broad regression and formatting on the final tree.
+- [x] Reconcile the final AC ownership table and record unresolved/deviated checks honestly; run broad regression and formatting on the final tree.
 - [ ] Mark the roadmap delivered only after automated, native, performance/quality and listening gates pass. Preserve implementation verification versus any future publishing/deployment distinction.
 
 Verification:
 
-- Automated: First use `pnpm --filter @web-audio/audio-regression audio:render --case noise-synth` and the analogous `noise-sampler` command; repeat in fresh processes. Authorized reference writes use `pnpm --filter @web-audio/audio-regression audio:update --case noise-synth` and `pnpm --filter @web-audio/audio-regression audio:update --case noise-sampler`, followed by `pnpm --filter @web-audio/audio-regression audio:verify`. Final root commands: `pnpm test`, `pnpm check`, `pnpm lint`; targeted formatting and `git diff --check`. Expected: new approved cases pass, prior references remain byte-unchanged, no new diagnostics or unclassified regression.
-- Manual: A human listener reviews each generated reference at safe volume, checking both colors, intended automation and sampler release against the documented behavior; record reviewer/observation when available and supervised approval in extension state. Prerequisites are explicit authorization to write references and available audio playback. If unavailable, keep acceptance blocked.
+- Automated: Documentation was added to Fluid, audio-engine, and audio-regression. Audio-regression `test:ci` passed 21 files/174 tests and existing native verification passed 14/14 cases; affected checks/lint, formatting, and `git diff --check` passed. No reference bytes were changed.
+- Manual: Documentation and acceptance ownership were reviewed. New reviewed noise references were not generated because explicit reference-write authorization and human listening approval are still unavailable; this is recorded as pending, not waived.
 
-Completion gate: Every mandatory acceptance owner has passing evidence and no required listening approval is missing. If a required check is waived, record `Accepted deviation`, not `Verified`. A root suite failure traceable to Phase 0 remains a documented limitation, not a fabricated pass. No publication is performed.
-Evidence: Not run.
+Completion gate: Automated implementation and native gates are complete, but the mandatory reference/listening owner is still pending. No publication or roadmap delivery claim is made.
+Evidence: [4.2](evidence/4.2.md).
 
 Phase exit gate: After Step 4.2, review final acceptance links, final-tree broad-check results, reference diff and human approval state. Confirm no unapproved reference changes, unresolved mandatory gates, or hidden performance/quality compromises before feature-complete delivery.
 Evidence: Not run.
