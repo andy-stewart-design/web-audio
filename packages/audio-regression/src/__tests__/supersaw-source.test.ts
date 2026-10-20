@@ -4,7 +4,7 @@ import { withRenderer } from "../runner/render";
 
 const adapterModule = fileURLToPath(
   new URL(
-    "../../../audio-engine/src/instruments/sources/supersaw-source.ts",
+    "../../../audio-engine/src/sources/supersaw-source.ts",
     import.meta.url,
   ),
 );

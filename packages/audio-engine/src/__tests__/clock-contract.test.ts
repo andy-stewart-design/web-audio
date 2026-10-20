@@ -1,7 +1,7 @@
 import type AudioClock from "@web-audio/clock";
 import { describe, expectTypeOf, it } from "vitest";
 import AudioEngine, { type EngineClock } from "../index";
-import type { InstrumentClock } from "../types";
+import type { InstrumentClock } from "../instruments/types";
 import type Instrument from "../instruments/instrument";
 import type Sampler from "../instruments/sampler";
 import type Synthesizer from "../instruments/synthesizer";

@@ -30,6 +30,28 @@ export const throwingProcessor = `
 
 // Fail in the actual recording's final quantum, after producing healthy audio,
 // to exercise completion/error event ordering without assuming a duration/rate.
+export function withBrokenNoiseWorklet(code: string, moduleSource: string) {
+  return `
+    const nativeAddModule = AudioWorklet.prototype.addModule;
+    AudioWorklet.prototype.addModule = async function (url, options) {
+      const source = await fetch(url).then(response => response.text());
+      if (!source.includes('noise-processor'))
+        return nativeAddModule.call(this, url, options);
+      const replacement = URL.createObjectURL(new Blob(
+        [${JSON.stringify(moduleSource)}], {type: 'text/javascript'}
+      ));
+      return nativeAddModule.call(this, replacement, options);
+    };
+    ${code}
+  `;
+}
+
+export const throwingNoiseProcessor = `
+  registerProcessor('noise-processor', class extends AudioWorkletProcessor {
+    process() { throw new Error('deliberate noise processor failure'); }
+  });
+`;
+
 export function throwingLateProcessor(frameCount: number) {
   return `
     registerProcessor('lfo-processor', class extends AudioWorkletProcessor {

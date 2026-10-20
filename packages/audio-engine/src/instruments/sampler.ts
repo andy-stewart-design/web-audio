@@ -5,22 +5,22 @@ import type {
 } from "@web-audio/schema";
 import Instrument, { type InstrumentOptions } from "./instrument";
 import { SAMPLE_BASE_GAIN } from "@/constants";
-import { planSamplerPreloads } from "@/utils/preload-samples";
+import { planSamplerPreloads } from "@/samples/preload-samples";
 import {
   deriveSourceKeys,
   resolveSample,
   resolveSampleEntry,
   selectNaturalSourceKey,
   selectNearestSourceKey,
-} from "@/utils/resolve-sample-entry";
-import SampleBufferCache from "./sample-buffer-cache";
+} from "@/samples/resolve-sample-entry";
+import SampleBufferCache from "../samples/sample-buffer-cache";
 import type {
   EventScheduleContext,
-  InstrumentClock,
   ResolvedSamplerEvent,
   ResolvedSamplerVoice,
-} from "@/types";
-import { resolveSamplerEvents } from "./resolve-sampler-events";
+} from "../events/types";
+import type { InstrumentClock } from "./types";
+import { resolveSamplerEvents } from "../events/resolve-sampler-events";
 
 interface SamplerOptions extends InstrumentOptions {
   schema: SamplerSchema;
@@ -58,7 +58,12 @@ class Sampler extends Instrument {
     this._schema = schema;
     this._banks = banks;
     this._bufferCache = cache;
-    this._initLfos(schema, startingBar, barStartTime);
+    this._initLfos(
+      schema,
+      startingBar,
+      barStartTime,
+      schema.noise ? [schema.noise.gain] : [],
+    );
   }
 
   resetPlaybackState() {
@@ -224,7 +229,7 @@ class Sampler extends Instrument {
     });
 
     this._scheduleVoice({
-      source,
+      sources: [{ node: source, offset: sourceWindow.offset }],
       detune: {
         param: source.detune,
         resolved: detune,
@@ -232,7 +237,12 @@ class Sampler extends Instrument {
       gainEnvelope: this._resolveEnvelope(this._schema.gain, event),
       effects: this._schema.effects,
       event,
-      offset: sourceWindow.offset,
+      noise: this._schema.noise
+        ? {
+            color: this._schema.noise.color,
+            gain: this._schema.noise.gain,
+          }
+        : undefined,
     });
     return true;
   }

@@ -1,9 +1,9 @@
+import type { EventScheduleContext } from "../events/types";
+import type { InstrumentClock } from "./types";
 import type {
-  EventScheduleContext,
-  InstrumentClock,
   ResolvedDetune,
   ResolvedEnvelopeSchema,
-} from "@/types";
+} from "../parameters/types";
 import type {
   BasicSynthesizerSchema,
   UnisonSynthesizerSchema,
@@ -13,10 +13,10 @@ import Instrument, {
   safeAudioParamValue,
   type InstrumentOptions,
 } from "./instrument";
-import MidiOutputScheduler from "@/midi-output-scheduler";
-import { midiToFrequency } from "@/utils/midi-to-frequency";
-import { resolveSynthEvents } from "./resolve-synth-events";
-import SupersawSource, { toAudioFrame } from "./sources/supersaw-source";
+import MidiOutputScheduler from "@/midi/midi-output-scheduler";
+import { midiToFrequency } from "@/midi/midi-to-frequency";
+import { resolveSynthEvents } from "../events/resolve-synth-events";
+import SupersawSource, { toAudioFrame } from "../sources/supersaw-source";
 
 interface SynthesizerOptions extends InstrumentOptions {
   schema: SynthesizerSchema;
@@ -40,14 +40,12 @@ class Synthesizer extends Instrument {
     });
     this._schema = opts.schema;
     this._midiOutputScheduler = opts.midiOutputScheduler;
-    this._initLfos(
-      opts.schema,
-      opts.startingBar,
-      opts.barStartTime,
-      opts.schema.engine === "unison"
+    this._initLfos(opts.schema, opts.startingBar, opts.barStartTime, [
+      ...(opts.schema.engine === "unison"
         ? [opts.schema.spread, opts.schema.width]
-        : [],
-    );
+        : []),
+      ...(opts.schema.noise ? [opts.schema.noise.gain] : []),
+    ]);
   }
 
   scheduleBar(barIndex: number, barStartTime: number): void {
@@ -139,11 +137,17 @@ class Synthesizer extends Instrument {
     });
 
     this._scheduleVoice({
-      source: osc,
+      sources: [{ node: osc }],
       detune: { param: osc.detune, resolved: detune },
       gainEnvelope,
       effects: schema.effects,
       event,
+      noise: schema.noise
+        ? {
+            color: schema.noise.color,
+            gain: schema.noise.gain,
+          }
+        : undefined,
     });
   }
 
@@ -186,7 +190,7 @@ class Synthesizer extends Instrument {
     }
 
     this._scheduleVoice({
-      source,
+      sources: [{ node: source }],
       detune: { param: source.detune, resolved: detune },
       sourceParams: [
         { param: source.spread, schema: schema.spread },
@@ -195,6 +199,12 @@ class Synthesizer extends Instrument {
       gainEnvelope,
       effects: schema.effects,
       event,
+      noise: schema.noise
+        ? {
+            color: schema.noise.color,
+            gain: schema.noise.gain,
+          }
+        : undefined,
       stopTime,
     });
   }

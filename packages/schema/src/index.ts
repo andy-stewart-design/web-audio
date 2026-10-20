@@ -205,6 +205,13 @@ type AudioParamSchema =
   | LfoSchema
   | MidiCcSchema;
 
+type NoiseColor = "white" | "pink";
+
+interface NoiseLayerSchema {
+  color: NoiseColor;
+  gain: AudioParamSchema;
+}
+
 interface FilterSchema {
   type: "filter";
   filterType: FilterType;
@@ -264,6 +271,7 @@ interface InstrumentSchema<TEventPattern extends EventPattern> {
   route: string;
   sends: Record<string, number>;
   ducks: Record<string, DuckSchema>;
+  noise?: NoiseLayerSchema;
 }
 
 interface SynthesizerCommonSchema extends InstrumentSchema<SynthEventPattern> {
@@ -332,6 +340,8 @@ export type {
   LfoSchema,
   MidiCcSchema,
   MidiOutSchema,
+  NoiseColor,
+  NoiseLayerSchema,
   ChanceCondition,
   InstrumentSchema,
   SamplerEventPattern,

@@ -34,6 +34,7 @@ abstract class SynthBase extends Instrument {
       route: this._route,
       sends: Object.fromEntries(this._sends),
       ducks: Object.fromEntries(this._ducks),
+      ...this._getNoiseSchema(),
       notesOut: this._notesOut?.getSchema(),
     } satisfies Omit<
       BasicSynthesizerSchema | UnisonSynthesizerSchema,

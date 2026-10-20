@@ -33,6 +33,27 @@ pnpm --filter @web-audio/audio-regression format:check
 
 Rendering/testing commands build Fluid, audio-engine and their workspace dependencies first. For first-time type checking alone, run `build:deps` first. Browser installation uses the headless shell bundled with the exact Playwright dependency; install and launch sequentially. The harness owns its loopback server, ephemeral port and browser; no app `dev` process, database, Docker or hosted CI is needed.
 
+## Noise-layer diagnostics
+
+Native noise coverage is currently diagnostic rather than an approved reference
+case. Run the focused suites with:
+
+```sh
+pnpm --filter @web-audio/audio-regression exec vitest run \\
+  src/__tests__/noise-source.test.ts \\
+  src/__tests__/noise.test.ts \\
+  src/__tests__/noise-diagnostics.test.ts
+```
+
+These tests use fresh Chromium contexts to check white/pink rendering, gain
+zero versus omission, envelope/LFO motion, sampler stereo preservation,
+deterministic seed-0 output, processor failure cleanup, and a separate 60-second
+32-layer diagnostic. The sustained diagnostic records wall time and optional
+browser heap usage in-page but does not establish a real-time CPU guarantee.
+It also does not create or update reviewed references. Human listening remains a
+separate acceptance step; numerical rendering success and `afplay` playback are
+not listening approval.
+
 ## Authoring cases
 
 ```text

@@ -35,6 +35,7 @@ import { parseKey } from "@/pitch/parse-key";
 import type { ScaleAlias } from "@/pitch/get-scale";
 import type {
   DuckSchema,
+  NoiseColor,
   SamplerSchema,
   SynthesizerSchema,
 } from "@web-audio/schema";
@@ -51,6 +52,7 @@ abstract class Instrument {
   protected _detune: AudioParamSource;
   protected _gain: Envelope;
   protected _effects: (Filter | GainEffect)[] = [];
+  protected _noise: { color: NoiseColor; gain: AudioParamSource } | undefined;
   protected _host: Drome | undefined;
   protected _muted = false;
   protected _legato = false;
@@ -264,6 +266,33 @@ abstract class Instrument {
     return this;
   }
 
+  noise(...input: AudioParamInput): this;
+  noise(color: NoiseColor, ...input: AudioParamInput): this;
+  noise(...input: AudioParamInput | [NoiseColor, ...AudioParamInput]) {
+    const hasColor = isNoiseColor(input[0]);
+    if (typeof input[0] === "string" && !hasColor) {
+      throw new Error('[Instrument] noise() color must be "white" or "pink".');
+    }
+    const color: NoiseColor = hasColor ? (input[0] as NoiseColor) : "white";
+    const gainInput = hasColor ? input.slice(1) : input;
+    const normalizedGainInput = gainInput.length > 0 ? gainInput : [1];
+    this._noise = {
+      color,
+      gain: this._resolveAudioParam(normalizedGainInput as AudioParamInput),
+    };
+    return this;
+  }
+
+  protected _getNoiseSchema() {
+    if (!this._noise) return {};
+    return {
+      noise: {
+        color: this._noise.color,
+        gain: this._getAudioParamSchema(this._noise.gain, "gain"),
+      },
+    };
+  }
+
   adsr(
     a: number | number[],
     d: number | number[],
@@ -278,6 +307,10 @@ abstract class Instrument {
     this._effects.push(...effects);
     return this;
   }
+}
+
+function isNoiseColor(value: unknown): value is NoiseColor {
+  return value === "white" || value === "pink";
 }
 
 function normalizeTarget(target: string, method: string) {

@@ -10,6 +10,10 @@ interface DuckRequest {
   startTime: number;
 }
 
+interface DuckTrigger extends DuckRequest {
+  target: string;
+}
+
 interface DuckSegment {
   from: number;
   to: number;
@@ -128,4 +132,4 @@ function valueAt(segment: DuckSegment, time: number) {
 }
 
 export { DuckAutomation, MIN_DUCK_RAMP, depthToGain };
-export type { DuckRequest };
+export type { DuckRequest, DuckTrigger };

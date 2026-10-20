@@ -1,0 +1,47 @@
+import type {
+  EnvelopeMode,
+  EnvelopeSchema,
+  LfoSchema,
+  MidiCcSchema,
+} from "@web-audio/schema";
+
+interface ResolvedEnvelopeSchema {
+  min: number;
+  max: number;
+  a: number;
+  d: number;
+  s: number;
+  r: number;
+  mode: EnvelopeMode;
+}
+
+interface NormalizedADSR {
+  a: number;
+  d: number;
+  s: number;
+  r: number;
+}
+
+interface EnvelopeParams {
+  min: number;
+  max: number;
+  sustain: number;
+  startTime: number;
+  endTime: number;
+  attackDur: number;
+  decayDur: number;
+  releaseDur: number;
+}
+
+type ResolvedDetune =
+  | { type: "static"; value: number }
+  | { type: "envelope"; value: number; schema: EnvelopeSchema }
+  | { type: "lfo"; value: number; schema: LfoSchema }
+  | { type: "midi-cc"; value: number; schema: MidiCcSchema };
+
+export type {
+  ResolvedEnvelopeSchema,
+  NormalizedADSR,
+  EnvelopeParams,
+  ResolvedDetune,
+};

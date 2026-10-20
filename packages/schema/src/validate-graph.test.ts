@@ -1308,6 +1308,23 @@ describe("validateDromeGraph", () => {
     ).not.toThrow();
   });
 
+  it("accepts a valid optional noise layer", () => {
+    const value = instrument();
+    value.noise = { color: "pink", gain: staticParam(0.25) };
+
+    expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
+  });
+
+  it.each([
+    ["color", { color: "blue", gain: staticParam(1) }, ".color"],
+    ["gain", { color: "white", gain: { type: "invalid" } }, ".gain"],
+  ])("rejects invalid noise %s", (_label, noise, path) => {
+    const value = instrument();
+    Object.assign(value, { noise });
+
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(path);
+  });
+
   it("rejects an empty declared bank and malformed source entries", () => {
     expect(() =>
       validateDromeGraph(schema({}, [], { empty: { samples: {} } })),
