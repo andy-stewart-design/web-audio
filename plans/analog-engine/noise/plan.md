@@ -293,7 +293,7 @@ Evidence: [3.1](evidence/3.1.md).
 
 ### Step 3.2 — Prove failure, automation, and retirement composition
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R2, R4, R7–R10; AC3 (binding lifecycle), AC5/AC6 (source lifecycle), AC10, AC11, AC12, AC13 (engine portions). Native behavior remains Step 4.1.
 Depends on: Step 3.1.
 Review boundary: High-risk integration assertions and bounded corrections, not a sampler redesign or generalized error framework.
@@ -306,22 +306,22 @@ Expected files:
 
 Tasks:
 
-- [ ] Exercise short main-source completion with a still-active noise release; cover looping, one-shot, clipped, fitted-chop, reverse/region/fit, and detune-driven early completion by extending existing fixtures rather than duplicating sampler algorithms.
-- [ ] Check zero-initialized dynamic gain later sounding, short/long noise envelopes never changing stop time, and per-voice LFO/MIDI cleanup not stopping shared modulation or sibling voices.
-- [ ] Inject unavailable samples/variations/buffers and invalid windows; prove no orphan noise. Inject partial setup failures and failed-noise completion after tracking; prove surviving main sources finish on schedule and retiring graphs resolve.
-- [ ] Submit invalid noise schemas while a graph is active; prove rejection leaves the active graph unchanged. Deliver duplicate/stale source notifications across cancellation, destroy, and graph replacement.
-- [ ] Search remaining tracking/source consumers before removing any compatibility-only path introduced in Phase 1; remove only after equivalent noise and no-noise consumer tests pass.
+- [x] Exercise short main-source completion with a still-active noise release; cover looping, one-shot, clipped, fitted-chop, reverse/region/fit, and detune-driven early completion by extending existing fixtures rather than duplicating sampler algorithms.
+- [x] Check zero-initialized dynamic gain later sounding, short/long noise envelopes never changing stop time, and per-voice LFO/MIDI cleanup not stopping shared modulation or sibling voices.
+- [x] Inject unavailable samples/variations/buffers and invalid windows; prove no orphan noise. Inject partial setup failures and failed-noise completion after tracking; prove surviving main sources finish on schedule and retiring graphs resolve.
+- [x] Submit invalid noise schemas while a graph is active; prove rejection leaves the active graph unchanged. Deliver duplicate/stale source notifications across cancellation, destroy, and graph replacement.
+- [x] Search remaining tracking/source consumers before removing any compatibility-only path introduced in Phase 1; remove only after equivalent noise and no-noise consumer tests pass.
 
 Verification:
 
-- Automated: `pnpm --filter @web-audio/schema test:ci`, `pnpm --filter @web-audio/fluid test:ci`, and `pnpm --filter @web-audio/audio-engine test:ci`, then dependency build and affected checks. Assert every source/binding/node cleanup once, `finished` at whole-voice completion, no silent error substitution, and unchanged duration/active graph invariants.
-- Manual: Review failure observability and tracking consumer search; distinguish intended sample-end noise tails from accidental sustained gates.
+- Automated: Schema tests passed (121); worklets passed (5 files/49 tests); Fluid passed (32 files/1138 tests); audio-engine passed (28 files/400 tests); dependency build and affected checks/lint passed. Focused noise, sampler, engine, and lifecycle suites passed. Existing native audio verification passed 14/14 cases with references unchanged.
+- Manual: Reviewed failure observability and searched all remaining tracking/source consumers. Sample-end noise tails are bounded by the existing shared voice stop boundary; no compatibility-only tracking path remains.
 
 Completion gate: Adversarial composition does not leak or truncate siblings/voices, no-noise tests still pass, and every validation/failure branch has a named test rather than a future promise.
-Evidence: Not run.
+Evidence: [3.2](evidence/3.2.md).
 
-Phase exit gate: After Step 3.2, run dependency build, affected package checks, all four production package unit suites, and existing `audio:verify`. Public exports, runtime scheduling and retirement compose; old reviewed cases remain unchanged. Native noise acceptance and new reference approval are explicitly still pending.
-Evidence: Not run.
+Phase exit gate: Step 3.2 verification passed: dependency build, affected package checks, all four production package unit suites, and existing `audio:verify` are green. Public exports, runtime scheduling and retirement compose; old reviewed cases remain unchanged. Native noise acceptance and new reference approval are explicitly still pending.
+Evidence: [3.2](evidence/3.2.md).
 
 ## Phase 4 — Establish native and user-facing acceptance
 

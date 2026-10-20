@@ -47,8 +47,41 @@ class FakeBufferSourceNode {
   }
 }
 
+class FakeMessagePort {
+  postMessage = vi.fn();
+  onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
+  close = vi.fn();
+}
+
+class FakeAudioWorkletNode {
+  static instances: FakeAudioWorkletNode[] = [];
+  readonly port = new FakeMessagePort();
+  readonly listeners = new Map<string, Set<EventListener>>();
+  readonly connect = vi.fn();
+  readonly disconnect = vi.fn();
+  readonly addEventListener = vi.fn((type: string, listener: EventListener) => {
+    const listeners = this.listeners.get(type) ?? new Set<EventListener>();
+    listeners.add(listener);
+    this.listeners.set(type, listeners);
+  });
+  readonly removeEventListener = vi.fn(
+    (type: string, listener: EventListener) => {
+      this.listeners.get(type)?.delete(listener);
+    },
+  );
+
+  constructor(
+    _ctx: BaseAudioContext,
+    readonly name: string,
+    readonly options: AudioWorkletNodeOptions,
+  ) {
+    FakeAudioWorkletNode.instances.push(this);
+  }
+}
+
 class FakeAudioContext {
   currentTime = 0;
+  sampleRate = 48_000;
   destination = {};
   createGain() {
     return new FakeGainNode();
@@ -110,8 +143,10 @@ async function sampler(
 beforeEach(() => {
   FakeGainNode.instances = [];
   FakeBufferSourceNode.instances = [];
+  FakeAudioWorkletNode.instances = [];
   vi.stubGlobal("GainNode", FakeGainNode);
   vi.stubGlobal("AudioBufferSourceNode", FakeBufferSourceNode);
+  vi.stubGlobal("AudioWorkletNode", FakeAudioWorkletNode);
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -122,6 +157,7 @@ describe("Sampler scheduling", () => {
     const instance = await sampler(
       schema({
         muted: true,
+        noise: { color: "pink", gain: staticNumberPattern([1]) },
         ducks: {
           music: { depth: 0.25, onset: 0.2, recovery: 0.5 },
         },
@@ -147,6 +183,7 @@ describe("Sampler scheduling", () => {
       startTime: 10.5,
     });
     expect(FakeBufferSourceNode.instances).toHaveLength(0);
+    expect(FakeAudioWorkletNode.instances).toHaveLength(0);
   });
 
   it("uses pattern duration instead of one-shot playback duration", async () => {
@@ -933,6 +970,65 @@ describe("Sampler scheduling", () => {
     expect(source.options.loopEnd).toBe(6);
   });
 
+  it.each<[string, Partial<SamplerSchema>]>([
+    ["looping", { loop: true }],
+    ["one-shot", { clipMode: "one-shot" }],
+    ["clipped", {}],
+    [
+      "fitted chop",
+      {
+        fit: { type: "fit", bars: 1 },
+        region: {
+          type: "chop",
+          slices: [
+            { start: 0, end: 0.5 },
+            { start: 0.5, end: 1 },
+          ],
+          sequence: staticNumberPattern([-1]),
+        },
+      },
+    ],
+    [
+      "reverse region fit",
+      {
+        direction: "reverse",
+        fit: { type: "fit", bars: 1 },
+        region: {
+          type: "static",
+          start: staticNumberPattern([0.25]),
+          duration: staticNumberPattern([0.25]),
+        },
+      },
+    ],
+    ["detuned early completion", { detune: staticNumberPattern([120]) }],
+  ])(
+    "keeps noise on the same shared stop boundary for %s",
+    async (_label, overrides) => {
+      const instance = await sampler(
+        schema({
+          ...overrides,
+          eventPattern: {
+            timing: timing([[{ offset: 0, duration: 0.25 }]]),
+            sampleNames: { type: "static", cycle: [[["bd"]]] },
+          },
+          noise: { color: "pink", gain: staticNumberPattern([1]) },
+        }),
+        fileBank(),
+        cache({ "https://example.com/bd.wav": buffer(4) }),
+      );
+
+      instance.scheduleBar(0, 10);
+
+      const source = FakeBufferSourceNode.instances[0];
+      const noise = FakeAudioWorkletNode.instances[0];
+      const sourceStop = source.stop.mock.calls[0][0];
+      const noiseStopFrame = noise.options.processorOptions?.stopFrame;
+
+      expect(noiseStopFrame).toBe(Math.round(sourceStop * 48_000));
+      instance.destroy();
+    },
+  );
+
   it("lets one-shot samples play for their resolved source duration", async () => {
     const instance = await sampler(
       schema({
@@ -997,6 +1093,7 @@ describe("Sampler scheduling", () => {
           variationIndices: { type: "static", cycle: [[[0], [1]]] },
         },
         detune: staticNumberPattern([10, 20]),
+        noise: { color: "white", gain: staticNumberPattern([1]) },
       }),
       banks,
       buffers,
@@ -1005,6 +1102,7 @@ describe("Sampler scheduling", () => {
     instance.scheduleBar(0, 10);
 
     expect(FakeBufferSourceNode.instances).toHaveLength(1);
+    expect(FakeAudioWorkletNode.instances).toHaveLength(1);
     expect(FakeBufferSourceNode.instances[0].options.detune).toBe(20);
     expect(FakeBufferSourceNode.instances[0].start).toHaveBeenCalledWith(11);
   });
@@ -1022,6 +1120,7 @@ describe("Sampler scheduling", () => {
           sampleNames: { type: "static", cycle: [[["bd"], ["bd"]]] },
         },
         detune: staticNumberPattern([10, 20]),
+        noise: { color: "white", gain: staticNumberPattern([1]) },
         region: {
           type: "static",
           start: staticNumberPattern([0.75, 0]),
@@ -1033,6 +1132,7 @@ describe("Sampler scheduling", () => {
     instance.scheduleBar(0, 10);
 
     expect(FakeBufferSourceNode.instances).toHaveLength(1);
+    expect(FakeAudioWorkletNode.instances).toHaveLength(1);
     expect(FakeBufferSourceNode.instances[0].options.detune).toBe(20);
     expect(FakeBufferSourceNode.instances[0].start).toHaveBeenCalledWith(11, 0);
   });
