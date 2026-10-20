@@ -56,8 +56,15 @@ class NoiseSource implements ScheduledSource {
   disconnect() {
     if (this._disconnected) return;
     this._disconnected = true;
-    if (!this._ended) this.node.port.postMessage({ type: "cancel" });
-    this.node.disconnect();
+    try {
+      if (!this._ended) {
+        const cancel = this.node.parameters.get("cancel");
+        if (!cancel) throw new Error("Missing noise cancellation AudioParam");
+        cancel.setValueAtTime(1, this._ctx.currentTime);
+      }
+    } finally {
+      this.node.disconnect();
+    }
     if (this._ended) this._closePort();
   }
 

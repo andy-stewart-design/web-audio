@@ -6,8 +6,7 @@ const PINK_DC_POLE = 0.9999;
 type NoiseColor = "white" | "pink";
 type NoiseMessage =
   | { type: "start"; frame: number }
-  | { type: "stop"; frame: number }
-  | { type: "cancel" };
+  | { type: "stop"; frame: number };
 
 interface NoiseProcessorOptions {
   processorOptions?: {
@@ -28,6 +27,12 @@ function seedValue(seed: number | undefined) {
 }
 
 class NoiseProcessor extends AudioWorkletProcessor {
+  static get parameterDescriptors() {
+    return [
+      { name: "cancel", defaultValue: 0, automationRate: "k-rate" as const },
+    ];
+  }
+
   private readonly _color: NoiseColor;
   private _state: number;
   private _startFrame: number;
@@ -67,10 +72,6 @@ class NoiseProcessor extends AudioWorkletProcessor {
   private _handleMessage(message: unknown) {
     if (typeof message !== "object" || message === null) return;
     const candidate = message as Partial<NoiseMessage>;
-    if (candidate.type === "cancel") {
-      this._complete();
-      return;
-    }
     if (
       (candidate.type !== "start" && candidate.type !== "stop") ||
       typeof candidate.frame !== "number" ||
@@ -133,13 +134,21 @@ class NoiseProcessor extends AudioWorkletProcessor {
     return filtered;
   }
 
-  process(_inputs: Float32Array[][], outputs: Float32Array[][]) {
+  process(
+    _inputs: Float32Array[][],
+    outputs: Float32Array[][],
+    parameters: Record<string, Float32Array>,
+  ) {
     const outputChannels = outputs[0];
     const frameCount = outputChannels?.[0]?.length ?? 0;
     if (!outputChannels || frameCount === 0) return !this._completed;
 
     for (const channel of outputChannels) channel.fill(0);
     if (this._completed) return false;
+    if ((parameters.cancel?.[0] ?? 0) >= 0.5) {
+      this._complete();
+      return false;
+    }
 
     const blockStart = currentFrame;
     const blockEnd = blockStart + frameCount;

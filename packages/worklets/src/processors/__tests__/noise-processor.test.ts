@@ -12,7 +12,11 @@ interface NoiseProcessorOptions {
 
 interface NoiseProcessor {
   port: MessagePort;
-  process(inputs: Float32Array[][], outputs: Float32Array[][]): boolean;
+  process(
+    inputs: Float32Array[][],
+    outputs: Float32Array[][],
+    parameters: Record<string, Float32Array>,
+  ): boolean;
 }
 
 type NoiseProcessorConstructor = new (
@@ -41,10 +45,17 @@ function send(processor: NoiseProcessor, message: unknown) {
   processor.port.onmessage?.({ data: message } as MessageEvent);
 }
 
-function render(processor: NoiseProcessor, frame: number, frameCount = 256) {
+function render(
+  processor: NoiseProcessor,
+  frame: number,
+  frameCount = 256,
+  cancel = 0,
+) {
   runtime.currentFrame = frame;
   const output = new Float32Array(frameCount);
-  const alive = processor.process([], [[output]]);
+  const alive = processor.process([], [[output]], {
+    cancel: Float32Array.of(cancel),
+  });
   return { alive, output };
 }
 
@@ -203,11 +214,10 @@ describe("NoiseProcessor", () => {
     expect(runtime.__workletMessages).toEqual([{ type: "ended" }]);
   });
 
-  it("cancels immediately without waiting for a scheduled frame", () => {
+  it("cancels immediately on the render-thread parameter", () => {
     const processor = createProcessor({ startFrame: 0, stopFrame: 100_000 });
-    send(processor, { type: "cancel" });
 
-    const output = render(processor, 0, 128);
+    const output = render(processor, 0, 128, 1);
 
     expect(output.alive).toBe(false);
     expectFinite(output.output);

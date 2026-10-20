@@ -14,6 +14,7 @@ class FakeMessagePort {
 class FakeAudioWorkletNode {
   static instances: FakeAudioWorkletNode[] = [];
   readonly port = new FakeMessagePort();
+  readonly parameters = new Map([["cancel", { setValueAtTime: vi.fn() }]]);
   readonly connect = vi.fn((destination: AudioNode) => destination);
   readonly disconnect = vi.fn();
   readonly listeners = new Map<string, Set<EventListener>>();
@@ -43,6 +44,8 @@ class FakeAudioWorkletNode {
 }
 
 class FakeAudioContext {
+  readonly currentTime = 0;
+
   constructor(readonly sampleRate = 48_000) {}
 }
 
@@ -128,7 +131,10 @@ describe("NoiseSource", () => {
 
     expect(node.connect).toHaveBeenCalledOnce();
     expect(node.disconnect).toHaveBeenCalledOnce();
-    expect(node.port.postMessage).toHaveBeenCalledWith({ type: "cancel" });
+    expect(node.parameters.get("cancel")?.setValueAtTime).toHaveBeenCalledWith(
+      1,
+      0,
+    );
     expect(node.port.close).not.toHaveBeenCalled();
 
     node.port.emit({ type: "ended" });
@@ -179,7 +185,10 @@ describe("NoiseSource", () => {
 
     noise.disconnect();
 
-    expect(node.port.postMessage).toHaveBeenCalledWith({ type: "cancel" });
+    expect(node.parameters.get("cancel")?.setValueAtTime).toHaveBeenCalledWith(
+      1,
+      0,
+    );
     expect(node.disconnect).toHaveBeenCalledOnce();
     expect(node.port.close).not.toHaveBeenCalled();
   });

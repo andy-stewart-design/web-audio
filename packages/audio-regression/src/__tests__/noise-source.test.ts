@@ -24,8 +24,9 @@ interface NativeWindow extends Window {
     ended: boolean;
   }>;
   __renderNoiseCancellation?: () => Promise<{
+    ended: boolean;
     processorError: boolean;
-    blocks: number;
+    peak: number;
   }>;
   __renderNoiseFailure?: () => Promise<{
     processorError: boolean;
@@ -121,7 +122,7 @@ describe("native noise source scheduling", () => {
     });
   });
 
-  it("terminates processor activity when disconnected before scheduled start", async () => {
+  it("acknowledges render-thread cancellation without processor activity", async () => {
     await withRenderer(async (renderer) => {
       const context = await renderer.browser.newContext({
         serviceWorkers: "block",
@@ -130,39 +131,23 @@ describe("native noise source scheduling", () => {
         const page = await context.newPage();
         await page.goto(renderer.origin);
         const adapterUrl = fsModuleUrl(renderer.origin, adapterModule);
+        const workletsUrl = fsModuleUrl(renderer.origin, workletsModule);
         await page.addScriptTag({
           type: "module",
           content: `
             import NoiseSource from ${JSON.stringify(adapterUrl)};
+            import { noiseProcessorSource } from ${JSON.stringify(workletsUrl)};
             window.__renderNoiseCancellation = async () => {
               const audio = new OfflineAudioContext({
                 numberOfChannels: 1,
                 length: 8192,
                 sampleRate: 48000,
               });
-              const moduleUrl = URL.createObjectURL(new Blob([
-                \`registerProcessor("noise-processor", class extends AudioWorkletProcessor {
-                  constructor() {
-                    super();
-                    this.blocks = 0;
-                    this.cancelled = false;
-                    this.port.onmessage = (event) => {
-                      if (event.data?.type === "cancel") {
-                        this.cancelled = true;
-                        this.port.postMessage({ type: "ended", blocks: this.blocks });
-                      }
-                    };
-                  }
-                  process(_inputs, outputs) {
-                    this.blocks++;
-                    if (this.blocks >= 8)
-                      throw new Error("uncancelled noise processor");
-                    if (this.cancelled) return false;
-                    outputs[0][0].fill(0.25);
-                    return true;
-                  }
-                });\`
-              ], {type: "application/javascript"}));
+              const moduleUrl = URL.createObjectURL(
+                new Blob([noiseProcessorSource], {
+                  type: "application/javascript",
+                }),
+              );
               await audio.audioWorklet.addModule(moduleUrl);
               URL.revokeObjectURL(moduleUrl);
 
@@ -172,24 +157,31 @@ describe("native noise source scheduling", () => {
                 startFrame: 0,
                 stopFrame: 100000,
               });
-              let processorError = false;
-              source.node.addEventListener("processorerror", () => {
-                processorError = true;
-              });
-              let blocks = 0;
-              source.node.port.onmessage = (event) => {
-                if (event.data?.type === "ended") blocks = event.data.blocks;
+              let ended = false;
+              source.onended = () => {
+                ended = true;
               };
+              let processorError = false;
+              const onProcessorError = () => {
+                processorError = true;
+              };
+              source.node.addEventListener("processorerror", onProcessorError);
+              source.node.addEventListener("error", onProcessorError);
               source.connect(audio.destination);
               source.start(0);
               source.stop(0);
               source.disconnect();
-              // Keep the processor in the render graph so activity is measured
-              // independently of the source's disconnected audio output.
+              // Reconnect only to observe processor activity independently of
+              // the adapter's disconnected output edge.
               source.node.connect(audio.destination);
-              await audio.startRendering();
+              const rendered = await audio.startRendering();
               await new Promise((resolve) => setTimeout(resolve, 0));
-              return {processorError, blocks};
+              const channel = rendered.getChannelData(0);
+              const peak = channel.reduce(
+                (result, value) => Math.max(result, Math.abs(value)),
+                0,
+              );
+              return {ended, processorError, peak};
             };
           `,
         });
@@ -205,8 +197,9 @@ describe("native noise source scheduling", () => {
           return render();
         });
 
+        expect(result.ended).toBe(true);
         expect(result.processorError).toBe(false);
-        expect(result.blocks).toBeLessThan(8);
+        expect(result.peak).toBe(0);
       } finally {
         await context.close();
       }
