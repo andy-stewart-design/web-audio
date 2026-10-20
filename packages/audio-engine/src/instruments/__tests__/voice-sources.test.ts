@@ -250,7 +250,7 @@ describe("Instrument source ownership", () => {
     ).toThrow(error);
     expect(first.stop).toHaveBeenCalledWith(0);
     expect(first.disconnect).toHaveBeenCalledOnce();
-    expect(second.stop).not.toHaveBeenCalled();
+    expect(second.stop).toHaveBeenCalledWith(0);
     expect(second.disconnect).toHaveBeenCalledOnce();
     expect(first.onended).toBeNull();
     expect(second.onended).toBeNull();

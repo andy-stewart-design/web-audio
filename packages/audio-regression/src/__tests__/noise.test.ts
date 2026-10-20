@@ -52,12 +52,34 @@ function tailPeak(result: {
   return Math.max(...result.channels.map((channel) => maxAbs(channel, start)));
 }
 
+function isolatedNoise(
+  result: { channels: Float32Array[] },
+  mainOnly: { channels: Float32Array[] },
+) {
+  return channelDifference(result.channels[0]!, mainOnly.channels[0]!);
+}
+
+function windowRms(
+  channel: Float32Array,
+  start: number,
+  sampleRate: number,
+  offsetSeconds: number,
+  durationSeconds: number,
+) {
+  const offset = Math.round(offsetSeconds * sampleRate);
+  const length = Math.round(durationSeconds * sampleRate);
+  return rms(channel, start + offset, start + offset + length);
+}
+
 describe("native noise integration", () => {
   it("renders both engines/colors and consumes zero, envelope, and LFO gain", async () => {
     await withRenderer(async (renderer) => {
       for (const engine of ["sine", "unison"] as const) {
         const absent = await renderer.render(
           noiseSketch(`${engine}-absent`, synthCode(engine)),
+        );
+        const reference = await renderer.render(
+          noiseSketch(`${engine}-reference`, synthCode(engine, '"white", 1')),
         );
         const zero = await renderer.render(
           noiseSketch(`${engine}-zero`, synthCode(engine, '"white", 0')),
@@ -75,7 +97,7 @@ describe("native noise integration", () => {
               engine === "unison"
                 ? 'd.synth("unison").voices(2)'
                 : 'd.synth("sine")'
-            }.notes(60).gain(0.2).noise(d.env(0, 1).adsr(0.01, 0.1, 1, 0.1)).push();`,
+            }.notes(60).gain(0.2).adsr(0, 0, 1, 0.05).noise(d.env(0, 1).adsr(0.2, 0, 1, 0.1)).push();`,
           ),
         );
         const lfo = await renderer.render(
@@ -85,7 +107,7 @@ describe("native noise integration", () => {
               engine === "unison"
                 ? 'd.synth("unison").voices(2)'
                 : 'd.synth("sine")'
-            }.notes(60).gain(0.2).noise(d.lfo(0, 0.4).norm().speed(1)).push();`,
+            }.notes(60).gain(0.2).adsr(0, 0, 1, 0.05).noise(d.lfo(0, 1).norm().speed(1)).push();`,
           ),
         );
 
@@ -98,12 +120,50 @@ describe("native noise integration", () => {
         expect(
           maxDifference(white.channels[0]!, pink.channels[0]!, start, end),
         ).toBeGreaterThan(1e-4);
-        expect(
-          maxDifference(white.channels[0]!, envelope.channels[0]!, start, end),
-        ).toBeGreaterThan(1e-5);
-        expect(
-          maxDifference(white.channels[0]!, lfo.channels[0]!, start, end),
-        ).toBeGreaterThan(1e-5);
+
+        const sampleRate = white.settings?.sampleRate ?? 48_000;
+        const referenceNoise = isolatedNoise(reference, absent);
+        const envelopeNoise = isolatedNoise(envelope, absent);
+        const lfoNoise = isolatedNoise(lfo, absent);
+        const envelopeEarly = windowRms(
+          envelopeNoise,
+          start,
+          sampleRate,
+          0.05,
+          0.1,
+        );
+        const envelopeLate = windowRms(
+          envelopeNoise,
+          start,
+          sampleRate,
+          0.65,
+          0.1,
+        );
+        const referenceEarly = windowRms(
+          referenceNoise,
+          start,
+          sampleRate,
+          0.05,
+          0.1,
+        );
+        const referenceLate = windowRms(
+          referenceNoise,
+          start,
+          sampleRate,
+          0.65,
+          0.1,
+        );
+        expect(envelopeEarly / referenceEarly).toBeLessThan(0.4);
+        expect(envelopeLate / referenceLate).toBeGreaterThan(0.8);
+
+        const lfoLevels = [0.1, 0.5, 0.9].map(
+          (offset) =>
+            windowRms(lfoNoise, start, sampleRate, offset, 0.1) /
+            windowRms(referenceNoise, start, sampleRate, offset, 0.1),
+        );
+        expect(Math.max(...lfoLevels) - Math.min(...lfoLevels)).toBeGreaterThan(
+          0.2,
+        );
         expect(tailPeak(white)).toBeLessThan(1e-7);
         expect(renderer.browser.contexts()).toHaveLength(0);
       }
@@ -167,6 +227,61 @@ describe("native noise integration", () => {
           ),
         ).toBeGreaterThan(1e-4);
         expect(tailPeak(withNoise)).toBeLessThan(1e-7);
+        expect(renderer.browser.contexts()).toHaveLength(0);
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps sampler noise audible through sample release, then stops", async () => {
+    const directory = await mkdtemp(join(process.cwd(), ".noise-release-"));
+    const file = join(directory, "short.wav");
+    const sampleFrames = 4_800;
+    await writeFile(
+      file,
+      encodeWav({
+        sampleRate: 48_000,
+        channels: [
+          Float32Array.from(
+            { length: sampleFrames },
+            (_, frame) => 0.25 * Math.sin((2 * Math.PI * 220 * frame) / 48_000),
+          ),
+        ],
+      }),
+    );
+
+    try {
+      await withRenderer(async (renderer) => {
+        const result = await renderer.render(
+          noiseSketch(
+            "sampler-release",
+            `
+              d.loadSamples({bank: "local", samples: {hit: ["/samples/short.wav"]}});
+              d.sample("hit").bank("local").clip(false).gain(0.3)
+                .adsr(0, 0, 1, 1).noise("pink", 0.2).push();
+            `,
+            {
+              tailSeconds: 0.8,
+              resources: { "/samples/short.wav": file },
+            },
+          ),
+        );
+        const sampleEnd =
+          (result.settings?.startOffsetFrames ?? 4_800) + sampleFrames;
+        const sampleRate = result.settings?.sampleRate ?? 48_000;
+        const channel = result.channels[0]!;
+
+        expect(
+          rms(channel, sampleEnd + 2_400, sampleEnd + 7_200),
+        ).toBeGreaterThan(1e-4);
+        expect(
+          maxAbs(
+            channel,
+            sampleEnd + Math.round(sampleRate * 0.3),
+            sampleEnd + Math.round(sampleRate * 0.4),
+          ),
+        ).toBeLessThan(1e-7);
         expect(renderer.browser.contexts()).toHaveLength(0);
       });
     } finally {

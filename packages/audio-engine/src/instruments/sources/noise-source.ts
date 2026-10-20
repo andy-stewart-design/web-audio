@@ -24,6 +24,7 @@ class NoiseSource implements ScheduledSource {
   private _ended = false;
   private _disconnected = false;
   private _started = false;
+  private _portClosed = false;
   private readonly _onProcessorError = () => this._finish();
 
   constructor(
@@ -55,11 +56,9 @@ class NoiseSource implements ScheduledSource {
   disconnect() {
     if (this._disconnected) return;
     this._disconnected = true;
-    this.node.port.onmessage = null;
-    this.node.removeEventListener("processorerror", this._onProcessorError);
-    this.node.removeEventListener("error", this._onProcessorError);
-    this.node.port.close();
+    if (!this._ended) this.node.port.postMessage({ type: "cancel" });
     this.node.disconnect();
+    if (this._ended) this._closePort();
   }
 
   start(when = 0) {
@@ -86,7 +85,17 @@ class NoiseSource implements ScheduledSource {
   private _finish() {
     if (this._ended) return;
     this._ended = true;
+    if (this._disconnected) this._closePort();
     this.onended?.();
+  }
+
+  private _closePort() {
+    if (this._portClosed) return;
+    this._portClosed = true;
+    this.node.port.onmessage = null;
+    this.node.removeEventListener("processorerror", this._onProcessorError);
+    this.node.removeEventListener("error", this._onProcessorError);
+    this.node.port.close();
   }
 }
 

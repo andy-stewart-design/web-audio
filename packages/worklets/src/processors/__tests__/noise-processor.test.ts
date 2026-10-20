@@ -203,6 +203,18 @@ describe("NoiseProcessor", () => {
     expect(runtime.__workletMessages).toEqual([{ type: "ended" }]);
   });
 
+  it("cancels immediately without waiting for a scheduled frame", () => {
+    const processor = createProcessor({ startFrame: 0, stopFrame: 100_000 });
+    send(processor, { type: "cancel" });
+
+    const output = render(processor, 0, 128);
+
+    expect(output.alive).toBe(false);
+    expectFinite(output.output);
+    expect(output.output.every((value) => value === 0)).toBe(true);
+    expect(runtime.__workletMessages).toEqual([{ type: "ended" }]);
+  });
+
   it("ignores malformed options and control messages", () => {
     const processor = createProcessor({
       color: "blue",

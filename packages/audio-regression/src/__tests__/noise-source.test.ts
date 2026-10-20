@@ -23,6 +23,10 @@ interface NativeWindow extends Window {
     after: number;
     ended: boolean;
   }>;
+  __renderNoiseCancellation?: () => Promise<{
+    processorError: boolean;
+    blocks: number;
+  }>;
   __renderNoiseFailure?: () => Promise<{
     processorError: boolean;
     ended: boolean;
@@ -110,6 +114,99 @@ describe("native noise source scheduling", () => {
         expect(result.inside).toBeGreaterThan(0);
         expect(result.after).toBe(0);
         expect(result.ended).toBe(true);
+      } finally {
+        await context.close();
+      }
+      expect(renderer.browser.contexts()).toHaveLength(0);
+    });
+  });
+
+  it("terminates processor activity when disconnected before scheduled start", async () => {
+    await withRenderer(async (renderer) => {
+      const context = await renderer.browser.newContext({
+        serviceWorkers: "block",
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto(renderer.origin);
+        const adapterUrl = fsModuleUrl(renderer.origin, adapterModule);
+        await page.addScriptTag({
+          type: "module",
+          content: `
+            import NoiseSource from ${JSON.stringify(adapterUrl)};
+            window.__renderNoiseCancellation = async () => {
+              const audio = new OfflineAudioContext({
+                numberOfChannels: 1,
+                length: 8192,
+                sampleRate: 48000,
+              });
+              const moduleUrl = URL.createObjectURL(new Blob([
+                \`registerProcessor("noise-processor", class extends AudioWorkletProcessor {
+                  constructor() {
+                    super();
+                    this.blocks = 0;
+                    this.cancelled = false;
+                    this.port.onmessage = (event) => {
+                      if (event.data?.type === "cancel") {
+                        this.cancelled = true;
+                        this.port.postMessage({ type: "ended", blocks: this.blocks });
+                      }
+                    };
+                  }
+                  process(_inputs, outputs) {
+                    this.blocks++;
+                    if (this.blocks >= 8)
+                      throw new Error("uncancelled noise processor");
+                    if (this.cancelled) return false;
+                    outputs[0][0].fill(0.25);
+                    return true;
+                  }
+                });\`
+              ], {type: "application/javascript"}));
+              await audio.audioWorklet.addModule(moduleUrl);
+              URL.revokeObjectURL(moduleUrl);
+
+              const source = new NoiseSource(audio, {
+                color: "white",
+                seed: 17,
+                startFrame: 0,
+                stopFrame: 100000,
+              });
+              let processorError = false;
+              source.node.addEventListener("processorerror", () => {
+                processorError = true;
+              });
+              let blocks = 0;
+              source.node.port.onmessage = (event) => {
+                if (event.data?.type === "ended") blocks = event.data.blocks;
+              };
+              source.connect(audio.destination);
+              source.start(0);
+              source.stop(0);
+              source.disconnect();
+              // Keep the processor in the render graph so activity is measured
+              // independently of the source's disconnected audio output.
+              source.node.connect(audio.destination);
+              await audio.startRendering();
+              await new Promise((resolve) => setTimeout(resolve, 0));
+              return {processorError, blocks};
+            };
+          `,
+        });
+        await page.waitForFunction(
+          () =>
+            typeof (window as NativeWindow).__renderNoiseCancellation ===
+            "function",
+        );
+        const result = await page.evaluate(() => {
+          const render = (window as NativeWindow).__renderNoiseCancellation;
+          if (!render)
+            throw new Error("Native noise cancellation test is not ready");
+          return render();
+        });
+
+        expect(result.processorError).toBe(false);
+        expect(result.blocks).toBeLessThan(8);
       } finally {
         await context.close();
       }

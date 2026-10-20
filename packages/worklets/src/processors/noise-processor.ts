@@ -6,7 +6,8 @@ const PINK_DC_POLE = 0.9999;
 type NoiseColor = "white" | "pink";
 type NoiseMessage =
   | { type: "start"; frame: number }
-  | { type: "stop"; frame: number };
+  | { type: "stop"; frame: number }
+  | { type: "cancel" };
 
 interface NoiseProcessorOptions {
   processorOptions?: {
@@ -66,6 +67,10 @@ class NoiseProcessor extends AudioWorkletProcessor {
   private _handleMessage(message: unknown) {
     if (typeof message !== "object" || message === null) return;
     const candidate = message as Partial<NoiseMessage>;
+    if (candidate.type === "cancel") {
+      this._complete();
+      return;
+    }
     if (
       (candidate.type !== "start" && candidate.type !== "stop") ||
       typeof candidate.frame !== "number" ||

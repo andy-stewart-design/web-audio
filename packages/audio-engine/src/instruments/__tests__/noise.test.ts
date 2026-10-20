@@ -277,6 +277,10 @@ describe("Instrument noise voice composition", () => {
     const noise = FakeAudioWorkletNode.instances[0];
     expect(source.disconnect).toHaveBeenCalledOnce();
     expect(noise.disconnect).toHaveBeenCalledOnce();
+    expect(noise.port.postMessage).toHaveBeenCalledWith({ type: "cancel" });
+    expect(noise.port.close).not.toHaveBeenCalled();
+
+    noise.port.emit({ type: "ended" });
     expect(noise.port.close).toHaveBeenCalledOnce();
   });
 

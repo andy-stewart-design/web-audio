@@ -436,10 +436,7 @@ abstract class Instrument {
     for (const source of note.sourceNodes) source.onended = null;
     for (const cleanup of note.completionCleanups) cleanupSafely(cleanup);
     for (const source of note.sourceNodes) {
-      if (
-        !note.endedSourceNodes.has(source) &&
-        note.startedSourceNodes.has(source)
-      )
+      if (!note.endedSourceNodes.has(source))
         cleanupSafely(() => source.stop(0));
       if (!note.disconnectedSourceNodes.has(source)) {
         note.disconnectedSourceNodes.add(source);

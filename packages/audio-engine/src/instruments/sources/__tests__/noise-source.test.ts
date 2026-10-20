@@ -128,6 +128,11 @@ describe("NoiseSource", () => {
 
     expect(node.connect).toHaveBeenCalledOnce();
     expect(node.disconnect).toHaveBeenCalledOnce();
+    expect(node.port.postMessage).toHaveBeenCalledWith({ type: "cancel" });
+    expect(node.port.close).not.toHaveBeenCalled();
+
+    node.port.emit({ type: "ended" });
+
     expect(node.port.close).toHaveBeenCalledOnce();
     expect(node.removeEventListener).toHaveBeenCalledTimes(2);
     expect(node.port.onmessage).toBeNull();
@@ -166,6 +171,17 @@ describe("NoiseSource", () => {
 
     expect(ended).toHaveBeenCalledOnce();
     expect(node.port.postMessage).not.toHaveBeenCalled();
+  });
+
+  it("cancels generation when disconnected before the worklet starts", () => {
+    const noise = source();
+    const node = FakeAudioWorkletNode.instances[0];
+
+    noise.disconnect();
+
+    expect(node.port.postMessage).toHaveBeenCalledWith({ type: "cancel" });
+    expect(node.disconnect).toHaveBeenCalledOnce();
+    expect(node.port.close).not.toHaveBeenCalled();
   });
 
   it("leaves future cancellation to the shared owner without timers", () => {
