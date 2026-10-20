@@ -8,6 +8,7 @@ import type {
   InstrumentSchema,
   LfoSchema,
   MidiCcSchema,
+  NoiseLayerSchema,
   NumberPattern,
 } from "@web-audio/schema";
 import type {
@@ -22,6 +23,8 @@ import type {
 } from "@/types";
 import ValuePatternResolver from "@/instruments/value-pattern-resolver";
 import { SYNTH_BASE_GAIN, FILTER_TYPE_MAP } from "@/constants";
+import NoiseSource from "./sources/noise-source";
+import { toAudioFrame } from "./sources/supersaw-source";
 import { computeEnvelope } from "@/utils/compute-envelope";
 
 // -----------------------------------------------------------------------------
@@ -77,6 +80,10 @@ interface BaseScheduleVoiceParams {
   sourceParams?: { param: AudioParam; schema: AudioParamSchema }[];
   gainEnvelope: ResolvedEnvelopeSchema;
   effects: EffectSchema[];
+  noise?: {
+    color: NoiseLayerSchema["color"];
+    gain: AudioParamSchema;
+  };
   stopTime?: number;
 }
 
@@ -220,14 +227,43 @@ abstract class Instrument {
 
   protected _scheduleVoice(params: BaseScheduleVoiceParams) {
     const { event, detune, gainEnvelope, effects } = params;
-    const sourceNodes = params.sources.map(({ node }) => node);
-    const scheduled = this._createScheduledNote(sourceNodes, event.startTime);
+    const mainSourceNodes = params.sources.map(({ node }) => node);
+    const scheduled = this._createScheduledNote(
+      mainSourceNodes,
+      event.startTime,
+    );
     const ownNode = (node: AudioNode) => scheduled.audioNodes.add(node);
+    let noiseSource: NoiseSource | undefined;
 
     try {
+      if (params.noise) {
+        const stopTime =
+          params.stopTime ?? this._resolveVoiceStopTime(gainEnvelope, event);
+        noiseSource = new NoiseSource(this._ctx, {
+          color: params.noise.color,
+          seed: 0,
+          startFrame: toAudioFrame(this._ctx, event.startTime),
+          stopFrame: toAudioFrame(this._ctx, stopTime),
+        });
+        scheduled.sourceNodes.push(noiseSource);
+      }
+
       const gain = new GainNode(this._ctx);
       ownNode(gain);
       this._scheduleParamEnvelope(gain.gain, gainEnvelope, event);
+
+      let noiseGain: GainNode | undefined;
+      if (params.noise && noiseSource) {
+        noiseGain = new GainNode(this._ctx);
+        ownNode(noiseGain);
+        this._applyParamSchema(
+          noiseGain.gain,
+          params.noise.gain,
+          event,
+          1,
+          scheduled.completionCleanups,
+        );
+      }
 
       if (detune) {
         if (detune.resolved.type === "envelope") {
@@ -268,7 +304,11 @@ abstract class Instrument {
         ),
       );
       const chain: AudioNode[] = [...effectNodes, gain];
-      sourceNodes.forEach((source) => source.connect(chain[0]));
+      mainSourceNodes.forEach((source) => source.connect(chain[0]));
+      if (noiseSource && noiseGain) {
+        noiseSource.connect(noiseGain);
+        noiseGain.connect(chain[0]);
+      }
       chain.reduce((src, dst) => {
         src.connect(dst);
         return dst;
@@ -283,7 +323,11 @@ abstract class Instrument {
         else node.start(event.startTime, offset);
         if (!scheduled.released) scheduled.startedSourceNodes.add(node);
       }
-      for (const source of sourceNodes) {
+      if (noiseSource && !scheduled.released) {
+        noiseSource.start(event.startTime);
+        if (!scheduled.released) scheduled.startedSourceNodes.add(noiseSource);
+      }
+      for (const source of scheduled.sourceNodes) {
         if (scheduled.released || scheduled.endedSourceNodes.has(source))
           continue;
         source.stop(

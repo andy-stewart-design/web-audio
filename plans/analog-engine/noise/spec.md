@@ -65,7 +65,7 @@ source-end cleanup behavior are intended parity boundaries.
 - **R3 — Voice identity and mixing:** Each emitted musical voice owns its noise. Noise mixes additively with that voice's main source before user-ordered effects and the shared amplitude envelope. It must not rescale the main source, collapse stereo main audio, or add independent sequencing/MIDI/duck events.
 - **R4 — Shared lifetime boundary:** Noise-gain envelopes cannot change voice duration. Noise continues through the existing shared amplitude release even when a sampler's main source ends first, without extending sustain or changing sampler duration rules.
 - **R5 — Continuous color:** Worklet-generated white/pink noise supports sustained notes without a short buffer loop, maintains color/state across processing blocks, and produces finite output at supported sample rates. The two colors have documented, stable level conventions rather than per-note normalization.
-- **R6 — Repeatability and variation:** Under the deterministic planning default, identical graph/event inputs reproduce a stream while distinct hits, musical voices, and instruments are not intentionally assigned coherent copies. Results must not depend on wall-clock time or render-block partitioning.
+- **R6 — Repeatability:** Under the current deterministic default, noise sources use seed `0`; identical graph/event inputs reproduce a stream. Per-hit, per-voice, and per-instrument seed variation is deferred until a justified seed API or policy exists. Results must not depend on wall-clock time or render-block partitioning.
 - **R7 — Scheduling and ownership:** Noise observes voice start/stop timing, is silent outside its scheduled interval, and cannot retain resources after completion, cancellation, destruction, or failed-source termination. Early completion of one source must not tear down still-active siblings or their shared processing.
 - **R8 — Validation and failure isolation:** Invalid noise configuration is rejected before a graph becomes active. Skipped sampler voices also skip noise. Partial construction failures and noise processor errors remain observable and cannot leak sibling sources/resources or indefinitely prevent graph retirement.
 - **R9 — Unchanged instruments:** With noise absent, old schemas remain valid and current sound, main gain, topology, scheduling, source-end cleanup timing, routing, and other instruments' voices remain unchanged.
@@ -184,11 +184,12 @@ start and after stop. Initial scheduling must also work in offline rendering
 without depending on timely main-thread message delivery.
 
 Deterministic event-derived randomness is an inferred default (A4), not an agreed
-public seed API. Identical event identity and sample rate reproduce a stream;
-different hits, musical voice indices, and instruments vary it. Cross-revision
-and cross-sample-rate bit identity are not promised. Exact seed hashing, PRNG,
-pink algorithm, coefficients, and control-message protocol are implementation
-choices, subject to these behaviors and appropriate source licensing.
+public seed API. The current integration uses seed `0` for every voice, so equal
+configuration and sample rate reproduce a stream; per-event identity variation is
+deferred. Cross-revision and cross-sample-rate bit identity are not promised.
+Exact seed selection, PRNG, pink algorithm, coefficients, and control-message
+protocol are implementation choices, subject to these behaviors and appropriate
+source licensing.
 
 ### Lifecycle, cancellation, and failures
 
@@ -255,7 +256,7 @@ tradeoff; do not describe them as empirically verified.
 - **A1 — API/schema form:** Zero-argument enabling, optional-color-prefixed existing gain tuples, and an omitted optional `noise` schema field follow builder/schema conventions. Validate through type/serialization/compatibility review; there is no negotiated external wire-format migration.
 - **A2 — Source behavior:** Static color and mono, centered, unpitched noise keep the initial API bounded. Validate stereo-main preservation and listening; adding width or color automation is separate scope.
 - **A3 — Gain parity:** Signed linear gain without an upper clamp and the existing MIDI `gain` context avoid inventing different gain semantics. Validate with existing gain helpers and negative/above-one inputs; no hard peak or perceived-loudness guarantee is intended.
-- **A4 — Randomness:** Deterministic event-derived streams suit the existing offline regression model. Instrument/bar/hit/voice identity is a proposed seed basis, not a mandated hash or public seed-stability promise. Reordering instruments may change their streams. Validate fresh-render reproducibility and practical stream separation.
+- **A4 — Randomness:** A deterministic seed of `0` suits the current offline regression model and keeps the runtime boundary small. Per-instrument/bar/hit/voice identity and public seed controls are deferred until noise variation has a demonstrated product benefit. Validate fresh-render reproducibility; practical stream separation is not a current public guarantee.
 - **A5 — Missing samples:** Noise accompanies successfully emitted sampler voices only; it does not replace unavailable main audio. Validate against existing skip paths.
 - **A6 — Levels and engineering characterization:** Roughly RMS-matched colors are a proposed usability default. The earlier draft proposed uniform white over `[-1, 1)` (nominal RMS `1 / sqrt(3)`), fixed pink calibration within 1.5 dB, pink measurement over 100 Hz–8 kHz, rates of 44.1/48/96 kHz, a 60-second diagnostic, and a 32-layer profile. These are retained as **candidate planning targets**, not interview-approved loudness, sample-rate-support, or performance guarantees. Planning should choose/document measurements and tolerances, validate startup and sustained sound, and bring back a material level/quality/performance compromise rather than silently changing product behavior.
 

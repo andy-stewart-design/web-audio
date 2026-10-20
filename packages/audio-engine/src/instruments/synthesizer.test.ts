@@ -58,6 +58,8 @@ class FakeAudioWorkletNode {
   ]);
   connect = vi.fn();
   disconnect = vi.fn();
+  addEventListener = vi.fn();
+  removeEventListener = vi.fn();
 
   constructor(
     _ctx: BaseAudioContext,
@@ -157,6 +159,29 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Synthesizer scheduling", () => {
+  it("uses the stable default noise seed for every voice", () => {
+    const instance = synth(
+      schema({
+        noise: {
+          color: "white",
+          gain: staticNumberPattern([0.25]),
+        },
+        eventPattern: {
+          timing: timing(),
+          notes: { type: "static", cycle: [[[60, 62]]] },
+        },
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(
+      FakeAudioWorkletNode.instances
+        .filter((node) => node.name === "noise-processor")
+        .map((node) => node.options.processorOptions?.seed),
+    ).toEqual([0, 0]);
+  });
+
   it("bounds finite control values before native parameter calls", () => {
     const maxFloat32 = 3.4028234663852886e38;
     const unison = synth(

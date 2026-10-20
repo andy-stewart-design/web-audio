@@ -292,6 +292,7 @@ class Sampler extends Instrument {
       route: this._route,
       sends: Object.fromEntries(this._sends),
       ducks: Object.fromEntries(this._ducks),
+      ...this._getNoiseSchema(),
       loop: this._loop,
       clipMode: this._clipMode,
       direction: this._direction,

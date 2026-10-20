@@ -40,14 +40,12 @@ class Synthesizer extends Instrument {
     });
     this._schema = opts.schema;
     this._midiOutputScheduler = opts.midiOutputScheduler;
-    this._initLfos(
-      opts.schema,
-      opts.startingBar,
-      opts.barStartTime,
-      opts.schema.engine === "unison"
+    this._initLfos(opts.schema, opts.startingBar, opts.barStartTime, [
+      ...(opts.schema.engine === "unison"
         ? [opts.schema.spread, opts.schema.width]
-        : [],
-    );
+        : []),
+      ...(opts.schema.noise ? [opts.schema.noise.gain] : []),
+    ]);
   }
 
   scheduleBar(barIndex: number, barStartTime: number): void {
@@ -144,6 +142,12 @@ class Synthesizer extends Instrument {
       gainEnvelope,
       effects: schema.effects,
       event,
+      noise: schema.noise
+        ? {
+            color: schema.noise.color,
+            gain: schema.noise.gain,
+          }
+        : undefined,
     });
   }
 
@@ -195,6 +199,12 @@ class Synthesizer extends Instrument {
       gainEnvelope,
       effects: schema.effects,
       event,
+      noise: schema.noise
+        ? {
+            color: schema.noise.color,
+            gain: schema.noise.gain,
+          }
+        : undefined,
       stopTime,
     });
   }

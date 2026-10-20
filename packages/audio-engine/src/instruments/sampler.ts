@@ -58,7 +58,12 @@ class Sampler extends Instrument {
     this._schema = schema;
     this._banks = banks;
     this._bufferCache = cache;
-    this._initLfos(schema, startingBar, barStartTime);
+    this._initLfos(
+      schema,
+      startingBar,
+      barStartTime,
+      schema.noise ? [schema.noise.gain] : [],
+    );
   }
 
   resetPlaybackState() {
@@ -232,6 +237,12 @@ class Sampler extends Instrument {
       gainEnvelope: this._resolveEnvelope(this._schema.gain, event),
       effects: this._schema.effects,
       event,
+      noise: this._schema.noise
+        ? {
+            color: this._schema.noise.color,
+            gain: this._schema.noise.gain,
+          }
+        : undefined,
     });
     return true;
   }

@@ -168,6 +168,9 @@ function validateInstrumentCommon(
   validateEnvelope(instrument.gain, `${path}.gain`);
   validateAudioParam(instrument.detune, `${path}.detune`);
   validateEffects(instrument.effects, `${path}.effects`);
+  if (instrument.noise !== undefined) {
+    validateNoiseLayer(instrument.noise, `${path}.noise`);
+  }
 
   if (!isRecord(instrument.sends)) {
     throw new Error(`[Schema] ${path}.sends must be an object.`);
@@ -323,6 +326,16 @@ function validateSampleVariation(variation: unknown, path: string) {
   }
 
   throw new Error(`[Schema] ${path}.type is invalid.`);
+}
+
+function validateNoiseLayer(schema: unknown, path: string) {
+  if (!isRecord(schema)) {
+    throw new Error(`[Schema] ${path} must be an object.`);
+  }
+  if (schema.color !== "white" && schema.color !== "pink") {
+    throw new Error(`[Schema] ${path}.color must be "white" or "pink".`);
+  }
+  validateAudioParam(schema.gain, `${path}.gain`);
 }
 
 function validateEffects(effects: unknown, path: string) {
