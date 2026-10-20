@@ -1,9 +1,9 @@
+import type { EventScheduleContext } from "../events/types";
+import type { InstrumentClock } from "./types";
 import type {
-  EventScheduleContext,
-  InstrumentClock,
   ResolvedDetune,
   ResolvedEnvelopeSchema,
-} from "@/types";
+} from "../parameters/types";
 import type {
   BasicSynthesizerSchema,
   UnisonSynthesizerSchema,
@@ -13,10 +13,10 @@ import Instrument, {
   safeAudioParamValue,
   type InstrumentOptions,
 } from "./instrument";
-import MidiOutputScheduler from "@/midi-output-scheduler";
-import { midiToFrequency } from "@/utils/midi-to-frequency";
-import { resolveSynthEvents } from "./resolve-synth-events";
-import SupersawSource, { toAudioFrame } from "./sources/supersaw-source";
+import MidiOutputScheduler from "@/midi/midi-output-scheduler";
+import { midiToFrequency } from "@/midi/midi-to-frequency";
+import { resolveSynthEvents } from "../events/resolve-synth-events";
+import SupersawSource, { toAudioFrame } from "../sources/supersaw-source";
 
 interface SynthesizerOptions extends InstrumentOptions {
   schema: SynthesizerSchema;

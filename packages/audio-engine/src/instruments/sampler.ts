@@ -5,22 +5,22 @@ import type {
 } from "@web-audio/schema";
 import Instrument, { type InstrumentOptions } from "./instrument";
 import { SAMPLE_BASE_GAIN } from "@/constants";
-import { planSamplerPreloads } from "@/utils/preload-samples";
+import { planSamplerPreloads } from "@/samples/preload-samples";
 import {
   deriveSourceKeys,
   resolveSample,
   resolveSampleEntry,
   selectNaturalSourceKey,
   selectNearestSourceKey,
-} from "@/utils/resolve-sample-entry";
-import SampleBufferCache from "./sample-buffer-cache";
+} from "@/samples/resolve-sample-entry";
+import SampleBufferCache from "../samples/sample-buffer-cache";
 import type {
   EventScheduleContext,
-  InstrumentClock,
   ResolvedSamplerEvent,
   ResolvedSamplerVoice,
-} from "@/types";
-import { resolveSamplerEvents } from "./resolve-sampler-events";
+} from "../events/types";
+import type { InstrumentClock } from "./types";
+import { resolveSamplerEvents } from "../events/resolve-sampler-events";
 
 interface SamplerOptions extends InstrumentOptions {
   schema: SamplerSchema;

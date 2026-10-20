@@ -4,10 +4,10 @@ import AudioEngine from "../index";
 import type RuntimeBus from "../buses/runtime-bus";
 import type Instrument from "../instruments/instrument";
 import type Sampler from "../instruments/sampler";
-import type SampleBufferCache from "../instruments/sample-buffer-cache";
+import type SampleBufferCache from "../samples/sample-buffer-cache";
 import type Synthesizer from "../instruments/synthesizer";
-import type { registerWorklets } from "../utils/register-worklets";
-import type { getReversedBuffer } from "../utils/reversed-buffer-cache";
+import type { registerWorklets } from "../worklets/register-worklets";
+import type { getReversedBuffer } from "../samples/reversed-buffer-cache";
 
 // These assertions and the uninvoked constructor call are checked by tsc.
 // Real browser construction/rendering is a separate harness integration gate.

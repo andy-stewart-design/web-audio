@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type {
-  EventScheduleContext,
-  ResolvedEnvelopeSchema,
-  ScheduledSource,
-} from "@/types";
+import type { EventScheduleContext } from "../../events/types";
+import type { ResolvedEnvelopeSchema } from "../../parameters/types";
+import type { ScheduledSource } from "../../sources/types";
 import Instrument from "../instrument";
 
 class FakeSourceNode implements ScheduledSource {
