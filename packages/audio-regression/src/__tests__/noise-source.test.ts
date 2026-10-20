@@ -21,6 +21,7 @@ interface NativeWindow extends Window {
     before: number;
     inside: number;
     after: number;
+    ended: boolean;
   }>;
   __renderNoiseFailure?: () => Promise<{
     processorError: boolean;
@@ -69,6 +70,10 @@ describe("native noise source scheduling", () => {
                 stopFrame,
               });
               source.connect(audio.destination);
+              let ended = false;
+              source.onended = () => {
+                ended = true;
+              };
 
               try {
                 const rendered = await audio.startRendering();
@@ -82,6 +87,7 @@ describe("native noise source scheduling", () => {
                   before: peak(channel.subarray(0, startFrame)),
                   inside: peak(channel.subarray(startFrame, stopFrame)),
                   after: peak(channel.subarray(stopFrame)),
+                  ended,
                 };
               } finally {
                 source.disconnect();
@@ -103,6 +109,7 @@ describe("native noise source scheduling", () => {
         expect(result.before).toBe(0);
         expect(result.inside).toBeGreaterThan(0);
         expect(result.after).toBe(0);
+        expect(result.ended).toBe(true);
       } finally {
         await context.close();
       }

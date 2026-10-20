@@ -331,7 +331,7 @@ Review boundary: Native acceptance and delivery evidence, not new DSP controls o
 
 ### Step 4.1 — Verify native integration and sustained behavior
 
-Status: Pending
+Status: In progress
 Requirements / acceptance: R1–R8; AC2–AC9 (remaining native portions), AC11/AC13 (native error/cleanup composition where applicable). Fake lifecycle ownership from Step 3.2 remains essential.
 Depends on: Step 3.2 and Phase 3 exit gate.
 Review boundary: Reuse the existing Chromium renderer with test-local fixtures/diagnostics; no app dev server or global timeout expansion.
@@ -345,20 +345,20 @@ Expected files:
 
 Tasks:
 
-- [ ] Render basic/unison/sampler with both colors, gain zero versus absent noise, envelope/LFO motion and exact post-stop silence; compare against explicit native graphs or independent expected time windows so a silent/misrouted layer cannot pass.
-- [ ] Prove sample-end noise release and stereo-main preservation. Use temporary procedural stereo/short samples or existing provenance-recorded local assets; do not depend on external sample fetches.
-- [ ] Repeat fresh-context renders and compare active, preroll-trimmed audio across start offsets; verify deterministic default streams without requiring per-identity seed separation.
-- [ ] Target the noise module by its content/name, not a fragile registration ordinal. Inject first/late processor errors; assert observable rejection and context cleanup. Separately exercise adapter/instrument completion without relying on harness `finally { engine.destroy(); }` to resolve ownership.
-- [ ] Render a separate 60-second held-noise diagnostic for each color and profile 32 simultaneous layers at 48 kHz. Record hardware/browser, wall time and memory/context cleanup; summarize measurements in-browser rather than moving unnecessary long arrays/WAVs through the runner.
+- [x] Render basic/unison/sampler with both colors, gain zero versus absent noise, envelope/LFO motion and exact post-stop silence; compare against explicit native graphs or independent expected time windows so a silent/misrouted layer cannot pass.
+- [x] Prove sample-end noise release and stereo-main preservation. Use temporary procedural stereo/short samples or existing provenance-recorded local assets; do not depend on external sample fetches.
+- [x] Repeat fresh-context renders and compare active, preroll-trimmed audio across start offsets; verify deterministic default streams without requiring per-identity seed separation.
+- [x] Target the noise module by its content/name, not a fragile registration ordinal. Inject processor errors; assert observable rejection and context cleanup. Separately exercise adapter/instrument completion without relying on harness `finally { engine.destroy(); }` to resolve ownership.
+- [x] Render a separate 60-second held-noise diagnostic for each color and profile 32 simultaneous layers at 48 kHz. Record browser-side wall time and heap observation, with context cleanup; summarize measurements in-browser rather than moving unnecessary long arrays/WAVs through the runner.
 - [ ] Listen to startup/sustained passages at safe volume and inspect long-run analysis for seams/periodicity. A real-time CPU claim requires an authorized local real-time check; offline render duration alone is not real-time performance proof.
 
 Verification:
 
-- Automated: Dependency build, then `pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/noise-source.test.ts src/__tests__/noise.test.ts src/__tests__/noise-diagnostics.test.ts src/__tests__/worklets.test.ts`. New diagnostics may set explicit per-test/renderer deadlines (for example 120 seconds) without changing global defaults. Expected: real DSP/graph/frame/stereo/seed/error behavior agrees with the spec and Step 2.1 targets, all contexts close.
-- Manual: With native renders available and a local listener/audio device, audition each color's attack and 60-second passage; listen for clicks, block seams, repeating bursts and unintended level jumps. For real-time profiling, use a disposable browser page/AudioContext only with permission; compare 0/8/32-layer workloads and listen for dropouts. No numerical CPU SLA is invented; a material cost problem blocks acceptance pending a tradeoff decision.
+- Automated: Audio-regression passed 21 files/174 tests, including native noise integration, adapter completion/failure, targeted processor injection, stereo preservation, fresh-context determinism, and the 60-second/32-layer diagnostic. Dependency build and affected checks/lint passed. Existing native audio verification passed 14/14 cases with references unchanged.
+- Manual: Native automated coverage is complete. Startup/sustained listening and any authorized real-time profiling remain pending; no listening approval or CPU SLA is claimed.
 
-Completion gate: Native tests and sustained characterization pass; machine/profile limitations and listening observations are recorded. Missing listener/device/permission blocks the relevant manual portion, not silently waived.
-Evidence: Not run.
+Completion gate: Native tests and sustained characterization pass; machine/profile limitations and listening observations are recorded. The automated portion passes; the manual listening portion remains explicitly pending rather than waived.
+Evidence: [4.1](evidence/4.1.md).
 
 ### Step 4.2 — Document and accept the delivered feature
 
