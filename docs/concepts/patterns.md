@@ -5,30 +5,8 @@ description: How Drome organizes notes, steps, bars, and cycles
 
 Patterns are how you tell an instrument what to play over time. In Drome, a **pattern** is a sequence of **steps** that plays over exactly one **bar**. Each step can contain a note, a chord, or silence, and the steps are spread evenly across the bar.
 
-Drome supports both structured JavaScript patterns and a compact shorthand syntax. Structured patterns use numbers, arrays, nested arrays, and helper methods; shorthand strings are parsed into the same expression model and compiled through the same event-cycle path.
-
-## Shorthand
-
-Use direct strings for compact authoring:
-
-```ts
-d.synth().notes("60 [64 67]").push();
-d.sample().name("bd sd").push();
-d.sample("bd").var("0 <1 2>").push();
-d.synth().xox("xoxo").push();
-```
-
-Use `d.sh()` or `d.shorthand()` to parse once and reuse a target-independent value:
-
-```ts
-const pattern = d.sh("0 <1 2>");
-d.sample("bd").var(pattern).push();
-d.synth().notes(pattern).push();
-```
-
-A reusable shorthand value must be the only argument. Multiple structured arguments retain their existing meaning: `.name("bd", "sd")` creates two bars, while `.name("bd sd")` creates two steps in one bar. Numeric atoms must be finite numbers, XOX atoms are `1`, `0`, `x`, `o`, or `.`, and sample aliases and bank keys use `[A-Za-z0-9]+`. Constructor `d.sample("bd:2")` remains valid; `.name("bd:2")` is not a combined selector.
-
-Shorthand supports grouping, polyphony, rests, continuation (`~`), alternation, repetition (`!`), acceleration (`*`), slowdown (`/`), and relative weighting (`@`). Operators preserve exact bounded geometry, so slowdown creates explicit silent bars rather than silently extending gates. Malformed syntax fails eagerly, and target-specific atom errors include source ranges.
+> [!NOTE]
+> This page explains pattern concepts using **structured syntax**: JavaScript values and arrays. Patterns can also be expressed using **shorthand syntax**, a compact notation inside strings. See [Pattern syntax](syntax.md) to learn about both forms.
 
 ## Steps
 

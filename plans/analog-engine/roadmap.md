@@ -11,9 +11,8 @@ This is a **feature roadmap, not a single-PR scope or a commitment to implement 
 - [x] Move per-instrument effects before each note's amplitude envelope ([implementation plan](pre-envelope-effects/plan.md)).
 - [x] Deliver the saw-only unison engine with canonical `"unison"` / `"uni"` selectors.
 - [ ] Design/expose a public waveform API for the Unison engine
-- [ ] Add an optional main-source gain argument to `d.synth()`.
-- [ ] Add `.sub()` to synths.
-- [ ] Add `.noise()` to both synths and samplers ([spec](noise/spec.md), [implementation plan](noise/plan.md)).
+- [ ] Add an optional main-source gain argument to `d.synth()` and `.sub()` to synths in one PR ([source-mixing spec](source-mix/spec.md)).
+- [x] Add `.noise()` to both synths and samplers ([spec](noise/spec.md), [implementation plan](noise/plan.md)).
 - [ ] Add standalone `d.noise()` instruments as a separate follow-up to noise layers ([scope](#standalone-noise-instrument-follow-up)).
 - [ ] Add a saturator effect.
 - [ ] Add an opt-in compressor effect, primarily for buses.
@@ -49,16 +48,24 @@ The bounded per-voice effects set is biquad filters, gain, and saturation with d
 .noise("pink", 0.3) // pink noise, gain 0.3
 
 .sub(0.3) // sine wave, -1 octave, gain 0.3
-.sub("square") // square wave, -1 octave, gain 1
-.sub("square", 0.3) // square wave, -1 octave, gain 0.3
-.sub("square", 0.3, -2) // square wave, -2 octaves, gain 0.3
+.sub(-2, 0.3) // sine wave, -2 octaves, gain 0.3
+.sub("square", -2, 0.3) // square wave, -2 octaves, gain 0.3
 ```
 
 Example:
 
 ```js
-d.synth("saw", 0.8).sub("square", 0.3).noise("pink", 0.3);
+d.synth("saw", 0.8).sub("square", -1, 0.3).noise("pink", 0.3);
 ```
+
+Main-source and sub gains each occupy one argument: a number, numeric array,
+or existing random-cycle, envelope, LFO, or MIDI CC builder. Negative numeric
+literals and static numeric-pattern entries resolve to `0`; automation retains
+its existing behavior, including signed outputs. Octave selectors are unchanged.
+Octave precedes gain; additional numeric arguments are not variadic gain patterns.
+Numeric shorthand strings and `d.osc()` configuration builders are separate
+follow-ups. See the [source-mixing spec](source-mix/spec.md) for the exact contract.
+Existing noise gain syntax and signed-gain behavior are unchanged.
 
 ### Shared semantics
 
@@ -69,15 +76,15 @@ d.synth("saw", 0.8).sub("square", 0.3).noise("pink", 0.3);
 - Repeated `.sub()` or `.noise()` calls replace that layer's configuration rather than accumulating layers.
 - Adding a layer must not silently reduce the main source's gain. Preserve predictable mixing and document headroom.
 - Integrate layer gains with the existing numeric pattern/automation model rather than inventing a separate value system.
-- Source layers share the voice's amplitude ADSR. Noise gain additionally accepts the existing envelope input, before mixing/effects; it cannot extend voice lifetime. Independent sub envelopes and independently gated/sustained layers remain deferred.
+- Source layers share the voice's amplitude ADSR. Main-source, sub, and noise gains additionally accept the existing envelope input before mixing/effects; layer envelopes cannot extend voice lifetime. Independently gated/sustained layers and tails remain deferred.
 
 ### Sub behavior
 
 - Default waveform: sine. Default octave offset: `-1`.
-- Keep the initial octave choices bounded to `-1` and `-2`; sine, triangle, and square are the intended initial waveform choices.
+- Keep the initial octave choices bounded to `-1` and `-2`; support sine, triangle, square, and sawtooth with existing waveform aliases.
 - Follow the note's pitch and common pitch/detune modulation, but do not inherit supersaw detune spread or stereo spread.
 - Keep the sub centered for a stable low end.
-- No separate sequencing, ADSR, unison, or spread controls in this API.
+- No separate sequencing, lifetime/ADSR setter, unison, or spread controls in this API. A gain envelope can independently shape the sub within the shared voice lifetime.
 
 ### Noise behavior
 
@@ -212,4 +219,4 @@ With the restored supersaw, the recipe is a main note at 110 Hz, two saws spread
 - Preserve per-voice gain/headroom predictability and test at supported sample rates.
 - Consult source licenses before directly porting reference code. Felucca's ANALOG engine/shared DSP are MIT, but much of its surrounding firmware and effects is GPL-3.0-only.
 
-Deferred: `d.osc()` configuration builders, arbitrary additional oscillator layers, independent sub envelopes, independently gated/sustained layers or layer tails beyond the shared voice envelope, PWM, hard sync, and default safety limiting. Standalone `d.noise()` is tracked as a separate follow-up above, not a prerequisite for noise layers. Existing envelope input for noise gain is included in the noise-layer feature. The deferred items are not prerequisites for the sound-design capabilities above.
+Deferred: numeric gain shorthand, `d.osc()` configuration builders, arbitrary additional oscillator layers, independently gated/sustained layers or layer tails beyond the shared voice envelope, PWM, hard sync, and default safety limiting. Standalone `d.noise()` is tracked as a separate follow-up above, not a prerequisite for noise layers. Existing envelope input for noise gain is included in the noise-layer feature; main-source and sub gain envelopes are included in the source-mixing feature. The deferred items are not prerequisites for the sound-design capabilities above.
