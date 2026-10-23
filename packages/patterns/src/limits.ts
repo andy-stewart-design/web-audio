@@ -18,6 +18,12 @@ const MAX_EVENT_GROUP_VOICES = 128;
 const MAX_EVENT_CYCLE_VOICES = 65_536;
 const MAX_RANDOM_EVENT_SETTINGS_ITEMS = 16_384;
 
+// Numeric value cycles have independent budgets from event-cycle expansion.
+const MAX_VALUE_CYCLE_BARS = 1_024;
+const MAX_VALUE_CYCLE_VALUES = 16_384;
+const MAX_VALUE_SEQUENCE_CHILDREN = 16_384;
+const MAX_VALUE_ALTERNATION_CHOICES = 1_024;
+
 function assertCycleBarLimit(barCount: number) {
   if (barCount > MAX_COMPILED_BARS) {
     throw new Error(
@@ -52,4 +58,8 @@ export {
   MAX_EVENT_GROUP_VOICES,
   MAX_EVENT_CYCLE_VOICES,
   MAX_RANDOM_EVENT_SETTINGS_ITEMS,
+  MAX_VALUE_CYCLE_BARS,
+  MAX_VALUE_CYCLE_VALUES,
+  MAX_VALUE_SEQUENCE_CHILDREN,
+  MAX_VALUE_ALTERNATION_CHOICES,
 };

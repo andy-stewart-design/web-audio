@@ -5,7 +5,7 @@
 - Governing spec: [spec.md](./spec.md), ready for planning. Its requirements and acceptance criteria remain authoritative.
 - Plain-language context: [overview.md](./overview.md).
 - Adopted refinements: shorthand-only envelope construction; structured equivalence only where expressible; precise per-result expansion budgets; all-or-nothing shorthand ADSR updates; schema-time warnings once per affected static endpoint per LFO instance. These are settled spec requirements, not pending implementation assumptions.
-- Delivery state: Steps 0.1–1.2 and G0/G1 Verified: structured compatibility characterized, numeric normalization extracted, and modulation-source dispatch centralized without behavior changes. Steps 2.1–4.1 remain Pending.
+- Delivery state: Steps 0.1–2.1 and G0/G1 Verified: compatibility characterized, normalization/source dispatch centralized, and the bounded numeric value evaluator implemented. Steps 2.2–4.1 remain Pending; G2 awaits Step 2.2.
 - Acceptance or release still pending: Feature implementation and final acceptance. No publication or deployment is included.
 - Blockers: None found at G0. Dependency build and affected-package checks pass; browser prerequisite files are present, with runtime verification reserved for G4.
 
@@ -187,33 +187,33 @@ Review boundary: Numeric interpretation of the existing grammar; no event geomet
 
 ### Step 2.1 — Implement the value-sequence evaluator
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R5–R9, R15; AC5, AC6, AC8 (evaluated expansion portion), AC16 (expression immutability portion), AC17 (evaluator boundary portion). String atom/parser and public reuse portions follow in Steps 2.2/4.1.
 Depends on: G1.
 Review boundary: One pure bounded AST-to-numeric-bars evaluator with its own tests and export.
 
 Expected files:
 
-- `packages/patterns/src/expressions/value-evaluate.ts` — **new**, proposed `evaluateValuePatternExpression` entry point with numeric atom interpretation supplied by the caller.
-- `packages/patterns/src/expressions/__tests__/value-evaluate.test.ts` — **new**.
+- `packages/patterns/src/expressions/evaluate-value.ts` — **new**, proposed `evaluateValuePatternExpression` entry point with numeric atom interpretation supplied by the caller.
+- `packages/patterns/src/expressions/__tests__/evaluate-value.test.ts` — **new**.
 - `packages/patterns/src/index.ts`, `packages/patterns/src/limits.ts` — expose only the evaluator/necessary value budgets.
 - Existing syntax-independent amount/LCM helpers — optional reuse/extraction; any event helper touched retains full regression coverage in this same step.
 
 Tasks:
 
-- [ ] Evaluate atoms, sequential groups/sequences, and structural repetition into nonempty numeric bars without constructing spans, rests, continuations, or `EventCycle`.
-- [ ] Implement bar alternation with selection-local child progression and bounded LCM composition. Preserve the distinction between `<1!3 2>` and `<[1!3] 2>` and the repeated-alternation examples in the spec.
-- [ ] Validate every branch and reject rest/parallel/time modifiers. Use existing positive-whole-number repeat interpretation; do not change shared grammar or globally restrict reusable shorthand.
-- [ ] Enforce the adopted budgets before allocation: at most 1,024 choice-schedule entries, `scheduleLength * childCycleRounds <= 1,024` expanded bars, and 16,384 values per intermediate/output numeric cycle. Bound schedule rounds through the spec's LCM/GCD rule, cap structurally expanded sequence lists at 16,384 entries, and preflight logical repeated/wrapped values. Do not use a cumulative evaluator-lifetime value counter or impose event grid/voice budgets.
-- [ ] Add every normative numeric-bar and expansion-budget fixture, including `<1!1024>`/`<1!1025>`, `<<1 2> 3!511>`/`<<1 2> 3!512>`, and `[1!16384]`/`[1!16384]!2`. Cover deterministic repeated evaluation, input immutability, and unsupported nested branches. If helpers are extracted, prove unchanged event schedules/diagnostics rather than sharing geometry code.
+- [x] Evaluate atoms, sequential groups/sequences, and structural repetition into nonempty numeric bars without constructing spans, rests, continuations, or `EventCycle`.
+- [x] Implement bar alternation with selection-local child progression and bounded LCM composition. Preserve the distinction between `<1!3 2>` and `<[1!3] 2>` and the repeated-alternation examples in the spec.
+- [x] Validate every branch and reject rest/parallel/time modifiers. Use existing positive-whole-number repeat interpretation; do not change shared grammar or globally restrict reusable shorthand.
+- [x] Enforce the adopted budgets before allocation: at most 1,024 choice-schedule entries, `scheduleLength * childCycleRounds <= 1,024` expanded bars, and 16,384 values per intermediate/output numeric cycle. Bound schedule rounds through the spec's LCM/GCD rule, cap structurally expanded sequence lists at 16,384 entries, and preflight logical repeated/wrapped values. Do not use a cumulative evaluator-lifetime value counter or impose event grid/voice budgets.
+- [x] Add every normative numeric-bar and expansion-budget fixture, including `<1!1024>`/`<1!1025>`, `<<1 2> 3!511>`/`<<1 2> 3!512>`, and `[1!16384]`/`[1!16384]!2`. Cover deterministic repeated evaluation, input immutability, and unsupported nested branches. If helpers are extracted, prove unchanged event schedules/diagnostics rather than sharing geometry code.
 
 Verification:
 
-- Automated, root: `pnpm --filter @web-audio/patterns exec vitest run src/expressions/__tests__/value-evaluate.test.ts`; then Patterns `test:ci`, `check`, `lint`, and `build`.
+- Automated, root: `pnpm --filter @web-audio/patterns exec vitest run src/expressions/__tests__/evaluate-value.test.ts`; then Patterns `test:ci`, `check`, `lint`, and `build`.
 - Manual: review expansion arithmetic and dependencies; no Fluid import, event-evaluator call, or timing-grid representation is permitted in the value evaluator.
 
 Completion gate: All spec schedule/group/repeat and expansion-budget fixtures pass, including per-result rather than cumulative accounting and preallocation schedule/round limits; existing parser/event tests and export/declaration build remain valid.
-Evidence: Not run.
+Evidence: Verified. Focused evaluator suite passed (17 tests); full Patterns `test:ci` passed (429 tests), with `check`, `lint`, and `build` passing. B and downstream full Fluid `test:ci` also passed (1,170 tests); targeted Prettier write/check and `git diff --check` passed. Review confirmed every normative example/boundary, selection-local progression, bounded LCM/GCD arithmetic, early same-result lower bounds, logical repetition/wrapping counts, immutable results/input, and no event/Fluid dependencies. Atom callbacks are pure/deterministic with unspecified invocation count; strict decimal spelling remains the Step 2.2 caller's responsibility. No shared event helpers or grammar were changed; G2 remains pending.
 
 ### Step 2.2 — Connect shorthand decoding to Parameter internally
 
@@ -417,7 +417,7 @@ This table assigns coverage; execution status/evidence lives only in the owning 
 
 ## Deferred checks and accepted deviations
 
-- Accepted deviations: None. Steps 0.1–1.2 and G0/G1 verification are complete; subsequent implementation and final acceptance remain pending.
+- Accepted deviations: None. Steps 0.1–2.1 and G0/G1 verification are complete; subsequent implementation and final acceptance remain pending.
 - Baseline and browser prerequisites: Affected-package build/tests/check/lint pass against unchanged production. Browser prerequisite files are present, not runtime-verified; G4 owns browser execution and full workspace acceptance.
 - Live listening/dev-server sessions, packed installation, publication, and deployment: Not required by this spec and not claimed by build/mock/schema checks.
 - Product work deferred by the spec remains deferred: diagnostics overhaul; time-addressed/continuous patterns and unsupported operators; raw LFO speed/wave/timing-generator shorthand; cycle hierarchy, ownership, and legacy validation/default unification.

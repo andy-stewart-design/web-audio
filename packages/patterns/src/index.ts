@@ -25,6 +25,11 @@ export {
   type AtomInterpretation,
   type AtomInterpreter,
 } from "./expressions/evaluate";
+export {
+  evaluateValuePatternExpression,
+  type NumericBars,
+  type ValueAtomInterpreter,
+} from "./expressions/evaluate-value";
 
 export {
   assertEventCycleInvariants,
@@ -54,4 +59,8 @@ export {
   MAX_EVENT_CYCLE_VOICES,
   MAX_EVENT_GROUP_VOICES,
   MAX_RANDOM_EVENT_SETTINGS_ITEMS,
+  MAX_VALUE_CYCLE_BARS,
+  MAX_VALUE_CYCLE_VALUES,
+  MAX_VALUE_SEQUENCE_CHILDREN,
+  MAX_VALUE_ALTERNATION_CHOICES,
 } from "./limits";
