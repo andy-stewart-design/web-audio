@@ -5,7 +5,7 @@
 - Governing spec: [spec.md](./spec.md), ready for planning. Its requirements and acceptance criteria remain authoritative.
 - Plain-language context: [overview.md](./overview.md).
 - Adopted refinements: shorthand-only envelope construction; structured equivalence only where expressible; precise per-result expansion budgets; all-or-nothing shorthand ADSR updates; schema-time warnings once per affected static endpoint per LFO instance. These are settled spec requirements, not pending implementation assumptions.
-- Delivery state: Steps 0.1–2.1 and G0/G1 Verified: compatibility characterized, normalization/source dispatch centralized, and the bounded numeric value evaluator implemented. Steps 2.2–4.1 remain Pending; G2 awaits Step 2.2.
+- Delivery state: Steps 0.1–2.2 and G0–G2 Verified: compatibility characterized, normalization/source dispatch centralized, and bounded numeric shorthand connected internally to Parameter. Steps 3.1–4.1 remain Pending; public numeric consumer signatures are still structured-only.
 - Acceptance or release still pending: Feature implementation and final acceptance. No publication or deployment is included.
 - Blockers: None found at G0. Dependency build and affected-package checks pass; browser prerequisite files are present, with runtime verification reserved for G4.
 
@@ -217,7 +217,7 @@ Evidence: Verified. Focused evaluator suite passed (17 tests); full Patterns `te
 
 ### Step 2.2 — Connect shorthand decoding to Parameter internally
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R2–R4, R8, R9, R13, R15; AC3 (input-boundary runtime portion), AC4, AC7 (decoder/internal setter portion), AC8 (source/tree portion), AC16 (internal reuse portion). Public typing/consumer rollback remains Phase 3/G4.
 Depends on: Step 2.1.
 Review boundary: The shared numeric decoder accepts shorthand internally; public shared unions are not widened ahead of their adapters.
@@ -231,11 +231,11 @@ Expected files:
 
 Tasks:
 
-- [ ] Define numeric rest-input alternatives for existing structured forms, sole `RandomCycle`, or sole `ShorthandInput`; keep `AudioParamInput` and ordinary public method signatures structured-only until A2.
-- [ ] Reuse direct-string/reusable shorthand decoding and the existing strict finite-decimal rule. Pass receiving-slot context/source ranges through the shared boundary without changing event atom acceptance or introducing an error framework.
-- [ ] Evaluate shorthand eagerly into numeric bars; preserve structured/reference/random behavior from Phase 1. Do not retain the expression as a second authoritative parameter state.
-- [ ] Reject mixed arguments and nested shorthand in numeric arrays at runtime, including JavaScript bypasses. Fully validate alternate branches and limits before installing a replacement.
-- [ ] Add equivalent string/reusable/internal `Parameter` cases, malformed/unsupported/non-finite inputs, no-mutation failures, and immutable cross-target shorthand construction cases. Reuse the shared parser/expression boundary fixtures for 65,536 UTF-16 source units, 16,384 tokens, 16,384 nodes, and depth 128; add only missing target-path coverage and retain the full Patterns regression gate.
+- [x] Define numeric rest-input alternatives for existing structured forms, sole `RandomCycle`, or sole `ShorthandInput`; keep `AudioParamInput` and ordinary public method signatures structured-only until A2.
+- [x] Reuse direct-string/reusable shorthand decoding and the existing strict finite-decimal rule. Pass receiving-slot context/source ranges through the shared boundary without changing event atom acceptance or introducing an error framework.
+- [x] Evaluate shorthand eagerly into numeric bars; preserve structured/reference/random behavior from Phase 1. Do not retain the expression as a second authoritative parameter state.
+- [x] Reject mixed arguments and nested shorthand in numeric arrays at runtime, including JavaScript bypasses. Fully validate alternate branches and limits before installing a replacement.
+- [x] Add equivalent string/reusable/internal `Parameter` cases, malformed/unsupported/non-finite inputs, no-mutation failures, and immutable cross-target shorthand construction cases. Reuse the shared parser/expression boundary fixtures for 65,536 UTF-16 source units, 16,384 tokens, 16,384 nodes, and depth 128; add only missing target-path coverage and retain the full Patterns regression gate.
 
 Verification:
 
@@ -243,10 +243,10 @@ Verification:
 - Manual: review for accidental public widening and compare error stages. New shorthand syntax/atom/operator/expansion errors are eager; existing domain checks stay at their characterized stages.
 
 Completion gate: The internal numeric path produces the exact existing `NumberPattern` shapes, rejects invalid new forms eagerly, and leaves event/public structured contracts intact.
-Evidence: Not run.
+Evidence: Verified. After B, prescribed focused Fluid suites passed (54 tests); Fluid `check`/`lint`, targeted Prettier write/check, and `git diff --check` passed. Direct/reusable shorthand uses the shared parser, strict finite-number interpreter, and value evaluator; mixed/nested inputs reject eagerly while structured/random references and legacy validation stages remain characterized. Tests cover internal setter rollback, independent reusable-input schemas, source/tree limits, default/supplied decoder context with ranges/causes, and checked negative public signatures. Public receiving-slot adapters/context forwarding and transactional ADSR remain with Phase 3; no expression is retained as Parameter state.
 
 **Phase exit gate G2:** after Step 2.2's checks, run B and full Patterns/Fluid suites plus both packages' `check`/`lint`. Review value-evaluator imports, parser reuse, compatibility fixtures, and the immutable `d.sh()` boundary. No publicly admitted-but-unhandled shorthand signature may exist before Phase 3.
-Evidence: Not run.
+Evidence: Verified. B passed; full Patterns `test:ci` passed (429 tests) and full Fluid `test:ci` passed (1,185 tests), plus both packages' `check`/`lint`. Review confirmed parser/finite-atom reuse, no event-evaluation path, unchanged structured/source fixtures, immutable target-neutral shorthand, and no widening of AudioParamInput or public consumer signatures. Only the existing Vite advisory remains; no unresolved G2 blockers.
 
 ## Phase 3 — Integrate the complete public consumer matrix
 
@@ -417,7 +417,7 @@ This table assigns coverage; execution status/evidence lives only in the owning 
 
 ## Deferred checks and accepted deviations
 
-- Accepted deviations: None. Steps 0.1–2.1 and G0/G1 verification are complete; subsequent implementation and final acceptance remain pending.
+- Accepted deviations: None. Steps 0.1–2.2 and G0–G2 verification are complete; public integration and final acceptance remain pending.
 - Baseline and browser prerequisites: Affected-package build/tests/check/lint pass against unchanged production. Browser prerequisite files are present, not runtime-verified; G4 owns browser execution and full workspace acceptance.
 - Live listening/dev-server sessions, packed installation, publication, and deployment: Not required by this spec and not claimed by build/mock/schema checks.
 - Product work deferred by the spec remains deferred: diagnostics overhaul; time-addressed/continuous patterns and unsupported operators; raw LFO speed/wave/timing-generator shorthand; cycle hierarchy, ownership, and legacy validation/default unification.

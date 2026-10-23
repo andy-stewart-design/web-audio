@@ -1,5 +1,5 @@
-import { RandomCycle } from "@web-audio/patterns";
-import { describe, expect, it } from "vitest";
+import { createShorthand, RandomCycle } from "@web-audio/patterns";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import Drome from "@/drome";
 import Parameter from "@/parameters/parameter";
 
@@ -9,6 +9,84 @@ describe("Parameter", () => {
       type: "static",
       cycle: [[1], [0], [-0.5]],
     });
+  });
+
+  it("eagerly evaluates direct and reusable numeric shorthand", () => {
+    expect(new Parameter("0.2 0.8").getSchema()).toEqual({
+      type: "static",
+      cycle: [[0.2, 0.8]],
+    });
+    expect(new Parameter(createShorthand("<0.2 0.8>")).getSchema()).toEqual({
+      type: "static",
+      cycle: [[0.2], [0.8]],
+    });
+  });
+
+  it("rejects new shorthand failures before constructing parameter state", () => {
+    for (const source of [
+      "",
+      "[1",
+      "NaN",
+      "Infinity",
+      "1e999",
+      "0.2 ~ 0.8",
+      "0.2*2",
+      "[0.2,0.8]",
+      "1!16385",
+    ]) {
+      expect(() => new Parameter(source), source).toThrow("[Parameter]");
+    }
+
+    for (const source of ["0.2 ~ 0.8", "0.2*2", "1!16385"]) {
+      expect(() => new Parameter(createShorthand(source)), source).toThrow(
+        "[Parameter]",
+      );
+    }
+  });
+
+  it("keeps the internal shorthand constructor and public slot types separate", () => {
+    expectTypeOf(new Parameter("0.25")).toEqualTypeOf<Parameter>();
+
+    const publicTypeChecks = () => {
+      const drome = new Drome();
+      // @ts-expect-error Numeric shorthand is internal until the public adapter phase.
+      drome.synth().detune("0.25");
+      // @ts-expect-error Numeric shorthand is internal until the public adapter phase.
+      drome.gain("0.25");
+    };
+    expectTypeOf(publicTypeChecks).toBeFunction();
+  });
+
+  it("preserves a prior setter schema when an internal shorthand call fails", () => {
+    const instrument = new Drome().synth().detune(0.75);
+    const previous = instrument.getSchema().detune;
+
+    expect(() => Reflect.apply(instrument.detune, instrument, ["1*2"])).toThrow(
+      "[Parameter] [Pattern]",
+    );
+    expect(instrument.getSchema().detune).toEqual(previous);
+  });
+
+  it("isolates reusable shorthand across Parameters without changing its expression", () => {
+    const reusable = createShorthand("<0.25 0.75>");
+    const snapshot = structuredClone(reusable);
+    const first = new Parameter(reusable);
+    const second = new Parameter(reusable);
+    const firstSchema = first.getSchema();
+    const secondSchema = second.getSchema();
+
+    expect(firstSchema).toEqual({
+      type: "static",
+      cycle: [[0.25], [0.75]],
+    });
+    expect(secondSchema).toEqual(firstSchema);
+    expect(secondSchema).not.toBe(firstSchema);
+    if (firstSchema.type !== "static" || secondSchema.type !== "static") {
+      throw new Error("Expected static parameter schemas");
+    }
+    firstSchema.cycle[0][0] = 1;
+    expect(secondSchema.cycle[0][0]).toBe(0.25);
+    expect(reusable).toEqual(snapshot);
   });
 
   it("serializes an intra-bar value cycle without timing fields", () => {
