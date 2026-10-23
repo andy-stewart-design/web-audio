@@ -1,11 +1,12 @@
 import type { UnisonSynthesizerSchema } from "@web-audio/schema";
 import type Drome from "@/drome";
 import Parameter, {
+  createParameter,
   type AudioParamInput,
   type AudioParamSource,
 } from "@/parameters/parameter";
 import { resolveAudioParam } from "@/parameters/resolve-audio-param";
-import type { CycleInput } from "@/inputs/types";
+import type { NumericPatternInput } from "@/inputs/types";
 import {
   resolveUnisonWaveform,
   type UnisonWaveformAlias,
@@ -32,18 +33,18 @@ class UnisonSynthesizer extends SynthBase {
     return this;
   }
 
-  voices(...input: CycleInput<number>) {
-    this._voices = new Parameter(...input);
+  voices(...input: NumericPatternInput) {
+    this._voices = createParameter(input, "[Unison] voices()");
     return this;
   }
 
   spread(...input: AudioParamInput) {
-    this._spread = resolveAudioParam(input);
+    this._spread = resolveAudioParam(input, "[Unison] spread()");
     return this;
   }
 
   width(...input: AudioParamInput) {
-    this._width = resolveAudioParam(input);
+    this._width = resolveAudioParam(input, "[Unison] width()");
     return this;
   }
 

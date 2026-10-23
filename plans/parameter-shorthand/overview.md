@@ -8,6 +8,8 @@ We're building on the syntax infrastructure created for event patterns—not rou
 
 **Status:** Proposed work; implementation has not started. The [spec](./spec.md) is the behavioral source of truth; this overview explains the idea, not every rule. The [implementation plan](./plan.md) breaks the work into reviewable changes and verification gates.
 
+**Approved ADSR compatibility decision:** positional `adsr(a, d, s, r)` fields now accept only scalar numbers or shorthand. Positional number arrays are intentionally rejected by the public type and runtime, while individual `.a()`, `.d()`, `.s()`, and `.r()` setters retain their structured-array, random, and shorthand capabilities. This is a scoped breaking simplification, not a wider numeric-API rule.
+
 ## Why tidy up first?
 
 The core parameter pipeline is already small: normalize numeric inputs, store a static or random pattern, and emit the existing schema. But the surrounding logic is scattered. Several setters repeat the same checks for envelopes, LFOs, and MIDI sources, and some consumers adapt arrays differently.
@@ -40,7 +42,7 @@ The subset is deliberately small:
 | `!n`      | Repeat a value or group                     |
 | `< ... >` | Alternate between choices across bars       |
 
-Existing structured inputs keep their meanings. Shorthand is an alternative for a whole numeric pattern, not something mixed into its arrays.
+Existing structured inputs keep their meanings, except for the approved positional ADSR simplification above. Shorthand is an alternative for a whole numeric pattern, not something mixed into its arrays.
 
 ## How it fits together
 

@@ -9,7 +9,7 @@ class GainEffect {
   private _gain: AudioParamSource;
 
   constructor(...input: AudioParamInput) {
-    this._gain = resolveAudioParam(input);
+    this._gain = resolveAudioParam(input, "[GainEffect] gain()");
   }
 
   getSchema(): GainEffectSchema {

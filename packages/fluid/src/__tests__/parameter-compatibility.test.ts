@@ -105,7 +105,7 @@ describe("structured parameter compatibility", () => {
 
   it("forwards each positional ADSR field independently through instruments", () => {
     const schema = new Synthesizer()
-      .adsr([0.01, 0.02], [0.1], [0.8, 0.7], [0.2, 0.3])
+      .adsr("0.01 0.02", "0.1", "0.8 0.7", "0.2 0.3")
       .getSchema().gain;
 
     expect(staticCycle(schema.a)).toEqual([[0.01, 0.02]]);

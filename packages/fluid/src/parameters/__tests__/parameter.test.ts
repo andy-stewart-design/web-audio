@@ -49,9 +49,7 @@ describe("Parameter", () => {
 
     const publicTypeChecks = () => {
       const drome = new Drome();
-      // @ts-expect-error Numeric shorthand is internal until the public adapter phase.
       drome.synth().detune("0.25");
-      // @ts-expect-error Numeric shorthand is internal until the public adapter phase.
       drome.gain("0.25");
     };
     expectTypeOf(publicTypeChecks).toBeFunction();
@@ -62,7 +60,7 @@ describe("Parameter", () => {
     const previous = instrument.getSchema().detune;
 
     expect(() => Reflect.apply(instrument.detune, instrument, ["1*2"])).toThrow(
-      "[Parameter] [Pattern]",
+      "[Instrument] detune() [Pattern]",
     );
     expect(instrument.getSchema().detune).toEqual(previous);
   });

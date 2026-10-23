@@ -1,11 +1,11 @@
-import Parameter, { type AudioParamInput } from "@/parameters/parameter";
+import { createParameter, type AudioParamInput } from "@/parameters/parameter";
 import { isEnvelopeTuple, isLfoTuple, isMidiCcTuple } from "@/inputs/guards";
 
-function resolveAudioParam(input: AudioParamInput) {
+function resolveAudioParam(input: AudioParamInput, method = "[Parameter]") {
   if (isEnvelopeTuple(input) || isLfoTuple(input) || isMidiCcTuple(input)) {
     return input[0];
   }
-  return new Parameter(...input);
+  return createParameter(input, method);
 }
 
 export { resolveAudioParam };

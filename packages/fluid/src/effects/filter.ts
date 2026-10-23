@@ -14,21 +14,21 @@ class Filter {
 
   constructor(type: FilterType, ...frequency: AudioParamInput) {
     this._filterType = type;
-    this._frequency = resolveAudioParam(frequency);
+    this._frequency = resolveAudioParam(frequency, "[Filter] frequency()");
   }
 
   q(...input: AudioParamInput) {
-    this._q = resolveAudioParam(input);
+    this._q = resolveAudioParam(input, "[Filter] q()");
     return this;
   }
 
   detune(...input: AudioParamInput) {
-    this._detune = resolveAudioParam(input);
+    this._detune = resolveAudioParam(input, "[Filter] detune()");
     return this;
   }
 
   gain(...input: AudioParamInput) {
-    this._gain = resolveAudioParam(input);
+    this._gain = resolveAudioParam(input, "[Filter] gain()");
     return this;
   }
 

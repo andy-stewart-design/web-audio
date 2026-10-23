@@ -5,7 +5,7 @@
 - Governing spec: [spec.md](./spec.md), ready for planning. Its requirements and acceptance criteria remain authoritative.
 - Plain-language context: [overview.md](./overview.md).
 - Adopted refinements: shorthand-only envelope construction; structured equivalence only where expressible; precise per-result expansion budgets; all-or-nothing shorthand ADSR updates; schema-time warnings once per affected static endpoint per LFO instance. These are settled spec requirements, not pending implementation assumptions.
-- Delivery state: Steps 0.1–2.2 and G0–G2 Verified: compatibility characterized, normalization/source dispatch centralized, and bounded numeric shorthand connected internally to Parameter. Steps 3.1–4.1 remain Pending; public numeric consumer signatures are still structured-only.
+- Delivery state: Steps 0.1–3.1 and G0–G2 Verified: bounded numeric shorthand is enabled for ordinary parameters, noise, and envelopes/ADSR as atomic group A2. A later user-approved breaking simplification narrows positional ADSR fields to `number | shorthand` and supersedes their array-based characterization; individual ADSR setters remain unchanged. Steps 3.2–4.1 remain Pending; sampler-specific and LFO public input widening remains with their owning steps.
 - Acceptance or release still pending: Feature implementation and final acceptance. No publication or deployment is included.
 - Blockers: None found at G0. Dependency build and affected-package checks pass; browser prerequisite files are present, with runtime verification reserved for G4.
 
@@ -106,7 +106,7 @@ Verification:
 - Manual: review fixture outputs/defaults and failure timing against current code. No live listening or browser dev session is required.
 
 Completion gate: Characterization passes against unchanged production code; affected baseline failures/prerequisites are explicitly classified. An unresolved failure in the paths being changed blocks dependent cleanup unless separately resolved or explicitly accepted.
-Evidence: B passed (6 tasks, cached). Both prescribed focused commands passed (Fluid 29 tests; Audio Engine 55 tests); all four affected packages' `check`/`lint`, targeted Prettier write/check, and `git diff --check` passed. Review confirmed test-only changes preserve current defaults, references, failure stages (including sparse/null/non-finite inputs), chop timing, and LFO index-zero behavior. No baseline failures or regressions found; Vite emits its existing `configLoader: native`/`__dirname` advisory.
+Evidence: B passed (6 tasks, cached). Both prescribed focused commands passed (Fluid 29 tests; Audio Engine 55 tests); all four affected packages' `check`/`lint`, targeted Prettier write/check, and `git diff --check` passed. Review confirmed test-only changes preserve current defaults, references, failure stages (including sparse/null/non-finite inputs), chop timing, and LFO index-zero behavior. The array-based positional ADSR characterization is historical evidence of prior behavior and is intentionally superseded by the later approved breaking decision; it is not claimed as current compatibility. No baseline failures or regressions found; Vite emits its existing `configLoader: native`/`__dirname` advisory.
 
 **Phase exit gate G0:** after Step 0.1's checks, run the affected-package composition suites against the characterization additions and confirm their expected results. Record available browser prerequisites and any unresolved baseline limitations before Phase 1 or supervised approval to advance.
 Evidence: Verified against unchanged production: all four `test:ci` suites passed after characterization (Patterns 412, Fluid 1,158, Audio Engine 403, Schema 121). Playwright 1.59.1, Chromium headless shell revision 1217 executable/installation marker, FFmpeg 1011, and workspace tooling links are present. Browser launch/render and root regression execution were not performed; G4 owns runtime verification. No unresolved G0 blockers.
@@ -256,7 +256,7 @@ Review boundary: Public typing/dispatch and small consumer adapters, not a broad
 
 ### Step 3.1 — Enable ordinary parameter surfaces, noise, and envelope fields together
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R1–R4, R11, R13, R14; AC2/AC3/AC7/AC15 (ordinary/noise/envelope portion), AC11, AC12, AC18 (ordinary public-type portion). Sampler/LFO completion is Steps 3.2/3.3; full matrix audit is Step 4.1.
 Depends on: G2.
 Review boundary: Atomic group A2; all consumers of the widened shared audio-input union and their positional/factory forwarding.
@@ -269,20 +269,20 @@ Expected files:
 
 Tasks:
 
-- [ ] Enable numeric shorthand for ordinary instrument/effect/filter/unison slots and envelope maximum/individual ADSR setters, preserving each slot's existing source permissions and defaults.
-- [ ] Change envelope constructor and factory overloads/forwarding together: `d.env("0.2 0.8")` and `d.env(d.sh("0.2 0.8"))` mean minimum `0` and patterned maximum; `d.env(0.1, "0.2 0.8")` uses explicit minimum. Preserve `d.env(0.1)` as minimum `0.1`/maximum `1`, plus omitted/undefined minimum forms. Minimum stays numeric-only; a leading shorthand forbids trailing arguments. Preserve numeric gain versus explicit-envelope replacement.
-- [ ] Introduce a narrow positional ADSR field type: existing scalar/array or shorthand, not arbitrary source/random/rest arguments. Construct all four replacement parameters before assigning any field; update instrument forwarding in the same change.
-- [ ] Update noise dispatch to recognize only exact leading color selectors, then resolve the remaining gain slot normally. Direct numeric strings without a selector mean white noise; omitted gain still means `1`.
-- [ ] Add string/reusable/structured equivalence and negative type/runtime coverage alongside these changes, including factory/constructor acceptance of both envelope overloads, rejection of trailing arguments after leading shorthand, and synchronous rejection of invalid shorthand. Prove a bad final ADSR field leaves all four old fields intact and failed ordinary/noise setters preserve prior state.
-- [ ] Search all shared-union consumers and update signatures/forwarding together. Public type examples must not execute invalid calls: use `expectTypeOf` and uncalled, checked functions containing `@ts-expect-error` cases.
+- [x] Enable numeric shorthand for ordinary instrument/effect/filter/unison slots and envelope maximum/individual ADSR setters, preserving each slot's existing source permissions and defaults.
+- [x] Change envelope constructor and factory overloads/forwarding together: `d.env("0.2 0.8")` and `d.env(d.sh("0.2 0.8"))` mean minimum `0` and patterned maximum; `d.env(0.1, "0.2 0.8")` uses explicit minimum. Preserve `d.env(0.1)` as minimum `0.1`/maximum `1`, plus omitted/undefined minimum forms. Minimum stays numeric-only; a leading shorthand forbids trailing arguments. Preserve numeric gain versus explicit-envelope replacement.
+- [x] Introduce a narrow positional ADSR field type: scalar number or shorthand, not positional arrays or arbitrary source/random/rest arguments. Reject arrays at runtime as well as in the type, construct all four replacement parameters before assigning any field, and update instrument forwarding in the same change.
+- [x] Update noise dispatch to recognize only exact leading color selectors, then resolve the remaining gain slot normally. Direct numeric strings without a selector mean white noise; omitted gain still means `1`.
+- [x] Add string/reusable/structured equivalence and negative type/runtime coverage alongside these changes, including factory/constructor acceptance of both envelope overloads, rejection of trailing arguments after leading shorthand, and synchronous rejection of invalid shorthand. Convert prior array-pattern ADSR fixtures to equivalent shorthand while retaining positive structured-array coverage for individual setters. Prove every positional array and a bad final ADSR field leave all four old fields intact, and failed ordinary/noise setters preserve prior state.
+- [x] Search all shared-union consumers and update signatures/forwarding together. Public type examples must not execute invalid calls: use `expectTypeOf` and uncalled, checked functions containing `@ts-expect-error` cases.
 
 Verification:
 
 - Automated, root: after refreshing upstream artifacts as needed, `pnpm --filter @web-audio/fluid exec vitest run src/__tests__/parameter-shorthand.test.ts src/automations/__tests__/envelope.test.ts src/effects/__tests__/filter.test.ts src/effects/__tests__/gain.test.ts src/instruments/__tests__/noise.test.ts src/instruments/__tests__/unison.test.ts src/__tests__/parameter-compatibility.test.ts`; run Fluid `check`, `lint`, and `build`.
 - Manual: trace every `AudioParamInput` consumer and verify narrower slots/excluded scalars were not widened. Review A2 as one coherent public contract change.
 
-Completion gate: All newly exposed ordinary signatures work at runtime, envelope constructor/factory overloads agree while preserving numeric minimum semantics, ADSR dispatch is failure-isolated, noise strings are unambiguous, and structured/source compatibility remains green.
-Evidence: Not run.
+Completion gate: All newly exposed ordinary signatures work at runtime, envelope constructor/factory overloads agree while preserving numeric minimum semantics, ADSR dispatch is failure-isolated, noise strings are unambiguous, and structured/source compatibility outside the approved positional ADSR array exception remains green.
+Evidence: Verified. After B, prescribed focused suites passed (62 tests); full Fluid `test:ci` passed (1,209 tests), plus Fluid `check`/`lint`/`build`, targeted Prettier write/check, and `git diff --check`. A2 review/table coverage includes direct/reusable/structured ordinary slots and aliases, synth/sampler inherited fields, envelope factory/constructor minimum forwarding and trailing-argument rejection, noise selectors/defaults, and every ADSR field. Mutable-slot failures and every invalid ADSR position preserve prior state; legacy nullish/non-finite validation stages remain characterized. The former positional-array compatibility assertion is intentionally superseded: positional arrays now fail in types and runtime with all-or-nothing rollback, while structured arrays remain covered on individual setters. The contextual factory constructs/normalizes once, uses existing guards directly, and preserves ranges/causes. Instrument gain and positional ADSR retain narrower source types; sampler-specific/LFO public signatures remain unchanged for Steps 3.2/3.3. Only the existing Vite advisory remains; G3 is pending.
 
 ### Step 3.2 — Enable sampler regions and authored chop sequences
 
@@ -399,7 +399,7 @@ This table assigns coverage; execution status/evidence lives only in the owning 
 | AC9                | Steps 0.1, 4.1; G4          | Emitted numeric bars retain bar/hit wrapping and consume final surviving hits without affecting events.                                                       | See Steps 0.1/4.1 and G4; Not run. |
 | AC10               | Step 3.2; G3/G4             | Regions/chop/defaults/restrictions and authored versus generated fit timing match structured behavior.                                                        | See Step 3.2/G3; Not run.          |
 | AC11               | Step 3.1; G3/G4             | Noise color/source/default and direct numeric string dispatch are unambiguous and compatible.                                                                 | See Step 3.1/G3; Not run.          |
-| AC12               | Step 3.1; G3/G4             | Independent ADSR fields work; a bad final shorthand field leaves all four prior values intact.                                                                | See Step 3.1/G3; Not run.          |
+| AC12               | Step 3.1; G3/G4             | Independent scalar/shorthand ADSR fields work; positional arrays are rejected; a bad final shorthand field leaves all four prior values intact.               | See Step 3.1/G3; Not run.          |
 | AC13               | Steps 0.1, 3.3; G3/G4       | LFO arrays retain bar semantics; multivalue shorthand schemas stay intact and resolve at index zero.                                                          | See Steps 0.1/3.3 and G3; Not run. |
 | AC14               | Step 3.3; G3/G4             | Only affected static endpoints warn, once per endpoint per instance; no random/playback warning expansion.                                                    | See Step 3.3/G3; Not run.          |
 | AC15               | Steps 1.2, 3.1–3.3, 4.1; G4 | Supported source contexts persist and narrower/excluded slots do not acquire new source permissions.                                                          | See owning steps/gates; Not run.   |
@@ -417,7 +417,8 @@ This table assigns coverage; execution status/evidence lives only in the owning 
 
 ## Deferred checks and accepted deviations
 
-- Accepted deviations: None. Steps 0.1–2.2 and G0–G2 verification are complete; public integration and final acceptance remain pending.
+- Approved scope decision (not an accepted deviation): positional ADSR number-array compatibility is intentionally superseded by the user-approved `number | shorthand` API simplification; individual setter array behavior remains required.
+- Accepted deviations: None. Steps 0.1–3.1 and G0–G2 verification are complete; sampler/LFO public integration and final acceptance remain pending.
 - Baseline and browser prerequisites: Affected-package build/tests/check/lint pass against unchanged production. Browser prerequisite files are present, not runtime-verified; G4 owns browser execution and full workspace acceptance.
 - Live listening/dev-server sessions, packed installation, publication, and deployment: Not required by this spec and not claimed by build/mock/schema checks.
 - Product work deferred by the spec remains deferred: diagnostics overhaul; time-addressed/continuous patterns and unsupported operators; raw LFO speed/wave/timing-generator shorthand; cycle hierarchy, ownership, and legacy validation/default unification.
