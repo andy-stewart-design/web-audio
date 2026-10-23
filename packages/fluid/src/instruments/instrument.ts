@@ -23,12 +23,8 @@ import Parameter, {
   type AudioParamInput,
   type AudioParamSource,
 } from "@/parameters/parameter";
-import {
-  isEnvelopeTuple,
-  isLfoTuple,
-  isMidiCcTuple,
-  isRandomCycleTuple,
-} from "@/inputs/guards";
+import { isEnvelopeTuple, isRandomCycleTuple } from "@/inputs/guards";
+import { resolveAudioParam } from "@/parameters/resolve-audio-param";
 import type { CycleInput, ShorthandInput } from "@/inputs/types";
 import type { KeyNotation, NoteName, NoteValue } from "@/pitch/types";
 import { parseKey } from "@/pitch/parse-key";
@@ -183,15 +179,8 @@ abstract class Instrument {
   }
 
   detune(...input: AudioParamInput) {
-    this._detune = this._resolveAudioParam(input);
+    this._detune = resolveAudioParam(input);
     return this;
-  }
-
-  protected _resolveAudioParam(input: AudioParamInput) {
-    if (isLfoTuple(input) || isEnvelopeTuple(input) || isMidiCcTuple(input)) {
-      return input[0];
-    }
-    return new Parameter(...input);
   }
 
   protected _getAudioParamSchema(
@@ -278,7 +267,7 @@ abstract class Instrument {
     const normalizedGainInput = gainInput.length > 0 ? gainInput : [1];
     this._noise = {
       color,
-      gain: this._resolveAudioParam(normalizedGainInput as AudioParamInput),
+      gain: resolveAudioParam(normalizedGainInput as AudioParamInput),
     };
     return this;
   }

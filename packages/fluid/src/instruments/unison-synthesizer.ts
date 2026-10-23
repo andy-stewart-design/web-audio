@@ -4,6 +4,7 @@ import Parameter, {
   type AudioParamInput,
   type AudioParamSource,
 } from "@/parameters/parameter";
+import { resolveAudioParam } from "@/parameters/resolve-audio-param";
 import type { CycleInput } from "@/inputs/types";
 import {
   resolveUnisonWaveform,
@@ -37,12 +38,12 @@ class UnisonSynthesizer extends SynthBase {
   }
 
   spread(...input: AudioParamInput) {
-    this._spread = this._resolveAudioParam(input);
+    this._spread = resolveAudioParam(input);
     return this;
   }
 
   width(...input: AudioParamInput) {
-    this._width = this._resolveAudioParam(input);
+    this._width = resolveAudioParam(input);
     return this;
   }
 

@@ -5,7 +5,7 @@
 - Governing spec: [spec.md](./spec.md), ready for planning. Its requirements and acceptance criteria remain authoritative.
 - Plain-language context: [overview.md](./overview.md).
 - Adopted refinements: shorthand-only envelope construction; structured equivalence only where expressible; precise per-result expansion budgets; all-or-nothing shorthand ADSR updates; schema-time warnings once per affected static endpoint per LFO instance. These are settled spec requirements, not pending implementation assumptions.
-- Delivery state: Step 0.1/G0 and Step 1.1 Verified: structured compatibility characterized and numeric normalization extracted without behavior changes. Steps 1.2–4.1 remain Pending; G1 awaits Step 1.2.
+- Delivery state: Steps 0.1–1.2 and G0/G1 Verified: structured compatibility characterized, numeric normalization extracted, and modulation-source dispatch centralized without behavior changes. Steps 2.1–4.1 remain Pending.
 - Acceptance or release still pending: Feature implementation and final acceptance. No publication or deployment is included.
 - Blockers: None found at G0. Dependency build and affected-package checks pass; browser prerequisite files are present, with runtime verification reserved for G4.
 
@@ -148,7 +148,7 @@ Evidence: Verified. Prescribed focused suites passed (25 tests); after B, full F
 
 ### Step 1.2 — Consolidate modulation-source dispatch
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R1, R2, R11; AC1 (source cleanup portion), AC15 (existing source portion), AC17 (dispatch boundary portion). New shorthand source restrictions remain with Phase 3/G4.
 Depends on: Step 1.1.
 Review boundary: Atomic group A1; replacing repeated source selection without changing which slots accept which sources.
@@ -162,11 +162,11 @@ Expected files:
 
 Tasks:
 
-- [ ] Implement a shared resolver that unwraps only supported sole envelope/LFO/MIDI tuples and otherwise constructs a numeric `Parameter`.
-- [ ] Replace equivalent instrument/effect/filter branches together, preserving contextual schema serialization and supported source identities.
-- [ ] Retain narrower paths such as instrument gain's numeric-or-envelope contract; consolidation must not add LFO/MIDI inputs to it or modulation inputs to numeric-only fields.
-- [ ] Keep `Parameter`/the decoder below the resolver in the dependency flow. Avoid new runtime import cycles; preserve direct existing guard imports if any guard organization is needed, without splitting modules or adding re-export layers.
-- [ ] Search for remaining equivalent dispatch branches; remove only proven duplicates and test every moved branch, including defaults and MIDI contexts.
+- [x] Implement a shared resolver that unwraps only supported sole envelope/LFO/MIDI tuples and otherwise constructs a numeric `Parameter`.
+- [x] Replace equivalent instrument/effect/filter branches together, preserving contextual schema serialization and supported source identities.
+- [x] Retain narrower paths such as instrument gain's numeric-or-envelope contract; consolidation must not add LFO/MIDI inputs to it or modulation inputs to numeric-only fields.
+- [x] Keep `Parameter`/the decoder below the resolver in the dependency flow. Avoid new runtime import cycles; preserve direct existing guard imports if any guard organization is needed, without splitting modules or adding re-export layers.
+- [x] Search for remaining equivalent dispatch branches; remove only proven duplicates and test every moved branch, including defaults and MIDI contexts.
 
 Verification:
 
@@ -174,10 +174,10 @@ Verification:
 - Manual: inspect remaining `isEnvelopeTuple` / `isLfoTuple` / `isMidiCcTuple` call sites and all `new Parameter` branches. Classify legitimate narrower adapters instead of removing every match.
 
 Completion gate: All replaced source branches preserve characterization, narrower slots remain narrow, and direct class/module imports initialize successfully in the focused tests. A1 is reviewed as one change/revert unit.
-Evidence: Not run.
+Evidence: Verified. Prescribed focused suites passed (40 tests), including resolver identity/random/deferred-validation cases and existing MIDI/context/default coverage. Fluid `check`/`lint`, targeted Prettier write/check, and `git diff --check` passed. A1 review confirmed equivalent branches now use the shared resolver in filter, gain effect, instrument detune/noise, and unison spread/width. Instrument gain remains numeric-or-envelope; remaining Parameter adapters/defaults and random event-timing guards are intentionally narrower. Existing guards are imported directly; no re-exports, public widening, or new resolver dependency from Parameter/decoder.
 
 **Phase exit gate G1:** after Step 1.2's checks, run B, the full Fluid suite, Fluid `check`/`lint`, and the existing event equivalence/public event-schema suites within that full run. Compare against Phase 0 outputs: the cleanup alone must not change user-visible structured/source behavior or expose shorthand. Review the centralized dependency flow before Phase 2.
-Evidence: Not run.
+Evidence: Verified. B passed; full Fluid `test:ci` passed (1,170 tests), including unchanged structured compatibility and event equivalence/public-schema suites; Fluid `check`/`lint` passed. Dependency review found no event-evaluator path, shorthand exposure, or Parameter-to-resolver import. Existing Vite advisory only; no unresolved G1 blockers. Browser/root regression acceptance remains with G4.
 
 ## Phase 2 — Add bounded numeric expression evaluation behind the input boundary
 
@@ -417,7 +417,7 @@ This table assigns coverage; execution status/evidence lives only in the owning 
 
 ## Deferred checks and accepted deviations
 
-- Accepted deviations: None. Step 0.1/G0 and Step 1.1 verification are complete; subsequent implementation and final acceptance remain pending.
+- Accepted deviations: None. Steps 0.1–1.2 and G0/G1 verification are complete; subsequent implementation and final acceptance remain pending.
 - Baseline and browser prerequisites: Affected-package build/tests/check/lint pass against unchanged production. Browser prerequisite files are present, not runtime-verified; G4 owns browser execution and full workspace acceptance.
 - Live listening/dev-server sessions, packed installation, publication, and deployment: Not required by this spec and not claimed by build/mock/schema checks.
 - Product work deferred by the spec remains deferred: diagnostics overhaul; time-addressed/continuous patterns and unsupported operators; raw LFO speed/wave/timing-generator shorthand; cycle hierarchy, ownership, and legacy validation/default unification.
