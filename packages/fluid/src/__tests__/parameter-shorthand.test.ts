@@ -5,6 +5,7 @@ import Envelope from "@/automations/envelope";
 import Filter from "@/effects/filter";
 import GainEffect from "@/effects/gain";
 import type { ADSRInput, NumericPatternInput } from "@/inputs/types";
+import Sampler from "@/instruments/sampler";
 import UnisonSynthesizer from "@/instruments/unison-synthesizer";
 
 function staticCycle(pattern: { type: string; cycle?: number[][] }) {
@@ -685,5 +686,134 @@ describe("public parameter shorthand", () => {
     expect(new Drome().filter("lp", random).getSchema().frequency.type).toBe(
       "random-number",
     );
+  });
+
+  it("supports direct, reusable, and structured sampler region patterns", () => {
+    const d = new Drome();
+    const inputs = numericInputs(d, "0.2 0.8");
+
+    for (const { input } of inputs) {
+      const sampler = new Sampler("bd").start(...input).end(...input);
+      expect(sampler.getSchema().region).toEqual({
+        type: "static",
+        start: { type: "static", cycle: [[0.2, 0.8]] },
+        end: { type: "static", cycle: [[0.2, 0.8]] },
+      });
+
+      const duration = new Sampler("bd").duration(...input).getSchema().region;
+      expect(duration).toEqual({
+        type: "static",
+        start: { type: "static", cycle: [[0]] },
+        duration: { type: "static", cycle: [[0.2, 0.8]] },
+      });
+      expect(new Sampler("bd").dur(...input).getSchema().region).toEqual(
+        duration,
+      );
+    }
+
+    const multibar = new Sampler("bd").start("<0.2 0.8>").end(d.sh("<0.4 1>"));
+    expect(multibar.getSchema().region).toEqual({
+      type: "static",
+      start: { type: "static", cycle: [[0.2], [0.8]] },
+      end: { type: "static", cycle: [[0.4], [1]] },
+    });
+  });
+
+  it("matches authored chop shorthand schemas and timing, including fit order", () => {
+    const d = new Drome();
+    const inputs = numericInputs(d, "0 2 1 3", [0, 2, 1, 3]);
+    const expectedRegion = {
+      type: "chop",
+      slices: [
+        { start: 0, end: 0.25 },
+        { start: 0.25, end: 0.5 },
+        { start: 0.5, end: 0.75 },
+        { start: 0.75, end: 1 },
+      ],
+      sequence: { type: "static", cycle: [[0, 2, 1, 3]] },
+    };
+
+    for (const { input } of inputs) {
+      const sampler = new Sampler("bd").chop(4, ...input);
+      expect(sampler.getSchema().region).toEqual(expectedRegion);
+      expect(sampler.getSchema().eventPattern.timing.cycle).toEqual([
+        [
+          { offset: 0, duration: 0.25 },
+          { offset: 0.25, duration: 0.25 },
+          { offset: 0.5, duration: 0.25 },
+          { offset: 0.75, duration: 0.25 },
+        ],
+      ]);
+    }
+
+    const beforeFit = new Sampler("bd").fit(2).chop(4, "0 2 1 3").getSchema();
+    const afterFit = new Sampler("bd").chop(4, "0 2 1 3").fit(2).getSchema();
+    expect(beforeFit.region).toEqual(expectedRegion);
+    expect(afterFit.region).toEqual(expectedRegion);
+    expect(afterFit.eventPattern.timing).toEqual(beforeFit.eventPattern.timing);
+
+    const multibarInputs = [
+      ["<0 2 1 3>"],
+      [d.sh("<0 2 1 3>")],
+      [[0], [2], [1], [3]],
+    ] satisfies NumericPatternInput[];
+    for (const input of multibarInputs) {
+      const multibar = new Sampler("bd").chop(4, ...input).getSchema();
+      expect(multibar.region).toMatchObject({
+        sequence: { type: "static", cycle: [[0], [2], [1], [3]] },
+      });
+      expect(multibar.eventPattern.timing.cycle).toEqual(
+        Array.from({ length: 4 }, () => [{ offset: 0, duration: 1 }]),
+      );
+    }
+  });
+
+  it("rejects sampler shorthand misuse without replacing region or chop state", () => {
+    const region = new Sampler("bd").start(0.2).end(0.8);
+    const regionBefore = region.getSchema().region;
+    for (const input of [
+      ["0.2 ~ 0.8"],
+      [0.2, "0.8"],
+      ["[0.2, 0.8]"],
+    ] as const) {
+      expect(() => Reflect.apply(region.end, region, input)).toThrow(
+        "[Sampler] end()",
+      );
+      expect(region.getSchema().region).toEqual(regionBefore);
+    }
+
+    const chop = new Sampler("bd").chop(4, "0 2 1 3");
+    const chopBefore = chop.getSchema();
+    for (const input of ["0 ~ 1", "[0, 1]"] as const) {
+      expect(() => chop.chop(4, input)).toThrow("[Sampler] chop() sequence");
+      expect(chop.getSchema()).toEqual(chopBefore);
+    }
+  });
+
+  it("retains sampler region validation stages and chop restrictions", () => {
+    const outOfRange = new Sampler("bd").start("1.1");
+    expect(() => outOfRange.getSchema()).toThrow(
+      "[Sampler] start() values must be finite numbers in [0, 1].",
+    );
+
+    expect(() => new Sampler("bd").duration("0.2").chop(4).getSchema()).toThrow(
+      "[Sampler] duration() cannot be used with chop().",
+    );
+  });
+
+  it("keeps sampler scalar and excluded signatures narrow", () => {
+    const d = new Drome();
+    const sampler = d.sample("bd");
+    const invalid = () => {
+      // @ts-expect-error chop sliceCount remains a scalar positive integer.
+      sampler.chop("4", "0 1");
+      // @ts-expect-error chop sliceCount does not accept reusable shorthand.
+      sampler.chop(d.sh("4"), "0 1");
+      // @ts-expect-error Region slots reject mixed whole-pattern arguments.
+      sampler.start(0.2, "0.8");
+      // @ts-expect-error The dur alias has the same numeric-pattern contract.
+      sampler.dur(0.2, d.sh("0.8"));
+    };
+    expectTypeOf(invalid).toBeFunction();
   });
 });

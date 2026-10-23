@@ -5,7 +5,7 @@
 - Governing spec: [spec.md](./spec.md), ready for planning. Its requirements and acceptance criteria remain authoritative.
 - Plain-language context: [overview.md](./overview.md).
 - Adopted refinements: shorthand-only envelope construction; structured equivalence only where expressible; precise per-result expansion budgets; all-or-nothing shorthand ADSR updates; schema-time warnings once per affected static endpoint per LFO instance. These are settled spec requirements, not pending implementation assumptions.
-- Delivery state: Steps 0.1–3.1 and G0–G2 Verified: bounded numeric shorthand is enabled for ordinary parameters, noise, and envelopes/ADSR as atomic group A2. A later user-approved breaking simplification narrows positional ADSR fields to `number | shorthand` and supersedes their array-based characterization; individual ADSR setters remain unchanged. Steps 3.2–4.1 remain Pending; sampler-specific and LFO public input widening remains with their owning steps.
+- Delivery state: Steps 0.1–3.2 and G0–G2 Verified: bounded numeric shorthand is enabled for ordinary parameters, noise, envelopes/ADSR, and sampler regions/chop as atomic groups A2/A3. The user-approved breaking simplification narrows positional ADSR fields to `number | shorthand` and supersedes their array-based characterization; individual ADSR setters remain unchanged. Steps 3.3–4.1 remain Pending; LFO public input widening remains with Step 3.3.
 - Acceptance or release still pending: Feature implementation and final acceptance. No publication or deployment is included.
 - Blockers: None found at G0. Dependency build and affected-package checks pass; browser prerequisite files are present, with runtime verification reserved for G4.
 
@@ -286,7 +286,7 @@ Evidence: Verified. After B, prescribed focused suites passed (62 tests); full F
 
 ### Step 3.2 — Enable sampler regions and authored chop sequences
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R1, R3, R10, R13, R14; AC2/AC3/AC7 (sampler portion), AC10, AC18 (sampler aliases/type portion).
 Depends on: Step 3.1.
 Review boundary: Atomic group A3; numeric region/sequence inputs without event migration or altered timing precedence.
@@ -298,10 +298,10 @@ Expected files:
 
 Tasks:
 
-- [ ] Enable start/end/duration inputs and update `.dur` typing with `.duration`; preserve domain validation, region modes, and existing chop restrictions.
-- [ ] Enable the chop sequence after scalar slice count through every internal configuration signature. Keep omitted/generated sequence behavior and `ChopState` ownership unchanged.
-- [ ] Prove one-bar and multi-bar authored sequences match structured timing/schema, including `.fit(...).chop(...)`: fit must not redistribute the authored sequence. Do not give other parameters timing authority.
-- [ ] Add alias/type parity, invalid mixed/unsupported shorthand, and failure-without-replacement cases. Keep region domain failures at their existing validation stage.
+- [x] Enable start/end/duration inputs and update `.dur` typing with `.duration`; preserve domain validation, region modes, and existing chop restrictions.
+- [x] Enable the chop sequence after scalar slice count through every internal configuration signature. Keep omitted/generated sequence behavior and `ChopState` ownership unchanged.
+- [x] Prove one-bar and multi-bar authored sequences match structured timing/schema, including `.fit(...).chop(...)`: fit must not redistribute the authored sequence. Do not give other parameters timing authority.
+- [x] Add alias/type parity, invalid mixed/unsupported shorthand, and failure-without-replacement cases. Keep region domain failures at their existing validation stage.
 
 Verification:
 
@@ -309,7 +309,7 @@ Verification:
 - Manual: trace chop sequence schema into existing generated timing and inspect `.dur` declaration. No changes to the event compiler or ordinary parameter resolver are expected.
 
 Completion gate: Sampler shorthand and aliases match structured region/sequence outputs and timing, including fit interaction, while all prior restrictions remain effective.
-Evidence: Not run.
+Evidence: Verified. After B, prescribed focused Fluid suites passed (106 tests); full Fluid `test:ci` passed (1,215 tests), plus Fluid `check`/`lint`/`build`, targeted Prettier write/check, and `git diff --check`. A3 review confirmed canonical/alias NumericPatternInput parity and scalar slice-count validation, direct/reusable/structured region and one-/multi-bar chop equivalence, authored versus generated fit behavior, contextual errors, and rollback before state replacement. Existing region modes/domain-validation stages, chop restrictions, and ChopState ownership remain unchanged; no event compiler, engine, or LFO production changes.
 
 ### Step 3.3 — Enable LFO endpoints and warn about ignored static values
 
@@ -418,7 +418,7 @@ This table assigns coverage; execution status/evidence lives only in the owning 
 ## Deferred checks and accepted deviations
 
 - Approved scope decision (not an accepted deviation): positional ADSR number-array compatibility is intentionally superseded by the user-approved `number | shorthand` API simplification; individual setter array behavior remains required.
-- Accepted deviations: None. Steps 0.1–3.1 and G0–G2 verification are complete; sampler/LFO public integration and final acceptance remain pending.
+- Accepted deviations: None. Steps 0.1–3.2 and G0–G2 verification are complete; LFO public integration and final acceptance remain pending.
 - Baseline and browser prerequisites: Affected-package build/tests/check/lint pass against unchanged production. Browser prerequisite files are present, not runtime-verified; G4 owns browser execution and full workspace acceptance.
 - Live listening/dev-server sessions, packed installation, publication, and deployment: Not required by this spec and not claimed by build/mock/schema checks.
 - Product work deferred by the spec remains deferred: diagnostics overhaul; time-addressed/continuous patterns and unsupported operators; raw LFO speed/wave/timing-generator shorthand; cycle hierarchy, ownership, and legacy validation/default unification.

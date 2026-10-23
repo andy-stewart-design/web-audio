@@ -11,9 +11,9 @@ import {
   decodeSampleNamesInput,
   decodeVariationsInputGeometry,
 } from "@/inputs/decode-structured-input";
-import Parameter from "@/parameters/parameter";
+import { createParameter } from "@/parameters/parameter";
 import type {
-  CycleInput,
+  NumericPatternInput,
   NullableCycleInput,
   ShorthandInput,
   StaticNullableCycleInput,
@@ -55,7 +55,7 @@ class Sampler extends Instrument {
   private _clipMode: ClipMode = "clipped";
   private _direction: SampleDirection = "forward";
 
-  dur: (...input: CycleInput<number>) => this;
+  dur: (...input: NumericPatternInput) => this;
   dir: (direction: SampleDirectionInput) => this;
 
   constructor(
@@ -125,33 +125,35 @@ class Sampler extends Instrument {
     return this;
   }
 
-  start(...input: CycleInput<number>) {
-    const start = new Parameter(...input);
+  start(...input: NumericPatternInput) {
+    const start = createParameter(input, "[Sampler] start()");
     this._region = this._region
       ? { ...this._region, start }
       : { start, mode: "end", end: null };
     return this;
   }
 
-  end(...input: CycleInput<number>) {
+  end(...input: NumericPatternInput) {
+    const end = createParameter(input, "[Sampler] end()");
     this._region = {
       start: this._region?.start ?? null,
       mode: "end",
-      end: new Parameter(...input),
+      end,
     };
     return this;
   }
 
-  duration(...input: CycleInput<number>) {
+  duration(...input: NumericPatternInput) {
+    const duration = createParameter(input, "[Sampler] duration()");
     this._region = {
       start: this._region?.start ?? null,
       mode: "duration",
-      duration: new Parameter(...input),
+      duration,
     };
     return this;
   }
 
-  chop(sliceCount: number, ...sequence: CycleInput<number>) {
+  chop(sliceCount: number, ...sequence: NumericPatternInput) {
     const result = setSamplerEventChop(
       this._eventState,
       this._getTimingConfiguration(),
