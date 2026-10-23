@@ -23,13 +23,13 @@ import Parameter, {
   type AudioParamInput,
   type AudioParamSource,
 } from "@/parameters/parameter";
-import {
-  isEnvelopeTuple,
-  isLfoTuple,
-  isMidiCcTuple,
-  isRandomCycleTuple,
-} from "@/inputs/guards";
-import type { CycleInput, ShorthandInput } from "@/inputs/types";
+import { isEnvelopeTuple, isRandomCycleTuple } from "@/inputs/guards";
+import { resolveAudioParam } from "@/parameters/resolve-audio-param";
+import type {
+  ADSRInput,
+  NumericPatternInput,
+  ShorthandInput,
+} from "@/inputs/types";
 import type { KeyNotation, NoteName, NoteValue } from "@/pitch/types";
 import { parseKey } from "@/pitch/parse-key";
 import type { ScaleAlias } from "@/pitch/get-scale";
@@ -183,15 +183,8 @@ abstract class Instrument {
   }
 
   detune(...input: AudioParamInput) {
-    this._detune = this._resolveAudioParam(input);
+    this._detune = resolveAudioParam(input, "[Instrument] detune()");
     return this;
-  }
-
-  protected _resolveAudioParam(input: AudioParamInput) {
-    if (isLfoTuple(input) || isEnvelopeTuple(input) || isMidiCcTuple(input)) {
-      return input[0];
-    }
-    return new Parameter(...input);
   }
 
   protected _getAudioParamSchema(
@@ -257,11 +250,15 @@ abstract class Instrument {
     return this;
   }
 
-  gain(...input: CycleInput<number> | [Envelope]) {
+  gain(...input: NumericPatternInput | [Envelope]) {
     if (isEnvelopeTuple(input)) {
       this._gain = input[0];
     } else {
-      this._gain.max(...input);
+      try {
+        this._gain.max(...input);
+      } catch (error) {
+        throw withInstrumentContext("[Instrument] gain()", error, "max");
+      }
     }
     return this;
   }
@@ -270,16 +267,14 @@ abstract class Instrument {
   noise(color: NoiseColor, ...input: AudioParamInput): this;
   noise(...input: AudioParamInput | [NoiseColor, ...AudioParamInput]) {
     const hasColor = isNoiseColor(input[0]);
-    if (typeof input[0] === "string" && !hasColor) {
-      throw new Error('[Instrument] noise() color must be "white" or "pink".');
-    }
     const color: NoiseColor = hasColor ? (input[0] as NoiseColor) : "white";
     const gainInput = hasColor ? input.slice(1) : input;
     const normalizedGainInput = gainInput.length > 0 ? gainInput : [1];
-    this._noise = {
-      color,
-      gain: this._resolveAudioParam(normalizedGainInput as AudioParamInput),
-    };
+    const gain = resolveAudioParam(
+      normalizedGainInput as AudioParamInput,
+      "[Instrument] noise() gain",
+    );
+    this._noise = { color, gain };
     return this;
   }
 
@@ -293,13 +288,12 @@ abstract class Instrument {
     };
   }
 
-  adsr(
-    a: number | number[],
-    d: number | number[],
-    s: number | number[],
-    r: number | number[],
-  ) {
-    this._gain.adsr(a, d, s, r);
+  adsr(a: ADSRInput, d: ADSRInput, s: ADSRInput, r: ADSRInput) {
+    try {
+      this._gain.adsr(a, d, s, r);
+    } catch (error) {
+      throw withInstrumentContext("[Instrument] adsr()", error, "adsr");
+    }
     return this;
   }
 
@@ -311,6 +305,21 @@ abstract class Instrument {
 
 function isNoiseColor(value: unknown): value is NoiseColor {
   return value === "white" || value === "pink";
+}
+
+function withInstrumentContext(
+  method: string,
+  error: unknown,
+  source: "max" | "adsr",
+) {
+  const message = error instanceof Error ? error.message : String(error);
+  const prefix = source === "max" ? "[Envelope] max()" : "[Envelope] adsr()";
+  if (message.startsWith(prefix)) {
+    return new Error(`${method}${message.slice(prefix.length)}`, {
+      cause: error,
+    });
+  }
+  return new Error(`${method} ${message}`, { cause: error });
 }
 
 function normalizeTarget(target: string, method: string) {

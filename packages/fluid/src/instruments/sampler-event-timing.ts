@@ -2,8 +2,8 @@ import {
   assertCycleBarLimit,
   MAX_EVENT_CYCLE_STEPS,
 } from "@web-audio/patterns";
-import type { CycleInput } from "@/inputs/types";
-import Parameter from "@/parameters/parameter";
+import type { NumericPatternInput } from "@/inputs/types";
+import { createParameter } from "@/parameters/parameter";
 import type { SamplerEventState } from "@/events/state";
 import { releaseEventTiming } from "@/events/transitions";
 import {
@@ -52,7 +52,7 @@ function setSamplerEventChop(
   state: SamplerEventState,
   configuration: SamplerTimingConfiguration,
   sliceCount: number,
-  ...sequence: CycleInput<number>
+  ...sequence: NumericPatternInput
 ) {
   if (!Number.isInteger(sliceCount) || sliceCount <= 0)
     throw new Error("[Sampler] chop() sliceCount must be a positive integer.");
@@ -67,7 +67,10 @@ function setSamplerEventChop(
       chop: Object.freeze({
         sliceCount,
         // Chop sequences are unchanged processing patterns, not event lanes.
-        sequence: sequence.length > 0 ? new Parameter(...sequence) : null,
+        sequence:
+          sequence.length > 0
+            ? createParameter(sequence, "[Sampler] chop() sequence")
+            : null,
       }),
     }),
   };

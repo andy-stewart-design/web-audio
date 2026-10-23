@@ -174,6 +174,21 @@ The compiled playback model has three independent parts:
 
 Value patterns contain no offsets or durations. Their bars and hits wrap independently and are addressed only after timing has produced final hits.
 
+## Numeric shorthand is value-only
+
+Numeric parameter shorthand uses the same bars-and-hits model without entering the event pipeline. A sequence or square group contributes ordered values within a bar; grouping does not make event subdivisions, rests, simultaneous values, or new timing. Structural `!` repetition expands that value sequence. Angle-bracket alternation chooses between bars, while hit lookup still wraps within the selected bar.
+
+```ts
+const level = d.sh("0.25 <0.5 0.75>");
+d.synth().gain(level).push();
+```
+
+The string and reusable forms are whole-pattern alternatives for one logical numeric slot. Existing structured arrays remain unchanged: an array is one bar of hit values and separate numeric arguments are successive bars. A shorthand value cannot be mixed with another value or nested in a structured numeric array. Rests, parallel/comma groups, `*`, `/`, and `@` are event-language constructs that numeric parameter consumers reject; a reusable value containing one of them can still be used by an event consumer.
+
+LFO endpoints preserve their consumer-specific behavior. A structured endpoint array such as `d.lfo([0.2, 0.8], 1)` means two bars, whereas `d.lfo("0.2 0.8", 1)` means one bar containing two values. Playback uses the first value in each static bar, and schema serialization warns once per affected endpoint per LFO instance. The bars remain intact, and random endpoint behavior is unchanged. See [Pattern syntax](syntax.md#numeric-parameter-shorthand) for the supported numeric atoms, envelope and ADSR rules, exclusions, and bounds.
+
+Processing values do not create or filter hits. Chance misses do not consume them, and event transforms do not give them timing authority. The authored sequence passed to sampler `.chop(sliceCount, sequence)` is the exception: its shape participates in generated chop timing exactly as an equivalent structured sequence would. `.fit()` distributes only generated chop sequences, not an explicitly authored sequence.
+
 ## Sampler variations and layers
 
 Sampler variations are event values rather than timing steps. `.var()` accepts bars, sequential hits, simultaneous voice groups, and whole-hit rests:

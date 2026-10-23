@@ -38,6 +38,20 @@ describe("Envelope", () => {
     });
   });
 
+  it("forwards an explicit undefined minimum while retaining the zero default", () => {
+    const schema = new Envelope(undefined, 0.25).getSchema();
+
+    expect(schema.min).toBe(0);
+    expect(schema.max).toEqual({ type: "static", cycle: [[0.25]] });
+  });
+
+  it("keeps a numeric first argument as the minimum with a default maximum", () => {
+    expect(new Envelope(0.25).getSchema()).toMatchObject({
+      min: 0.25,
+      max: { type: "static", cycle: [[1]] },
+    });
+  });
+
   it("serializes random max values without timing geometry", () => {
     const schema = new Envelope(
       0,
@@ -80,15 +94,55 @@ describe("Envelope", () => {
     expect(schema.r).toEqual({ type: "static", cycle: [[0.1]] });
   });
 
-  it("accepts intra-bar values for each ADSR parameter", () => {
+  it("accepts shorthand value sequences for each ADSR parameter", () => {
     const schema = new Envelope()
-      .adsr([0.2, 0.4], [0.1, 0.2], [0.8, 0.6], [0.05, 0.1])
+      .adsr("0.2 0.4", "0.1 0.2", "0.8 0.6", "0.05 0.1")
       .getSchema();
 
     expect(staticCycle(schema.a)).toEqual([[0.2, 0.4]]);
     expect(staticCycle(schema.d)).toEqual([[0.1, 0.2]]);
     expect(staticCycle(schema.s)).toEqual([[0.8, 0.6]]);
     expect(staticCycle(schema.r)).toEqual([[0.05, 0.1]]);
+  });
+
+  it.each([
+    ["undefined", undefined],
+    ["null", null],
+    ["NaN", Number.NaN],
+    ["non-numeric", true],
+  ])(
+    "retains deferred validation for legacy positional %s values",
+    (_label, value) => {
+      const envelope = new Envelope();
+
+      expect(() =>
+        Reflect.apply(envelope.adsr, envelope, [value, 0.2, 0.8, 0.1]),
+      ).not.toThrow();
+      expect(() => envelope.getSchema()).toThrow(
+        "ValueCycle cycle[0] must contain only finite numbers",
+      );
+    },
+  );
+
+  it("rejects positional arrays before replacing any ADSR field", () => {
+    const baseline = [0.1, 0.2, 0.8, 0.1];
+
+    for (const index of [0, 1, 2, 3]) {
+      const envelope = new Envelope().adsr(
+        baseline[0],
+        baseline[1],
+        baseline[2],
+        baseline[3],
+      );
+      const before = envelope.getSchema();
+      const invalid: unknown[] = [...baseline];
+      invalid[index] = [0.2, 0.4];
+
+      expect(() => Reflect.apply(envelope.adsr, envelope, invalid)).toThrow(
+        "positional arrays are not supported",
+      );
+      expect(envelope.getSchema()).toEqual(before);
+    }
   });
 
   it("individual setters override ADSR fields", () => {

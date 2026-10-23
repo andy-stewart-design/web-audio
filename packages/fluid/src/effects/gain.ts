@@ -1,19 +1,15 @@
 import type { GainEffectSchema } from "@web-audio/schema";
-import Parameter, {
+import {
   type AudioParamInput,
   type AudioParamSource,
 } from "@/parameters/parameter";
-import { isEnvelopeTuple, isLfoTuple, isMidiCcTuple } from "@/inputs/guards";
+import { resolveAudioParam } from "@/parameters/resolve-audio-param";
 
 class GainEffect {
   private _gain: AudioParamSource;
 
   constructor(...input: AudioParamInput) {
-    if (isEnvelopeTuple(input) || isLfoTuple(input) || isMidiCcTuple(input)) {
-      this._gain = input[0];
-    } else {
-      this._gain = new Parameter(...input);
-    }
+    this._gain = resolveAudioParam(input, "[GainEffect] gain()");
   }
 
   getSchema(): GainEffectSchema {

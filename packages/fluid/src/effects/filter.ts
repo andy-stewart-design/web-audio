@@ -3,7 +3,7 @@ import Parameter, {
   type AudioParamInput,
   type AudioParamSource,
 } from "@/parameters/parameter";
-import { isEnvelopeTuple, isLfoTuple, isMidiCcTuple } from "@/inputs/guards";
+import { resolveAudioParam } from "@/parameters/resolve-audio-param";
 
 class Filter {
   private _filterType: FilterType;
@@ -14,53 +14,21 @@ class Filter {
 
   constructor(type: FilterType, ...frequency: AudioParamInput) {
     this._filterType = type;
-    if (isLfoTuple(frequency)) {
-      this._frequency = frequency[0];
-    } else if (isEnvelopeTuple(frequency)) {
-      this._frequency = frequency[0];
-    } else if (isMidiCcTuple(frequency)) {
-      this._frequency = frequency[0];
-    } else {
-      this._frequency = new Parameter(...frequency);
-    }
+    this._frequency = resolveAudioParam(frequency, "[Filter] frequency()");
   }
 
   q(...input: AudioParamInput) {
-    if (isLfoTuple(input)) {
-      this._q = input[0];
-    } else if (isEnvelopeTuple(input)) {
-      this._q = input[0];
-    } else if (isMidiCcTuple(input)) {
-      this._q = input[0];
-    } else {
-      this._q = new Parameter(...input);
-    }
+    this._q = resolveAudioParam(input, "[Filter] q()");
     return this;
   }
 
   detune(...input: AudioParamInput) {
-    if (isLfoTuple(input)) {
-      this._detune = input[0];
-    } else if (isEnvelopeTuple(input)) {
-      this._detune = input[0];
-    } else if (isMidiCcTuple(input)) {
-      this._detune = input[0];
-    } else {
-      this._detune = new Parameter(...input);
-    }
+    this._detune = resolveAudioParam(input, "[Filter] detune()");
     return this;
   }
 
   gain(...input: AudioParamInput) {
-    if (isLfoTuple(input)) {
-      this._gain = input[0];
-    } else if (isEnvelopeTuple(input)) {
-      this._gain = input[0];
-    } else if (isMidiCcTuple(input)) {
-      this._gain = input[0];
-    } else {
-      this._gain = new Parameter(...input);
-    }
+    this._gain = resolveAudioParam(input, "[Filter] gain()");
     return this;
   }
 

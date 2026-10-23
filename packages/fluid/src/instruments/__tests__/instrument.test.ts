@@ -850,6 +850,19 @@ describe("Instrument gain envelopes", () => {
     expectGainADSR(schema.gain, { a: 0.1, d: 0.2, s: 0.3, r: 0.4 });
   });
 
+  it("replaces the gain envelope for an envelope input but only updates max for numbers", () => {
+    const replacement = new Envelope().adsr(0.1, 0.2, 0.3, 0.4);
+    const instrument = new Synthesizer()
+      .adsr(0.5, 0.6, 0.7, 0.8)
+      .gain(replacement);
+
+    expect(instrument.getSchema().gain).toEqual(replacement.getSchema());
+
+    const updated = instrument.gain(0.75).getSchema().gain;
+    expectGainADSR(updated, { a: 0.1, d: 0.2, s: 0.3, r: 0.4 });
+    expect(updated.max).toEqual({ type: "static", cycle: [[0.75]] });
+  });
+
   it("supports adsr shorthand for gain envelope", () => {
     const schema = new Synthesizer().adsr(0, 1, 0.333, 1).getSchema();
 

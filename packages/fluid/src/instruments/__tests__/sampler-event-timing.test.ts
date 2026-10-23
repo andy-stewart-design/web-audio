@@ -67,6 +67,48 @@ describe("native sampler timing configuration", () => {
     expect(Object.isFrozen(chop.configuration.chop)).toBe(true);
   });
 
+  it("uses generated chop timing with and without fit", () => {
+    const state = createSamplerEventState("loop");
+    const withoutFit = setSamplerEventChop(state, {}, 4);
+    const withFit = setSamplerEventFit(
+      withoutFit.state,
+      withoutFit.configuration,
+      2,
+    );
+
+    expect(getGeneratedSamplerTiming(state, withoutFit.configuration)).toEqual({
+      cycle: [[hit(0, 0.25), hit(0.25, 0.25), hit(0.5, 0.25), hit(0.75, 0.25)]],
+    });
+    expect(
+      getGeneratedSamplerTiming(withFit.state, withFit.configuration),
+    ).toEqual({
+      cycle: [
+        [hit(0, 0.5), hit(0.5, 0.5)],
+        [hit(0, 0.5), hit(0.5, 0.5)],
+      ],
+    });
+  });
+
+  it("keeps authored chop sequence timing unchanged when fit is added", () => {
+    const state = createSamplerEventState("loop");
+    const authored = setSamplerEventChop(state, {}, 4, [0, 2, 1, 3]);
+    const withFit = setSamplerEventFit(
+      authored.state,
+      authored.configuration,
+      2,
+    );
+
+    const expected = {
+      cycle: [[hit(0, 0.25), hit(0.25, 0.25), hit(0.5, 0.25), hit(0.75, 0.25)]],
+    };
+    expect(getGeneratedSamplerTiming(state, authored.configuration)).toEqual(
+      expected,
+    );
+    expect(
+      getGeneratedSamplerTiming(withFit.state, withFit.configuration),
+    ).toEqual(expected);
+  });
+
   it.each([0, -1, 1.5, Number.NaN, Infinity])(
     "rejects invalid fit/chop amount %s before updating state",
     (amount) => {

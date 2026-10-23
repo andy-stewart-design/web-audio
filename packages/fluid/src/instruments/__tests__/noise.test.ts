@@ -65,9 +65,9 @@ describe("instrument noise layers", () => {
     ).toBe("random-number");
   });
 
-  it("rejects unsupported colors", () => {
+  it("interprets non-color strings as numeric shorthand", () => {
     expect(() => new Synthesizer().noise("blue" as "white")).toThrow(
-      '[Instrument] noise() color must be "white" or "pink".',
+      "[Instrument] noise() gain atom 'blue' must be a finite numeric value",
     );
   });
 
