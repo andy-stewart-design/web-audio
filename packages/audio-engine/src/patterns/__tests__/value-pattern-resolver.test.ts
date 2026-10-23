@@ -39,6 +39,20 @@ describe("ValuePatternResolver", () => {
     expect(resolver.resolve(pattern, 0, 3)).toEqual([67]);
   });
 
+  it("looks up index zero in each multi-value static bar", () => {
+    const resolver = new ValuePatternResolver();
+    const pattern = {
+      type: "static" as const,
+      cycle: [
+        [100, 200],
+        [300, 400],
+      ],
+    };
+
+    expect(resolver.resolve(pattern, 0, 0)).toBe(100);
+    expect(resolver.resolve(pattern, 1, 0)).toBe(300);
+  });
+
   it("rejects unreachable empty static bars", () => {
     expect(() =>
       new ValuePatternResolver().resolve({ type: "static", cycle: [[]] }, 0, 0),

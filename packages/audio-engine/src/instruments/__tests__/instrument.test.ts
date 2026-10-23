@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CcSignal, Midi } from "@web-audio/midi";
 import type {
   AudioParamSchema,
@@ -9,6 +9,8 @@ import type {
 import type { EventScheduleContext } from "../../events/types";
 import type { ScheduledSource } from "../../sources/types";
 import Instrument from "../instrument";
+
+afterEach(() => vi.unstubAllGlobals());
 
 // ---------------------------------------------------------------------------
 // Minimal Web Audio fakes — only what Instrument needs
@@ -43,6 +45,18 @@ class FakeAudioParam {
 
 class FakeLfoNode {
   connectedIntrinsicValues: number[] = [];
+  parameters = new Map([
+    ["outputA", { setValueAtTime: vi.fn() }],
+    ["outputB", { setValueAtTime: vi.fn() }],
+  ]);
+  readonly options?: AudioWorkletNodeOptions;
+  constructor(
+    _ctx?: BaseAudioContext,
+    _name?: string,
+    options?: AudioWorkletNodeOptions,
+  ) {
+    this.options = options;
+  }
   connect = vi.fn((param: FakeAudioParam) => {
     this.connectedIntrinsicValues.push(param.value);
   });
@@ -141,6 +155,22 @@ class TestInstrument extends Instrument {
 
   registerLfo(schema: LfoSchema, node: FakeLfoNode) {
     this._lfoNodes.set(schema.id, node as unknown as AudioWorkletNode);
+  }
+
+  initializeLfo(schema: LfoSchema) {
+    this._initLfos(
+      {
+        detune: schema,
+        effects: [],
+      } as never,
+      0,
+      0,
+    );
+    return this._lfoNodes.get(schema.id) as unknown as FakeLfoNode;
+  }
+
+  updateLfos(barIndex: number, barStartTime: number) {
+    this._updateLfoParams(barIndex, barStartTime);
   }
 }
 
@@ -455,6 +485,48 @@ describe("Instrument event schedule context", () => {
 });
 
 describe("Instrument LFO parameter values", () => {
+  it("uses the first value of each static bar at initialization and bar updates", () => {
+    vi.stubGlobal("AudioWorkletNode", FakeLfoNode);
+    const schema: LfoSchema = {
+      ...lfo(),
+      outputA: {
+        type: "static",
+        cycle: [
+          [100, 200],
+          [300, 400],
+        ],
+      },
+      outputB: {
+        type: "static",
+        cycle: [
+          [1_000, 2_000],
+          [3_000, 4_000],
+        ],
+      },
+    };
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as AudioContext,
+      { barDuration: 1 } as never,
+    );
+
+    const node = instrument.initializeLfo(schema);
+    expect(node.options?.parameterData).toMatchObject({
+      outputA: 100,
+      outputB: 1_000,
+    });
+
+    instrument.updateLfos(1, 20);
+
+    expect(node.parameters.get("outputA")?.setValueAtTime).toHaveBeenCalledWith(
+      300,
+      20,
+    );
+    expect(node.parameters.get("outputB")?.setValueAtTime).toHaveBeenCalledWith(
+      3_000,
+      20,
+    );
+  });
+
   it.each([
     ["gain", 1],
     ["filter frequency", 350],

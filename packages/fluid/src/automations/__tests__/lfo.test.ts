@@ -24,19 +24,31 @@ describe("Lfo", () => {
     expect(schema.outputB).toEqual({ type: "static", cycle: [[400]] });
   });
 
-  it("supports bar cycling on outputA", () => {
-    const schema = new Lfo([600, 800], 400).getSchema();
+  it("interprets endpoint arrays as separate bars for both outputs", () => {
+    const schema = new Lfo([600, 800], [400, 500]).getSchema();
+
     expect(schema.outputA).toEqual({
       type: "static",
       cycle: [[600], [800]],
     });
+    expect(schema.outputB).toEqual({
+      type: "static",
+      cycle: [[400], [500]],
+    });
   });
 
-  it("supports RandomCycle on outputB", () => {
-    const schema = new Lfo(800, new RandomCycle().steps(2, 4)).getSchema();
-    expect(schema.outputB).toMatchObject({
+  it("supports RandomCycle on outputB and retains its source reference", () => {
+    const random = new RandomCycle().steps(2, 4);
+    const lfo = new Lfo(800, random);
+
+    expect(lfo.getSchema().outputB).toMatchObject({
       type: "random-number",
       valuesPerBar: [2, 4],
+    });
+    random.steps(3);
+    expect(lfo.getSchema().outputB).toMatchObject({
+      type: "random-number",
+      valuesPerBar: [3],
     });
   });
 

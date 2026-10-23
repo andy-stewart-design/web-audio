@@ -38,6 +38,20 @@ describe("Envelope", () => {
     });
   });
 
+  it("forwards an explicit undefined minimum while retaining the zero default", () => {
+    const schema = new Envelope(undefined, 0.25).getSchema();
+
+    expect(schema.min).toBe(0);
+    expect(schema.max).toEqual({ type: "static", cycle: [[0.25]] });
+  });
+
+  it("keeps a numeric first argument as the minimum with a default maximum", () => {
+    expect(new Envelope(0.25).getSchema()).toMatchObject({
+      min: 0.25,
+      max: { type: "static", cycle: [[1]] },
+    });
+  });
+
   it("serializes random max values without timing geometry", () => {
     const schema = new Envelope(
       0,

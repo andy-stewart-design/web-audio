@@ -5,9 +5,9 @@
 - Governing spec: [spec.md](./spec.md), ready for planning. Its requirements and acceptance criteria remain authoritative.
 - Plain-language context: [overview.md](./overview.md).
 - Adopted refinements: shorthand-only envelope construction; structured equivalence only where expressible; precise per-result expansion budgets; all-or-nothing shorthand ADSR updates; schema-time warnings once per affected static endpoint per LFO instance. These are settled spec requirements, not pending implementation assumptions.
-- Delivery state: Planning only. All implementation steps are Pending; no baseline, tests, builds, or implementation review have been run for this plan.
-- Acceptance or release still pending: All implementation acceptance. No publication or deployment is included.
-- Blockers: None identified by static inspection. Dependency artifacts, baseline health, and browser-test prerequisites remain unverified until Phase 0.
+- Delivery state: Step 0.1 and G0 Verified: structured compatibility characterized against unchanged production code. Steps 1.1–4.1 remain Pending.
+- Acceptance or release still pending: Feature implementation and final acceptance. No publication or deployment is included.
+- Blockers: None found at G0. Dependency build and affected-package checks pass; browser prerequisite files are present, with runtime verification reserved for G4.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove that gates passed. Verified means the scoped checks and implementation review passed; it does not imply user approval or release. In supervised execution, record manual approval in extension state, not task checkboxes.
 
@@ -79,7 +79,7 @@ Review boundary: Characterization/test changes only, with no new syntax or produ
 
 ### Step 0.1 — Capture structured behavior and establish the baseline
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R1, R10, R11; AC1 (baseline), AC9/AC13 (existing runtime portions), AC10/AC15 (structured baseline). Feature-specific acceptance remains with Phases 2–4.
 Depends on: None.
 Review boundary: Existing input semantics, actual failure stages, and existing runtime lookup—not proposed shorthand behavior.
@@ -93,11 +93,11 @@ Expected files:
 
 Tasks:
 
-- [ ] Run B, the four affected-package composition suites, and affected-package `check`/`lint`; record actual pre-existing failures separately from regressions. Inspect browser-regression prerequisites without installing or rendering anything for this baseline step.
-- [ ] Add explicit fixtures for scalar arguments versus intra-bar arrays, empty/no-argument differences, serialization-time versus graph-time rejection, and caller-array/random-source reference behavior. Do not correct those behaviors in characterization.
-- [ ] Capture supported modulation identities/contextual MIDI fields, instrument gain-envelope replacement versus maximum updates, factory forwarding including numeric/omitted/undefined envelope minimum defaults, noise selectors/defaults, and aliases.
-- [ ] Capture positional ADSR fields, LFO endpoint arrays-as-bars, and authored/generated chop timing with and without fit. Use self-contained banks/fixtures and warning spies rather than network sample loading.
-- [ ] Prove the currently untested LFO multi-value static-bar lookup uses index zero at initialization and subsequent bar updates. Retain existing tests for final-hit numbering after chance misses.
+- [x] Run B, the four affected-package composition suites, and affected-package `check`/`lint`; record actual pre-existing failures separately from regressions. Inspect browser-regression prerequisites without installing or rendering anything for this baseline step.
+- [x] Add explicit fixtures for scalar arguments versus intra-bar arrays, empty/no-argument differences, serialization-time versus graph-time rejection, and caller-array/random-source reference behavior. Do not correct those behaviors in characterization.
+- [x] Capture supported modulation identities/contextual MIDI fields, instrument gain-envelope replacement versus maximum updates, factory forwarding including numeric/omitted/undefined envelope minimum defaults, noise selectors/defaults, and aliases.
+- [x] Capture positional ADSR fields, LFO endpoint arrays-as-bars, and authored/generated chop timing with and without fit. Use self-contained banks/fixtures and warning spies rather than network sample loading.
+- [x] Prove the currently untested LFO multi-value static-bar lookup uses index zero at initialization and subsequent bar updates. Retain existing tests for final-hit numbering after chance misses.
 
 Verification:
 
@@ -106,10 +106,10 @@ Verification:
 - Manual: review fixture outputs/defaults and failure timing against current code. No live listening or browser dev session is required.
 
 Completion gate: Characterization passes against unchanged production code; affected baseline failures/prerequisites are explicitly classified. An unresolved failure in the paths being changed blocks dependent cleanup unless separately resolved or explicitly accepted.
-Evidence: Not run.
+Evidence: B passed (6 tasks, cached). Both prescribed focused commands passed (Fluid 29 tests; Audio Engine 55 tests); all four affected packages' `check`/`lint`, targeted Prettier write/check, and `git diff --check` passed. Review confirmed test-only changes preserve current defaults, references, failure stages (including sparse/null/non-finite inputs), chop timing, and LFO index-zero behavior. No baseline failures or regressions found; Vite emits its existing `configLoader: native`/`__dirname` advisory.
 
 **Phase exit gate G0:** after Step 0.1's checks, run the affected-package composition suites against the characterization additions and confirm their expected results. Record available browser prerequisites and any unresolved baseline limitations before Phase 1 or supervised approval to advance.
-Evidence: Not run.
+Evidence: Verified against unchanged production: all four `test:ci` suites passed after characterization (Patterns 412, Fluid 1,158, Audio Engine 403, Schema 121). Playwright 1.59.1, Chromium headless shell revision 1217 executable/installation marker, FFmpeg 1011, and workspace tooling links are present. Browser launch/render and root regression execution were not performed; G4 owns runtime verification. No unresolved G0 blockers.
 
 ## Phase 1 — Standardize existing parameter inputs without changing behavior
 
@@ -417,7 +417,7 @@ This table assigns coverage; execution status/evidence lives only in the owning 
 
 ## Deferred checks and accepted deviations
 
-- Accepted deviations: None. No implementation execution or verification acceptance has occurred.
-- Baseline and browser prerequisites: Unverified, not waived; Step 0.1 records them and G4 owns full workspace acceptance.
+- Accepted deviations: None. Step 0.1/G0 verification is complete; feature implementation and final acceptance remain pending.
+- Baseline and browser prerequisites: Affected-package build/tests/check/lint pass against unchanged production. Browser prerequisite files are present, not runtime-verified; G4 owns browser execution and full workspace acceptance.
 - Live listening/dev-server sessions, packed installation, publication, and deployment: Not required by this spec and not claimed by build/mock/schema checks.
 - Product work deferred by the spec remains deferred: diagnostics overhaul; time-addressed/continuous patterns and unsupported operators; raw LFO speed/wave/timing-generator shorthand; cycle hierarchy, ownership, and legacy validation/default unification.
