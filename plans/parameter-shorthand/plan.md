@@ -5,7 +5,7 @@
 - Governing spec: [spec.md](./spec.md), ready for planning. Its requirements and acceptance criteria remain authoritative.
 - Plain-language context: [overview.md](./overview.md).
 - Adopted refinements: shorthand-only envelope construction; structured equivalence only where expressible; precise per-result expansion budgets; all-or-nothing shorthand ADSR updates; schema-time warnings once per affected static endpoint per LFO instance. These are settled spec requirements, not pending implementation assumptions.
-- Delivery state: Steps 0.1–3.2 and G0–G2 Verified: bounded numeric shorthand is enabled for ordinary parameters, noise, envelopes/ADSR, and sampler regions/chop as atomic groups A2/A3. The user-approved breaking simplification narrows positional ADSR fields to `number | shorthand` and supersedes their array-based characterization; individual ADSR setters remain unchanged. Steps 3.3–4.1 remain Pending; LFO public input widening remains with Step 3.3.
+- Delivery state: Steps 0.1–3.3 and G0–G3 Verified: bounded numeric shorthand is enabled across the consumer matrix, including sampler regions/chop and LFO endpoints. The user-approved breaking simplification narrows positional ADSR fields to `number | shorthand` and supersedes their array-based characterization; individual ADSR setters remain unchanged. Step 4.1 and final acceptance remain Pending.
 - Acceptance or release still pending: Feature implementation and final acceptance. No publication or deployment is included.
 - Blockers: None found at G0. Dependency build and affected-package checks pass; browser prerequisite files are present, with runtime verification reserved for G4.
 
@@ -313,7 +313,7 @@ Evidence: Verified. After B, prescribed focused Fluid suites passed (106 tests);
 
 ### Step 3.3 — Enable LFO endpoints and warn about ignored static values
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R1, R3, R11–R14; AC2/AC3/AC7/AC15 (LFO portion), AC13, AC14, AC18 (LFO public-type portion).
 Depends on: Step 3.2.
 Review boundary: Atomic group A4; keep bar-based endpoint sampling and leave random diagnostics/runtime untouched.
@@ -326,10 +326,10 @@ Expected files:
 
 Tasks:
 
-- [ ] Extend `LfoInput` with string/reusable shorthand, not the ordinary variadic tuple type. Preserve numeric arrays as separate bars and random endpoints as existing random objects.
-- [ ] Accept evaluated static bars intact, including multiple values; do not truncate their schema or add per-hit updates.
-- [ ] During schema serialization, issue a local `console.warn` for each affected static endpoint, once per endpoint per LFO instance. Identify the endpoint/first-value behavior without a new diagnostics abstraction or random-metadata warnings.
-- [ ] Add endpoint independence and direct/reusable input parity. Compare with structured endpoints only where the same shape is expressible; for multivalue static bars assert the explicit expected schema, warning, and first-value playback instead. Cover static warning/no-warning, shared-instance/repeated-serialization deduplication, and invalid endpoints. Retain LFO speed/wave/phase exclusions.
+- [x] Extend `LfoInput` with string/reusable shorthand, not the ordinary variadic tuple type. Preserve numeric arrays as separate bars and random endpoints as existing random objects.
+- [x] Accept evaluated static bars intact, including multiple values; do not truncate their schema or add per-hit updates.
+- [x] During schema serialization, issue a local `console.warn` for each affected static endpoint, once per endpoint per LFO instance. Identify the endpoint/first-value behavior without a new diagnostics abstraction or random-metadata warnings.
+- [x] Add endpoint independence and direct/reusable input parity. Compare with structured endpoints only where the same shape is expressible; for multivalue static bars assert the explicit expected schema, warning, and first-value playback instead. Cover static warning/no-warning, shared-instance/repeated-serialization deduplication, and invalid endpoints. Retain LFO speed/wave/phase exclusions.
 
 Verification:
 
@@ -337,10 +337,10 @@ Verification:
 - Manual: review warning lifecycle, untouched static schemas, unchanged random path, and the absence of playback-time diagnostics or engine changes.
 
 Completion gate: Both endpoint input forms work, existing arrays keep their bar meaning, static ignored values warn without rejection/truncation, and the unchanged engine demonstrably uses the first value per bar.
-Evidence: Not run.
+Evidence: Verified. Prescribed focused Fluid suites passed (48 tests), and the characterized Audio Engine instrument suite passed (42 tests). Tests cover constructor/factory direct/reusable endpoint parity, intact multivalue schemas, first/non-first multivalue bars, arrays-as-bars/caller-mutation isolation, retained random settings/references, endpoint-specific invalid inputs, and shared/repeated serialization. Local warnings identify outputA/outputB and first-value-per-bar lookup; construction does not warn, and each affected endpoint warns once per instance. Scalars, single-value bars, arrays, and random metadata do not warn. Fluid check/lint, targeted Prettier write/check, and git diff --check passed; no engine production changes.
 
 **Phase exit gate G3:** after Step 3.3's checks, run B, all four affected-package composition suites, and Patterns/Fluid/Audio Engine/Schema `check`/`lint`. Audit every row of the spec's consumer matrix and the excluded slots against actual signatures and runtime dispatch. No row may be left as an undocumented partial rollout before Phase 4.
-Evidence: Not run.
+Evidence: Verified. B and all four test:ci suites passed (Patterns 429, Fluid 1,222, Audio Engine 403, Schema 121), plus all four packages' check/lint. Consumer/alias/factory audit confirmed complete public integration, the approved scalar/shorthand-only positional ADSR exception, unchanged source permissions, and excluded scalar/timing/LFO configuration signatures. Only the existing Vite advisory remains. Step 4.1 owns final cross-domain isolation/integration closure, documentation, and root/browser regression acceptance; none is claimed here.
 
 ## Phase 4 — Close public acceptance and document the value-only model
 
@@ -418,7 +418,7 @@ This table assigns coverage; execution status/evidence lives only in the owning 
 ## Deferred checks and accepted deviations
 
 - Approved scope decision (not an accepted deviation): positional ADSR number-array compatibility is intentionally superseded by the user-approved `number | shorthand` API simplification; individual setter array behavior remains required.
-- Accepted deviations: None. Steps 0.1–3.2 and G0–G2 verification are complete; LFO public integration and final acceptance remain pending.
+- Accepted deviations: None. Steps 0.1–3.3 and G0–G3 verification are complete; Step 4.1 integration/documentation and final acceptance remain pending.
 - Baseline and browser prerequisites: Affected-package build/tests/check/lint pass against unchanged production. Browser prerequisite files are present, not runtime-verified; G4 owns browser execution and full workspace acceptance.
 - Live listening/dev-server sessions, packed installation, publication, and deployment: Not required by this spec and not claimed by build/mock/schema checks.
 - Product work deferred by the spec remains deferred: diagnostics overhaul; time-addressed/continuous patterns and unsupported operators; raw LFO speed/wave/timing-generator shorthand; cycle hierarchy, ownership, and legacy validation/default unification.

@@ -1,5 +1,5 @@
 import { createShorthand, RandomCycle } from "@web-audio/patterns";
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import Drome from "@/drome";
 import Envelope from "@/automations/envelope";
 import Filter from "@/effects/filter";
@@ -29,6 +29,8 @@ function numericInputs(
 }
 
 describe("public parameter shorthand", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it.each([
     { name: "direct", input: ["0.2 0.8"] },
     { name: "reusable", input: [new Drome().sh("0.2 0.8")] },
@@ -686,6 +688,62 @@ describe("public parameter shorthand", () => {
     expect(new Drome().filter("lp", random).getSchema().frequency.type).toBe(
       "random-number",
     );
+  });
+
+  it("supports direct, reusable, and structured LFO endpoint patterns", () => {
+    const d = new Drome();
+    const direct = d.lfo("0.2 0.8", "<400 800>").getSchema();
+    const reusable = d.lfo(d.sh("0.2 0.8"), d.sh("<400 800>")).getSchema();
+    const structured = d.lfo([0.2, 0.8], [400, 800]).getSchema();
+
+    expect(direct.outputA).toEqual({
+      type: "static",
+      cycle: [[0.2, 0.8]],
+    });
+    expect(direct.outputB).toEqual({
+      type: "static",
+      cycle: [[400], [800]],
+    });
+    expect(reusable.outputA).toEqual(direct.outputA);
+    expect(reusable.outputB).toEqual(direct.outputB);
+    expect(structured.outputA).toEqual({
+      type: "static",
+      cycle: [[0.2], [0.8]],
+    });
+    expect(structured.outputB).toEqual({
+      type: "static",
+      cycle: [[400], [800]],
+    });
+  });
+
+  it("deduplicates static LFO warnings across shared destinations", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const d = new Drome();
+    const lfo = d.lfo("0.2 0.8", 1);
+    d.synth().detune(lfo).push();
+    d.synth().detune(lfo).push();
+
+    d.getSchema();
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith(
+      "[LFO] outputA bars contain multiple values; only the first value of each bar is used.",
+    );
+  });
+
+  it("keeps LFO endpoint and option exclusions narrow", () => {
+    const d = new Drome();
+    const invalid = () => {
+      // @ts-expect-error LFO speed remains numeric-only.
+      d.lfo("0.2", 1).speed("2");
+      // @ts-expect-error LFO waveform remains waveform-only.
+      d.lfo("0.2", 1).wave("0.5");
+      // @ts-expect-error LFO phase remains scalar numeric-only.
+      d.lfo("0.2", 1).offset("0.5");
+      // @ts-expect-error LFO arrays remain arrays of numbers, not shorthand values.
+      d.lfo(["0.2"], 1);
+    };
+    expectTypeOf(invalid).toBeFunction();
   });
 
   it("supports direct, reusable, and structured sampler region patterns", () => {
