@@ -5,7 +5,7 @@
 - Governing spec: [spec.md](./spec.md), ready for planning. Its requirements and acceptance criteria remain authoritative.
 - Plain-language context: [overview.md](./overview.md).
 - Adopted refinements: shorthand-only envelope construction; structured equivalence only where expressible; precise per-result expansion budgets; all-or-nothing shorthand ADSR updates; schema-time warnings once per affected static endpoint per LFO instance. These are settled spec requirements, not pending implementation assumptions.
-- Delivery state: Step 0.1 and G0 Verified: structured compatibility characterized against unchanged production code. Steps 1.1–4.1 remain Pending.
+- Delivery state: Step 0.1/G0 and Step 1.1 Verified: structured compatibility characterized and numeric normalization extracted without behavior changes. Steps 1.2–4.1 remain Pending; G1 awaits Step 1.2.
 - Acceptance or release still pending: Feature implementation and final acceptance. No publication or deployment is included.
 - Blockers: None found at G0. Dependency build and affected-package checks pass; browser prerequisite files are present, with runtime verification reserved for G4.
 
@@ -119,7 +119,7 @@ Review boundary: Existing numeric/source interpretation only; no cycle hierarchy
 
 ### Step 1.1 — Extract the structured numeric normalization boundary
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R1, R2, R11; AC1 (numeric cleanup portion), AC17 (numeric dependency boundary portion). Source-dispatch parity is Step 1.2; full public/event acceptance is G4.
 Depends on: Step 0.1 and G0.
 Review boundary: Replace inline `Parameter` normalization with one equivalent, testable boundary.
@@ -129,22 +129,22 @@ Expected files:
 - `packages/fluid/src/inputs/decode-numeric-input.ts` — **new**, initially structured/static/random dispatch only.
 - `packages/fluid/src/parameters/parameter.ts` — delegate normalization while retaining `ValueCycle`/`RandomCycle` state and schemas.
 - `packages/fluid/src/parameters/__tests__/parameter.test.ts`; `packages/fluid/src/inputs/__tests__/decode-numeric-input.test.ts` — latter **new**.
-- `packages/fluid/src/inputs/guards.ts` or a narrow random-only helper — only if needed to keep the numeric boundary independent of modulation-class imports; preserve existing consumers.
+- `packages/fluid/src/inputs/guards.ts` — reuse the existing random-cycle tuple guard directly; preserve its existing consumers without splitting or adding re-export layers.
 
 Tasks:
 
-- [ ] Extract the existing scalar-to-bar/array-as-bar interpretation and sole-random-source path; retain existing `CycleInput<number>` contracts at this stage.
-- [ ] Preserve no-argument behavior, deferred legacy numeric validation, sparse/nullable invalid-input failure stages, caller-array references, and retained random objects according to characterization.
-- [ ] Keep the decoder independent of event evaluation and audio-source dispatch. Do not add a runtime dependency from `Parameter` to a resolver that imports `Envelope`/`Lfo` back into `Parameter`.
-- [ ] Add focused decoder equivalence cases and retain existing `ValueCycle` construction/serialization. Remove only the replaced inline normalization after those cases pass.
+- [x] Extract the existing scalar-to-bar/array-as-bar interpretation and sole-random-source path; retain existing `CycleInput<number>` contracts at this stage.
+- [x] Preserve no-argument behavior, deferred legacy numeric validation, sparse/nullable invalid-input failure stages, caller-array references, and retained random objects according to characterization.
+- [x] Keep the decoder independent of event evaluation and the audio-source resolver; reuse the pre-existing random-cycle tuple guard directly. Do not add a runtime dependency from `Parameter` to a resolver that imports `Envelope`/`Lfo` back into `Parameter`.
+- [x] Add focused decoder equivalence cases and retain existing `ValueCycle` construction/serialization. Remove only the replaced inline normalization after those cases pass.
 
 Verification:
 
 - Automated, root: `pnpm --filter @web-audio/fluid exec vitest run src/inputs/__tests__/decode-numeric-input.test.ts src/parameters/__tests__/parameter.test.ts src/__tests__/parameter-compatibility.test.ts`; `pnpm --filter @web-audio/fluid check`; `pnpm --filter @web-audio/fluid lint`.
 - Manual: inspect import dependencies and compare characterized schemas, object ownership, and failure stages. No new shorthand form may become accepted by this extraction.
 
-Completion gate: Numeric compatibility fixtures remain unchanged and green; normalization has one production owner without new event/modulation coupling.
-Evidence: Not run.
+Completion gate: Numeric compatibility fixtures remain unchanged and green; normalization has one production owner without a new resolver or event-evaluation path.
+Evidence: Verified. Prescribed focused suites passed (25 tests); after B, full Fluid `test:ci` passed (1,164 tests), as did Fluid `check`/`lint`, targeted Prettier write/check, and `git diff --check`. Review confirmed unchanged characterization fixtures/public unions and retained array/random references and failure stages. The decoder reuses the pre-existing `guards.ts` random-cycle tuple predicate; it does not split guards or add re-export layers. Parameter discriminates the decoder's returned `RandomCycle` directly. No shorthand or event-evaluator path was added. Only the existing Vite advisory remains.
 
 ### Step 1.2 — Consolidate modulation-source dispatch
 
@@ -165,7 +165,7 @@ Tasks:
 - [ ] Implement a shared resolver that unwraps only supported sole envelope/LFO/MIDI tuples and otherwise constructs a numeric `Parameter`.
 - [ ] Replace equivalent instrument/effect/filter branches together, preserving contextual schema serialization and supported source identities.
 - [ ] Retain narrower paths such as instrument gain's numeric-or-envelope contract; consolidation must not add LFO/MIDI inputs to it or modulation inputs to numeric-only fields.
-- [ ] Keep `Parameter`/the decoder below the resolver in the dependency flow. Avoid new runtime import cycles; if guard relocation is necessary, update/re-export all existing consumers together rather than deleting an imported helper early.
+- [ ] Keep `Parameter`/the decoder below the resolver in the dependency flow. Avoid new runtime import cycles; preserve direct existing guard imports if any guard organization is needed, without splitting modules or adding re-export layers.
 - [ ] Search for remaining equivalent dispatch branches; remove only proven duplicates and test every moved branch, including defaults and MIDI contexts.
 
 Verification:
@@ -417,7 +417,7 @@ This table assigns coverage; execution status/evidence lives only in the owning 
 
 ## Deferred checks and accepted deviations
 
-- Accepted deviations: None. Step 0.1/G0 verification is complete; feature implementation and final acceptance remain pending.
+- Accepted deviations: None. Step 0.1/G0 and Step 1.1 verification are complete; subsequent implementation and final acceptance remain pending.
 - Baseline and browser prerequisites: Affected-package build/tests/check/lint pass against unchanged production. Browser prerequisite files are present, not runtime-verified; G4 owns browser execution and full workspace acceptance.
 - Live listening/dev-server sessions, packed installation, publication, and deployment: Not required by this spec and not claimed by build/mock/schema checks.
 - Product work deferred by the spec remains deferred: diagnostics overhaul; time-addressed/continuous patterns and unsupported operators; raw LFO speed/wave/timing-generator shorthand; cycle hierarchy, ownership, and legacy validation/default unification.
