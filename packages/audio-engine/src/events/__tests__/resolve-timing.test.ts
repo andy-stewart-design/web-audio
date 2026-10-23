@@ -2,6 +2,7 @@ import type { ChanceCondition, TimingPattern } from "@web-audio/schema";
 import { describe, expect, it } from "vitest";
 import { resolveTiming } from "../resolve-timing";
 import RandomResolver from "@/patterns/random-resolver";
+import ValuePatternResolver from "@/patterns/value-pattern-resolver";
 
 const fourSteps = [
   { offset: 0, duration: 0.25 },
@@ -63,6 +64,33 @@ describe("resolveTiming", () => {
       0, 0.125, 0.25, 0.375, 0.625, 0.875,
     ]);
     expect(events.map(({ hitIndex }) => hitIndex)).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+
+  it("consumes the canonical static NumberPattern shape shared with Fluid", () => {
+    // This matches the static NumberPattern shape asserted by Fluid for the
+    // multibar numeric shorthand <[10 20] [30 40]>.
+    const parameter = {
+      type: "static" as const,
+      cycle: [
+        [10, 20],
+        [30, 40],
+      ],
+    };
+    const timing = { cycle: [eightSteps, eightSteps], condition: condition() };
+    const values = new ValuePatternResolver();
+
+    const firstBar = resolveTiming(timing, 0);
+    const secondBar = resolveTiming(timing, 1);
+    expect(
+      firstBar.map(({ hitIndex }) => values.resolve(parameter, 0, hitIndex)),
+    ).toEqual([10, 20, 10, 20, 10, 20]);
+    expect(
+      secondBar.map(({ hitIndex }) => values.resolve(parameter, 1, hitIndex)),
+    ).toEqual([30, 40, 30, 40]);
+    expect(firstBar.map(({ hitIndex }) => hitIndex)).toEqual([
+      0, 1, 2, 3, 4, 5,
+    ]);
+    expect(secondBar.map(({ hitIndex }) => hitIndex)).toEqual([0, 1, 2, 3]);
   });
 
   it("handles probability boundaries", () => {

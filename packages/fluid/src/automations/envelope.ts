@@ -1,5 +1,6 @@
 import type { EnvelopeSchema } from "@web-audio/schema";
 import { isShorthand } from "@/inputs/decode-shorthand-input";
+import { isRandomCycle } from "@/inputs/guards";
 import type {
   ADSRInput,
   NumericPatternInput,
@@ -109,6 +110,9 @@ function isShorthandInput(value: unknown): value is ShorthandInput {
 function createAdsrParameter(input: ADSRInput, method: string) {
   if (Array.isArray(input)) {
     throw new Error(`${method} positional arrays are not supported.`);
+  }
+  if (isRandomCycle(input)) {
+    throw new Error(`${method} positional random cycles are not supported.`);
   }
   if (isShorthandInput(input)) {
     return createParameter([input], method);

@@ -101,6 +101,25 @@ describe("public parameter shorthand", () => {
     },
   );
 
+  it("covers inherited unison aliases across detune, gain, noise, and ADSR", () => {
+    const d = new Drome();
+    for (const alias of ["unison", "uni"] as const) {
+      for (const input of ["0.2 0.8", d.shorthand("0.2 0.8")] as const) {
+        const instrument = d
+          .synth(alias)
+          .detune(input)
+          .gain(input)
+          .noise(input)
+          .adsr(input, 0.1, 0.8, 0.2);
+        const schema = instrument.getSchema();
+        expect(staticCycle(schema.detune)).toEqual([[0.2, 0.8]]);
+        expect(staticCycle(schema.gain.max)).toEqual([[0.2, 0.8]]);
+        expect(staticCycle(schema.noise!.gain)).toEqual([[0.2, 0.8]]);
+        expect(staticCycle(schema.gain.a)).toEqual([[0.2, 0.8]]);
+      }
+    }
+  });
+
   it("matches constructor and factory shorthand rows across public slots", () => {
     const rows = [
       (d: Drome, input: NumericPatternInput) =>
@@ -394,6 +413,30 @@ describe("public parameter shorthand", () => {
     }
   });
 
+  it("updates an instrument gain maximum without replacing its envelope settings", () => {
+    const d = new Drome();
+    const replacement = new Envelope(0.4, 0.9)
+      .adsr(0.3, 0.2, 0.7, 0.15)
+      .mode("bounded");
+    const instrument = d.synth().gain(replacement);
+
+    instrument.gain("0.2 0.8");
+    expect(instrument.getSchema().gain).toEqual({
+      type: "envelope",
+      min: 0.4,
+      max: { type: "static", cycle: [[0.2, 0.8]] },
+      a: { type: "static", cycle: [[0.3]] },
+      d: { type: "static", cycle: [[0.2]] },
+      s: { type: "static", cycle: [[0.7]] },
+      r: { type: "static", cycle: [[0.15]] },
+      mode: "bounded",
+    });
+
+    const newEnvelope = new Envelope(0, 0.5).adsr(0.1, 0.2, 0.8, 0.1);
+    instrument.gain(newEnvelope);
+    expect(instrument.getSchema().gain).toEqual(newEnvelope.getSchema());
+  });
+
   it("supports envelope overloads and independent shorthand ADSR fields", () => {
     const d = new Drome();
     const direct = d.env("0.2 0.8").getSchema();
@@ -446,7 +489,7 @@ describe("public parameter shorthand", () => {
     }
   });
 
-  it("rejects positional arrays at runtime and rolls back every ADSR field", () => {
+  it("rejects positional arrays and random cycles at runtime", () => {
     const d = new Drome();
     const baseline = [0.1, 0.2, 0.8, 0.1];
 
@@ -474,7 +517,77 @@ describe("public parameter shorthand", () => {
         "positional arrays are not supported",
       );
       expect(instrument.getSchema()).toEqual(beforeInstrument);
+
+      const randomInvalid: unknown[] = [...baseline];
+      randomInvalid[index] = new RandomCycle().steps(2);
+      const randomEnvelope = new Envelope().adsr(
+        baseline[0],
+        baseline[1],
+        baseline[2],
+        baseline[3],
+      );
+      const beforeRandomEnvelope = randomEnvelope.getSchema();
+      expect(() =>
+        Reflect.apply(randomEnvelope.adsr, randomEnvelope, randomInvalid),
+      ).toThrow("positional random cycles are not supported");
+      expect(randomEnvelope.getSchema()).toEqual(beforeRandomEnvelope);
+
+      const randomInstrument = d
+        .synth()
+        .adsr(baseline[0], baseline[1], baseline[2], baseline[3]);
+      const beforeRandomInstrument = randomInstrument.getSchema();
+      expect(() =>
+        Reflect.apply(randomInstrument.adsr, randomInstrument, randomInvalid),
+      ).toThrow("positional random cycles are not supported");
+      expect(randomInstrument.getSchema()).toEqual(beforeRandomInstrument);
     }
+  });
+
+  it("reports receiving slots and UTF-16 ranges for direct and reusable errors", () => {
+    const d = new Drome();
+    const cases = [
+      ["NaN", "atom 'NaN' must be a finite numeric value", "[0, 3)"],
+      ["0.2 ~ 0.8", "Rests are not supported in numeric patterns", "[4, 5)"],
+      ["<1!1025>", "Alternation expands beyond 1024 choices", "[1, 7)"],
+    ] as const;
+
+    for (const [source, detail, range] of cases) {
+      for (const input of [source, d.shorthand(source)] as const) {
+        const instrument = d.synth().detune(0.75);
+        const before = instrument.getSchema().detune;
+        let thrown: unknown;
+        try {
+          instrument.detune(input);
+        } catch (error) {
+          thrown = error;
+        }
+        expect(thrown).toBeInstanceOf(Error);
+        if (!(thrown instanceof Error)) throw new Error("Expected an error");
+        expect(thrown.message).toContain("[Instrument] detune()");
+        expect(thrown.message).toContain(detail);
+        expect(thrown.message).toContain(`source range ${range}`);
+        expect(instrument.getSchema().detune).toEqual(before);
+      }
+    }
+
+    const mixed = d.synth().detune(0.5);
+    const before = mixed.getSchema().detune;
+    expect(() =>
+      Reflect.apply(mixed.detune, mixed, ["0.2", d.shorthand("0.8")]),
+    ).toThrow(
+      "[Instrument] detune() shorthand input must be the sole argument",
+    );
+    expect(mixed.getSchema().detune).toEqual(before);
+
+    const nested = d.synth().detune(0.5);
+    const nestedBefore = nested.getSchema().detune;
+    expect(() => nested.detune("<0.2 [0.8 ~]>")).toThrow(
+      "[Instrument] detune() [Pattern] Rests are not supported in numeric patterns.",
+    );
+    expect(() => nested.detune("<0.2 [0.8 ~]>")).toThrow(
+      "at source range [10, 11)",
+    );
+    expect(nested.getSchema().detune).toEqual(nestedBefore);
   });
 
   it("keeps prior state when shorthand dispatch fails", () => {
@@ -680,6 +793,84 @@ describe("public parameter shorthand", () => {
     );
   });
 
+  it("reuses one immutable shorthand across numeric and event consumers", () => {
+    const d = new Drome();
+    const reusable = d.shorthand("<0.2 0.8>");
+    const snapshot = structuredClone(reusable);
+    const instrument = d
+      .synth()
+      .detune(reusable)
+      .gain(reusable)
+      .noise(reusable)
+      .notes(reusable);
+    const schema = instrument.getSchema();
+
+    expect(schema.detune).toEqual({
+      type: "static",
+      cycle: [[0.2], [0.8]],
+    });
+    expect(schema.gain.max).toEqual(schema.detune);
+    expect(schema.noise?.gain).toEqual(schema.detune);
+    expect(schema.eventPattern.notes).toEqual({
+      type: "static",
+      cycle: [[[0.2]], [[0.8]]],
+    });
+    expect(schema.eventPattern.timing.cycle).toEqual([
+      [{ offset: 0, duration: 1 }],
+      [{ offset: 0, duration: 1 }],
+    ]);
+    expect(reusable).toEqual(snapshot);
+
+    const eventOnly = d.shorthand("0.2 ~ 0.8");
+    const eventOnlySnapshot = structuredClone(eventOnly);
+    const prior = new Drome().synth().detune(0.75);
+    const priorSchema = prior.getSchema().detune;
+    expect(() => prior.detune(eventOnly)).toThrow("[Instrument] detune()");
+    expect(prior.getSchema().detune).toEqual(priorSchema);
+    expect(
+      new Drome().synth().notes(eventOnly).getSchema().eventPattern,
+    ).toEqual({
+      timing: {
+        cycle: [
+          [
+            { offset: 0, duration: 1 / 3 },
+            { offset: 2 / 3, duration: 1 / 3 },
+          ],
+        ],
+        condition: undefined,
+      },
+      notes: { type: "static", cycle: [[[0.2], [0.8]]] },
+    });
+    expect(eventOnly).toEqual(eventOnlySnapshot);
+    expect(reusable).toEqual(snapshot);
+  });
+
+  it("keeps numeric NumberPattern bars independent from transformed, chance-filtered event lanes", () => {
+    const source = "<[10 20] [30 40]>";
+    const expected = {
+      type: "static" as const,
+      cycle: [
+        [10, 20],
+        [30, 40],
+      ],
+    };
+    const instrument = new Drome().synth().detune(source);
+
+    expect(instrument.getSchema().detune).toEqual(expected);
+
+    const schema = instrument
+      .notes("60 62")
+      .xox(new RandomCycle().bin().steps(4).chance(0.5))
+      .fast(2)
+      .getSchema();
+
+    expect(schema.detune).toEqual(expected);
+    expect(schema.eventPattern.timing.condition).toMatchObject({
+      type: "chance",
+      probability: 0.5,
+    });
+  });
+
   it("retains random sources on supported numeric unions", () => {
     const random = new RandomCycle().steps(2).range(0, 1);
     expect(new Drome().gain(random).getSchema().gain.type).toBe(
@@ -731,17 +922,55 @@ describe("public parameter shorthand", () => {
     );
   });
 
-  it("keeps LFO endpoint and option exclusions narrow", () => {
+  it("keeps excluded slots and narrower source permissions narrow", () => {
     const d = new Drome();
+    const shorthand = d.shorthand("0.2");
+    const lfo = d.lfo(0, 1);
+    const midi = d.midi.cc(74);
+    const sampler = d.sample("bd");
     const invalid = () => {
+      // @ts-expect-error Envelope minimum remains scalar numeric-only.
+      d.env(shorthand, 0.5);
+      // @ts-expect-error Timing generators do not accept shorthand pulses.
+      d.synth().euclid(shorthand, 4);
+      // @ts-expect-error Timing generators do not accept shorthand hex values.
+      d.synth().hex(shorthand);
+      // @ts-expect-error Timing generators do not accept shorthand sequence values.
+      d.synth().sequence(shorthand, 4);
+      // @ts-expect-error Sampler fit bars remain a scalar positive integer.
+      sampler.fit(shorthand);
+      // @ts-expect-error Chop slice count remains a scalar positive integer.
+      sampler.chop(shorthand, "0 1");
       // @ts-expect-error LFO speed remains numeric-only.
       d.lfo("0.2", 1).speed("2");
       // @ts-expect-error LFO waveform remains waveform-only.
       d.lfo("0.2", 1).wave("0.5");
       // @ts-expect-error LFO phase remains scalar numeric-only.
       d.lfo("0.2", 1).offset("0.5");
+      // @ts-expect-error LFO phase alias remains scalar numeric-only.
+      d.lfo("0.2", 1).off(shorthand);
       // @ts-expect-error LFO arrays remain arrays of numbers, not shorthand values.
       d.lfo(["0.2"], 1);
+      // @ts-expect-error Routing target remains a string, not a numeric pattern.
+      d.synth().route(shorthand);
+      // @ts-expect-error Send amount remains a scalar number.
+      d.synth().send("verb", shorthand);
+      // @ts-expect-error Duck depth remains a scalar number.
+      d.synth().duck("verb", shorthand);
+      // @ts-expect-error Duck onset remains a scalar number.
+      d.synth().duck("verb", 1, shorthand);
+      // @ts-expect-error Duck recovery remains a scalar number.
+      d.synth().duck("verb", 1, 0, shorthand);
+      // @ts-expect-error Instrument gain remains numeric-or-envelope.
+      d.synth().gain(lfo);
+      // @ts-expect-error Instrument gain remains numeric-or-envelope.
+      d.synth().gain(midi);
+      // @ts-expect-error Unison voices remain numeric-only.
+      d.synth("uni").voices(lfo);
+      // @ts-expect-error Positional ADSR fields do not accept sources.
+      d.synth().adsr(lfo, 0.2, 0.8, 0.1);
+      // @ts-expect-error Samplers are not audio parameter sources.
+      d.synth().detune(sampler);
     };
     expectTypeOf(invalid).toBeFunction();
   });

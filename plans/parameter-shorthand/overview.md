@@ -6,7 +6,7 @@ We want shorthand to work for numeric parameters without adding special parsing 
 
 We're building on the syntax infrastructure created for event patterns—not routing parameters through the event pipeline.
 
-**Status:** Proposed work; implementation has not started. The [spec](./spec.md) is the behavioral source of truth; this overview explains the idea, not every rule. The [implementation plan](./plan.md) breaks the work into reviewable changes and verification gates.
+**Status:** Implementation and final verification are complete, including workspace checks and native browser audio regression. The [spec](./spec.md) is the behavioral source of truth; this overview explains the idea, not every rule. The [implementation plan](./plan.md) records the completed steps, gates, and verification scope.
 
 **Approved ADSR compatibility decision:** positional `adsr(a, d, s, r)` fields now accept only scalar numbers or shorthand. Positional number arrays are intentionally rejected by the public type and runtime, while individual `.a()`, `.d()`, `.s()`, and `.r()` setters retain their structured-array, random, and shorthand capabilities. This is a scoped breaking simplification, not a wider numeric-API rule.
 

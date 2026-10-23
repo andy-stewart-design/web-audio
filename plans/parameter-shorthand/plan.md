@@ -5,9 +5,9 @@
 - Governing spec: [spec.md](./spec.md), ready for planning. Its requirements and acceptance criteria remain authoritative.
 - Plain-language context: [overview.md](./overview.md).
 - Adopted refinements: shorthand-only envelope construction; structured equivalence only where expressible; precise per-result expansion budgets; all-or-nothing shorthand ADSR updates; schema-time warnings once per affected static endpoint per LFO instance. These are settled spec requirements, not pending implementation assumptions.
-- Delivery state: Steps 0.1–3.3 and G0–G3 Verified: bounded numeric shorthand is enabled across the consumer matrix, including sampler regions/chop and LFO endpoints. The user-approved breaking simplification narrows positional ADSR fields to `number | shorthand` and supersedes their array-based characterization; individual ADSR setters remain unchanged. Step 4.1 and final acceptance remain Pending.
-- Acceptance or release still pending: Feature implementation and final acceptance. No publication or deployment is included.
-- Blockers: None found at G0. Dependency build and affected-package checks pass; browser prerequisite files are present, with runtime verification reserved for G4.
+- Delivery state: All implementation steps and G0–G4 Verified: numeric shorthand, public consumer integration, documentation, and final workspace/browser acceptance are complete. The user-approved breaking simplification narrows positional ADSR fields to `number | shorthand`; individual ADSR setters retain structured/random/shorthand inputs.
+- Acceptance or release still pending: No implementation verification gates remain. Publication, deployment, and manual user approval are not claimed.
+- Blockers: None. Final dependency build, affected suites, workspace check/lint/test, and native Chromium audio regression passed without updating references.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove that gates passed. Verified means the scoped checks and implementation review passed; it does not imply user approval or release. In supervised execution, record manual approval in extension state, not task checkboxes.
 
@@ -350,7 +350,7 @@ Review boundary: Integration gaps, docs, and final regression—not deferred pro
 
 ### Step 4.1 — Complete the public matrix, isolation proof, and documentation
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R1–R16; AC2/AC3/AC7/AC9/AC15/AC16/AC17/AC18 (final integration portions), with all other ACs linked through their owning steps below.
 Depends on: G3.
 Review boundary: Close acceptance across completed consumer adapters and run the final gate without claiming unperformed live/installed-artifact proof.
@@ -364,11 +364,11 @@ Expected files:
 
 Tasks:
 
-- [ ] Complete the consumer matrix with direct/reusable parity everywhere and structured equivalents where expressible; otherwise assert explicit expected schema, warning, and playback behavior. Include aliases, factories/envelope overloads, positional fields, unsupported mixtures, excluded slots, and source-permission negative type cases. Assert receiving-slot context and source ranges for representative public shorthand errors.
-- [ ] Reuse one immutable shorthand across several numeric consumers and an event consumer; prove no mutation/shared progression state and that event-only syntax can still be constructed/used for events while failing for parameters.
-- [ ] Connect emitted numeric bars to existing resolver/final-hit tests: independent wrapping, multiple bars, event transforms, and chance misses must preserve processing independence. Retain existing event golden fixtures, not regenerated expectations that could hide regressions.
-- [ ] Document the supported subset, group flattening versus event subdivisions, per-bar alternation versus hit progression, whole-pattern alternatives, shorthand-only envelope construction, numeric minimum compatibility, noise dispatch, LFO warning, and chop exception. Cross-link overview/spec/plan without turning the overview into another contract.
-- [ ] Run final acceptance, review the diff/remaining consumers/imports, and record only actual results or explicit blocked/deferred checks. Do not mark the PR feature-complete on focused tests alone.
+- [x] Complete the consumer matrix with direct/reusable parity everywhere and structured equivalents where expressible; otherwise assert explicit expected schema, warning, and playback behavior. Include aliases, factories/envelope overloads, positional fields, unsupported mixtures, excluded slots, and source-permission negative type cases. Assert receiving-slot context and source ranges for representative public shorthand errors.
+- [x] Reuse one immutable shorthand across several numeric consumers and an event consumer; prove no mutation/shared progression state and that event-only syntax can still be constructed/used for events while failing for parameters.
+- [x] Connect emitted numeric bars to existing resolver/final-hit tests: independent wrapping, multiple bars, event transforms, and chance misses must preserve processing independence. Retain existing event golden fixtures, not regenerated expectations that could hide regressions.
+- [x] Document the supported subset, group flattening versus event subdivisions, per-bar alternation versus hit progression, whole-pattern alternatives, shorthand-only envelope construction, numeric minimum compatibility, noise dispatch, LFO warning, and chop exception. Cross-link overview/spec/plan without turning the overview into another contract.
+- [x] Run final acceptance, review the diff/remaining consumers/imports, and record only actual results or explicit blocked/deferred checks. Do not mark the PR feature-complete on focused tests alone.
 
 Verification:
 
@@ -377,35 +377,35 @@ Verification:
 - Manual: review every AC-to-gate mapping, the dependency boundary, docs/examples, and preservation of unrelated work. Browser dev-server listening and packed/installed artifact tests are not required for this schema-compatible feature; do not claim they were performed.
 
 Completion gate: Each AC has a passing owning gate or an explicitly identified blocker/deviation; public docs and types match behavior, builds compose, and the final workspace regression result has been reviewed. A waived check is an Accepted deviation, not a Verified result.
-Evidence: Not run.
+Evidence: Verified. Added inherited unison/uni and shorthand alias coverage, gain-envelope replacement/max preservation, shared immutable shorthand across numeric/event targets, public receiver/range diagnostics, excluded-slot/source types, and positional random-source rejection/rollback. Fluid's emitted `<[10 20] [30 40]>` schema is asserted against the exact numeric contract exercised by engine chance/final-hit tests; this is schema-contract composition, not a direct cross-package installed-artifact test. Existing event/audio goldens were not changed. Updated syntax/pattern/noise documentation and reviewed consumer/import boundaries and generated evaluator/consumer declarations. B and all four fresh test:ci suites passed (Patterns 429, Fluid 1,227, Audio Engine 404, Schema 121); targeted Prettier write/check and git diff --check passed.
 
 **Phase exit gate G4:** after Step 4.1's checks, assess the final acceptance table, artifact/declaration build, root check/lint/test results, and diff review together. Only mark implementation verified when every required gate passes and no material limitation is hidden. Assess this gate before any supervised approval to advance; no publish/deploy action follows automatically.
-Evidence: Not run.
+Evidence: Verified. Final B passed; root pnpm check and pnpm lint passed (14 tasks each), and root pnpm test passed (19 tasks), including 14/14 native audio-regression cases on Chromium 147.0.7727.15. Audio references were not updated. Generated declarations expose the evaluator and complete public contracts; AC1–AC18 owning gates, scoped ADSR break, docs, dependency flow, and final diff were reviewed together. No unresolved blockers or waived checks. Only existing Vite/experimental build-tool advisories remain; no live listening, packed installation, publication, or deployment is claimed.
 
 ## Final acceptance
 
 This table assigns coverage; execution status/evidence lives only in the owning steps/gates. A partial mention earlier in the plan is not completion of the whole AC.
 
-| Spec acceptance ID | Owning step / gate          | Verification and expected result                                                                                                                              | Evidence / status                  |
-| ------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| AC1                | Steps 0.1, 1.1, 1.2; G1/G4  | Characterized structured/source/default/ownership/validation behavior survives cleanup and integration.                                                       | See owning steps/gates; Not run.   |
-| AC2                | Steps 3.1–3.3, 4.1; G3/G4   | All included slots/aliases accept both shorthand forms; match structured schemas where expressible, otherwise explicit schema/warning/playback expectations.  | See owning steps/gates; Not run.   |
-| AC3                | Steps 2.2, 3.1–3.3, 4.1; G4 | Mixed/nested whole-pattern misuse fails in checked public types and bypassed runtime calls; independent slots remain valid.                                   | See owning steps/gates; Not run.   |
-| AC4                | Step 2.2; G2                | Finite decimal/scientific atoms retain values; invalid/non-finite atoms fail with location context.                                                           | See Step 2.2/G2; Not run.          |
-| AC5                | Step 2.1; G2                | All normative sequence/group/repeat outputs match exactly, without temporal cells.                                                                            | See Step 2.1/G2; Not run.          |
-| AC6                | Step 2.1; G2                | Normative nested/adjacent/repeated alternation schedules are deterministic.                                                                                   | See Step 2.1/G2; Not run.          |
-| AC7                | Steps 2.2, 3.1–3.3, 4.1; G4 | New syntax/atom/unsupported/expansion failures are eager and preserve affected prior configuration.                                                           | See owning steps/gates; Not run.   |
-| AC8                | Steps 2.1, 2.2; G2          | Source/tree, choice-schedule/round, and per-result value limits pass the normative boundary fixtures without cumulative accounting; reject unsafe allocation. | See Steps 2.1/2.2 and G2; Not run. |
-| AC9                | Steps 0.1, 4.1; G4          | Emitted numeric bars retain bar/hit wrapping and consume final surviving hits without affecting events.                                                       | See Steps 0.1/4.1 and G4; Not run. |
-| AC10               | Step 3.2; G3/G4             | Regions/chop/defaults/restrictions and authored versus generated fit timing match structured behavior.                                                        | See Step 3.2/G3; Not run.          |
-| AC11               | Step 3.1; G3/G4             | Noise color/source/default and direct numeric string dispatch are unambiguous and compatible.                                                                 | See Step 3.1/G3; Not run.          |
-| AC12               | Step 3.1; G3/G4             | Independent scalar/shorthand ADSR fields work; positional arrays are rejected; a bad final shorthand field leaves all four prior values intact.               | See Step 3.1/G3; Not run.          |
-| AC13               | Steps 0.1, 3.3; G3/G4       | LFO arrays retain bar semantics; multivalue shorthand schemas stay intact and resolve at index zero.                                                          | See Steps 0.1/3.3 and G3; Not run. |
-| AC14               | Step 3.3; G3/G4             | Only affected static endpoints warn, once per endpoint per instance; no random/playback warning expansion.                                                    | See Step 3.3/G3; Not run.          |
-| AC15               | Steps 1.2, 3.1–3.3, 4.1; G4 | Supported source contexts persist and narrower/excluded slots do not acquire new source permissions.                                                          | See owning steps/gates; Not run.   |
-| AC16               | Steps 2.1, 2.2, 4.1; G4     | Shared immutable shorthand remains target-neutral and has no shared mutable progression state.                                                                | See owning steps/gates; Not run.   |
-| AC17               | G1/G2, Step 4.1; G4         | Centralized dispatch/evaluation has no event-state/compiler path; existing event schemas and semantics are unchanged.                                         | See owning steps/gates; Not run.   |
-| AC18               | Steps 3.1–3.3, 4.1; G4      | Public slots/aliases/docs match the spec, including both envelope construction overloads, numeric minimum compatibility, and synchronous misuse rejection.    | See owning steps/gates; Not run.   |
+| Spec acceptance ID | Owning step / gate          | Verification and expected result                                                                                                                              | Evidence / status                 |
+| ------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| AC1                | Steps 0.1, 1.1, 1.2; G1/G4  | Characterized structured/source/default/ownership/validation behavior survives cleanup and integration.                                                       | See owning steps/gates; Verified. |
+| AC2                | Steps 3.1–3.3, 4.1; G3/G4   | All included slots/aliases accept both shorthand forms; match structured schemas where expressible, otherwise explicit schema/warning/playback expectations.  | See owning steps/gates; Verified. |
+| AC3                | Steps 2.2, 3.1–3.3, 4.1; G4 | Mixed/nested whole-pattern misuse fails in checked public types and bypassed runtime calls; independent slots remain valid.                                   | See owning steps/gates; Verified. |
+| AC4                | Step 2.2; G2                | Finite decimal/scientific atoms retain values; invalid/non-finite atoms fail with location context.                                                           | See owning steps/gates; Verified. |
+| AC5                | Step 2.1; G2                | All normative sequence/group/repeat outputs match exactly, without temporal cells.                                                                            | See owning steps/gates; Verified. |
+| AC6                | Step 2.1; G2                | Normative nested/adjacent/repeated alternation schedules are deterministic.                                                                                   | See owning steps/gates; Verified. |
+| AC7                | Steps 2.2, 3.1–3.3, 4.1; G4 | New syntax/atom/unsupported/expansion failures are eager and preserve affected prior configuration.                                                           | See owning steps/gates; Verified. |
+| AC8                | Steps 2.1, 2.2; G2          | Source/tree, choice-schedule/round, and per-result value limits pass the normative boundary fixtures without cumulative accounting; reject unsafe allocation. | See owning steps/gates; Verified. |
+| AC9                | Steps 0.1, 4.1; G4          | Emitted numeric bars retain bar/hit wrapping and consume final surviving hits without affecting events.                                                       | See owning steps/gates; Verified. |
+| AC10               | Step 3.2; G3/G4             | Regions/chop/defaults/restrictions and authored versus generated fit timing match structured behavior.                                                        | See owning steps/gates; Verified. |
+| AC11               | Step 3.1; G3/G4             | Noise color/source/default and direct numeric string dispatch are unambiguous and compatible.                                                                 | See owning steps/gates; Verified. |
+| AC12               | Step 3.1; G3/G4             | Independent scalar/shorthand ADSR fields work; positional arrays are rejected; a bad final shorthand field leaves all four prior values intact.               | See owning steps/gates; Verified. |
+| AC13               | Steps 0.1, 3.3; G3/G4       | LFO arrays retain bar semantics; multivalue shorthand schemas stay intact and resolve at index zero.                                                          | See owning steps/gates; Verified. |
+| AC14               | Step 3.3; G3/G4             | Only affected static endpoints warn, once per endpoint per instance; no random/playback warning expansion.                                                    | See owning steps/gates; Verified. |
+| AC15               | Steps 1.2, 3.1–3.3, 4.1; G4 | Supported source contexts persist and narrower/excluded slots do not acquire new source permissions.                                                          | See owning steps/gates; Verified. |
+| AC16               | Steps 2.1, 2.2, 4.1; G4     | Shared immutable shorthand remains target-neutral and has no shared mutable progression state.                                                                | See owning steps/gates; Verified. |
+| AC17               | G1/G2, Step 4.1; G4         | Centralized dispatch/evaluation has no event-state/compiler path; existing event schemas and semantics are unchanged.                                         | See owning steps/gates; Verified. |
+| AC18               | Steps 3.1–3.3, 4.1; G4      | Public slots/aliases/docs match the spec, including both envelope construction overloads, numeric minimum compatibility, and synchronous misuse rejection.    | See owning steps/gates; Verified. |
 
 ## Rollback and recovery
 
@@ -418,7 +418,7 @@ This table assigns coverage; execution status/evidence lives only in the owning 
 ## Deferred checks and accepted deviations
 
 - Approved scope decision (not an accepted deviation): positional ADSR number-array compatibility is intentionally superseded by the user-approved `number | shorthand` API simplification; individual setter array behavior remains required.
-- Accepted deviations: None. Steps 0.1–3.3 and G0–G3 verification are complete; Step 4.1 integration/documentation and final acceptance remain pending.
-- Baseline and browser prerequisites: Affected-package build/tests/check/lint pass against unchanged production. Browser prerequisite files are present, not runtime-verified; G4 owns browser execution and full workspace acceptance.
+- Accepted deviations: None. All implementation steps and G0–G4 verification are complete.
+- Baseline and browser prerequisites: Phase 0 baseline passed against unchanged production; final G4 workspace acceptance also passed, including native Chromium audio regression (14/14 cases, references unchanged).
 - Live listening/dev-server sessions, packed installation, publication, and deployment: Not required by this spec and not claimed by build/mock/schema checks.
 - Product work deferred by the spec remains deferred: diagnostics overhaul; time-addressed/continuous patterns and unsupported operators; raw LFO speed/wave/timing-generator shorthand; cycle hierarchy, ownership, and legacy validation/default unification.
