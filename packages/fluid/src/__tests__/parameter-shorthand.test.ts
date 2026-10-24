@@ -4,7 +4,12 @@ import Drome from "@/drome";
 import Envelope from "@/automations/envelope";
 import Filter from "@/effects/filter";
 import GainEffect from "@/effects/gain";
-import type { ADSRInput, NumericPatternInput } from "@/inputs/types";
+import Parameter from "@/parameters/parameter";
+import type {
+  ADSRInput,
+  NumericPatternInput,
+  SingleSlotAudioParamInput,
+} from "@/inputs/types";
 import Sampler from "@/instruments/sampler";
 import UnisonSynthesizer from "@/instruments/unison-synthesizer";
 
@@ -22,22 +27,38 @@ function numericInputs(
   values: number[] = [0.2, 0.8],
 ) {
   return [
-    { name: "direct", input: [source] },
-    { name: "reusable", input: [d.sh(source)] },
-    { name: "structured", input: [values] },
-  ] satisfies { name: string; input: NumericPatternInput }[];
+    { name: "direct", input: [source], single: source },
+    { name: "reusable", input: [d.sh(source)], single: d.sh(source) },
+    { name: "structured", input: [values], single: d.str(values) },
+  ] satisfies {
+    name: string;
+    input: NumericPatternInput;
+    single: SingleSlotAudioParamInput;
+  }[];
 }
 
 describe("public parameter shorthand", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it.each([
-    { name: "direct", input: ["0.2 0.8"] },
-    { name: "reusable", input: [new Drome().sh("0.2 0.8")] },
-    { name: "structured", input: [[0.2, 0.8]] },
-  ] satisfies { name: string; input: NumericPatternInput }[])(
+    { name: "direct", input: ["0.2 0.8"], single: "0.2 0.8" },
+    {
+      name: "reusable",
+      input: [new Drome().sh("0.2 0.8")],
+      single: new Drome().sh("0.2 0.8"),
+    },
+    {
+      name: "structured",
+      input: [[0.2, 0.8]],
+      single: new Drome().str([0.2, 0.8]),
+    },
+  ] satisfies {
+    name: string;
+    input: NumericPatternInput;
+    single: SingleSlotAudioParamInput;
+  }[])(
     "matches $name numeric parameter inputs across public consumers",
-    ({ input }) => {
+    ({ input, single }) => {
       const d = new Drome();
       const expected = [[0.2, 0.8]];
 
@@ -74,20 +95,10 @@ describe("public parameter shorthand", () => {
         ),
       ).toEqual(expected);
       expect(
-        staticCycle(
-          d
-            .synth()
-            .noise(...input)
-            .getSchema().noise!.gain,
-        ),
+        staticCycle(d.synth().noise(single).getSchema().noise!.gain),
       ).toEqual(expected);
       expect(
-        staticCycle(
-          d
-            .sample("bd")
-            .noise(...input)
-            .getSchema().noise!.gain,
-        ),
+        staticCycle(d.sample("bd").noise(single).getSchema().noise!.gain),
       ).toEqual(expected);
 
       for (const alias of ["lpf", "hpf", "bpf"] as const) {
@@ -95,9 +106,9 @@ describe("public parameter shorthand", () => {
           expected,
         );
       }
-      expect(
-        staticCycle(d.filter("bp", ...input).getSchema().frequency),
-      ).toEqual(expected);
+      expect(staticCycle(d.filter("bp", single).getSchema().frequency)).toEqual(
+        expected,
+      );
     },
   );
 
@@ -126,10 +137,16 @@ describe("public parameter shorthand", () => {
         d.gain(...input).getSchema().gain,
       (_d: Drome, input: NumericPatternInput) =>
         new GainEffect(...input).getSchema().gain,
-      (_d: Drome, input: NumericPatternInput) =>
-        new Filter("lp", ...input).getSchema().frequency,
-      (d: Drome, input: NumericPatternInput) =>
-        d.filter("lp", ...input).getSchema().frequency,
+      (
+        _d: Drome,
+        _input: NumericPatternInput,
+        single: SingleSlotAudioParamInput,
+      ) => new Filter("lp", single).getSchema().frequency,
+      (
+        d: Drome,
+        _input: NumericPatternInput,
+        single: SingleSlotAudioParamInput,
+      ) => d.filter("lp", single).getSchema().frequency,
       (d: Drome, input: NumericPatternInput) =>
         d.lpf(...input).getSchema().frequency,
       (d: Drome, input: NumericPatternInput) =>
@@ -139,9 +156,9 @@ describe("public parameter shorthand", () => {
     ];
     const d = new Drome();
 
-    for (const { input } of numericInputs(d)) {
+    for (const { input, single } of numericInputs(d)) {
       for (const read of rows) {
-        expect(staticCycle(read(d, input))).toEqual([[0.2, 0.8]]);
+        expect(staticCycle(read(d, input, single))).toEqual([[0.2, 0.8]]);
       }
     }
   });
@@ -165,8 +182,8 @@ describe("public parameter shorthand", () => {
         key: "gain",
       },
     ] as const;
-    for (const { input } of numericInputs(d)) {
-      const frequency = new Filter("lp", ...input).getSchema().frequency;
+    for (const { input, single } of numericInputs(d)) {
+      const frequency = new Filter("lp", single).getSchema().frequency;
       expect(staticCycle(frequency)).toEqual([[0.2, 0.8]]);
       for (const row of filterRows) {
         const filter = new Filter("lp", 400);
@@ -235,11 +252,8 @@ describe("public parameter shorthand", () => {
   it("dispatches white and pink noise prefixes for every numeric input form", () => {
     const d = new Drome();
     for (const color of ["white", "pink"] as const) {
-      for (const { input } of numericInputs(d)) {
-        const noise = d
-          .synth()
-          .noise(color, ...input)
-          .getSchema().noise;
+      for (const { single } of numericInputs(d)) {
+        const noise = d.synth().noise(color, single).getSchema().noise;
         if (!noise) throw new Error("Expected a noise schema");
         expect(noise.color).toBe(color);
         expect(staticCycle(noise.gain)).toEqual([[0.2, 0.8]]);
@@ -247,18 +261,18 @@ describe("public parameter shorthand", () => {
     }
 
     const direct = d.synth().noise("0.2 0.8").getSchema().noise;
-    const omittedWhite = d.synth().noise("white").getSchema().noise;
-    const omittedPink = d.synth().noise("pink").getSchema().noise;
-    if (!direct || !omittedWhite || !omittedPink) {
+    const explicitWhite = d.synth().noise("white", 1).getSchema().noise;
+    const explicitPink = d.synth().noise("pink", 1).getSchema().noise;
+    if (!direct || !explicitWhite || !explicitPink) {
       throw new Error("Expected noise schemas");
     }
     expect(direct.color).toBe("white");
     expect(staticCycle(direct.gain)).toEqual([[0.2, 0.8]]);
-    expect(omittedWhite).toMatchObject({
+    expect(explicitWhite).toMatchObject({
       color: "white",
       gain: { type: "static", cycle: [[1]] },
     });
-    expect(omittedPink).toMatchObject({
+    expect(explicitPink).toMatchObject({
       color: "pink",
       gain: { type: "static", cycle: [[1]] },
     });
@@ -731,6 +745,10 @@ describe("public parameter shorthand", () => {
       ReturnType<Drome["synth"]>
     >();
     expectTypeOf(d.gain(envelope)).toMatchTypeOf<GainEffect>();
+    expectTypeOf(d.filter("lp", envelope)).toMatchTypeOf<Filter>();
+    expectTypeOf(new Filter("lp", lfo)).toMatchTypeOf<Filter>();
+    expectTypeOf(d.filter("lp", midi)).toMatchTypeOf<Filter>();
+    expectTypeOf(new Filter("lp", random)).toMatchTypeOf<Filter>();
     expectTypeOf(d.synth().noise(lfo)).toMatchTypeOf<
       ReturnType<Drome["synth"]>
     >();
@@ -759,6 +777,52 @@ describe("public parameter shorthand", () => {
       d.synth().detune(0.2, "0.4");
       // @ts-expect-error A shorthand and source cannot share one parameter slot.
       d.synth().gain("0.2", envelope);
+      // @ts-expect-error Noise gain is required.
+      d.synth().noise();
+      // @ts-expect-error Noise gain is one single-slot value, not a raw bar.
+      d.synth().noise([0.2, 0.3]);
+      // @ts-expect-error Noise color and gain accept one value only.
+      d.synth().noise("pink", [0.2, 0.3]);
+      // @ts-expect-error Noise color and gain accept one value only.
+      d.synth().noise("white", [0.2, 0.3]);
+      // @ts-expect-error Noise color and gain accept one value only.
+      d.synth().noise("pink", 0.2, 0.3);
+      // @ts-expect-error Omitting color does not allow gain continuation.
+      d.synth().noise(0.2, 0.3);
+      // @ts-expect-error An explicit undefined is not omitted noise gain.
+      d.synth().noise(undefined);
+      // @ts-expect-error An explicit colored gain must be a value.
+      d.synth().noise("pink", undefined);
+      // @ts-expect-error Normalized Parameter instances are not direct sources.
+      d.synth().noise(new Parameter(0.2));
+      // @ts-expect-error Event string atoms are not numeric gain data.
+      d.synth().noise(d.str("0.2"));
+      // @ts-expect-error Filter constructor frequency is one single-slot value.
+      new Filter("lp", [400, 800]);
+      // @ts-expect-error Filter factory frequency is one single-slot value.
+      d.filter("lp", [400, 800]);
+      // @ts-expect-error Filter factory frequency does not accept continuation slots.
+      d.filter("lp", 400, 800);
+      // @ts-expect-error The constructor also rejects continuation slots.
+      new Filter("lp", 400, 800);
+      // @ts-expect-error Filter construction requires an explicit frequency.
+      new Filter("lp");
+      // @ts-expect-error Filter factory requires an explicit frequency.
+      d.filter("lp");
+      // @ts-expect-error Filter construction still requires a type selector.
+      new Filter();
+      // @ts-expect-error Filter factory calls still require a type selector.
+      d.filter();
+      // @ts-expect-error Numeric-looking event strings are not frequency data.
+      d.filter("lp", d.str("400"));
+      // @ts-expect-error Explicit undefined is not constructor omission.
+      new Filter("lp", undefined);
+      // @ts-expect-error Undefined is not an explicit filter frequency value.
+      d.filter("lp", undefined);
+      // @ts-expect-error Parameter instances are not public single-slot values.
+      d.filter("lp", new Parameter(400));
+      // @ts-expect-error Parameter instances are not public single-slot values.
+      new Filter("lp", new Parameter(400));
       // @ts-expect-error Random cycles are not positional ADSR fields.
       d.synth().adsr(random, 0.2, 0.8, 0.1);
       // @ts-expect-error Random cycles are not envelope ADSR fields.

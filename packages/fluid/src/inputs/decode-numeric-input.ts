@@ -89,4 +89,4 @@ function containsShorthandInput(value: unknown): boolean {
   return Array.isArray(value) && value.some(containsShorthandInput);
 }
 
-export { decodeNumericInput };
+export { decodeNumericInput, decodeStructuredNumericInput };

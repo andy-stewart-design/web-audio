@@ -3,7 +3,11 @@ import Parameter, {
   type AudioParamInput,
   type AudioParamSource,
 } from "@/parameters/parameter";
-import { resolveAudioParam } from "@/parameters/resolve-audio-param";
+import {
+  resolveAudioParam,
+  resolveAudioParamValue,
+} from "@/parameters/resolve-audio-param";
+import type { SingleSlotAudioParamInput } from "@/inputs/types";
 
 class Filter {
   private _filterType: FilterType;
@@ -12,9 +16,24 @@ class Filter {
   private _detune: AudioParamSource | undefined;
   private _gain: AudioParamSource | undefined;
 
-  constructor(type: FilterType, ...frequency: AudioParamInput) {
+  constructor(type: FilterType, frequency: SingleSlotAudioParamInput) {
+    if (type === undefined) {
+      throw new TypeError("[Filter] filter type is required.");
+    }
+    if (arguments.length < 2) {
+      throw new TypeError("[Filter] frequency is required.");
+    }
+    if (arguments.length > 2) {
+      throw new TypeError("[Filter] accepts one frequency value.");
+    }
     this._filterType = type;
-    this._frequency = resolveAudioParam(frequency, "[Filter] frequency()");
+    this._frequency = resolveAudioParamValue(frequency, "[Filter] frequency()");
+  }
+
+  static fromVariadicFrequency(type: FilterType, frequency: AudioParamInput) {
+    const filter = new Filter(type, 0);
+    filter._frequency = resolveAudioParam(frequency, "[Filter] frequency()");
+    return filter;
   }
 
   q(...input: AudioParamInput) {

@@ -2,10 +2,10 @@
 
 ## Status and governing source
 
-- Governing spec: [spec.md](spec.md), ready for planning; requirements R1–R11 and acceptance criteria AC1–AC18 govern this plan, subject to approved amendments for [envelope defaults/documentation ownership](evidence/step-1.1-envelope-defaults.md) and [shared static structured values](evidence/step-1.2-patterns-ownership.md).
-- Delivery state: Step 2.1 / AG1 and Phase 2 verified. See [patterned minimum and Phase 2 evidence](evidence/step-2.1.md).
-- Acceptance or release still pending: Steps 3.1–4.2, their phase gates, remaining feature acceptance, and any subsequent release decision.
-- Blockers: None identified for Step 3.1. Native rendering remains unverified; the previously recorded bare-Node artifact-runner limitation remains a Step 4.1 execution constraint.
+- Governing spec: [spec.md](spec.md), ready for planning; requirements R1–R11 and acceptance criteria AC1–AC18 govern this plan, subject to approved amendments for [envelope defaults/documentation ownership](evidence/step-1.1-envelope-defaults.md), [shared static structured values](evidence/step-1.2-patterns-ownership.md), and [required noise/filter inputs](evidence/step-3.1.md#required-input-amendment).
+- Delivery state: Step 3.1 verified; Phase 3 is in progress. See [strict noise/filter and alias evidence](evidence/step-3.1.md).
+- Acceptance or release still pending: Steps 3.2–4.2, the Phase 3/4 gates, remaining feature acceptance, and any subsequent release decision.
+- Blockers: None identified for Step 3.2. Native rendering remains unverified; the previously recorded bare-Node artifact-runner limitation remains a Step 4.1 execution constraint.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove that completion gates passed. `Verified` means the scoped gate and required implementation review passed; it does not imply manual approval, publication, or deployment. In supervised execution, manual approvals belong in extension state rather than task checkboxes.
 
@@ -20,6 +20,7 @@ Step statuses below are the authoritative execution record. A phase is complete 
 - Keep tracked code buildable at review boundaries. Migrate affected first-party callers and tests with each breaking API change rather than leaving them for the documentation phase.
 - Do not add dependencies. Never hand-edit lockfiles. If an unforeseen dependency becomes necessary, surface it before installation and use the package manager for any approved change.
 - Follow `AGENTS.md`: infer TypeScript return types where practical, avoid `as any`, keep tests type-checked, use domain-local `__tests__/` and suite-local `support/`, and never import test support into production code.
+- When migrating fixed positional APIs, use named parameters and keep arity/default handling at the public boundary; do not hide fixed slots behind rest parameters or argument-array normalization layers. Keep deliberate variadic convenience APIs; see the [Step 3.1 simplification correction](evidence/step-3.1.md#simplification-correction-after-user-review).
 - Do not start a development server, deploy, publish, modify a database, or change approved audio references. Browser installation or other machine-changing prerequisites require separate approval if missing.
 
 ### Inspection findings and verification tooling
@@ -271,7 +272,7 @@ Review boundary: strict public signatures and runtime boundaries, consumer-speci
 
 ### Step 3.1 — Tighten noise and filter slots while preserving dedicated filter sugar
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R5, R6, R8–R11; AC7 noise/filter portions, AC8, AC9 filter-alias/source recheck, AC14 audio-source permissions, AC15 noise portion, AC16 positional composition portion. Remaining families belong to Steps 3.2/3.3.
 Depends on: Step 2.1 and Phase 2 exit gate.
 Review boundary: color/type dispatch and one gain/frequency value, including direct sources, defaults, and old callers.
@@ -285,21 +286,21 @@ Expected files:
 
 Tasks:
 
-- [ ] Introduce/reuse explicit single-slot numeric/audio input types, distinct from variadic convenience tuples, without broadening a consumer's direct source permissions.
-- [ ] Make noise accept exactly its documented optional color/gain forms. Reject extra gain bars and raw gain arrays with or without color, preserving omitted gain `1`, default white, and layer replacement behavior.
-- [ ] Make the filter factory/constructor accept one frequency slot. Preserve `lpf/hpf/bpf` as dedicated variadic convenience APIs by normalizing their whole argument list through a valid internal path, not by forwarding removed public constructor arity.
-- [ ] Enforce runtime argument counts at each public boundary before forwarding; a factory must not silently drop extra JavaScript arguments before a constructor could reject them.
-- [ ] Add type/runtime permission, default, source-only, raw-array, extra-argument, and failure-atomicity tests; migrate all affected first-party callers/examples with the change.
+- [x] Introduce/reuse explicit single-slot numeric/audio input types, distinct from variadic convenience tuples, without broadening a consumer's direct source permissions.
+- [x] Require noise gain: accept only `noise(gain)` and `noise(color, gain)`, rejecting no-argument/color-only calls, extra gain bars, and raw gain arrays. Preserve white for gain-only calls and atomic layer replacement; see the approved required-input amendment.
+- [x] Require one named frequency slot in the filter factory/constructor, with one signature each and no omission overload. Preserve `lpf/hpf/bpf` through their dedicated internal variadic path, including alias omission/ownership behavior, not by forwarding removed public constructor arity.
+- [x] Enforce runtime argument counts at each public boundary before forwarding; a factory must not silently drop extra JavaScript arguments before a constructor could reject them.
+- [x] Add type/runtime permission, default, source-only, raw-array, extra-argument, and failure-atomicity tests; migrate all affected first-party callers/examples with the change.
 
 Verification:
 
 - Automated: `pnpm --filter @web-audio/fluid exec vitest run src/instruments/__tests__/noise.test.ts src/effects/__tests__/filter.test.ts src/__tests__/parameter-shorthand.test.ts src/__tests__/structured-inputs.test.ts`.
 - Expected proof: valid scalar/shorthand/structured and allowed source forms agree; no-color noise has no hidden variadic exception; filter aliases retain variadic bars; rejected replacement calls preserve the old layer/parameter.
 - Automated: Fluid `check`, `lint`, and touched-path formatting check; compile-time negatives cover both factories and applicable constructors.
-- Manual: inspect the alias forwarding path and changed callsites for preserved bar geometry and omission behavior.
+- Manual: inspect alias forwarding and migrated callers for preserved bar geometry and dedicated-alias omission behavior; strict filter frequency and noise gain are required.
 
 Completion gate: strict noise/filter public boundaries and retained dedicated filter sugar compose in the same buildable change; no first-party caller depends on their removed signatures.
-Evidence: Not run.
+Evidence: Verified; see [strict boundaries, omission baseline, alias ownership/lifecycle, caller review, and checks](evidence/step-3.1.md).
 
 ### Step 3.2 — Tighten LFO endpoints and extend positional ADSR to static wrappers
 
@@ -470,16 +471,16 @@ This is an ownership map, not a second execution checklist. Evidence is recorded
 | AC4                | Step 1.3; Phase 1 exit                            | Notes, names, variations/alias, and XOX match their structured counterparts.                            | [Verified](evidence/step-1.3.md#verification)   |
 | AC5                | Steps 1.2 and 1.3                                 | Wrapped atoms never become general shorthand; invalid consumer atoms/geometry still fail.               | [Verified](evidence/step-1.3.md#verification)   |
 | AC6                | Steps 1.2/1.3; Step 4.1 integration               | Static snapshots resist caller mutation and cross-consumer decoding/playback state sharing.             | Builder/event/public gate evidence; Not run     |
-| AC7                | Steps 3.1–3.3; Phase 3 exit                       | All six families accept explicit slots and reject raw/extra inputs in types and JavaScript.             | Phase 3 owning gates; Not run                   |
-| AC8                | Step 3.1                                          | Noise arity is uniform with/without color; dedicated gain/filter sugar remains valid.                   | Step 3.1 evidence; Not run                      |
-| AC9                | Steps 1.2/1.3 and affected Step 3.x; Phase 3 exit | Every listed single-input setter/alias and its source/default state behavior remains supported.         | Owning consumer and phase evidence; Not run     |
+| AC7                | Steps 3.1–3.3; Phase 3 exit                       | All six families accept explicit slots and reject raw/extra inputs in types and JavaScript.             | [3.1](evidence/step-3.1.md); 3.2/3.3 pending    |
+| AC8                | Step 3.1                                          | Noise arity is uniform with/without color; dedicated gain/filter sugar remains valid.                   | [Verified](evidence/step-3.1.md)                |
+| AC9                | Steps 1.2/1.3 and affected Step 3.x; Phase 3 exit | Every listed single-input setter/alias and its source/default state behavior remains supported.         | [3.1](evidence/step-3.1.md); Phase 3 pending    |
 | AC10               | Step 2.1; Phase 2 exit                            | Canonical minimum/maximum patterns validate and all first-party schema consumers agree.                 | [Verified](evidence/step-2.1.md)                |
 | AC11               | Step 2.1 deterministic; Step 4.2 native           | Independent per-bar/hit lookup and event-specific release minimum reach scheduling and actual output.   | [AG1](evidence/step-2.1.md); native pending     |
 | AC12               | Step 2.1 deterministic; Step 4.2 native           | Inverted/crossing bounds retain existing math and finite native output without clamping.                | [AG1](evidence/step-2.1.md); native pending     |
 | AC13               | Step 2.1 deterministic; Step 4.2 native           | Patterned minimum works for gain and supported external envelope sources without nesting new sources.   | [AG1](evidence/step-2.1.md); native pending     |
-| AC14               | Steps 1.2/1.3, 2.1, 3.1/3.2                       | Random/direct audio permissions survive wrapping and ADSR remains restricted.                           | [AG1](evidence/step-2.1.md); Phase 3 pending    |
-| AC15               | Steps 2.1 and 3.1–3.3                             | Failed envelope/ADSR/noise/chop replacements leave existing affected state intact.                      | [AG1](evidence/step-2.1.md); Phase 3 pending    |
-| AC16               | Steps 1.2/1.3 and 3.x; Step 4.1                   | Invalid wrapper construction/composition is rejected consistently across positional and dedicated APIs. | Shared-boundary/public matrix evidence; Not run |
+| AC14               | Steps 1.2/1.3, 2.1, 3.1/3.2                       | Random/direct audio permissions survive wrapping and ADSR remains restricted.                           | [3.1](evidence/step-3.1.md); 3.2 pending        |
+| AC15               | Steps 2.1 and 3.1–3.3                             | Failed envelope/ADSR/noise/chop replacements leave existing affected state intact.                      | [3.1](evidence/step-3.1.md); later pending      |
+| AC16               | Steps 1.2/1.3 and 3.x; Step 4.1                   | Invalid wrapper construction/composition is rejected consistently across positional and dedicated APIs. | [3.1](evidence/step-3.1.md); later pending      |
 | AC17               | Step 3.2; Step 4.1 migration review               | LFO migration preserves old separate bars and intentional multivalue warnings.                          | LFO and migration evidence; Not run             |
 | AC18               | Step 4.1; Phase 4 exit                            | Wrapper-free graph output, built public evaluation, signatures, examples, and migrations agree.         | Public/artifact/documentation evidence; Not run |
 
@@ -497,7 +498,7 @@ No publication, packed installation, hosted-service, or cross-platform certifica
 
 ## Deferred checks and accepted deviations
 
-- No deviations or waivers have been accepted. Steps 0.1–2.1 and the Phase 0–2 exit gates are verified with linked evidence; later steps and gates are unrun.
+- No deviations or waivers have been accepted. Steps 0.1–3.1 and the Phase 0–2 exit gates are verified with linked evidence; Steps 3.2 onward and the Phase 3/4 exit gates are unrun.
 - Chromium/native acceptance is an execution prerequisite, not an automatically deferred check. Missing browser/platform access must remain visible in Step 4.2 and the status heading until resolved or explicitly waived.
 - Human listening, live REPL/browser sessions, real-time performance certification, packed/published-package testing, and deployment are not required gates for this scoped API/normalization change. Do not describe them as performed.
 - Timing-generator patternability, LFO speed/waveform expansion, new source kinds, new setters, automatic saved-sketch rewrites, and a legacy scalar-minimum graph adapter remain outside the governing spec.

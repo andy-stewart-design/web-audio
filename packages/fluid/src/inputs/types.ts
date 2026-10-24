@@ -3,6 +3,9 @@ import type {
   Shorthand,
   StructuredInput,
 } from "@web-audio/patterns";
+import type Envelope from "@/automations/envelope";
+import type Lfo from "@/automations/lfo";
+import type { MidiCc } from "@/midi/builders";
 
 type ShorthandInput = string | Shorthand;
 type CycleInput<T> = (T | T[])[] | [RandomCycle];
@@ -16,6 +19,7 @@ type NumericPatternInput =
   | [ShorthandInput]
   | [StructuredInput<number>];
 type ADSRInput = number | ShorthandInput;
+type SingleSlotAudioParamInput = NumericPatternValue | Envelope | Lfo | MidiCc;
 type StructuredNotesInput = StructuredInput<number | null>;
 type StructuredNamesInput = StructuredInput<string | null>;
 type StructuredVariationInput = StructuredInput<number | null>;
@@ -27,6 +31,7 @@ export type {
   CycleInput,
   NumericPatternInput,
   NumericPatternValue,
+  SingleSlotAudioParamInput,
   ADSRInput,
   ShorthandInput,
   StaticNullableCycleInput,

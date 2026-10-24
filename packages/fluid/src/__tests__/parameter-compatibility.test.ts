@@ -389,12 +389,12 @@ describe("structured parameter compatibility", () => {
     expect(staticCycle(schema.r)).toEqual([[0.2, 0.3]]);
   });
 
-  it("keeps noise defaults, selector aliases, and sampler duration aliases", () => {
-    const defaultNoise = new Synthesizer().noise().getSchema().noise;
+  it("keeps explicit noise defaults, selector aliases, and sampler duration aliases", () => {
+    const defaultNoise = new Synthesizer().noise(1).getSchema().noise;
     expect(defaultNoise).toMatchObject({ color: "white" });
     expect(defaultNoise && staticValue(defaultNoise.gain)).toBe(1);
 
-    const pinkNoise = new Synthesizer().noise("pink").getSchema().noise;
+    const pinkNoise = new Synthesizer().noise("pink", 1).getSchema().noise;
     expect(pinkNoise).toMatchObject({ color: "pink" });
     expect(pinkNoise && staticValue(pinkNoise.gain)).toBe(1);
 

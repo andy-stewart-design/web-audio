@@ -24,11 +24,15 @@ import Parameter, {
   type AudioParamSource,
 } from "@/parameters/parameter";
 import { isEnvelopeTuple, isRandomCycleTuple } from "@/inputs/guards";
-import { resolveAudioParam } from "@/parameters/resolve-audio-param";
+import {
+  resolveAudioParam,
+  resolveAudioParamValue,
+} from "@/parameters/resolve-audio-param";
 import type {
   ADSRInput,
   NumericPatternInput,
   ShorthandInput,
+  SingleSlotAudioParamInput,
   StructuredNotesInput,
   StructuredXoxInput,
 } from "@/inputs/types";
@@ -277,18 +281,26 @@ abstract class Instrument {
     return this;
   }
 
-  noise(...input: AudioParamInput): this;
-  noise(color: NoiseColor, ...input: AudioParamInput): this;
-  noise(...input: AudioParamInput | [NoiseColor, ...AudioParamInput]) {
-    const hasColor = isNoiseColor(input[0]);
-    const color: NoiseColor = hasColor ? (input[0] as NoiseColor) : "white";
-    const gainInput = hasColor ? input.slice(1) : input;
-    const normalizedGainInput = gainInput.length > 0 ? gainInput : [1];
-    const gain = resolveAudioParam(
-      normalizedGainInput as AudioParamInput,
-      "[Instrument] noise() gain",
-    );
-    this._noise = { color, gain };
+  noise(gain: SingleSlotAudioParamInput): this;
+  noise(color: NoiseColor, gain: SingleSlotAudioParamInput): this;
+  noise(
+    colorOrGain: SingleSlotAudioParamInput,
+    gain?: SingleSlotAudioParamInput,
+  ) {
+    const hasColor = isNoiseColor(colorOrGain);
+    if (arguments.length !== (hasColor ? 2 : 1)) {
+      throw new TypeError(
+        "[Instrument] noise() requires gain or color and gain.",
+      );
+    }
+
+    this._noise = {
+      color: isNoiseColor(colorOrGain) ? colorOrGain : "white",
+      gain: resolveAudioParamValue(
+        hasColor ? gain : colorOrGain,
+        "[Instrument] noise() gain",
+      ),
+    };
     return this;
   }
 

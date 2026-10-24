@@ -27,6 +27,7 @@ import {
 import { validateDromeGraph } from "@web-audio/schema";
 import type { BankSchema, DromeSchema, FilterType } from "@web-audio/schema";
 import type { AudioParamInput } from "./parameters/parameter";
+import type { SingleSlotAudioParamInput } from "./inputs/types";
 import type { LoadSamplesInput } from "./samples/types";
 import {
   waveformAliasMap,
@@ -223,20 +224,29 @@ class Drome {
     return new GainEffect(...input);
   }
 
-  filter(type: FilterType, ...frequency: AudioParamInput) {
-    return new Filter(type, ...frequency);
+  filter(type: FilterType, frequency: SingleSlotAudioParamInput) {
+    if (type === undefined) {
+      throw new TypeError("[Drome] filter() filter type is required.");
+    }
+    if (arguments.length < 2) {
+      throw new TypeError("[Drome] filter() frequency is required.");
+    }
+    if (arguments.length > 2) {
+      throw new TypeError("[Drome] filter() accepts one frequency value.");
+    }
+    return new Filter(type, frequency);
   }
 
   lpf(...frequency: AudioParamInput) {
-    return new Filter("lp", ...frequency);
+    return Filter.fromVariadicFrequency("lp", frequency);
   }
 
   hpf(...frequency: AudioParamInput) {
-    return new Filter("hp", ...frequency);
+    return Filter.fromVariadicFrequency("hp", frequency);
   }
 
   bpf(...frequency: AudioParamInput) {
-    return new Filter("bp", ...frequency);
+    return Filter.fromVariadicFrequency("bp", frequency);
   }
 
   push(inst: Instrument) {
