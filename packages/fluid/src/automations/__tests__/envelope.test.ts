@@ -38,17 +38,16 @@ describe("Envelope", () => {
     });
   });
 
-  it("forwards an explicit undefined minimum while retaining the zero default", () => {
-    const schema = new Envelope(undefined, 0.25).getSchema();
-
-    expect(schema.min).toBe(0);
-    expect(schema.max).toEqual({ type: "static", cycle: [[0.25]] });
+  it("rejects an explicit undefined minimum with a maximum", () => {
+    expect(() => Reflect.construct(Envelope, [undefined, 0.25])).toThrow(
+      "minimum must be a number",
+    );
   });
 
-  it("keeps a numeric first argument as the minimum with a default maximum", () => {
+  it("uses a sole numeric argument as the maximum", () => {
     expect(new Envelope(0.25).getSchema()).toMatchObject({
-      min: 0.25,
-      max: { type: "static", cycle: [[1]] },
+      min: 0,
+      max: { type: "static", cycle: [[0.25]] },
     });
   });
 

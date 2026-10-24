@@ -23,24 +23,191 @@ function staticValue(pattern: { type: string; cycle?: number[][] }) {
 }
 
 describe("structured parameter compatibility", () => {
-  it("keeps envelope factory minimum forwarding and defaults distinct", () => {
+  it("keeps envelope factory and constructor dispatch in parity", () => {
     const d = new Drome();
-    const omitted = d.env().getSchema();
-    const explicitUndefined = d.env(undefined).getSchema();
-    const numericMinimum = d.env(0.25).getSchema();
-    const undefinedMinimum = d.env(undefined, [0.25, 0.5]).getSchema();
+    const randomSole = new RandomCycle().steps(2, 0).range(-1, 1);
+    const randomWithMinimum = new RandomCycle().steps(1, 2).range(0, 1);
+    const cases = [
+      {
+        label: "omitted",
+        args: [],
+        min: 0,
+        max: { type: "static", cycle: [[1]] },
+      },
+      {
+        label: "explicit undefined",
+        args: [undefined],
+        min: 0,
+        max: { type: "static", cycle: [[1]] },
+      },
+      {
+        label: "numeric maximum",
+        args: [0.25],
+        min: 0,
+        max: { type: "static", cycle: [[0.25]] },
+      },
+      {
+        label: "numeric zero maximum",
+        args: [0],
+        min: 0,
+        max: { type: "static", cycle: [[0]] },
+      },
+      {
+        label: "shorthand maximum",
+        args: ["0.25"],
+        min: 0,
+        max: { type: "static", cycle: [[0.25]] },
+      },
+      {
+        label: "reusable shorthand maximum",
+        args: [d.sh("0.25")],
+        min: 0,
+        max: { type: "static", cycle: [[0.25]] },
+      },
+      {
+        label: "two scalar fields",
+        args: [0.25, 0.75],
+        min: 0.25,
+        max: { type: "static", cycle: [[0.75]] },
+      },
+      {
+        label: "sole random maximum",
+        args: [randomSole],
+        min: 0,
+        max: { type: "random-number", valuesPerBar: [2, 0] },
+      },
+      {
+        label: "two-field random maximum",
+        args: [0, randomWithMinimum],
+        min: 0,
+        max: { type: "random-number", valuesPerBar: [1, 2] },
+      },
+      {
+        label: "two-field structured maximum",
+        args: [0, [0.25, 0.5], [0.75]],
+        min: 0,
+        max: { type: "static", cycle: [[0.25, 0.5], [0.75]] },
+      },
+    ] as const;
 
-    expect(omitted.min).toBe(0);
-    expect(omitted.max).toEqual({ type: "static", cycle: [[1]] });
-    expect(explicitUndefined).toEqual(omitted);
-    expect(numericMinimum).toMatchObject({
-      min: 0.25,
+    for (const { label, args, min, max } of cases) {
+      const factory = Reflect.apply(d.env, d, args).getSchema();
+      const constructor = Reflect.construct(Envelope, args).getSchema();
+
+      expect(factory, label).toEqual(constructor);
+      expect(factory.min, label).toBe(min);
+      expect(factory.max, label).toMatchObject(max);
+    }
+  });
+
+  it("supports typed single undefined and reusable maximums", () => {
+    const d = new Drome();
+    const maximum = d.sh("0.25");
+    const factory = d.env(undefined);
+    const constructor = new Envelope(undefined);
+
+    expect(factory.getSchema()).toEqual(constructor.getSchema());
+    expect(factory.getSchema()).toMatchObject({
+      min: 0,
       max: { type: "static", cycle: [[1]] },
     });
-    expect(undefinedMinimum).toMatchObject({
-      min: 0,
-      max: { type: "static", cycle: [[0.25, 0.5]] },
-    });
+
+    expect(d.env(0.1, maximum).getSchema()).toEqual(
+      new Envelope(0.1, maximum).getSchema(),
+    );
+    const random = d.rand().steps(2).range(0, 1);
+    expect(d.env(random).getSchema()).toEqual(new Envelope(random).getSchema());
+    expect(d.env(0, random).getSchema()).toEqual(
+      new Envelope(0, random).getSchema(),
+    );
+  });
+
+  it("rejects undefined in every multi-field envelope position", () => {
+    const d = new Drome();
+    const random = d.rand().steps(2).range(0, 1);
+    const invalid = [
+      [undefined, 0.8],
+      [0.1, undefined],
+      [undefined, undefined],
+      [undefined, "0.8"],
+      [undefined, random],
+      [undefined, [0.25, 0.5]],
+      [0, [0.25], undefined],
+      [0, undefined, [0.5]],
+    ];
+
+    for (const args of invalid) {
+      expect(() => Reflect.apply(d.env, d, args)).toThrow();
+      expect(() => Reflect.construct(Envelope, args)).toThrow();
+    }
+
+    const assertTypeRejections = () => {
+      // @ts-expect-error An undefined minimum cannot accompany a maximum.
+      d.env(undefined, 0.8);
+      // @ts-expect-error An undefined minimum cannot accompany a maximum.
+      new Envelope(undefined, 0.8);
+      // @ts-expect-error An undefined maximum cannot accompany a minimum.
+      d.env(0.1, undefined);
+      // @ts-expect-error An undefined maximum cannot accompany a minimum.
+      new Envelope(0.1, undefined);
+      // @ts-expect-error Two undefined envelope fields are not a default form.
+      d.env(undefined, undefined);
+      // @ts-expect-error Two undefined envelope fields are not a default form.
+      new Envelope(undefined, undefined);
+      // @ts-expect-error Undefined cannot accompany a shorthand maximum.
+      d.env(undefined, "0.8");
+      // @ts-expect-error Undefined cannot accompany a shorthand maximum.
+      new Envelope(undefined, "0.8");
+      // @ts-expect-error Undefined cannot accompany a random maximum.
+      d.env(undefined, random);
+      // @ts-expect-error Undefined cannot accompany a random maximum.
+      new Envelope(undefined, random);
+      // @ts-expect-error Undefined cannot accompany a raw maximum array.
+      d.env(undefined, [0.25, 0.5]);
+      // @ts-expect-error Undefined cannot accompany a raw maximum array.
+      new Envelope(undefined, [0.25, 0.5]);
+    };
+    void assertTypeRejections;
+  });
+
+  it("equates scalar, negative, and zero maxima with shorthand", () => {
+    const d = new Drome();
+    for (const value of [-0.25, 0, 0.25]) {
+      expect(d.env(value).getSchema().max).toEqual(
+        d.env(String(value)).getSchema().max,
+      );
+      expect(new Envelope(value).getSchema().max).toEqual(
+        new Envelope(String(value)).getSchema().max,
+      );
+    }
+  });
+
+  it("rejects null as either bound in both entry points", () => {
+    const d = new Drome();
+    for (const args of [[null], [null, 0.5], [0.5, null]]) {
+      expect(() => Reflect.apply(d.env, d, args)).toThrow("cannot be null");
+      expect(() => Reflect.construct(Envelope, args)).toThrow("cannot be null");
+    }
+  });
+
+  it("rejects a random maximum followed by another field", () => {
+    const d = new Drome();
+    const random = d.rand().steps(2).range(0, 1);
+
+    expect(() => Reflect.apply(d.env, d, [random, 0.5])).toThrow(
+      "minimum must be a number",
+    );
+    expect(() => Reflect.construct(Envelope, [random, 0.5])).toThrow(
+      "minimum must be a number",
+    );
+
+    const assertTypeRejections = () => {
+      // @ts-expect-error A random cycle cannot be the envelope minimum.
+      d.env(random, 0.5);
+      // @ts-expect-error A random cycle cannot be the envelope minimum.
+      new Envelope(random, 0.5);
+    };
+    void assertTypeRejections;
   });
 
   it("separates numeric serialization failures from graph validation", () => {
@@ -62,7 +229,7 @@ describe("structured parameter compatibility", () => {
     ).toThrow("Instrument 0.detune.cycle must contain at least one bar");
 
     const nonFiniteEnvelope = new Synthesizer()
-      .gain(new Envelope(Number.NaN))
+      .gain(new Envelope(Number.NaN, 1))
       .getSchema();
     expect(nonFiniteEnvelope.gain.min).toBeNaN();
     expect(() =>

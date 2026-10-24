@@ -323,32 +323,25 @@ describe("public parameter shorthand", () => {
         0.1,
         ...input,
       ]).getSchema();
-      const constructorUndefined = Reflect.construct(Envelope, [
-        undefined,
-        ...input,
-      ]).getSchema();
-      const factoryUndefined = Reflect.apply(d.env, d, [
-        undefined,
-        ...input,
-      ]).getSchema();
       expect(constructorNumeric.min).toBe(0.1);
       expect(factoryNumeric.min).toBe(0.1);
-      expect(constructorUndefined.min).toBe(0);
-      expect(factoryUndefined.min).toBe(0);
       expect(staticCycle(constructorNumeric.max)).toEqual([[0.2, 0.8]]);
       expect(staticCycle(factoryNumeric.max)).toEqual([[0.2, 0.8]]);
-      expect(staticCycle(constructorUndefined.max)).toEqual([[0.2, 0.8]]);
-      expect(staticCycle(factoryUndefined.max)).toEqual([[0.2, 0.8]]);
+      const invalid = [undefined, ...input];
+      expect(() => Reflect.construct(Envelope, invalid)).toThrow();
+      expect(() => Reflect.apply(d.env, d, invalid)).toThrow();
     }
     expect(new Envelope(0.1).getSchema().max).toEqual({
       type: "static",
-      cycle: [[1]],
+      cycle: [[0.1]],
     });
     expect(d.env(0.1).getSchema().max).toEqual({
       type: "static",
-      cycle: [[1]],
+      cycle: [[0.1]],
     });
-    expect(Reflect.apply(d.env, d, [null, 0.5]).getSchema().min).toBe(0);
+    expect(() => Reflect.apply(d.env, d, [null, 0.5])).toThrow(
+      "minimum cannot be null",
+    );
   });
 
   it("supports positional ADSR shorthand rows and mixed fields", () => {
@@ -475,10 +468,7 @@ describe("public parameter shorthand", () => {
     expect(staticCycle(new Envelope("0.2 0.8").getSchema().max)).toEqual([
       [0.2, 0.8],
     ]);
-    expect(staticCycle(d.env(0.1).getSchema().max)).toEqual([[1]]);
-    expect(staticCycle(d.env(undefined, "0.2").getSchema().max)).toEqual([
-      [0.2],
-    ]);
+    expect(staticCycle(d.env(0.1).getSchema().max)).toEqual([[0.1]]);
     for (const maximum of ["0.2", d.sh("0.2")]) {
       expect(() => Reflect.apply(d.env, d, [maximum, 0.5])).toThrow(
         "shorthand maximum must be the sole argument",
@@ -777,6 +767,16 @@ describe("public parameter shorthand", () => {
       d.env(lfo);
       // @ts-expect-error LFO output is excluded from envelope maximum.
       new Envelope(lfo);
+      // @ts-expect-error Null is not a numeric envelope bound.
+      d.env(null);
+      // @ts-expect-error Null is not a numeric envelope minimum.
+      d.env(null, 0.5);
+      // @ts-expect-error Null is not a numeric envelope maximum.
+      d.env(0.5, null);
+      // @ts-expect-error Null is not a numeric envelope bound.
+      new Envelope(null);
+      // @ts-expect-error Null is not a numeric envelope maximum.
+      new Envelope(0.5, null);
       // @ts-expect-error Samplers are not audio parameter sources.
       d.synth().detune(sampler);
       // @ts-expect-error A source and shorthand cannot share a filter slot.

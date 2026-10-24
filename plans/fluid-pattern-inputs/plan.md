@@ -2,10 +2,10 @@
 
 ## Status and governing source
 
-- Governing spec: [spec.md](spec.md), ready for planning; requirements R1–R11 and acceptance criteria AC1–AC18 govern this plan.
-- Delivery state: Step 0.1 and Phase 0 verified; application implementation has not started. See [baseline evidence](evidence/step-0.1.md).
-- Acceptance or release still pending: Steps 1.1–4.2, their phase gates, feature acceptance, and any subsequent release decision.
-- Blockers: None identified for Step 1.1. Core baseline gates passed; the expected Chromium executable/assets are present, but native launch/rendering remains unverified.
+- Governing spec: [spec.md](spec.md), ready for planning; requirements R1–R11 and acceptance criteria AC1–AC18 govern this plan, subject to the [approved envelope-defaults and documentation-ownership amendment](evidence/step-1.1-envelope-defaults.md).
+- Delivery state: Step 1.1 verified; Phase 1 remains in progress. See [prework evidence](evidence/step-1.1.md) and [baseline evidence](evidence/step-0.1.md).
+- Acceptance or release still pending: Steps 1.2–4.2, the remaining phase gates, feature acceptance, and any subsequent release decision.
+- Blockers: None identified for Step 1.2. Native launch/rendering remains unverified for its later gate.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove that completion gates passed. `Verified` means the scoped gate and required implementation review passed; it does not imply manual approval, publication, or deployment. In supervised execution, manual approvals belong in extension state rather than task checkboxes.
 
@@ -115,7 +115,7 @@ Review boundary: public input values and normalization, not canonical minimum re
 
 ### Step 1.1 — Correct envelope argument meanings as prework
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R1, R9, R11; AC1 and AC2 core behavior, rechecked with patterned bounds in Step 2.1 and the final signatures in Step 3.3.
 Depends on: Step 0.1.
 Review boundary: factory/constructor parity, defaults, and the deliberate numeric-single change while schema minimum is still scalar.
@@ -129,11 +129,11 @@ Expected files:
 
 Tasks:
 
-- [ ] Select maximum for a sole numeric, shorthand, or already-supported maximum-pattern source; retain `env()` defaults and two-field minimum/maximum meaning.
-- [ ] Make explicit `undefined` follow field defaults and reject `null`; retain factory/constructor parity and useful argument context.
-- [ ] Update assertions that intentionally exercise the changed single-number contract. Convert callers that need the old range to `env(oldMinimum, 1)` rather than changing their sound accidentally.
-- [ ] Add focused factory/constructor and TypeScript/default tests, including numeric/shorthand equivalence and invalid null input.
-- [ ] Update active envelope examples immediately. Keep any temporary legacy variadic-maximum overload only until Step 3.3; do not tighten it before its replacement exists.
+- [x] Select maximum for a sole numeric, shorthand, or already-supported maximum-pattern source; retain `env()` defaults and two-field minimum/maximum meaning.
+- [x] Keep omission/sole `undefined` defaults, require explicit bounds in multi-field calls, and reject `null`; retain factory/constructor parity and useful argument context.
+- [x] Update assertions that intentionally exercise the changed single-number contract. Convert callers that need the old range to `env(oldMinimum, 1)` rather than changing their sound accidentally.
+- [x] Add focused factory/constructor and TypeScript/default tests, including numeric/shorthand equivalence and invalid null input.
+- [x] Record envelope migration guidance in evidence; user-facing docs are user-owned. Keep any temporary legacy variadic-maximum overload only until Step 3.3; do not tighten it before its replacement exists.
 
 Verification:
 
@@ -142,7 +142,7 @@ Verification:
 - Manual: inspect migrated callsites to distinguish preserved old ranges from deliberately changed default semantics.
 
 Completion gate: factory and constructor agree for all documented defaults, existing minimum-intent callers are explicit, focused tests and static gates pass, and no graph/schema change is required by this step.
-Evidence: Not run.
+Evidence: Verified; see [original Step 1.1 verification](evidence/step-1.1.md) and the [approved refinement and current verification](evidence/step-1.1-envelope-defaults.md).
 
 ### Step 1.2 — Add reusable structured values and numeric normalization
 
@@ -344,7 +344,7 @@ Expected files:
 
 Tasks:
 
-- [ ] Remove the transitional variadic envelope maximum forms. Both bounds use one explicit numeric slot; a sole value continues to mean maximum and `undefined` continues to select defaults.
+- [ ] Remove the transitional variadic envelope maximum forms. Both bounds use one explicit numeric slot; a sole value means maximum, `env(undefined)` remains equivalent to omission, and multi-field `undefined` is rejected.
 - [ ] Make chop accept one optional sequence after scalar slice count, rejecting raw arrays and continuation arguments without changing slice validation or range warnings.
 - [ ] Normalize explicit structured chop input once while preserving authored bar/step shape, omitted/generated distinction, and interaction with `fit()`; do not infer timing from flattened parameter values.
 - [ ] Keep sampler region setters' variadic convenience/aliases unchanged and validate replacements before changing sampler timing state.
@@ -457,7 +457,7 @@ Evidence: Not run.
 
 ## Final acceptance
 
-This is an ownership map, not a second execution checklist. Evidence is recorded once at the owning step/phase gate; all entries are currently unexecuted.
+This is an ownership map, not a second execution checklist. Evidence is recorded once at the owning step/phase gate. Full acceptance remains pending; partial step coverage does not satisfy all mapped gates.
 
 | Spec acceptance ID | Owning step / gate                                | Verification and expected result                                                                        | Evidence / status                               |
 | ------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
@@ -494,7 +494,7 @@ No publication, packed installation, hosted-service, or cross-platform certifica
 
 ## Deferred checks and accepted deviations
 
-- No deviations or waivers have been accepted. Step 0.1/Phase 0 evidence is linked above; later steps and gates remain unrun.
+- No deviations or waivers have been accepted. Steps 0.1 and 1.1 are verified with evidence linked above; later steps and remaining phase gates are unrun.
 - Chromium/native acceptance is an execution prerequisite, not an automatically deferred check. Missing browser/platform access must remain visible in Step 4.2 and the status heading until resolved or explicitly waived.
 - Human listening, live REPL/browser sessions, real-time performance certification, packed/published-package testing, and deployment are not required gates for this scoped API/normalization change. Do not describe them as performed.
 - Timing-generator patternability, LFO speed/waveform expansion, new source kinds, new setters, automatic saved-sketch rewrites, and a legacy scalar-minimum graph adapter remain outside the governing spec.

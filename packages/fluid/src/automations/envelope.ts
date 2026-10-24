@@ -1,4 +1,5 @@
 import type { EnvelopeSchema } from "@web-audio/schema";
+import type { RandomCycle } from "@web-audio/patterns";
 import { isShorthand } from "@/inputs/decode-shorthand-input";
 import { isRandomCycle } from "@/inputs/guards";
 import type {
@@ -9,6 +10,9 @@ import type {
 import Parameter, { createParameter } from "@/parameters/parameter";
 
 type ADSR = { a: number; d: number; s: number; r: number };
+export type EnvelopeArguments =
+  | [maximum?: number | ShorthandInput | RandomCycle]
+  | [minimum: number, ...maximum: NumericPatternInput];
 
 class Envelope {
   private _min: number;
@@ -19,23 +23,58 @@ class Envelope {
   private _r: Parameter;
   private _mode: EnvelopeSchema["mode"];
 
-  constructor(max: ShorthandInput);
-  constructor(min?: number, ...max: NumericPatternInput);
-  constructor(minOrMax?: number | ShorthandInput, ...max: NumericPatternInput) {
-    if (isShorthandInput(minOrMax)) {
-      if (max.length > 0) {
+  constructor(...args: EnvelopeArguments) {
+    const [minOrMax, ...max] = args;
+
+    if (args.length <= 1) {
+      if (minOrMax === null) {
+        throw new TypeError("[Envelope] maximum cannot be null.");
+      }
+      if (
+        minOrMax !== undefined &&
+        typeof minOrMax !== "number" &&
+        !isShorthandInput(minOrMax) &&
+        !isRandomCycle(minOrMax)
+      ) {
+        throw new TypeError(
+          "[Envelope] maximum must be a number, shorthand, or random cycle.",
+        );
+      }
+      this._min = 0;
+      if (minOrMax === undefined) {
+        this._max = new Parameter(1);
+      } else if (typeof minOrMax === "number") {
+        this._max = createParameter([minOrMax], "[Envelope] constructor max");
+      } else if (isShorthandInput(minOrMax)) {
+        this._max = createParameter([minOrMax], "[Envelope] constructor max");
+      } else {
+        this._max = createParameter([minOrMax], "[Envelope] constructor max");
+      }
+    } else {
+      if (minOrMax === null) {
+        throw new TypeError("[Envelope] minimum cannot be null.");
+      }
+      if (isShorthandInput(minOrMax)) {
         throw new Error(
           "[Envelope] shorthand maximum must be the sole argument.",
         );
       }
-      this._min = 0;
-      this._max = createParameter([minOrMax], "[Envelope] constructor max");
-    } else {
-      this._min = minOrMax ?? 0;
-      this._max =
-        max.length > 0
-          ? createParameter(max, "[Envelope] constructor max")
-          : new Parameter(1);
+      if (typeof minOrMax !== "number") {
+        throw new TypeError("[Envelope] minimum must be a number.");
+      }
+      this._min = minOrMax;
+      if (max.some((value) => value === null)) {
+        throw new TypeError("[Envelope] maximum cannot be null.");
+      }
+      if (max.some((value) => value === undefined)) {
+        throw new TypeError(
+          "[Envelope] maximum cannot contain undefined values.",
+        );
+      }
+      this._max = createParameter(
+        max as NumericPatternInput,
+        "[Envelope] constructor max",
+      );
     }
     this._a = new Parameter(0.01);
     this._d = new Parameter(0);

@@ -3,9 +3,8 @@ import {
   RandomCycle,
   type Shorthand,
 } from "@web-audio/patterns";
-import Envelope from "./automations/envelope";
+import Envelope, { type EnvelopeArguments } from "./automations/envelope";
 import Lfo, { type LfoInput } from "./automations/lfo";
-import { isShorthand } from "./inputs/decode-shorthand-input";
 import { BUILT_IN_BANKS } from "./samples/built-in-banks";
 import Bus from "./buses/bus";
 import Filter from "./effects/filter";
@@ -25,7 +24,6 @@ import {
 import { validateDromeGraph } from "@web-audio/schema";
 import type { BankSchema, DromeSchema, FilterType } from "@web-audio/schema";
 import type { AudioParamInput } from "./parameters/parameter";
-import type { NumericPatternInput, ShorthandInput } from "./inputs/types";
 import type { LoadSamplesInput } from "./samples/types";
 import {
   waveformAliasMap,
@@ -202,18 +200,8 @@ class Drome {
     return new RandomCycle();
   }
 
-  env(max: ShorthandInput): Envelope;
-  env(min?: number, ...max: NumericPatternInput): Envelope;
-  env(minOrMax?: number | ShorthandInput, ...max: NumericPatternInput) {
-    if (typeof minOrMax === "string" || isShorthand(minOrMax)) {
-      if (max.length > 0) {
-        throw new Error(
-          "[Drome] env() shorthand maximum must be the sole argument.",
-        );
-      }
-      return new Envelope(minOrMax);
-    }
-    return new Envelope(minOrMax, ...max);
+  env(...args: EnvelopeArguments) {
+    return new Envelope(...args);
   }
 
   lfo(outputA: LfoInput, outputB: LfoInput) {
