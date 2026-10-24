@@ -112,7 +112,7 @@ function schema(overrides: Partial<SamplerSchema> = {}) {
   return defaultSamplerSchema({
     gain: {
       type: "envelope",
-      min: 0,
+      min: staticNumberPattern([0]),
       max: staticNumberPattern([1]),
       a: staticNumberPattern([0]),
       d: staticNumberPattern([0]),

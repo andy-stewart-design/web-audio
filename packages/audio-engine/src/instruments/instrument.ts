@@ -267,7 +267,7 @@ abstract class Instrument {
         if (detune.resolved.type === "envelope") {
           this._scheduleParamEnvelope(
             detune.param,
-            this._resolveEnvelope(detune.resolved.schema, event),
+            detune.resolved.envelope,
             event,
           );
         } else if (detune.resolved.type === "lfo") {
@@ -510,9 +510,15 @@ abstract class Instrument {
         } satisfies ResolvedDetune;
       case "lfo":
         return { type: "lfo", schema, value } satisfies ResolvedDetune;
-      case "envelope":
-        value = schema.min;
-        return { type: "envelope", schema, value } satisfies ResolvedDetune;
+      case "envelope": {
+        const envelope = this._resolveEnvelope(schema, event);
+        return {
+          type: "envelope",
+          schema,
+          value: envelope.min,
+          envelope,
+        } satisfies ResolvedDetune;
+      }
       default:
         value = this._resolveValue(schema, event.barIndex, event.hitIndex);
         return { type: "static", value } satisfies ResolvedDetune;
@@ -524,7 +530,7 @@ abstract class Instrument {
     event: EventScheduleContext,
   ) {
     return {
-      min: envelope.min,
+      min: this._resolveValue(envelope.min, event.barIndex, event.hitIndex),
       max: this._resolveValue(envelope.max, event.barIndex, event.hitIndex),
       a: this._resolveValue(envelope.a, event.barIndex, event.hitIndex),
       d: this._resolveValue(envelope.d, event.barIndex, event.hitIndex),

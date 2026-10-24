@@ -78,7 +78,10 @@ describe("Filter", () => {
     if (schema.frequency.type !== "envelope") {
       throw new Error("Expected envelope frequency");
     }
-    expect(schema.frequency.min).toBe(200);
+    expect(schema.frequency.min).toEqual({
+      type: "static",
+      cycle: [[200]],
+    });
     expect(schema.frequency.max).toEqual({
       type: "static",
       cycle: [[4_000]],

@@ -73,6 +73,18 @@ describe("computeEnvelope", () => {
       const result = computeEnvelope({ ...base, min: 0.2, s: 0.5 }, 2, 5);
       expect(result.sustain).toBeCloseTo(0.6);
     });
+
+    it("preserves inverted and out-of-range finite bounds", () => {
+      const result = computeEnvelope(
+        { ...base, min: 2, max: -1, s: 0.25 },
+        2,
+        5,
+      );
+
+      expect(result.min).toBe(2);
+      expect(result.max).toBe(-1);
+      expect(result.sustain).toBeCloseTo(1.25);
+    });
   });
 
   describe("decay clamping", () => {

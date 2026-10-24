@@ -1,21 +1,22 @@
 import type { EnvelopeSchema } from "@web-audio/schema";
-import { isStructuredInput, type RandomCycle } from "@web-audio/patterns";
+import { isStructuredInput } from "@web-audio/patterns";
 import { isShorthand } from "@/inputs/decode-shorthand-input";
 import { isRandomCycle } from "@/inputs/guards";
 import type {
   ADSRInput,
   NumericPatternInput,
+  NumericPatternValue,
   ShorthandInput,
 } from "@/inputs/types";
 import Parameter, { createParameter } from "@/parameters/parameter";
 
 type ADSR = { a: number; d: number; s: number; r: number };
 export type EnvelopeArguments =
-  | [maximum?: number | ShorthandInput | RandomCycle]
-  | [minimum: number, ...maximum: NumericPatternInput];
+  | [maximum?: NumericPatternValue]
+  | [minimum: NumericPatternValue, ...maximum: NumericPatternInput];
 
 class Envelope {
-  private _min: number;
+  private _min: Parameter;
   private _max: Parameter;
   private _a: Parameter;
   private _d: Parameter;
@@ -30,39 +31,22 @@ class Envelope {
       if (minOrMax === null) {
         throw new TypeError("[Envelope] maximum cannot be null.");
       }
-      if (
-        minOrMax !== undefined &&
-        typeof minOrMax !== "number" &&
-        !isShorthandInput(minOrMax) &&
-        !isRandomCycle(minOrMax)
-      ) {
-        throw new TypeError(
-          "[Envelope] maximum must be a number, shorthand, or random cycle.",
-        );
-      }
-      this._min = 0;
       if (minOrMax === undefined) {
+        this._min = new Parameter(0);
         this._max = new Parameter(1);
-      } else if (typeof minOrMax === "number") {
-        this._max = createParameter([minOrMax], "[Envelope] constructor max");
-      } else if (isShorthandInput(minOrMax)) {
-        this._max = createParameter([minOrMax], "[Envelope] constructor max");
       } else {
-        this._max = createParameter([minOrMax], "[Envelope] constructor max");
+        assertEnvelopePatternValue(minOrMax, "maximum");
+        this._min = new Parameter(0);
+        this._max = createEnvelopeParameter(
+          minOrMax,
+          "[Envelope] constructor max",
+        );
       }
     } else {
       if (minOrMax === null) {
         throw new TypeError("[Envelope] minimum cannot be null.");
       }
-      if (isShorthandInput(minOrMax)) {
-        throw new Error(
-          "[Envelope] shorthand maximum must be the sole argument.",
-        );
-      }
-      if (typeof minOrMax !== "number") {
-        throw new TypeError("[Envelope] minimum must be a number.");
-      }
-      this._min = minOrMax;
+      assertEnvelopePatternValue(minOrMax, "minimum");
       if (max.some((value) => value === null)) {
         throw new TypeError("[Envelope] maximum cannot be null.");
       }
@@ -71,10 +55,11 @@ class Envelope {
           "[Envelope] maximum cannot contain undefined values.",
         );
       }
-      this._max = createParameter(
-        max as NumericPatternInput,
-        "[Envelope] constructor max",
+      this._min = createEnvelopeParameter(
+        minOrMax,
+        "[Envelope] constructor minimum",
       );
+      this._max = createEnvelopeParameter(max, "[Envelope] constructor max");
     }
     this._a = new Parameter(0.01);
     this._d = new Parameter(0);
@@ -84,10 +69,11 @@ class Envelope {
   }
 
   max(...input: NumericPatternInput) {
-    this._max =
+    const nextMax =
       input.length > 0
-        ? createParameter(input, "[Envelope] max()")
+        ? createEnvelopeParameter(input, "[Envelope] max()")
         : new Parameter(1);
+    this._max = nextMax;
     return this;
   }
 
@@ -131,8 +117,8 @@ class Envelope {
   getSchema(): EnvelopeSchema {
     return {
       type: "envelope",
-      min: this._min,
-      max: this._max.getSchema(),
+      min: getEnvelopeParameterSchema(this._min, "minimum"),
+      max: getEnvelopeParameterSchema(this._max, "maximum"),
       a: this._a.getSchema(),
       d: this._d.getSchema(),
       s: this._s.getSchema(),
@@ -140,6 +126,57 @@ class Envelope {
       mode: this._mode,
     };
   }
+}
+
+function getEnvelopeParameterSchema(
+  parameter: Parameter,
+  field: "minimum" | "maximum",
+) {
+  try {
+    return parameter.getSchema();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`[Envelope] ${field} ${message}`, { cause: error });
+  }
+}
+
+function assertEnvelopePatternValue(
+  value: unknown,
+  field: "minimum" | "maximum",
+): asserts value is NumericPatternValue {
+  if (
+    value === null ||
+    (typeof value !== "number" &&
+      !isShorthandInput(value) &&
+      !isRandomCycle(value) &&
+      !isStructuredInput(value))
+  ) {
+    throw new TypeError(
+      `[Envelope] ${field} must be a number, shorthand, structured input, or random cycle.`,
+    );
+  }
+}
+
+function createEnvelopeParameter(
+  valueOrInput: NumericPatternValue | NumericPatternInput,
+  method: string,
+) {
+  const input = (
+    Array.isArray(valueOrInput) ? valueOrInput : [valueOrInput]
+  ) as NumericPatternInput;
+  const parameter = createParameter(input, method);
+  // A direct random source is intentionally left live. Serializing it here
+  // would materialize pending configuration and change its authored lifecycle.
+  if (!(input.length === 1 && isRandomCycle(input[0]))) {
+    try {
+      parameter.getSchema();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const field = method.includes("minimum") ? "minimum" : "maximum";
+      throw new Error(`${method} ${field} ${message}`, { cause: error });
+    }
+  }
+  return parameter;
 }
 
 function isShorthandInput(value: unknown): value is ShorthandInput {

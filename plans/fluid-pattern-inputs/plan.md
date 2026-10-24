@@ -3,9 +3,9 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md), ready for planning; requirements R1–R11 and acceptance criteria AC1–AC18 govern this plan, subject to approved amendments for [envelope defaults/documentation ownership](evidence/step-1.1-envelope-defaults.md) and [shared static structured values](evidence/step-1.2-patterns-ownership.md).
-- Delivery state: Step 1.3 and Phase 1 verified. See [event integration and Phase 1 evidence](evidence/step-1.3.md).
-- Acceptance or release still pending: Steps 2.1–4.2, their phase gates, remaining feature acceptance, and any subsequent release decision.
-- Blockers: None identified for Step 2.1. Native rendering remains unverified; the previously recorded bare-Node artifact-runner limitation remains a Step 4.1 execution constraint.
+- Delivery state: Step 2.1 / AG1 and Phase 2 verified. See [patterned minimum and Phase 2 evidence](evidence/step-2.1.md).
+- Acceptance or release still pending: Steps 3.1–4.2, their phase gates, remaining feature acceptance, and any subsequent release decision.
+- Blockers: None identified for Step 3.1. Native rendering remains unverified; the previously recorded bare-Node artifact-runner limitation remains a Step 4.1 execution constraint.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove that completion gates passed. `Verified` means the scoped gate and required implementation review passed; it does not imply manual approval, publication, or deployment. In supervised execution, manual approvals belong in extension state rather than task checkboxes.
 
@@ -225,7 +225,7 @@ Review boundary: AG1 only; positional arity cleanup remains Phase 3 and resolved
 
 ### Step 2.1 — Migrate minimum through Fluid, schema, engine, and fixtures together
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R1, R7–R11; AC1/AC2 patterned-bound recheck, AC10–AC13 deterministic portions, AC14 minimum permissions, AC15 envelope atomicity portion. Native confirmation belongs to Step 4.2; final strict envelope arity belongs to Step 3.3.
 Depends on: Step 1.3 and Phase 1 exit gate.
 Review boundary: one indivisible graph producer/validator/consumer migration, including every directly affected fixture and assertion.
@@ -241,12 +241,12 @@ Expected files:
 
 Tasks:
 
-- [ ] Change canonical `EnvelopeSchema.min` to `NumberPattern`, validate it like other numeric-pattern fields, and migrate all scalar-minimum graph literals/producers together. Do not blanket-replace unrelated or already resolved scalar `min` fields.
-- [ ] Store/serialize Fluid minimum through the same numeric parameter model as maximum, default it to a constant zero pattern, and accept the same permitted numeric/random forms. Retain the prework's one-/two-field meanings.
-- [ ] Resolve minimum by the current event's bar/hit indices in the main envelope path and the external envelope detune initialization path. Keep `ResolvedEnvelopeSchema.min` and `computeEnvelope()` inputs numeric.
-- [ ] Test independent minimum/maximum wrapping, one sampled minimum per event including release, inversion/crossing, unrestricted finite bounds, existing sustain math, and both gain-envelope and external audio-source use.
-- [ ] Test invalid minimum patterns and nested sources, default canonical serialization, factory/constructor parity, and unchanged state on invalid replacements. Keep positional ADSR source restrictions intact.
-- [ ] Search for remaining scalar-schema readers/producers, classify legitimate resolved scalar uses, and update affected active documentation and fixtures in this same atomic change.
+- [x] Change canonical `EnvelopeSchema.min` to `NumberPattern`, validate it like other numeric-pattern fields, and migrate all scalar-minimum graph literals/producers together. Do not blanket-replace unrelated or already resolved scalar `min` fields.
+- [x] Store/serialize Fluid minimum through the same numeric parameter model as maximum, default it to a constant zero pattern, and accept the same permitted numeric/random forms. Retain the prework's one-/two-field meanings.
+- [x] Resolve minimum by the current event's bar/hit indices in the main envelope path and the external envelope detune initialization path. Keep `ResolvedEnvelopeSchema.min` and `computeEnvelope()` inputs numeric.
+- [x] Test independent minimum/maximum wrapping, one sampled minimum per event including release, inversion/crossing, unrestricted finite bounds, existing sustain math, and both gain-envelope and external audio-source use.
+- [x] Test invalid minimum patterns and nested sources, default canonical serialization, factory/constructor parity, and unchanged state on invalid replacements. Keep positional ADSR source restrictions intact.
+- [x] Search for remaining scalar-schema readers/producers, classify legitimate resolved scalar uses, and update affected active documentation and fixtures in this same atomic change.
 
 Verification:
 
@@ -258,10 +258,10 @@ Verification:
 - Manual: code review of the complete reader/writer inventory is required; fake audio proves scheduling calls, not native sound.
 
 Completion gate: all AG1 members compile and pass their focused tests together, every known first-party scalar-schema use is migrated or explicitly classified as resolved runtime data, and no half-migrated graph can be emitted by the current first-party source tree.
-Evidence: Not run.
+Evidence: Verified; see [AG1 contract, migration inventory, review, and checks](evidence/step-2.1.md).
 
 Phase exit gate: after Step 2.1 checks, run all three full core source suites and static checks, then the dependency/artifact build. No canonical producer may emit scalar minimum; no runtime consumer may use an unresolved minimum pattern as a scalar. Record native rendering as pending Step 4.2 rather than treating mock scheduling as native proof.
-Evidence: Not run.
+Evidence: Satisfied; see [Phase 2 verification and completion boundary](evidence/step-2.1.md#verification).
 
 ## Phase 3 — Explicit positional pattern slots
 
@@ -464,8 +464,8 @@ This is an ownership map, not a second execution checklist. Evidence is recorded
 
 | Spec acceptance ID | Owning step / gate                                | Verification and expected result                                                                        | Evidence / status                               |
 | ------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| AC1                | Steps 1.1, 2.1, 3.3; Phase 4 exit                 | Correct one-/two-bound selection persists through patterned minimum and final arity.                    | Owning step evidence; Not run                   |
-| AC2                | Steps 1.1, 2.1, 3.3                               | Defaults/undefined parity and runtime/type rejection of null survive migrations.                        | Owning step evidence; Not run                   |
+| AC1                | Steps 1.1, 2.1, 3.3; Phase 4 exit                 | Correct one-/two-bound selection persists through patterned minimum and final arity.                    | [AG1](evidence/step-2.1.md); 3.3 pending        |
+| AC2                | Steps 1.1, 2.1, 3.3                               | Defaults/undefined parity and runtime/type rejection of null survive migrations.                        | [AG1](evidence/step-2.1.md); 3.3 pending        |
 | AC3                | Step 1.2; Phase 1 exit                            | Both aliases preserve two bars versus two values in a bar and shorthand equivalence.                    | [Verified](evidence/step-1.3.md#verification)   |
 | AC4                | Step 1.3; Phase 1 exit                            | Notes, names, variations/alias, and XOX match their structured counterparts.                            | [Verified](evidence/step-1.3.md#verification)   |
 | AC5                | Steps 1.2 and 1.3                                 | Wrapped atoms never become general shorthand; invalid consumer atoms/geometry still fail.               | [Verified](evidence/step-1.3.md#verification)   |
@@ -473,12 +473,12 @@ This is an ownership map, not a second execution checklist. Evidence is recorded
 | AC7                | Steps 3.1–3.3; Phase 3 exit                       | All six families accept explicit slots and reject raw/extra inputs in types and JavaScript.             | Phase 3 owning gates; Not run                   |
 | AC8                | Step 3.1                                          | Noise arity is uniform with/without color; dedicated gain/filter sugar remains valid.                   | Step 3.1 evidence; Not run                      |
 | AC9                | Steps 1.2/1.3 and affected Step 3.x; Phase 3 exit | Every listed single-input setter/alias and its source/default state behavior remains supported.         | Owning consumer and phase evidence; Not run     |
-| AC10               | Step 2.1; Phase 2 exit                            | Canonical minimum/maximum patterns validate and all first-party schema consumers agree.                 | AG1/Phase 2 evidence; Not run                   |
-| AC11               | Step 2.1 deterministic; Step 4.2 native           | Independent per-bar/hit lookup and event-specific release minimum reach scheduling and actual output.   | Resolver/scheduler and native evidence; Not run |
-| AC12               | Step 2.1 deterministic; Step 4.2 native           | Inverted/crossing bounds retain existing math and finite native output without clamping.                | AG1 and native evidence; Not run                |
-| AC13               | Step 2.1 deterministic; Step 4.2 native           | Patterned minimum works for gain and supported external envelope sources without nesting new sources.   | AG1 and native evidence; Not run                |
-| AC14               | Steps 1.2/1.3, 2.1, 3.1/3.2                       | Random/direct audio permissions survive wrapping and ADSR remains restricted.                           | Owning permission-matrix evidence; Not run      |
-| AC15               | Steps 2.1 and 3.1–3.3                             | Failed envelope/ADSR/noise/chop replacements leave existing affected state intact.                      | Owning atomicity-test evidence; Not run         |
+| AC10               | Step 2.1; Phase 2 exit                            | Canonical minimum/maximum patterns validate and all first-party schema consumers agree.                 | [Verified](evidence/step-2.1.md)                |
+| AC11               | Step 2.1 deterministic; Step 4.2 native           | Independent per-bar/hit lookup and event-specific release minimum reach scheduling and actual output.   | [AG1](evidence/step-2.1.md); native pending     |
+| AC12               | Step 2.1 deterministic; Step 4.2 native           | Inverted/crossing bounds retain existing math and finite native output without clamping.                | [AG1](evidence/step-2.1.md); native pending     |
+| AC13               | Step 2.1 deterministic; Step 4.2 native           | Patterned minimum works for gain and supported external envelope sources without nesting new sources.   | [AG1](evidence/step-2.1.md); native pending     |
+| AC14               | Steps 1.2/1.3, 2.1, 3.1/3.2                       | Random/direct audio permissions survive wrapping and ADSR remains restricted.                           | [AG1](evidence/step-2.1.md); Phase 3 pending    |
+| AC15               | Steps 2.1 and 3.1–3.3                             | Failed envelope/ADSR/noise/chop replacements leave existing affected state intact.                      | [AG1](evidence/step-2.1.md); Phase 3 pending    |
 | AC16               | Steps 1.2/1.3 and 3.x; Step 4.1                   | Invalid wrapper construction/composition is rejected consistently across positional and dedicated APIs. | Shared-boundary/public matrix evidence; Not run |
 | AC17               | Step 3.2; Step 4.1 migration review               | LFO migration preserves old separate bars and intentional multivalue warnings.                          | LFO and migration evidence; Not run             |
 | AC18               | Step 4.1; Phase 4 exit                            | Wrapper-free graph output, built public evaluation, signatures, examples, and migrations agree.         | Public/artifact/documentation evidence; Not run |
@@ -497,7 +497,7 @@ No publication, packed installation, hosted-service, or cross-platform certifica
 
 ## Deferred checks and accepted deviations
 
-- No deviations or waivers have been accepted. Steps 0.1–1.3 and the Phase 0/1 exit gates are verified with linked evidence; later steps and gates are unrun.
+- No deviations or waivers have been accepted. Steps 0.1–2.1 and the Phase 0–2 exit gates are verified with linked evidence; later steps and gates are unrun.
 - Chromium/native acceptance is an execution prerequisite, not an automatically deferred check. Missing browser/platform access must remain visible in Step 4.2 and the status heading until resolved or explicitly waived.
 - Human listening, live REPL/browser sessions, real-time performance certification, packed/published-package testing, and deployment are not required gates for this scoped API/normalization change. Do not describe them as performed.
 - Timing-generator patternability, LFO speed/waveform expansion, new source kinds, new setters, automatic saved-sketch rewrites, and a legacy scalar-minimum graph adapter remain outside the governing spec.

@@ -35,7 +35,12 @@ interface EnvelopeParams {
 
 type ResolvedDetune =
   | { type: "static"; value: number }
-  | { type: "envelope"; value: number; schema: EnvelopeSchema }
+  | {
+      type: "envelope";
+      value: number;
+      schema: EnvelopeSchema;
+      envelope: ResolvedEnvelopeSchema;
+    }
   | { type: "lfo"; value: number; schema: LfoSchema }
   | { type: "midi-cc"; value: number; schema: MidiCcSchema };
 

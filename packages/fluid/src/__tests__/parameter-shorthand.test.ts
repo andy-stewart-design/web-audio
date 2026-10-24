@@ -309,8 +309,8 @@ describe("public parameter shorthand", () => {
     for (const { input } of numericInputs(d).slice(0, 2)) {
       const constructorSole = Reflect.construct(Envelope, input).getSchema();
       const factorySole = Reflect.apply(d.env, d, input).getSchema();
-      expect(constructorSole.min).toBe(0);
-      expect(factorySole.min).toBe(0);
+      expect(constructorSole.min).toEqual({ type: "static", cycle: [[0]] });
+      expect(factorySole.min).toEqual({ type: "static", cycle: [[0]] });
       expect(staticCycle(constructorSole.max)).toEqual([[0.2, 0.8]]);
       expect(staticCycle(factorySole.max)).toEqual([[0.2, 0.8]]);
     }
@@ -323,8 +323,11 @@ describe("public parameter shorthand", () => {
         0.1,
         ...input,
       ]).getSchema();
-      expect(constructorNumeric.min).toBe(0.1);
-      expect(factoryNumeric.min).toBe(0.1);
+      expect(constructorNumeric.min).toEqual({
+        type: "static",
+        cycle: [[0.1]],
+      });
+      expect(factoryNumeric.min).toEqual({ type: "static", cycle: [[0.1]] });
       expect(staticCycle(constructorNumeric.max)).toEqual([[0.2, 0.8]]);
       expect(staticCycle(factoryNumeric.max)).toEqual([[0.2, 0.8]]);
       const invalid = [undefined, ...input];
@@ -416,7 +419,7 @@ describe("public parameter shorthand", () => {
     instrument.gain("0.2 0.8");
     expect(instrument.getSchema().gain).toEqual({
       type: "envelope",
-      min: 0.4,
+      min: { type: "static", cycle: [[0.4]] },
       max: { type: "static", cycle: [[0.2, 0.8]] },
       a: { type: "static", cycle: [[0.3]] },
       d: { type: "static", cycle: [[0.2]] },
@@ -451,8 +454,8 @@ describe("public parameter shorthand", () => {
       .getSchema().gain;
 
     expect(direct).toEqual(reusable);
-    expect(direct.min).toBe(0);
-    expect(explicit.min).toBe(0.1);
+    expect(direct.min).toEqual({ type: "static", cycle: [[0]] });
+    expect(explicit.min).toEqual({ type: "static", cycle: [[0.1]] });
     expect(staticCycle(direct.max)).toEqual([[0.2, 0.8]]);
     expect(staticCycle(positional.a)).toEqual([[0.01, 0.02]]);
     expect(staticCycle(positional.d)).toEqual([[0.1, 0.2]]);
@@ -469,13 +472,15 @@ describe("public parameter shorthand", () => {
       [0.2, 0.8],
     ]);
     expect(staticCycle(d.env(0.1).getSchema().max)).toEqual([[0.1]]);
-    for (const maximum of ["0.2", d.sh("0.2")]) {
-      expect(() => Reflect.apply(d.env, d, [maximum, 0.5])).toThrow(
-        "shorthand maximum must be the sole argument",
-      );
-      expect(() => Reflect.construct(Envelope, [maximum, 0.5])).toThrow(
-        "shorthand maximum must be the sole argument",
-      );
+    for (const minimum of ["0.2", d.sh("0.2")]) {
+      const factory = Reflect.apply(d.env, d, [minimum, 0.5]).getSchema();
+      const constructor = Reflect.construct(Envelope, [
+        minimum,
+        0.5,
+      ]).getSchema();
+      expect(factory).toEqual(constructor);
+      expect(staticCycle(factory.min)).toEqual([[0.2]]);
+      expect(staticCycle(factory.max)).toEqual([[0.5]]);
     }
   });
 
@@ -745,15 +750,10 @@ describe("public parameter shorthand", () => {
       d.synth().adsr([0.1, 0.2], 0.2, 0.8, 0.1);
       // @ts-expect-error Envelope positional ADSR fields do not accept arrays.
       new Envelope().adsr(0.1, [0.2, 0.3], 0.8, 0.1);
-      // @ts-expect-error A shorthand-only envelope maximum forbids trailing arguments.
       d.env("0.2", 0.5);
-      // @ts-expect-error A reusable shorthand maximum also forbids trailing arguments.
       d.env(d.sh("0.2"), 0.5);
-      // @ts-expect-error A shorthand-only constructor maximum forbids trailing arguments.
       new Envelope("0.2", 0.5);
-      // @ts-expect-error A reusable shorthand constructor maximum also forbids trailing arguments.
       new Envelope(d.sh("0.2"), 0.5);
-      // @ts-expect-error The envelope minimum remains numeric-only.
       d.env("0.2", "0.5");
       // @ts-expect-error Public numeric mixtures remain rejected.
       d.synth().detune(0.2, "0.4");
@@ -767,6 +767,14 @@ describe("public parameter shorthand", () => {
       d.env(lfo);
       // @ts-expect-error LFO output is excluded from envelope maximum.
       new Envelope(lfo);
+      // @ts-expect-error MIDI output is excluded from envelope minimum arguments.
+      d.env(midi, 0.5);
+      // @ts-expect-error MIDI output is excluded from envelope maximum.
+      new Envelope(midi);
+      // @ts-expect-error Nested envelopes are excluded from envelope minimum arguments.
+      d.env(envelope, 0.5);
+      // @ts-expect-error Nested envelopes are excluded from envelope maximum.
+      new Envelope(envelope);
       // @ts-expect-error Null is not a numeric envelope bound.
       d.env(null);
       // @ts-expect-error Null is not a numeric envelope minimum.
@@ -929,7 +937,6 @@ describe("public parameter shorthand", () => {
     const midi = d.midi.cc(74);
     const sampler = d.sample("bd");
     const invalid = () => {
-      // @ts-expect-error Envelope minimum remains scalar numeric-only.
       d.env(shorthand, 0.5);
       // @ts-expect-error Timing generators do not accept shorthand pulses.
       d.synth().euclid(shorthand, 4);

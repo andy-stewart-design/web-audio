@@ -102,7 +102,7 @@ const timing = (
 function envelope(max = staticNumberPattern([1])): EnvelopeSchema {
   return {
     type: "envelope",
-    min: 0,
+    min: staticNumberPattern([0]),
     max,
     a: staticNumberPattern([0]),
     d: staticNumberPattern([0]),
@@ -145,6 +145,20 @@ function synth(
   );
 }
 
+class InspectableSynthesizer extends Synthesizer {
+  resolver() {
+    return this._valuePatternResolver;
+  }
+}
+
+function inspectableSynth(instrumentSchema: SynthesizerSchema) {
+  return new InspectableSynthesizer(
+    new FakeAudioContext() as unknown as AudioContext,
+    { barDuration: 2 } as AudioClock,
+    { schema: instrumentSchema },
+  );
+}
+
 beforeEach(() => {
   FakeGainNode.instances = [];
   FakeFilterNode.instances = [];
@@ -159,6 +173,306 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Synthesizer scheduling", () => {
+  it("schedules independently patterned bounds across bars and hit indices", () => {
+    const instance = synth(
+      schema({
+        gain: {
+          type: "envelope",
+          min: {
+            type: "static",
+            cycle: [
+              [10, 20],
+              [30, 40],
+            ],
+          },
+          max: {
+            type: "static",
+            cycle: [[100], [200, 300, 400], [500, 600]],
+          },
+          a: staticNumberPattern([0.25]),
+          d: staticNumberPattern([0.25]),
+          s: staticNumberPattern([0.5]),
+          r: staticNumberPattern([0.25]),
+          mode: "bleed",
+        },
+        eventPattern: {
+          timing: timing([
+            [
+              { offset: 0, duration: 1 },
+              { offset: 0.25, duration: 1 },
+              { offset: 0.5, duration: 1 },
+            ],
+          ]),
+          notes: { type: "static", cycle: [[[60]]] },
+        },
+      }),
+    );
+
+    const existingGains = FakeGainNode.instances.length;
+    instance.scheduleBar(2, 10);
+    instance.scheduleBar(3, 20);
+
+    const expected = [
+      { min: 10, max: 500, start: 10 },
+      { min: 20, max: 600, start: 10.5 },
+      { min: 10, max: 500, start: 11 },
+      { min: 30, max: 100, start: 20 },
+      { min: 40, max: 100, start: 20.5 },
+      { min: 30, max: 100, start: 21 },
+    ];
+    const gainNodes = FakeGainNode.instances.slice(existingGains);
+    expect(gainNodes).toHaveLength(expected.length);
+    for (const [index, { min, max, start }] of expected.entries()) {
+      const gain = gainNodes[index].gain;
+      const sustain = (min + max) / 2;
+      expect(gain.setValueAtTime).toHaveBeenNthCalledWith(1, min, start);
+      expect(gain.linearRampToValueAtTime).toHaveBeenNthCalledWith(
+        1,
+        max,
+        start + 0.5,
+      );
+      expect(gain.linearRampToValueAtTime).toHaveBeenNthCalledWith(
+        2,
+        sustain,
+        start + 1,
+      );
+      expect(gain.setValueAtTime).toHaveBeenNthCalledWith(
+        2,
+        sustain,
+        start + 2,
+      );
+      expect(gain.linearRampToValueAtTime).toHaveBeenNthCalledWith(
+        3,
+        min,
+        start + 2.5,
+      );
+    }
+  });
+
+  it("keeps finite inverted bounds un-clamped in the scheduled main voice", () => {
+    const instance = synth(
+      schema({
+        gain: {
+          type: "envelope",
+          min: staticNumberPattern([2]),
+          max: staticNumberPattern([-1]),
+          a: staticNumberPattern([0]),
+          d: staticNumberPattern([0]),
+          s: staticNumberPattern([0.25]),
+          r: staticNumberPattern([0]),
+          mode: "bleed",
+        },
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    const gain = FakeGainNode.instances.at(-1)?.gain;
+    expect(gain?.setValueAtTime).toHaveBeenNthCalledWith(1, 2, 10);
+    expect(gain?.linearRampToValueAtTime).toHaveBeenNthCalledWith(
+      1,
+      -1,
+      10.0025,
+    );
+    expect(gain?.linearRampToValueAtTime).toHaveBeenNthCalledWith(
+      2,
+      1.25,
+      expect.closeTo(10.005),
+    );
+    expect(gain?.setValueAtTime).toHaveBeenNthCalledWith(2, 1.25, 12);
+    expect(gain?.linearRampToValueAtTime).toHaveBeenNthCalledWith(
+      3,
+      2,
+      12.0025,
+    );
+  });
+
+  it("schedules patterned bounds without sorting across multiple bars and hits", () => {
+    const instance = synth(
+      schema({
+        gain: {
+          type: "envelope",
+          min: {
+            type: "static",
+            cycle: [
+              [10, 90],
+              [80, 5],
+            ],
+          },
+          max: {
+            type: "static",
+            cycle: [
+              [20, 0],
+              [30, 40],
+            ],
+          },
+          a: staticNumberPattern([0.25]),
+          d: staticNumberPattern([0.25]),
+          s: staticNumberPattern([0.5]),
+          r: staticNumberPattern([0.25]),
+          mode: "bleed",
+        },
+        eventPattern: {
+          timing: timing([
+            [
+              { offset: 0, duration: 0.5 },
+              { offset: 0.5, duration: 0.5 },
+            ],
+            [
+              { offset: 0, duration: 0.5 },
+              { offset: 0.5, duration: 0.5 },
+            ],
+          ]),
+          notes: { type: "static", cycle: [[[60]], [[60]]] },
+        },
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+    instance.scheduleBar(1, 20);
+
+    const expected = [
+      { min: 10, max: 20, sustain: 15, start: 10 },
+      { min: 90, max: 0, sustain: 45, start: 11 },
+      { min: 80, max: 30, sustain: 55, start: 20 },
+      { min: 5, max: 40, sustain: 22.5, start: 21 },
+    ];
+    const gainNodes = FakeGainNode.instances.slice(2);
+    expect(gainNodes).toHaveLength(expected.length);
+    for (const [index, { min, max, sustain, start }] of expected.entries()) {
+      const gain = gainNodes[index].gain;
+      expect(gain.setValueAtTime).toHaveBeenNthCalledWith(1, min, start);
+      expect(gain.linearRampToValueAtTime).toHaveBeenNthCalledWith(
+        1,
+        max,
+        start + 0.25,
+      );
+      expect(gain.linearRampToValueAtTime).toHaveBeenNthCalledWith(
+        2,
+        sustain,
+        start + 0.5,
+      );
+      expect(gain.setValueAtTime).toHaveBeenNthCalledWith(
+        2,
+        sustain,
+        start + 1,
+      );
+      expect(gain.linearRampToValueAtTime).toHaveBeenNthCalledWith(
+        3,
+        min,
+        start + 1.25,
+      );
+    }
+  });
+
+  it("resolves a random detune minimum once per event and reuses it for scheduling", () => {
+    const minimum = randomNumberPattern({
+      valuesPerBar: [1],
+      range: { min: -20, max: 40 },
+    });
+    const detune: EnvelopeSchema = {
+      type: "envelope",
+      min: minimum,
+      max: staticNumberPattern([80]),
+      a: staticNumberPattern([0.25]),
+      d: staticNumberPattern([0.25]),
+      s: staticNumberPattern([0.5]),
+      r: staticNumberPattern([0.25]),
+      mode: "bleed",
+    };
+    const instance = inspectableSynth(
+      schema({
+        detune,
+        eventPattern: {
+          timing: timing([
+            [
+              { offset: 0, duration: 1 },
+              { offset: 0.25, duration: 1 },
+              { offset: 0.5, duration: 1 },
+            ],
+          ]),
+          notes: { type: "static", cycle: [[[60]]] },
+        },
+      }),
+    );
+    const resolve = vi.spyOn(instance.resolver(), "resolve");
+
+    instance.scheduleBar(2, 10);
+
+    const minimumCalls = resolve.mock.calls.filter(
+      ([pattern]) => pattern === minimum,
+    );
+    expect(minimumCalls.map(([, bar, hit]) => [bar, hit])).toEqual([
+      [2, 0],
+      [2, 1],
+      [2, 2],
+    ]);
+    expect(minimumCalls).toHaveLength(3);
+
+    const oscillators = FakeOscillatorNode.instances;
+    expect(oscillators).toHaveLength(3);
+    for (const oscillator of oscillators) {
+      const firstScheduled =
+        oscillator.detune.setValueAtTime.mock.calls[0]?.[0];
+      const release =
+        oscillator.detune.linearRampToValueAtTime.mock.calls.at(-1)?.[0];
+      expect(oscillator.options.detune).toBe(firstScheduled);
+      expect(release).toBe(firstScheduled);
+    }
+  });
+
+  it("resolves a random gain minimum once per event and reuses it for scheduling", () => {
+    const minimum = randomNumberPattern({
+      valuesPerBar: [2],
+      range: { min: 0.1, max: 0.3 },
+    });
+    const gain: EnvelopeSchema = {
+      ...envelope(staticNumberPattern([0.8])),
+      min: minimum,
+    };
+    const instance = inspectableSynth(
+      schema({
+        gain,
+        eventPattern: {
+          timing: timing([
+            [
+              { offset: 0, duration: 0.5 },
+              { offset: 0.5, duration: 0.5 },
+            ],
+          ]),
+          notes: { type: "static", cycle: [[[60]]] },
+        },
+      }),
+    );
+    const resolve = vi.spyOn(instance.resolver(), "resolve");
+
+    instance.scheduleBar(2, 10);
+
+    const minimumCalls = resolve.mock.calls.filter(
+      ([pattern]) => pattern === minimum,
+    );
+    expect(minimumCalls.map(([, bar, hit]) => [bar, hit])).toEqual([
+      [2, 0],
+      [2, 1],
+    ]);
+    expect(minimumCalls).toHaveLength(2);
+
+    const expected = new RandomResolver(minimum);
+    const gainNodes = FakeGainNode.instances.slice(2);
+    expect(gainNodes).toHaveLength(2);
+    for (const [index, node] of gainNodes.entries()) {
+      const min = expected.resolve(2, index);
+      expect(node.gain.setValueAtTime).toHaveBeenCalledWith(
+        min,
+        index === 0 ? 10 : 11,
+      );
+      expect(node.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(
+        min,
+        index === 0 ? 11.0025 : 12.0025,
+      );
+    }
+  });
+
   it("uses the stable default noise seed for every voice", () => {
     const instance = synth(
       schema({

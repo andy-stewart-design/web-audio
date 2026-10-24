@@ -101,7 +101,7 @@ const timing = (
 function envelope(): EnvelopeSchema {
   return {
     type: "envelope",
-    min: 0,
+    min: staticNumberPattern([0]),
     max: staticNumberPattern([1]),
     a: staticNumberPattern([0]),
     d: staticNumberPattern([0]),

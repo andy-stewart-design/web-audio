@@ -1,5 +1,6 @@
 import { RandomCycle } from "@web-audio/patterns";
 import type { NumberPattern } from "@web-audio/schema";
+import Drome from "@/drome";
 import { describe, expect, it } from "vitest";
 import Envelope from "../envelope";
 
@@ -15,7 +16,7 @@ describe("Envelope", () => {
 
     expect(schema).toEqual({
       type: "envelope",
-      min: 0,
+      min: { type: "static", cycle: [[0]] },
       max: { type: "static", cycle: [[1]] },
       a: { type: "static", cycle: [[0.01]] },
       d: { type: "static", cycle: [[0]] },
@@ -28,7 +29,7 @@ describe("Envelope", () => {
   it("serializes custom min and multi-bar max values", () => {
     const schema = new Envelope(0.1, [0.75, 1.25], [0.25, 0.5]).getSchema();
 
-    expect(schema.min).toBe(0.1);
+    expect(schema.min).toEqual({ type: "static", cycle: [[0.1]] });
     expect(schema.max).toEqual({
       type: "static",
       cycle: [
@@ -46,9 +47,89 @@ describe("Envelope", () => {
 
   it("uses a sole numeric argument as the maximum", () => {
     expect(new Envelope(0.25).getSchema()).toMatchObject({
-      min: 0,
+      min: { type: "static", cycle: [[0]] },
       max: { type: "static", cycle: [[0.25]] },
     });
+  });
+
+  it("serializes patterned minimum values through the Parameter model", () => {
+    const d = new Drome();
+    const schema = new Envelope(d.str([0.1, 0.2]), d.str(0.8, 1)).getSchema();
+
+    expect(schema.min).toEqual({
+      type: "static",
+      cycle: [[0.1, 0.2]],
+    });
+    expect(schema.max).toEqual({
+      type: "static",
+      cycle: [[0.8], [1]],
+    });
+  });
+
+  it("rejects nested audio sources as minimum values", () => {
+    const d = new Drome();
+
+    expect(() => Reflect.construct(Envelope, [d.env(), 1])).toThrow(
+      "minimum must be a number, shorthand, structured input, or random cycle",
+    );
+    expect(() => Reflect.construct(Envelope, [d.lfo(0, 1), 1])).toThrow(
+      "minimum must be a number, shorthand, structured input, or random cycle",
+    );
+    expect(() => Reflect.construct(Envelope, [d.midi.cc(74), 1])).toThrow(
+      "minimum must be a number, shorthand, structured input, or random cycle",
+    );
+  });
+
+  it("accepts multivalue structured bars for both bounds and rejects invalid bound shapes", () => {
+    const d = new Drome();
+    const chord = d.str([0.1, 0.2]);
+    const valid = new Envelope(chord, d.str([0.8, 0.9])).getSchema();
+    expect(valid.min).toEqual({ type: "static", cycle: [[0.1, 0.2]] });
+    expect(valid.max).toEqual({ type: "static", cycle: [[0.8, 0.9]] });
+
+    const invalidBounds: unknown[] = [
+      [0.1, 0.2],
+      d.env(),
+      d.lfo(0, 1),
+      d.midi.cc(74),
+      d.str(null),
+      d.str(["0.2"]),
+      "0.2 ~ 0.8",
+    ];
+    for (const bound of invalidBounds) {
+      expect(() => Reflect.construct(Envelope, [bound])).toThrow();
+      expect(() => Reflect.construct(Envelope, [bound, 1])).toThrow();
+    }
+
+    expect(() => Reflect.construct(Envelope, [0, "0.2", 0.8])).toThrow();
+    expect(() => Reflect.construct(Envelope, [0, ["0.2", 0.8]])).toThrow();
+  });
+
+  it("rejects invalid static bounds before construction or factory return", () => {
+    const d = new Drome();
+    const invalid: [string, unknown[]][] = [
+      ["minimum", [Number.NaN, 1]],
+      ["minimum", [Number.POSITIVE_INFINITY, 1]],
+      ["minimum", [Number.NEGATIVE_INFINITY, 1]],
+      ["max", [Number.NaN]],
+      ["max", [Number.POSITIVE_INFINITY]],
+      ["max", [Number.NEGATIVE_INFINITY]],
+      ["max", [0, Number.NaN]],
+      ["max", [0, Number.POSITIVE_INFINITY]],
+      ["max", [0, Number.NEGATIVE_INFINITY]],
+      ["max", [0, [Number.NaN]]],
+      ["max", [0, d.env()]],
+      ["max", [0, d.lfo(0, 1)]],
+      ["max", [0, d.midi.cc(74)]],
+      ["max", [0, []]],
+    ];
+
+    for (const [field, args] of invalid) {
+      expect(() => Reflect.construct(Envelope, args), String(args)).toThrow(
+        field,
+      );
+      expect(() => Reflect.apply(d.env, d, args), String(args)).toThrow(field);
+    }
   });
 
   it("serializes random max values without timing geometry", () => {
@@ -75,6 +156,24 @@ describe("Envelope", () => {
     expect(schema.max).toEqual({ type: "static", cycle: [[0.75]] });
     expect(schema.a).toEqual({ type: "static", cycle: [[0.5]] });
     expect(schema.mode).toBe("bounded");
+  });
+
+  it("does not replace a bound after invalid max candidates", () => {
+    const envelope = new Envelope(0.25, 0.75)
+      .adsr(0.5, 0.25, 0.8, 0.1)
+      .mode("bounded");
+    const before = envelope.getSchema();
+
+    for (const input of [
+      [Number.NaN],
+      [Number.POSITIVE_INFINITY],
+      [[Number.NaN]],
+    ]) {
+      expect(() => Reflect.apply(envelope.max, envelope, input)).toThrow(
+        "[Envelope] max()",
+      );
+      expect(envelope.getSchema()).toEqual(before);
+    }
   });
 
   it("resets max to one when called without input", () => {

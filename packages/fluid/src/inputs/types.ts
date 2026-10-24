@@ -6,6 +6,11 @@ import type {
 
 type ShorthandInput = string | Shorthand;
 type CycleInput<T> = (T | T[])[] | [RandomCycle];
+type NumericPatternValue =
+  | number
+  | ShorthandInput
+  | RandomCycle
+  | StructuredInput<number>;
 type NumericPatternInput =
   | CycleInput<number>
   | [ShorthandInput]
@@ -21,6 +26,7 @@ type NullableCycleInput<T> = StaticNullableCycleInput<T> | [RandomCycle];
 export type {
   CycleInput,
   NumericPatternInput,
+  NumericPatternValue,
   ADSRInput,
   ShorthandInput,
   StaticNullableCycleInput,
