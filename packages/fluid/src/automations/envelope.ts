@@ -8,7 +8,10 @@ import type {
   NumericPatternValue,
   ShorthandInput,
 } from "@/inputs/types";
-import Parameter, { createParameter } from "@/parameters/parameter";
+import Parameter, {
+  createParameter,
+  createParameterValue,
+} from "@/parameters/parameter";
 
 type ADSR = { a: number; d: number; s: number; r: number };
 export type EnvelopeArguments =
@@ -78,6 +81,10 @@ class Envelope {
   }
 
   adsr(a: ADSRInput, d: ADSRInput, s: ADSRInput, r: ADSRInput) {
+    if (arguments.length !== 4) {
+      throw new TypeError("[Envelope] adsr() requires exactly four values.");
+    }
+
     const nextA = createAdsrParameter(a, "[Envelope] adsr() a");
     const nextD = createAdsrParameter(d, "[Envelope] adsr() d");
     const nextS = createAdsrParameter(s, "[Envelope] adsr() s");
@@ -184,21 +191,13 @@ function isShorthandInput(value: unknown): value is ShorthandInput {
 }
 
 function createAdsrParameter(input: ADSRInput, method: string) {
-  if (isStructuredInput(input)) {
-    throw new Error(
-      `${method} positional structured inputs are not supported.`,
-    );
-  }
   if (Array.isArray(input)) {
     throw new Error(`${method} positional arrays are not supported.`);
   }
   if (isRandomCycle(input)) {
     throw new Error(`${method} positional random cycles are not supported.`);
   }
-  if (isShorthandInput(input)) {
-    return createParameter([input], method);
-  }
-  return createParameter([input], method);
+  return createParameterValue(input, method);
 }
 
 export default Envelope;

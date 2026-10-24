@@ -315,6 +315,9 @@ abstract class Instrument {
   }
 
   adsr(a: ADSRInput, d: ADSRInput, s: ADSRInput, r: ADSRInput) {
+    if (arguments.length !== 4) {
+      throw new TypeError("[Instrument] adsr() requires exactly four values.");
+    }
     try {
       this._gain.adsr(a, d, s, r);
     } catch (error) {

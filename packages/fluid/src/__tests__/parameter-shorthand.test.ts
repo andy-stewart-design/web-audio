@@ -957,7 +957,7 @@ describe("public parameter shorthand", () => {
     const d = new Drome();
     const direct = d.lfo("0.2 0.8", "<400 800>").getSchema();
     const reusable = d.lfo(d.sh("0.2 0.8"), d.sh("<400 800>")).getSchema();
-    const structured = d.lfo([0.2, 0.8], [400, 800]).getSchema();
+    const structured = d.lfo(d.str(0.2, 0.8), d.str(400, 800)).getSchema();
 
     expect(direct.outputA).toEqual({
       type: "static",
@@ -1020,7 +1020,7 @@ describe("public parameter shorthand", () => {
       d.lfo("0.2", 1).offset("0.5");
       // @ts-expect-error LFO phase alias remains scalar numeric-only.
       d.lfo("0.2", 1).off(shorthand);
-      // @ts-expect-error LFO arrays remain arrays of numbers, not shorthand values.
+      // @ts-expect-error LFO endpoints accept numeric values, not raw arrays.
       d.lfo(["0.2"], 1);
       // @ts-expect-error Routing target remains a string, not a numeric pattern.
       d.synth().route(shorthand);

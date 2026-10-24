@@ -3,9 +3,9 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md), ready for planning; requirements R1–R11 and acceptance criteria AC1–AC18 govern this plan, subject to approved amendments for [envelope defaults/documentation ownership](evidence/step-1.1-envelope-defaults.md), [shared static structured values](evidence/step-1.2-patterns-ownership.md), and [required noise/filter inputs](evidence/step-3.1.md#required-input-amendment).
-- Delivery state: Step 3.1 verified; Phase 3 is in progress. See [strict noise/filter and alias evidence](evidence/step-3.1.md).
-- Acceptance or release still pending: Steps 3.2–4.2, the Phase 3/4 gates, remaining feature acceptance, and any subsequent release decision.
-- Blockers: None identified for Step 3.2. Native rendering remains unverified; the previously recorded bare-Node artifact-runner limitation remains a Step 4.1 execution constraint.
+- Delivery state: Step 3.2 verified; Phase 3 is in progress. See [LFO/ADSR slot, migration, and validation evidence](evidence/step-3.2.md).
+- Acceptance or release still pending: Steps 3.3–4.2, the Phase 3/4 gates, remaining feature acceptance, and any subsequent release decision.
+- Blockers: None identified for Step 3.3. Native rendering remains unverified; the previously recorded bare-Node artifact-runner limitation remains a Step 4.1 execution constraint.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove that completion gates passed. `Verified` means the scoped gate and required implementation review passed; it does not imply manual approval, publication, or deployment. In supervised execution, manual approvals belong in extension state rather than task checkboxes.
 
@@ -304,7 +304,7 @@ Evidence: Verified; see [strict boundaries, omission baseline, alias ownership/l
 
 ### Step 3.2 — Tighten LFO endpoints and extend positional ADSR to static wrappers
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R3, R5, R8–R11; AC7 LFO/ADSR portions, AC14 ADSR/LFO permission portions, AC15 ADSR portion, AC17. Full multi-family acceptance closes after Step 3.3 and the phase exit gate.
 Depends on: Step 3.1.
 Review boundary: endpoint bar semantics, static structured ADSR, and runtime argument/permission checks.
@@ -317,11 +317,11 @@ Expected files:
 
 Tasks:
 
-- [ ] Replace raw-array LFO endpoint types/dispatch with the shared explicit slot path, retaining direct numeric/shorthand/random endpoint permissions and per-bar first-value behavior.
-- [ ] Migrate old endpoint arrays to `d.str(...oldEndpointArray)`, not `d.str(oldEndpointArray)`, so their previous separate-bar meaning survives.
-- [ ] Allow permitted static structured wrappers in each positional ADSR field, while continuing to reject raw arrays, direct random cycles, and audio modulation sources. Random sources are not valid builder data.
-- [ ] Validate all replacement ADSR fields before assignment and enforce runtime arity at both instrument/envelope ADSR and LFO factory/constructor boundaries.
-- [ ] Add endpoint-warning, type-negative, extra-argument, permission, and late-field atomicity tests; update all affected first-party callsites in the same change.
+- [x] Replace raw-array LFO endpoint types/dispatch with the shared explicit slot path, retaining direct numeric/shorthand/random endpoint permissions and per-bar first-value behavior.
+- [x] Migrate old endpoint arrays to `d.str(...oldEndpointArray)`, not `d.str(oldEndpointArray)`, so their previous separate-bar meaning survives.
+- [x] Allow permitted static structured wrappers in each positional ADSR field, while continuing to reject raw arrays, direct random cycles, and audio modulation sources. Random sources are not valid builder data.
+- [x] Validate all replacement ADSR fields before assignment and enforce runtime arity at both instrument/envelope ADSR and LFO factory/constructor boundaries.
+- [x] Add endpoint-warning, type-negative, extra-argument, permission, and late-field atomicity tests; update all affected first-party callsites in the same change.
 
 Verification:
 
@@ -331,7 +331,7 @@ Verification:
 - Manual: inspect LFO migrations for the extra-array-level trap and verify that warning state is not reset or emitted merely by normalization.
 
 Completion gate: LFO no longer needs its special raw-array endpoint interpretation, ADSR supports static structured values consistently, and existing permission/warning/atomicity behavior is proven rather than relaxed.
-Evidence: Not run.
+Evidence: Verified; see [fixed named slots, permissions, atomicity, warnings, active migrations, and checks](evidence/step-3.2.md).
 
 ### Step 3.3 — Finish fixed envelope and chop slots without changing authored timing
 
@@ -471,17 +471,17 @@ This is an ownership map, not a second execution checklist. Evidence is recorded
 | AC4                | Step 1.3; Phase 1 exit                            | Notes, names, variations/alias, and XOX match their structured counterparts.                            | [Verified](evidence/step-1.3.md#verification)   |
 | AC5                | Steps 1.2 and 1.3                                 | Wrapped atoms never become general shorthand; invalid consumer atoms/geometry still fail.               | [Verified](evidence/step-1.3.md#verification)   |
 | AC6                | Steps 1.2/1.3; Step 4.1 integration               | Static snapshots resist caller mutation and cross-consumer decoding/playback state sharing.             | Builder/event/public gate evidence; Not run     |
-| AC7                | Steps 3.1–3.3; Phase 3 exit                       | All six families accept explicit slots and reject raw/extra inputs in types and JavaScript.             | [3.1](evidence/step-3.1.md); 3.2/3.3 pending    |
+| AC7                | Steps 3.1–3.3; Phase 3 exit                       | All six families accept explicit slots and reject raw/extra inputs in types and JavaScript.             | [3.2](evidence/step-3.2.md); 3.3 pending        |
 | AC8                | Step 3.1                                          | Noise arity is uniform with/without color; dedicated gain/filter sugar remains valid.                   | [Verified](evidence/step-3.1.md)                |
-| AC9                | Steps 1.2/1.3 and affected Step 3.x; Phase 3 exit | Every listed single-input setter/alias and its source/default state behavior remains supported.         | [3.1](evidence/step-3.1.md); Phase 3 pending    |
+| AC9                | Steps 1.2/1.3 and affected Step 3.x; Phase 3 exit | Every listed single-input setter/alias and its source/default state behavior remains supported.         | [3.2](evidence/step-3.2.md); Phase 3 pending    |
 | AC10               | Step 2.1; Phase 2 exit                            | Canonical minimum/maximum patterns validate and all first-party schema consumers agree.                 | [Verified](evidence/step-2.1.md)                |
 | AC11               | Step 2.1 deterministic; Step 4.2 native           | Independent per-bar/hit lookup and event-specific release minimum reach scheduling and actual output.   | [AG1](evidence/step-2.1.md); native pending     |
 | AC12               | Step 2.1 deterministic; Step 4.2 native           | Inverted/crossing bounds retain existing math and finite native output without clamping.                | [AG1](evidence/step-2.1.md); native pending     |
 | AC13               | Step 2.1 deterministic; Step 4.2 native           | Patterned minimum works for gain and supported external envelope sources without nesting new sources.   | [AG1](evidence/step-2.1.md); native pending     |
-| AC14               | Steps 1.2/1.3, 2.1, 3.1/3.2                       | Random/direct audio permissions survive wrapping and ADSR remains restricted.                           | [3.1](evidence/step-3.1.md); 3.2 pending        |
-| AC15               | Steps 2.1 and 3.1–3.3                             | Failed envelope/ADSR/noise/chop replacements leave existing affected state intact.                      | [3.1](evidence/step-3.1.md); later pending      |
-| AC16               | Steps 1.2/1.3 and 3.x; Step 4.1                   | Invalid wrapper construction/composition is rejected consistently across positional and dedicated APIs. | [3.1](evidence/step-3.1.md); later pending      |
-| AC17               | Step 3.2; Step 4.1 migration review               | LFO migration preserves old separate bars and intentional multivalue warnings.                          | LFO and migration evidence; Not run             |
+| AC14               | Steps 1.2/1.3, 2.1, 3.1/3.2                       | Random/direct audio permissions survive wrapping and ADSR remains restricted.                           | [Verified](evidence/step-3.2.md)                |
+| AC15               | Steps 2.1 and 3.1–3.3                             | Failed envelope/ADSR/noise/chop replacements leave existing affected state intact.                      | [3.2](evidence/step-3.2.md); 3.3 pending        |
+| AC16               | Steps 1.2/1.3 and 3.x; Step 4.1                   | Invalid wrapper construction/composition is rejected consistently across positional and dedicated APIs. | [3.2](evidence/step-3.2.md); later pending      |
+| AC17               | Step 3.2; Step 4.1 migration review               | LFO migration preserves old separate bars and intentional multivalue warnings.                          | [3.2](evidence/step-3.2.md); 4.1 pending        |
 | AC18               | Step 4.1; Phase 4 exit                            | Wrapper-free graph output, built public evaluation, signatures, examples, and migrations agree.         | Public/artifact/documentation evidence; Not run |
 
 No publication, packed installation, hosted-service, or cross-platform certification gate is required by this SOW. Builds/self-imports are artifact checks, not claims about a published package. Native Chromium proof and human listening remain distinct evidence classes.
@@ -498,7 +498,7 @@ No publication, packed installation, hosted-service, or cross-platform certifica
 
 ## Deferred checks and accepted deviations
 
-- No deviations or waivers have been accepted. Steps 0.1–3.1 and the Phase 0–2 exit gates are verified with linked evidence; Steps 3.2 onward and the Phase 3/4 exit gates are unrun.
+- No deviations or waivers have been accepted. Steps 0.1–3.2 and the Phase 0–2 exit gates are verified with linked evidence; Step 3.3 onward and the Phase 3/4 exit gates are unrun.
 - Chromium/native acceptance is an execution prerequisite, not an automatically deferred check. Missing browser/platform access must remain visible in Step 4.2 and the status heading until resolved or explicitly waived.
 - Human listening, live REPL/browser sessions, real-time performance certification, packed/published-package testing, and deployment are not required gates for this scoped API/normalization change. Do not describe them as performed.
 - Timing-generator patternability, LFO speed/waveform expansion, new source kinds, new setters, automatic saved-sketch rewrites, and a legacy scalar-minimum graph adapter remain outside the governing spec.

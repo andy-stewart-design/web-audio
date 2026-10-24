@@ -7,7 +7,7 @@ import {
   type StructuredAtom,
 } from "@web-audio/patterns";
 import Envelope, { type EnvelopeArguments } from "./automations/envelope";
-import Lfo, { type LfoInput } from "./automations/lfo";
+import Lfo from "./automations/lfo";
 import { BUILT_IN_BANKS } from "./samples/built-in-banks";
 import Bus from "./buses/bus";
 import Filter from "./effects/filter";
@@ -27,7 +27,10 @@ import {
 import { validateDromeGraph } from "@web-audio/schema";
 import type { BankSchema, DromeSchema, FilterType } from "@web-audio/schema";
 import type { AudioParamInput } from "./parameters/parameter";
-import type { SingleSlotAudioParamInput } from "./inputs/types";
+import type {
+  NumericPatternValue,
+  SingleSlotAudioParamInput,
+} from "./inputs/types";
 import type { LoadSamplesInput } from "./samples/types";
 import {
   waveformAliasMap,
@@ -216,7 +219,12 @@ class Drome {
     return new Envelope(...args);
   }
 
-  lfo(outputA: LfoInput, outputB: LfoInput) {
+  lfo(outputA: NumericPatternValue, outputB: NumericPatternValue) {
+    if (arguments.length !== 2) {
+      throw new TypeError(
+        "[Drome] lfo() requires exactly two endpoint values.",
+      );
+    }
     return new Lfo(outputA, outputB);
   }
 

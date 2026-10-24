@@ -190,35 +190,39 @@ describe("public structured numeric inputs", () => {
     expect(gain.getSchema().gain).toEqual(expected);
   });
 
-  it("keeps positional ADSR wrapper inputs excluded without partial updates", () => {
+  it("accepts one static structured value per positional ADSR field", () => {
     const d = new Drome();
-    const envelope = d.env().adsr(0.01, 0.2, 0.7, 0.3);
-    const instrument = d.synth().adsr(0.01, 0.2, 0.7, 0.3);
+    const envelope = d.env(d.str(0, 0.1), d.str(1, 0.8)).mode("bounded");
+    const instrument = d.synth();
     const previousEnvelope = envelope.getSchema();
     const previousGain = instrument.getSchema().gain;
-    const wrappers = [d.str(0.2)];
+    const fields = [
+      d.str(0.01, 0.02),
+      d.sh("0.2 0.3"),
+      0.7,
+      d.str([0.2, 0.4], 0.6),
+    ] as const;
 
-    for (const wrapped of wrappers) {
-      const args = [0.1, 0.3, 0.8, wrapped];
-      expect(() => Reflect.apply(envelope.adsr, envelope, args)).toThrow(
-        "positional structured inputs are not supported",
-      );
-      expect(() => Reflect.apply(instrument.adsr, instrument, args)).toThrow(
-        "positional structured inputs are not supported",
-      );
-      expect(envelope.getSchema()).toEqual(previousEnvelope);
-      expect(instrument.getSchema().gain).toEqual(previousGain);
-    }
+    envelope.adsr(...fields);
+    instrument.adsr(...fields);
+    const expected = {
+      a: { type: "static", cycle: [[0.01], [0.02]] },
+      d: { type: "static", cycle: [[0.2, 0.3]] },
+      s: { type: "static", cycle: [[0.7]] },
+      r: { type: "static", cycle: [[0.2, 0.4], [0.6]] },
+    };
+    expect(envelope.getSchema()).toEqual({ ...previousEnvelope, ...expected });
+    expect(instrument.getSchema().gain).toEqual({
+      ...previousGain,
+      ...expected,
+    });
 
     const typeChecks = () => {
-      // @ts-expect-error Static positional ADSR wrappers are deferred.
-      envelope.adsr(d.str(0.2), 0.2, 0.7, 0.3);
       // @ts-expect-error Random positional inputs are not permitted.
       instrument.adsr(d.rand(), 0.2, 0.7, 0.3);
     };
     void typeChecks;
   });
-
   it("leaves direct modulation sources on their existing path", () => {
     const d = new Drome();
     const envelope = new Envelope(0, 1);

@@ -16,7 +16,12 @@ d.synth("saw")
   .root(r + o)
   .scale(s)
   .notes([0, 4, 2, 0, 5, 4, 2, 0], [0, 0, 0, 0, 0, 0, 0, 0])
-  .detune(d.lfo(0, [0, b, 0, -b]).wave("saw").norm())
+  .detune(
+    d
+      .lfo(0, d.str(0, b, 0, -b))
+      .wave("saw")
+      .norm(),
+  )
   .gain(0.75)
   .adsr(0.05, 1, 0.333, 0.25)
   .fx(
