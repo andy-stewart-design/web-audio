@@ -1,7 +1,10 @@
 import {
   createShorthand,
+  createStructuredInput,
   RandomCycle,
   type Shorthand,
+  type StructuredArgument,
+  type StructuredAtom,
 } from "@web-audio/patterns";
 import Envelope, { type EnvelopeArguments } from "./automations/envelope";
 import Lfo, { type LfoInput } from "./automations/lfo";
@@ -39,12 +42,14 @@ class Drome {
   private _bankNames: Record<string, string>;
   private _buses = new Map<string, Bus>();
   sh: (source: string) => Shorthand;
+  str: Drome["structured"];
 
   constructor() {
     this._instruments = new Set();
     this._banks = Object.create(null);
     this._bankNames = Object.create(null);
     this.sh = this.shorthand.bind(this);
+    this.str = this.structured.bind(this);
   }
 
   bpm(value: number) {
@@ -54,6 +59,12 @@ class Drome {
 
   shorthand(source: string) {
     return createShorthand(source);
+  }
+
+  structured<T extends StructuredAtom>(
+    ...input: [StructuredArgument<T>, ...StructuredArgument<T>[]]
+  ) {
+    return createStructuredInput(...input);
   }
 
   synth(): Synthesizer;

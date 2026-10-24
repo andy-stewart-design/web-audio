@@ -19,6 +19,13 @@ export {
 export { createShorthand } from "./shorthand/create";
 export { parseShorthand } from "./shorthand/parser";
 export type { Shorthand } from "./shorthand/create";
+export { createStructuredInput, isStructuredInput } from "./structured/create";
+export type {
+  StructuredArgument,
+  StructuredAtom,
+  StructuredInput,
+  StructuredValue,
+} from "./structured/create";
 
 export {
   evaluatePatternExpression,

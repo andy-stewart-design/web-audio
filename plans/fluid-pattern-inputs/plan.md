@@ -2,10 +2,10 @@
 
 ## Status and governing source
 
-- Governing spec: [spec.md](spec.md), ready for planning; requirements R1–R11 and acceptance criteria AC1–AC18 govern this plan, subject to the [approved envelope-defaults and documentation-ownership amendment](evidence/step-1.1-envelope-defaults.md).
-- Delivery state: Step 1.1 verified; Phase 1 remains in progress. See [prework evidence](evidence/step-1.1.md) and [baseline evidence](evidence/step-0.1.md).
-- Acceptance or release still pending: Steps 1.2–4.2, the remaining phase gates, feature acceptance, and any subsequent release decision.
-- Blockers: None identified for Step 1.2. Native launch/rendering remains unverified for its later gate.
+- Governing spec: [spec.md](spec.md), ready for planning; requirements R1–R11 and acceptance criteria AC1–AC18 govern this plan, subject to approved amendments for [envelope defaults/documentation ownership](evidence/step-1.1-envelope-defaults.md) and [shared static structured values](evidence/step-1.2-patterns-ownership.md).
+- Delivery state: Step 1.2 verified with shared patterns ownership and static-only structured values. Phase 1 remains in progress; see [current Step 1.2 evidence](evidence/step-1.2-patterns-ownership.md), [prework evidence](evidence/step-1.1.md), and [baseline evidence](evidence/step-0.1.md).
+- Acceptance or release still pending: Steps 1.3–4.2, the remaining phase gates, feature acceptance, and any subsequent release decision.
+- Blockers: None identified for Step 1.3. Native rendering remains unverified; a bare-Node artifact-runner limitation is recorded for Step 4.1 in [Step 1.2 evidence](evidence/step-1.2.md#supplementary-built-entry-smoke-runner-distinction).
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove that completion gates passed. `Verified` means the scoped gate and required implementation review passed; it does not imply manual approval, publication, or deployment. In supervised execution, manual approvals belong in extension state rather than task checkboxes.
 
@@ -146,14 +146,16 @@ Evidence: Verified; see [original Step 1.1 verification](evidence/step-1.1.md) a
 
 ### Step 1.2 — Add reusable structured values and numeric normalization
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R2–R4, R6, R8–R10; AC3 and AC6; AC5 numeric portion, AC9 numeric portion, AC14 numeric permission portion, and AC16 wrapper/numeric portions. Event and positional portions belong to Steps 1.3 and 3.x.
 Depends on: Step 1.1.
 Review boundary: a usable public numeric builder, static ownership, and shared whole-pattern normalization; no event decoding change or positional-signature removal.
 
 Expected files:
 
-- **New** `packages/fluid/src/inputs/structured-input.ts` — Fluid-owned value, constructor, and identification.
+- **New** `packages/patterns/src/structured/create.ts` — shared static value, factory, guard, and snapshot ownership.
+- `packages/patterns/src/index.ts` — public structured-value exports.
+- **New** `packages/patterns/src/structured/__tests__/create.test.ts` — shared value/factory tests.
 - **New** `packages/fluid/src/inputs/normalize-structured-input.ts` — shared whole-pattern normalization; exact helper naming may adapt without changing its boundary.
 - `packages/fluid/src/drome.ts`, `src/inputs/types.ts`, `src/inputs/guards.ts`, `src/inputs/decode-numeric-input.ts`.
 - `packages/fluid/src/parameters/parameter.ts` and `resolve-audio-param.ts` as required for type/source integration.
@@ -162,22 +164,23 @@ Expected files:
 
 Tasks:
 
-- [ ] Add equivalent `d.structured()` / `d.str()` construction with consumer-constrainable typing, immutable static snapshots, and no playback cursor. Keep this in Fluid; no patterns-package grammar or export change is needed.
-- [ ] Normalize one wrapper as an entire argument list while retaining whether the caller explicitly chose structured semantics. Reject empty/nested/mixed wrappers and reusable shorthand objects inside builders.
-- [ ] Integrate numeric decoding without treating wrapped string atoms as shorthand. Preserve the old ownership behavior of unwrapped variadic arrays.
-- [ ] Preserve sole permitted random-cycle identity/configuration and existing random/mixed-source restrictions. Keep envelopes/LFOs/MIDI as direct allowed sources, not builder contents.
-- [ ] Prove wrapper acceptance through every numeric single-input family listed in the spec, including aliases and gain-envelope preservation, using the common decoder path rather than new per-method parsers.
-- [ ] Add ownership, reuse, invalid composition, raw-string, source-permission, and type-negative tests. Use runtime JavaScript probes such as `Reflect.apply` instead of weakening production types with `as any`.
+- [x] Add equivalent static-only `d.structured()` / `d.str()` construction with consumer-constrainable typing, immutable snapshots, and no playback cursor. The shared value/factory/guard belongs to patterns; calling conventions and consumer validation remain in Fluid. No grammar change is needed.
+- [x] Normalize one wrapper as an entire argument list while retaining whether the caller explicitly chose structured semantics. Reject empty/nested/mixed wrappers and reusable shorthand objects inside builders.
+- [x] Integrate numeric decoding without treating wrapped string atoms as shorthand. Preserve the old ownership behavior of unwrapped variadic arrays.
+- [x] Reject random and modulation sources as builder contents; preserve existing direct source permissions, identities, and live configuration.
+- [x] Prove wrapper acceptance through every numeric single-input family listed in the spec, including aliases and gain-envelope preservation, using the common decoder path rather than new per-method parsers.
+- [x] Add ownership, reuse, invalid composition, raw-string, source-permission, and type-negative tests. Use runtime JavaScript probes such as `Reflect.apply` instead of weakening production types with `as any`.
 
 Verification:
 
 - Automated: `pnpm --filter @web-audio/fluid exec vitest run src/inputs/__tests__/structured-input.test.ts src/inputs/__tests__/decode-numeric-input.test.ts src/parameters/__tests__/parameter.test.ts src/parameters/__tests__/resolve-audio-param.test.ts src/__tests__/structured-inputs.test.ts` after adding the two proposed suites.
+- Automated shared-package gate: `pnpm --filter @web-audio/patterns build`, then `pnpm --filter @web-audio/fluid build`; run Patterns `test:ci`, `check`, and `lint` with the same package filter. The build order supplies shared public exports/declarations to Fluid checks.
 - Expected proof: two bars versus two values in one bar, equivalence to appropriate shorthand, caller-array mutation isolation, unchanged raw-array identity behavior, preserved envelope gain state, and no source-permission widening.
 - Automated: Fluid `check`, `lint`, and touched-path formatting check. Include compile-time rejection of incompatible structured atom types and mixed whole-pattern values.
 - Manual: not needed; static graph assertions and mutation tests cover this step.
 
 Completion gate: the public builder works for numeric dedicated setters, aliases and random/source cases obey their existing permissions, and all scoped ownership and negative tests pass. Event-builder acceptance is not claimed yet.
-Evidence: Not run.
+Evidence: Verified; see [shared ownership/static-only refinement and current checks](evidence/step-1.2-patterns-ownership.md) and [original verification/artifact-runner limitation](evidence/step-1.2.md).
 
 ### Step 1.3 — Integrate structured event values without shorthand reinterpretation
 
@@ -211,7 +214,7 @@ Verification:
 Completion gate: every event consumer named in AC4 accepts the builder with its existing semantics, all event aliases retain parity, and numeric gates from Step 1.2 remain green.
 Evidence: Not run.
 
-Phase exit gate: after Step 1.3 checks, run the full Fluid source suite, `check`, and `lint`, then build Fluid and upstream dependencies with `pnpm exec turbo run build --filter=@web-audio/fluid`. Confirm envelope prework, numeric/event builder parity, source guards, and mutation regressions compose. Legacy multi-input rest forms may still exist until Phase 3; their final rejection is not claimed here.
+Phase exit gate: after Step 1.3 checks, run the full Patterns and Fluid source suites, `check`, and `lint` for each package, then build Fluid and upstream dependencies with `pnpm exec turbo run build --filter=@web-audio/fluid`. Confirm envelope prework, numeric/event builder parity, source guards, and mutation regressions compose. Legacy multi-input rest forms may still exist until Phase 3; their final rejection is not claimed here.
 Evidence: Not run.
 
 ## Phase 2 — Atomic pattern-valued envelope minimum
@@ -315,14 +318,14 @@ Tasks:
 
 - [ ] Replace raw-array LFO endpoint types/dispatch with the shared explicit slot path, retaining direct numeric/shorthand/random endpoint permissions and per-bar first-value behavior.
 - [ ] Migrate old endpoint arrays to `d.str(...oldEndpointArray)`, not `d.str(oldEndpointArray)`, so their previous separate-bar meaning survives.
-- [ ] Allow permitted static structured wrappers in each positional ADSR field, while continuing to reject raw arrays, random cycles even when wrapped, and audio modulation sources.
+- [ ] Allow permitted static structured wrappers in each positional ADSR field, while continuing to reject raw arrays, direct random cycles, and audio modulation sources. Random sources are not valid builder data.
 - [ ] Validate all replacement ADSR fields before assignment and enforce runtime arity at both instrument/envelope ADSR and LFO factory/constructor boundaries.
 - [ ] Add endpoint-warning, type-negative, extra-argument, permission, and late-field atomicity tests; update all affected first-party callsites in the same change.
 
 Verification:
 
 - Automated: `pnpm --filter @web-audio/fluid exec vitest run src/automations/__tests__/lfo.test.ts src/automations/__tests__/envelope.test.ts src/__tests__/parameter-shorthand.test.ts src/__tests__/structured-inputs.test.ts`.
-- Expected proof: old endpoint arrays migrated to wrappers still yield two one-value bars; intentionally multivalue bars retain existing warning behavior; wrapped ADSR random inputs fail without changing any field.
+- Expected proof: old endpoint arrays migrated to wrappers still yield two one-value bars; intentionally multivalue bars retain existing warning behavior; direct ADSR random inputs fail without changing any field, and builders reject random inputs independently.
 - Automated: Fluid `check`, `lint`, and touched-path formatting check. Use runtime invalid-call probes as well as TypeScript negative assertions.
 - Manual: inspect LFO migrations for the extra-array-level trap and verify that warning state is not reset or emitted merely by normalization.
 
@@ -396,7 +399,7 @@ Verification:
 
 - Automated: `pnpm --filter @web-audio/fluid exec vitest run src/__tests__/structured-inputs.test.ts src/__tests__/evaluate-source.test.ts src/__tests__/parameter-compatibility.test.ts src/__tests__/parameter-shorthand.test.ts`, then Fluid `check`/`lint` and touched-path formatting checks.
 - Automated: run the dependency/artifact build, then `pnpm --filter web check`. The build must emit valid runtime and declaration artifacts; source type probes prove public source typing, not an installed/packed-package contract.
-- Built runtime smoke, from the repository root after building:
+- Built runtime smoke, from the repository root after building. Execution constraint: the bare-Node form below encounters the source-exported schema's extensionless import; see [Step 1.2 runner evidence](evidence/step-1.2.md#supplementary-built-entry-smoke-runner-distinction) before choosing the final runner:
 
 ```sh
 pnpm --filter @web-audio/fluid exec node --input-type=module -e '
@@ -494,7 +497,7 @@ No publication, packed installation, hosted-service, or cross-platform certifica
 
 ## Deferred checks and accepted deviations
 
-- No deviations or waivers have been accepted. Steps 0.1 and 1.1 are verified with evidence linked above; later steps and remaining phase gates are unrun.
+- No deviations or waivers have been accepted. Steps 0.1, 1.1, and 1.2 are verified with evidence linked above; later steps and remaining phase gates are unrun.
 - Chromium/native acceptance is an execution prerequisite, not an automatically deferred check. Missing browser/platform access must remain visible in Step 4.2 and the status heading until resolved or explicitly waived.
 - Human listening, live REPL/browser sessions, real-time performance certification, packed/published-package testing, and deployment are not required gates for this scoped API/normalization change. Do not describe them as performed.
 - Timing-generator patternability, LFO speed/waveform expansion, new source kinds, new setters, automatic saved-sketch rewrites, and a legacy scalar-minimum graph adapter remain outside the governing spec.
