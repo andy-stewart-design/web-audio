@@ -234,3 +234,164 @@ describe("public structured numeric inputs", () => {
     );
   });
 });
+
+describe("public structured event inputs", () => {
+  it("preserves note bars, chords, authored rest slots, and empty bars", () => {
+    const d = new Drome();
+    const notes = createStructuredInput([60, null, [64, 67]], [], [62]);
+    const wrapped = d
+      .synth()
+      .notes(notes)
+      .xox(d.str([1, 1, 1, 1]));
+    const legacy = d
+      .synth()
+      .notes([60, null, [64, 67]], [], [62])
+      .xox([1, 1, 1, 1]);
+    expect(wrapped.getSchema().eventPattern).toEqual(
+      legacy.getSchema().eventPattern,
+    );
+
+    const bars = d.synth().notes(d.str(60, 64)).getSchema().eventPattern;
+    const steps = d
+      .synth()
+      .notes(d.str([60, 64]))
+      .getSchema().eventPattern;
+    expect(bars).toEqual(d.synth().notes(60, 64).getSchema().eventPattern);
+    expect(steps).toEqual(d.synth().notes([60, 64]).getSchema().eventPattern);
+    expect(bars.timing.cycle).toHaveLength(2);
+    expect(steps.timing.cycle).toHaveLength(1);
+  });
+
+  it("preserves layered names, variations, rests, and the var alias", () => {
+    const d = new Drome();
+    const names = createStructuredInput([["bd", "hh"], null, "sd"], []);
+    const variations = d.str([[0, 1], null, 2], []);
+    const wrapped = new Sampler(undefined).name(names).variation(variations);
+    const alias = new Sampler(undefined).name(names).var(variations);
+    const legacy = new Sampler(undefined)
+      .name([["bd", "hh"], null, "sd"], [])
+      .variation([[0, 1], null, 2], []);
+    expect(wrapped.getSchema().eventPattern).toEqual(
+      legacy.getSchema().eventPattern,
+    );
+    expect(alias.getSchema().eventPattern).toEqual(
+      legacy.getSchema().eventPattern,
+    );
+  });
+
+  it("keeps structured numeric XOX distinct from direct compact notation", () => {
+    const d = new Drome();
+    expect(
+      d
+        .synth()
+        .xox(d.str([1, 0, -2, 0.5], []))
+        .getSchema().eventPattern,
+    ).toEqual(d.synth().xox([1, 0, -2, 0.5], []).getSchema().eventPattern);
+
+    const compact = d.synth().xox("xoxo").getSchema().eventPattern;
+    expect(d.synth().xox(d.sh("xoxo")).getSchema().eventPattern).toEqual(
+      compact,
+    );
+    expect(d.synth().xox("1 0 1 0").getSchema().eventPattern).toEqual(compact);
+    expect(() =>
+      Reflect.apply(d.synth().xox, d.synth(), [d.str("xoxo")]),
+    ).toThrow("finite numbers");
+  });
+
+  it("reuses deep event snapshots without sharing mutable consumer output", () => {
+    const d = new Drome();
+    const chord = [60, 64];
+    const bar = [chord, null, 67];
+    const notes = d.str(bar);
+    chord[0] = 99;
+    bar.push(72);
+    const first = d.synth().notes(notes);
+    const second = d.synth().notes(notes);
+    const expected = d
+      .synth()
+      .notes([[60, 64], null, 67])
+      .getSchema().eventPattern;
+    expect(first.getSchema().eventPattern).toEqual(expected);
+    expect(second.getSchema().eventPattern).toEqual(expected);
+
+    const snapshot = first.getSchema().eventPattern;
+    if (snapshot.notes.type !== "static")
+      throw new Error("Expected static notes");
+    const firstChord = snapshot.notes.cycle[0][0];
+    if (!Array.isArray(firstChord)) throw new Error("Expected a chord");
+    Reflect.set(firstChord, 0, 100);
+    expect(second.getSchema().eventPattern).toEqual(expected);
+    expect(notes.getValues()).toEqual([[[60, 64], null, 67]]);
+  });
+
+  it("retains direct random metadata and chance when composing wrapped masks", () => {
+    const d = new Drome();
+    const notes = d.rand().int().steps(2, 0).range(48, 72).ribbon(7);
+    const variations = d.rand().int().steps(2).range(0, 3).ribbon(11);
+    const rhythm = d.rand().bin().steps(4).chance(0.25).ribbon(13);
+    const wrapped = new Sampler("bd")
+      .notes(notes)
+      .variation(variations)
+      .xox(rhythm)
+      .xox(d.str([1, 0, 1, 0]));
+    const legacy = new Sampler("bd")
+      .notes(notes)
+      .var(variations)
+      .xox(rhythm)
+      .xox([1, 0, 1, 0]);
+    const before = wrapped.getSchema().eventPattern;
+    expect(before).toEqual(legacy.getSchema().eventPattern);
+    expect(before.timing.condition).toMatchObject({
+      probability: 0.25,
+      segments: [{ seed: 13 }],
+    });
+
+    notes.steps(1).range(0, 1).ribbon(99);
+    variations.steps(1).ribbon(99);
+    rhythm.steps(1).chance(1).ribbon(99);
+    expect(wrapped.getSchema().eventPattern).toEqual(before);
+  });
+
+  it("constrains each public event wrapper to its consumer's atom types", () => {
+    const d = new Drome();
+    const sampler = new Sampler("bd");
+    const typeChecks = () => {
+      d.synth().notes(d.str(60, null));
+      sampler.name(d.str("bd", null));
+      sampler.variation(d.str(0, null));
+      sampler.var(d.str(0, null));
+      sampler.xox(d.str(1, 0));
+      d.synth().notes(d.rand());
+      sampler.variation(d.rand());
+      sampler.var(d.rand());
+      sampler.xox(d.rand().bin());
+      // @ts-expect-error Notes require numeric atoms, not numeric strings.
+      sampler.notes(d.str("60"));
+      // @ts-expect-error Names require string atoms.
+      sampler.name(d.str(60));
+      // @ts-expect-error Variations require numeric atoms.
+      sampler.variation(d.str("0"));
+      // @ts-expect-error The alias retains numeric variation atom restrictions.
+      sampler.var(d.str("0"));
+      // @ts-expect-error Structured XOX does not accept rests as null atoms.
+      sampler.xox(d.str(null));
+      // @ts-expect-error Compact XOX strings are not structured numeric masks.
+      sampler.xox(d.str("xoxo"));
+      // @ts-expect-error Names do not accept direct random sources.
+      sampler.name(d.rand());
+      // @ts-expect-error A wrapper must occupy the whole notes argument list.
+      sampler.notes(d.str(60), 64);
+      // @ts-expect-error A wrapper cannot be mixed with other name bars.
+      sampler.name(d.str("bd"), "sd");
+      // @ts-expect-error A wrapper cannot be mixed with other variation bars.
+      sampler.variation(d.str(0), 1);
+      // @ts-expect-error The var alias requires a sole wrapper too.
+      sampler.var(d.str(0), 1);
+      // @ts-expect-error XOX wrappers cannot be mixed with other bars.
+      sampler.xox(d.str(1), 0);
+      // @ts-expect-error Wrappers cannot be nested inside raw note bars.
+      sampler.notes([d.str(60)]);
+    };
+    void typeChecks;
+  });
+});

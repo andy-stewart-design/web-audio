@@ -17,6 +17,7 @@ import {
   interpretVariationAtom,
 } from "./atom-interpreters";
 import { isAlias } from "@/samples/normalize-bank";
+import { normalizeStructuredInput } from "./normalize-structured-input";
 
 // Bound raw traversal independently of emitted nodes and surviving voices.
 // Count argument, bar, and chord slots, including holes and omitted placeholders.
@@ -37,6 +38,14 @@ type StructuredDecodeOptions<T> = {
 
 function isArray(value: unknown): value is readonly unknown[] {
   return Array.isArray(value);
+}
+
+function assertPatternArgumentLimit(input: readonly unknown[], method: string) {
+  if (input.length > MAX_EVENT_CYCLE_PATTERNS) {
+    throw new Error(
+      `${method} cannot contain more than ${MAX_EVENT_CYCLE_PATTERNS} patterns.`,
+    );
+  }
 }
 
 /** Decode method arguments as bars, entries as slots, and nested arrays as voices. */
@@ -256,24 +265,29 @@ function decodeNotesInputGeometry(
   input: readonly unknown[],
   { allowShorthand = false } = {},
 ) {
-  const shorthand = allowShorthand
-    ? decodeShorthandInput(input, "[Instrument] notes()")
-    : undefined;
-  if (shorthand) {
-    const cycle = evaluatePatternExpression(
-      shorthand.expression,
-      interpretNoteAtom,
-    );
-    const zeroWidthPatterns = Object.freeze(cycle.patterns.map(() => false));
-    return Object.freeze({
-      cycle,
-      zeroWidthPatterns,
-      noteValueSlots: createNoteValueSlots(cycle, zeroWidthPatterns, false),
-    });
+  const normalized = normalizeStructuredInput(input, "[Instrument] notes()", {
+    scanBudget: MAX_STRUCTURED_INPUT_ITEMS,
+  });
+  const values = normalized?.values ?? input;
+  if (!normalized) assertPatternArgumentLimit(input, "[Instrument] notes()");
+  if (!normalized && allowShorthand) {
+    const shorthand = decodeShorthandInput(input, "[Instrument] notes()");
+    if (shorthand) {
+      const cycle = evaluatePatternExpression(
+        shorthand.expression,
+        interpretNoteAtom,
+      );
+      const zeroWidthPatterns = Object.freeze(cycle.patterns.map(() => false));
+      return Object.freeze({
+        cycle,
+        zeroWidthPatterns,
+        noteValueSlots: createNoteValueSlots(cycle, zeroWidthPatterns, false),
+      });
+    }
   }
-  if (input.length === 1 && isRandomCycle(input[0]))
+  if (!normalized && input.length === 1 && isRandomCycle(input[0]))
     return decodeRandomEventInputGeometry(input[0]);
-  const geometry = decodeStructuredInputGeometry(input, notesDecodeOptions());
+  const geometry = decodeStructuredInputGeometry(values, notesDecodeOptions());
   const cycle = evaluatePatternExpression(geometry.expression);
   return Object.freeze({
     cycle,
@@ -294,36 +308,50 @@ function decodeSampleNamesInput(
   input: readonly unknown[],
   { allowShorthand = false } = {},
 ) {
-  const shorthand = allowShorthand
-    ? decodeShorthandInput(input, "[Sampler] name()", {
-        allowMultipleStrings: true,
-      })
-    : undefined;
-  return shorthand
-    ? evaluatePatternExpression(shorthand.expression, interpretSampleNameAtom)
-    : evaluatePatternExpression(decodeSampleNamesExpression(input));
+  const normalized = normalizeStructuredInput(input, "[Sampler] name()", {
+    scanBudget: MAX_STRUCTURED_INPUT_ITEMS,
+  });
+  const values = normalized?.values ?? input;
+  if (!normalized) assertPatternArgumentLimit(input, "[Sampler] name()");
+  if (!normalized && allowShorthand) {
+    const shorthand = decodeShorthandInput(input, "[Sampler] name()", {
+      allowMultipleStrings: true,
+    });
+    if (shorthand) {
+      return evaluatePatternExpression(
+        shorthand.expression,
+        interpretSampleNameAtom,
+      );
+    }
+  }
+  return evaluatePatternExpression(decodeSampleNamesExpression(values));
 }
 
 function decodeVariationsInputGeometry(
   input: readonly unknown[],
   { allowShorthand = false } = {},
 ) {
-  const shorthand = allowShorthand
-    ? decodeShorthandInput(input, "[Sampler] variation()")
-    : undefined;
-  if (shorthand) {
-    const cycle = evaluatePatternExpression(
-      shorthand.expression,
-      interpretVariationAtom,
-    );
-    return Object.freeze({
-      cycle,
-      zeroWidthPatterns: Object.freeze(cycle.patterns.map(() => false)),
-    });
+  const normalized = normalizeStructuredInput(input, "[Sampler] variation()", {
+    scanBudget: MAX_STRUCTURED_INPUT_ITEMS,
+  });
+  const values = normalized?.values ?? input;
+  if (!normalized) assertPatternArgumentLimit(input, "[Sampler] variation()");
+  if (!normalized && allowShorthand) {
+    const shorthand = decodeShorthandInput(input, "[Sampler] variation()");
+    if (shorthand) {
+      const cycle = evaluatePatternExpression(
+        shorthand.expression,
+        interpretVariationAtom,
+      );
+      return Object.freeze({
+        cycle,
+        zeroWidthPatterns: Object.freeze(cycle.patterns.map(() => false)),
+      });
+    }
   }
-  if (input.length === 1 && isRandomCycle(input[0]))
+  if (!normalized && input.length === 1 && isRandomCycle(input[0]))
     return decodeRandomEventInputGeometry(input[0]);
-  const cycle = evaluatePatternExpression(decodeVariationsExpression(input));
+  const cycle = evaluatePatternExpression(decodeVariationsExpression(values));
   // Unlike notes, empty static name/variation bars normalize to authored rests.
   return Object.freeze({
     cycle,

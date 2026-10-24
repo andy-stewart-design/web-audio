@@ -11,6 +11,10 @@ type NumericPatternInput =
   | [ShorthandInput]
   | [StructuredInput<number>];
 type ADSRInput = number | ShorthandInput;
+type StructuredNotesInput = StructuredInput<number | null>;
+type StructuredNamesInput = StructuredInput<string | null>;
+type StructuredVariationInput = StructuredInput<number | null>;
+type StructuredXoxInput = StructuredInput<number>;
 type StaticNullableCycleInput<T> = (T | null | (T | null | T[])[])[];
 type NullableCycleInput<T> = StaticNullableCycleInput<T> | [RandomCycle];
 
@@ -21,4 +25,8 @@ export type {
   ShorthandInput,
   StaticNullableCycleInput,
   NullableCycleInput,
+  StructuredNotesInput,
+  StructuredNamesInput,
+  StructuredVariationInput,
+  StructuredXoxInput,
 };

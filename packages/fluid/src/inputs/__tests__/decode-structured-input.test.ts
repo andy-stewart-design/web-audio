@@ -210,6 +210,28 @@ describe("structured expression decoding", () => {
 });
 
 describe("static consumer evaluation", () => {
+  it("preserves wrapped note geometry and authored rest-value slots", () => {
+    const wrapped = decodeNotesInputGeometry(
+      [patterns.createStructuredInput([60, null, [64, null, 67], []], [])],
+      { allowShorthand: true },
+    );
+    const legacy = decodeNotesInputGeometry([
+      [60, null, [64, null, 67], []],
+      [],
+    ]);
+    expect(wrapped).toEqual(legacy);
+    expect(wrapped.zeroWidthPatterns).toEqual([false, true]);
+    if (!("noteValueSlots" in wrapped)) throw new Error("Expected note slots");
+    expect(wrapped.noteValueSlots.patterns[0][1].type).toBe("event");
+
+    const shorthand = decodeNotesInputGeometry(["60 ~ 64"], {
+      allowShorthand: true,
+    });
+    if (!("noteValueSlots" in shorthand))
+      throw new Error("Expected note slots");
+    expect(shorthand.noteValueSlots.patterns[0][1].type).toBe("rest");
+  });
+
   it.each([
     { name: "scalar", input: [60], expected: [[event(60)]] },
     { name: "one-element array", input: [[60]], expected: [[event(60)]] },
@@ -425,6 +447,20 @@ describe("consumer validation and bounds", () => {
 describe("raw structured traversal budget", () => {
   const budgetError = `structured input contains more than ${MAX_STRUCTURED_INPUT_ITEMS} raw items`;
 
+  it("enforces pattern and raw-item bounds after unwrapping static values", () => {
+    const bars = patterns.createStructuredInput(
+      60,
+      ...Array<number>(patterns.MAX_EVENT_CYCLE_PATTERNS).fill(60),
+    );
+    expect(() => decodeNotesInput([bars])).toThrow("1024 patterns");
+
+    const nullableChord = Array<null>(MAX_STRUCTURED_INPUT_ITEMS - 1).fill(
+      null,
+    );
+    const wrapped = patterns.createStructuredInput([nullableChord]);
+    expect(() => decodeNotesInput([wrapped])).toThrow(budgetError);
+  });
+
   it.each([100_000, 1_000_000_000])(
     "rejects a %s-slot sparse nullable chord before reading any voice",
     (length) => {
@@ -503,6 +539,34 @@ describe("raw structured traversal budget", () => {
     });
     expect(decoded.patterns).toEqual([atom(payload)]);
     expect(Object.isFrozen(payload)).toBe(false);
+  });
+
+  it("walks cyclic and deeply invalid arrays iteratively before legacy validation", () => {
+    const cycle: unknown[] = [];
+    cycle.push(cycle);
+    expect(() => decodeNotesInput([cycle])).toThrow("extra array nesting");
+
+    let deep: unknown[] = [60];
+    for (let index = 0; index < 20_000; index++) deep = [deep];
+    expect(() => decodeNotesInput([deep])).toThrow("extra array nesting");
+  });
+
+  it("only discovers wrappers in numeric data slots", () => {
+    const input = [60] as unknown[];
+    Object.defineProperty(input, "meta", {
+      enumerable: true,
+      value: patterns.createStructuredInput(64),
+    });
+    expect(requireStatic(decodeNotesInput(input)).patterns).toEqual([
+      [event(60)],
+    ]);
+
+    const bar = [] as unknown[];
+    Object.defineProperty(bar, "0", {
+      enumerable: false,
+      value: patterns.createStructuredInput(64),
+    });
+    expect(() => decodeNotesInput([bar])).toThrow("sole argument");
   });
 });
 

@@ -20,6 +20,19 @@ function timing(cycle: patterns.StaticEventCycle<1>) {
 }
 
 describe("structured numeric XOX", () => {
+  it("keeps wrapped numeric masks on the same geometry path as raw masks", () => {
+    const wrapped = patterns.createStructuredInput([1, 0, 1], [0, 1]);
+    expect(decodeXoxInput([wrapped])).toEqual(
+      decodeXoxInput([
+        [1, 0, 1],
+        [0, 1],
+      ]),
+    );
+    expect(() =>
+      decodeXoxInput([patterns.createStructuredInput("xoxo")]),
+    ).toThrow("finite numbers");
+  });
+
   it("decodes arguments as bars and array entries as sequential onset/rest nodes", () => {
     const expression = decodeXoxExpression([1, [1, 0, 1], 0, []]);
     expect(expression).toEqual({

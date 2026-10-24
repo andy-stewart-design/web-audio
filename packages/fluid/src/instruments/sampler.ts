@@ -17,6 +17,8 @@ import type {
   NullableCycleInput,
   ShorthandInput,
   StaticNullableCycleInput,
+  StructuredNamesInput,
+  StructuredVariationInput,
 } from "@/inputs/types";
 import type {
   ClipMode,
@@ -73,15 +75,27 @@ class Sampler extends Instrument {
 
   // METHOD ALIASES
   var(input: ShorthandInput): this;
+  var(input: StructuredVariationInput): this;
   var(...input: NullableCycleInput<number>): this;
-  var(...input: NullableCycleInput<number> | [ShorthandInput]) {
+  var(
+    ...input:
+      | NullableCycleInput<number>
+      | [ShorthandInput]
+      | [StructuredVariationInput]
+  ) {
     return this._setVariation(...input);
   }
 
   // INSTANCE METHODS
   name(input: ShorthandInput): this;
+  name(input: StructuredNamesInput): this;
   name(...input: StaticNullableCycleInput<string>): this;
-  name(...input: StaticNullableCycleInput<string> | [ShorthandInput]) {
+  name(
+    ...input:
+      | StaticNullableCycleInput<string>
+      | [ShorthandInput]
+      | [StructuredNamesInput]
+  ) {
     this._eventState = replaceSampleNames(
       this._eventState,
       decodeSampleNamesInput(input, { allowShorthand: true }),
@@ -95,13 +109,22 @@ class Sampler extends Instrument {
   }
 
   variation(input: ShorthandInput): this;
+  variation(input: StructuredVariationInput): this;
   variation(...input: NullableCycleInput<number>): this;
-  variation(...input: NullableCycleInput<number> | [ShorthandInput]) {
+  variation(
+    ...input:
+      | NullableCycleInput<number>
+      | [ShorthandInput]
+      | [StructuredVariationInput]
+  ) {
     return this._setVariation(...input);
   }
 
   private _setVariation(
-    ...input: NullableCycleInput<number> | [ShorthandInput]
+    ...input:
+      | NullableCycleInput<number>
+      | [ShorthandInput]
+      | [StructuredVariationInput]
   ) {
     const decoded = decodeVariationsInputGeometry(input, {
       allowShorthand: true,

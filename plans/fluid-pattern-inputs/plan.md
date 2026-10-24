@@ -3,9 +3,9 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md), ready for planning; requirements R1–R11 and acceptance criteria AC1–AC18 govern this plan, subject to approved amendments for [envelope defaults/documentation ownership](evidence/step-1.1-envelope-defaults.md) and [shared static structured values](evidence/step-1.2-patterns-ownership.md).
-- Delivery state: Step 1.2 verified with shared patterns ownership and static-only structured values. Phase 1 remains in progress; see [current Step 1.2 evidence](evidence/step-1.2-patterns-ownership.md), [prework evidence](evidence/step-1.1.md), and [baseline evidence](evidence/step-0.1.md).
-- Acceptance or release still pending: Steps 1.3–4.2, the remaining phase gates, feature acceptance, and any subsequent release decision.
-- Blockers: None identified for Step 1.3. Native rendering remains unverified; a bare-Node artifact-runner limitation is recorded for Step 4.1 in [Step 1.2 evidence](evidence/step-1.2.md#supplementary-built-entry-smoke-runner-distinction).
+- Delivery state: Step 1.3 and Phase 1 verified. See [event integration and Phase 1 evidence](evidence/step-1.3.md).
+- Acceptance or release still pending: Steps 2.1–4.2, their phase gates, remaining feature acceptance, and any subsequent release decision.
+- Blockers: None identified for Step 2.1. Native rendering remains unverified; the previously recorded bare-Node artifact-runner limitation remains a Step 4.1 execution constraint.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove that completion gates passed. `Verified` means the scoped gate and required implementation review passed; it does not imply manual approval, publication, or deployment. In supervised execution, manual approvals belong in extension state rather than task checkboxes.
 
@@ -184,7 +184,7 @@ Evidence: Verified; see [shared ownership/static-only refinement and current che
 
 ### Step 1.3 — Integrate structured event values without shorthand reinterpretation
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R2–R4, R6, R8–R10; AC4; AC5 event portion, AC6 event reuse portion, AC9 event portion, AC14 event permission portion, and AC16 event portions. Multi-input runtime rejection remains with Phase 3.
 Depends on: Step 1.2.
 Review boundary: notes, names, variations, and XOX retain their existing structured geometry and atom semantics when inputs arrive in a wrapper.
@@ -198,11 +198,11 @@ Expected files:
 
 Tasks:
 
-- [ ] Feed wrappers through the shared normalization boundary before event shorthand detection; explicitly bypass generic shorthand parsing for wrapped string atoms.
-- [ ] Preserve bar/step/chord/rest geometry, note and name validation, variation rules, and XOX-specific native structured behavior. Do not implement XOX by treating every string as generic shorthand.
-- [ ] Add builder alternatives to public event signatures and aliases without removing variadic structured convenience or changing existing direct shorthand behavior.
-- [ ] Extend equivalence/reuse tests to notes, names, variation/var, and XOX, including cases where a raw string atom differs from a shorthand expression.
-- [ ] Test incompatible atoms, polyphony/rest restrictions, random-source permissions, and nested/mixed wrappers through the public event APIs.
+- [x] Feed wrappers through the shared normalization boundary before event shorthand detection; explicitly bypass generic shorthand parsing for wrapped string atoms.
+- [x] Preserve bar/step/chord/rest geometry, note and name validation, variation rules, and XOX-specific native structured behavior. Do not implement XOX by treating every string as generic shorthand.
+- [x] Add builder alternatives to public event signatures and aliases without removing variadic structured convenience or changing existing direct shorthand behavior.
+- [x] Extend equivalence/reuse tests to notes, names, variation/var, and XOX, including cases where a raw string atom differs from a shorthand expression.
+- [x] Test incompatible atoms, polyphony/rest restrictions, random-source permissions, and nested/mixed wrappers through the public event APIs.
 
 Verification:
 
@@ -212,10 +212,10 @@ Verification:
 - Manual: not needed; event graph and decoder assertions are the acceptance seam.
 
 Completion gate: every event consumer named in AC4 accepts the builder with its existing semantics, all event aliases retain parity, and numeric gates from Step 1.2 remain green.
-Evidence: Not run.
+Evidence: Verified; see [Step 1.3 behavior, bounds, review, and verification](evidence/step-1.3.md).
 
 Phase exit gate: after Step 1.3 checks, run the full Patterns and Fluid source suites, `check`, and `lint` for each package, then build Fluid and upstream dependencies with `pnpm exec turbo run build --filter=@web-audio/fluid`. Confirm envelope prework, numeric/event builder parity, source guards, and mutation regressions compose. Legacy multi-input rest forms may still exist until Phase 3; their final rejection is not claimed here.
-Evidence: Not run.
+Evidence: Satisfied; see [Phase 1 checks and completion boundary](evidence/step-1.3.md#verification).
 
 ## Phase 2 — Atomic pattern-valued envelope minimum
 
@@ -466,9 +466,9 @@ This is an ownership map, not a second execution checklist. Evidence is recorded
 | ------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | AC1                | Steps 1.1, 2.1, 3.3; Phase 4 exit                 | Correct one-/two-bound selection persists through patterned minimum and final arity.                    | Owning step evidence; Not run                   |
 | AC2                | Steps 1.1, 2.1, 3.3                               | Defaults/undefined parity and runtime/type rejection of null survive migrations.                        | Owning step evidence; Not run                   |
-| AC3                | Step 1.2; Phase 1 exit                            | Both aliases preserve two bars versus two values in a bar and shorthand equivalence.                    | Step 1.2 evidence; Not run                      |
-| AC4                | Step 1.3; Phase 1 exit                            | Notes, names, variations/alias, and XOX match their structured counterparts.                            | Step 1.3 evidence; Not run                      |
-| AC5                | Steps 1.2 and 1.3                                 | Wrapped atoms never become general shorthand; invalid consumer atoms/geometry still fail.               | Decoder-step evidence; Not run                  |
+| AC3                | Step 1.2; Phase 1 exit                            | Both aliases preserve two bars versus two values in a bar and shorthand equivalence.                    | [Verified](evidence/step-1.3.md#verification)   |
+| AC4                | Step 1.3; Phase 1 exit                            | Notes, names, variations/alias, and XOX match their structured counterparts.                            | [Verified](evidence/step-1.3.md#verification)   |
+| AC5                | Steps 1.2 and 1.3                                 | Wrapped atoms never become general shorthand; invalid consumer atoms/geometry still fail.               | [Verified](evidence/step-1.3.md#verification)   |
 | AC6                | Steps 1.2/1.3; Step 4.1 integration               | Static snapshots resist caller mutation and cross-consumer decoding/playback state sharing.             | Builder/event/public gate evidence; Not run     |
 | AC7                | Steps 3.1–3.3; Phase 3 exit                       | All six families accept explicit slots and reject raw/extra inputs in types and JavaScript.             | Phase 3 owning gates; Not run                   |
 | AC8                | Step 3.1                                          | Noise arity is uniform with/without color; dedicated gain/filter sugar remains valid.                   | Step 3.1 evidence; Not run                      |
@@ -497,7 +497,7 @@ No publication, packed installation, hosted-service, or cross-platform certifica
 
 ## Deferred checks and accepted deviations
 
-- No deviations or waivers have been accepted. Steps 0.1, 1.1, and 1.2 are verified with evidence linked above; later steps and remaining phase gates are unrun.
+- No deviations or waivers have been accepted. Steps 0.1–1.3 and the Phase 0/1 exit gates are verified with linked evidence; later steps and gates are unrun.
 - Chromium/native acceptance is an execution prerequisite, not an automatically deferred check. Missing browser/platform access must remain visible in Step 4.2 and the status heading until resolved or explicitly waived.
 - Human listening, live REPL/browser sessions, real-time performance certification, packed/published-package testing, and deployment are not required gates for this scoped API/normalization change. Do not describe them as performed.
 - Timing-generator patternability, LFO speed/waveform expansion, new source kinds, new setters, automatic saved-sketch rewrites, and a legacy scalar-minimum graph adapter remain outside the governing spec.
