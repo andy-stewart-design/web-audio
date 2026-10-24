@@ -3,9 +3,9 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md), ready for planning; requirements R1–R11 and acceptance criteria AC1–AC18 govern this plan.
-- Delivery state: Planning only. No implementation, baseline checks, or runtime verification have been performed for this plan.
-- Acceptance or release still pending: All step and phase gates, final native-audio regression, and any subsequent release decision.
-- Blockers: No product blocker identified. Installed toolchain, baseline health, and Chromium availability remain unverified execution prerequisites.
+- Delivery state: Step 0.1 and Phase 0 verified; application implementation has not started. See [baseline evidence](evidence/step-0.1.md).
+- Acceptance or release still pending: Steps 1.1–4.2, their phase gates, feature acceptance, and any subsequent release decision.
+- Blockers: None identified for Step 1.1. Core baseline gates passed; the expected Chromium executable/assets are present, but native launch/rendering remains unverified.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove that completion gates passed. `Verified` means the scoped gate and required implementation review passed; it does not imply manual approval, publication, or deployment. In supervised execution, manual approvals belong in extension state rather than task checkboxes.
 
@@ -32,7 +32,7 @@ These are static findings, not evidence that a command has passed:
 - `d.lpf/hpf/bpf` currently forward variadic inputs to `new Filter(type, ...frequency)`. They need a preserved convenience adapter when the public filter constructor becomes single-slot.
 - `EnvelopeSchema.min` is scalar, but `ResolvedEnvelopeSchema.min` is also scalar for a different reason: it contains an already evaluated event value. Only the former becomes a pattern. Audio-engine external envelope detune initialization also reads schema minimum directly and must not be missed.
 - Audio-regression imports built packages and renders through real Chromium `OfflineAudioContext`/AudioWorklet. Its existing harness owns the loopback server; no app `dev` command is needed. Native runs require the installed Playwright Chromium headless shell and committed sample/reference assets.
-- No known green baseline or existing failing test has been established. Phase 0 records observed failures rather than assuming they are regressions or granting waivers.
+- Phase 0 baseline results are recorded in [Step 0.1 evidence](evidence/step-0.1.md); the other inspection findings above remain static observations unless that evidence states otherwise.
 
 Existing command families used below:
 
@@ -75,7 +75,7 @@ Review boundary: source inspection, tool availability, build prerequisites, and 
 
 ### Step 0.1 — Record baseline and freeze the migration inventory
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R1–R11 verification prerequisites; no acceptance criterion is claimed satisfied by baseline work.
 Depends on: None.
 Review boundary: establish execution facts and distinguish existing failures from future regressions.
@@ -88,12 +88,12 @@ Expected files:
 
 Tasks:
 
-- [ ] Record Node/pnpm versions and the worktree state, preserving the existing historical-plan move and untracked feature documents.
-- [ ] Confirm the spec's inferred defaults against the relevant tests; retain them unless a material contradiction requires escalation.
-- [ ] Inventory executable/documented old `env(single number)`, noise, filter, LFO-array, and chop callsites. Distinguish preserving old author intent from updating tests that intentionally characterize the new contract.
-- [ ] Inventory schema-level envelope-minimum producers and readers, separately from resolved scalar minimum and unrelated `min` properties.
-- [ ] Build the core packages and run the existing core source suites/static checks; record any failure with its reproduction and affected gates, not as an automatic waiver.
-- [ ] Check native prerequisites without installing or launching them: Chromium availability and case/sample/reference files. Record missing prerequisites for Step 4.2.
+- [x] Record Node/pnpm versions and the worktree state, preserving the existing historical-plan move and untracked feature documents.
+- [x] Confirm the spec's inferred defaults against the relevant tests; retain them unless a material contradiction requires escalation.
+- [x] Inventory executable/documented old `env(single number)`, noise, filter, LFO-array, and chop callsites. Distinguish preserving old author intent from updating tests that intentionally characterize the new contract.
+- [x] Inventory schema-level envelope-minimum producers and readers, separately from resolved scalar minimum and unrelated `min` properties.
+- [x] Build the core packages and run the existing core source suites/static checks; record any failure with its reproduction and affected gates, not as an automatic waiver.
+- [x] Check native prerequisites without installing or launching them: Chromium availability and case/sample/reference files. Record missing prerequisites for Step 4.2.
 
 Verification:
 
@@ -102,10 +102,10 @@ Verification:
 - Manual: not needed; no live audio or external service is involved in this gate.
 
 Completion gate: required commands have recorded outcomes, affected callers/fixtures are identified, and any failure that prevents interpreting subsequent proof is resolved or recorded as a blocking issue. A missing optional diagnostic note is not a blocker.
-Evidence: Not run.
+Evidence: Verified; see [Step 0.1 results and inventory](evidence/step-0.1.md).
 
 Phase exit gate: assess Step 0.1 after its checks. Confirm subsequent steps have runnable source gates and a known native prerequisite path; do not claim a green baseline from static inspection. Missing Chromium may remain a visible Step 4.2 prerequisite, but source-test/toolchain blockers must be resolved before dependent implementation.
-Evidence: Not run.
+Evidence: Satisfied; see [Phase 0 gate assessment](evidence/step-0.1.md#gate-assessment-and-next-boundary).
 
 ## Phase 1 — Envelope prework and explicit structured values
 
@@ -494,7 +494,7 @@ No publication, packed installation, hosted-service, or cross-platform certifica
 
 ## Deferred checks and accepted deviations
 
-- No deviations or waivers have been accepted. Every step and gate starts unrun.
+- No deviations or waivers have been accepted. Step 0.1/Phase 0 evidence is linked above; later steps and gates remain unrun.
 - Chromium/native acceptance is an execution prerequisite, not an automatically deferred check. Missing browser/platform access must remain visible in Step 4.2 and the status heading until resolved or explicitly waived.
 - Human listening, live REPL/browser sessions, real-time performance certification, packed/published-package testing, and deployment are not required gates for this scoped API/normalization change. Do not describe them as performed.
 - Timing-generator patternability, LFO speed/waveform expansion, new source kinds, new setters, automatic saved-sketch rewrites, and a legacy scalar-minimum graph adapter remain outside the governing spec.
