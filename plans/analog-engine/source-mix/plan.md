@@ -3,6 +3,7 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md).
+- Input baseline: Existing [parameter shorthand](../../completed/parameter-shorthand/plan.md) and [Fluid pattern-input](../../fluid-pattern-inputs/plan.md) implementations. Their recorded verification is prerequisite evidence, not a fresh source-mix baseline.
 - Delivery state: Planning only. Implementation and verification have not started.
 - Acceptance still pending: All implementation gates, native audio checks, and human listening review.
 - Blockers: None for implementation. Native checks require the existing Chromium harness; final audio acceptance requires a human reviewer.
@@ -16,10 +17,11 @@ record manual approvals in extension state rather than task checkboxes.
 ## Execution constraints
 
 - All paths and commands are relative to the repository root unless stated otherwise. This plan does not authorize execution.
-- Preserve unrelated work, including the current noise-document relocation and the existing `docs/reference/` tree. Expected files describe the relevant change surface, not permission to overwrite other edits.
+- Preserve unrelated work and the existing `docs/reference/` tree. Expected files describe the relevant change surface, not permission to overwrite other edits.
 - Keep the spec and step IDs stable. Escalate product conflicts rather than changing the contract to simplify implementation.
 - Reuse `_applyParamSchema()`, existing envelope/LFO/MIDI helpers, and multi-source voice cleanup. Add only source-specific configuration, connections, and static numeric coercion. Do not add automation flooring, a new gain engine, a generic source framework, or another renderer.
-- Clamp only new main/sub **static** gain values below zero. Random-cycle, envelope, LFO, MIDI CC, noise, and effect behavior stays unchanged. Direct static schemas must behave like authored numbers/arrays.
+- Use existing `SingleSlotAudioParamInput` and `resolveAudioParamValue()` for every new gain slot, including gain-only calls. Accept scalar, shorthand/reusable shorthand, numeric structured value, and permitted direct random/audio sources; reject raw arrays and extra pattern arguments. Do not add a parallel source-gain input adapter or change the shared parser.
+- Clamp only new main/sub **static** gain values below zero, uniformly after decoding scalars, shorthand, structured values, or direct static schemas. Do not mutate reusable values or caller schemas. Random-cycle, envelope, LFO, MIDI CC, noise, and effect behavior stays unchanged.
 - Use optional `sourceGain` and `sub` on the common synth schema, a native sub oscillator, and existing basic-waveform levels. Keep these fields off sampler schemas and preserve omitted-field compatibility.
 - Include focused tests with each implementation increment. Extend existing suites/fakes instead of reproducing the gain-automation matrix. Put new test-only helpers under the relevant suite's `support/`; production code must not import test modules. Keep tests in TypeScript checking.
 - Use package-manager commands only if dependencies genuinely become necessary; none are anticipated. Do not edit lockfiles manually, run app `dev` servers, publish, commit, or deploy.
@@ -29,9 +31,9 @@ record manual approvals in extension state rather than task checkboxes.
 
 Static inspection identifies these reuse points; it does not establish a passing baseline:
 
-- Fluid's `drome.ts` owns engine overloads; `instruments/synth-base.ts` shares synth serialization. The concrete constructors feed this shared builder without exposing synth controls on samplers. `parameters/parameter.ts` and `inputs/guards.ts` already distinguish numeric inputs and control builders.
+- Fluid's `drome.ts` owns engine overloads; `instruments/synth-base.ts` shares synth serialization. The concrete constructors feed this shared builder without exposing synth controls on samplers. `inputs/types.ts` defines `SingleSlotAudioParamInput`; `parameters/resolve-audio-param.ts` already supplies `resolveAudioParamValue()` for fixed slots. Numeric decoding and structured snapshot ownership are implemented, not new work for this SOW.
 - Schema's `index.ts` and `validate-graph.ts` own optional fields and validation. Validation is not a normalization pass: accept finite negative static gain schemas and apply the zero floor when binding these new gain targets, without mutating caller schemas or shared parameter sources.
-- Engine `instruments/synthesizer.ts` resolves common detune once per note and selects basic/unison sources. `instrument.ts` owns source connection, effects, amplitude envelope, local bindings, and completion. Its current single detune target needs a small fan-out extension, not a second resolver.
+- Engine `instruments/synthesizer.ts` resolves common detune once per note and selects basic/unison sources. `instrument.ts` owns source connection, effects, amplitude envelope, local bindings, and completion. Its current single detune target needs a small fan-out extension, not a second resolver. Envelope minimum/maximum already use `NumberPattern`; `_resolveDetune()` retains the event-resolved envelope for scheduling. Reuse that result for both targets and current schema fixtures, not scalar-minimum compatibility code.
 - `instruments/__tests__/synthesizer.test.ts`, `noise.test.ts`, and `voice-sources.test.ts` already cover scheduling, topology, event identity, binding cleanup, and multi-source failures. Engine `src/__tests__/engine.test.ts` covers invalid-update preservation and graph retirement.
 - `packages/audio-regression` already supplies `withRenderer()`, numerical helpers in `src/__tests__/support/noise.ts`, native unison/noise tests, and individually reviewed references. Its scripts build dependencies; direct `exec vitest` commands need `build:deps` first.
 - Fluid's public export is its default Drome class. `build` emits declarations; preserving only source-level inferred types is insufficient if declarations fail to build.
@@ -83,14 +85,14 @@ Expected files:
 Tasks:
 
 - [ ] Record the starting revision/worktree and preserve unrelated changes.
-- [ ] Build runtime dependencies, then run existing schema, Fluid unison/noise, and engine source/voice suites below.
+- [ ] Build runtime dependencies, then run existing schema, Fluid positional-input/unison/noise, and engine source/voice suites below. Confirm the current single-slot and patterned-envelope contracts rather than reconstructing pre-shorthand behavior.
 - [ ] Verify selected approved references covering basic, unison, and pre-envelope sampler playback.
 - [ ] Separate existing failures or missing prerequisites from regressions. Fix an affected prerequisite only through a separately scoped decision; do not regenerate references to manufacture a baseline.
 
 Verification:
 
 - Automated: `pnpm --filter @web-audio/audio-regression build:deps` prepares built workspace imports.
-- Automated: `pnpm --filter @web-audio/schema test:ci`; `pnpm --filter @web-audio/fluid exec vitest run src/instruments/__tests__/unison.test.ts src/instruments/__tests__/noise.test.ts`; `pnpm --filter @web-audio/audio-engine exec vitest run src/instruments/__tests__/synthesizer.test.ts src/instruments/__tests__/noise.test.ts src/instruments/__tests__/voice-sources.test.ts`. These establish the relevant existing contract baseline, not the new feature.
+- Automated: `pnpm --filter @web-audio/schema test:ci`; `pnpm --filter @web-audio/fluid exec vitest run src/__tests__/positional-pattern-inputs.test.ts src/instruments/__tests__/unison.test.ts src/instruments/__tests__/noise.test.ts`; `pnpm --filter @web-audio/audio-engine exec vitest run src/instruments/__tests__/synthesizer.test.ts src/instruments/__tests__/noise.test.ts src/instruments/__tests__/voice-sources.test.ts`. These establish the relevant existing contract baseline, not the new feature.
 - Native: Run `pnpm --filter @web-audio/audio-regression audio:verify --case sine`, then the same command with `--case unison` and `--case pre-envelope-sampler`. Expect unchanged reviewed recordings under existing tolerances.
 - Manual: Not needed for characterization. If Chromium is unavailable, stop the native gate and request installation approval before using the existing `browser:install` script; do not install during plan authoring.
 
@@ -106,7 +108,8 @@ Outcome: Both controls can be authored, validated, rendered, and cleaned up usin
 the existing parameter and voice machinery.
 Depends on: Phase 0 exit gate.
 Review boundary: Two working vertical slices, each with its own tests and native
-smoke proof; no shorthand, oscillator builder, or unrelated DSP changes.
+smoke proof; use existing shorthand/structured inputs without new grammar,
+normalization infrastructure, oscillator builders, or unrelated DSP changes.
 
 ### Step 1.1 — Deliver main-source gain, including gain-only synth creation
 
@@ -119,7 +122,7 @@ Expected files:
 
 - `packages/schema/src/index.ts`, `validate-graph.ts`, `validate-graph.test.ts` — optional synth-only `sourceGain`, existing AudioParam validation, and sampler rejection.
 - `packages/fluid/src/drome.ts`, `instruments/synth-base.ts`, `instruments/synthesizer.ts`, `instruments/unison-synthesizer.ts` — factory dispatch, constructor configuration, and shared serialization.
-- `packages/fluid/src/inputs/source-gain.ts` — new narrow single-input adapter/type if needed; reuse existing parameter sources and guards rather than introducing another parameter model.
+- Existing `packages/fluid/src/inputs/types.ts` and `parameters/resolve-audio-param.ts` — reuse `SingleSlotAudioParamInput` and `resolveAudioParamValue()`; no new source-gain adapter/type is planned.
 - `packages/fluid/src/__tests__/source-mix.test.ts` — new public-factory/schema/type coverage.
 - `packages/audio-engine/src/instruments/instrument.ts`, `synthesizer.ts`, `__tests__/synthesizer.test.ts`; `packages/audio-engine/src/__tests__/engine.test.ts` — source-local gain wiring and validation-before-update assertions.
 - `packages/audio-regression/src/__tests__/source-mix.test.ts` — new native integration suite, initially main-gain checks only.
@@ -127,15 +130,15 @@ Expected files:
 Tasks:
 
 - [ ] Add optional `sourceGain` to common synth schemas and validate it with existing AudioParam checks. Reject the known field on samplers; omitted fields and finite negative static schemas remain valid.
-- [ ] Implement default, gain-only, selector-only, and selector-plus-gain factory forms, including explicit `undefined` selectors. Preserve basic/unison/union return types and reject extra arguments or gain shorthand strings. Accept one existing gain input without spreading a numeric array into separate bars.
-- [ ] Pass gain configuration through the concrete constructors/shared synth serializer. Use the MIDI `gain` context; do not reinterpret the shared amplitude envelope or add a new fluent gain setter.
+- [ ] Implement default, gain-only, selector-only, and selector-plus-gain factory forms, including explicit `undefined` selectors. For a sole string, exact supported selectors take precedence; all other strings use existing numeric shorthand gain decoding. With two arguments, require a selector/undefined followed by gain. Place selector-specific overloads ahead of general gain-string overloads so basic/unison types remain concrete; reject extra arguments and raw gain arrays.
+- [ ] Resolve each gain with existing `resolveAudioParamValue()` and pass configuration through the concrete constructors/shared synth serializer. Reuse `SingleSlotAudioParamInput`, existing shorthand/structured decoding, direct-source permissions/lifecycle, and the MIDI `gain` context. Do not reinterpret the shared amplitude envelope or add a new fluent gain setter.
 - [ ] Add an owned, stereo-preserving main-source gain stage before the common effect inlet when configured. Register its LFO through the existing additional-parameter list and bind using existing helpers. Apply static-only numeric coercion locally so direct schemas also resolve below-zero entries to zero; leave automation and noise/effect gains untouched. Preserve the omitted-control path.
-- [ ] Add focused factory/type/schema and runtime target tests for the supported input forms, negative/above-one static values, initial-zero automation, invalid update preservation, and unchanged MIDI/duck behavior. Include a setup-failure check proving the new gain node/source is released.
+- [ ] Add focused factory/type/schema and runtime target tests for selector-versus-shorthand dispatch, equivalent shorthand/reusable/structured gain patterns, negative/above-one static values across representations/direct schemas, initial-zero automation, invalid update preservation, and unchanged MIDI/duck behavior. Reuse existing positional-input/ownership tests for rejected arrays/wrapper misuse; include a setup-failure check proving the new gain node/source is released.
 - [ ] Add native main-only comparisons: omission versus unity, zero versus silence, and gain-only versus explicit sine. These prove source-level scaling is consumed by the real runtime, not just serialized.
 
 Verification:
 
-- Automated: `pnpm --filter @web-audio/schema test:ci`; `pnpm --filter @web-audio/fluid exec vitest run src/__tests__/source-mix.test.ts src/instruments/__tests__/unison.test.ts`; `pnpm --filter @web-audio/audio-engine exec vitest run src/instruments/__tests__/synthesizer.test.ts src/instruments/__tests__/noise.test.ts src/__tests__/engine.test.ts`. The new factory suite includes compile-time assertions checked by Fluid `check`.
+- Automated: `pnpm --filter @web-audio/schema test:ci`; `pnpm --filter @web-audio/fluid exec vitest run src/__tests__/source-mix.test.ts src/instruments/__tests__/unison.test.ts`; `pnpm --filter @web-audio/audio-engine exec vitest run src/instruments/__tests__/synthesizer.test.ts src/instruments/__tests__/noise.test.ts src/__tests__/engine.test.ts`. The new factory suite includes compile-time assertions checked by Fluid `check`, including known selector literals versus general string gain inputs. Reuse `src/__tests__/positional-pattern-inputs.test.ts` and `src/__tests__/structured-inputs.test.ts` as existing test seams; do not copy their full input/ownership matrices.
 - Native: After `pnpm --filter @web-audio/audio-regression build:deps`, run `pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/source-mix.test.ts` (new suite). Expect matching default/unity and default-sine spellings, silent zero gain, preserved stereo, and finite output.
 - Quality: Run `check` and `lint` in schema, Fluid, and audio-engine; `pnpm --filter @web-audio/fluid build` must emit valid public declarations. Formatting and whitespace follow the shared conventions.
 - Manual: Review overloads and gain-target placement. Human sound approval remains Step 2.3; mocks are not native playback evidence.
@@ -153,7 +156,7 @@ Review boundary: Atomic sub schema, builder, source creation, detune connection,
 Expected files:
 
 - `packages/schema/src/index.ts`, `validate-graph.ts`, `validate-graph.test.ts` — optional `sub` with canonical waveform, fixed octave, and gain.
-- `packages/fluid/src/instruments/synth-base.ts`, `inputs/source-gain.ts` if introduced, `inputs/waveform.ts` only if a small shared alias guard is needed — positional parsing and canonical serialization.
+- `packages/fluid/src/instruments/synth-base.ts`, `inputs/waveform.ts` only if a small shared alias guard is needed — positional parsing and canonical serialization using the existing single-slot resolver.
 - `packages/fluid/src/instruments/__tests__/sub.test.ts` — new domain-local API/default/replacement tests; extend the new public `src/__tests__/source-mix.test.ts` for fluent types.
 - `packages/audio-engine/src/instruments/instrument.ts`, `synthesizer.ts`, `sources/types.ts` only if source metadata needs a small extension — per-source gain paths, native sub, and common-detune fan-out.
 - `packages/audio-engine/src/instruments/__tests__/synthesizer.test.ts`, `voice-sources.test.ts`, `noise.test.ts`; `src/__tests__/engine.test.ts` — extend existing fakes and negative graph-update coverage.
@@ -161,11 +164,11 @@ Expected files:
 
 Tasks:
 
-- [ ] Implement the three required-gain sub forms, validating the entire call before replacing configuration. Canonicalize all four waveforms/aliases, accept only static `-1`/`-2`, reset omitted waveform/octave defaults, and reject missing/extra arguments, malformed gain, or shorthand strings. Keep the method on `SynthBase`, not shared `Instrument`.
-- [ ] Add optional synth-only sub schema validation; reject the field on samplers. Reuse the main-gain input adapter and local static coercion. Add no new gain semantics or exported oscillator builder.
-- [ ] Create exactly one native oscillator per musical note at the selected octave, centered and independent of unison count/spread/width. Resolve common detune once and bind that same resolved trajectory to main and sub targets; do not reroll patterns/randomness or run another event scheduler.
+- [ ] Implement the three required-gain sub forms, validating the entire call before replacing configuration. Canonicalize all four waveforms/aliases, accept only static `-1`/`-2`, reset omitted waveform/octave defaults, and resolve gain through `resolveAudioParamValue()`. Accept shorthand/reusable/structured patterns in every gain position; reject missing/extra arguments, raw arrays, invalid shorthand, and unsupported wrapper/source combinations. Keep the method on `SynthBase`, not shared `Instrument`.
+- [ ] Add optional synth-only sub schema validation; reject the field on samplers. Reuse existing single-slot input types/resolution and Step 1.1's local static coercion. Emit existing pattern schemas without wrapper objects; add no new gain semantics or exported oscillator builder.
+- [ ] Create exactly one native oscillator per musical note at the selected octave, centered and independent of unison count/spread/width. Resolve common detune once and bind that same resolved trajectory, including its cached resolved envelope, to main and sub targets. Both envelope bounds use the current per-event pattern lookup; do not reroll patterns/randomness, migrate envelope schemas, or run another event scheduler.
 - [ ] Give main and sub separate gain paths feeding the existing effects/ADSR inlet, alongside unchanged noise. Keep source creation inside a cleanup boundary: if a later source constructor, parameter setup, or start fails, every already-created sibling must be owned and released. Extend the existing scheduling seam only as needed.
-- [ ] Add focused tests for defaults/replacement/aliases, chord sub counts, octave pitch, static coercion, additional LFO discovery, common-detune target fan-out, long layer envelopes with unchanged stop time, main-zero/sub-audible behavior, and unchanged event/MIDI/duck counts. Include early completion and partial-setup/cancel smoke checks now, not solely in Phase 2.
+- [ ] Add focused tests for defaults/replacement/aliases, single-slot representation parity and rejection, chord sub counts, octave pitch, static coercion without mutating reused patterns, additional LFO discovery, common-detune target fan-out, patterned-bound/long layer envelopes with unchanged stop time, main-zero/sub-audible behavior, and unchanged event/MIDI/duck counts. Include early completion and partial-setup/cancel smoke checks now, not solely in Phase 2.
 - [ ] Extend native smoke tests to render each sub waveform and both octave choices, check sub audibility with main gain zero, and confirm unchanged main/noise output when the sub contribution is zero.
 
 Verification:
@@ -232,9 +235,9 @@ Expected files:
 
 Tasks:
 
-- [ ] Document gain-only/default/basic/unison factory forms and the three required-gain sub forms, with aliases, replacement defaults, supported inputs, and synth-only availability.
+- [ ] Document gain-only/default/basic/unison factory forms and the three required-gain sub forms, with selector-versus-shorthand dispatch, aliases, replacement defaults, existing single-slot inputs, raw-array rejection, and synth-only availability.
 - [ ] Explain main/sub gain versus shared `.gain()`/`.adsr()`, additive headroom, centered common-detuned sub, and shared lifetime. State static negative-to-zero coercion and unchanged automation semantics directly, without interview/revision narration.
-- [ ] Include examples for a muted main with audible sub, stereo unison plus sine sub, and layer envelope use. Keep numeric shorthand and `d.osc()` examples clearly deferred rather than accepted syntax.
+- [ ] Include examples for a muted main with audible sub, stereo unison plus sine sub, layer envelope use, and equivalent shorthand / `d.sh()` / `d.str()` gain patterns. Show `d.str(0.3, 0.5)` as successive bars and `d.str([0.3, 0.5])` as within-bar values. Keep only `d.osc()` composition and other unimplemented features deferred.
 - [ ] Validate examples through the existing Fluid public evaluation path and cross-check the reference index/relative links. Add a small public API example assertion only if existing source-mix tests do not already exercise the example's form.
 
 Verification:
@@ -261,7 +264,7 @@ Expected files:
 
 Tasks:
 
-- [ ] Complete native comparisons using deterministic sketches: unity/omitted main parity, main+sub additive sum with linear effects, preservation of main stereo difference when adding centered sub, and pitch tracking under common detune independent of unison count/spread/width. Reuse prior smoke renders and existing numeric helpers; assert nonempty observation windows and unchanged tolerances.
+- [ ] Complete native comparisons using deterministic sketches: unity/omitted main parity, one representative shorthand-versus-structured mix comparison, main+sub additive sum with linear effects, preservation of main stereo difference when adding centered sub, and pitch tracking under common detune independent of unison count/spread/width. Reuse prior smoke renders and existing numeric helpers; assert nonempty observation windows and unchanged tolerances.
 - [ ] Check representative basic/unison/sub/noise starts and stops at non-quantum-aligned offsets, main-zero/sub-audible output, and shared release bounds. Use 48 kHz for the main suite and a small 44.1 kHz timing/pitch smoke check, not a full waveform-by-automation-by-rate matrix. Render identical sketches in fresh contexts to establish repeatability.
 - [ ] Register one short source-mix listening case covering all sub waveforms and a useful unison-plus-centered-sub passage, at conservative overall amplitude. Its source uses fixed event/random inputs and existing effects, not unshipped saturation or automatic limiting.
 - [ ] Render the candidate and have a human listen for intended octave balance, centered low end, preserved upper-source stereo, useful waveform levels, and abnormal clicks. Address defects before reference acceptance. Add/update only this case's reference with explicit approval; never regenerate existing references to obtain a pass.
@@ -285,21 +288,21 @@ Evidence: Not run.
 This table points to the authoritative owning gates; it is not a second progress
 checklist or a claim that verification has occurred.
 
-| Spec acceptance ID | Owning step / gate           | Verification and expected result                                                                    | Evidence location                                       |
-| ------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| AC1                | Steps 1.1, 1.2; Phase 1 exit | All factory/input forms, fluent builder types, and sampler boundary; declarations build             | Steps 1.1/1.2 evidence                                  |
-| AC2                | Step 1.2                     | Sub defaults, aliases, and replacement leave one canonical layer                                    | Step 1.2 evidence                                       |
-| AC3                | Steps 1.1, 1.2               | Invalid arguments/configuration fail without partial mutation                                       | Steps 1.1/1.2 evidence                                  |
-| AC4                | Steps 1.1, 1.2, 2.1          | Existing parameter machinery targets the new gains; dynamic zero and shared lifetime remain correct | Owning step evidence                                    |
-| AC5                | Steps 1.1, 1.2               | Static negative literals/arrays/direct schemas resolve to zero only for the new controls            | Steps 1.1/1.2 evidence                                  |
-| AC6                | Steps 1.1, 1.2, 2.3          | Independent pre-effects gains, baseline unity, unchanged compensation/noise, native additive mix    | Owning step evidence; final native note linked from 2.3 |
-| AC7                | Steps 1.2, 2.3               | Centered sub preserves main stereo and is independent of unison controls                            | Steps 1.2/2.3 evidence                                  |
-| AC8                | Steps 1.2, 2.1, 2.3          | One sub per chord tone follows octave/common detune without rerolling; selected native pitch checks | Owning step evidence                                    |
-| AC9                | Steps 1.1, 1.2, 2.1, 2.3     | No extra notes/velocity/duck events; main-zero sub/noise is audible in native audio                 | Owning step evidence                                    |
-| AC10               | Steps 1.2, 2.1, 2.3          | Shared scheduling/cancellation, sibling completion, stale callbacks, native timing                  | Owning step evidence                                    |
-| AC11               | Steps 1.2, 2.1               | Setup/source failures, retirement, and repeated destruction release whole-voice ownership correctly | Steps 1.2/2.1 evidence                                  |
-| AC12               | Steps 1.1, 1.2, 2.1          | Omitted schemas work; malformed new fields/sampler misuse fail without replacing valid graphs       | Owning step evidence                                    |
-| AC13               | Step 2.3; Phase 2 exit       | Repeatable native mixes, unchanged existing recordings, and human-approved sound                    | Step 2.3 evidence and its linked native/listening note  |
+| Spec acceptance ID | Owning step / gate           | Verification and expected result                                                                                              | Evidence location                                       |
+| ------------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| AC1                | Steps 1.1, 1.2; Phase 1 exit | All factory/single-slot forms and selector-string precedence preserve fluent types and sampler boundaries; declarations build | Steps 1.1/1.2 evidence                                  |
+| AC2                | Step 1.2                     | Sub defaults, aliases, and replacement leave one canonical layer                                                              | Step 1.2 evidence                                       |
+| AC3                | Steps 1.1, 1.2               | Invalid arguments/configuration fail without partial mutation                                                                 | Steps 1.1/1.2 evidence                                  |
+| AC4                | Steps 1.1, 1.2, 2.1          | Existing parameter machinery targets the new gains; dynamic zero and shared lifetime remain correct                           | Owning step evidence                                    |
+| AC5                | Steps 1.1, 1.2               | Equivalent scalar/shorthand/structured/direct static gains resolve negatives to zero without mutating reusable patterns       | Steps 1.1/1.2 evidence                                  |
+| AC6                | Steps 1.1, 1.2, 2.3          | Independent pre-effects gains, baseline unity, unchanged compensation/noise, native additive mix                              | Owning step evidence; final native note linked from 2.3 |
+| AC7                | Steps 1.2, 2.3               | Centered sub preserves main stereo and is independent of unison controls                                                      | Steps 1.2/2.3 evidence                                  |
+| AC8                | Steps 1.2, 2.1, 2.3          | One sub per chord tone follows octave/common detune without rerolling; selected native pitch checks                           | Owning step evidence                                    |
+| AC9                | Steps 1.1, 1.2, 2.1, 2.3     | No extra notes/velocity/duck events; main-zero sub/noise is audible in native audio                                           | Owning step evidence                                    |
+| AC10               | Steps 1.2, 2.1, 2.3          | Shared scheduling/cancellation, sibling completion, stale callbacks, native timing                                            | Owning step evidence                                    |
+| AC11               | Steps 1.2, 2.1               | Setup/source failures, retirement, and repeated destruction release whole-voice ownership correctly                           | Steps 1.2/2.1 evidence                                  |
+| AC12               | Steps 1.1, 1.2, 2.1          | Omitted schemas work; malformed new fields/sampler misuse fail without replacing valid graphs                                 | Owning step evidence                                    |
+| AC13               | Step 2.3; Phase 2 exit       | Repeatable native mixes, unchanged existing recordings, and human-approved sound                                              | Step 2.3 evidence and its linked native/listening note  |
 
 ## Rollback and recovery
 
@@ -307,11 +310,11 @@ checklist or a claim that verification has occurred.
 - For internal review rollback, revert sub Step 1.2 with its dependent tests/docs/cases before reverting main-gain Step 1.1. Within either slice, keep schema, builder, consumer, and tests together; never leave a serialized control ignored by its runtime.
 - A new registered source-mix case and its reference must be removed/reverted together. Preserve all pre-existing approved references and tolerances. Failed candidate rendering or listening does not authorize replacement of unrelated recordings.
 - A failed implementation gate stays pending/blocked while its scoped defect is fixed and rerun. Report pre-existing unrelated failures separately; accepted deviations require an explicit owner/rationale and are not recorded as passed checks.
-- Preserve the user's unrelated worktree edits and noise-document relocation during fixes or rollback. Do not use destructive repository resets.
+- Preserve unrelated worktree edits and prerequisite shorthand/pattern-input implementations during fixes or rollback. Do not use destructive repository resets.
 
 ## Deferred checks and accepted deviations
 
 - No accepted deviations or waived acceptance criteria.
 - Human listening is a required Step 2.3 gate, not a presumed approval. Chromium installation, if needed, requires separate permission before running the existing install command.
 - Packed publication, deployment, hardware MIDI interoperability certification, exhaustive cross-browser/rate matrices, and a new CPU SLA are outside this PR. Local binding/event assertions plus native Chromium composition meet this feature's verification boundary.
-- Numeric shorthand, `d.osc()` composition, additional octaves, new unison waveforms, independent layer lifetimes, and new effects remain deferred by the spec.
+- `d.osc()` composition, additional octaves, new unison waveforms, independent layer lifetimes, and new effects remain deferred by the spec. Existing shorthand and structured gain inputs are included; no new parser/evaluator work is planned.
