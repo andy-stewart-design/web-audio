@@ -3,9 +3,9 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md), ready for planning; requirements R1–R11 and acceptance criteria AC1–AC18 govern this plan, subject to approved amendments for [envelope defaults/documentation ownership](evidence/step-1.1-envelope-defaults.md), [shared static structured values](evidence/step-1.2-patterns-ownership.md), and [required noise/filter inputs](evidence/step-3.1.md#required-input-amendment).
-- Delivery state: Prior source/artifact/native gates passed; review simplifications 1–4 are verified. See [approved simplification follow-up](evidence/review-simplifications.md). Builder construction safety remains open.
-- Acceptance or release still pending: Builder cycle/depth/traversal hardening, user-owned documentation, dependent completion/Phase 4 closure, and any release decision.
-- Blockers: Structured builder construction remains unbounded for cyclic/deep inputs; that fix was deliberately deferred until after simplification. Active user-owned documentation also remains pending. Prior native results and the recorded bare-Node runner limitation remain unchanged.
+- Delivery state: Review simplifications 1–4 and builder construction safety are verified. See [construction bounds/cycle proof](evidence/builder-construction-safety.md). Prior phase/native evidence remains available.
+- Acceptance or release still pending: User-owned documentation, dependent completion/Phase 4 closure, and any release decision.
+- Blockers: User-owned documentation still describes superseded forms. The reviewed builder cycle/depth/traversal finding is resolved. The recorded bare-Node runner limitation remains unchanged.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove that completion gates passed. `Verified` means the scoped gate and required implementation review passed; it does not imply manual approval, publication, or deployment. In supervised execution, manual approvals belong in extension state rather than task checkboxes.
 
@@ -480,7 +480,7 @@ This is an ownership map, not a second execution checklist. Evidence is recorded
 | AC13               | Step 2.1 deterministic; Step 4.2 native           | Patterned minimum works for gain and supported external envelope sources without nesting new sources.   | [Verified](evidence/step-4.2.md)                               |
 | AC14               | Steps 1.2/1.3, 2.1, 3.1/3.2                       | Random/direct audio permissions survive wrapping and ADSR remains restricted.                           | [Verified](evidence/step-3.2.md)                               |
 | AC15               | Steps 2.1 and 3.1–3.3                             | Failed envelope/ADSR/noise/chop replacements leave existing affected state intact.                      | [Verified](evidence/step-3.3.md)                               |
-| AC16               | Steps 1.2/1.3 and 3.x; Step 4.1                   | Invalid wrapper construction/composition is rejected consistently across positional and dedicated APIs. | [Verified](evidence/step-4.1.md#test-changes)                  |
+| AC16               | Steps 1.2/1.3 and 3.x; Step 4.1                   | Invalid wrapper construction/composition is rejected consistently across positional and dedicated APIs. | [Verified](evidence/builder-construction-safety.md)            |
 | AC17               | Step 3.2; Step 4.1 migration review               | LFO migration preserves old separate bars and intentional multivalue warnings.                          | [Verified](evidence/step-4.1.md#caller-and-cleanup-audit)      |
 | AC18               | Step 4.1; Phase 4 exit                            | Wrapper-free graph output, built public evaluation, signatures, examples, and migrations agree.         | [Technical/native](evidence/step-4.2.md); docs/Phase 4 pending |
 
@@ -498,7 +498,7 @@ No publication, packed installation, hosted-service, or cross-platform certifica
 
 ## Deferred checks and accepted deviations
 
-- No waiver is assumed for builder construction safety or user-owned documentation. Prior phase/native evidence remains available; [review simplifications 1–4](evidence/review-simplifications.md) are verified. Builder hardening is a separate pending follow-up; error-handling consolidation was explicitly declined.
+- No documentation waiver is assumed. Prior phase/native evidence remains available; [review simplifications](evidence/review-simplifications.md) and [builder construction safety](evidence/builder-construction-safety.md) are verified. User-owned documentation remains pending; error-handling consolidation was explicitly declined.
 - Chromium/native acceptance is an execution prerequisite, not an automatically deferred check. Missing browser/platform access must remain visible in Step 4.2 and the status heading until resolved or explicitly waived.
 - Human listening, live REPL/browser sessions, real-time performance certification, packed/published-package testing, and deployment are not required gates for this scoped API/normalization change. Do not describe them as performed.
 - Timing-generator patternability, LFO speed/waveform expansion, new source kinds, new setters, automatic saved-sketch rewrites, and a legacy scalar-minimum graph adapter remain outside the governing spec.
