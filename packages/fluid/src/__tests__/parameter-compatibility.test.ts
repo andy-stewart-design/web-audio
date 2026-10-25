@@ -256,8 +256,8 @@ describe("structured parameter compatibility", () => {
       type: "static",
       cycle: [[0.1], [0.2]],
     });
-    expect(sharedMinimum.getValues()).toEqual([0.1, 0.2]);
-    expect(sharedMaximum.getValues()).toEqual([0.8, 0.9]);
+    expect(sharedMinimum.values).toEqual([0.1, 0.2]);
+    expect(sharedMaximum.values).toEqual([0.8, 0.9]);
   });
 
   it("changes only an instrument gain maximum and keeps envelope state", () => {

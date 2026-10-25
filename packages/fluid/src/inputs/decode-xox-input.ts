@@ -136,13 +136,13 @@ function decodeXoxInputGeometry(
   const normalized = normalizeStructuredInput(input, "[Instrument] xox()", {
     scanBudget: MAX_STRUCTURED_INPUT_ITEMS,
   });
-  const values = normalized?.values ?? input;
-  if (!normalized && input.length > MAX_EVENT_CYCLE_PATTERNS) {
+  const values = normalized ?? input;
+  if (normalized === undefined && input.length > MAX_EVENT_CYCLE_PATTERNS) {
     throw new Error(
       `[Instrument] xox() cannot contain more than ${MAX_EVENT_CYCLE_PATTERNS} patterns.`,
     );
   }
-  if (!normalized && allowShorthand) {
+  if (normalized === undefined && allowShorthand) {
     const shorthand = getShorthandSource(input, "[Instrument] xox()");
     if (shorthand !== undefined) {
       const cycle = evaluatePatternExpression(
@@ -156,7 +156,7 @@ function decodeXoxInputGeometry(
       });
     }
   }
-  if (!normalized && input.length === 1 && isRandomCycle(input[0])) {
+  if (normalized === undefined && isRandomCycle(input[0])) {
     const source = input[0];
     if (source.dataType !== "binary") {
       throw new Error("Instrument.xox() random masks must be binary");

@@ -1,10 +1,5 @@
 import { isStructuredInput } from "@web-audio/patterns";
 
-type StructuredNormalization = {
-  readonly origin: "structured";
-  readonly values: readonly unknown[];
-};
-
 type NormalizeOptions = {
   /** Stop the discovery scan and leave size/shape errors to the consumer. */
   readonly scanBudget?: number;
@@ -27,7 +22,7 @@ function normalizeStructuredInput(
   input: readonly unknown[],
   method: string,
   { scanBudget }: NormalizeOptions = {},
-): StructuredNormalization | undefined {
+): readonly unknown[] | undefined {
   // Do not read an accessor in the single argument position merely to decide
   // whether this is a wrapper. The public factory's values are already an
   // immutable snapshot, so using them also avoids cloning before bounds run.
@@ -40,7 +35,7 @@ function normalizeStructuredInput(
       ? first.value
       : undefined;
   if (wrapper !== undefined) {
-    return { origin: "structured", values: wrapper.values };
+    return wrapper.values;
   }
 
   const work: (readonly unknown[])[] = [input];
@@ -85,4 +80,3 @@ function normalizeStructuredInput(
 }
 
 export { normalizeStructuredInput };
-export type { StructuredNormalization };

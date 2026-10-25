@@ -10,11 +10,10 @@ interface StructuredInput<T extends StructuredAtom = StructuredAtom> {
   readonly type: "structured-input";
   readonly [STRUCTURED_INPUT]: true;
   readonly values: readonly StructuredValue<T>[];
-  getValues(): StructuredValue<T>[];
 }
 
 function snapshotStructuredValue<T extends StructuredAtom>(
-  value: unknown,
+  value: StructuredValue<T>,
   path: string,
 ): StructuredValue<T> {
   if (Array.isArray(value)) {
@@ -25,24 +24,16 @@ function snapshotStructuredValue<T extends StructuredAtom>(
     );
   }
 
-  if (value === null || typeof value === "string") return value as T;
+  if (value === null || typeof value === "string") return value;
   if (typeof value === "number") {
     if (!Number.isFinite(value)) {
       throw new TypeError(`structured input value at ${path} must be finite.`);
     }
-    return value as T;
+    return value;
   }
   throw new TypeError(
     `structured input values must be numbers, strings, null, or arrays; invalid value at ${path}.`,
   );
-}
-
-function cloneStructuredValue<T extends StructuredAtom>(
-  value: StructuredValue<T>,
-): StructuredValue<T> {
-  return Array.isArray(value)
-    ? value.map((entry) => cloneStructuredValue(entry))
-    : value;
 }
 
 function createStructuredInput<T extends StructuredAtom>(
@@ -61,9 +52,6 @@ function createStructuredInput<T extends StructuredAtom>(
     type: "structured-input",
     [STRUCTURED_INPUT]: true,
     values,
-    getValues() {
-      return values.map((value) => cloneStructuredValue(value));
-    },
   };
   return Object.freeze(structuredInput);
 }
@@ -72,9 +60,12 @@ function isStructuredInput(value: unknown): value is StructuredInput {
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as { type?: unknown }).type === "structured-input" &&
-    (value as { [STRUCTURED_INPUT]?: unknown })[STRUCTURED_INPUT] === true &&
-    typeof (value as { getValues?: unknown }).getValues === "function"
+    "type" in value &&
+    value.type === "structured-input" &&
+    STRUCTURED_INPUT in value &&
+    value[STRUCTURED_INPUT] === true &&
+    "values" in value &&
+    Array.isArray(value.values)
   );
 }
 

@@ -14,10 +14,7 @@ type NumericPatternValue =
   | ShorthandInput
   | RandomCycle
   | StructuredInput<number>;
-type NumericPatternInput =
-  | CycleInput<number>
-  | [ShorthandInput]
-  | [StructuredInput<number>];
+type NumericPatternInput = CycleInput<number> | [NumericPatternValue];
 type ADSRInput = number | ShorthandInput | StructuredInput<number>;
 type SingleSlotAudioParamInput = NumericPatternValue | Envelope | Lfo | MidiCc;
 type StructuredNotesInput = StructuredInput<number | null>;

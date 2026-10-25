@@ -268,9 +268,10 @@ function decodeNotesInputGeometry(
   const normalized = normalizeStructuredInput(input, "[Instrument] notes()", {
     scanBudget: MAX_STRUCTURED_INPUT_ITEMS,
   });
-  const values = normalized?.values ?? input;
-  if (!normalized) assertPatternArgumentLimit(input, "[Instrument] notes()");
-  if (!normalized && allowShorthand) {
+  const values = normalized ?? input;
+  if (normalized === undefined)
+    assertPatternArgumentLimit(input, "[Instrument] notes()");
+  if (normalized === undefined && allowShorthand) {
     const shorthand = decodeShorthandInput(input, "[Instrument] notes()");
     if (shorthand) {
       const cycle = evaluatePatternExpression(
@@ -285,7 +286,7 @@ function decodeNotesInputGeometry(
       });
     }
   }
-  if (!normalized && input.length === 1 && isRandomCycle(input[0]))
+  if (normalized === undefined && isRandomCycle(input[0]))
     return decodeRandomEventInputGeometry(input[0]);
   const geometry = decodeStructuredInputGeometry(values, notesDecodeOptions());
   const cycle = evaluatePatternExpression(geometry.expression);
@@ -311,9 +312,10 @@ function decodeSampleNamesInput(
   const normalized = normalizeStructuredInput(input, "[Sampler] name()", {
     scanBudget: MAX_STRUCTURED_INPUT_ITEMS,
   });
-  const values = normalized?.values ?? input;
-  if (!normalized) assertPatternArgumentLimit(input, "[Sampler] name()");
-  if (!normalized && allowShorthand) {
+  const values = normalized ?? input;
+  if (normalized === undefined)
+    assertPatternArgumentLimit(input, "[Sampler] name()");
+  if (normalized === undefined && allowShorthand) {
     const shorthand = decodeShorthandInput(input, "[Sampler] name()", {
       allowMultipleStrings: true,
     });
@@ -334,9 +336,10 @@ function decodeVariationsInputGeometry(
   const normalized = normalizeStructuredInput(input, "[Sampler] variation()", {
     scanBudget: MAX_STRUCTURED_INPUT_ITEMS,
   });
-  const values = normalized?.values ?? input;
-  if (!normalized) assertPatternArgumentLimit(input, "[Sampler] variation()");
-  if (!normalized && allowShorthand) {
+  const values = normalized ?? input;
+  if (normalized === undefined)
+    assertPatternArgumentLimit(input, "[Sampler] variation()");
+  if (normalized === undefined && allowShorthand) {
     const shorthand = decodeShorthandInput(input, "[Sampler] variation()");
     if (shorthand) {
       const cycle = evaluatePatternExpression(
@@ -349,7 +352,7 @@ function decodeVariationsInputGeometry(
       });
     }
   }
-  if (!normalized && input.length === 1 && isRandomCycle(input[0]))
+  if (normalized === undefined && isRandomCycle(input[0]))
     return decodeRandomEventInputGeometry(input[0]);
   const cycle = evaluatePatternExpression(decodeVariationsExpression(values));
   // Unlike notes, empty static name/variation bars normalize to authored rests.

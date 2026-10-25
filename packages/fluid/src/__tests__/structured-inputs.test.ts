@@ -43,7 +43,7 @@ describe("public structured numeric inputs", () => {
     const firstCycle = staticCycle(first.getSchema().gain.max);
     firstCycle[0][0] = 0.7;
     expect(staticCycle(second.getSchema().gain.max)).toEqual([[0.2, 0.1]]);
-    expect(shared.getValues()).toEqual([[0.2, 0.1]]);
+    expect(shared.values).toEqual([[0.2, 0.1]]);
   });
 
   it("accepts reusable values through every numeric setter and alias", () => {
@@ -283,6 +283,18 @@ describe("public structured event inputs", () => {
     );
   });
 
+  it("does not reinterpret wrapped sample names as shorthand", () => {
+    const d = new Drome();
+    const sampler = new Sampler("bd");
+    const before = sampler.getSchema();
+
+    expect(() => sampler.name("bd sd")).not.toThrow();
+    const after = sampler.getSchema();
+    expect(after.eventPattern).not.toEqual(before.eventPattern);
+    expect(() => sampler.name(d.str("bd sd"))).toThrow();
+    expect(sampler.getSchema()).toEqual(after);
+  });
+
   it("keeps structured numeric XOX distinct from direct compact notation", () => {
     const d = new Drome();
     expect(
@@ -325,7 +337,7 @@ describe("public structured event inputs", () => {
     if (!Array.isArray(firstChord)) throw new Error("Expected a chord");
     Reflect.set(firstChord, 0, 100);
     expect(second.getSchema().eventPattern).toEqual(expected);
-    expect(notes.getValues()).toEqual([[[60, 64], null, 67]]);
+    expect(notes.values).toEqual([[[60, 64], null, 67]]);
   });
 
   it("retains direct random metadata and chance when composing wrapped masks", () => {
@@ -349,6 +361,11 @@ describe("public structured event inputs", () => {
       probability: 0.25,
       segments: [{ seed: 13 }],
     });
+    const ignoredTrailingValue = d.synth();
+    Reflect.apply(ignoredTrailingValue.xox, ignoredTrailingValue, [rhythm, 1]);
+    expect(ignoredTrailingValue.getSchema().eventPattern).toEqual(
+      d.synth().xox(rhythm).getSchema().eventPattern,
+    );
 
     notes.steps(1).range(0, 1).ribbon(99);
     variations.steps(1).ribbon(99);

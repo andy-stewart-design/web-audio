@@ -400,10 +400,10 @@ describe("consumer validation and bounds", () => {
     }
   });
 
-  it("rejects mixed and embedded random inputs, and all random names", () => {
+  it("ignores trailing random-source values but rejects embedded random inputs and names", () => {
     const source = new patterns.RandomCycle();
     for (const decode of [decodeNotesInput, decodeVariationsInput]) {
-      expect(() => decode([source, 60])).toThrow("sole argument");
+      expect(decode([source, 60])).toEqual(decode([source]));
       expect(() => decode([[source]])).toThrow("finite numbers");
     }
     expect(() => decodeNotesExpression([source])).toThrow(

@@ -110,7 +110,7 @@ describe("structured numeric XOX", () => {
     },
   );
 
-  it("rejects missing bars, simultaneous groups, extra nesting, and mixed random inputs", () => {
+  it("rejects invalid shapes while ignoring values after a direct random source", () => {
     expect(() => decodeXoxInput([])).toThrow(
       "xox() requires at least one pattern",
     );
@@ -123,9 +123,8 @@ describe("structured numeric XOX", () => {
     expect(() => decodeXoxInput([[[[1]]]])).toThrow(
       "does not support simultaneous voice groups",
     );
-    expect(() => decodeXoxInput([new patterns.RandomCycle().bin(), 1])).toThrow(
-      "sole argument",
-    );
+    const source = new patterns.RandomCycle().bin();
+    expect(decodeXoxInput([source, 1])).toEqual(decodeXoxInput([source]));
   });
 });
 

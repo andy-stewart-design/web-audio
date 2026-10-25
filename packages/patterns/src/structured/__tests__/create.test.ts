@@ -9,8 +9,8 @@ import {
 
 describe("structured input factory", () => {
   it("preserves variadic bars and within-bar geometry", () => {
-    expect(createStructuredInput(0.2, 0.1).getValues()).toEqual([0.2, 0.1]);
-    expect(createStructuredInput([0.2, 0.1]).getValues()).toEqual([[0.2, 0.1]]);
+    expect(createStructuredInput(0.2, 0.1).values).toEqual([0.2, 0.1]);
+    expect(createStructuredInput([0.2, 0.1]).values).toEqual([[0.2, 0.1]]);
   });
 
   it("snapshots and freezes nested static data", () => {
@@ -20,26 +20,28 @@ describe("structured input factory", () => {
     chord[0] = 72;
     bar[0] = [67];
 
-    expect(input.getValues()).toEqual([[[60, 64], null]]);
+    expect(input.values).toEqual([[[60, 64], null]]);
     expect(Object.isFrozen(input)).toBe(true);
     expect(Object.isFrozen(input.values)).toBe(true);
     const storedBar = input.values[0];
     if (!Array.isArray(storedBar)) throw new Error("Expected a stored bar");
     expect(Object.isFrozen(storedBar)).toBe(true);
     expect(Reflect.set(storedBar, 0, 0.9)).toBe(false);
-
-    const copy = input.getValues();
-    if (!Array.isArray(copy[0])) throw new Error("Expected a copied bar");
-    copy[0][0] = 0;
-    expect(input.getValues()).toEqual([[[60, 64], null]]);
+    const storedChord = storedBar[0];
+    if (!Array.isArray(storedChord)) throw new Error("Expected a stored chord");
+    expect(Object.isFrozen(storedChord)).toBe(true);
+    expect(Reflect.set(storedChord, 0, 72)).toBe(false);
   });
 
-  it("returns fresh copies and recognizes only its opaque values", () => {
+  it("recognizes only its opaque values", () => {
     const input = createStructuredInput("bd", null);
     expect(isStructuredInput(input)).toBe(true);
     expect(isStructuredInput({ type: "structured-input" })).toBe(false);
-    expect(input.getValues()).not.toBe(input.getValues());
-    expect(input.getValues()).toEqual(["bd", null]);
+    expect(isStructuredInput({ type: "structured-input", values: [0.2] })).toBe(
+      false,
+    );
+    expect(input.values).toEqual(["bd", null]);
+    expect(input).not.toHaveProperty("getValues");
   });
 
   it("accepts generic atom types while rejecting invalid data", () => {
@@ -47,7 +49,7 @@ describe("structured input factory", () => {
       "bd",
       ["sd", null],
     );
-    expect(strings.getValues()).toEqual(["bd", ["sd", null]]);
+    expect(strings.values).toEqual(["bd", ["sd", null]]);
 
     expect(() => Reflect.apply(createStructuredInput, undefined, [])).toThrow(
       "at least one",
@@ -61,6 +63,11 @@ describe("structured input factory", () => {
       new RandomCycle(),
       nested,
       [nested],
+      undefined,
+      true,
+      1n,
+      Symbol("invalid atom"),
+      () => 0.2,
     ];
     for (const value of invalid) {
       expect(() =>
@@ -71,7 +78,9 @@ describe("structured input factory", () => {
 
   it("does not expose a broad invalid-object overload", () => {
     const typeChecks = () => {
-      createStructuredInput(0.2, [0.1]);
+      const input = createStructuredInput(0.2, [0.1]);
+      // @ts-expect-error The public snapshot is readonly.
+      input.values.push(0.3);
       // @ts-expect-error Structured values contain only static atoms.
       createStructuredInput({});
       // @ts-expect-error Random sources must be passed directly to consumers.

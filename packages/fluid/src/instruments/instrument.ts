@@ -23,7 +23,7 @@ import Parameter, {
   type AudioParamInput,
   type AudioParamSource,
 } from "@/parameters/parameter";
-import { isEnvelopeTuple, isRandomCycleTuple } from "@/inputs/guards";
+import { isEnvelopeTuple, isRandomCycle } from "@/inputs/guards";
 import {
   resolveAudioParam,
   resolveAudioParamValue,
@@ -157,7 +157,7 @@ abstract class Instrument {
       | [StructuredXoxInput]
   ) {
     const decoded = decodeXoxInputGeometry(input, { allowShorthand: true });
-    this._eventState = isRandomCycleTuple(input)
+    this._eventState = isRandomCycle(input[0])
       ? replaceEventTiming(
           this._eventState,
           decoded.cycle,

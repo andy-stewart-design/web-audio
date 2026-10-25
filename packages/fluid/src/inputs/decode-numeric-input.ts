@@ -16,8 +16,8 @@ function decodeNumericInput(
   method = "[Parameter]",
 ) {
   const normalized = normalizeStructuredInput(input, method);
-  if (normalized) {
-    return decodeStructuredNumericInput(normalized.values, method);
+  if (normalized !== undefined) {
+    return decodeStructuredNumericInput(normalized, method);
   }
   if (isRandomCycleTuple<RandomCycle>(input)) return input[0];
 

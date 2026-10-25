@@ -48,27 +48,21 @@ function createParameterValue(
   value: NumericPatternValue,
   method = "[Parameter]",
 ) {
-  if (Array.isArray(value)) {
-    throw new TypeError(
-      `${method} input must be a number, shorthand, structured input, or random cycle.`,
-    );
-  }
   if (value instanceof RandomCycle) {
     return createParameter([value], method);
   }
-
-  let parameter;
-  if (isStructuredInput(value)) {
-    parameter = createParameter([value], method);
-  } else if (typeof value === "number") {
-    parameter = createParameter([value], method);
-  } else if (typeof value === "string" || isShorthand(value)) {
-    parameter = createParameter([value], method);
-  } else {
+  const isSupportedValue =
+    typeof value === "number" ||
+    typeof value === "string" ||
+    isShorthand(value) ||
+    isStructuredInput(value);
+  if (Array.isArray(value) || !isSupportedValue) {
     throw new TypeError(
       `${method} input must be a number, shorthand, structured input, or random cycle.`,
     );
   }
+
+  const parameter = createParameter([value], method);
   try {
     parameter.getSchema();
   } catch (error) {

@@ -3,9 +3,9 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md), ready for planning; requirements R1–R11 and acceptance criteria AC1–AC18 govern this plan, subject to approved amendments for [envelope defaults/documentation ownership](evidence/step-1.1-envelope-defaults.md), [shared static structured values](evidence/step-1.2-patterns-ownership.md), and [required noise/filter inputs](evidence/step-3.1.md#required-input-amendment).
-- Delivery state: All technical gates are verified, including Step 4.2 native diagnostics and required workspace regression. User-owned documentation still prevents Phase 4 closure. See [native/final-gate evidence](evidence/step-4.2.md).
-- Acceptance or release still pending: User-owned Step 4.1 documentation, dependent Step 4.1/4.2 completion and Phase 4 exit, remaining documentation-dependent acceptance, and any subsequent release decision.
-- Blockers: Active user-owned documentation still describes superseded forms. No technical/native failure remains; bare-Node artifact execution retains its recorded runner limitation, with supported artifact/native runners verified.
+- Delivery state: Prior source/artifact/native gates passed; review simplifications 1–4 are verified. See [approved simplification follow-up](evidence/review-simplifications.md). Builder construction safety remains open.
+- Acceptance or release still pending: Builder cycle/depth/traversal hardening, user-owned documentation, dependent completion/Phase 4 closure, and any release decision.
+- Blockers: Structured builder construction remains unbounded for cyclic/deep inputs; that fix was deliberately deferred until after simplification. Active user-owned documentation also remains pending. Prior native results and the recorded bare-Node runner limitation remain unchanged.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove that completion gates passed. `Verified` means the scoped gate and required implementation review passed; it does not imply manual approval, publication, or deployment. In supervised execution, manual approvals belong in extension state rather than task checkboxes.
 
@@ -498,7 +498,7 @@ No publication, packed installation, hosted-service, or cross-platform certifica
 
 ## Deferred checks and accepted deviations
 
-- No deviations or waivers have been accepted. Steps 0.1–3.3 and Phase 0–3 gates are verified. Step 4.1 public/artifact and Step 4.2 native/workspace gates pass; full Step 4.1/4.2 completion and Phase 4 exit remain pending user-owned documentation. No technical/native failure remains.
+- No waiver is assumed for builder construction safety or user-owned documentation. Prior phase/native evidence remains available; [review simplifications 1–4](evidence/review-simplifications.md) are verified. Builder hardening is a separate pending follow-up; error-handling consolidation was explicitly declined.
 - Chromium/native acceptance is an execution prerequisite, not an automatically deferred check. Missing browser/platform access must remain visible in Step 4.2 and the status heading until resolved or explicitly waived.
 - Human listening, live REPL/browser sessions, real-time performance certification, packed/published-package testing, and deployment are not required gates for this scoped API/normalization change. Do not describe them as performed.
 - Timing-generator patternability, LFO speed/waveform expansion, new source kinds, new setters, automatic saved-sketch rewrites, and a legacy scalar-minimum graph adapter remain outside the governing spec.
