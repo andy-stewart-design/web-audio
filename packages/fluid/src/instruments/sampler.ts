@@ -60,6 +60,7 @@ class Sampler extends Instrument {
 
   dur: (...input: NumericPatternInput) => this;
   dir: (direction: SampleDirectionInput) => this;
+  var: (...input: Parameters<Sampler["variation"]>) => this;
 
   constructor(
     sample: string | undefined,
@@ -72,30 +73,14 @@ class Sampler extends Instrument {
     this._bank = normalizeBankName(bank);
     this.dur = this.duration.bind(this);
     this.dir = this.direction.bind(this);
-  }
-
-  // METHOD ALIASES
-  var(input: ShorthandInput): this;
-  var(input: StructuredVariationInput): this;
-  var(...input: NullableCycleInput<number>): this;
-  var(
-    ...input:
-      | NullableCycleInput<number>
-      | [ShorthandInput]
-      | [StructuredVariationInput]
-  ) {
-    return this._setVariation(...input);
+    this.var = this.variation.bind(this);
   }
 
   // INSTANCE METHODS
-  name(input: ShorthandInput): this;
-  name(input: StructuredNamesInput): this;
-  name(...input: StaticNullableCycleInput<string>): this;
   name(
     ...input:
       | StaticNullableCycleInput<string>
-      | [ShorthandInput]
-      | [StructuredNamesInput]
+      | [ShorthandInput | StructuredNamesInput]
   ) {
     this._eventState = replaceSampleNames(
       this._eventState,
@@ -109,23 +94,10 @@ class Sampler extends Instrument {
     return this;
   }
 
-  variation(input: ShorthandInput): this;
-  variation(input: StructuredVariationInput): this;
-  variation(...input: NullableCycleInput<number>): this;
   variation(
     ...input:
       | NullableCycleInput<number>
-      | [ShorthandInput]
-      | [StructuredVariationInput]
-  ) {
-    return this._setVariation(...input);
-  }
-
-  private _setVariation(
-    ...input:
-      | NullableCycleInput<number>
-      | [ShorthandInput]
-      | [StructuredVariationInput]
+      | [ShorthandInput | StructuredVariationInput]
   ) {
     const decoded = decodeVariationsInputGeometry(input, {
       allowShorthand: true,

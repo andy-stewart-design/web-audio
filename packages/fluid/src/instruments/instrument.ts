@@ -34,7 +34,6 @@ import type {
   ShorthandInput,
   SingleSlotAudioParamInput,
   StructuredNotesInput,
-  StructuredXoxInput,
 } from "@/inputs/types";
 import type { KeyNotation, NoteName, NoteValue } from "@/pitch/types";
 import { parseKey } from "@/pitch/parse-key";
@@ -82,15 +81,10 @@ abstract class Instrument {
     return this;
   }
 
-  notes(input: ShorthandInput): this;
-  notes(input: StructuredNotesInput): this;
-  notes(...input: NoteInput<ScheduledValue> | [RandomCycle]): this;
   notes(
     ...input:
       | NoteInput<ScheduledValue>
-      | [RandomCycle]
-      | [ShorthandInput]
-      | [StructuredNotesInput]
+      | [RandomCycle | ShorthandInput | StructuredNotesInput]
   ) {
     const decoded = decodeNotesInputGeometry(input, { allowShorthand: true });
     this._eventState = replaceEventNotes(
@@ -146,16 +140,7 @@ abstract class Instrument {
     return this;
   }
 
-  xox(input: ShorthandInput): this;
-  xox(input: StructuredXoxInput): this;
-  xox(...input: (number | number[])[] | [RandomCycle]): this;
-  xox(
-    ...input:
-      | (number | number[])[]
-      | [RandomCycle]
-      | [ShorthandInput]
-      | [StructuredXoxInput]
-  ) {
+  xox(...input: NumericPatternInput) {
     const decoded = decodeXoxInputGeometry(input, { allowShorthand: true });
     this._eventState = isRandomCycle(input[0])
       ? replaceEventTiming(

@@ -709,6 +709,12 @@ describe("instrument event schemas", () => {
   it("aliases var() to variation() and replaces the previous pattern", () => {
     const sampler = new Sampler("kick");
     expect(sampler.var([0, 1])).toBe(sampler);
+    const detached = sampler.var;
+    expect(detached([1, 0])).toBe(sampler);
+    expect(sampler.getSchema().eventPattern.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[1], [0]]],
+    });
     sampler.variation([2]);
 
     expect(sampler.getSchema().eventPattern.variationIndices).toEqual({
