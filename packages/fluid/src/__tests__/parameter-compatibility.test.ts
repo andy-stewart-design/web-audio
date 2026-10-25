@@ -1,5 +1,5 @@
 import { validateDromeGraph } from "@web-audio/schema";
-import { RandomCycle } from "@web-audio/patterns";
+import { createStructuredInput, RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
 import Drome from "@/drome";
 import Envelope from "@/automations/envelope";
@@ -84,7 +84,7 @@ describe("structured parameter compatibility", () => {
       },
       {
         label: "two-field structured maximum",
-        args: [0, [0.25, 0.5], [0.75]],
+        args: [0, createStructuredInput([0.25, 0.5], [0.75])],
         min: { type: "static", cycle: [[0]] },
         max: { type: "static", cycle: [[0.25, 0.5], [0.75]] },
       },
@@ -155,15 +155,16 @@ describe("structured parameter compatibility", () => {
   it("rejects undefined in every multi-field envelope position", () => {
     const d = new Drome();
     const random = d.rand().steps(2).range(0, 1);
-    const invalid = [
+    const invalid: unknown[][] = [
       [undefined, 0.8],
       [0.1, undefined],
       [undefined, undefined],
       [undefined, "0.8"],
+      [undefined, d.sh("0.8")],
+      [undefined, d.str(0.8)],
       [undefined, random],
       [undefined, [0.25, 0.5]],
-      [0, [0.25], undefined],
-      [0, undefined, [0.5]],
+      [0.1, undefined, 0.8],
     ];
 
     for (const args of invalid) {
@@ -171,33 +172,24 @@ describe("structured parameter compatibility", () => {
       expect(() => Reflect.construct(Envelope, args)).toThrow();
     }
 
-    const assertTypeRejections = () => {
-      // @ts-expect-error An undefined minimum cannot accompany a maximum.
+    const assertTypes = () => {
+      // Optional signatures accept undefined; field presence is checked at runtime.
       d.env(undefined, 0.8);
-      // @ts-expect-error An undefined minimum cannot accompany a maximum.
       new Envelope(undefined, 0.8);
-      // @ts-expect-error An undefined maximum cannot accompany a minimum.
       d.env(0.1, undefined);
-      // @ts-expect-error An undefined maximum cannot accompany a minimum.
       new Envelope(0.1, undefined);
-      // @ts-expect-error Two undefined envelope fields are not a default form.
       d.env(undefined, undefined);
-      // @ts-expect-error Two undefined envelope fields are not a default form.
       new Envelope(undefined, undefined);
-      // @ts-expect-error Undefined cannot accompany a shorthand maximum.
       d.env(undefined, "0.8");
-      // @ts-expect-error Undefined cannot accompany a shorthand maximum.
       new Envelope(undefined, "0.8");
-      // @ts-expect-error Undefined cannot accompany a random maximum.
       d.env(undefined, random);
-      // @ts-expect-error Undefined cannot accompany a random maximum.
       new Envelope(undefined, random);
-      // @ts-expect-error Undefined cannot accompany a raw maximum array.
+      // @ts-expect-error Raw arrays are not envelope pattern values.
       d.env(undefined, [0.25, 0.5]);
-      // @ts-expect-error Undefined cannot accompany a raw maximum array.
+      // @ts-expect-error Raw arrays are not envelope pattern values.
       new Envelope(undefined, [0.25, 0.5]);
     };
-    void assertTypeRejections;
+    void assertTypes;
   });
 
   it("equates scalar, negative, and zero maxima with shorthand", () => {
@@ -215,8 +207,12 @@ describe("structured parameter compatibility", () => {
   it("rejects null as either bound in both entry points", () => {
     const d = new Drome();
     for (const args of [[null], [null, 0.5], [0.5, null]]) {
-      expect(() => Reflect.apply(d.env, d, args)).toThrow("cannot be null");
-      expect(() => Reflect.construct(Envelope, args)).toThrow("cannot be null");
+      expect(() => Reflect.apply(d.env, d, args)).toThrow(
+        "input must be a number, shorthand, structured input, or random cycle",
+      );
+      expect(() => Reflect.construct(Envelope, args)).toThrow(
+        "input must be a number, shorthand, structured input, or random cycle",
+      );
     }
   });
 

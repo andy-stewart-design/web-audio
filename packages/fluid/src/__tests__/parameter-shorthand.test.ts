@@ -318,7 +318,7 @@ describe("public parameter shorthand", () => {
     }
   });
 
-  it("supports envelope constructor and factory sole and explicit-min overloads", () => {
+  it("supports envelope constructor and factory sole and explicit-min forms", () => {
     const d = new Drome();
     for (const { input } of numericInputs(d).slice(0, 2)) {
       const constructorSole = Reflect.construct(Envelope, input).getSchema();
@@ -328,15 +328,13 @@ describe("public parameter shorthand", () => {
       expect(staticCycle(constructorSole.max)).toEqual([[0.2, 0.8]]);
       expect(staticCycle(factorySole.max)).toEqual([[0.2, 0.8]]);
     }
-    for (const { input } of numericInputs(d)) {
-      const constructorNumeric = Reflect.construct(Envelope, [
-        0.1,
-        ...input,
-      ]).getSchema();
-      const factoryNumeric = Reflect.apply(d.env, d, [
-        0.1,
-        ...input,
-      ]).getSchema();
+    for (const maximum of [
+      "0.2 0.8",
+      d.sh("0.2 0.8"),
+      d.str([0.2, 0.8]),
+    ] as const) {
+      const constructorNumeric = new Envelope(0.1, maximum).getSchema();
+      const factoryNumeric = d.env(0.1, maximum).getSchema();
       expect(constructorNumeric.min).toEqual({
         type: "static",
         cycle: [[0.1]],
@@ -344,9 +342,8 @@ describe("public parameter shorthand", () => {
       expect(factoryNumeric.min).toEqual({ type: "static", cycle: [[0.1]] });
       expect(staticCycle(constructorNumeric.max)).toEqual([[0.2, 0.8]]);
       expect(staticCycle(factoryNumeric.max)).toEqual([[0.2, 0.8]]);
-      const invalid = [undefined, ...input];
-      expect(() => Reflect.construct(Envelope, invalid)).toThrow();
-      expect(() => Reflect.apply(d.env, d, invalid)).toThrow();
+      expect(() => Reflect.construct(Envelope, [undefined, maximum])).toThrow();
+      expect(() => Reflect.apply(d.env, d, [undefined, maximum])).toThrow();
     }
     expect(new Envelope(0.1).getSchema().max).toEqual({
       type: "static",
@@ -357,7 +354,7 @@ describe("public parameter shorthand", () => {
       cycle: [[0.1]],
     });
     expect(() => Reflect.apply(d.env, d, [null, 0.5])).toThrow(
-      "minimum cannot be null",
+      "input must be a number, shorthand, structured input, or random cycle",
     );
   });
 
@@ -447,7 +444,7 @@ describe("public parameter shorthand", () => {
     expect(instrument.getSchema().gain).toEqual(newEnvelope.getSchema());
   });
 
-  it("supports envelope overloads and independent shorthand ADSR fields", () => {
+  it("supports envelope forms and independent shorthand ADSR fields", () => {
     const d = new Drome();
     const direct = d.env("0.2 0.8").getSchema();
     const reusable = d.env(d.sh("0.2 0.8")).getSchema();
@@ -1079,7 +1076,6 @@ describe("public parameter shorthand", () => {
 
   it("matches authored chop shorthand schemas and timing, including fit order", () => {
     const d = new Drome();
-    const inputs = numericInputs(d, "0 2 1 3", [0, 2, 1, 3]);
     const expectedRegion = {
       type: "chop",
       slices: [
@@ -1091,8 +1087,12 @@ describe("public parameter shorthand", () => {
       sequence: { type: "static", cycle: [[0, 2, 1, 3]] },
     };
 
-    for (const { input } of inputs) {
-      const sampler = new Sampler("bd").chop(4, ...input);
+    for (const input of [
+      "0 2 1 3",
+      d.sh("0 2 1 3"),
+      d.str([0, 2, 1, 3]),
+    ] as const) {
+      const sampler = new Sampler("bd").chop(4, input);
       expect(sampler.getSchema().region).toEqual(expectedRegion);
       expect(sampler.getSchema().eventPattern.timing.cycle).toEqual([
         [
@@ -1111,12 +1111,12 @@ describe("public parameter shorthand", () => {
     expect(afterFit.eventPattern.timing).toEqual(beforeFit.eventPattern.timing);
 
     const multibarInputs = [
-      ["<0 2 1 3>"],
-      [d.sh("<0 2 1 3>")],
-      [[0], [2], [1], [3]],
-    ] satisfies NumericPatternInput[];
+      "<0 2 1 3>",
+      d.sh("<0 2 1 3>"),
+      d.str([0], [2], [1], [3]),
+    ];
     for (const input of multibarInputs) {
-      const multibar = new Sampler("bd").chop(4, ...input).getSchema();
+      const multibar = new Sampler("bd").chop(4, input).getSchema();
       expect(multibar.region).toMatchObject({
         sequence: { type: "static", cycle: [[0], [2], [1], [3]] },
       });
@@ -1167,6 +1167,9 @@ describe("public parameter shorthand", () => {
       sampler.chop("4", "0 1");
       // @ts-expect-error chop sliceCount does not accept reusable shorthand.
       sampler.chop(d.sh("4"), "0 1");
+      sampler.chop(4, undefined);
+      // @ts-expect-error Chop sequence does not accept raw arrays.
+      sampler.chop(4, [0, 1]);
       // @ts-expect-error Region slots reject mixed whole-pattern arguments.
       sampler.start(0.2, "0.8");
       // @ts-expect-error The dur alias has the same numeric-pattern contract.

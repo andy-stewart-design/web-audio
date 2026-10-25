@@ -2,8 +2,8 @@ import {
   assertCycleBarLimit,
   MAX_EVENT_CYCLE_STEPS,
 } from "@web-audio/patterns";
-import type { NumericPatternInput } from "@/inputs/types";
-import { createParameter } from "@/parameters/parameter";
+import type { NumericPatternValue } from "@/inputs/types";
+import { createParameterValue } from "@/parameters/parameter";
 import type { SamplerEventState } from "@/events/state";
 import { releaseEventTiming } from "@/events/transitions";
 import {
@@ -39,9 +39,10 @@ function setSamplerEventFit(
     throw new Error("[Sampler] fit() bars must be a positive integer.");
   assertCycleBarLimit(bars);
   const next = Object.freeze({ ...configuration, fitBars: bars });
+  // Timing ownership does not require reading a live chop sequence.
   const release =
-    getGeneratedSamplerTiming(state, configuration) !== undefined ||
-    getGeneratedSamplerTiming(state, next) !== undefined;
+    configuration.chop !== undefined ||
+    (state.notes.intent !== "authored" && !configuration.hasRegion);
   return {
     state: release ? releaseEventTiming(state) : state,
     configuration: next,
@@ -52,7 +53,7 @@ function setSamplerEventChop(
   state: SamplerEventState,
   configuration: SamplerTimingConfiguration,
   sliceCount: number,
-  ...sequence: NumericPatternInput
+  sequence?: NumericPatternValue,
 ) {
   if (!Number.isInteger(sliceCount) || sliceCount <= 0)
     throw new Error("[Sampler] chop() sliceCount must be a positive integer.");
@@ -60,6 +61,12 @@ function setSamplerEventChop(
     throw new Error(
       `[Pattern] Generated chop contains more than ${MAX_EVENT_CYCLE_STEPS} events.`,
     );
+
+  const authoredSequence =
+    sequence === undefined
+      ? null
+      : createParameterValue(sequence, "[Sampler] chop() sequence");
+
   return {
     state: releaseEventTiming(state),
     configuration: Object.freeze({
@@ -67,10 +74,7 @@ function setSamplerEventChop(
       chop: Object.freeze({
         sliceCount,
         // Chop sequences are unchanged processing patterns, not event lanes.
-        sequence:
-          sequence.length > 0
-            ? createParameter(sequence, "[Sampler] chop() sequence")
-            : null,
+        sequence: authoredSequence,
       }),
     }),
   };

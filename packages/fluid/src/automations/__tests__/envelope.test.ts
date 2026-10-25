@@ -127,8 +127,38 @@ describe("Envelope", () => {
     });
   });
 
+  it("keeps constructor and factory defaults and bound meanings exactly in parity", () => {
+    const d = new Drome();
+    expect(d.env().getSchema()).toEqual(new Envelope().getSchema());
+    expect(d.env(undefined).getSchema()).toEqual(
+      new Envelope(undefined).getSchema(),
+    );
+
+    const values = [0.25, "0.2 0.4", d.sh("0.2 0.4"), d.str(0.2, 0.4)] as const;
+    for (const value of values) {
+      expect(d.env(value).getSchema()).toEqual(new Envelope(value).getSchema());
+      expect(d.env(value).getSchema().min).toEqual({
+        type: "static",
+        cycle: [[0]],
+      });
+    }
+
+    const bounds = [
+      [0.1, 0.8],
+      [d.sh("0.1 0.2"), d.str(0.8, 0.9)],
+    ] as const;
+    for (const [minimum, maximum] of bounds) {
+      expect(d.env(minimum, maximum).getSchema()).toEqual(
+        new Envelope(minimum, maximum).getSchema(),
+      );
+    }
+  });
+
   it("serializes custom min and multi-bar max values", () => {
-    const schema = new Envelope(0.1, [0.75, 1.25], [0.25, 0.5]).getSchema();
+    const schema = new Envelope(
+      0.1,
+      createStructuredInput([0.75, 1.25], [0.25, 0.5]),
+    ).getSchema();
 
     expect(schema.min).toEqual({ type: "static", cycle: [[0.1]] });
     expect(schema.max).toEqual({
@@ -140,10 +170,22 @@ describe("Envelope", () => {
     });
   });
 
-  it("rejects an explicit undefined minimum with a maximum", () => {
-    expect(() => Reflect.construct(Envelope, [undefined, 0.25])).toThrow(
-      "minimum must be a number",
-    );
+  it("rejects undefined in every multi-field envelope position", () => {
+    const d = new Drome();
+    const invalid: unknown[][] = [
+      [undefined, 0.25],
+      [0.1, undefined],
+      [undefined, undefined],
+      [undefined, "0.8"],
+      [undefined, d.sh("0.8")],
+      [undefined, d.str(0.8)],
+      [undefined, d.rand()],
+    ];
+
+    for (const args of invalid) {
+      expect(() => Reflect.construct(Envelope, args)).toThrow();
+      expect(() => Reflect.apply(d.env, d, args)).toThrow();
+    }
   });
 
   it("uses a sole numeric argument as the maximum", () => {
@@ -171,13 +213,13 @@ describe("Envelope", () => {
     const d = new Drome();
 
     expect(() => Reflect.construct(Envelope, [d.env(), 1])).toThrow(
-      "minimum must be a number, shorthand, structured input, or random cycle",
+      "constructor minimum input must be a number, shorthand, structured input, or random cycle",
     );
     expect(() => Reflect.construct(Envelope, [d.lfo(0, 1), 1])).toThrow(
-      "minimum must be a number, shorthand, structured input, or random cycle",
+      "constructor minimum input must be a number, shorthand, structured input, or random cycle",
     );
     expect(() => Reflect.construct(Envelope, [d.midi.cc(74), 1])).toThrow(
-      "minimum must be a number, shorthand, structured input, or random cycle",
+      "constructor minimum input must be a number, shorthand, structured input, or random cycle",
     );
   });
 
@@ -231,6 +273,31 @@ describe("Envelope", () => {
       );
       expect(() => Reflect.apply(d.env, d, args), String(args)).toThrow(field);
     }
+  });
+
+  it("does not eagerly read random bounds during construction", () => {
+    const d = new Drome();
+    const random = d.rand().steps(2, 0, 4).range(0.25, 1);
+    const getRandomSchema = vi.spyOn(random, "getRandomSchema");
+
+    const factory = d.env(0, random);
+    const constructor = new Envelope(0, random);
+    expect(getRandomSchema).not.toHaveBeenCalled();
+    expect(factory.getSchema().max).toEqual(constructor.getSchema().max);
+  });
+
+  it("keeps both random bounds lazy and equivalent across public boundaries", () => {
+    const d = new Drome();
+    const minimum = d.rand().steps(2, 0, 4).range(0.1, 0.3);
+    const maximum = d.rand().steps(1, 3, 2).range(0.7, 1);
+    const getMinimumSchema = vi.spyOn(minimum, "getRandomSchema");
+    const getMaximumSchema = vi.spyOn(maximum, "getRandomSchema");
+
+    const factory = d.env(minimum, maximum);
+    const constructor = new Envelope(minimum, maximum);
+    expect(getMinimumSchema).not.toHaveBeenCalled();
+    expect(getMaximumSchema).not.toHaveBeenCalled();
+    expect(factory.getSchema()).toEqual(constructor.getSchema());
   });
 
   it("serializes random max values without timing geometry", () => {

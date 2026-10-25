@@ -6,7 +6,7 @@ import {
   type StructuredArgument,
   type StructuredAtom,
 } from "@web-audio/patterns";
-import Envelope, { type EnvelopeArguments } from "./automations/envelope";
+import Envelope from "./automations/envelope";
 import Lfo from "./automations/lfo";
 import { BUILT_IN_BANKS } from "./samples/built-in-banks";
 import Bus from "./buses/bus";
@@ -215,8 +215,13 @@ class Drome {
     return new RandomCycle();
   }
 
-  env(...args: EnvelopeArguments) {
-    return new Envelope(...args);
+  env(minOrMax?: NumericPatternValue, maximum?: NumericPatternValue) {
+    if (arguments.length > 2) {
+      throw new TypeError("[Drome] env() accepts at most two values.");
+    }
+    return arguments.length < 2
+      ? new Envelope(minOrMax)
+      : new Envelope(minOrMax, maximum);
   }
 
   lfo(outputA: NumericPatternValue, outputB: NumericPatternValue) {

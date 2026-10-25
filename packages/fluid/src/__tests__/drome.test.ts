@@ -1,4 +1,5 @@
 import {
+  createStructuredInput,
   MAX_EXPRESSION_NODES,
   RandomCycle,
   type Shorthand,
@@ -1337,7 +1338,7 @@ describe("Drome", () => {
         .sample("bd")
         .start(0.25)
         .end(0.75)
-        .chop(4, [0, 2, 1, 3])
+        .chop(4, createStructuredInput([0, 2, 1, 3]))
         .getSchema();
 
       expect(inst.region).toEqual({
@@ -1441,7 +1442,7 @@ describe("Drome", () => {
       const schema = new Drome()
         .sample("bd")
         .fit(2)
-        .chop(8, [0, 3, 5, 1])
+        .chop(8, createStructuredInput([0, 3, 5, 1]))
         .notes([0, 12])
         .getSchema();
 

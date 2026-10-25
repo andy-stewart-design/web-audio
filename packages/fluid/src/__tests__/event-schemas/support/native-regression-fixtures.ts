@@ -1,4 +1,4 @@
-import { RandomCycle } from "@web-audio/patterns";
+import { createStructuredInput, RandomCycle } from "@web-audio/patterns";
 import type { RandomNumberPattern } from "@web-audio/schema";
 import type {
   EventSchemaFixture,
@@ -426,7 +426,10 @@ const feasibilityScenarios = [
     instrument: "sampler",
     sampleName: "loop",
     operations: () => [
-      { method: "chop", args: [4, [0, 1, 0]] },
+      {
+        method: "chop",
+        args: [4, createStructuredInput([0, 1, 0])],
+      },
       { method: "fit", args: [4] },
       { method: "slow", args: [2] },
     ],

@@ -1,4 +1,4 @@
-import { RandomCycle } from "@web-audio/patterns";
+import { createStructuredInput, RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
 import Envelope from "@/automations/envelope";
 import type { EnvelopeSchema } from "@web-audio/schema";
@@ -780,7 +780,7 @@ describe("instrument event schemas", () => {
   it("wraps explicit pitch values over authored chop timing", () => {
     const events = new Sampler("loop")
       .fit(2)
-      .chop(8, [0, 3, 5, 1])
+      .chop(8, createStructuredInput([0, 3, 5, 1]))
       .notes([0, 12])
       .getSchema().eventPattern;
 

@@ -14,6 +14,7 @@ import {
 import { createParameter } from "@/parameters/parameter";
 import type {
   NumericPatternInput,
+  NumericPatternValue,
   NullableCycleInput,
   ShorthandInput,
   StaticNullableCycleInput,
@@ -176,12 +177,18 @@ class Sampler extends Instrument {
     return this;
   }
 
-  chop(sliceCount: number, ...sequence: NumericPatternInput) {
+  chop(sliceCount: number, sequence?: NumericPatternValue) {
+    if (arguments.length < 1 || arguments.length > 2) {
+      throw new TypeError("[Sampler] chop() requires one or two values.");
+    }
+    if (arguments.length === 2 && sequence === undefined) {
+      throw new TypeError("[Sampler] chop() sequence cannot be undefined.");
+    }
     const result = setSamplerEventChop(
       this._eventState,
       this._getTimingConfiguration(),
       sliceCount,
-      ...sequence,
+      sequence,
     );
     this._eventState = result.state;
     this._chop = result.configuration.chop;
