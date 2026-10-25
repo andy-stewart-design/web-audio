@@ -784,9 +784,7 @@ function validateEnvelope(schema: unknown, path: string) {
   if (schema.type !== "envelope") {
     throw new Error(`[Schema] ${path}.type must be "envelope".`);
   }
-  if (!isFiniteNumber(schema.min)) {
-    throw new Error(`[Schema] ${path}.min must be finite.`);
-  }
+  validateNumberPattern(schema.min, `${path}.min`);
   validateNumberPattern(schema.max, `${path}.max`);
   validateNumberPattern(schema.a, `${path}.a`);
   validateNumberPattern(schema.d, `${path}.d`);

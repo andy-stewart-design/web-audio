@@ -8,12 +8,17 @@ import {
   decodeShorthandInput,
   isShorthand,
 } from "@/inputs/decode-shorthand-input";
+import { normalizeStructuredInput } from "@/inputs/normalize-structured-input";
 import type { NumericPatternInput } from "@/inputs/types";
 
 function decodeNumericInput(
   input: NumericPatternInput,
   method = "[Parameter]",
 ) {
+  const normalized = normalizeStructuredInput(input, method);
+  if (normalized !== undefined) {
+    return decodeStructuredNumericInput(normalized, method);
+  }
   if (isRandomCycleTuple<RandomCycle>(input)) return input[0];
 
   try {
@@ -38,6 +43,28 @@ function decodeNumericInput(
 
   assertNoShorthandInput(input, method);
   return input.map((value) => (Array.isArray(value) ? value : [value]));
+}
+
+function decodeStructuredNumericInput(
+  values: readonly unknown[],
+  method: string,
+) {
+  return values.map((bar, barIndex) => {
+    const valuesInBar: unknown[] = Array.isArray(bar) ? Array.from(bar) : [bar];
+    if (valuesInBar.length === 0) {
+      throw new Error(`${method} structured bars cannot be empty.`);
+    }
+    const numericBar: number[] = [];
+    for (const value of valuesInBar) {
+      if (typeof value !== "number" || !Number.isFinite(value)) {
+        throw new Error(
+          `${method} structured value at bar ${barIndex} must be a finite number.`,
+        );
+      }
+      numericBar.push(value);
+    }
+    return numericBar;
+  });
 }
 
 function withMethodContext(method: string, error: unknown) {

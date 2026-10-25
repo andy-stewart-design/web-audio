@@ -460,7 +460,7 @@ describe("Instrument event schedule context", () => {
     const event = eventContext({ hitIndex: 1 });
     const envelope: EnvelopeSchema = {
       type: "envelope",
-      min: 0,
+      min: staticCycle([10, 20, 30]),
       max: staticCycle([1, 2, 3]),
       a: staticCycle([0.1, 0.2, 0.3]),
       d: staticCycle([0.2, 0.3, 0.4]),
@@ -473,13 +473,20 @@ describe("Instrument event schedule context", () => {
       instrument.resolveDetune(staticCycle([10, 20, 30]), event),
     ).toMatchObject({ type: "static", value: 20 });
     expect(instrument.resolveEnvelope(envelope, event)).toEqual({
-      min: 0,
+      min: 20,
       max: 2,
       a: 0.2,
       d: 0.3,
       s: 0.4,
       r: 0.5,
       mode: "bleed",
+    });
+
+    const resolvedDetune = instrument.resolveDetune(envelope, event);
+    expect(resolvedDetune).toMatchObject({
+      type: "envelope",
+      value: 20,
+      envelope: { min: 20, max: 2 },
     });
   });
 });

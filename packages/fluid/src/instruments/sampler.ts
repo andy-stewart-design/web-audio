@@ -14,9 +14,12 @@ import {
 import { createParameter } from "@/parameters/parameter";
 import type {
   NumericPatternInput,
+  NumericPatternValue,
   NullableCycleInput,
   ShorthandInput,
   StaticNullableCycleInput,
+  StructuredNamesInput,
+  StructuredVariationInput,
 } from "@/inputs/types";
 import type {
   ClipMode,
@@ -57,6 +60,7 @@ class Sampler extends Instrument {
 
   dur: (...input: NumericPatternInput) => this;
   dir: (direction: SampleDirectionInput) => this;
+  var: (...input: Parameters<Sampler["variation"]>) => this;
 
   constructor(
     sample: string | undefined,
@@ -69,19 +73,15 @@ class Sampler extends Instrument {
     this._bank = normalizeBankName(bank);
     this.dur = this.duration.bind(this);
     this.dir = this.direction.bind(this);
-  }
-
-  // METHOD ALIASES
-  var(input: ShorthandInput): this;
-  var(...input: NullableCycleInput<number>): this;
-  var(...input: NullableCycleInput<number> | [ShorthandInput]) {
-    return this._setVariation(...input);
+    this.var = this.variation.bind(this);
   }
 
   // INSTANCE METHODS
-  name(input: ShorthandInput): this;
-  name(...input: StaticNullableCycleInput<string>): this;
-  name(...input: StaticNullableCycleInput<string> | [ShorthandInput]) {
+  name(
+    ...input:
+      | StaticNullableCycleInput<string>
+      | [ShorthandInput | StructuredNamesInput]
+  ) {
     this._eventState = replaceSampleNames(
       this._eventState,
       decodeSampleNamesInput(input, { allowShorthand: true }),
@@ -94,14 +94,10 @@ class Sampler extends Instrument {
     return this;
   }
 
-  variation(input: ShorthandInput): this;
-  variation(...input: NullableCycleInput<number>): this;
-  variation(...input: NullableCycleInput<number> | [ShorthandInput]) {
-    return this._setVariation(...input);
-  }
-
-  private _setVariation(
-    ...input: NullableCycleInput<number> | [ShorthandInput]
+  variation(
+    ...input:
+      | NullableCycleInput<number>
+      | [ShorthandInput | StructuredVariationInput]
   ) {
     const decoded = decodeVariationsInputGeometry(input, {
       allowShorthand: true,
@@ -153,12 +149,18 @@ class Sampler extends Instrument {
     return this;
   }
 
-  chop(sliceCount: number, ...sequence: NumericPatternInput) {
+  chop(sliceCount: number, sequence?: NumericPatternValue) {
+    if (arguments.length < 1 || arguments.length > 2) {
+      throw new TypeError("[Sampler] chop() requires one or two values.");
+    }
+    if (arguments.length === 2 && sequence === undefined) {
+      throw new TypeError("[Sampler] chop() sequence cannot be undefined.");
+    }
     const result = setSamplerEventChop(
       this._eventState,
       this._getTimingConfiguration(),
       sliceCount,
-      ...sequence,
+      sequence,
     );
     this._eventState = result.state;
     this._chop = result.configuration.chop;

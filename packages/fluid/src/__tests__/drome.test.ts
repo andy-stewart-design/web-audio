@@ -1,4 +1,5 @@
 import {
+  createStructuredInput,
   MAX_EXPRESSION_NODES,
   RandomCycle,
   type Shorthand,
@@ -245,7 +246,7 @@ describe("Drome", () => {
       const schema = d.getSchema().instruments[0];
 
       expect(schema.gain.type).toBe("envelope");
-      expect(schema.gain.min).toBe(0);
+      expect(schema.gain.min).toEqual({ type: "static", cycle: [[0]] });
       expect(schema.gain.mode).toBe("bleed");
     });
 
@@ -279,7 +280,7 @@ describe("Drome", () => {
       const { gain } = d.getSchema().instruments[0];
 
       expect(gain.type).toBe("envelope");
-      expect(gain.min).toBe(0);
+      expect(gain.min).toEqual({ type: "static", cycle: [[0]] });
       if (gain.max.type === "static") {
         expect(gain.max.cycle[0][0]).toBe(0.75);
       }
@@ -303,7 +304,7 @@ describe("Drome", () => {
       const { gain } = d.getSchema().instruments[0];
 
       expect(gain.type).toBe("envelope");
-      expect(gain.min).toBe(0);
+      expect(gain.min).toEqual({ type: "static", cycle: [[0]] });
       expect(gain.mode).toBe("bounded");
       if (gain.max.type === "static") {
         expect(gain.max.cycle[0][0]).toBe(0.5);
@@ -351,7 +352,7 @@ describe("Drome", () => {
 
       expect(detune.type).toBe("envelope");
       if (detune.type === "envelope") {
-        expect(detune.min).toBe(0);
+        expect(detune.min).toEqual({ type: "static", cycle: [[0]] });
         if (detune.max.type === "static") {
           expect(detune.max.cycle[0][0]).toBe(400);
         }
@@ -365,7 +366,7 @@ describe("Drome", () => {
       const schema = d.env(0, 0.75).getSchema();
 
       expect(schema.type).toBe("envelope");
-      expect(schema.min).toBe(0);
+      expect(schema.min).toEqual({ type: "static", cycle: [[0]] });
       if (schema.max.type === "static") {
         expect(schema.max.cycle[0][0]).toBe(0.75);
       }
@@ -375,7 +376,7 @@ describe("Drome", () => {
       const d = new Drome();
       const schema = d.env().getSchema();
 
-      expect(schema.min).toBe(0);
+      expect(schema.min).toEqual({ type: "static", cycle: [[0]] });
       if (schema.max.type === "static") {
         expect(schema.max.cycle[0][0]).toBe(1);
       }
@@ -1337,7 +1338,7 @@ describe("Drome", () => {
         .sample("bd")
         .start(0.25)
         .end(0.75)
-        .chop(4, [0, 2, 1, 3])
+        .chop(4, createStructuredInput([0, 2, 1, 3]))
         .getSchema();
 
       expect(inst.region).toEqual({
@@ -1441,7 +1442,7 @@ describe("Drome", () => {
       const schema = new Drome()
         .sample("bd")
         .fit(2)
-        .chop(8, [0, 3, 5, 1])
+        .chop(8, createStructuredInput([0, 3, 5, 1]))
         .notes([0, 12])
         .getSchema();
 
@@ -2437,7 +2438,7 @@ describe("Drome", () => {
 
       expect(effect.gain.type).toBe("envelope");
       if (effect.gain.type === "envelope") {
-        expect(effect.gain.min).toBe(0);
+        expect(effect.gain.min).toEqual({ type: "static", cycle: [[0]] });
         expect(effect.gain.mode).toBe("bounded");
       }
     });

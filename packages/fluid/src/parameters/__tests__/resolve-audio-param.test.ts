@@ -1,11 +1,15 @@
-import { RandomCycle } from "@web-audio/patterns";
-import { describe, expect, it } from "vitest";
+import { createStructuredInput, RandomCycle } from "@web-audio/patterns";
+import { describe, expect, it, vi } from "vitest";
+import Drome from "@/drome";
 import Envelope from "@/automations/envelope";
 import Lfo from "@/automations/lfo";
 import { MidiCc } from "@/midi/builders";
 import type { AudioParamInput } from "../parameter";
 import Parameter from "../parameter";
-import { resolveAudioParam } from "../resolve-audio-param";
+import {
+  resolveAudioParam,
+  resolveAudioParamValue,
+} from "../resolve-audio-param";
 
 describe("resolveAudioParam", () => {
   it("preserves supported modulation source identity", () => {
@@ -70,5 +74,101 @@ describe("resolveAudioParam", () => {
     expect(parameter).toBeInstanceOf(Parameter);
     expect(parameter).not.toBe(envelope);
     expect(() => parameter.getSchema()).toThrow();
+  });
+});
+
+describe("resolveAudioParamValue", () => {
+  it("resolves one scalar, shorthand, or structured value", () => {
+    const drome = new Drome();
+
+    expect(resolveAudioParamValue(0.25, "[Test] value()").getSchema()).toEqual({
+      type: "static",
+      cycle: [[0.25]],
+    });
+    expect(
+      resolveAudioParamValue("0.2 0.8", "[Test] value()").getSchema(),
+    ).toEqual({
+      type: "static",
+      cycle: [[0.2, 0.8]],
+    });
+    expect(
+      resolveAudioParamValue(drome.sh("0.2 0.8"), "[Test] value()").getSchema(),
+    ).toEqual({
+      type: "static",
+      cycle: [[0.2, 0.8]],
+    });
+    expect(
+      resolveAudioParamValue(
+        drome.str([0.2, 0.8], 1.2),
+        "[Test] value()",
+      ).getSchema(),
+    ).toEqual({
+      type: "static",
+      cycle: [[0.2, 0.8], [1.2]],
+    });
+    expect(
+      resolveAudioParamValue(
+        createStructuredInput(0.2, 0.8),
+        "[Test] value()",
+      ).getSchema(),
+    ).toEqual({
+      type: "static",
+      cycle: [[0.2], [0.8]],
+    });
+  });
+
+  it("rejects invalid atomic values without reading raw arrays", () => {
+    const drome = new Drome();
+    const read = vi.fn(() => 0.2);
+    const raw = Array<unknown>(1_000_000_000);
+    Object.defineProperty(raw, 0, { get: read });
+    const invalid: unknown[] = [
+      undefined,
+      null,
+      raw,
+      [0.2, 0.3],
+      new Parameter(0.2),
+      {},
+      true,
+      drome.str("0.2"),
+      drome.str("~"),
+      drome.str([[0.2, 0.3]]),
+      drome.str([]),
+    ];
+
+    for (const value of invalid) {
+      expect(() =>
+        Reflect.apply(resolveAudioParamValue, undefined, [
+          value,
+          "[Test] value()",
+        ]),
+      ).toThrow("[Test] value()");
+    }
+    expect(read).not.toHaveBeenCalled();
+    expect(() => resolveAudioParamValue(Number.NaN, "[Test] value()")).toThrow(
+      "[Test] value()",
+    );
+  });
+
+  it("preserves direct source identity without eager schema or random sampling", () => {
+    const drome = new Drome();
+    const envelope = new Envelope();
+    const lfo = new Lfo(0, 1);
+    const midi = drome.midi.cc(74);
+    const random = new RandomCycle();
+    const spies = [
+      vi.spyOn(envelope, "getSchema"),
+      vi.spyOn(lfo, "getSchema"),
+      vi.spyOn(midi, "getSchema"),
+      vi.spyOn(random, "getRandomSchema"),
+    ];
+
+    expect(resolveAudioParamValue(envelope, "[Test] value()")).toBe(envelope);
+    expect(resolveAudioParamValue(lfo, "[Test] value()")).toBe(lfo);
+    expect(resolveAudioParamValue(midi, "[Test] value()")).toBe(midi);
+    expect(resolveAudioParamValue(random, "[Test] value()")).toBeInstanceOf(
+      Parameter,
+    );
+    expect(spies.every((spy) => spy.mock.calls.length === 0)).toBe(true);
   });
 });

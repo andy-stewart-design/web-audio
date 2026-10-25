@@ -1,5 +1,11 @@
-import { createShorthand, RandomCycle } from "@web-audio/patterns";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  createShorthand,
+  createStructuredInput,
+  RandomCycle,
+} from "@web-audio/patterns";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
+import Drome from "@/drome";
+import Parameter from "@/parameters/parameter";
 import Lfo from "../lfo";
 
 describe("Lfo", () => {
@@ -20,18 +26,66 @@ describe("Lfo", () => {
     expect(a.id).not.toBe(b.id);
   });
 
+  it("requires exactly two endpoints at both public boundaries", () => {
+    const d = new Drome();
+    expect(Lfo).toHaveLength(2);
+    expect(d.lfo).toHaveLength(2);
+    for (const args of [[], [0], [0, 1, 2]]) {
+      expect(() => Reflect.construct(Lfo, args)).toThrow();
+      expect(() => Reflect.apply(d.lfo, d, args)).toThrow();
+    }
+  });
+
   it("serializes static outputA and outputB as raw values", () => {
     const schema = new Lfo(800, 400).getSchema();
     expect(schema.outputA).toEqual({ type: "static", cycle: [[800]] });
     expect(schema.outputB).toEqual({ type: "static", cycle: [[400]] });
   });
 
-  it("interprets endpoint arrays as separate bars for both outputs", () => {
-    const outputA = [600, 800];
-    const outputB = [400, 500];
-    const lfo = new Lfo(outputA, outputB);
-    outputA[0] = 1000;
-    outputB[1] = 1200;
+  it("keeps constructor and factory endpoint geometry identical", () => {
+    const d = new Drome();
+    const cases = [
+      [800, 400],
+      ["0.2 0.8", "400"],
+      [createShorthand("<0.2 0.8>"), createShorthand("400 800")],
+      [createStructuredInput(0.2, 0.8), createStructuredInput([400, 800])],
+    ] as const;
+
+    for (const [outputA, outputB] of cases) {
+      const constructorSchema = new Lfo(outputA, outputB).getSchema();
+      const factorySchema = d.lfo(outputA, outputB).getSchema();
+      const { id: constructorId, ...constructorRest } = constructorSchema;
+      const { id: factoryId, ...factoryRest } = factorySchema;
+      expect(constructorId).not.toBe(factoryId);
+      expect(constructorRest).toEqual(factoryRest);
+    }
+  });
+
+  it("snapshots structured bars while preserving reusable shorthand for two endpoints", () => {
+    const d = new Drome();
+    const original = [600, 800];
+    const structured = createStructuredInput(original);
+    const reusable = d.sh("0.2 0.8");
+    const first = new Lfo(structured, reusable);
+    const second = new Lfo(structured, reusable);
+    original[0] = 1_200;
+
+    expect(first.getSchema().outputA).toEqual({
+      type: "static",
+      cycle: [[600, 800]],
+    });
+    expect(second.getSchema().outputB).toEqual({
+      type: "static",
+      cycle: [[0.2, 0.8]],
+    });
+    expect(second.getSchema().outputB).toEqual(first.getSchema().outputB);
+  });
+
+  it("interprets structured endpoint bars independently", () => {
+    const lfo = new Lfo(
+      createStructuredInput(600, 800),
+      createStructuredInput(400, 500),
+    );
 
     const schema = lfo.getSchema();
     expect(schema.outputA).toEqual({
@@ -57,6 +111,28 @@ describe("Lfo", () => {
       type: "random-number",
       valuesPerBar: [3],
     });
+  });
+
+  it("does not serialize direct random endpoints before construction finishes", () => {
+    const randomA = new RandomCycle().steps(2);
+    const randomB = new RandomCycle().steps(1, 3);
+    const controlRandomA = new RandomCycle().steps(2);
+    const controlRandomB = new RandomCycle().steps(1, 3);
+    const randomASchema = vi.spyOn(randomA, "getRandomSchema");
+    const randomBSchema = vi.spyOn(randomB, "getRandomSchema");
+    const lfo = new Drome().lfo(randomA, randomB);
+    const control = new Lfo(controlRandomA, controlRandomB);
+
+    expect(randomASchema).not.toHaveBeenCalled();
+    expect(randomBSchema).not.toHaveBeenCalled();
+    randomA.steps(3, 1).range(0.25, 1);
+    randomB.steps(2, 4).range(10, 20);
+    controlRandomA.steps(3, 1).range(0.25, 1);
+    controlRandomB.steps(2, 4).range(10, 20);
+    const schema = lfo.getSchema();
+    const controlSchema = control.getSchema();
+    expect(schema.outputA).toEqual(controlSchema.outputA);
+    expect(schema.outputB).toEqual(controlSchema.outputB);
   });
 
   it("accepts direct and reusable shorthand independently at both endpoints", () => {
@@ -111,7 +187,34 @@ describe("Lfo", () => {
     expect(warn).toHaveBeenCalledTimes(2);
   });
 
-  it("does not warn for scalar, single-value shorthand bars, arrays, or random endpoints", () => {
+  it("warns for structured multivalue endpoints only during serialization", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const d = new Drome();
+    const lfo = d.lfo(d.str([0.2, 0.8], 0.4), d.str(400, [800, 1_200]));
+    expect(warn).not.toHaveBeenCalled();
+
+    const first = lfo.getSchema();
+    expect(first.outputA).toEqual({
+      type: "static",
+      cycle: [[0.2, 0.8], [0.4]],
+    });
+    expect(first.outputB).toEqual({
+      type: "static",
+      cycle: [[400], [800, 1_200]],
+    });
+    expect(warn.mock.calls).toEqual([
+      [
+        "[LFO] outputA bars contain multiple values; only the first value of each bar is used.",
+      ],
+      [
+        "[LFO] outputB bars contain multiple values; only the first value of each bar is used.",
+      ],
+    ]);
+    expect(lfo.getSchema()).toEqual(first);
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not warn for scalar, single-value bars, or random endpoints", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const scalar = new Lfo(600, 400).getSchema();
@@ -138,19 +241,25 @@ describe("Lfo", () => {
     });
 
     const random = new RandomCycle().steps(2, 4);
-    const arraysAndRandom = new Lfo([600, 800], random).getSchema();
-    expect(arraysAndRandom.outputA).toEqual({
+    const structuredAndRandom = new Lfo(
+      createStructuredInput(600, 800),
+      random,
+    ).getSchema();
+    expect(structuredAndRandom.outputA).toEqual({
       type: "static",
       cycle: [[600], [800]],
     });
-    expect(arraysAndRandom.outputB).toMatchObject({
+    expect(structuredAndRandom.outputB).toMatchObject({
       type: "random-number",
       valuesPerBar: [2, 4],
     });
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("rejects invalid, over-limit, and mixed endpoint inputs before construction", () => {
+  it("rejects invalid, raw-array, and mixed endpoint inputs before construction", () => {
+    expect(() => Reflect.construct(Lfo, [[600, 800], 1])).toThrow(
+      "[LFO] outputA",
+    );
     expect(() => new Lfo("0.2 ~ 0.8", 1)).toThrow("[LFO] outputA");
     expect(() => new Lfo("NaN", 1)).toThrow("[LFO] outputA");
     expect(() => new Lfo("<1!1025>", 1)).toThrow("[LFO] outputA");
@@ -161,6 +270,74 @@ describe("Lfo", () => {
     expect(() => new Lfo(1, "0.2 ~ 0.8")).toThrow("[LFO] outputB");
     expect(() => new Lfo(1, "NaN")).toThrow("[LFO] outputB");
     expect(() => new Lfo(1, "<1!1025>")).toThrow("[LFO] outputB");
+  });
+
+  it("rejects every invalid endpoint shape at constructor and factory boundaries", () => {
+    const d = new Drome();
+    const invalid: unknown[] = [
+      undefined,
+      null,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
+      true,
+      {},
+      [0.2, 0.4],
+      [[0.2, 0.4]],
+      d.env(),
+      d.lfo(0, 1),
+      d.midi.cc(74),
+      new Parameter(1),
+      "0.2 ~ 0.8",
+      "",
+      d.str("0.2"),
+      d.str(null),
+      d.str([[0.2, 0.4]]),
+      d.str([]),
+    ];
+
+    for (const value of invalid) {
+      expect(() => Reflect.construct(Lfo, [value, 1])).toThrow("[LFO] outputA");
+      expect(() => Reflect.construct(Lfo, [1, value])).toThrow("[LFO] outputB");
+      expect(() => Reflect.apply(d.lfo, d, [value, 1])).toThrow(
+        "[LFO] outputA",
+      );
+      expect(() => Reflect.apply(d.lfo, d, [1, value])).toThrow(
+        "[LFO] outputB",
+      );
+    }
+  });
+
+  it("keeps endpoint type permissions explicit", () => {
+    const d = new Drome();
+    const random = d.rand();
+    const valid = () => {
+      expectTypeOf(new Lfo(1, "0.2")).toMatchTypeOf<Lfo>();
+      expectTypeOf(new Lfo(d.sh("0.2"), d.str(1))).toMatchTypeOf<Lfo>();
+      expectTypeOf(new Lfo(random, 1)).toMatchTypeOf<Lfo>();
+      expectTypeOf(d.lfo(1, d.sh("0.2"))).toMatchTypeOf<Lfo>();
+    };
+    expectTypeOf(valid).toBeFunction();
+
+    const invalid = () => {
+      // @ts-expect-error LFO endpoints reject raw arrays.
+      new Lfo([0.2, 0.4], 1);
+      // @ts-expect-error LFO endpoints reject arbitrary values.
+      new Lfo(true, 1);
+      // @ts-expect-error LFO endpoints require both values.
+      new Lfo(1);
+      // @ts-expect-error LFO endpoints reject extra values.
+      new Lfo(1, 2, 3);
+      // @ts-expect-error The factory rejects raw arrays.
+      d.lfo([0.2, 0.4], 1);
+      // @ts-expect-error The factory rejects arbitrary values.
+      d.lfo({}, 1);
+      // @ts-expect-error The factory requires both values.
+      d.lfo(1);
+      // @ts-expect-error The factory rejects extra values.
+      d.lfo(1, 2, 3);
+    };
+    expectTypeOf(invalid).toBeFunction();
   });
 
   it(".speed() sets speed array", () => {

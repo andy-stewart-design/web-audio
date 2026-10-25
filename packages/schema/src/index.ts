@@ -174,7 +174,7 @@ interface BankSchema {
 
 interface EnvelopeSchema {
   type: "envelope";
-  min: number;
+  min: NumberPattern;
   max: NumberPattern;
   a: NumberPattern;
   d: NumberPattern;

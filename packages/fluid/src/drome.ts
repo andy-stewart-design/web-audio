@@ -1,11 +1,13 @@
 import {
   createShorthand,
+  createStructuredInput,
   RandomCycle,
   type Shorthand,
+  type StructuredArgument,
+  type StructuredAtom,
 } from "@web-audio/patterns";
 import Envelope from "./automations/envelope";
-import Lfo, { type LfoInput } from "./automations/lfo";
-import { isShorthand } from "./inputs/decode-shorthand-input";
+import Lfo from "./automations/lfo";
 import { BUILT_IN_BANKS } from "./samples/built-in-banks";
 import Bus from "./buses/bus";
 import Filter from "./effects/filter";
@@ -25,7 +27,10 @@ import {
 import { validateDromeGraph } from "@web-audio/schema";
 import type { BankSchema, DromeSchema, FilterType } from "@web-audio/schema";
 import type { AudioParamInput } from "./parameters/parameter";
-import type { NumericPatternInput, ShorthandInput } from "./inputs/types";
+import type {
+  NumericPatternValue,
+  SingleSlotAudioParamInput,
+} from "./inputs/types";
 import type { LoadSamplesInput } from "./samples/types";
 import {
   waveformAliasMap,
@@ -41,12 +46,14 @@ class Drome {
   private _bankNames: Record<string, string>;
   private _buses = new Map<string, Bus>();
   sh: (source: string) => Shorthand;
+  str: Drome["structured"];
 
   constructor() {
     this._instruments = new Set();
     this._banks = Object.create(null);
     this._bankNames = Object.create(null);
     this.sh = this.shorthand.bind(this);
+    this.str = this.structured.bind(this);
   }
 
   bpm(value: number) {
@@ -56,6 +63,12 @@ class Drome {
 
   shorthand(source: string) {
     return createShorthand(source);
+  }
+
+  structured<T extends StructuredAtom>(
+    ...input: [StructuredArgument<T>, ...StructuredArgument<T>[]]
+  ) {
+    return createStructuredInput(...input);
   }
 
   synth(): Synthesizer;
@@ -202,21 +215,21 @@ class Drome {
     return new RandomCycle();
   }
 
-  env(max: ShorthandInput): Envelope;
-  env(min?: number, ...max: NumericPatternInput): Envelope;
-  env(minOrMax?: number | ShorthandInput, ...max: NumericPatternInput) {
-    if (typeof minOrMax === "string" || isShorthand(minOrMax)) {
-      if (max.length > 0) {
-        throw new Error(
-          "[Drome] env() shorthand maximum must be the sole argument.",
-        );
-      }
-      return new Envelope(minOrMax);
+  env(minOrMax?: NumericPatternValue, maximum?: NumericPatternValue) {
+    if (arguments.length > 2) {
+      throw new TypeError("[Drome] env() accepts at most two values.");
     }
-    return new Envelope(minOrMax, ...max);
+    return arguments.length < 2
+      ? new Envelope(minOrMax)
+      : new Envelope(minOrMax, maximum);
   }
 
-  lfo(outputA: LfoInput, outputB: LfoInput) {
+  lfo(outputA: NumericPatternValue, outputB: NumericPatternValue) {
+    if (arguments.length !== 2) {
+      throw new TypeError(
+        "[Drome] lfo() requires exactly two endpoint values.",
+      );
+    }
     return new Lfo(outputA, outputB);
   }
 
@@ -224,20 +237,29 @@ class Drome {
     return new GainEffect(...input);
   }
 
-  filter(type: FilterType, ...frequency: AudioParamInput) {
-    return new Filter(type, ...frequency);
+  filter(type: FilterType, frequency: SingleSlotAudioParamInput) {
+    if (type === undefined) {
+      throw new TypeError("[Drome] filter() filter type is required.");
+    }
+    if (arguments.length < 2) {
+      throw new TypeError("[Drome] filter() frequency is required.");
+    }
+    if (arguments.length > 2) {
+      throw new TypeError("[Drome] filter() accepts one frequency value.");
+    }
+    return new Filter(type, frequency);
   }
 
   lpf(...frequency: AudioParamInput) {
-    return new Filter("lp", ...frequency);
+    return Filter.fromVariadicFrequency("lp", frequency);
   }
 
   hpf(...frequency: AudioParamInput) {
-    return new Filter("hp", ...frequency);
+    return Filter.fromVariadicFrequency("hp", frequency);
   }
 
   bpf(...frequency: AudioParamInput) {
-    return new Filter("bp", ...frequency);
+    return Filter.fromVariadicFrequency("bp", frequency);
   }
 
   push(inst: Instrument) {

@@ -3,220 +3,142 @@ title: Patterns
 description: How Drome organizes notes, steps, bars, and cycles
 ---
 
-Patterns are how you tell an instrument what to play over time. In Drome, a **pattern** is a sequence of **steps** that plays over exactly one **bar**. Each step can contain a note, a chord, or silence, and the steps are spread evenly across the bar.
+Patterns describe what an instrument plays and how its sound changes over time.
 
 > [!NOTE]
 > This page explains pattern concepts using **structured syntax**: JavaScript values and arrays. Patterns can also be expressed using **shorthand syntax**, a compact notation inside strings. See [Pattern syntax](syntax.md) to learn about both forms.
 
-## Steps
+Examples assume an existing Fluid instance named `d`. Each example is independent.
 
-A step is one subdivision of a pattern. A single value creates a one-step pattern:
+## Steps and bars
+
+A **step** is one position in a pattern. A single value creates a one-step pattern:
 
 ```ts
 d.synth().notes(60).push();
 ```
 
-An array creates a pattern with one step per item:
+An array creates sequential steps spread evenly across one **bar**:
 
 ```ts
 d.synth().notes([60, 64, 67, 71]).push();
 ```
 
-That pattern has four steps. Since every pattern lasts one bar, each step takes up one quarter of the bar.
-
-## Notes, chords, and silence
-
-A step can hold a single note:
+This pattern has four steps, each lasting one quarter of the bar. Changing the number of steps changes their spacing, not the length of the bar:
 
 ```ts
-d.synth().notes([60, 64, 67, 71]).push();
-```
+// Three evenly spaced notes in one bar.
+d.synth().notes([60, 64, 67]).push();
 
-A step can also hold a chord. A chord is written as an array inside the pattern array:
-
-```ts
-d.synth()
-  .notes([[60, 64, 67]])
-  .push();
-```
-
-That is one step containing three notes, so all three notes play together. A chord counts as one hit for gain, detune, variation, effects, and other event-addressed value patterns. You can mix chords and single notes in the same pattern:
-
-```ts
-d.synth()
-  .notes([[60, 64], 67, [71, 74]])
-  .push();
-```
-
-Silence is represented with `null`, `undefined`, or an empty slot:
-
-```ts
-d.synth().notes([60, null, 64, undefined]).push();
-
-d.synth().notes([60, , 64, 67]).push();
-```
-
-These authored silent steps still take up time. They are rests, not shortened patterns. Fluid removes them from the compiled timing candidates while preserving the offsets of active steps. Rests do not consume notes, sample names, gain values, sample variations, effect values, or other values resolved for a hit.
-
-## Sample names
-
-Samplers use sample names as event values. An unnamed sampler can receive a static name pattern with `.name()`:
-
-```ts
-d.sample().name(["bd", "sd"]).push();
-d.sample()
-  .name([["bd", "hh"], "sd"])
-  .push();
-d.sample().name(["bd", null, "sd", null]).push();
-```
-
-A nested array is one simultaneous voice group. `null` is a whole-hit rest. Names may be supplied as multiple bars with separate arguments, and a later `.name()` call replaces the previous constructor or authored name pattern. Random sample-name choice is not part of the current API.
-
-Names, notes, and variations are independent value lanes. The longest lane wraps shorter lanes, while duplicate names remain duplicate voices. Without explicit rhythm, average density selects timing with notes ahead of names and names ahead of variations on ties. Explicit rhythm and chop/fit timing are stronger; authored rests filter the final timing and do not consume later values.
-
-## Patterns last one bar
-
-A pattern always stretches across one bar, no matter how many steps it contains. This is the most important thing to understand about Drome sequencing: the number of steps in a pattern changes the resolution of the bar.
-
-A four-step pattern divides the bar into four equal parts:
-
-```ts
-d.synth().notes([60, 60, 60, 60]).push();
-```
-
-An eight-step pattern divides the same bar into eight equal parts:
-
-```ts
+// Eight evenly spaced notes in one bar.
 d.synth().notes([60, 60, 60, 60, 60, 60, 60, 60]).push();
 ```
 
-A three-step pattern divides the bar into three equal parts:
+## Steps and beats
+
+A **beat** is the clock's pulse. By default, a bar contains four beats, but a pattern can have any number of steps:
+
+- Four steps: one step per beat.
+- Eight steps: two steps per beat.
+- Three steps: three evenly spaced positions across the bar.
+
+Each pattern has its own spacing; there is no single step grid that every instrument must follow.
+
+## Notes, chords, and rests
+
+A step can contain a single note, several notes played together, or silence.
+
+An array inside the pattern array creates a **chord**. Use `null` for a **rest**:
 
 ```ts
-d.synth().notes([60, 64, 67]).push();
+d.synth()
+  .notes([[60, 64], null, 67, null])
+  .push();
 ```
 
-There is no separate global step grid that all patterns have to follow. Each pattern defines its own grid by the number of steps it contains.
+This four-step pattern plays a chord, rests, plays note 67, then rests again. Rests take up time rather than shortening the pattern.
 
-## Steps and beats are related, but not equivalent
-
-Drome’s clock is measured in beats and bars. Patterns are measured in steps. Those two systems line up at the bar level: one pattern lasts one bar. But steps do not have to equal beats.
-
-In the default 4-beat bar:
-
-- 4 steps means each step lines up with a beat.
-- 8 steps means two steps per beat.
-- 3 steps means three evenly spaced steps across the bar.
-- 5 steps means five evenly spaced steps across the bar.
-
-This makes it easy to write patterns that feel straight, syncopated, uneven, or polymetric without changing the clock.
+Each note in a chord produces a separate sound, or **voice**. The chord still counts as one hit for controls such as gain.
 
 ## Cycles
 
-You are not limited to one pattern. If you pass multiple patterns, Drome plays one pattern per bar, then loops back to the beginning. The full repeating sequence is called a **cycle**.
+Separate pattern arguments describe successive bars. The complete repeating sequence is a **cycle**:
 
 ```ts
 d.synth().notes([60, null, 64, null], [60, null, 64, 67]).push();
 ```
 
-This creates a two-pattern cycle:
+- Bar 1 plays `[60, null, 64, null]`.
+- Bar 2 plays `[60, null, 64, 67]`.
+- Bar 3 returns to the first pattern.
 
-- bar 1: `[60, null, 64, null]`
-- bar 2: `[60, null, 64, 67]`
-- bar 3: back to the first pattern
+One pattern repeats every bar; two patterns make a two-bar cycle.
 
-A cycle with one pattern is one bar long. A cycle with four patterns is four bars long.
+## Rhythm and hits
 
-## Pattern helpers
+A **hit** is a position where the instrument plays. Rests and randomly skipped positions are not hits.
 
-Writing arrays directly is the clearest way to understand patterns, but it can get verbose. Drome also includes helper methods for generating and reshaping patterns. These methods operate on the same underlying idea: steps spread across bars.
-
-For example:
-
-- Euclidean rhythms distribute a number of hits across a number of steps.
-- Hex patterns turn hexadecimal rhythm notation into step patterns.
-- XOX patterns use drum-machine-style strings like `x---x---`.
-- Sequence patterns activate specific step positions.
-- Speed and stretch helpers reshape how patterns move through time.
-
-These helpers do not replace the pattern model. They are shortcuts for building step grids and deciding which steps should play.
-
-## Timing and active hits
-
-Authoring rhythms and masks decide which positions become compiled timing candidates. The playback schema stores only active candidate offsets and durations—never source grid positions or step indices. Fixed rests are already absent. An optional random chance condition may remove further candidates at playback.
-
-The surviving candidates become **hits**, and event-addressed value patterns advance only when a hit occurs.
+Rhythm methods such as `.xox()` and `.euclid()` let you set a rhythm separately from the notes:
 
 ```ts
 d.synth("saw").notes([60, 64]).gain([0.25, 1]).euclid(2, 4).push();
 ```
 
-The Euclidean rhythm authors hits at positions `0` and `2`. Fluid compiles their offsets into timing entries. They become hit `0` and hit `1`, so the notes are `60` then `64`, and the gain values are `0.25` then `1`. Silent authored positions do not consume values and are not serialized.
+This plays two hits per bar. The first uses note 60 at gain 0.25; the second uses note 64 at gain 1. Silent positions do not advance the gain pattern, and a chord advances it only once.
 
-This rule also applies to random masks: a random-mask miss is not a hit and consumes nothing. Each chord is one hit even though it creates multiple voices.
+Notes, sample variations, gain, and other per-hit controls repeat their values as needed. Each bar starts from its first hit value again.
 
-Hit numbering restarts within each bar, while pattern bars continue to advance normally. These two gain forms therefore retain different meanings:
+## Changing values over time
 
-```ts
-.gain([0.25, 1]) // two values within each bar, selected by hit
-.gain(0.25, 1)   // one value in bar 1, then one value in bar 2
-```
-
-This active-hit behavior is intentional. Authored positions compile into timing; final hit order controls values used to create each event.
-
-## Timing, event values, and processing values
-
-The compiled playback model has three independent parts:
-
-1. **Timing** says when candidate events occur and may include one chance condition.
-2. **Event values** provide instrument-specific notes, sample names, and variations.
-3. **Processing values** provide gain, detune, envelope, effect, and region settings.
-
-Value patterns contain no offsets or durations. Their bars and hits wrap independently and are addressed only after timing has produced final hits.
-
-## Numeric shorthand is value-only
-
-Numeric parameter shorthand uses the same bars-and-hits model without entering the event pipeline. A sequence or square group contributes ordered values within a bar; grouping does not make event subdivisions, rests, simultaneous values, or new timing. Structural `!` repetition expands that value sequence. Angle-bracket alternation chooses between bars, while hit lookup still wraps within the selected bar.
+A gain pattern changes the level of existing hits; it does not add more hits:
 
 ```ts
-const level = d.sh("0.25 <0.5 0.75>");
-d.synth().gain(level).push();
+// Alternate gain values across the four hits in each bar.
+d.synth().xox("xxxx").gain([0.25, 1]).push();
+
+// Use gain 0.25 throughout bar 1, then gain 1 throughout bar 2.
+d.synth().xox("xxxx").gain(0.25, 1).push();
 ```
 
-The string and reusable forms are whole-pattern alternatives for one logical numeric slot. Existing structured arrays remain unchanged: an array is one bar of hit values and separate numeric arguments are successive bars. A shorthand value cannot be mixed with another value or nested in a structured numeric array. Rests, parallel/comma groups, `*`, `/`, and `@` are event-language constructs that numeric parameter consumers reject; a reusable value containing one of them can still be used by an event consumer.
+An array supplies values within a bar; separate pattern arguments supply successive bars. Controls can have different cycle lengths and repeat independently.
 
-LFO endpoints preserve their consumer-specific behavior. A structured endpoint array such as `d.lfo([0.2, 0.8], 1)` means two bars, whereas `d.lfo("0.2 0.8", 1)` means one bar containing two values. Playback uses the first value in each static bar, and schema serialization warns once per affected endpoint per LFO instance. The bars remain intact, and random endpoint behavior is unchanged. See [Pattern syntax](syntax.md#numeric-parameter-shorthand) for the supported numeric atoms, envelope and ADSR rules, exclusions, and bounds.
+## Sample names and layers
 
-Processing values do not create or filter hits. Chance misses do not consume them, and event transforms do not give them timing authority. The authored sequence passed to sampler `.chop(sliceCount, sequence)` is the exception: its shape participates in generated chop timing exactly as an equivalent structured sequence would. `.fit()` distributes only generated chop sequences, not an explicitly authored sequence.
+Samplers can sequence sample names, just as synthesizers sequence notes:
 
-## Sampler variations and layers
+```ts
+d.sample().name(["bd", "sd"]).push();
+```
 
-Sampler variations are event values rather than timing steps. `.var()` accepts bars, sequential hits, simultaneous voice groups, and whole-hit rests:
+Nested arrays play samples together:
+
+```ts
+// Kick and hi-hat together, then snare.
+d.sample()
+  .name([["bd", "hh"], "sd"])
+  .push();
+```
+
+Variations select different recordings of a sample. They can also be sequenced, layered, or separated by rests:
 
 ```ts
 d.sample("bd").var([0, 1, 2]).push();
 d.sample("bd")
-  .var([
-    [0, 1],
-    [2, 3],
-  ])
+  .var([[0, 1], 2])
   .push();
 d.sample("bd").var([0, null, 2]).push();
 ```
 
-With no explicit rhythm, the densest authored notes or variations supply timing; a lane with explicit rests wins so its silence is preserved. Explicit rhythm and generated sampler chop/fit timing take precedence. A rest removes a candidate and does not consume a later note or variation value.
+Variation `0` selects a recording; it is not a rest. Available recordings depend on the sample and bank. See [`variation()`](../reference/instruments/variation.md) for details.
 
-A simultaneous variation group creates sampler layers. Notes and variations wrap to the longest group, so one note with `[0, 1, 2]` starts three voices. Random variation produces one value for the event and broadcasts it across all of its static layers. At playback, a variation is rounded and positively wrapped within the selected source key's available recordings: variation `-1` selects the final recording, while an overflow wraps to the beginning.
+## Pattern helpers
 
-Event transforms preserve static note/variation rows together. Random values remain deterministic but are generated afresh for transformed timing shape. Alternate sample direction is selected once per event, so all successful layers play forward or reverse together.
+Helpers offer other ways to write or reshape a pattern:
 
-## The core model
+- `.xox()` uses drum-machine-style notation such as `"xoxo"`.
+- `.euclid()` distributes hits across a number of steps.
+- `.hex()` writes rhythms in hexadecimal notation.
+- `.sequence()` selects specific step positions.
+- `.fast()`, `.slow()`, `.stretch()`, and `.reverse()` reshape an instrument's pattern.
 
-The whole system comes down to four levels:
-
-1. A **step** is an authored subdivision of a pattern.
-2. A **hit** is a compiled candidate that survives all timing decisions.
-3. A **voice** is one simultaneous sound within an event, such as one chord note.
-4. A **cycle** is one or more pattern bars repeating.
-
-Once those are clear, the rest of Drome’s sequencing tools are easier to understand. They all build on the same structure.
+See the [instrument reference](../reference/instruments/index.md) for the available methods, and [Pattern syntax](syntax.md) for structured and shorthand examples.

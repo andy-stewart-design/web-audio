@@ -147,6 +147,11 @@ const staticGain = {
   cycle: [[1]],
 };
 
+const staticZero = {
+  type: "static" as const,
+  cycle: [[0]],
+};
+
 const lfoGain = {
   type: "lfo" as const,
   id: "noise-lfo",
@@ -218,7 +223,7 @@ describe("Instrument noise voice composition", () => {
     );
     const noiseGainEnvelope = {
       type: "envelope" as const,
-      min: 0,
+      min: staticZero,
       max: staticGain,
       a: staticGain,
       d: staticGain,

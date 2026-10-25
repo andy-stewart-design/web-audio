@@ -40,16 +40,19 @@ The bounded per-voice effects set is biquad filters, gain, and saturation with d
 ## Source-layer APIs
 
 ```js
+.synth(0.5) // sine wave, gain 0.5
 .synth("saw") // saw wave, gain 1
 .synth("saw", 0.8) // saw wave, gain 0.8
+.synth("<0.3 0.5>") // sine wave, alternating gain across bars
 
 .noise(0.3) // white noise, gain 0.3
-.noise("pink") // pink noise, gain 1
 .noise("pink", 0.3) // pink noise, gain 0.3
 
 .sub(0.3) // sine wave, -1 octave, gain 0.3
 .sub(-2, 0.3) // sine wave, -2 octaves, gain 0.3
 .sub("square", -2, 0.3) // square wave, -2 octaves, gain 0.3
+.sub("square", -2, "<0.3 0.5>") // patterned gain across bars
+.sub("square", -2, d.str([0.3, 0.5])) // gain values within one bar
 ```
 
 Example:
@@ -58,14 +61,20 @@ Example:
 d.synth("saw", 0.8).sub("square", -1, 0.3).noise("pink", 0.3);
 ```
 
-Main-source and sub gains each occupy one argument: a number, numeric array,
-or existing random-cycle, envelope, LFO, or MIDI CC builder. Negative numeric
-literals and static numeric-pattern entries resolve to `0`; automation retains
-its existing behavior, including signed outputs. Octave selectors are unchanged.
-Octave precedes gain; additional numeric arguments are not variadic gain patterns.
-Numeric shorthand strings and `d.osc()` configuration builders are separate
-follow-ups. See the [source-mixing spec](source-mix/spec.md) for the exact contract.
-Existing noise gain syntax and signed-gain behavior are unchanged.
+Main-source and sub gains each use the existing single-slot parameter contract:
+a number, shorthand string or `d.sh()` value, numeric `d.str()` / `d.structured()`
+value, or direct random-cycle, envelope, LFO, or MIDI CC builder. Raw gain arrays
+and extra pattern arguments are rejected. `d.str(0.3, 0.5)` expresses successive
+bars; `d.str([0.3, 0.5])` expresses within-bar values.
+
+Known sole synth-selector strings select the source; other sole strings are gain
+shorthand for the default sine synth. Octave precedes sub gain. Finite negative
+static gains resolve to `0` consistently across scalar, shorthand, structured,
+and direct static-schema inputs without mutating reusable patterns. Automation
+retains its existing behavior, including signed outputs; octave selectors and
+existing noise gain behavior are unchanged. `d.osc()` configuration builders
+remain a separate follow-up. See the [source-mixing spec](source-mix/spec.md)
+and [implementation plan](source-mix/plan.md) for the exact contract and scope.
 
 ### Shared semantics
 
@@ -219,4 +228,4 @@ With the restored supersaw, the recipe is a main note at 110 Hz, two saws spread
 - Preserve per-voice gain/headroom predictability and test at supported sample rates.
 - Consult source licenses before directly porting reference code. Felucca's ANALOG engine/shared DSP are MIT, but much of its surrounding firmware and effects is GPL-3.0-only.
 
-Deferred: numeric gain shorthand, `d.osc()` configuration builders, arbitrary additional oscillator layers, independently gated/sustained layers or layer tails beyond the shared voice envelope, PWM, hard sync, and default safety limiting. Standalone `d.noise()` is tracked as a separate follow-up above, not a prerequisite for noise layers. Existing envelope input for noise gain is included in the noise-layer feature; main-source and sub gain envelopes are included in the source-mixing feature. The deferred items are not prerequisites for the sound-design capabilities above.
+Deferred: `d.osc()` configuration builders, arbitrary additional oscillator layers, independently gated/sustained layers or layer tails beyond the shared voice envelope, PWM, hard sync, and default safety limiting. Standalone `d.noise()` is tracked as a separate follow-up above, not a prerequisite for noise layers. Existing envelope input for noise gain is included in the noise-layer feature; main-source and sub gain envelopes are included in the source-mixing feature. The deferred items are not prerequisites for the sound-design capabilities above.

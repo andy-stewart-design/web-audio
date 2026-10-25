@@ -35,7 +35,7 @@ describe("GainEffect", () => {
     expect(new GainEffect(new Envelope(0, 0.5)).getSchema().gain).toMatchObject(
       {
         type: "envelope",
-        min: 0,
+        min: { type: "static", cycle: [[0]] },
         max: { type: "static", cycle: [[0.5]] },
       },
     );

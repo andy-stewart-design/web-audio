@@ -46,7 +46,7 @@ function timing(
 function envelope() {
   return {
     type: "envelope" as const,
-    min: 0,
+    min: staticParam(0),
     max: staticParam(1),
     a: staticParam(0.01),
     d: staticParam(0),
@@ -1058,8 +1058,87 @@ describe("validateDromeGraph", () => {
     );
   });
 
+  it("accepts independently sized and inverted static and random bounds", () => {
+    const value = instrument();
+    value.gain.min = {
+      type: "static",
+      cycle: [[2, 3], [4]],
+    };
+    value.gain.max = {
+      type: "static",
+      cycle: [[-1], [-2, -3, -4]],
+    };
+    expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
+
+    value.gain.min = randomParam({
+      valuesPerBar: [2, 1],
+      range: { min: 4, max: -2 },
+    });
+    value.gain.max = randomParam({
+      valuesPerBar: [1, 3],
+      range: { min: 10, max: -10 },
+    });
+    expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
+  });
+
   it.each([
-    ["minimum", { min: Number.NaN }, ".gain.min must be finite"],
+    ["missing", undefined, " must be an object"],
+    [
+      "empty cycle",
+      { type: "static", cycle: [] },
+      ".cycle must contain at least one bar",
+    ],
+    ["empty bar", { type: "static", cycle: [[]] }, ".cycle[0] cannot be empty"],
+    [
+      "non-finite value",
+      { type: "static", cycle: [[Number.NaN]] },
+      ".cycle[0] must contain only finite numbers",
+    ],
+    ["null", null, " must be an object"],
+    ["nested envelope", { type: "envelope" }, ".type is invalid"],
+    ["audio source", { type: "lfo" }, ".type is invalid"],
+    [
+      "random empty values",
+      randomParam({ valuesPerBar: [] }),
+      ".valuesPerBar must contain finite non-negative integers",
+    ],
+    [
+      "random invalid count",
+      randomParam({ valuesPerBar: [1.5] }),
+      ".valuesPerBar must contain finite non-negative integers",
+    ],
+    [
+      "random invalid segments",
+      randomParam({ segments: [] }),
+      ".segments cannot be empty",
+    ],
+    [
+      "random invalid range",
+      randomParam({ range: { min: Number.NaN, max: 1 } }),
+      ".range endpoints and span must be finite",
+    ],
+  ])(
+    "rejects %s minimum and maximum pattern shapes",
+    (_label, patch, suffix) => {
+      for (const field of ["min", "max"] as const) {
+        const value = instrument();
+        if (patch === undefined) Reflect.deleteProperty(value.gain, field);
+        else Object.assign(value.gain, { [field]: patch });
+
+        expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+          `.gain.${field}${suffix}`,
+        );
+      }
+    },
+  );
+
+  it.each([
+    [
+      "minimum",
+      { min: { type: "static", cycle: [[Number.NaN]] } },
+      ".gain.min.cycle[0] must contain only finite numbers",
+    ],
+    ["scalar minimum", { min: 0 }, ".gain.min must be an object"],
     ["mode", { mode: "invalid" }, ".gain.mode is invalid"],
     [
       "numeric lane",

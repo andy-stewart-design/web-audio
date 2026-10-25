@@ -1,12 +1,8 @@
-import { RandomCycle } from "@web-audio/patterns";
 import type { LfoSchema, Waveform } from "@web-audio/schema";
-import { createParameter } from "@/parameters/parameter";
+import { createParameterValue } from "@/parameters/parameter";
 import type Parameter from "@/parameters/parameter";
-import type { ShorthandInput } from "@/inputs/types";
-import { isShorthand } from "@/inputs/decode-shorthand-input";
+import type { NumericPatternValue } from "@/inputs/types";
 import { resolveWaveform, type WaveformAlias } from "@/inputs/waveform";
-
-type LfoInput = number | number[] | RandomCycle | ShorthandInput;
 
 class Lfo {
   private _id: string;
@@ -24,10 +20,14 @@ class Lfo {
   norm: () => this;
   off: (n: number) => this;
 
-  constructor(outputA: LfoInput, outputB: LfoInput) {
+  constructor(outputA: NumericPatternValue, outputB: NumericPatternValue) {
+    if (arguments.length !== 2) {
+      throw new TypeError("[LFO] requires exactly two endpoint values.");
+    }
+
     this._id = crypto.randomUUID();
-    this._outputA = Lfo._toParameter(outputA, "[LFO] outputA");
-    this._outputB = Lfo._toParameter(outputB, "[LFO] outputB");
+    this._outputA = createParameterValue(outputA, "[LFO] outputA");
+    this._outputB = createParameterValue(outputB, "[LFO] outputB");
     this._speed = [1];
     this._waveform = ["sine"];
     this._phase = 0;
@@ -97,22 +97,6 @@ class Lfo {
     if (endpoint === "A") this._warnedOutputA = true;
     else this._warnedOutputB = true;
   }
-
-  private static _toParameter(input: LfoInput, method: string): Parameter {
-    if (input instanceof RandomCycle) return createParameter([input], method);
-    if (Array.isArray(input)) {
-      if (
-        input.some((value) => typeof value === "string" || isShorthand(value))
-      ) {
-        throw new Error(`${method} shorthand input must be a whole endpoint.`);
-      }
-      return createParameter(input, method);
-    }
-    if (typeof input === "number") return createParameter([input], method);
-    if (typeof input === "string") return createParameter([input], method);
-    return createParameter([input], method);
-  }
 }
 
 export default Lfo;
-export type { LfoInput };

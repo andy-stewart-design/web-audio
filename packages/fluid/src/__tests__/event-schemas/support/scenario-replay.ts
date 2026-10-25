@@ -140,15 +140,8 @@ function applyNativeOperation(
         }
         case "fit":
           return setSamplerEventFit(state, configuration, ...operation.args);
-        case "chop": {
-          const [sliceCount, ...sequence] = operation.args;
-          return setSamplerEventChop(
-            state,
-            configuration,
-            sliceCount,
-            ...sequence,
-          );
-        }
+        case "chop":
+          return setSamplerEventChop(state, configuration, ...operation.args);
       }
   }
 }
@@ -206,10 +199,8 @@ function applyPublicOperation(
           return instrument.var(...operation.args);
         case "fit":
           return instrument.fit(...operation.args);
-        case "chop": {
-          const [sliceCount, ...sequence] = operation.args;
-          return instrument.chop(sliceCount, ...sequence);
-        }
+        case "chop":
+          return instrument.chop(...operation.args);
       }
   }
 }

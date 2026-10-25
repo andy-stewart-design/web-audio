@@ -1,6 +1,7 @@
 import {
   assertRandomGenerationMetadata,
   evaluatePatternExpression,
+  MAX_EVENT_CYCLE_PATTERNS,
   MAX_EXPRESSION_NODES,
   MAX_SHORTHAND_SOURCE_LENGTH,
   parseShorthand,
@@ -13,9 +14,11 @@ import { decodeRandomCandidateGeometry } from "./decode-random-input";
 import {
   decodeStructuredInput,
   decodeStructuredInputGeometry,
+  MAX_STRUCTURED_INPUT_ITEMS,
 } from "./decode-structured-input";
 import { interpretXoxAtom, targetAtomError } from "./atom-interpreters";
 import { getShorthandSource } from "./decode-shorthand-input";
+import { normalizeStructuredInput } from "./normalize-structured-input";
 
 /** Structured numeric XOX retains the established nonzero-number mask behavior. */
 function xoxDecodeOptions() {
@@ -130,21 +133,30 @@ function decodeXoxInputGeometry(
   input: readonly unknown[],
   { allowShorthand = false } = {},
 ) {
-  const shorthand = allowShorthand
-    ? getShorthandSource(input, "[Instrument] xox()")
-    : undefined;
-  if (shorthand !== undefined) {
-    const cycle = evaluatePatternExpression(
-      decodeXoxShorthandExpression(shorthand),
-      interpretXoxAtom,
+  const normalized = normalizeStructuredInput(input, "[Instrument] xox()", {
+    scanBudget: MAX_STRUCTURED_INPUT_ITEMS,
+  });
+  const values = normalized ?? input;
+  if (normalized === undefined && input.length > MAX_EVENT_CYCLE_PATTERNS) {
+    throw new Error(
+      `[Instrument] xox() cannot contain more than ${MAX_EVENT_CYCLE_PATTERNS} patterns.`,
     );
-    return Object.freeze({
-      cycle,
-      zeroWidthPatterns: Object.freeze(cycle.patterns.map(() => false)),
-      condition: undefined,
-    });
   }
-  if (input.length === 1 && isRandomCycle(input[0])) {
+  if (normalized === undefined && allowShorthand) {
+    const shorthand = getShorthandSource(input, "[Instrument] xox()");
+    if (shorthand !== undefined) {
+      const cycle = evaluatePatternExpression(
+        decodeXoxShorthandExpression(shorthand),
+        interpretXoxAtom,
+      );
+      return Object.freeze({
+        cycle,
+        zeroWidthPatterns: Object.freeze(cycle.patterns.map(() => false)),
+        condition: undefined,
+      });
+    }
+  }
+  if (normalized === undefined && isRandomCycle(input[0])) {
     const source = input[0];
     if (source.dataType !== "binary") {
       throw new Error("Instrument.xox() random masks must be binary");
@@ -174,7 +186,7 @@ function decodeXoxInputGeometry(
       condition: snapshot,
     });
   }
-  const geometry = decodeStructuredInputGeometry<1>(input, xoxDecodeOptions());
+  const geometry = decodeStructuredInputGeometry<1>(values, xoxDecodeOptions());
   return Object.freeze({
     cycle: evaluatePatternExpression(geometry.expression),
     zeroWidthPatterns: geometry.zeroWidthPatterns,

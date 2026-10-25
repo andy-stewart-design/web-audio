@@ -1,4 +1,4 @@
-import { RandomCycle } from "@web-audio/patterns";
+import { createStructuredInput, RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
 import Envelope from "@/automations/envelope";
 import type { EnvelopeSchema } from "@web-audio/schema";
@@ -709,6 +709,12 @@ describe("instrument event schemas", () => {
   it("aliases var() to variation() and replaces the previous pattern", () => {
     const sampler = new Sampler("kick");
     expect(sampler.var([0, 1])).toBe(sampler);
+    const detached = sampler.var;
+    expect(detached([1, 0])).toBe(sampler);
+    expect(sampler.getSchema().eventPattern.variationIndices).toEqual({
+      type: "static",
+      cycle: [[[1], [0]]],
+    });
     sampler.variation([2]);
 
     expect(sampler.getSchema().eventPattern.variationIndices).toEqual({
@@ -780,7 +786,7 @@ describe("instrument event schemas", () => {
   it("wraps explicit pitch values over authored chop timing", () => {
     const events = new Sampler("loop")
       .fit(2)
-      .chop(8, [0, 3, 5, 1])
+      .chop(8, createStructuredInput([0, 3, 5, 1]))
       .notes([0, 12])
       .getSchema().eventPattern;
 

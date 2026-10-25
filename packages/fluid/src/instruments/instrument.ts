@@ -23,12 +23,17 @@ import Parameter, {
   type AudioParamInput,
   type AudioParamSource,
 } from "@/parameters/parameter";
-import { isEnvelopeTuple, isRandomCycleTuple } from "@/inputs/guards";
-import { resolveAudioParam } from "@/parameters/resolve-audio-param";
+import { isEnvelopeTuple, isRandomCycle } from "@/inputs/guards";
+import {
+  resolveAudioParam,
+  resolveAudioParamValue,
+} from "@/parameters/resolve-audio-param";
 import type {
   ADSRInput,
   NumericPatternInput,
   ShorthandInput,
+  SingleSlotAudioParamInput,
+  StructuredNotesInput,
 } from "@/inputs/types";
 import type { KeyNotation, NoteName, NoteValue } from "@/pitch/types";
 import { parseKey } from "@/pitch/parse-key";
@@ -76,10 +81,10 @@ abstract class Instrument {
     return this;
   }
 
-  notes(input: ShorthandInput): this;
-  notes(...input: NoteInput<ScheduledValue> | [RandomCycle]): this;
   notes(
-    ...input: NoteInput<ScheduledValue> | [RandomCycle] | [ShorthandInput]
+    ...input:
+      | NoteInput<ScheduledValue>
+      | [RandomCycle | ShorthandInput | StructuredNotesInput]
   ) {
     const decoded = decodeNotesInputGeometry(input, { allowShorthand: true });
     this._eventState = replaceEventNotes(
@@ -135,11 +140,9 @@ abstract class Instrument {
     return this;
   }
 
-  xox(input: ShorthandInput): this;
-  xox(...input: (number | number[])[] | [RandomCycle]): this;
-  xox(...input: (number | number[])[] | [RandomCycle] | [ShorthandInput]) {
+  xox(...input: NumericPatternInput) {
     const decoded = decodeXoxInputGeometry(input, { allowShorthand: true });
-    this._eventState = isRandomCycleTuple(input)
+    this._eventState = isRandomCycle(input[0])
       ? replaceEventTiming(
           this._eventState,
           decoded.cycle,
@@ -263,18 +266,26 @@ abstract class Instrument {
     return this;
   }
 
-  noise(...input: AudioParamInput): this;
-  noise(color: NoiseColor, ...input: AudioParamInput): this;
-  noise(...input: AudioParamInput | [NoiseColor, ...AudioParamInput]) {
-    const hasColor = isNoiseColor(input[0]);
-    const color: NoiseColor = hasColor ? (input[0] as NoiseColor) : "white";
-    const gainInput = hasColor ? input.slice(1) : input;
-    const normalizedGainInput = gainInput.length > 0 ? gainInput : [1];
-    const gain = resolveAudioParam(
-      normalizedGainInput as AudioParamInput,
-      "[Instrument] noise() gain",
-    );
-    this._noise = { color, gain };
+  noise(gain: SingleSlotAudioParamInput): this;
+  noise(color: NoiseColor, gain: SingleSlotAudioParamInput): this;
+  noise(
+    colorOrGain: SingleSlotAudioParamInput,
+    gain?: SingleSlotAudioParamInput,
+  ) {
+    const hasColor = isNoiseColor(colorOrGain);
+    if (arguments.length !== (hasColor ? 2 : 1)) {
+      throw new TypeError(
+        "[Instrument] noise() requires gain or color and gain.",
+      );
+    }
+
+    this._noise = {
+      color: isNoiseColor(colorOrGain) ? colorOrGain : "white",
+      gain: resolveAudioParamValue(
+        hasColor ? gain : colorOrGain,
+        "[Instrument] noise() gain",
+      ),
+    };
     return this;
   }
 
@@ -289,6 +300,9 @@ abstract class Instrument {
   }
 
   adsr(a: ADSRInput, d: ADSRInput, s: ADSRInput, r: ADSRInput) {
+    if (arguments.length !== 4) {
+      throw new TypeError("[Instrument] adsr() requires exactly four values.");
+    }
     try {
       this._gain.adsr(a, d, s, r);
     } catch (error) {

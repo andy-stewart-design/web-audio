@@ -94,6 +94,88 @@ describe("native public event setters", () => {
     expect(before.notes.intent).toBe("default");
   });
 
+  it("accepts reusable structured event values with consumer-specific geometry", () => {
+    const d = new Drome();
+    const notes = d.str([60, null, 64], [62, 65]);
+    const synth = new InspectSynth().notes(notes);
+    expect(synth.getSchema().eventPattern).toEqual(
+      new InspectSynth().notes([60, null, 64], [62, 65]).getSchema()
+        .eventPattern,
+    );
+
+    const names = d.str("bd", "sd");
+    const variation = d.str([0, null, 1], [2]);
+    const sampler = new InspectSampler(undefined)
+      .name(names)
+      .var(variation)
+      .xox(d.str([1, 0, 1]));
+    const expected = new InspectSampler(undefined)
+      .name("bd", "sd")
+      .var([0, null, 1], [2])
+      .xox([1, 0, 1]);
+    expect(sampler.getSchema().eventPattern).toEqual(
+      expected.getSchema().eventPattern,
+    );
+  });
+
+  it("does not reinterpret wrapped event strings as shorthand", () => {
+    const d = new Drome();
+    const synth = new InspectSynth().notes(60).xox([1, 0, 1]);
+    const before = synth.inspectEventState();
+    expect(() => Reflect.apply(synth.notes, synth, [d.str("60 64")])).toThrow(
+      "finite numbers",
+    );
+    expect(() => Reflect.apply(synth.xox, synth, [d.str("xoxo")])).toThrow(
+      "finite numbers",
+    );
+    expect(synth.inspectEventState()).toBe(before);
+
+    const sampler = new InspectSampler("bd").name("bd");
+    const samplerBefore = sampler.inspectEventState();
+    expect(() =>
+      Reflect.apply(sampler.name, sampler, [d.str("bd sd")]),
+    ).toThrow("sample names must match");
+    expect(sampler.inspectEventState()).toBe(samplerBefore);
+  });
+
+  it("rejects invalid wrapped events in every setter without replacing state", () => {
+    const d = new Drome();
+    const sampler = new InspectSampler("bd")
+      .notes([60, 64])
+      .name("bd")
+      .variation([0, 1])
+      .xox([1, 0, 1]);
+    const before = sampler.inspectEventState();
+    const schema = sampler.getSchema();
+    const invalid = [
+      () => Reflect.apply(sampler.notes, sampler, [d.str([60, "bad"])]),
+      () => Reflect.apply(sampler.name, sampler, [d.str(["bd", "two words"])]),
+      () => Reflect.apply(sampler.variation, sampler, [d.str([0, "bad"])]),
+      () => Reflect.apply(sampler.var, sampler, [d.str([0, "bad"])]),
+      () => Reflect.apply(sampler.xox, sampler, [d.str([1, null])]),
+      () => Reflect.apply(sampler.xox, sampler, [d.str([[1, 0]])]),
+      () => Reflect.apply(sampler.xox, sampler, [d.str("1 0")]),
+      () => Reflect.apply(sampler.notes, sampler, [d.str(60), 64]),
+      () => Reflect.apply(sampler.name, sampler, [d.str("bd"), "sd"]),
+      () => Reflect.apply(sampler.variation, sampler, [d.str(0), 1]),
+      () => Reflect.apply(sampler.var, sampler, [d.str(0), 1]),
+      () => Reflect.apply(sampler.xox, sampler, [d.str(1), 0]),
+      () => Reflect.apply(sampler.notes, sampler, [[d.str(60)]]),
+      () => Reflect.apply(sampler.name, sampler, [[d.str("bd")]]),
+      () => Reflect.apply(sampler.variation, sampler, [[d.str(0)]]),
+      () => Reflect.apply(sampler.var, sampler, [[d.str(0)]]),
+      () => Reflect.apply(sampler.xox, sampler, [[d.str(1)]]),
+      () => Reflect.apply(sampler.name, sampler, [d.rand()]),
+      () => Reflect.apply(sampler.xox, sampler, [d.rand().int()]),
+    ];
+
+    for (const apply of invalid) {
+      expect(apply).toThrow();
+      expect(sampler.inspectEventState()).toBe(before);
+      expect(sampler.getSchema()).toEqual(schema);
+    }
+  });
+
   it("preserves structured bars, nullable note slots, voice order, and empty-chord silence", () => {
     const synth = new InspectSynth().notes(
       [60, [64, null, undefined, 64], [], undefined],

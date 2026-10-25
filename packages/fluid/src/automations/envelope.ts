@@ -1,17 +1,19 @@
 import type { EnvelopeSchema } from "@web-audio/schema";
-import { isShorthand } from "@/inputs/decode-shorthand-input";
-import { isRandomCycle } from "@/inputs/guards";
 import type {
   ADSRInput,
   NumericPatternInput,
-  ShorthandInput,
+  NumericPatternValue,
 } from "@/inputs/types";
-import Parameter, { createParameter } from "@/parameters/parameter";
+import { isRandomCycle } from "@/inputs/guards";
+import Parameter, {
+  createParameter,
+  createParameterValue,
+} from "@/parameters/parameter";
 
 type ADSR = { a: number; d: number; s: number; r: number };
 
 class Envelope {
-  private _min: number;
+  private _min: Parameter;
   private _max: Parameter;
   private _a: Parameter;
   private _d: Parameter;
@@ -19,24 +21,33 @@ class Envelope {
   private _r: Parameter;
   private _mode: EnvelopeSchema["mode"];
 
-  constructor(max: ShorthandInput);
-  constructor(min?: number, ...max: NumericPatternInput);
-  constructor(minOrMax?: number | ShorthandInput, ...max: NumericPatternInput) {
-    if (isShorthandInput(minOrMax)) {
-      if (max.length > 0) {
-        throw new Error(
-          "[Envelope] shorthand maximum must be the sole argument.",
+  constructor(minOrMax?: NumericPatternValue, maximum?: NumericPatternValue) {
+    if (arguments.length > 2) {
+      throw new TypeError("[Envelope] constructor accepts at most two values.");
+    }
+
+    if (arguments.length < 2) {
+      this._min = new Parameter(0);
+      this._max = createParameterValue(
+        minOrMax === undefined ? 1 : minOrMax,
+        "[Envelope] constructor maximum",
+      );
+    } else {
+      if (minOrMax === undefined || maximum === undefined) {
+        throw new TypeError(
+          "[Envelope] minimum and maximum are required when two bounds are supplied.",
         );
       }
-      this._min = 0;
-      this._max = createParameter([minOrMax], "[Envelope] constructor max");
-    } else {
-      this._min = minOrMax ?? 0;
-      this._max =
-        max.length > 0
-          ? createParameter(max, "[Envelope] constructor max")
-          : new Parameter(1);
+      this._min = createParameterValue(
+        minOrMax,
+        "[Envelope] constructor minimum",
+      );
+      this._max = createParameterValue(
+        maximum,
+        "[Envelope] constructor maximum",
+      );
     }
+
     this._a = new Parameter(0.01);
     this._d = new Parameter(0);
     this._s = new Parameter(1);
@@ -45,14 +56,27 @@ class Envelope {
   }
 
   max(...input: NumericPatternInput) {
-    this._max =
+    const nextMax =
       input.length > 0
         ? createParameter(input, "[Envelope] max()")
         : new Parameter(1);
+    if (input.length > 0 && !(input.length === 1 && isRandomCycle(input[0]))) {
+      try {
+        nextMax.getSchema();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`[Envelope] max() ${message}`, { cause: error });
+      }
+    }
+    this._max = nextMax;
     return this;
   }
 
   adsr(a: ADSRInput, d: ADSRInput, s: ADSRInput, r: ADSRInput) {
+    if (arguments.length !== 4) {
+      throw new TypeError("[Envelope] adsr() requires exactly four values.");
+    }
+
     const nextA = createAdsrParameter(a, "[Envelope] adsr() a");
     const nextD = createAdsrParameter(d, "[Envelope] adsr() d");
     const nextS = createAdsrParameter(s, "[Envelope] adsr() s");
@@ -92,8 +116,8 @@ class Envelope {
   getSchema(): EnvelopeSchema {
     return {
       type: "envelope",
-      min: this._min,
-      max: this._max.getSchema(),
+      min: getEnvelopeParameterSchema(this._min, "minimum"),
+      max: getEnvelopeParameterSchema(this._max, "maximum"),
       a: this._a.getSchema(),
       d: this._d.getSchema(),
       s: this._s.getSchema(),
@@ -103,8 +127,16 @@ class Envelope {
   }
 }
 
-function isShorthandInput(value: unknown): value is ShorthandInput {
-  return typeof value === "string" || isShorthand(value);
+function getEnvelopeParameterSchema(
+  parameter: Parameter,
+  field: "minimum" | "maximum",
+) {
+  try {
+    return parameter.getSchema();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`[Envelope] ${field} ${message}`, { cause: error });
+  }
 }
 
 function createAdsrParameter(input: ADSRInput, method: string) {
@@ -114,10 +146,7 @@ function createAdsrParameter(input: ADSRInput, method: string) {
   if (isRandomCycle(input)) {
     throw new Error(`${method} positional random cycles are not supported.`);
   }
-  if (isShorthandInput(input)) {
-    return createParameter([input], method);
-  }
-  return createParameter([input], method);
+  return createParameterValue(input, method);
 }
 
 export default Envelope;

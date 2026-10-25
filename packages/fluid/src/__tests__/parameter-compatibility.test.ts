@@ -1,5 +1,5 @@
 import { validateDromeGraph } from "@web-audio/schema";
-import { RandomCycle } from "@web-audio/patterns";
+import { createStructuredInput, RandomCycle } from "@web-audio/patterns";
 import { describe, expect, it } from "vitest";
 import Drome from "@/drome";
 import Envelope from "@/automations/envelope";
@@ -23,24 +23,304 @@ function staticValue(pattern: { type: string; cycle?: number[][] }) {
 }
 
 describe("structured parameter compatibility", () => {
-  it("keeps envelope factory minimum forwarding and defaults distinct", () => {
+  it("keeps envelope factory and constructor dispatch in parity", () => {
     const d = new Drome();
-    const omitted = d.env().getSchema();
-    const explicitUndefined = d.env(undefined).getSchema();
-    const numericMinimum = d.env(0.25).getSchema();
-    const undefinedMinimum = d.env(undefined, [0.25, 0.5]).getSchema();
+    const randomSole = new RandomCycle().steps(2, 0).range(-1, 1);
+    const randomWithMinimum = new RandomCycle().steps(1, 2).range(0, 1);
+    const cases = [
+      {
+        label: "omitted",
+        args: [],
+        min: { type: "static", cycle: [[0]] },
+        max: { type: "static", cycle: [[1]] },
+      },
+      {
+        label: "explicit undefined",
+        args: [undefined],
+        min: { type: "static", cycle: [[0]] },
+        max: { type: "static", cycle: [[1]] },
+      },
+      {
+        label: "numeric maximum",
+        args: [0.25],
+        min: { type: "static", cycle: [[0]] },
+        max: { type: "static", cycle: [[0.25]] },
+      },
+      {
+        label: "numeric zero maximum",
+        args: [0],
+        min: { type: "static", cycle: [[0]] },
+        max: { type: "static", cycle: [[0]] },
+      },
+      {
+        label: "shorthand maximum",
+        args: ["0.25"],
+        min: { type: "static", cycle: [[0]] },
+        max: { type: "static", cycle: [[0.25]] },
+      },
+      {
+        label: "reusable shorthand maximum",
+        args: [d.sh("0.25")],
+        min: { type: "static", cycle: [[0]] },
+        max: { type: "static", cycle: [[0.25]] },
+      },
+      {
+        label: "two scalar fields",
+        args: [0.25, 0.75],
+        min: { type: "static", cycle: [[0.25]] },
+        max: { type: "static", cycle: [[0.75]] },
+      },
+      {
+        label: "sole random maximum",
+        args: [randomSole],
+        min: { type: "static", cycle: [[0]] },
+        max: { type: "random-number", valuesPerBar: [2, 0] },
+      },
+      {
+        label: "two-field random maximum",
+        args: [0, randomWithMinimum],
+        min: { type: "static", cycle: [[0]] },
+        max: { type: "random-number", valuesPerBar: [1, 2] },
+      },
+      {
+        label: "two-field structured maximum",
+        args: [0, createStructuredInput([0.25, 0.5], [0.75])],
+        min: { type: "static", cycle: [[0]] },
+        max: { type: "static", cycle: [[0.25, 0.5], [0.75]] },
+      },
+    ] as const;
 
-    expect(omitted.min).toBe(0);
-    expect(omitted.max).toEqual({ type: "static", cycle: [[1]] });
-    expect(explicitUndefined).toEqual(omitted);
-    expect(numericMinimum).toMatchObject({
-      min: 0.25,
+    for (const { label, args, min, max } of cases) {
+      const factory = Reflect.apply(d.env, d, args).getSchema();
+      const constructor = Reflect.construct(Envelope, args).getSchema();
+
+      expect(factory, label).toEqual(constructor);
+      expect(factory.min, label).toEqual(min);
+      expect(factory.max, label).toMatchObject(max);
+    }
+  });
+
+  it("keeps constructor and factory parity for two-field shorthand and shared patterns", () => {
+    const d = new Drome();
+    const cases = [
+      [0.1, 0.8],
+      ["0.1 0.2", "0.8 0.9"],
+      [d.sh("0.1 0.2"), d.sh("0.8 0.9")],
+      [d.str(0.1, 0.2), d.str(0.8, 0.9)],
+    ] as const;
+
+    for (const args of cases) {
+      expect(d.env(...args).getSchema()).toEqual(
+        new Envelope(...args).getSchema(),
+      );
+    }
+  });
+
+  it("validates both patterned bounds through the public graph schema", () => {
+    const d = new Drome();
+    const minimum = d.str(0.2, 0.3);
+    const maximum = d.rand().steps(2).range(-1, 1);
+    d.synth().gain(d.env(minimum, maximum)).push();
+
+    const instrument = d.getSchema().instruments[0];
+    expect(instrument.gain.min).toEqual({
+      type: "static",
+      cycle: [[0.2], [0.3]],
+    });
+    expect(instrument.gain.max).toEqual(maximum.getRandomSchema());
+  });
+
+  it("supports typed single undefined and reusable maximums", () => {
+    const d = new Drome();
+    const maximum = d.sh("0.25");
+    const factory = d.env(undefined);
+    const constructor = new Envelope(undefined);
+
+    expect(factory.getSchema()).toEqual(constructor.getSchema());
+    expect(factory.getSchema()).toMatchObject({
+      min: { type: "static", cycle: [[0]] },
       max: { type: "static", cycle: [[1]] },
     });
-    expect(undefinedMinimum).toMatchObject({
-      min: 0,
-      max: { type: "static", cycle: [[0.25, 0.5]] },
+
+    expect(d.env(0.1, maximum).getSchema()).toEqual(
+      new Envelope(0.1, maximum).getSchema(),
+    );
+    const random = d.rand().steps(2).range(0, 1);
+    expect(d.env(random).getSchema()).toEqual(new Envelope(random).getSchema());
+    expect(d.env(0, random).getSchema()).toEqual(
+      new Envelope(0, random).getSchema(),
+    );
+  });
+
+  it("rejects undefined in every multi-field envelope position", () => {
+    const d = new Drome();
+    const random = d.rand().steps(2).range(0, 1);
+    const invalid: unknown[][] = [
+      [undefined, 0.8],
+      [0.1, undefined],
+      [undefined, undefined],
+      [undefined, "0.8"],
+      [undefined, d.sh("0.8")],
+      [undefined, d.str(0.8)],
+      [undefined, random],
+      [undefined, [0.25, 0.5]],
+      [0.1, undefined, 0.8],
+    ];
+
+    for (const args of invalid) {
+      expect(() => Reflect.apply(d.env, d, args)).toThrow();
+      expect(() => Reflect.construct(Envelope, args)).toThrow();
+    }
+
+    const assertTypes = () => {
+      // Optional signatures accept undefined; field presence is checked at runtime.
+      d.env(undefined, 0.8);
+      new Envelope(undefined, 0.8);
+      d.env(0.1, undefined);
+      new Envelope(0.1, undefined);
+      d.env(undefined, undefined);
+      new Envelope(undefined, undefined);
+      d.env(undefined, "0.8");
+      new Envelope(undefined, "0.8");
+      d.env(undefined, random);
+      new Envelope(undefined, random);
+      // @ts-expect-error Raw arrays are not envelope pattern values.
+      d.env(undefined, [0.25, 0.5]);
+      // @ts-expect-error Raw arrays are not envelope pattern values.
+      new Envelope(undefined, [0.25, 0.5]);
+    };
+    void assertTypes;
+  });
+
+  it("equates scalar, negative, and zero maxima with shorthand", () => {
+    const d = new Drome();
+    for (const value of [-0.25, 0, 0.25]) {
+      expect(d.env(value).getSchema().max).toEqual(
+        d.env(String(value)).getSchema().max,
+      );
+      expect(new Envelope(value).getSchema().max).toEqual(
+        new Envelope(String(value)).getSchema().max,
+      );
+    }
+  });
+
+  it("rejects null as either bound in both entry points", () => {
+    const d = new Drome();
+    for (const args of [[null], [null, 0.5], [0.5, null]]) {
+      expect(() => Reflect.apply(d.env, d, args)).toThrow(
+        "input must be a number, shorthand, structured input, or random cycle",
+      );
+      expect(() => Reflect.construct(Envelope, args)).toThrow(
+        "input must be a number, shorthand, structured input, or random cycle",
+      );
+    }
+  });
+
+  it("accepts a random minimum with an explicit maximum", () => {
+    const d = new Drome();
+    const random = d.rand().steps(2).range(0, 1);
+
+    expect(d.env(random, 0.5).getSchema().min).toMatchObject({
+      type: "random-number",
+      valuesPerBar: [2],
     });
+    expect(new Envelope(random, 0.5).getSchema()).toEqual(
+      d.env(random, 0.5).getSchema(),
+    );
+  });
+
+  it("updates random bounds independently and snapshots reusable static bounds", () => {
+    const d = new Drome();
+    const minimum = d.rand().steps(1).range(-1, 0);
+    const maximum = d.rand().steps(2).range(1, 2);
+    const envelope = d.env(minimum, maximum);
+    const initialMaximum = envelope.getSchema().max;
+
+    minimum.steps(3, 0);
+    expect(envelope.getSchema().min).toEqual(minimum.getRandomSchema());
+    expect(envelope.getSchema().max).toEqual(initialMaximum);
+
+    maximum.steps(4, 1);
+    expect(envelope.getSchema().min).toEqual(minimum.getRandomSchema());
+    expect(envelope.getSchema().max).toEqual(maximum.getRandomSchema());
+
+    const sharedMinimum = d.str(0.1, 0.2);
+    const sharedMaximum = d.str(0.8, 0.9);
+    const first = d.env(sharedMinimum, sharedMaximum);
+    const second = d.env(sharedMinimum, sharedMaximum);
+    const firstMinimum = first.getSchema().min;
+    if (firstMinimum.type !== "static") throw new Error("Expected static min");
+    firstMinimum.cycle[0][0] = 9;
+
+    expect(second.getSchema().min).toEqual({
+      type: "static",
+      cycle: [[0.1], [0.2]],
+    });
+    expect(sharedMinimum.values).toEqual([0.1, 0.2]);
+    expect(sharedMaximum.values).toEqual([0.8, 0.9]);
+  });
+
+  it("changes only an instrument gain maximum and keeps envelope state", () => {
+    const d = new Drome();
+    const instrument = d
+      .synth()
+      .gain(d.env(0.4, 0.8).adsr(0.2, 0.3, 0.6, 0.1).mode("bounded"));
+    const before = instrument.getSchema().gain;
+
+    instrument.gain(d.str(0.2, 0.5));
+    const after = instrument.getSchema().gain;
+
+    expect(after.min).toEqual(before.min);
+    expect(after.a).toEqual(before.a);
+    expect(after.d).toEqual(before.d);
+    expect(after.s).toEqual(before.s);
+    expect(after.r).toEqual(before.r);
+    expect(after.mode).toBe(before.mode);
+    expect(after.max).toEqual({
+      type: "static",
+      cycle: [[0.2], [0.5]],
+    });
+  });
+
+  it("does not partially update bounds or ADSR after failed setters", () => {
+    const d = new Drome();
+    const envelope = d.env(0.3, 0.8).adsr(0.2, 0.3, 0.6, 0.1).mode("bounded");
+    const before = envelope.getSchema();
+
+    expect(() =>
+      Reflect.apply(envelope.max, envelope, [d.str(null)]),
+    ).toThrow();
+    expect(envelope.getSchema()).toEqual(before);
+
+    expect(() =>
+      Reflect.apply(envelope.adsr, envelope, [0.5, [0.1, 0.2], 0.7, 0.1]),
+    ).toThrow("positional arrays are not supported");
+    expect(envelope.getSchema()).toEqual(before);
+
+    const instrument = d.synth().gain(envelope);
+    const instrumentBefore = instrument.getSchema().gain;
+    expect(() =>
+      Reflect.apply(instrument.gain, instrument, [d.str(null)]),
+    ).toThrow();
+    expect(instrument.getSchema().gain).toEqual(instrumentBefore);
+
+    for (const invalid of [
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      [Number.NEGATIVE_INFINITY],
+      [d.env()],
+    ]) {
+      expect(() =>
+        Reflect.apply(instrument.gain, instrument, [invalid]),
+      ).toThrow("gain()");
+      expect(instrument.getSchema().gain).toEqual(instrumentBefore);
+    }
+
+    const typeChecks = () => {
+      // @ts-expect-error Envelope exposes no minimum setter.
+      envelope.min(0.1);
+    };
+    void typeChecks;
   });
 
   it("separates numeric serialization failures from graph validation", () => {
@@ -61,18 +341,9 @@ describe("structured parameter compatibility", () => {
       }),
     ).toThrow("Instrument 0.detune.cycle must contain at least one bar");
 
-    const nonFiniteEnvelope = new Synthesizer()
-      .gain(new Envelope(Number.NaN))
-      .getSchema();
-    expect(nonFiniteEnvelope.gain.min).toBeNaN();
-    expect(() =>
-      validateDromeGraph({
-        bpm: undefined,
-        instruments: [nonFiniteEnvelope],
-        banks: {},
-        buses: {},
-      }),
-    ).toThrow("Instrument 0.gain.min must be finite");
+    expect(() => new Envelope(Number.NaN, 1)).toThrow(
+      "[Envelope] constructor minimum",
+    );
   });
 
   it("preserves supported source schemas and contextual MIDI identities", () => {
@@ -114,12 +385,12 @@ describe("structured parameter compatibility", () => {
     expect(staticCycle(schema.r)).toEqual([[0.2, 0.3]]);
   });
 
-  it("keeps noise defaults, selector aliases, and sampler duration aliases", () => {
-    const defaultNoise = new Synthesizer().noise().getSchema().noise;
+  it("keeps explicit noise defaults, selector aliases, and sampler duration aliases", () => {
+    const defaultNoise = new Synthesizer().noise(1).getSchema().noise;
     expect(defaultNoise).toMatchObject({ color: "white" });
     expect(defaultNoise && staticValue(defaultNoise.gain)).toBe(1);
 
-    const pinkNoise = new Synthesizer().noise("pink").getSchema().noise;
+    const pinkNoise = new Synthesizer().noise("pink", 1).getSchema().noise;
     expect(pinkNoise).toMatchObject({ color: "pink" });
     expect(pinkNoise && staticValue(pinkNoise.gain)).toBe(1);
 
