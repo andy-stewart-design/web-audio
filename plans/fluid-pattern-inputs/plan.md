@@ -3,9 +3,9 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md), ready for planning; requirements R1–R11 and acceptance criteria AC1–AC18 govern this plan, subject to approved amendments for [envelope defaults/documentation ownership](evidence/step-1.1-envelope-defaults.md), [shared static structured values](evidence/step-1.2-patterns-ownership.md), and [required noise/filter inputs](evidence/step-3.1.md#required-input-amendment).
-- Delivery state: Phase 3 remains verified; Step 4.1 public/evaluation/artifact/web gates are verified, with its user-owned documentation gate pending. See [Step 4.1 evidence and documentation handoff](evidence/step-4.1.md).
-- Acceptance or release still pending: Step 4.1 documentation/completion, Step 4.2, the Phase 4 gate, remaining feature acceptance, and any subsequent release decision.
-- Blockers: Active user-owned documentation still describes superseded forms. No Step 4.1 technical blocker remains; bare-Node artifact execution retains its recorded runner constraint, and native rendering remains unverified.
+- Delivery state: All technical gates are verified, including Step 4.2 native diagnostics and required workspace regression. User-owned documentation still prevents Phase 4 closure. See [native/final-gate evidence](evidence/step-4.2.md).
+- Acceptance or release still pending: User-owned Step 4.1 documentation, dependent Step 4.1/4.2 completion and Phase 4 exit, remaining documentation-dependent acceptance, and any subsequent release decision.
+- Blockers: Active user-owned documentation still describes superseded forms. No technical/native failure remains; bare-Node artifact execution retains its recorded runner limitation, with supported artifact/native runners verified.
 
 Step statuses below are the authoritative execution record. A phase is complete only when its step completion gates and phase exit gate are satisfied. Task checkboxes do not prove that completion gates passed. `Verified` means the scoped gate and required implementation review passed; it does not imply manual approval, publication, or deployment. In supervised execution, manual approvals belong in extension state rather than task checkboxes.
 
@@ -425,7 +425,7 @@ Evidence: Technical portions verified; user-owned documentation remains pending.
 
 ### Step 4.2 — Prove native envelope behavior and complete regression gates
 
-Status: Pending
+Status: In progress
 Requirements / acceptance: R3, R4, R7–R11; AC11–AC13 native confirmation; regression support for AC6, AC9, AC17, and AC18. Full acceptance depends on all earlier owning gates as mapped below.
 Depends on: Step 4.1.
 Review boundary: a small native diagnostic for the new behavior and existing approved-case regression, without adding/updating approved musical references.
@@ -439,11 +439,11 @@ Expected files:
 
 Tasks:
 
-- [ ] Reuse the existing native harness and temporary synthetic sketches for patterned minimum; do not add a parallel browser/audio harness or depend on external sample fetching.
-- [ ] Render equivalent shorthand/builder envelopes across multiple bars/hits, including independent bounds, and assert equivalent finite output using established comparison tolerances.
-- [ ] Compare a patterned-minimum render with a deliberately different constant-minimum control to establish that minimum affects native output; include allowed inverted bounds and an envelope applied to an external parameter.
-- [ ] Build current dependencies and run the proposed diagnostic, existing native tooling/approved-reference verification, and final workspace static/regression gates. Record exactly which gates ran and any baseline failures.
-- [ ] Confirm references and thresholds remain unchanged; if native rendering differs unexpectedly, preserve diagnostic output and investigate rather than refreshing references or widening tolerances.
+- [x] Reuse the existing native harness and temporary synthetic sketches for patterned minimum; do not add a parallel browser/audio harness or depend on external sample fetching.
+- [x] Render equivalent shorthand/builder envelopes across multiple bars/hits, including independent bounds, and assert equivalent finite output using established comparison tolerances.
+- [x] Compare a patterned-minimum render with a deliberately different constant-minimum control to establish that minimum affects native output; include allowed inverted bounds and an envelope applied to an external parameter.
+- [x] Build current dependencies and run the proposed diagnostic, existing native tooling/approved-reference verification, and final workspace static/regression gates. Record exactly which gates ran and any baseline failures.
+- [x] Confirm references and thresholds remain unchanged; if native rendering differs unexpectedly, preserve diagnostic output and investigate rather than refreshing references or widening tolerances.
 
 Verification:
 
@@ -454,35 +454,35 @@ Verification:
 - Manual: listening is optional supplementary evidence, not an assumed approval. Native numerical/scheduling success does not establish listening approval, musical quality, cross-platform audio equivalence, or real-time CPU guarantees.
 
 Completion gate: the focused native assertions and final required regression/static gates pass, with all earlier acceptance gates available and no modified references. Missing native prerequisites or unresolved required failures keep this step blocked/pending; a specifically accepted waiver is an `Accepted deviation`, never `Verified`.
-Evidence: Not run.
+Evidence: Native and workspace gates pass, including the scalar release oracle, 179 tooling/native tests, and 14/14 fresh approved cases; references and thresholds are unchanged. See [Step 4.2 proof](evidence/step-4.2.md). Full completion remains pending the earlier user-owned Step 4.1 documentation gate, not a technical/native failure.
 
 Phase exit gate: after Step 4.2 checks, review the complete final acceptance mapping, all preceding phase exit evidence, reference-tree preservation, and any skipped checks. Implementation can be described as verified only for the gates actually satisfied. Report residual native/platform/manual limitations explicitly; release remains a separate decision.
-Evidence: Not run.
+Evidence: Technical/native acceptance and preservation reviewed; all required technical gates pass. [Documentation-dependent closure remains pending](evidence/step-4.2.md#acceptance-review-and-remaining-work); Phase 4 is not marked verified and no waiver is assumed.
 
 ## Final acceptance
 
 This is an ownership map, not a second execution checklist. Evidence is recorded once at the owning step/phase gate. Full acceptance remains pending; partial step coverage does not satisfy all mapped gates.
 
-| Spec acceptance ID | Owning step / gate                                | Verification and expected result                                                                        | Evidence / status                                         |
-| ------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| AC1                | Steps 1.1, 2.1, 3.3; Phase 4 exit                 | Correct one-/two-bound selection persists through patterned minimum and final arity.                    | [3.3](evidence/step-3.3.md); Phase 4 pending              |
-| AC2                | Steps 1.1, 2.1, 3.3                               | Defaults/undefined parity and runtime/type rejection of null survive migrations.                        | [Verified](evidence/step-3.3.md)                          |
-| AC3                | Step 1.2; Phase 1 exit                            | Both aliases preserve two bars versus two values in a bar and shorthand equivalence.                    | [Verified](evidence/step-1.3.md#verification)             |
-| AC4                | Step 1.3; Phase 1 exit                            | Notes, names, variations/alias, and XOX match their structured counterparts.                            | [Verified](evidence/step-1.3.md#verification)             |
-| AC5                | Steps 1.2 and 1.3                                 | Wrapped atoms never become general shorthand; invalid consumer atoms/geometry still fail.               | [Verified](evidence/step-1.3.md#verification)             |
-| AC6                | Steps 1.2/1.3; Step 4.1 integration               | Static snapshots resist caller mutation and cross-consumer decoding/playback state sharing.             | [Verified](evidence/step-4.1.md#test-changes)             |
-| AC7                | Steps 3.1–3.3; Phase 3 exit                       | All six families accept explicit slots and reject raw/extra inputs in types and JavaScript.             | [Verified](evidence/step-3.3.md)                          |
-| AC8                | Step 3.1                                          | Noise arity is uniform with/without color; dedicated gain/filter sugar remains valid.                   | [Verified](evidence/step-3.1.md)                          |
-| AC9                | Steps 1.2/1.3 and affected Step 3.x; Phase 3 exit | Every listed single-input setter/alias and its source/default state behavior remains supported.         | [Verified](evidence/step-3.3.md)                          |
-| AC10               | Step 2.1; Phase 2 exit                            | Canonical minimum/maximum patterns validate and all first-party schema consumers agree.                 | [Verified](evidence/step-2.1.md)                          |
-| AC11               | Step 2.1 deterministic; Step 4.2 native           | Independent per-bar/hit lookup and event-specific release minimum reach scheduling and actual output.   | [AG1](evidence/step-2.1.md); native pending               |
-| AC12               | Step 2.1 deterministic; Step 4.2 native           | Inverted/crossing bounds retain existing math and finite native output without clamping.                | [AG1](evidence/step-2.1.md); native pending               |
-| AC13               | Step 2.1 deterministic; Step 4.2 native           | Patterned minimum works for gain and supported external envelope sources without nesting new sources.   | [AG1](evidence/step-2.1.md); native pending               |
-| AC14               | Steps 1.2/1.3, 2.1, 3.1/3.2                       | Random/direct audio permissions survive wrapping and ADSR remains restricted.                           | [Verified](evidence/step-3.2.md)                          |
-| AC15               | Steps 2.1 and 3.1–3.3                             | Failed envelope/ADSR/noise/chop replacements leave existing affected state intact.                      | [Verified](evidence/step-3.3.md)                          |
-| AC16               | Steps 1.2/1.3 and 3.x; Step 4.1                   | Invalid wrapper construction/composition is rejected consistently across positional and dedicated APIs. | [Verified](evidence/step-4.1.md#test-changes)             |
-| AC17               | Step 3.2; Step 4.1 migration review               | LFO migration preserves old separate bars and intentional multivalue warnings.                          | [Verified](evidence/step-4.1.md#caller-and-cleanup-audit) |
-| AC18               | Step 4.1; Phase 4 exit                            | Wrapper-free graph output, built public evaluation, signatures, examples, and migrations agree.         | [Technical](evidence/step-4.1.md); docs/Phase 4 pending   |
+| Spec acceptance ID | Owning step / gate                                | Verification and expected result                                                                        | Evidence / status                                              |
+| ------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| AC1                | Steps 1.1, 2.1, 3.3; Phase 4 exit                 | Correct one-/two-bound selection persists through patterned minimum and final arity.                    | [3.3](evidence/step-3.3.md); Phase 4 pending                   |
+| AC2                | Steps 1.1, 2.1, 3.3                               | Defaults/undefined parity and runtime/type rejection of null survive migrations.                        | [Verified](evidence/step-3.3.md)                               |
+| AC3                | Step 1.2; Phase 1 exit                            | Both aliases preserve two bars versus two values in a bar and shorthand equivalence.                    | [Verified](evidence/step-1.3.md#verification)                  |
+| AC4                | Step 1.3; Phase 1 exit                            | Notes, names, variations/alias, and XOX match their structured counterparts.                            | [Verified](evidence/step-1.3.md#verification)                  |
+| AC5                | Steps 1.2 and 1.3                                 | Wrapped atoms never become general shorthand; invalid consumer atoms/geometry still fail.               | [Verified](evidence/step-1.3.md#verification)                  |
+| AC6                | Steps 1.2/1.3; Step 4.1 integration               | Static snapshots resist caller mutation and cross-consumer decoding/playback state sharing.             | [Verified](evidence/step-4.1.md#test-changes)                  |
+| AC7                | Steps 3.1–3.3; Phase 3 exit                       | All six families accept explicit slots and reject raw/extra inputs in types and JavaScript.             | [Verified](evidence/step-3.3.md)                               |
+| AC8                | Step 3.1                                          | Noise arity is uniform with/without color; dedicated gain/filter sugar remains valid.                   | [Verified](evidence/step-3.1.md)                               |
+| AC9                | Steps 1.2/1.3 and affected Step 3.x; Phase 3 exit | Every listed single-input setter/alias and its source/default state behavior remains supported.         | [Verified](evidence/step-3.3.md)                               |
+| AC10               | Step 2.1; Phase 2 exit                            | Canonical minimum/maximum patterns validate and all first-party schema consumers agree.                 | [Verified](evidence/step-2.1.md)                               |
+| AC11               | Step 2.1 deterministic; Step 4.2 native           | Independent per-bar/hit lookup and event-specific release minimum reach scheduling and actual output.   | [Verified](evidence/step-4.2.md)                               |
+| AC12               | Step 2.1 deterministic; Step 4.2 native           | Inverted/crossing bounds retain existing math and finite native output without clamping.                | [Verified](evidence/step-4.2.md)                               |
+| AC13               | Step 2.1 deterministic; Step 4.2 native           | Patterned minimum works for gain and supported external envelope sources without nesting new sources.   | [Verified](evidence/step-4.2.md)                               |
+| AC14               | Steps 1.2/1.3, 2.1, 3.1/3.2                       | Random/direct audio permissions survive wrapping and ADSR remains restricted.                           | [Verified](evidence/step-3.2.md)                               |
+| AC15               | Steps 2.1 and 3.1–3.3                             | Failed envelope/ADSR/noise/chop replacements leave existing affected state intact.                      | [Verified](evidence/step-3.3.md)                               |
+| AC16               | Steps 1.2/1.3 and 3.x; Step 4.1                   | Invalid wrapper construction/composition is rejected consistently across positional and dedicated APIs. | [Verified](evidence/step-4.1.md#test-changes)                  |
+| AC17               | Step 3.2; Step 4.1 migration review               | LFO migration preserves old separate bars and intentional multivalue warnings.                          | [Verified](evidence/step-4.1.md#caller-and-cleanup-audit)      |
+| AC18               | Step 4.1; Phase 4 exit                            | Wrapper-free graph output, built public evaluation, signatures, examples, and migrations agree.         | [Technical/native](evidence/step-4.2.md); docs/Phase 4 pending |
 
 No publication, packed installation, hosted-service, or cross-platform certification gate is required by this SOW. Builds/self-imports are artifact checks, not claims about a published package. Native Chromium proof and human listening remain distinct evidence classes.
 
@@ -498,7 +498,7 @@ No publication, packed installation, hosted-service, or cross-platform certifica
 
 ## Deferred checks and accepted deviations
 
-- No deviations or waivers have been accepted. Steps 0.1–3.3 and the Phase 0–3 exit gates are verified. Step 4.1 technical gates pass, but its user-owned documentation/completion gate remains pending; Step 4.2 and the Phase 4 exit gate are unrun.
+- No deviations or waivers have been accepted. Steps 0.1–3.3 and Phase 0–3 gates are verified. Step 4.1 public/artifact and Step 4.2 native/workspace gates pass; full Step 4.1/4.2 completion and Phase 4 exit remain pending user-owned documentation. No technical/native failure remains.
 - Chromium/native acceptance is an execution prerequisite, not an automatically deferred check. Missing browser/platform access must remain visible in Step 4.2 and the status heading until resolved or explicitly waived.
 - Human listening, live REPL/browser sessions, real-time performance certification, packed/published-package testing, and deployment are not required gates for this scoped API/normalization change. Do not describe them as performed.
 - Timing-generator patternability, LFO speed/waveform expansion, new source kinds, new setters, automatic saved-sketch rewrites, and a legacy scalar-minimum graph adapter remain outside the governing spec.
