@@ -92,6 +92,8 @@ type SynthSchemaOverrides = Partial<
   Pick<
     BasicSynthesizerSchema,
     | "waveform"
+    | "sourceGain"
+    | "sub"
     | "eventPattern"
     | "notesOut"
     | "detune"

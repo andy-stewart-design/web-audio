@@ -276,9 +276,16 @@ interface InstrumentSchema<TEventPattern extends EventPattern> {
   noise?: NoiseLayerSchema;
 }
 
+interface SubSynthesizerSchema {
+  waveform: Waveform;
+  octave: -1 | -2;
+  gain: AudioParamSchema;
+}
+
 interface SynthesizerCommonSchema extends InstrumentSchema<SynthEventPattern> {
   type: "synthesizer";
   sourceGain?: AudioParamSchema;
+  sub?: SubSynthesizerSchema;
   notesOut?: MidiOutSchema;
 }
 
@@ -350,6 +357,7 @@ export type {
   SamplerEventPattern,
   SynthEventPattern,
   SynthesizerCommonSchema,
+  SubSynthesizerSchema,
   UnisonSynthesizerSchema,
   NotePattern,
   NormalizedSampleSchema,

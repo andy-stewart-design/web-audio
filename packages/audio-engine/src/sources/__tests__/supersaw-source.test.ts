@@ -17,6 +17,7 @@ class FakeMessagePort {
 
 class FakeAudioWorkletNode {
   static instances: FakeAudioWorkletNode[] = [];
+  static missingParameter: string | undefined;
   readonly port = new FakeMessagePort();
   readonly parameters = new Map<string, FakeAudioParam>([
     ["frequency", new FakeAudioParam()],
@@ -32,6 +33,8 @@ class FakeAudioWorkletNode {
     readonly name: string,
     readonly options: AudioWorkletNodeOptions,
   ) {
+    if (FakeAudioWorkletNode.missingParameter)
+      this.parameters.delete(FakeAudioWorkletNode.missingParameter);
     FakeAudioWorkletNode.instances.push(this);
   }
 }
@@ -54,12 +57,23 @@ function source(sampleRate = 48_000) {
 
 beforeEach(() => {
   FakeAudioWorkletNode.instances = [];
+  FakeAudioWorkletNode.missingParameter = undefined;
   vi.stubGlobal("AudioWorkletNode", FakeAudioWorkletNode);
 });
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe("SupersawSource", () => {
+  it("releases the worklet when parameter setup fails after allocation", () => {
+    FakeAudioWorkletNode.missingParameter = "width";
+    expect(() => source()).toThrow("Missing supersaw AudioParam: width");
+
+    const node = FakeAudioWorkletNode.instances[0];
+    expect(node.disconnect).toHaveBeenCalledOnce();
+    expect(node.port.close).toHaveBeenCalledOnce();
+    expect(node.port.onmessage).toBeNull();
+  });
+
   it("constructs a two-channel worklet and exposes source parameters", () => {
     const supersaw = source();
     const node = FakeAudioWorkletNode.instances[0];

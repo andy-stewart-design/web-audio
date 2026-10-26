@@ -40,6 +40,21 @@ function maxChannelDifference(channels: readonly Float32Array[]) {
   );
 }
 
+function maxAudioDifference(
+  left: readonly Float32Array[],
+  right: readonly Float32Array[],
+) {
+  return left.reduce(
+    (max, channel, channelIndex) =>
+      channel.reduce(
+        (channelMax, value, frame) =>
+          Math.max(channelMax, Math.abs(value - right[channelIndex]![frame]!)),
+        max,
+      ),
+    0,
+  );
+}
+
 const basic = (factory: string) => `d.bpm(120);
 d.${factory}
   .notes(60)
@@ -48,7 +63,7 @@ d.${factory}
   .adsr(0, 0, 1, 0.1)
   .push();`;
 
-describe("native main source gain", () => {
+describe("native main source gain and pitched sub", () => {
   it("preserves omitted/unity parity and gain-only selector parity", async () => {
     await withRenderer(async (renderer) => {
       const omitted = await renderer.render(renderCase(basic('synth("sine")')));
@@ -76,6 +91,24 @@ describe("native main source gain", () => {
           tolerance: { maxError: 1e-6, rmsError: 1e-7 },
         }).passed,
       ).toBe(true);
+      expect(renderer.browser.contexts()).toHaveLength(0);
+    });
+  });
+
+  it("scales a basic waveform through its source gain stage", async () => {
+    await withRenderer(async (renderer) => {
+      const unity = await renderer.render(
+        renderCase(basic('synth("sine", 1)')),
+      );
+      const half = await renderer.render(
+        renderCase(basic('synth("sine", 0.5)')),
+      );
+
+      expect(maxAbs(unity.channels)).toBeGreaterThan(1e-5);
+      expect(maxAbs(half.channels)).toBeCloseTo(
+        maxAbs(unity.channels) * 0.5,
+        5,
+      );
       expect(renderer.browser.contexts()).toHaveLength(0);
     });
   });
@@ -121,6 +154,118 @@ d.synth("unison", ${sourceGain})
       const scaledDifference = maxChannelDifference(scaled.channels);
       expect(unityDifference).toBeGreaterThan(1e-5);
       expect(scaledDifference).toBeCloseTo(unityDifference * 0.5, 5);
+      expect(renderer.browser.contexts()).toHaveLength(0);
+    });
+  });
+
+  it("keeps nonzero unison main and centered sub contributions separate", async () => {
+    await withRenderer(async (renderer) => {
+      const render = (factory: string) =>
+        renderer.render(
+          renderCase(`d.bpm(120);
+ d.${factory}
+   .notes(60)
+   .xox("1")
+   .voices(3)
+   .spread(24)
+   .width(1)
+   .gain(0.35)
+   .adsr(0, 0, 1, 0.1)
+   .push();`),
+        );
+      const mainOnly = await render('synth("unison", 0.35)');
+      const subOnly = await render('synth("unison", 0).sub("sine", -1, 0.5)');
+      const composed = await render(
+        'synth("unison", 0.35).sub("sine", -1, 0.5)',
+      );
+
+      for (const result of [mainOnly, subOnly, composed]) {
+        expect(result.channels).toHaveLength(2);
+        expect(
+          result.channels.every((channel) => channel.every(Number.isFinite)),
+        ).toBe(true);
+        expect(maxAbs(result.channels)).toBeGreaterThan(1e-5);
+      }
+      expect(
+        maxAudioDifference(composed.channels, mainOnly.channels),
+      ).toBeGreaterThan(1e-5);
+      expect(
+        maxAudioDifference(composed.channels, subOnly.channels),
+      ).toBeGreaterThan(1e-5);
+      expect(maxChannelDifference(composed.channels)).toBeGreaterThan(1e-5);
+      expect(renderer.browser.contexts()).toHaveLength(0);
+    });
+  });
+
+  it("renders every sub waveform at both supported octaves", async () => {
+    await withRenderer(async (renderer) => {
+      for (const waveform of [
+        "sine",
+        "triangle",
+        "square",
+        "sawtooth",
+      ] as const) {
+        for (const octave of [-1, -2] as const) {
+          const result = await renderer.render(
+            renderCase(`d.bpm(120);
+ d.synth(0).sub("${waveform}", ${octave}, 0.5)
+   .notes(60)
+   .xox("1")
+   .gain(0.4)
+   .adsr(0, 0, 1, 0.1)
+   .push();`),
+          );
+          expect(maxAbs(result.channels)).toBeGreaterThan(1e-5);
+          expect(
+            result.channels.every((channel) => channel.every(Number.isFinite)),
+          ).toBe(true);
+        }
+      }
+      expect(renderer.browser.contexts()).toHaveLength(0);
+    });
+  });
+
+  it("keeps the centered sub audible with a muted main source", async () => {
+    await withRenderer(async (renderer) => {
+      const result = await renderer.render(
+        renderCase(`d.bpm(120);
+ d.synth(0).sub("sine", -1, 0.5)
+   .notes(60)
+   .xox("1")
+   .gain(0.4)
+   .adsr(0, 0, 1, 0.1)
+   .push();`),
+      );
+      expect(maxAbs(result.channels)).toBeGreaterThan(1e-5);
+      expect(maxChannelDifference(result.channels)).toBeLessThan(1e-5);
+      expect(renderer.browser.contexts()).toHaveLength(0);
+    });
+  });
+
+  it("preserves main and noise output when the sub contribution is zero", async () => {
+    await withRenderer(async (renderer) => {
+      const render = (sub: string) =>
+        renderer.render(
+          renderCase(`d.bpm(120);
+ d.synth("unison")${sub}
+   .notes(60)
+   .xox("1")
+   .voices(3)
+   .spread(24)
+   .width(1)
+   .noise("white", 0.2)
+   .gain(0.4)
+   .adsr(0, 0, 1, 0.1)
+   .push();`),
+        );
+      const omitted = await render("");
+      const silentSub = await render('.sub("square", -2, 0)');
+
+      expect(
+        compareAudio(audio(omitted), audio(silentSub), {
+          tolerance: { maxError: 1e-6, rmsError: 1e-7 },
+        }).passed,
+      ).toBe(true);
       expect(renderer.browser.contexts()).toHaveLength(0);
     });
   });

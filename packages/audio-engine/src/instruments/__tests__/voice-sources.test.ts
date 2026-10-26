@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AudioParamSchema } from "@web-audio/schema";
+import type { AudioParamSchema, EffectSchema } from "@web-audio/schema";
 import type { EventScheduleContext } from "../../events/types";
 import type { ResolvedEnvelopeSchema } from "../../parameters/types";
 import type { ScheduledSource } from "../../sources/types";
@@ -23,6 +23,8 @@ class FakeAudioNode {
 
 class FakeGainNode extends FakeAudioNode {
   static instances: FakeGainNode[] = [];
+  static constructionCount = 0;
+  static failOnConstruction: number | undefined;
   static setValueCallCount = 0;
   static failSetValue: Error | undefined;
   static failSetValueOnCall: number | undefined;
@@ -39,37 +41,73 @@ class FakeGainNode extends FakeAudioNode {
       }
     }),
     linearRampToValueAtTime: vi.fn(),
+    setTargetAtTime: vi.fn(),
   };
   readonly connect = vi.fn();
 
   constructor() {
     super();
+    FakeGainNode.constructionCount += 1;
+    if (FakeGainNode.constructionCount === FakeGainNode.failOnConstruction)
+      throw new Error("gain construction failed");
     FakeGainNode.instances.push(this);
   }
 }
 
-class FakeAudioContext {
-  readonly currentTime = 0;
-  readonly destination = {} as AudioNode;
+class FakeLfoNode {
+  readonly connect = vi.fn();
+  readonly disconnect = vi.fn();
+}
 
-  createGain() {
-    return new FakeGainNode() as unknown as GainNode;
+class FakeCcSignal {
+  hasValue = false;
+  private _subscriber: ((value: number) => void) | undefined;
+
+  subscribe(callback: (value: number) => void) {
+    this._subscriber = callback;
+    callback(0);
+    return () => {
+      this._subscriber = undefined;
+    };
+  }
+
+  emit(value: number) {
+    this.hasValue = true;
+    this._subscriber?.(value);
+  }
+
+  get subscriberCount() {
+    return this._subscriber ? 1 : 0;
   }
 }
 
 class TestInstrument extends Instrument {
   scheduleBar() {}
 
+  registerLfo(node: FakeLfoNode) {
+    this._lfoNodes.set("sub-lfo", node as unknown as AudioWorkletNode);
+  }
+
   scheduleVoice(
     sources: [{ node: FakeSourceNode }, ...{ node: FakeSourceNode }[]],
     sourceGain?: AudioParamSchema,
+    options: {
+      subSource?: { node: FakeSourceNode; gain: AudioParamSchema };
+      effects?: EffectSchema[];
+    } = {},
   ) {
     this._scheduleVoice({
       sources,
       sourceGain,
+      subSource: options.subSource
+        ? {
+            source: { node: options.subSource.node },
+            gain: options.subSource.gain,
+          }
+        : undefined,
       event: eventContext(),
       gainEnvelope: resolvedEnvelope(),
-      effects: [],
+      effects: options.effects ?? [],
     });
   }
 
@@ -86,6 +124,15 @@ class TestInstrument extends Instrument {
     scheduled.completionCleanups.push(...completionCleanups);
     sourceNodes.forEach((source) => scheduled.startedSourceNodes.add(source));
     this._track(scheduled);
+  }
+}
+
+class FakeAudioContext {
+  readonly currentTime = 0;
+  readonly destination = {} as AudioNode;
+
+  createGain() {
+    return new FakeGainNode() as unknown as GainNode;
   }
 }
 
@@ -113,6 +160,8 @@ function resolvedEnvelope() {
 
 beforeEach(() => {
   FakeGainNode.instances = [];
+  FakeGainNode.constructionCount = 0;
+  FakeGainNode.failOnConstruction = undefined;
   FakeGainNode.setValueCallCount = 0;
   FakeGainNode.failSetValue = undefined;
   FakeGainNode.failSetValueOnCall = undefined;
@@ -389,5 +438,216 @@ describe("Instrument source ownership", () => {
     expect(source.disconnect).toHaveBeenCalledOnce();
     expect(mainGain?.disconnect).toHaveBeenCalledOnce();
     expect(source.onended).toBeNull();
+  });
+
+  it("keeps main and sub sources alive until both complete", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const main = new FakeSourceNode();
+    const sub = new FakeSourceNode();
+    instrument.scheduleVoice([{ node: main }], undefined, {
+      subSource: {
+        node: sub,
+        gain: { type: "static", cycle: [[0.5]] },
+      },
+    });
+    instrument.retire();
+
+    main.fireEnded();
+
+    expect(main.disconnect).toHaveBeenCalledOnce();
+    expect(sub.disconnect).not.toHaveBeenCalled();
+    expect(
+      FakeGainNode.instances
+        .slice(-2)
+        .every((node) => node.disconnect.mock.calls.length === 0),
+    ).toBe(true);
+
+    sub.fireEnded();
+
+    expect(sub.disconnect).toHaveBeenCalledOnce();
+    expect(
+      FakeGainNode.instances
+        .slice(-2)
+        .every((node) => node.disconnect.mock.calls.length === 1),
+    ).toBe(true);
+  });
+
+  it("cancels main, sub, and both gain stages as one future voice", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const main = new FakeSourceNode();
+    const sub = new FakeSourceNode();
+    instrument.scheduleVoice([{ node: main }], undefined, {
+      subSource: {
+        node: sub,
+        gain: { type: "static", cycle: [[0.5]] },
+      },
+    });
+
+    instrument.cancelFutureNotes();
+
+    expect(main.stop).toHaveBeenCalledWith(0);
+    expect(sub.stop).toHaveBeenCalledWith(0);
+    expect(main.disconnect).toHaveBeenCalledOnce();
+    expect(sub.disconnect).toHaveBeenCalledOnce();
+    expect(
+      FakeGainNode.instances
+        .slice(-2)
+        .every((node) => node.disconnect.mock.calls.length === 1),
+    ).toBe(true);
+  });
+
+  it("attaches and cleans up an LFO on the sub gain target", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const lfo = new FakeLfoNode();
+    instrument.registerLfo(lfo);
+    const main = new FakeSourceNode();
+    const sub = new FakeSourceNode();
+    instrument.scheduleVoice([{ node: main }], undefined, {
+      subSource: {
+        node: sub,
+        gain: {
+          type: "lfo",
+          id: "sub-lfo",
+          outputA: { type: "static", cycle: [[0]] },
+          outputB: { type: "static", cycle: [[1]] },
+          speed: [1],
+          waveform: ["sine"],
+          phase: 0,
+          norm: false,
+          invert: false,
+        },
+      },
+    });
+
+    const subGain = FakeGainNode.instances.at(-1);
+    expect(subGain?.gain.value).toBe(0);
+    expect(lfo.connect).toHaveBeenCalledWith(subGain?.gain);
+
+    main.fireEnded();
+    expect(lfo.disconnect).not.toHaveBeenCalled();
+    sub.fireEnded();
+    expect(lfo.disconnect).toHaveBeenCalledWith(subGain?.gain);
+  });
+
+  it("initializes, updates, and cleans up a MIDI sub gain target", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const signal = new FakeCcSignal();
+    const midi = { in: { cc: vi.fn(() => signal) } };
+    instrument.connectMidi(midi as never);
+    const main = new FakeSourceNode();
+    const sub = new FakeSourceNode();
+    instrument.scheduleVoice([{ node: main }], undefined, {
+      subSource: {
+        node: sub,
+        gain: {
+          type: "midi-cc",
+          cc: 74,
+          range: { min: 0, max: 1, curve: "linear" },
+          default: 0,
+        },
+      },
+    });
+
+    const subGain = FakeGainNode.instances.at(-1);
+    expect(subGain?.gain.value).toBe(0);
+    expect(signal.subscriberCount).toBe(1);
+    signal.emit(0.75);
+    expect(subGain?.gain.setTargetAtTime).toHaveBeenCalledWith(0.75, 0, 0.01);
+
+    main.fireEnded();
+    expect(signal.subscriberCount).toBe(1);
+    sub.fireEnded();
+    expect(signal.subscriberCount).toBe(0);
+  });
+
+  it("releases both sources and sub bindings when the sub start fails", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const signal = new FakeCcSignal();
+    instrument.connectMidi({ in: { cc: vi.fn(() => signal) } } as never);
+    const main = new FakeSourceNode();
+    const sub = new FakeSourceNode();
+    const error = new Error("sub start failed");
+    sub.start.mockImplementation(() => {
+      throw error;
+    });
+
+    expect(() =>
+      instrument.scheduleVoice([{ node: main }], undefined, {
+        subSource: {
+          node: sub,
+          gain: {
+            type: "midi-cc",
+            cc: 74,
+            range: { min: 0, max: 1, curve: "linear" },
+            default: 0,
+          },
+        },
+      }),
+    ).toThrow(error);
+
+    expect(main.stop).toHaveBeenCalledWith(0);
+    expect(sub.stop).toHaveBeenCalledWith(0);
+    expect(main.disconnect).toHaveBeenCalledOnce();
+    expect(sub.disconnect).toHaveBeenCalledOnce();
+    expect(signal.subscriberCount).toBe(0);
+  });
+
+  it("releases both sources and sub bindings after later setup fails", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const signal = new FakeCcSignal();
+    instrument.connectMidi({ in: { cc: vi.fn(() => signal) } } as never);
+    FakeGainNode.failOnConstruction = FakeGainNode.constructionCount + 3;
+    const main = new FakeSourceNode();
+    const sub = new FakeSourceNode();
+
+    expect(() =>
+      instrument.scheduleVoice([{ node: main }], undefined, {
+        subSource: {
+          node: sub,
+          gain: {
+            type: "midi-cc",
+            cc: 74,
+            range: { min: 0, max: 1, curve: "linear" },
+            default: 0,
+          },
+        },
+        effects: [{ type: "gain", gain: { type: "static", cycle: [[1]] } }],
+      }),
+    ).toThrow("gain construction failed");
+
+    expect(main.stop).toHaveBeenCalledWith(0);
+    expect(sub.stop).toHaveBeenCalledWith(0);
+    expect(main.disconnect).toHaveBeenCalledOnce();
+    expect(sub.disconnect).toHaveBeenCalledOnce();
+    expect(signal.subscriberCount).toBe(0);
+    expect(
+      FakeGainNode.instances
+        .slice(-2)
+        .every((node) => node.disconnect.mock.calls.length === 1),
+    ).toBe(true);
   });
 });

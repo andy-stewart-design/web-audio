@@ -474,12 +474,41 @@ describe("validateDromeGraph", () => {
     );
   });
 
-  it("rejects source gain on samplers", () => {
+  it("accepts and validates an optional pitched sub", () => {
+    const value = instrument();
+    Object.assign(value, {
+      sub: { waveform: "triangle", octave: -2, gain: staticParam(-0.5) },
+    });
+
+    expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
+
+    Object.assign(value, {
+      sub: { waveform: "invalid", octave: -3, gain: staticParam(1) },
+    });
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+      "[Schema] Instrument 0.sub.waveform is invalid.",
+    );
+
+    Object.assign(value, {
+      sub: { waveform: "sine", octave: -3, gain: staticParam(1) },
+    });
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+      "[Schema] Instrument 0.sub.octave must be -1 or -2.",
+    );
+  });
+
+  it("rejects synth-only source controls on samplers", () => {
     const value = sampler();
     Object.assign(value, { sourceGain: staticParam(1) });
 
     expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
       "[Schema] Instrument 0.sourceGain is only valid for synthesizers.",
+    );
+
+    Reflect.deleteProperty(value, "sourceGain");
+    Object.assign(value, { sub: {} });
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+      "[Schema] Instrument 0.sub is only valid for synthesizers.",
     );
   });
 

@@ -58,13 +58,30 @@ class SupersawSource implements ScheduledSource {
         stopFrame: options.stopFrame,
       },
     });
-    this.frequency = getParameter(this.node, "frequency");
-    this.detune = getParameter(this.node, "detune");
-    this.spread = getParameter(this.node, "spread");
-    this.width = getParameter(this.node, "width");
-    this.node.port.onmessage = (event: MessageEvent<unknown>) => {
-      if (isEndedMessage(event.data)) this._finish();
-    };
+    try {
+      this.frequency = getParameter(this.node, "frequency");
+      this.detune = getParameter(this.node, "detune");
+      this.spread = getParameter(this.node, "spread");
+      this.width = getParameter(this.node, "width");
+      this.node.port.onmessage = (event: MessageEvent<unknown>) => {
+        if (isEndedMessage(event.data)) this._finish();
+      };
+    } catch (error) {
+      // The worklet is allocated before its public source wrapper is usable.
+      // Release it here because a caller cannot receive this instance to do so.
+      try {
+        this.node.port.onmessage = null;
+        this.node.port.close();
+      } catch {
+        // Preserve the setup error.
+      }
+      try {
+        this.node.disconnect();
+      } catch {
+        // Preserve the setup error.
+      }
+      throw error;
+    }
   }
 
   connect(destination: AudioNode) {

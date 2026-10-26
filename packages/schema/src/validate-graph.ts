@@ -91,6 +91,9 @@ function validateDromeGraph(schema: DromeSchema) {
       if (instrument.sourceGain !== undefined) {
         validateAudioParam(instrument.sourceGain, `${path}.sourceGain`);
       }
+      if (instrument.sub !== undefined) {
+        validateSubSynthesizer(instrument.sub, `${path}.sub`);
+      }
       if (instrument.notesOut !== undefined) {
         validateMidiOut(instrument.notesOut, `${path}.notesOut`);
       }
@@ -115,10 +118,12 @@ function validateDromeGraph(schema: DromeSchema) {
       return;
     }
 
-    if (Object.hasOwn(instrument, "sourceGain")) {
-      throw new Error(
-        `[Schema] ${path}.sourceGain is only valid for synthesizers.`,
-      );
+    for (const field of ["sourceGain", "sub"]) {
+      if (Object.hasOwn(instrument, field)) {
+        throw new Error(
+          `[Schema] ${path}.${field} is only valid for synthesizers.`,
+        );
+      }
     }
     if (!isNonEmptyString(instrument.bank)) {
       throw new Error(`[Schema] ${path}.bank must be non-empty.`);
@@ -334,6 +339,19 @@ function validateSampleVariation(variation: unknown, path: string) {
   }
 
   throw new Error(`[Schema] ${path}.type is invalid.`);
+}
+
+function validateSubSynthesizer(schema: unknown, path: string) {
+  if (!isRecord(schema)) {
+    throw new Error(`[Schema] ${path} must be an object.`);
+  }
+  if (!isOneOf(WAVEFORMS, schema.waveform)) {
+    throw new Error(`[Schema] ${path}.waveform is invalid.`);
+  }
+  if (schema.octave !== -1 && schema.octave !== -2) {
+    throw new Error(`[Schema] ${path}.octave must be -1 or -2.`);
+  }
+  validateAudioParam(schema.gain, `${path}.gain`);
 }
 
 function validateNoiseLayer(schema: unknown, path: string) {

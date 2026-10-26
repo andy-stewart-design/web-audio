@@ -4,8 +4,8 @@
 
 - Governing spec: [spec.md](spec.md).
 - Input baseline: Existing [parameter shorthand](../../completed/parameter-shorthand/plan.md) and [Fluid pattern-input](../../fluid-pattern-inputs/plan.md) implementations. Their recorded verification is prerequisite evidence, not a fresh source-mix baseline.
-- Delivery state: Step 1.1 main-source gain is verified; Step 1.2 and Phase 2 remain pending.
-- Acceptance still pending: Sub implementation, composed lifecycle/documentation work, final native acceptance, and human listening review remain.
+- Delivery state: Step 1.1 and Step 1.2 are verified; Phase 1 is complete and Phase 2 remains pending.
+- Acceptance still pending: Phase 2 composed lifecycle follow-ups, documentation, registered references, final native acceptance, and human listening review remain.
 - Blockers: None for implementation. Native checks require the existing Chromium harness; final audio acceptance requires a human reviewer.
 
 Step statuses below are the authoritative execution record. A phase is complete
@@ -148,7 +148,7 @@ Evidence: [evidence/1.1.md](evidence/1.1.md) — verified focused implementation
 
 ### Step 1.2 — Deliver the pitched sub as one owned source layer
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R1–R9; AC1–AC3 (remaining authoring coverage), AC4–AC6/AC9/AC12 (remaining sub portions), AC7–AC8 (core topology/pitch), AC10–AC11 (basic ownership smoke). Step 2.1 owns composed lifecycle/failure coverage; Step 2.3 owns final native stereo/pitch/timing/listening proof.
 Depends on: Step 1.1.
 Review boundary: Atomic sub schema, builder, source creation, detune connection, and focused tests; no lifecycle framework rewrite.
@@ -158,31 +158,31 @@ Expected files:
 - `packages/schema/src/index.ts`, `validate-graph.ts`, `validate-graph.test.ts` — optional `sub` with canonical waveform, fixed octave, and gain.
 - `packages/fluid/src/instruments/synth-base.ts`, `inputs/waveform.ts` only if a small shared alias guard is needed — positional parsing and canonical serialization using the existing single-slot resolver.
 - `packages/fluid/src/instruments/__tests__/sub.test.ts` — new domain-local API/default/replacement tests; extend the new public `src/__tests__/source-mix.test.ts` for fluent types.
-- `packages/audio-engine/src/instruments/instrument.ts`, `synthesizer.ts`, `sources/types.ts` only if source metadata needs a small extension — per-source gain paths, native sub, and common-detune fan-out.
-- `packages/audio-engine/src/instruments/__tests__/synthesizer.test.ts`, `voice-sources.test.ts`, `noise.test.ts`; `src/__tests__/engine.test.ts` — extend existing fakes and negative graph-update coverage.
+- `packages/audio-engine/src/instruments/instrument.ts`, `synthesizer.ts`, `sources/types.ts`, `sources/supersaw-source.ts` — per-source gain paths, native sub, common-detune fan-out, and constructor-boundary cleanup.
+- `packages/audio-engine/src/instruments/__tests__/synthesizer.test.ts`, `voice-sources.test.ts`, `noise.test.ts`; `src/sources/__tests__/supersaw-source.test.ts`; `src/__tests__/engine.test.ts` — extend existing fakes and negative graph-update coverage.
 - `packages/audio-regression/src/__tests__/source-mix.test.ts` — extend the native suite for sub smoke checks.
 
 Tasks:
 
-- [ ] Implement the three required-gain sub forms, validating the entire call before replacing configuration. Canonicalize all four waveforms/aliases, accept only static `-1`/`-2`, reset omitted waveform/octave defaults, and resolve gain through `resolveAudioParamValue()`. Accept shorthand/reusable/structured patterns in every gain position; reject missing/extra arguments, raw arrays, invalid shorthand, and unsupported wrapper/source combinations. Keep the method on `SynthBase`, not shared `Instrument`.
-- [ ] Add optional synth-only sub schema validation; reject the field on samplers. Reuse existing single-slot input types/resolution and Step 1.1's local static coercion. Emit existing pattern schemas without wrapper objects; add no new gain semantics or exported oscillator builder.
-- [ ] Create exactly one native oscillator per musical note at the selected octave, centered and independent of unison count/spread/width. Resolve common detune once and bind that same resolved trajectory, including its cached resolved envelope, to main and sub targets. Both envelope bounds use the current per-event pattern lookup; do not reroll patterns/randomness, migrate envelope schemas, or run another event scheduler.
-- [ ] Give main and sub separate gain paths feeding the existing effects/ADSR inlet, alongside unchanged noise. Keep source creation inside a cleanup boundary: if a later source constructor, parameter setup, or start fails, every already-created sibling must be owned and released. Extend the existing scheduling seam only as needed.
-- [ ] Add focused tests for defaults/replacement/aliases, single-slot representation parity and rejection, chord sub counts, octave pitch, static coercion without mutating reused patterns, additional LFO discovery, common-detune target fan-out, patterned-bound/long layer envelopes with unchanged stop time, main-zero/sub-audible behavior, and unchanged event/MIDI/duck counts. Include early completion and partial-setup/cancel smoke checks now, not solely in Phase 2.
-- [ ] Extend native smoke tests to render each sub waveform and both octave choices, check sub audibility with main gain zero, and confirm unchanged main/noise output when the sub contribution is zero.
+- [x] Implement the three required-gain sub forms, validating the entire call before replacing configuration. Canonicalize all four waveforms/aliases, accept only static `-1`/`-2`, reset omitted waveform/octave defaults, and resolve gain through `resolveAudioParamValue()`. Accept shorthand/reusable/structured patterns in every gain position; reject missing/extra arguments, raw arrays, invalid shorthand, and unsupported wrapper/source combinations. Keep the method on `SynthBase`, not shared `Instrument`.
+- [x] Add optional synth-only sub schema validation; reject the field on samplers. Reuse existing single-slot input types/resolution and Step 1.1's local static coercion. Emit existing pattern schemas without wrapper objects; add no new gain semantics or exported oscillator builder.
+- [x] Create exactly one native oscillator per musical note at the selected octave, centered and independent of unison count/spread/width. Resolve common detune once and bind that same resolved trajectory, including its cached resolved envelope, to main and sub targets. Both envelope bounds use the current per-event pattern lookup; do not reroll patterns/randomness, migrate envelope schemas, or run another event scheduler.
+- [x] Give main and sub separate gain paths feeding the existing effects/ADSR inlet, alongside unchanged noise. Keep source creation inside a cleanup boundary: if a later source constructor, parameter setup, or start fails, every already-created sibling must be owned and released. Extend the existing scheduling seam only as needed.
+- [x] Add focused tests for defaults/replacement/aliases, single-slot representation parity and rejection, chord sub counts, octave pitch, static coercion without mutating reused patterns, additional LFO discovery, common-detune target fan-out, patterned-bound/long layer envelopes with unchanged stop time, main-zero/sub-audible behavior, and unchanged event/MIDI/duck counts. Include early completion and partial-setup/cancel smoke checks now, not solely in Phase 2.
+- [x] Extend native smoke tests to render each sub waveform and both octave choices, check sub audibility with main gain zero, and confirm unchanged main/noise output when the sub contribution is zero.
 
 Verification:
 
-- Automated: `pnpm --filter @web-audio/schema test:ci`; `pnpm --filter @web-audio/fluid exec vitest run src/__tests__/source-mix.test.ts src/instruments/__tests__/sub.test.ts src/instruments/__tests__/unison.test.ts src/instruments/__tests__/noise.test.ts`; `pnpm --filter @web-audio/audio-engine exec vitest run src/instruments/__tests__/synthesizer.test.ts src/instruments/__tests__/voice-sources.test.ts src/instruments/__tests__/noise.test.ts src/__tests__/engine.test.ts`.
+- Automated: `pnpm --filter @web-audio/schema test:ci`; `pnpm --filter @web-audio/fluid exec vitest run src/__tests__/source-mix.test.ts src/instruments/__tests__/sub.test.ts src/instruments/__tests__/unison.test.ts src/instruments/__tests__/noise.test.ts`; `pnpm --filter @web-audio/audio-engine exec vitest run src/instruments/__tests__/synthesizer.test.ts src/instruments/__tests__/voice-sources.test.ts src/instruments/__tests__/noise.test.ts src/sources/__tests__/supersaw-source.test.ts src/__tests__/engine.test.ts`.
 - Native: Rebuild dependencies and run `pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/source-mix.test.ts`. These are working audio smoke tests, not final listening approval or a complete gain-helper retest.
 - Quality: Run `check`/`lint` for schema, Fluid, and audio-engine; build Fluid declarations. Update affected mocks/consumers with the seam change; leave sampler offset/start handling intact.
 - Manual: Review that the graph gives only the main source its main gain, only the sub its sub gain, and that every created source reaches ownership before a subsequent failing operation.
 
 Completion gate: Sub authoring, typed chaining, canonical schemas, pitched source creation, independent mixing, shared timing, and cleanup smoke checks work in the same review unit. The no-sub path remains usable and both native source controls compose.
-Evidence: Not run.
+Evidence: [evidence/1.2.md](evidence/1.2.md) — verified focused sub implementation, package quality, declarations, and native smoke checks.
 
 Phase exit gate: After Step 1.2's checks, run full schema/Fluid/audio-engine package `test:ci` scripts, then `pnpm exec turbo run build check lint --filter=@web-audio/fluid --filter=@web-audio/audio-engine --filter=@web-audio/schema`. Rebuild and run the source-mix native suite plus existing native `src/__tests__/noise.test.ts` and `src/__tests__/unison.test.ts` together. Expect working declarations, unchanged existing suites, and both new controls composed without regressions. Review results before advancing; evidence stays in Steps 1.1/1.2 with a concise composition result here.
-Evidence: Not run.
+Evidence: Phase 1 exit passed; full package tests, workspace filtered quality gate, dependency rebuild, and combined native source-mix/noise/unison suites passed. Detailed results are in [evidence/1.2.md](evidence/1.2.md).
 
 ## Phase 2 — Composition, documentation, and audio acceptance
 

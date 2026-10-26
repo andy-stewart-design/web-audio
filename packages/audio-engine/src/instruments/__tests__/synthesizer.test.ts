@@ -72,6 +72,8 @@ class FakeAudioWorkletNode {
 
 class FakeOscillatorNode {
   static instances: FakeOscillatorNode[] = [];
+  static constructionCount = 0;
+  static failOnConstruction: number | undefined;
   detune = new FakeAudioParam();
   onended: (() => void) | null = null;
   start = vi.fn();
@@ -82,6 +84,12 @@ class FakeOscillatorNode {
     _ctx: AudioContext,
     readonly options: OscillatorOptions,
   ) {
+    FakeOscillatorNode.constructionCount += 1;
+    if (
+      FakeOscillatorNode.constructionCount ===
+      FakeOscillatorNode.failOnConstruction
+    )
+      throw new Error("sub construction failed");
     FakeOscillatorNode.instances.push(this);
   }
 }
@@ -163,6 +171,8 @@ beforeEach(() => {
   FakeGainNode.instances = [];
   FakeFilterNode.instances = [];
   FakeOscillatorNode.instances = [];
+  FakeOscillatorNode.constructionCount = 0;
+  FakeOscillatorNode.failOnConstruction = undefined;
   FakeAudioWorkletNode.instances = [];
   vi.stubGlobal("GainNode", FakeGainNode);
   vi.stubGlobal("BiquadFilterNode", FakeFilterNode);
@@ -280,6 +290,123 @@ describe("Synthesizer scheduling", () => {
       sourceGainNode,
     );
     expect(sourceGain.cycle).toEqual([[-0.5, 1.5]]);
+  });
+
+  it("creates one centered sub per chord note at the selected octave", () => {
+    const instance = synth(
+      schema({
+        sub: {
+          waveform: "square",
+          octave: -2,
+          gain: staticNumberPattern([0.5]),
+        },
+        eventPattern: {
+          timing: timing(),
+          notes: { type: "static", cycle: [[[60, 64]]] },
+        },
+        detune: staticNumberPattern([12]),
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeOscillatorNode.instances).toHaveLength(4);
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.type),
+    ).toEqual(["sine", "square", "sine", "square"]);
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.frequency),
+    ).toEqual([
+      midiToFrequency(60),
+      midiToFrequency(60) / 4,
+      midiToFrequency(64),
+      midiToFrequency(64) / 4,
+    ]);
+    expect(
+      FakeOscillatorNode.instances.map(({ options }) => options.detune),
+    ).toEqual([12, 12, 12, 12]);
+    expect(
+      FakeOscillatorNode.instances.map(({ start }) => start.mock.calls.length),
+    ).toEqual([1, 1, 1, 1]);
+  });
+
+  it("clamps static sub gain without mutating the schema and keeps layer stop timing", () => {
+    const subGain = staticNumberPattern([-0.5]);
+    const instance = synth(
+      schema({
+        sub: { waveform: "sine", octave: -1, gain: subGain },
+        gain: envelope({
+          type: "static",
+          cycle: [[1]],
+        }),
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeGainNode.instances[3]?.gain.setValueAtTime).toHaveBeenCalledWith(
+      0,
+      10,
+    );
+    expect(subGain).toEqual(staticNumberPattern([-0.5]));
+    expect(FakeOscillatorNode.instances[1]?.stop).toHaveBeenCalledWith(12.0525);
+  });
+
+  it("discovers sub gain LFOs through the existing parameter list", () => {
+    synth(
+      schema({
+        sub: {
+          waveform: "triangle",
+          octave: -1,
+          gain: {
+            type: "lfo",
+            id: "sub-gain",
+            outputA: staticNumberPattern([0]),
+            outputB: staticNumberPattern([1]),
+            speed: [1],
+            waveform: ["sine"],
+            phase: 0,
+            norm: false,
+            invert: false,
+          },
+        },
+      }),
+    );
+
+    expect(FakeAudioWorkletNode.instances).toHaveLength(1);
+    expect(FakeAudioWorkletNode.instances[0]?.name).toBe("lfo-processor");
+  });
+
+  it("fans one resolved envelope detune trajectory to main and sub", () => {
+    const detune: EnvelopeSchema = {
+      type: "envelope",
+      min: staticNumberPattern([10, 20]),
+      max: staticNumberPattern([30, 40]),
+      a: staticNumberPattern([0]),
+      d: staticNumberPattern([0]),
+      s: staticNumberPattern([1]),
+      r: staticNumberPattern([0]),
+      mode: "bleed",
+    };
+    const instance = synth(
+      schema({
+        detune,
+        sub: {
+          waveform: "sawtooth",
+          octave: -1,
+          gain: staticNumberPattern([1]),
+        },
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    for (const oscillator of FakeOscillatorNode.instances) {
+      expect(oscillator.detune.setValueAtTime).toHaveBeenCalledWith(10, 10);
+      expect(
+        oscillator.detune.linearRampToValueAtTime,
+      ).toHaveBeenLastCalledWith(10, 12.0025);
+    }
   });
 
   it("keeps dynamic source gain automation capable of rising from zero", () => {
@@ -463,6 +590,11 @@ describe("Synthesizer scheduling", () => {
     const instance = inspectableSynth(
       schema({
         detune,
+        sub: {
+          waveform: "sine",
+          octave: -1,
+          gain: staticNumberPattern([0.5]),
+        },
         eventPattern: {
           timing: timing([
             [
@@ -490,14 +622,78 @@ describe("Synthesizer scheduling", () => {
     expect(minimumCalls).toHaveLength(3);
 
     const oscillators = FakeOscillatorNode.instances;
-    expect(oscillators).toHaveLength(3);
-    for (const oscillator of oscillators) {
-      const firstScheduled =
-        oscillator.detune.setValueAtTime.mock.calls[0]?.[0];
-      const release =
-        oscillator.detune.linearRampToValueAtTime.mock.calls.at(-1)?.[0];
-      expect(oscillator.options.detune).toBe(firstScheduled);
-      expect(release).toBe(firstScheduled);
+    expect(oscillators).toHaveLength(6);
+    const expectedMinimum = new RandomResolver(minimum);
+    for (let eventIndex = 0; eventIndex < 3; eventIndex += 1) {
+      const pair = oscillators.slice(eventIndex * 2, eventIndex * 2 + 2);
+      const expected = expectedMinimum.resolve(2, eventIndex);
+      expect(pair.map((oscillator) => oscillator.options.detune)).toEqual([
+        expected,
+        expected,
+      ]);
+      for (const oscillator of pair) {
+        expect(oscillator.detune.setValueAtTime).toHaveBeenCalledWith(
+          expected,
+          10 + eventIndex * 0.5,
+        );
+        expect(
+          oscillator.detune.linearRampToValueAtTime,
+        ).toHaveBeenLastCalledWith(expected, expect.any(Number));
+      }
+    }
+  });
+
+  it("resolves patterned detune bounds per event for both sources", () => {
+    const detune: EnvelopeSchema = {
+      type: "envelope",
+      min: staticNumberPattern([10, 20]),
+      max: staticNumberPattern([30, 40]),
+      a: staticNumberPattern([0]),
+      d: staticNumberPattern([0]),
+      s: staticNumberPattern([1]),
+      r: staticNumberPattern([0]),
+      mode: "bleed",
+    };
+    const instance = synth(
+      schema({
+        detune,
+        sub: {
+          waveform: "square",
+          octave: -2,
+          gain: staticNumberPattern([0.5]),
+        },
+        eventPattern: {
+          timing: timing([
+            [
+              { offset: 0, duration: 1 },
+              { offset: 0.5, duration: 1 },
+            ],
+          ]),
+          notes: { type: "static", cycle: [[[60]]] },
+        },
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeOscillatorNode.instances).toHaveLength(4);
+    for (const [eventIndex, start] of [10, 11].entries()) {
+      const pair = FakeOscillatorNode.instances.slice(
+        eventIndex * 2,
+        eventIndex * 2 + 2,
+      );
+      const min = [10, 20][eventIndex];
+      const max = [30, 40][eventIndex];
+      for (const oscillator of pair) {
+        expect(oscillator.detune.setValueAtTime).toHaveBeenCalledWith(
+          min,
+          start,
+        );
+        expect(oscillator.detune.linearRampToValueAtTime).toHaveBeenCalledWith(
+          max,
+          start + 0.0025,
+        );
+      }
     }
   });
 
@@ -644,12 +840,38 @@ describe("Synthesizer scheduling", () => {
     );
   });
 
+  it("releases an allocated unison source when sub construction fails", () => {
+    FakeOscillatorNode.failOnConstruction = 1;
+    const instance = synth(
+      unisonSchema({
+        sub: {
+          waveform: "sine",
+          octave: -1,
+          gain: staticNumberPattern([0.5]),
+        },
+      }),
+    );
+
+    expect(() => instance.scheduleBar(0, 10)).toThrow(
+      "sub construction failed",
+    );
+
+    const source = FakeAudioWorkletNode.instances[0];
+    expect(source.disconnect).toHaveBeenCalledOnce();
+    expect(source.port.close).toHaveBeenCalledOnce();
+  });
+
   it("emits one duck trigger per resolved onset before polyphonic voices", () => {
     const onDuck = vi.fn();
     const instance = synth(
       schema({
         muted: true,
         sourceGain: staticNumberPattern([0]),
+        sub: {
+          waveform: "sine",
+          octave: -1,
+          gain: staticNumberPattern([0.5]),
+        },
         ducks: {
           music: { depth: 0.25, onset: 0.2, recovery: 0.5 },
         },
@@ -687,7 +909,7 @@ describe("Synthesizer scheduling", () => {
         startTime: 11.5,
       },
     ]);
-    expect(FakeOscillatorNode.instances).toHaveLength(3);
+    expect(FakeOscillatorNode.instances).toHaveLength(6);
   });
 
   it("does not emit duck triggers for an empty timing bar", () => {
@@ -919,6 +1141,11 @@ describe("Synthesizer scheduling", () => {
           notes: { type: "static", cycle: [[[60, 64]]] },
         },
         gain: envelope(staticNumberPattern([0.5])),
+        sub: {
+          waveform: "triangle",
+          octave: -2,
+          gain: staticNumberPattern([0.25]),
+        },
         notesOut: { type: "midi-out", device: "hardware", channel: 10 },
       }),
       { scheduleNote } as unknown as MidiOutputScheduler,
@@ -926,6 +1153,7 @@ describe("Synthesizer scheduling", () => {
 
     instance.scheduleBar(3, 10);
 
+    expect(FakeOscillatorNode.instances).toHaveLength(4);
     expect(scheduleNote.mock.calls.map(([note]) => note)).toEqual([
       {
         selector: "hardware",

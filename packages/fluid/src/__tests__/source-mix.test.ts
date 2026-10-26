@@ -99,6 +99,8 @@ describe("main source gain authoring", () => {
     expectTypeOf(unison.voices).toBeFunction();
     expectTypeOf(unison.spread).toBeFunction();
     expectTypeOf(unison.width).toBeFunction();
+    expectTypeOf(basic.sub).toBeFunction();
+    expectTypeOf(unison.sub).toBeFunction();
     expectTypeOf(selectorUnion).toEqualTypeOf<
       Synthesizer | UnisonSynthesizer
     >();
