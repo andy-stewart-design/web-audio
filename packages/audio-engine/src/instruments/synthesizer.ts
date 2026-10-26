@@ -41,6 +41,7 @@ class Synthesizer extends Instrument {
     this._schema = opts.schema;
     this._midiOutputScheduler = opts.midiOutputScheduler;
     this._initLfos(opts.schema, opts.startingBar, opts.barStartTime, [
+      ...(opts.schema.sourceGain ? [opts.schema.sourceGain] : []),
       ...(opts.schema.engine === "unison"
         ? [opts.schema.spread, opts.schema.width]
         : []),
@@ -138,6 +139,7 @@ class Synthesizer extends Instrument {
 
     this._scheduleVoice({
       sources: [{ node: osc }],
+      sourceGain: schema.sourceGain,
       detune: { param: osc.detune, resolved: detune },
       gainEnvelope,
       effects: schema.effects,
@@ -191,6 +193,7 @@ class Synthesizer extends Instrument {
 
     this._scheduleVoice({
       sources: [{ node: source }],
+      sourceGain: schema.sourceGain,
       detune: { param: source.detune, resolved: detune },
       sourceParams: [
         { param: source.spread, schema: schema.spread },

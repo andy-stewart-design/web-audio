@@ -1,4 +1,4 @@
-import type { Waveform } from "@web-audio/schema";
+import type { SynthEngine, Waveform } from "@web-audio/schema";
 
 const waveformAliasMap = {
   sin: "sine",
@@ -18,7 +18,20 @@ const unisonWaveformAliasMap = {
 
 type WaveformAlias = keyof typeof waveformAliasMap;
 type UnisonWaveformAlias = keyof typeof unisonWaveformAliasMap;
-type SynthSelector = WaveformAlias | "unison" | "uni";
+
+const synthEngineAliasMap = {
+  unison: "unison",
+  uni: "unison",
+} satisfies Record<string, SynthEngine>;
+
+type SynthEngineAlias = keyof typeof synthEngineAliasMap;
+
+const synthSelectorAliasMap = {
+  ...waveformAliasMap,
+  ...synthEngineAliasMap,
+};
+
+type SynthSelector = keyof typeof synthSelectorAliasMap;
 
 function resolveWaveform(alias: WaveformAlias): Waveform {
   return waveformAliasMap[alias];
@@ -34,7 +47,14 @@ function resolveUnisonWaveform(alias: UnisonWaveformAlias) {
 export {
   resolveUnisonWaveform,
   resolveWaveform,
+  synthEngineAliasMap,
+  synthSelectorAliasMap,
   unisonWaveformAliasMap,
   waveformAliasMap,
 };
-export type { SynthSelector, UnisonWaveformAlias, WaveformAlias };
+export type {
+  SynthEngineAlias,
+  SynthSelector,
+  UnisonWaveformAlias,
+  WaveformAlias,
+};

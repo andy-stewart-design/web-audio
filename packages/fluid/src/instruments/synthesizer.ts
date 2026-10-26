@@ -2,17 +2,19 @@ import type { BasicSynthesizerSchema, Waveform } from "@web-audio/schema";
 import type Drome from "@/drome";
 import SynthBase from "./synth-base";
 import { resolveWaveform, type WaveformAlias } from "@/inputs/waveform";
+import type { AudioParamSource } from "@/parameters/parameter";
 
 interface SynthesizerOptions {
   type?: WaveformAlias;
   host?: Drome;
+  sourceGain?: AudioParamSource;
 }
 
 class Synthesizer extends SynthBase {
   private _type: Waveform;
 
-  constructor({ type = "sine", host }: SynthesizerOptions = {}) {
-    super(host);
+  constructor({ type = "sine", host, sourceGain }: SynthesizerOptions = {}) {
+    super(host, sourceGain);
     this._type = resolveWaveform(type);
   }
 

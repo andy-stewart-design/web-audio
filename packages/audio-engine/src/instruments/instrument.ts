@@ -75,6 +75,7 @@ interface BaseScheduleVoiceParams {
     param: AudioParam;
     resolved: ResolvedDetune;
   };
+  sourceGain?: AudioParamSchema;
   sourceParams?: { param: AudioParam; schema: AudioParamSchema }[];
   gainEnvelope: ResolvedEnvelopeSchema;
   effects: EffectSchema[];
@@ -250,6 +251,18 @@ abstract class Instrument {
       ownNode(gain);
       this._scheduleParamEnvelope(gain.gain, gainEnvelope, event);
 
+      let mainGain: GainNode | undefined;
+      if (params.sourceGain) {
+        mainGain = new GainNode(this._ctx);
+        ownNode(mainGain);
+        this._applyMainSourceGain(
+          mainGain.gain,
+          params.sourceGain,
+          event,
+          scheduled.completionCleanups,
+        );
+      }
+
       let noiseGain: GainNode | undefined;
       if (params.noise && noiseSource) {
         noiseGain = new GainNode(this._ctx);
@@ -302,7 +315,9 @@ abstract class Instrument {
         ),
       );
       const chain: AudioNode[] = [...effectNodes, gain];
-      mainSourceNodes.forEach((source) => source.connect(chain[0]));
+      const sourceDestination = mainGain ?? chain[0]!;
+      mainSourceNodes.forEach((source) => source.connect(sourceDestination));
+      if (mainGain) mainGain.connect(chain[0]!);
       if (noiseSource && noiseGain) {
         noiseSource.connect(noiseGain);
         noiseGain.connect(chain[0]);
@@ -447,6 +462,27 @@ abstract class Instrument {
   // ---------------------------------------------------------------------------
   // Parameter resolution and automation
   // ---------------------------------------------------------------------------
+
+  private _applyMainSourceGain(
+    param: AudioParam,
+    schema: AudioParamSchema,
+    event: EventScheduleContext,
+    completionCleanups: (() => void)[],
+  ) {
+    if (schema.type === "static") {
+      param.setValueAtTime(
+        safeAudioParamValue(
+          Math.max(
+            0,
+            this._resolveValue(schema, event.barIndex, event.hitIndex),
+          ),
+        ),
+        event.startTime,
+      );
+      return;
+    }
+    this._applyParamSchema(param, schema, event, 1, completionCleanups);
+  }
 
   protected _applyParamSchema(
     param: AudioParam,

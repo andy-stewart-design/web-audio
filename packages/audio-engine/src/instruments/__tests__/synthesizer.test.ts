@@ -249,6 +249,86 @@ describe("Synthesizer scheduling", () => {
     }
   });
 
+  it("uses a source-local gain stage and clamps only static negative values", () => {
+    const sourceGain = staticNumberPattern([-0.5, 1.5]);
+    const instance = synth(
+      schema({
+        sourceGain,
+        eventPattern: {
+          timing: timing([
+            [
+              { offset: 0, duration: 1 },
+              { offset: 0.5, duration: 1 },
+            ],
+          ]),
+          notes: { type: "static", cycle: [[[60]]] },
+        },
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    const sourceGainNode = FakeGainNode.instances[3];
+    const secondSourceGainNode = FakeGainNode.instances[5];
+    expect(sourceGainNode?.gain.setValueAtTime).toHaveBeenCalledWith(0, 10);
+    expect(secondSourceGainNode?.gain.setValueAtTime).toHaveBeenCalledWith(
+      1.5,
+      11,
+    );
+    expect(sourceGainNode?.connect).toHaveBeenCalled();
+    expect(FakeOscillatorNode.instances[0]?.connect).toHaveBeenCalledWith(
+      sourceGainNode,
+    );
+    expect(sourceGain.cycle).toEqual([[-0.5, 1.5]]);
+  });
+
+  it("keeps dynamic source gain automation capable of rising from zero", () => {
+    const instance = synth(
+      schema({
+        sourceGain: {
+          type: "envelope",
+          min: staticNumberPattern([0]),
+          max: staticNumberPattern([1]),
+          a: staticNumberPattern([0.1]),
+          d: staticNumberPattern([0]),
+          s: staticNumberPattern([1]),
+          r: staticNumberPattern([0]),
+          mode: "bleed",
+        },
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    const sourceGainNode = FakeGainNode.instances[3];
+    expect(sourceGainNode?.gain.setValueAtTime).toHaveBeenCalledWith(0, 10);
+    expect(sourceGainNode?.gain.linearRampToValueAtTime).toHaveBeenCalledWith(
+      1,
+      10.2,
+    );
+  });
+
+  it("discovers source gain LFOs through the existing parameter list", () => {
+    synth(
+      schema({
+        sourceGain: {
+          type: "lfo",
+          id: "source-gain",
+          outputA: staticNumberPattern([0]),
+          outputB: staticNumberPattern([1]),
+          speed: [1],
+          waveform: ["sine"],
+          phase: 0,
+          norm: false,
+          invert: false,
+        },
+      }),
+    );
+
+    expect(FakeAudioWorkletNode.instances).toHaveLength(1);
+    expect(FakeAudioWorkletNode.instances[0]?.name).toBe("lfo-processor");
+  });
+
   it("keeps finite inverted bounds un-clamped in the scheduled main voice", () => {
     const instance = synth(
       schema({
@@ -569,6 +649,7 @@ describe("Synthesizer scheduling", () => {
     const instance = synth(
       schema({
         muted: true,
+        sourceGain: staticNumberPattern([0]),
         ducks: {
           music: { depth: 0.25, onset: 0.2, recovery: 0.5 },
         },

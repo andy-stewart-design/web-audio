@@ -1,6 +1,7 @@
 import type Drome from "@/drome";
 import { createSynthEventState } from "@/events/transitions";
 import { MidiOut } from "@/midi/builders";
+import type { AudioParamSource } from "@/parameters/parameter";
 import Instrument from "./instrument";
 import { compileSynthEventState } from "@/events/compiler";
 import type {
@@ -11,9 +12,11 @@ import type {
 abstract class SynthBase extends Instrument {
   protected _eventState = createSynthEventState();
   protected _notesOut: MidiOut | undefined;
+  private _sourceGain: AudioParamSource | undefined;
 
-  constructor(host?: Drome) {
+  constructor(host?: Drome, sourceGain?: AudioParamSource) {
     super(host, { a: 0.005, r: 0.005 });
+    this._sourceGain = sourceGain;
   }
 
   out(output: MidiOut) {
@@ -29,6 +32,9 @@ abstract class SynthBase extends Instrument {
       }),
       detune: this._getAudioParamSchema(this._detune, "detune"),
       gain: this._gain.getSchema(),
+      ...(this._sourceGain
+        ? { sourceGain: this._getAudioParamSchema(this._sourceGain, "gain") }
+        : {}),
       effects: this._effects.map((effect) => effect.getSchema()),
       muted: this._muted,
       route: this._route,

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { AudioParamSchema } from "@web-audio/schema";
 import type { EventScheduleContext } from "../../events/types";
 import type { ResolvedEnvelopeSchema } from "../../parameters/types";
 import type { ScheduledSource } from "../../sources/types";
@@ -22,15 +23,24 @@ class FakeAudioNode {
 
 class FakeGainNode extends FakeAudioNode {
   static instances: FakeGainNode[] = [];
+  static setValueCallCount = 0;
+  static failSetValue: Error | undefined;
+  static failSetValueOnCall: number | undefined;
   readonly gain = {
     value: 1,
     setValueAtTime: vi.fn(() => {
-      if (FakeGainNode.failSetValue) throw FakeGainNode.failSetValue;
+      FakeGainNode.setValueCallCount += 1;
+      if (
+        FakeGainNode.failSetValue &&
+        (FakeGainNode.failSetValueOnCall === undefined ||
+          FakeGainNode.setValueCallCount === FakeGainNode.failSetValueOnCall)
+      ) {
+        throw FakeGainNode.failSetValue;
+      }
     }),
     linearRampToValueAtTime: vi.fn(),
   };
   readonly connect = vi.fn();
-  static failSetValue: Error | undefined;
 
   constructor() {
     super();
@@ -52,9 +62,11 @@ class TestInstrument extends Instrument {
 
   scheduleVoice(
     sources: [{ node: FakeSourceNode }, ...{ node: FakeSourceNode }[]],
+    sourceGain?: AudioParamSchema,
   ) {
     this._scheduleVoice({
       sources,
+      sourceGain,
       event: eventContext(),
       gainEnvelope: resolvedEnvelope(),
       effects: [],
@@ -101,7 +113,9 @@ function resolvedEnvelope() {
 
 beforeEach(() => {
   FakeGainNode.instances = [];
+  FakeGainNode.setValueCallCount = 0;
   FakeGainNode.failSetValue = undefined;
+  FakeGainNode.failSetValueOnCall = undefined;
 });
 
 afterEach(() => {
@@ -225,8 +239,18 @@ describe("Instrument source ownership", () => {
       throw error;
     });
 
-    expect(() => instrument.scheduleVoice([{ node: source }])).toThrow(error);
+    expect(() =>
+      instrument.scheduleVoice([{ node: source }], {
+        type: "static",
+        cycle: [[1]],
+      }),
+    ).toThrow(error);
     expect(source.disconnect).toHaveBeenCalledOnce();
+    expect(
+      FakeGainNode.instances
+        .slice(-2)
+        .every((node) => node.disconnect.mock.calls.length === 1),
+    ).toBe(true);
     expect(source.onended).toBeNull();
   });
 
@@ -342,18 +366,28 @@ describe("Instrument source ownership", () => {
     expect(source.onended).toBeNull();
   });
 
-  it("releases a node created before partial parameter setup fails", () => {
+  it("releases the configured source-gain stage when parameter setup fails", () => {
     vi.stubGlobal("GainNode", FakeGainNode);
-    const error = new Error("parameter setup failed");
+    const error = new Error("source-gain setup failed");
     FakeGainNode.failSetValue = error;
+    FakeGainNode.failSetValueOnCall = 2;
     const instrument = new TestInstrument(
       new FakeAudioContext() as unknown as BaseAudioContext,
       {} as never,
     );
     const source = new FakeSourceNode();
 
-    expect(() => instrument.scheduleVoice([{ node: source }])).toThrow(error);
+    expect(() =>
+      instrument.scheduleVoice([{ node: source }], {
+        type: "static",
+        cycle: [[0.5]],
+      }),
+    ).toThrow(error);
+
+    const mainGain = FakeGainNode.instances.at(-1);
+    expect(source.stop).toHaveBeenCalledWith(0);
     expect(source.disconnect).toHaveBeenCalledOnce();
-    expect(FakeGainNode.instances.at(-1)?.disconnect).toHaveBeenCalledOnce();
+    expect(mainGain?.disconnect).toHaveBeenCalledOnce();
+    expect(source.onended).toBeNull();
   });
 });

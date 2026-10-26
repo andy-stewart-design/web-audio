@@ -28,13 +28,18 @@ class FakeSourceNode {
 }
 
 class FakeGainNode {
+  static instances: FakeGainNode[] = [];
   gain = {
     value: 1,
-    setValueAtTime() {},
-    linearRampToValueAtTime() {},
+    setValueAtTime: vi.fn(),
+    linearRampToValueAtTime: vi.fn(),
+    setTargetAtTime: vi.fn(),
   };
   connect = vi.fn();
   disconnect = vi.fn();
+  constructor() {
+    FakeGainNode.instances.push(this);
+  }
 }
 
 class FakeAudioParam {
@@ -171,6 +176,24 @@ class TestInstrument extends Instrument {
 
   updateLfos(barIndex: number, barStartTime: number) {
     this._updateLfoParams(barIndex, barStartTime);
+  }
+
+  scheduleVoice(source: FakeSourceNode, sourceGain?: AudioParamSchema) {
+    this._scheduleVoice({
+      sources: [{ node: source }],
+      sourceGain,
+      event: eventContext(),
+      gainEnvelope: {
+        min: 0,
+        max: 1,
+        a: 0,
+        d: 0,
+        s: 1,
+        r: 0,
+        mode: "bleed",
+      },
+      effects: [],
+    });
   }
 }
 
@@ -721,9 +744,56 @@ describe("Instrument LFO edge lifecycle", () => {
 
     expect(lfoNode.disconnect.mock.calls).toEqual([[param], []]);
   });
+
+  it("attaches and cleans up a source-gain LFO target", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    FakeGainNode.instances = [];
+    const ctx = new FakeAudioContext();
+    const instrument = new TestInstrument(
+      ctx as unknown as AudioContext,
+      {} as never,
+    );
+    const schema = lfo();
+    const lfoNode = new FakeLfoNode();
+    const source = new FakeSourceNode();
+    instrument.registerLfo(schema, lfoNode);
+
+    instrument.scheduleVoice(source, schema);
+
+    const sourceGain = FakeGainNode.instances.at(-1)!;
+    expect(source.connect).toHaveBeenCalledWith(sourceGain);
+    expect(lfoNode.connect).toHaveBeenCalledWith(sourceGain.gain);
+    source.fireEnded();
+    expect(lfoNode.disconnect).toHaveBeenCalledWith(sourceGain.gain);
+  });
 });
 
 describe("Instrument MIDI CC parameters", () => {
+  it("binds source gain at zero, updates it, and removes the voice binding", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    FakeGainNode.instances = [];
+    const ctx = new FakeAudioContext();
+    const instrument = new TestInstrument(
+      ctx as unknown as AudioContext,
+      {} as never,
+    );
+    const signal = new FakeCcSignal();
+    const { midi } = midiWithSignal(signal);
+    const source = new FakeSourceNode();
+    instrument.connectMidi(midi);
+
+    instrument.scheduleVoice(source, midiCc({ default: 0 }));
+
+    const sourceGain = FakeGainNode.instances.at(-1)!;
+    expect(sourceGain.gain.value).toBe(0);
+    expect(signal.subscriberCount).toBe(1);
+    signal.emit(127);
+    expect(sourceGain.gain.setTargetAtTime).toHaveBeenCalledWith(10, 0, 0.01);
+
+    source.fireEnded();
+    expect(signal.subscriberCount).toBe(0);
+  });
+
   it("initializes immediately without scheduling a future overwrite", () => {
     const instrument = new TestInstrument(
       new FakeAudioContext() as unknown as AudioContext,

@@ -976,6 +976,26 @@ describe("AudioEngine", () => {
       expect(active.retire).not.toHaveBeenCalled();
     });
 
+    it("rejects invalid source gain without replacing the active graph", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      engine.update(makeSchema());
+      clock.emit("prebar");
+      const active = instances()[0];
+      const invalid = makeSchema();
+      const invalidInstrument = invalid.instruments[0];
+      if (invalidInstrument.type !== "synthesizer") expect.unreachable();
+      invalidInstrument.sourceGain = { type: "invalid" } as never;
+
+      expect(() => engine.update(invalid)).toThrow(
+        "[Schema] Instrument 0.sourceGain has an invalid audio parameter type.",
+      );
+      clock.emit("bar");
+
+      expect(active.scheduleBar).toHaveBeenCalledOnce();
+      expect(active.retire).not.toHaveBeenCalled();
+    });
+
     it("does not create pending state for an invalid update", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);

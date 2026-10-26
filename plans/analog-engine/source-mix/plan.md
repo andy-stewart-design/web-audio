@@ -4,8 +4,8 @@
 
 - Governing spec: [spec.md](spec.md).
 - Input baseline: Existing [parameter shorthand](../../completed/parameter-shorthand/plan.md) and [Fluid pattern-input](../../fluid-pattern-inputs/plan.md) implementations. Their recorded verification is prerequisite evidence, not a fresh source-mix baseline.
-- Delivery state: Implementation has not started; the Phase 0 baseline verification is complete.
-- Acceptance still pending: All implementation gates, native audio checks, and human listening review.
+- Delivery state: Step 1.1 main-source gain is verified; Step 1.2 and Phase 2 remain pending.
+- Acceptance still pending: Sub implementation, composed lifecycle/documentation work, final native acceptance, and human listening review remain.
 - Blockers: None for implementation. Native checks require the existing Chromium harness; final audio acceptance requires a human reviewer.
 
 Step statuses below are the authoritative execution record. A phase is complete
@@ -113,7 +113,7 @@ normalization infrastructure, oscillator builders, or unrelated DSP changes.
 
 ### Step 1.1 — Deliver main-source gain, including gain-only synth creation
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R1–R4, R6–R9; AC1 (main-gain forms), AC3–AC6 (main-gain portions), AC9/AC12 (main-gain portions). Sub portions belong to Step 1.2; composed lifecycle and final native acceptance belong to Phase 2.
 Depends on: Step 0.1 and Phase 0 exit gate.
 Review boundary: Atomic main-gain schema, authoring, runtime binding, and focused proof.
@@ -129,22 +129,22 @@ Expected files:
 
 Tasks:
 
-- [ ] Add optional `sourceGain` to common synth schemas and validate it with existing AudioParam checks. Reject the known field on samplers; omitted fields and finite negative static schemas remain valid.
-- [ ] Implement default, gain-only, selector-only, and selector-plus-gain factory forms, including explicit `undefined` selectors. For a sole string, exact supported selectors take precedence; all other strings use existing numeric shorthand gain decoding. With two arguments, require a selector/undefined followed by gain. Place selector-specific overloads ahead of general gain-string overloads so basic/unison types remain concrete; reject extra arguments and raw gain arrays.
-- [ ] Resolve each gain with existing `resolveAudioParamValue()` and pass configuration through the concrete constructors/shared synth serializer. Reuse `SingleSlotAudioParamInput`, existing shorthand/structured decoding, direct-source permissions/lifecycle, and the MIDI `gain` context. Do not reinterpret the shared amplitude envelope or add a new fluent gain setter.
-- [ ] Add an owned, stereo-preserving main-source gain stage before the common effect inlet when configured. Register its LFO through the existing additional-parameter list and bind using existing helpers. Apply static-only numeric coercion locally so direct schemas also resolve below-zero entries to zero; leave automation and noise/effect gains untouched. Preserve the omitted-control path.
-- [ ] Add focused factory/type/schema and runtime target tests for selector-versus-shorthand dispatch, equivalent shorthand/reusable/structured gain patterns, negative/above-one static values across representations/direct schemas, initial-zero automation, invalid update preservation, and unchanged MIDI/duck behavior. Reuse existing positional-input/ownership tests for rejected arrays/wrapper misuse; include a setup-failure check proving the new gain node/source is released.
-- [ ] Add native main-only comparisons: omission versus unity, zero versus silence, and gain-only versus explicit sine. These prove source-level scaling is consumed by the real runtime, not just serialized.
+- [x] Add optional `sourceGain` to common synth schemas and validate it with existing AudioParam checks. Reject the known field on samplers; omitted fields and finite negative static schemas remain valid.
+- [x] Implement default, gain-only, selector-only, and selector-plus-gain factory forms, including explicit `undefined` selectors. For a sole string, exact supported selectors take precedence; all other strings use existing numeric shorthand gain decoding. With two arguments, require a selector/undefined followed by gain. Place selector-specific overloads ahead of general gain-string overloads so basic/unison types remain concrete; reject extra arguments and raw gain arrays.
+- [x] Resolve each gain with existing `resolveAudioParamValue()` and pass configuration through the concrete constructors/shared synth serializer. Reuse `SingleSlotAudioParamInput`, existing shorthand/structured decoding, direct-source permissions/lifecycle, and the MIDI `gain` context. Do not reinterpret the shared amplitude envelope or add a new fluent gain setter.
+- [x] Add an owned, stereo-preserving main-source gain stage before the common effect inlet when configured. Register its LFO through the existing additional-parameter list and bind using existing helpers. Apply static-only numeric coercion locally so direct schemas also resolve below-zero entries to zero; leave automation and noise/effect gains untouched. Preserve the omitted-control path.
+- [x] Add focused factory/type/schema and runtime target tests for selector-versus-shorthand dispatch, equivalent shorthand/reusable/structured gain patterns, negative/above-one static values across representations/direct schemas, initial-zero automation, invalid update preservation, and unchanged MIDI/duck behavior. Reuse existing positional-input/ownership tests for rejected arrays/wrapper misuse; include a setup-failure check proving the new gain node/source is released.
+- [x] Add native main-source comparisons: omission versus unity, zero versus silence, gain-only versus explicit sine, scaled unison stereo difference, and main-zero noise preservation. These prove source-level scaling is consumed by the real runtime, not just serialized.
 
 Verification:
 
 - Automated: `pnpm --filter @web-audio/schema test:ci`; `pnpm --filter @web-audio/fluid exec vitest run src/__tests__/source-mix.test.ts src/instruments/__tests__/unison.test.ts`; `pnpm --filter @web-audio/audio-engine exec vitest run src/instruments/__tests__/synthesizer.test.ts src/instruments/__tests__/noise.test.ts src/__tests__/engine.test.ts`. The new factory suite includes compile-time assertions checked by Fluid `check`, including known selector literals versus general string gain inputs. Reuse `src/__tests__/positional-pattern-inputs.test.ts` and `src/__tests__/structured-inputs.test.ts` as existing test seams; do not copy their full input/ownership matrices.
-- Native: After `pnpm --filter @web-audio/audio-regression build:deps`, run `pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/source-mix.test.ts` (new suite). Expect matching default/unity and default-sine spellings, silent zero gain, preserved stereo, and finite output.
+- Native: After `pnpm --filter @web-audio/audio-regression build:deps`, run `pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/source-mix.test.ts` (new suite). Expect matching default/unity and default-sine spellings, silent zero gain, preserved/scaled stereo difference, unchanged noise with zero main gain, and finite output.
 - Quality: Run `check` and `lint` in schema, Fluid, and audio-engine; `pnpm --filter @web-audio/fluid build` must emit valid public declarations. Formatting and whitespace follow the shared conventions.
 - Manual: Review overloads and gain-target placement. Human sound approval remains Step 2.3; mocks are not native playback evidence.
 
 Completion gate: Main gain is consumed correctly from both public factory forms through native audio; direct schema behavior, omitted-field parity, cleanup smoke coverage, and typed declarations pass together. No publicly accepted but ignored setting.
-Evidence: Not run.
+Evidence: [evidence/1.1.md](evidence/1.1.md) — verified focused implementation, quality, declaration, cleanup, and native checks; final human listening remains a Phase 2.3 requirement.
 
 ### Step 1.2 — Deliver the pitched sub as one owned source layer
 

@@ -88,6 +88,9 @@ function validateDromeGraph(schema: DromeSchema) {
         instrument.eventPattern,
         `${path}.eventPattern`,
       );
+      if (instrument.sourceGain !== undefined) {
+        validateAudioParam(instrument.sourceGain, `${path}.sourceGain`);
+      }
       if (instrument.notesOut !== undefined) {
         validateMidiOut(instrument.notesOut, `${path}.notesOut`);
       }
@@ -112,6 +115,11 @@ function validateDromeGraph(schema: DromeSchema) {
       return;
     }
 
+    if (Object.hasOwn(instrument, "sourceGain")) {
+      throw new Error(
+        `[Schema] ${path}.sourceGain is only valid for synthesizers.`,
+      );
+    }
     if (!isNonEmptyString(instrument.bank)) {
       throw new Error(`[Schema] ${path}.bank must be non-empty.`);
     }

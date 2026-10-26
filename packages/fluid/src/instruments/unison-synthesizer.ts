@@ -15,6 +15,7 @@ import SynthBase from "./synth-base";
 
 interface UnisonSynthesizerOptions {
   host?: Drome;
+  sourceGain?: AudioParamSource;
 }
 
 class UnisonSynthesizer extends SynthBase {
@@ -23,8 +24,8 @@ class UnisonSynthesizer extends SynthBase {
   private _spread: AudioParamSource = new Parameter(10);
   private _width: AudioParamSource = new Parameter(0.4);
 
-  constructor({ host }: UnisonSynthesizerOptions = {}) {
-    super(host);
+  constructor({ host, sourceGain }: UnisonSynthesizerOptions = {}) {
+    super(host, sourceGain);
     this._waveform = resolveUnisonWaveform("saw");
   }
 

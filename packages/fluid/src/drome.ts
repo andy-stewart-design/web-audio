@@ -27,13 +27,15 @@ import {
 import { validateDromeGraph } from "@web-audio/schema";
 import type { BankSchema, DromeSchema, FilterType } from "@web-audio/schema";
 import type { AudioParamInput } from "./parameters/parameter";
+import { resolveAudioParamValue } from "./parameters/resolve-audio-param";
 import type {
   NumericPatternValue,
   SingleSlotAudioParamInput,
 } from "./inputs/types";
 import type { LoadSamplesInput } from "./samples/types";
 import {
-  waveformAliasMap,
+  synthSelectorAliasMap,
+  type SynthEngineAlias,
   type SynthSelector,
   type WaveformAlias,
 } from "./inputs/waveform";
@@ -71,19 +73,53 @@ class Drome {
     return createStructuredInput(...input);
   }
 
-  synth(): Synthesizer;
-  synth(type: undefined | WaveformAlias): Synthesizer;
-  synth(type: WaveformAlias): Synthesizer;
-  synth(type: "unison" | "uni"): UnisonSynthesizer;
-  synth(type: SynthSelector): Synthesizer | UnisonSynthesizer;
-  synth(type?: SynthSelector) {
-    if (type === "unison" || type === "uni") {
-      return new UnisonSynthesizer({ host: this });
+  synth(type?: WaveformAlias, gain?: SingleSlotAudioParamInput): Synthesizer;
+  synth(
+    type: SynthEngineAlias,
+    gain?: SingleSlotAudioParamInput,
+  ): UnisonSynthesizer;
+  synth(
+    type?: SynthSelector,
+    gain?: SingleSlotAudioParamInput,
+  ): Synthesizer | UnisonSynthesizer;
+  synth(gain: SingleSlotAudioParamInput): Synthesizer;
+  synth(
+    type?: string | SingleSlotAudioParamInput,
+    gain?: SingleSlotAudioParamInput,
+  ) {
+    if (arguments.length > 2) {
+      throw new TypeError("[Drome] synth() accepts at most two values.");
     }
-    if (type !== undefined && !Object.hasOwn(waveformAliasMap, type)) {
-      throw new TypeError(`[Drome] Unsupported synth engine "${type}".`);
+
+    let selector: SynthSelector | undefined;
+    let sourceGain;
+    if (arguments.length === 2) {
+      if (isSynthSelector(type) || type === undefined) {
+        selector = type;
+      } else {
+        throw new TypeError(`[Drome] Unsupported synth engine "${type}".`);
+      }
+      if (gain !== undefined) {
+        sourceGain = resolveAudioParamValue(gain, "[Drome] synth() gain");
+      }
+    } else if (type !== undefined) {
+      if (isSynthSelector(type)) {
+        selector = type;
+      } else {
+        sourceGain = resolveAudioParamValue(type, "[Drome] synth() gain");
+      }
     }
-    return new Synthesizer({ host: this, type });
+
+    const normalizedSelector =
+      selector === undefined ? undefined : synthSelectorAliasMap[selector];
+    if (normalizedSelector === "unison") {
+      return new UnisonSynthesizer({ host: this, sourceGain });
+    }
+    return new Synthesizer({
+      host: this,
+      type: normalizedSelector,
+      sourceGain,
+    });
   }
 
   bus(name: string) {
@@ -305,6 +341,12 @@ class Drome {
     validateDromeGraph(schema);
     return schema;
   }
+}
+
+function isSynthSelector(value: unknown): value is SynthSelector {
+  return (
+    typeof value === "string" && Object.hasOwn(synthSelectorAliasMap, value)
+  );
 }
 
 export default Drome;
