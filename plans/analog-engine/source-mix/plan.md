@@ -4,7 +4,7 @@
 
 - Governing spec: [spec.md](spec.md).
 - Input baseline: Existing [parameter shorthand](../../completed/parameter-shorthand/plan.md) and [Fluid pattern-input](../../fluid-pattern-inputs/plan.md) implementations. Their recorded verification is prerequisite evidence, not a fresh source-mix baseline.
-- Delivery state: Planning only. Implementation and verification have not started.
+- Delivery state: Implementation has not started; the Phase 0 baseline verification is complete.
 - Acceptance still pending: All implementation gates, native audio checks, and human listening review.
 - Blockers: None for implementation. Native checks require the existing Chromium harness; final audio acceptance requires a human reviewer.
 
@@ -73,7 +73,7 @@ Review boundary: Read-only characterization. No feature code or reference update
 
 ### Step 0.1 — Record the focused baseline
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R9; AC13 (baseline only; final parity/listening belongs to Step 2.3).
 Depends on: None.
 Review boundary: Existing commands and environment readiness, not a new harness or baseline repair project.
@@ -84,10 +84,10 @@ Expected files:
 
 Tasks:
 
-- [ ] Record the starting revision/worktree and preserve unrelated changes.
-- [ ] Build runtime dependencies, then run existing schema, Fluid positional-input/unison/noise, and engine source/voice suites below. Confirm the current single-slot and patterned-envelope contracts rather than reconstructing pre-shorthand behavior.
-- [ ] Verify selected approved references covering basic, unison, and pre-envelope sampler playback.
-- [ ] Separate existing failures or missing prerequisites from regressions. Fix an affected prerequisite only through a separately scoped decision; do not regenerate references to manufacture a baseline.
+- [x] Record the starting revision/worktree and preserve unrelated changes.
+- [x] Build runtime dependencies, then run existing schema, Fluid positional-input/unison/noise, and engine source/voice suites below. Confirm the current single-slot and patterned-envelope contracts rather than reconstructing pre-shorthand behavior.
+- [x] Verify selected approved references covering basic, unison, and pre-envelope sampler playback.
+- [x] Separate existing failures or missing prerequisites from regressions. Fix an affected prerequisite only through a separately scoped decision; do not regenerate references to manufacture a baseline.
 
 Verification:
 
@@ -97,10 +97,10 @@ Verification:
 - Manual: Not needed for characterization. If Chromium is unavailable, stop the native gate and request installation approval before using the existing `browser:install` script; do not install during plan authoring.
 
 Completion gate: Focused checks and selected references pass, or affected work is explicitly blocked with the observed failure recorded. No green-baseline claim from source inspection alone.
-Evidence: Not run.
+Evidence: [evidence/0.1.md](evidence/0.1.md) — complete baseline: 7 focused test files and 197 tests passed; selected `sine`, `unison`, and `pre-envelope-sampler` references passed unchanged. The initial headed-executable preflight and one concurrent sampler invocation were classified as harness false positives/contention and the exact native check was rerun successfully.
 
 Phase exit gate: After Step 0.1, review baseline results and prerequisite availability before advancing. Unresolved failures affecting source/voice parity block dependent work; unrelated failures require explicit disposition, not silent waiver. Evidence lives in Step 0.1 or its linked note.
-Evidence: Not run.
+Evidence: Complete; Step 0.1 verified. Phase 0 exit gate passed. No human listening was required for characterization; final audio acceptance remains Step 2.3.
 
 ## Phase 1 — End-to-end source controls
 
