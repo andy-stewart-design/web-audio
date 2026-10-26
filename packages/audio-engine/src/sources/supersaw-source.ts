@@ -42,6 +42,14 @@ class SupersawSource implements ScheduledSource {
   private _ended = false;
   private _disconnected = false;
   private _started = false;
+  private _processorErrorReported = false;
+  private readonly _onProcessorError = (event: Event) => {
+    if (!this._processorErrorReported) {
+      this._processorErrorReported = true;
+      console.error("Supersaw AudioWorklet processor failed", event);
+    }
+    this._finish();
+  };
 
   constructor(
     private readonly _ctx: BaseAudioContext,
@@ -66,11 +74,15 @@ class SupersawSource implements ScheduledSource {
       this.node.port.onmessage = (event: MessageEvent<unknown>) => {
         if (isEndedMessage(event.data)) this._finish();
       };
+      this.node.addEventListener("processorerror", this._onProcessorError);
+      this.node.addEventListener("error", this._onProcessorError);
     } catch (error) {
       // The worklet is allocated before its public source wrapper is usable.
       // Release it here because a caller cannot receive this instance to do so.
       try {
         this.node.port.onmessage = null;
+        this.node.removeEventListener("processorerror", this._onProcessorError);
+        this.node.removeEventListener("error", this._onProcessorError);
         this.node.port.close();
       } catch {
         // Preserve the setup error.
@@ -91,9 +103,14 @@ class SupersawSource implements ScheduledSource {
   disconnect() {
     if (this._disconnected) return;
     this._disconnected = true;
-    this.node.port.onmessage = null;
-    this.node.port.close();
-    this.node.disconnect();
+    try {
+      this.node.port.onmessage = null;
+      this.node.removeEventListener("processorerror", this._onProcessorError);
+      this.node.removeEventListener("error", this._onProcessorError);
+      this.node.port.close();
+    } finally {
+      this.node.disconnect();
+    }
   }
 
   start(when = 0) {

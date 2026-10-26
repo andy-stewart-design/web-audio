@@ -58,8 +58,15 @@ class FakeAudioWorkletNode {
   ]);
   connect = vi.fn();
   disconnect = vi.fn();
-  addEventListener = vi.fn();
-  removeEventListener = vi.fn();
+  readonly listeners = new Map<string, Set<EventListener>>();
+  addEventListener = vi.fn((type: string, listener: EventListener) => {
+    const listeners = this.listeners.get(type) ?? new Set<EventListener>();
+    listeners.add(listener);
+    this.listeners.set(type, listeners);
+  });
+  removeEventListener = vi.fn((type: string, listener: EventListener) => {
+    this.listeners.get(type)?.delete(listener);
+  });
 
   constructor(
     _ctx: BaseAudioContext,
@@ -67,6 +74,11 @@ class FakeAudioWorkletNode {
     readonly options: AudioWorkletNodeOptions,
   ) {
     FakeAudioWorkletNode.instances.push(this);
+  }
+
+  emit(type: string) {
+    for (const listener of this.listeners.get(type) ?? [])
+      listener(new Event(type));
   }
 }
 
@@ -861,6 +873,58 @@ describe("Synthesizer scheduling", () => {
     expect(source.port.close).toHaveBeenCalledOnce();
   });
 
+  it("releases the main source when sub construction fails after allocation", () => {
+    FakeOscillatorNode.failOnConstruction = 2;
+    const instance = synth(
+      schema({
+        sub: {
+          waveform: "sine",
+          octave: -1,
+          gain: staticNumberPattern([0.5]),
+        },
+      }),
+    );
+
+    expect(() => instance.scheduleBar(0, 10)).toThrow(
+      "sub construction failed",
+    );
+
+    expect(FakeOscillatorNode.instances[0]?.disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("keeps a surviving sub alive when the unison processor fails", async () => {
+    const instance = synth(
+      unisonSchema({
+        sub: {
+          waveform: "sine",
+          octave: -1,
+          gain: staticNumberPattern([0.5]),
+        },
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+    const main = FakeAudioWorkletNode.instances[0];
+    const sub = FakeOscillatorNode.instances[0];
+    instance.retire();
+
+    main.emit("processorerror");
+
+    expect(main.disconnect).toHaveBeenCalledOnce();
+    expect(sub.disconnect).not.toHaveBeenCalled();
+    let finished = false;
+    instance.finished.then(() => {
+      finished = true;
+    });
+    await Promise.resolve();
+    expect(finished).toBe(false);
+
+    sub.onended?.();
+    await Promise.resolve();
+    expect(sub.disconnect).toHaveBeenCalledOnce();
+    expect(finished).toBe(true);
+  });
+
   it("emits one duck trigger per resolved onset before polyphonic voices", () => {
     const onDuck = vi.fn();
     const instance = synth(
@@ -1130,6 +1194,37 @@ describe("Synthesizer scheduling", () => {
 
     expect(FakeOscillatorNode.instances).toHaveLength(1);
     expect(scheduleNote).not.toHaveBeenCalled();
+  });
+
+  it("keeps MIDI velocity and duck counts unchanged with a muted main chord sub", () => {
+    const scheduleNote = vi.fn();
+    const onDuck = vi.fn();
+    const instance = synth(
+      schema({
+        sourceGain: staticNumberPattern([0]),
+        sub: {
+          waveform: "sine",
+          octave: -1,
+          gain: staticNumberPattern([0.5]),
+        },
+        notesOut: { type: "midi-out", channel: 1 },
+        ducks: { music: { depth: 0.25, onset: 0, recovery: 0.5 } },
+        eventPattern: {
+          timing: timing([[{ offset: 0, duration: 0.5 }]]),
+          notes: { type: "static", cycle: [[[60, 64]]] },
+        },
+      }),
+      { scheduleNote } as unknown as MidiOutputScheduler,
+      onDuck,
+    );
+
+    instance.scheduleBar(0, 10);
+
+    expect(FakeOscillatorNode.instances).toHaveLength(4);
+    expect(onDuck).toHaveBeenCalledOnce();
+    expect(scheduleNote.mock.calls.map(([note]) => note.velocity)).toEqual([
+      127, 127,
+    ]);
   });
 
   it("mirrors every audio chord voice to MIDI with gain-derived velocity", () => {

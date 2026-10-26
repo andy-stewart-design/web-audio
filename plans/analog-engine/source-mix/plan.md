@@ -194,7 +194,7 @@ no duplicate parameter/DSP certification or blanket reference updates.
 
 ### Step 2.1 — Close composed voice ownership and event boundaries
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R4–R9; AC4 (binding/lifetime completion), AC8 (detune fan-out completion), AC9–AC12 (composed lifecycle/update coverage).
 Depends on: Step 1.2 and Phase 1 exit gate.
 Review boundary: Existing voice/engine test seams with main+sub+noise enabled; minimal fixes only where new composition reveals a defect.
@@ -202,15 +202,16 @@ Review boundary: Existing voice/engine test seams with main+sub+noise enabled; m
 Expected files:
 
 - `packages/audio-engine/src/instruments/__tests__/synthesizer.test.ts`, `voice-sources.test.ts`, `noise.test.ts`; `src/__tests__/engine.test.ts` — extend existing ownership, binding, and graph-update assertions.
+- `packages/audio-engine/src/sources/supersaw-source.ts`, `src/sources/__tests__/supersaw-source.test.ts` — bounded unison processor-failure completion handling and its focused seam test.
 - Relevant suite `support/` modules only if small reusable fakes need extraction; do not create a parallel fake-node framework.
 - `packages/audio-engine/src/instruments/instrument.ts`, `synthesizer.ts` — bounded integration fixes if needed; already covered helpers are not a refactoring target.
 
 Tasks:
 
-- [ ] Exercise main/sub/noise sibling completions in representative different orders, stale callbacks, future cancellation while another voice sounds, and repeated destruction. Assert one cleanup and no early disconnection of surviving audio.
-- [ ] Extend existing failure injection for sub construction/setup/start after main allocation and for main unison processor failure with a surviving sub. Errors must remain visible; sibling lifetime and retiring `finished` resolution must remain correct.
-- [ ] Verify new gain/detune bindings detach per voice without stopping a surviving voice's shared LFO/MIDI source. Use existing binding fixtures and focused target/subscription assertions, not another smoothing/oscillator test matrix.
-- [ ] Compose releasing source layers with graph replacement and original routing; verify invalid new schemas preserve valid pending/active configuration. Keep existing MIDI velocity and duck scheduling unchanged with main gain zero and a chord sub.
+- [x] Exercise main/sub/noise sibling completions in representative different orders, stale callbacks, future cancellation while another voice sounds, and repeated destruction. Assert one cleanup and no early disconnection of surviving audio.
+- [x] Extend existing failure injection for sub construction/setup/start after main allocation and for main unison processor failure with a surviving sub. Errors must remain visible; sibling lifetime and retiring `finished` resolution must remain correct.
+- [x] Verify new gain/detune bindings detach per voice without stopping a surviving voice's shared LFO/MIDI source. Use existing binding fixtures and focused target/subscription assertions, not another smoothing/oscillator test matrix.
+- [x] Compose releasing source layers with graph replacement and original routing; verify invalid new schemas preserve valid pending/active configuration. Keep existing MIDI velocity and duck scheduling unchanged with main gain zero and a chord sub.
 
 Verification:
 
@@ -218,7 +219,7 @@ Verification:
 - Manual: Review failure cleanup around source creation, especially errors before `_scheduleVoice()` currently takes ownership. No separate live acceptance is needed for deterministic ownership assertions; native timing/stereo is Step 2.3.
 
 Completion gate: The new source composition cannot leak resources, truncate siblings, multiply musical events, or retain an old graph indefinitely under the scoped failure/cancellation cases.
-Evidence: Not run.
+Evidence: [evidence/2.1.md](evidence/2.1.md) — verified 4 named engine suites (131 tests) plus the focused SupersawSource suite (11 tests), including contextual processor diagnostics, two-voice detune LFO/MIDI lifecycle, all-layer repeated destruction, and disconnect-failure coverage; native timing/stereo and human listening remain Step 2.3.
 
 ### Step 2.2 — Document the public source-mixing contract
 

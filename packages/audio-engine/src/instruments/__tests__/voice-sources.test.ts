@@ -5,8 +5,14 @@ import type { ResolvedEnvelopeSchema } from "../../parameters/types";
 import type { ScheduledSource } from "../../sources/types";
 import Instrument from "../instrument";
 
+class FakeAudioParam {
+  value = 0;
+  readonly setTargetAtTime = vi.fn();
+}
+
 class FakeSourceNode implements ScheduledSource {
   onended: ScheduledSource["onended"] = null;
+  readonly detune = new FakeAudioParam();
   readonly connect = vi.fn((destination: AudioNode) => destination);
   readonly disconnect = vi.fn();
   readonly start = vi.fn();
@@ -61,23 +67,23 @@ class FakeLfoNode {
 
 class FakeCcSignal {
   hasValue = false;
-  private _subscriber: ((value: number) => void) | undefined;
+  private readonly _subscribers = new Set<(value: number) => void>();
 
   subscribe(callback: (value: number) => void) {
-    this._subscriber = callback;
+    this._subscribers.add(callback);
     callback(0);
     return () => {
-      this._subscriber = undefined;
+      this._subscribers.delete(callback);
     };
   }
 
   emit(value: number) {
     this.hasValue = true;
-    this._subscriber?.(value);
+    this._subscribers.forEach((subscriber) => subscriber(value));
   }
 
   get subscriberCount() {
-    return this._subscriber ? 1 : 0;
+    return this._subscribers.size;
   }
 }
 
@@ -93,9 +99,11 @@ class TestInstrument extends Instrument {
     sourceGain?: AudioParamSchema,
     options: {
       subSource?: { node: FakeSourceNode; gain: AudioParamSchema };
+      detune?: AudioParamSchema;
       effects?: EffectSchema[];
     } = {},
   ) {
+    const event = eventContext();
     this._scheduleVoice({
       sources,
       sourceGain,
@@ -105,7 +113,16 @@ class TestInstrument extends Instrument {
             gain: options.subSource.gain,
           }
         : undefined,
-      event: eventContext(),
+      detune: options.detune
+        ? {
+            params: [
+              ...sources.map(({ node }) => node.detune),
+              ...(options.subSource ? [options.subSource.node.detune] : []),
+            ] as unknown as [AudioParam, ...AudioParam[]],
+            resolved: this._resolveDetune(options.detune, event),
+          }
+        : undefined,
+      event,
       gainEnvelope: resolvedEnvelope(),
       effects: options.effects ?? [],
     });
@@ -649,5 +666,257 @@ describe("Instrument source ownership", () => {
         .slice(-2)
         .every((node) => node.disconnect.mock.calls.length === 1),
     ).toBe(true);
+  });
+
+  it("releases the sub gain stage when its parameter setup fails", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    const error = new Error("sub gain setup failed");
+    FakeGainNode.failSetValue = error;
+    FakeGainNode.failSetValueOnCall = 2;
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const main = new FakeSourceNode();
+    const sub = new FakeSourceNode();
+
+    expect(() =>
+      instrument.scheduleVoice([{ node: main }], undefined, {
+        subSource: {
+          node: sub,
+          gain: { type: "static", cycle: [[0.5]] },
+        },
+      }),
+    ).toThrow(error);
+
+    expect(main.stop).toHaveBeenCalledWith(0);
+    expect(sub.stop).toHaveBeenCalledWith(0);
+    expect(main.disconnect).toHaveBeenCalledOnce();
+    expect(sub.disconnect).toHaveBeenCalledOnce();
+    expect(FakeGainNode.instances.at(-1)?.disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("fans detune LFOs to both layers and detaches one voice at a time", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const lfo = new FakeLfoNode();
+    instrument.registerLfo(lfo);
+    const detune: AudioParamSchema = {
+      type: "lfo",
+      id: "sub-lfo",
+      outputA: { type: "static", cycle: [[-5]] },
+      outputB: { type: "static", cycle: [[5]] },
+      speed: [1],
+      waveform: ["sine"],
+      phase: 0,
+      norm: false,
+      invert: false,
+    };
+    const firstMain = new FakeSourceNode();
+    const firstSub = new FakeSourceNode();
+    const secondMain = new FakeSourceNode();
+    const secondSub = new FakeSourceNode();
+    instrument.scheduleVoice([{ node: firstMain }], undefined, {
+      subSource: { node: firstSub, gain: { type: "static", cycle: [[1]] } },
+      detune,
+    });
+    instrument.scheduleVoice([{ node: secondMain }], undefined, {
+      subSource: { node: secondSub, gain: { type: "static", cycle: [[1]] } },
+      detune,
+    });
+
+    expect(lfo.connect).toHaveBeenCalledTimes(4);
+    expect(lfo.connect).toHaveBeenCalledWith(firstMain.detune);
+    expect(lfo.connect).toHaveBeenCalledWith(firstSub.detune);
+    expect(lfo.connect).toHaveBeenCalledWith(secondMain.detune);
+    expect(lfo.connect).toHaveBeenCalledWith(secondSub.detune);
+
+    firstMain.fireEnded();
+    firstSub.fireEnded();
+    expect(lfo.disconnect).toHaveBeenCalledTimes(2);
+    expect(lfo.disconnect).toHaveBeenCalledWith(firstMain.detune);
+    expect(lfo.disconnect).toHaveBeenCalledWith(firstSub.detune);
+    expect(secondMain.disconnect).not.toHaveBeenCalled();
+    expect(secondSub.disconnect).not.toHaveBeenCalled();
+
+    secondMain.fireEnded();
+    secondSub.fireEnded();
+    expect(lfo.disconnect).toHaveBeenCalledTimes(4);
+    expect(lfo.disconnect).toHaveBeenCalledWith(secondMain.detune);
+    expect(lfo.disconnect).toHaveBeenCalledWith(secondSub.detune);
+    instrument.retire();
+    expect(lfo.disconnect).toHaveBeenCalledTimes(5);
+  });
+
+  it("updates only the surviving voice after detune MIDI cleanup", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const signal = new FakeCcSignal();
+    instrument.connectMidi({ in: { cc: vi.fn(() => signal) } } as never);
+    const detune: AudioParamSchema = {
+      type: "midi-cc",
+      cc: 74,
+      range: { min: -10, max: 10, curve: "linear" },
+      default: 0,
+    };
+    const firstMain = new FakeSourceNode();
+    const firstSub = new FakeSourceNode();
+    const secondMain = new FakeSourceNode();
+    const secondSub = new FakeSourceNode();
+    instrument.scheduleVoice([{ node: firstMain }], undefined, {
+      subSource: { node: firstSub, gain: { type: "static", cycle: [[1]] } },
+      detune,
+    });
+    instrument.scheduleVoice([{ node: secondMain }], undefined, {
+      subSource: { node: secondSub, gain: { type: "static", cycle: [[1]] } },
+      detune,
+    });
+
+    expect(signal.subscriberCount).toBe(2);
+    signal.emit(0.25);
+    expect(firstMain.detune.setTargetAtTime).toHaveBeenCalledWith(-5, 0, 0.01);
+    expect(firstSub.detune.setTargetAtTime).toHaveBeenCalledWith(-5, 0, 0.01);
+    expect(secondMain.detune.setTargetAtTime).toHaveBeenCalledWith(-5, 0, 0.01);
+    expect(secondSub.detune.setTargetAtTime).toHaveBeenCalledWith(-5, 0, 0.01);
+
+    firstMain.fireEnded();
+    firstSub.fireEnded();
+    expect(signal.subscriberCount).toBe(1);
+    signal.emit(0.75);
+    expect(firstMain.detune.setTargetAtTime).toHaveBeenCalledOnce();
+    expect(firstSub.detune.setTargetAtTime).toHaveBeenCalledOnce();
+    expect(secondMain.detune.setTargetAtTime).toHaveBeenLastCalledWith(
+      5,
+      0,
+      0.01,
+    );
+    expect(secondSub.detune.setTargetAtTime).toHaveBeenLastCalledWith(
+      5,
+      0,
+      0.01,
+    );
+
+    secondMain.fireEnded();
+    secondSub.fireEnded();
+    expect(signal.subscriberCount).toBe(0);
+    instrument.retire();
+  });
+
+  it("detaches each voice's source and sub LFO bindings independently", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const lfo = new FakeLfoNode();
+    instrument.registerLfo(lfo);
+    const gain: AudioParamSchema = {
+      type: "lfo",
+      id: "sub-lfo",
+      outputA: { type: "static", cycle: [[0]] },
+      outputB: { type: "static", cycle: [[1]] },
+      speed: [1],
+      waveform: ["sine"],
+      phase: 0,
+      norm: false,
+      invert: false,
+    };
+    const firstMain = new FakeSourceNode();
+    const firstSub = new FakeSourceNode();
+    const secondMain = new FakeSourceNode();
+    const secondSub = new FakeSourceNode();
+    instrument.scheduleVoice([{ node: firstMain }], gain, {
+      subSource: { node: firstSub, gain },
+    });
+    instrument.scheduleVoice([{ node: secondMain }], gain, {
+      subSource: { node: secondSub, gain },
+    });
+    instrument.retire();
+
+    firstMain.fireEnded();
+    firstSub.fireEnded();
+    expect(lfo.disconnect).toHaveBeenCalledTimes(2);
+    expect(secondMain.disconnect).not.toHaveBeenCalled();
+    expect(secondSub.disconnect).not.toHaveBeenCalled();
+
+    secondMain.fireEnded();
+    secondSub.fireEnded();
+    expect(lfo.disconnect).toHaveBeenCalledTimes(5);
+    expect(lfo.disconnect).toHaveBeenLastCalledWith();
+  });
+
+  it("detaches sub MIDI bindings per voice without affecting siblings", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const signal = new FakeCcSignal();
+    instrument.connectMidi({ in: { cc: vi.fn(() => signal) } } as never);
+    const gain: AudioParamSchema = {
+      type: "midi-cc",
+      cc: 74,
+      range: { min: 0, max: 1, curve: "linear" },
+      default: 0,
+    };
+    const firstMain = new FakeSourceNode();
+    const firstSub = new FakeSourceNode();
+    const secondMain = new FakeSourceNode();
+    const secondSub = new FakeSourceNode();
+    instrument.scheduleVoice([{ node: firstMain }], undefined, {
+      subSource: { node: firstSub, gain },
+    });
+    instrument.scheduleVoice([{ node: secondMain }], undefined, {
+      subSource: { node: secondSub, gain },
+    });
+
+    expect(signal.subscriberCount).toBe(2);
+    firstMain.fireEnded();
+    firstSub.fireEnded();
+    expect(signal.subscriberCount).toBe(1);
+    expect(secondMain.disconnect).not.toHaveBeenCalled();
+    expect(secondSub.disconnect).not.toHaveBeenCalled();
+
+    secondMain.fireEnded();
+    secondSub.fireEnded();
+    expect(signal.subscriberCount).toBe(0);
+    instrument.retire();
+  });
+
+  it("destroys a composed voice repeatedly without duplicating cleanup", () => {
+    vi.stubGlobal("GainNode", FakeGainNode);
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const main = new FakeSourceNode();
+    const sub = new FakeSourceNode();
+    instrument.scheduleVoice([{ node: main }], undefined, {
+      subSource: {
+        node: sub,
+        gain: { type: "static", cycle: [[0.5]] },
+      },
+    });
+
+    const mainStops = main.stop.mock.calls.length;
+    const subStops = sub.stop.mock.calls.length;
+    instrument.destroy();
+    instrument.destroy();
+
+    expect(main.stop).toHaveBeenCalledTimes(mainStops + 1);
+    expect(sub.stop).toHaveBeenCalledTimes(subStops + 1);
+    expect(main.disconnect).toHaveBeenCalledOnce();
+    expect(sub.disconnect).toHaveBeenCalledOnce();
+    expect(
+      FakeGainNode.instances
+        .slice(-2)
+        .map((node) => node.disconnect.mock.calls.length),
+    ).toEqual([1, 1]);
   });
 });
