@@ -223,7 +223,7 @@ Evidence: [evidence/2.1.md](evidence/2.1.md) — verified 4 named engine suites 
 
 ### Step 2.2 — Document the public source-mixing contract
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R1–R6, R9; user-facing documentation supporting AC1–AC9 and AC13. Behavior verification remains owned by the implementation/native gates.
 Depends on: Step 1.2 and Phase 1 exit gate; can be prepared independently of Step 2.1.
 Review boundary: Current public API and examples; preserve existing reference work and do not document deferred syntax as shipped.
@@ -236,10 +236,10 @@ Expected files:
 
 Tasks:
 
-- [ ] Document gain-only/default/basic/unison factory forms and the three required-gain sub forms, with selector-versus-shorthand dispatch, aliases, replacement defaults, existing single-slot inputs, raw-array rejection, and synth-only availability.
-- [ ] Explain main/sub gain versus shared `.gain()`/`.adsr()`, additive headroom, centered common-detuned sub, and shared lifetime. State static negative-to-zero coercion and unchanged automation semantics directly, without interview/revision narration.
-- [ ] Include examples for a muted main with audible sub, stereo unison plus sine sub, layer envelope use, and equivalent shorthand / `d.sh()` / `d.str()` gain patterns. Show `d.str(0.3, 0.5)` as successive bars and `d.str([0.3, 0.5])` as within-bar values. Keep only `d.osc()` composition and other unimplemented features deferred.
-- [ ] Validate examples through the existing Fluid public evaluation path and cross-check the reference index/relative links. Add a small public API example assertion only if existing source-mix tests do not already exercise the example's form.
+- [x] Document gain-only/default/basic/unison factory forms and the three required-gain sub forms, with selector-versus-shorthand dispatch, aliases, replacement defaults, existing single-slot inputs, raw-array rejection, and synth-only availability.
+- [x] Explain main/sub gain versus shared `.gain()`/`.adsr()`, additive headroom, centered common-detuned sub, and shared lifetime. State static negative-to-zero coercion and unchanged automation semantics directly, without interview/revision narration.
+- [x] Include examples for a muted main with audible sub, stereo unison plus sine sub, layer envelope use, and equivalent shorthand / `d.sh()` / `d.str()` gain patterns. Show `d.str(0.3, 0.5)` as successive bars and `d.str([0.3, 0.5])` as within-bar values. Keep only `d.osc()` composition and other unimplemented features deferred.
+- [x] Validate examples through the existing Fluid public evaluation path and cross-check the reference index/relative links. Added focused public `evaluateSource` assertions for the documented executable forms; intentionally invalid rejection snippets remain excluded from execution.
 
 Verification:
 
@@ -247,7 +247,7 @@ Verification:
 - Manual: Read the pages without the conversation. Confirm all examples use accepted syntax and correctly distinguish source gain, amplitude gain, and deferred functionality; follow the new relative links.
 
 Completion gate: A reader can author the delivered mix without interview context; examples match implemented schema/API behavior and no existing documentation edits are lost.
-Evidence: Not run.
+Evidence: [evidence/2.2.md](evidence/2.2.md) — public `evaluateSource` assertions covered 35 executable documentation examples; invalid rejection snippets were intentionally excluded and link/format checks passed. Step 2.3 native/listening acceptance remains pending.
 
 ### Step 2.3 — Accept native mixing, parity, and sound
 

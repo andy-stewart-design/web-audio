@@ -13,13 +13,14 @@ See [Pattern syntax](../../concepts/syntax.md) for structured and shorthand synt
 
 ## Creating instruments
 
-| Method                                      | Creates                                                              |
-| ------------------------------------------- | -------------------------------------------------------------------- |
-| `d.synth()`                                 | Basic synthesizer                                                    |
-| `d.synth("unison")` / `d.synth("uni")`      | Unison synthesizer                                                   |
-| `d.sample()` / `d.sample(name, variation?)` | Sampler; an unnamed sampler needs `.name()` before schema generation |
+| Method                                                         | Creates                                                              |
+| -------------------------------------------------------------- | -------------------------------------------------------------------- |
+| [`d.synth()`](synth.md)                                        | Basic synthesizer                                                    |
+| [`d.synth("unison")`](synth.md) / [`d.synth("uni")`](synth.md) | Unison synthesizer                                                   |
+| `d.sample()` / `d.sample(name, variation?)`                    | Sampler; an unnamed sampler needs `.name()` before schema generation |
 
-Factory arguments are not yet covered by dedicated reference pages. `"uni"` is a selector alias, not a separate method.
+See the [synth factory reference](synth.md) for selector, gain, and shorthand
+forms. `"uni"` is a selector alias, not a separate method.
 
 ## Shared methods
 
@@ -74,10 +75,11 @@ In addition to the shared methods above.
 
 In addition to the shared methods above.
 
-| Method      | Available on                                               | Aliases |
-| ----------- | ---------------------------------------------------------- | ------- |
-| `.type()`   | Basic and unison synths; unison accepts saw waveforms only | —       |
-| `.out()`    | Basic and unison synths                                    | —       |
-| `.voices()` | Unison synths only                                         | —       |
-| `.spread()` | Unison synths only                                         | —       |
-| `.width()`  | Unison synths only                                         | —       |
+| Method             | Available on                                               | Aliases |
+| ------------------ | ---------------------------------------------------------- | ------- |
+| `.type()`          | Basic and unison synths; unison accepts saw waveforms only | —       |
+| [`.sub()`](sub.md) | Basic and unison synths only                               | —       |
+| `.out()`           | Basic and unison synths                                    | —       |
+| `.voices()`        | Unison synths only                                         | —       |
+| `.spread()`        | Unison synths only                                         | —       |
+| `.width()`         | Unison synths only                                         | —       |

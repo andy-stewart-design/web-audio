@@ -77,6 +77,52 @@ describe("evaluateSource", () => {
     expect(evaluateSource("d.synth().push();")).toEqual(d.getSchema());
   });
 
+  it("evaluates the public source-mixing reference examples", () => {
+    const examples = [
+      `d.synth().push();`,
+      `d.synth(0.5).push();`,
+      `d.synth("saw", 0.8).push();`,
+      `d.synth(undefined, 0.4).push();`,
+      `d.synth("unison", 0.6).voices(5).spread(0.4).width(0.7).push();`,
+      `d.synth("uni").sub(0.3).push();`,
+      `d.synth(0.3).push();`,
+      `d.synth("0.3").push();`,
+      `d.synth(d.sh("0.3")).push();`,
+      `d.synth(d.str(0.3)).push();`,
+      `d.synth("saw", d.str(0.3)).push();`,
+      `d.synth(d.rand()).push();`,
+      `d.synth(d.env(0, 0.8).adsr(0.01, 0.2, 0.6, 0.1)).push();`,
+      `d.synth("saw", d.lfo(0, 0.5)).push();`,
+      `d.synth("unison", d.midi.cc(74)).push();`,
+      `d.synth(0).sub(0.35).gain(0.4).push();`,
+      `d.synth("unison", 0.65).voices(7).spread(12).width(0.8).sub(0.3).fx(d.lpf(2400)).gain(0.5).push();`,
+      `d.synth("saw", 0.7).sub("sine", -1, d.env(0, 0.35).adsr(0.01, 0.2, 0.4, 0.1)).adsr(0.01, 0.15, 0.8, 0.2).push();`,
+      `d.synth().sub(0.3).push();`,
+      `d.synth().sub(-2, 0.25).push();`,
+      `d.synth().sub("square", -2, 0.2).push();`,
+      `d.synth().sub("sin", -1, 0.2).push();`,
+      `d.synth().sub("tri", -1, 0.2).push();`,
+      `d.synth().sub("sq", -1, 0.2).push();`,
+      `d.synth().sub("saw", -1, 0.2).push();`,
+      `d.synth().sub("square", -2, 0.4).sub(0.2).push();`,
+      `d.synth().sub("0.2 0.4").push();`,
+      `d.synth().sub(d.sh("0.2 0.4")).push();`,
+      `d.synth().sub(-2, d.str([0.2, 0.4])).push();`,
+      `d.synth().sub(d.rand()).push();`,
+      `d.synth().sub(-1, d.lfo(0, 0.3)).push();`,
+      `d.synth().sub("triangle", -1, d.env(0, 0.35).adsr(0.01, 0.2, 0.3, 0.1)).push();`,
+      `d.synth().sub("sine", -1, d.midi.cc(74)).push();`,
+      `d.synth().sub("sine", -1, d.str(0.3, 0.5)).push();`,
+      `d.synth().sub("sine", -1, d.str([0.3, 0.5])).push();`,
+    ];
+
+    expect(examples).toHaveLength(35);
+    for (const example of examples) {
+      const schema = evaluateSource(example);
+      expect(schema.instruments, example).toHaveLength(1);
+    }
+  });
+
   it.each(aliases)(
     "matches direct, reusable, and structured source values for %s",
     (api) => {
