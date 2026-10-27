@@ -116,6 +116,44 @@ describe("main source gain authoring", () => {
     expectTypeOf(invalid).toBeFunction();
   });
 
+  it("keeps gain-only inference sound for selectors and widened strings", () => {
+    const d = new Drome();
+    const literalSelector = d.synth("uni");
+    const numericGainString = d.synth("0.5");
+    const numericGain = d.synth(0.5);
+    const shorthandGain = d.synth(d.sh("0.5"));
+    const structuredGain = d.synth(d.str(0.5));
+    const dynamicGainText: string = "0.5";
+    const explicitSineDynamicText = d.synth("sine", dynamicGainText);
+    const dynamicShorthandGain = d.synth(d.sh(dynamicGainText));
+    const dynamicString: string = "0.5";
+    const widenedString = d.synth(dynamicString);
+    const engineOrGain = d.synth(Math.random() ? "uni" : "0.5");
+    const engineOrNumber = d.synth(Math.random() ? "uni" : 0.5);
+
+    expectTypeOf(literalSelector).toEqualTypeOf<UnisonSynthesizer>();
+    expectTypeOf(numericGainString).toEqualTypeOf<Synthesizer>();
+    expectTypeOf(numericGain).toEqualTypeOf<Synthesizer>();
+    expectTypeOf(shorthandGain).toEqualTypeOf<Synthesizer>();
+    expectTypeOf(structuredGain).toEqualTypeOf<Synthesizer>();
+    expectTypeOf(explicitSineDynamicText).toEqualTypeOf<Synthesizer>();
+    expectTypeOf(dynamicShorthandGain).toEqualTypeOf<Synthesizer>();
+    expectTypeOf(widenedString).toEqualTypeOf<
+      Synthesizer | UnisonSynthesizer
+    >();
+    expectTypeOf(engineOrGain).toEqualTypeOf<Synthesizer | UnisonSynthesizer>();
+    expectTypeOf(engineOrNumber).toEqualTypeOf<
+      Synthesizer | UnisonSynthesizer
+    >();
+
+    const uncertain = widenedString;
+    const invalid = () => {
+      // @ts-expect-error Uncertain gain-only dispatch cannot expose basic-only type().
+      uncertain.type("square");
+    };
+    expectTypeOf(invalid).toBeFunction();
+  });
+
   it("treats explicit undefined gain as omitted for supported selectors", () => {
     const d = new Drome();
     const basic = d.synth("saw", undefined);

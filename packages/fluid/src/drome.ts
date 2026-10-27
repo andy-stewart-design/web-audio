@@ -82,7 +82,13 @@ class Drome {
     type?: SynthSelector,
     gain?: SingleSlotAudioParamInput,
   ): Synthesizer | UnisonSynthesizer;
-  synth(gain: SingleSlotAudioParamInput): Synthesizer;
+  synth<Gain extends SingleSlotAudioParamInput>(
+    gain: Gain,
+  ): Gain extends SynthEngineAlias
+    ? UnisonSynthesizer
+    : string extends Gain
+      ? Synthesizer | UnisonSynthesizer
+      : Synthesizer;
   synth(
     type?: string | SingleSlotAudioParamInput,
     gain?: SingleSlotAudioParamInput,

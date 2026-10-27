@@ -39,11 +39,14 @@ Supported waveform aliases canonicalize as follows:
 
 Octaves are fixed selectors: only `-1` and `-2` are accepted. Waveform and
 octave choices are not patterned or automated. Gain is the final argument and
-is always required; `.sub()`, `.sub(-1)`, and `.sub("square", -1)` are invalid.
+is always required. The one-argument form is gain-only, so `.sub(-1)` is valid
+and means the default sine at `-1` octave; it is not an octave-only shorthand.
+`.sub()` and `.sub("square", -1)` remain invalid because they omit the gain.
 
 ```ts
 // All three positional forms.
 d.synth().sub(0.3).push();
+d.synth().sub(-1).push();
 d.synth().sub(-2, 0.25).push();
 d.synth().sub("square", -2, 0.2).push();
 
@@ -109,8 +112,9 @@ d.synth().sub("square", -1, [0.3, 0.5]);
 d.synth().sub("square", -1, 0.3, 0.5);
 ```
 
-Static negative source gains resolve to `0` without changing the reusable
-shorthand or structured input. There is no upper clamp at `1`. Existing
+Static negative source gains resolve to `0` at the engine binding without
+changing the reusable shorthand or structured input. The authored schema may
+retain the negative static value. There is no upper clamp at `1`. Existing
 automation remains unchanged, including signed outputs from random, envelope,
 LFO, and MIDI sources; the static floor is not an automation clip.
 

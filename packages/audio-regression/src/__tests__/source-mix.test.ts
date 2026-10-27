@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { evaluateSource } from "@web-audio/fluid";
 import { compareAudio } from "../runner/compare";
 import { withRenderer } from "../runner/render";
 import type { SketchCase } from "../types";
@@ -614,38 +615,69 @@ d.${factory}
   });
 
   it("characterizes bounded overlapping source-mix polyphony", async () => {
-    await withRenderer(async (renderer) => {
-      const started = performance.now();
-      const result = await renderer.render(
-        renderCase(
-          `d.bpm(120);
+    const code = `d.bpm(120);
  d.synth("unison", 0.2)
    .voices(7)
    .spread(24)
    .width(1)
    .sub("sine", -1, 0.16)
    .noise("white", 0.06)
-   .notes([48, 52, 55, 59])
+   .notes([[48, 52, 55, 59]])
    .xox("1")
    .gain(0.3)
    .adsr(0.01, 0.05, 0.8, 0.4)
    .fx(d.gain(0.5))
-   .push();`,
-          false,
-          { tailSeconds: 0.75 },
-        ),
+   .push();`;
+    const schema = evaluateSource(code);
+    const instrument = schema.instruments[0];
+    if (instrument?.type !== "synthesizer" || instrument.engine !== "unison") {
+      throw new Error(
+        "Expected the characterization instrument to be a unison synth",
+      );
+    }
+    const notes = instrument.eventPattern.notes;
+    if (notes?.type !== "static") {
+      throw new Error("Expected the characterization notes to be static");
+    }
+    const noteGroups = notes.cycle
+      .flat()
+      .filter((group): group is number[] => group !== null);
+    const timingHitCount = instrument.eventPattern.timing.cycle.reduce(
+      (count, bar) => count + bar.length,
+      0,
+    );
+    const voices = instrument.voices;
+    if (voices.type !== "static") {
+      throw new Error("Expected the characterization voices to be static");
+    }
+    const unisonVoices = voices.cycle.flat()[0];
+    if (unisonVoices === undefined) {
+      throw new Error("Expected a characterization unison voice count");
+    }
+    const maximumMusicalPolyphony = Math.max(
+      ...noteGroups.map((group) => group.length),
+    );
+    const dspComponentsPerVoice =
+      unisonVoices + (instrument.sub ? 1 : 0) + (instrument.noise ? 1 : 0);
+
+    expect(noteGroups).toEqual([[48, 52, 55, 59]]);
+    expect(timingHitCount).toBe(1);
+    expect(maximumMusicalPolyphony).toBe(noteGroups[0]?.length);
+
+    await withRenderer(async (renderer) => {
+      const started = performance.now();
+      const result = await renderer.render(
+        renderCase(code, false, { tailSeconds: 0.75 }),
       );
       const wallTimeMs = performance.now() - started;
       const durationSeconds = result.frameCount / result.settings.sampleRate;
-      const maximumMusicalPolyphony = 4;
-      const ownedSourcesPerVoice = 7 + 1 + 1;
       process.stdout.write(
-        `[source-mix] overlap characterization: duration=${durationSeconds.toFixed(3)}s polyphony=${maximumMusicalPolyphony} voices sourcesPerVoice=${ownedSourcesPerVoice} wall=${wallTimeMs.toFixed(1)}ms\n`,
+        `[source-mix] overlap characterization: duration=${durationSeconds.toFixed(3)}s polyphony=${maximumMusicalPolyphony} voices dspComponentsPerVoice=${dspComponentsPerVoice} wall=${wallTimeMs.toFixed(1)}ms\n`,
       );
 
       expect(durationSeconds).toBeGreaterThan(0);
-      expect(maximumMusicalPolyphony).toBe(4);
-      expect(ownedSourcesPerVoice).toBe(9);
+      expect(maximumMusicalPolyphony).toBeGreaterThan(0);
+      expect(dspComponentsPerVoice).toBeGreaterThan(0);
       expect(wallTimeMs).toBeGreaterThan(0);
       expect(maxAbs(result.channels)).toBeGreaterThan(1e-5);
       expect(renderer.browser.contexts()).toHaveLength(0);

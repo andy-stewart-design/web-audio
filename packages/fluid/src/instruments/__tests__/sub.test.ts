@@ -11,11 +11,17 @@ describe("synth sub authoring", () => {
   it("serializes defaults, aliases, and replacement as one layer", () => {
     const drome = new Drome();
     const synth = drome.synth().sub("sq", -2, 0.4).sub(0.2);
+    const negativeGain = drome.synth().sub(-1).getSchema().sub;
 
     expect(synth.getSchema().sub).toEqual({
       waveform: "sine",
       octave: -1,
       gain: staticGain(0.2),
+    });
+    expect(negativeGain).toEqual({
+      waveform: "sine",
+      octave: -1,
+      gain: staticGain(-1),
     });
     expect(() => validateDromeGraph(drome.getSchema())).not.toThrow();
 

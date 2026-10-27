@@ -44,16 +44,16 @@ abstract class SynthBase extends Instrument {
     gain: SingleSlotAudioParamInput,
   ): this;
   sub(
-    waveformOrOctaveOrGain: WaveformAlias | -1 | -2 | SingleSlotAudioParamInput,
-    octaveOrGain?: -1 | -2 | SingleSlotAudioParamInput,
+    waveformOrOctaveOrGain: SingleSlotAudioParamInput,
+    octaveOrGain?: SingleSlotAudioParamInput,
     gain?: SingleSlotAudioParamInput,
   ) {
     let waveform: Waveform = "sine";
     let octave: -1 | -2 = -1;
-    let gainInput: SingleSlotAudioParamInput;
+    let gainInput: SingleSlotAudioParamInput | undefined;
 
     if (arguments.length === 1) {
-      gainInput = waveformOrOctaveOrGain as SingleSlotAudioParamInput;
+      gainInput = waveformOrOctaveOrGain;
     } else if (arguments.length === 2) {
       if (waveformOrOctaveOrGain !== -1 && waveformOrOctaveOrGain !== -2) {
         throw new TypeError(
@@ -61,7 +61,7 @@ abstract class SynthBase extends Instrument {
         );
       }
       octave = waveformOrOctaveOrGain;
-      gainInput = octaveOrGain as SingleSlotAudioParamInput;
+      gainInput = octaveOrGain;
     } else if (arguments.length === 3) {
       if (!isWaveformAlias(waveformOrOctaveOrGain)) {
         throw new TypeError("[Synth] sub() waveform is invalid.");
@@ -71,7 +71,7 @@ abstract class SynthBase extends Instrument {
       }
       waveform = resolveWaveform(waveformOrOctaveOrGain);
       octave = octaveOrGain;
-      gainInput = gain as SingleSlotAudioParamInput;
+      gainInput = gain;
     } else {
       throw new TypeError(
         "[Synth] sub() requires gain, octave and gain, or waveform, octave and gain.",
