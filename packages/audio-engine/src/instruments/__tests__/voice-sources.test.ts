@@ -98,7 +98,7 @@ class TestInstrument extends Instrument {
     sources: [{ node: FakeSourceNode }, ...{ node: FakeSourceNode }[]],
     sourceGain?: AudioParamSchema,
     options: {
-      subSource?: { node: FakeSourceNode; gain: AudioParamSchema };
+      sub?: { node: FakeSourceNode; gain: AudioParamSchema };
       detune?: AudioParamSchema;
       effects?: EffectSchema[];
     } = {},
@@ -107,17 +107,17 @@ class TestInstrument extends Instrument {
     this._scheduleVoice({
       sources,
       sourceGain,
-      subSource: options.subSource
+      sub: options.sub
         ? {
-            source: { node: options.subSource.node },
-            gain: options.subSource.gain,
+            source: { node: options.sub.node },
+            gain: options.sub.gain,
           }
         : undefined,
       detune: options.detune
         ? {
             params: [
               ...sources.map(({ node }) => node.detune),
-              ...(options.subSource ? [options.subSource.node.detune] : []),
+              ...(options.sub ? [options.sub.node.detune] : []),
             ] as unknown as [AudioParam, ...AudioParam[]],
             resolved: this._resolveDetune(options.detune, event),
           }
@@ -466,7 +466,7 @@ describe("Instrument source ownership", () => {
     const main = new FakeSourceNode();
     const sub = new FakeSourceNode();
     instrument.scheduleVoice([{ node: main }], undefined, {
-      subSource: {
+      sub: {
         node: sub,
         gain: { type: "static", cycle: [[0.5]] },
       },
@@ -502,7 +502,7 @@ describe("Instrument source ownership", () => {
     const main = new FakeSourceNode();
     const sub = new FakeSourceNode();
     instrument.scheduleVoice([{ node: main }], undefined, {
-      subSource: {
+      sub: {
         node: sub,
         gain: { type: "static", cycle: [[0.5]] },
       },
@@ -532,7 +532,7 @@ describe("Instrument source ownership", () => {
     const main = new FakeSourceNode();
     const sub = new FakeSourceNode();
     instrument.scheduleVoice([{ node: main }], undefined, {
-      subSource: {
+      sub: {
         node: sub,
         gain: {
           type: "lfo",
@@ -570,7 +570,7 @@ describe("Instrument source ownership", () => {
     const main = new FakeSourceNode();
     const sub = new FakeSourceNode();
     instrument.scheduleVoice([{ node: main }], undefined, {
-      subSource: {
+      sub: {
         node: sub,
         gain: {
           type: "midi-cc",
@@ -610,7 +610,7 @@ describe("Instrument source ownership", () => {
 
     expect(() =>
       instrument.scheduleVoice([{ node: main }], undefined, {
-        subSource: {
+        sub: {
           node: sub,
           gain: {
             type: "midi-cc",
@@ -643,7 +643,7 @@ describe("Instrument source ownership", () => {
 
     expect(() =>
       instrument.scheduleVoice([{ node: main }], undefined, {
-        subSource: {
+        sub: {
           node: sub,
           gain: {
             type: "midi-cc",
@@ -682,7 +682,7 @@ describe("Instrument source ownership", () => {
 
     expect(() =>
       instrument.scheduleVoice([{ node: main }], undefined, {
-        subSource: {
+        sub: {
           node: sub,
           gain: { type: "static", cycle: [[0.5]] },
         },
@@ -720,11 +720,11 @@ describe("Instrument source ownership", () => {
     const secondMain = new FakeSourceNode();
     const secondSub = new FakeSourceNode();
     instrument.scheduleVoice([{ node: firstMain }], undefined, {
-      subSource: { node: firstSub, gain: { type: "static", cycle: [[1]] } },
+      sub: { node: firstSub, gain: { type: "static", cycle: [[1]] } },
       detune,
     });
     instrument.scheduleVoice([{ node: secondMain }], undefined, {
-      subSource: { node: secondSub, gain: { type: "static", cycle: [[1]] } },
+      sub: { node: secondSub, gain: { type: "static", cycle: [[1]] } },
       detune,
     });
 
@@ -770,11 +770,11 @@ describe("Instrument source ownership", () => {
     const secondMain = new FakeSourceNode();
     const secondSub = new FakeSourceNode();
     instrument.scheduleVoice([{ node: firstMain }], undefined, {
-      subSource: { node: firstSub, gain: { type: "static", cycle: [[1]] } },
+      sub: { node: firstSub, gain: { type: "static", cycle: [[1]] } },
       detune,
     });
     instrument.scheduleVoice([{ node: secondMain }], undefined, {
-      subSource: { node: secondSub, gain: { type: "static", cycle: [[1]] } },
+      sub: { node: secondSub, gain: { type: "static", cycle: [[1]] } },
       detune,
     });
 
@@ -832,10 +832,10 @@ describe("Instrument source ownership", () => {
     const secondMain = new FakeSourceNode();
     const secondSub = new FakeSourceNode();
     instrument.scheduleVoice([{ node: firstMain }], gain, {
-      subSource: { node: firstSub, gain },
+      sub: { node: firstSub, gain },
     });
     instrument.scheduleVoice([{ node: secondMain }], gain, {
-      subSource: { node: secondSub, gain },
+      sub: { node: secondSub, gain },
     });
     instrument.retire();
 
@@ -870,10 +870,10 @@ describe("Instrument source ownership", () => {
     const secondMain = new FakeSourceNode();
     const secondSub = new FakeSourceNode();
     instrument.scheduleVoice([{ node: firstMain }], undefined, {
-      subSource: { node: firstSub, gain },
+      sub: { node: firstSub, gain },
     });
     instrument.scheduleVoice([{ node: secondMain }], undefined, {
-      subSource: { node: secondSub, gain },
+      sub: { node: secondSub, gain },
     });
 
     expect(signal.subscriberCount).toBe(2);
@@ -898,7 +898,7 @@ describe("Instrument source ownership", () => {
     const main = new FakeSourceNode();
     const sub = new FakeSourceNode();
     instrument.scheduleVoice([{ node: main }], undefined, {
-      subSource: {
+      sub: {
         node: sub,
         gain: { type: "static", cycle: [[0.5]] },
       },

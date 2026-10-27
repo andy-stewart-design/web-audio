@@ -148,7 +148,7 @@ class TestInstrument extends Instrument {
   ) {
     this._scheduleVoice({
       sources: [{ node: main }],
-      subSource: {
+      sub: {
         source: { node: sub },
         gain: staticGain,
       },

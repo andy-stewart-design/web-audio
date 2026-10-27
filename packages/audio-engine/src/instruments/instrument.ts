@@ -70,7 +70,7 @@ interface BaseInstrumentOptions extends Pick<
 
 interface BaseScheduleVoiceParams {
   sources: readonly [ScheduledVoiceSource, ...ScheduledVoiceSource[]];
-  subSource?: {
+  sub?: {
     source: ScheduledVoiceSource;
     gain: AudioParamSchema;
   };
@@ -233,7 +233,7 @@ abstract class Instrument {
     const mainSourceNodes = params.sources.map(({ node }) => node);
     const sourceNodes = [
       ...mainSourceNodes,
-      ...(params.subSource ? [params.subSource.source.node] : []),
+      ...(params.sub ? [params.sub.source.node] : []),
     ];
     const scheduled = this._createScheduledNote(sourceNodes, event.startTime);
     const ownNode = (node: AudioNode) => scheduled.audioNodes.add(node);
@@ -269,12 +269,12 @@ abstract class Instrument {
       }
 
       let subGain: GainNode | undefined;
-      if (params.subSource) {
+      if (params.sub) {
         subGain = new GainNode(this._ctx);
         ownNode(subGain);
         this._applySourceGain(
           subGain.gain,
-          params.subSource.gain,
+          params.sub.gain,
           event,
           scheduled.completionCleanups,
         );
@@ -336,8 +336,8 @@ abstract class Instrument {
       const sourceDestination = mainGain ?? chain[0]!;
       mainSourceNodes.forEach((source) => source.connect(sourceDestination));
       if (mainGain) mainGain.connect(chain[0]!);
-      if (params.subSource && subGain) {
-        params.subSource.source.node.connect(subGain);
+      if (params.sub && subGain) {
+        params.sub.source.node.connect(subGain);
         subGain.connect(chain[0]!);
       }
       if (noiseSource && noiseGain) {
@@ -354,7 +354,7 @@ abstract class Instrument {
       this._track(scheduled);
       for (const { node, offset } of [
         ...params.sources,
-        ...(params.subSource ? [params.subSource.source] : []),
+        ...(params.sub ? [params.sub.source] : []),
       ]) {
         if (scheduled.released) break;
         if (offset === undefined) node.start(event.startTime);

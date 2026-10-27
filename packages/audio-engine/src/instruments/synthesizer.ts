@@ -154,7 +154,7 @@ class Synthesizer extends Instrument {
       handedOff = true;
       this._scheduleVoice({
         sources: [{ node: main! }],
-        subSource: sub
+        sub: sub
           ? { source: { node: sub }, gain: schema.sub!.gain }
           : undefined,
         sourceGain: schema.sourceGain,
@@ -236,7 +236,7 @@ class Synthesizer extends Instrument {
       handedOff = true;
       this._scheduleVoice({
         sources: [{ node: source! }],
-        subSource: sub
+        sub: sub
           ? { source: { node: sub }, gain: schema.sub!.gain }
           : undefined,
         sourceGain: schema.sourceGain,
