@@ -4,9 +4,9 @@
 
 - Governing spec: [spec.md](spec.md).
 - Input baseline: Existing [parameter shorthand](../../completed/parameter-shorthand/plan.md) and [Fluid pattern-input](../../fluid-pattern-inputs/plan.md) implementations. Their recorded verification is prerequisite evidence, not a fresh source-mix baseline.
-- Delivery state: Step 1.1 and Step 1.2 are verified; Phase 1 is complete and Phase 2 remains pending.
-- Acceptance still pending: Phase 2 composed lifecycle follow-ups, documentation, registered references, final native acceptance, and human listening review remain.
-- Blockers: None for implementation. Native checks require the existing Chromium harness; final audio acceptance requires a human reviewer.
+- Delivery state: Steps 1.1, 1.2, 2.1, 2.2, and 2.3 are verified; the complete source-mix feature is delivered. The louder candidate was explicitly approved by the user (“cool. I'm good with this.”), and the saved `source-mix` reference received final human listening approval from reviewer `user`: “Yep, sounds good.”
+- Acceptance complete: automated/native gates, documentation, reference creation, unchanged unrelated references, and final saved-reference listening all passed. Existing approved references are unchanged.
+- Blockers: None.
 
 Step statuses below are the authoritative execution record. A phase is complete
 only when its step gates and phase exit gate pass. Task checkboxes do not prove
@@ -100,7 +100,7 @@ Completion gate: Focused checks and selected references pass, or affected work i
 Evidence: [evidence/0.1.md](evidence/0.1.md) — complete baseline: 7 focused test files and 197 tests passed; selected `sine`, `unison`, and `pre-envelope-sampler` references passed unchanged. The initial headed-executable preflight and one concurrent sampler invocation were classified as harness false positives/contention and the exact native check was rerun successfully.
 
 Phase exit gate: After Step 0.1, review baseline results and prerequisite availability before advancing. Unresolved failures affecting source/voice parity block dependent work; unrelated failures require explicit disposition, not silent waiver. Evidence lives in Step 0.1 or its linked note.
-Evidence: Complete; Step 0.1 verified. Phase 0 exit gate passed. No human listening was required for characterization; final audio acceptance remains Step 2.3.
+Evidence: Complete; Step 0.1 verified. Phase 0 exit gate passed. No human listening was required for characterization; final audio acceptance was owned by Step 2.3 and is now complete.
 
 ## Phase 1 — End-to-end source controls
 
@@ -141,10 +141,10 @@ Verification:
 - Automated: `pnpm --filter @web-audio/schema test:ci`; `pnpm --filter @web-audio/fluid exec vitest run src/__tests__/source-mix.test.ts src/instruments/__tests__/unison.test.ts`; `pnpm --filter @web-audio/audio-engine exec vitest run src/instruments/__tests__/synthesizer.test.ts src/instruments/__tests__/noise.test.ts src/__tests__/engine.test.ts`. The new factory suite includes compile-time assertions checked by Fluid `check`, including known selector literals versus general string gain inputs. Reuse `src/__tests__/positional-pattern-inputs.test.ts` and `src/__tests__/structured-inputs.test.ts` as existing test seams; do not copy their full input/ownership matrices.
 - Native: After `pnpm --filter @web-audio/audio-regression build:deps`, run `pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/source-mix.test.ts` (new suite). Expect matching default/unity and default-sine spellings, silent zero gain, preserved/scaled stereo difference, unchanged noise with zero main gain, and finite output.
 - Quality: Run `check` and `lint` in schema, Fluid, and audio-engine; `pnpm --filter @web-audio/fluid build` must emit valid public declarations. Formatting and whitespace follow the shared conventions.
-- Manual: Review overloads and gain-target placement. Human sound approval remains Step 2.3; mocks are not native playback evidence.
+- Manual: Review overloads and gain-target placement. Human sound approval was owned by Step 2.3 and is now recorded there; mocks are not native playback evidence.
 
 Completion gate: Main gain is consumed correctly from both public factory forms through native audio; direct schema behavior, omitted-field parity, cleanup smoke coverage, and typed declarations pass together. No publicly accepted but ignored setting.
-Evidence: [evidence/1.1.md](evidence/1.1.md) — verified focused implementation, quality, declaration, cleanup, and native checks; final human listening remains a Phase 2.3 requirement.
+Evidence: [evidence/1.1.md](evidence/1.1.md) — verified focused implementation, quality, declaration, cleanup, and native checks; final human listening was completed in Phase 2.3.
 
 ### Step 1.2 — Deliver the pitched sub as one owned source layer
 
@@ -247,11 +247,11 @@ Verification:
 - Manual: Read the pages without the conversation. Confirm all examples use accepted syntax and correctly distinguish source gain, amplitude gain, and deferred functionality; follow the new relative links.
 
 Completion gate: A reader can author the delivered mix without interview context; examples match implemented schema/API behavior and no existing documentation edits are lost.
-Evidence: [evidence/2.2.md](evidence/2.2.md) — public `evaluateSource` assertions covered 35 executable documentation examples; invalid rejection snippets were intentionally excluded and link/format checks passed. Step 2.3 native/listening acceptance remains pending.
+Evidence: [evidence/2.2.md](evidence/2.2.md) — public `evaluateSource` assertions covered 35 executable documentation examples; invalid rejection snippets were intentionally excluded and link/format checks passed. Step 2.3 native/listening acceptance was subsequently completed.
 
 ### Step 2.3 — Accept native mixing, parity, and sound
 
-Status: Pending
+Status: Verified — automated/native coverage, reference creation, and final saved-reference listening complete
 Requirements / acceptance: R3–R9; AC6–AC8/AC10 (remaining native portions), AC13 (full parity/listening); final integration of AC1–AC12 from their owning gates.
 Depends on: Steps 2.1 and 2.2.
 Review boundary: Real runtime composition and one bounded reviewed sound example; unchanged gain helpers are not being recertified.
@@ -259,30 +259,32 @@ Review boundary: Real runtime composition and one bounded reviewed sound example
 Expected files:
 
 - `packages/audio-regression/src/__tests__/source-mix.test.ts`; `src/__tests__/support/source-mix.ts` only if needed — extend existing native suite/helpers, not a new renderer.
-- `packages/audio-regression/cases/source-mix/{metadata.json,sketch.js}` and `references/source-mix/{metadata.json,render.wav}` — new registered case and individually reviewed reference, delivered atomically.
+- `packages/audio-regression/cases/source-mix/{metadata.json,sketch.js}` and `references/source-mix/{metadata.json,render.wav}` — registered case and individually reviewed reference, delivered after explicit candidate approval and final saved-reference listening.
 - `packages/audio-regression/README.md` — focused native coverage/command note; no rewrite of existing reference policy.
 - `evidence/2.3.md` — create when substantive native/repeatability/listening results exist; link it from this step. Other evidence remains at its owning gate.
 
 Tasks:
 
-- [ ] Complete native comparisons using deterministic sketches: unity/omitted main parity, one representative shorthand-versus-structured mix comparison, main+sub additive sum with linear effects, preservation of main stereo difference when adding centered sub, and pitch tracking under common detune independent of unison count/spread/width. Reuse prior smoke renders and existing numeric helpers; assert nonempty observation windows and unchanged tolerances.
-- [ ] Check representative basic/unison/sub/noise starts and stops at non-quantum-aligned offsets, main-zero/sub-audible output, and shared release bounds. Use 48 kHz for the main suite and a small 44.1 kHz timing/pitch smoke check, not a full waveform-by-automation-by-rate matrix. Render identical sketches in fresh contexts to establish repeatability.
-- [ ] Register one short source-mix listening case covering all sub waveforms and a useful unison-plus-centered-sub passage, at conservative overall amplitude. Its source uses fixed event/random inputs and existing effects, not unshipped saturation or automatic limiting.
-- [ ] Render the candidate and have a human listen for intended octave balance, centered low end, preserved upper-source stereo, useful waveform levels, and abnormal clicks. Address defects before reference acceptance. Add/update only this case's reference with explicit approval; never regenerate existing references to obtain a pass.
-- [ ] Run the final workspace regression/quality gates below and verify existing approved recordings remain unchanged. Record a bounded representative overlapping-voice render's duration/polyphony/wall time alongside native results; this is characterization, not a new performance SLA or benchmark harness.
+- [x] Complete native comparisons using deterministic sketches: unity/omitted main parity, one representative shorthand-versus-structured mix comparison, main+sub additive sum with linear effects, preservation of main stereo difference when adding centered sub, and pitch tracking under common detune independent of unison count/spread/width. Reuse prior smoke renders and existing numeric helpers; assert nonempty observation windows and unchanged tolerances.
+- [x] Check representative basic/unison/sub/noise starts and stops at non-quantum-aligned offsets, main-zero/sub-audible output, and shared release bounds. Use 48 kHz for the main suite and a small 44.1 kHz timing/pitch smoke check, not a full waveform-by-automation-by-rate matrix. Render identical sketches in fresh contexts to establish repeatability.
+- [x] Register one short source-mix listening case covering all sub waveforms and a useful unison-plus-centered-sub passage, with the source gains increased consistently for audible level while retaining safe headroom. Its source uses fixed event inputs and existing effects, not unshipped saturation or automatic limiting.
+- [x] Render the louder candidate with `audio:render --case source-mix`; the user explicitly approved that candidate (“cool. I'm good with this.”). Run the authorized `audio:update --case source-mix` only, preserving the candidate proof and all unrelated references; final saved-reference listening was then completed by reviewer `user` with “Yep, sounds good.”
+- [x] Run the final workspace regression/quality gates below and verify existing approved recordings remain unchanged. Root `pnpm test`, `pnpm check`, and `pnpm lint` passed after dependency builds. Record a bounded representative overlapping-voice render's duration/polyphony/wall time alongside native results; this is characterization, not a new performance SLA or benchmark harness.
 
 Verification:
 
-- Automated native: `pnpm --filter @web-audio/audio-regression build:deps`, then `pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/source-mix.test.ts`. Expect finite, repeatable output and the specific additive/stereo/pitch/timing invariants; signed automation remains on the existing path.
-- Candidate/reference workflow: Use existing `audio:render --case source-mix` for candidate playback. After review, use `audio:update --case source-mix`, inspect/listen to the resulting `references/source-mix/render.wav`, and run `audio:verify --case source-mix`, all via `pnpm --filter @web-audio/audio-regression`. Stage the registered case and its approved reference as one unit; missing or unapproved reference keeps this gate pending.
-- Manual: Requires the local Chromium harness, audio playback equipment, and a human reviewer. Play the generated candidate at a safe level, then the final reference; record who listened and the outcome when known. Playback-command success and numerical agreement do not constitute listening approval.
-- Final automated gate: `pnpm test`, `pnpm check`, and `pnpm lint` from the root after dependency builds, plus Prettier on changed files and `git diff --check`. Root tests already freshly verify registered audio references; do not add another redundant all-case verify pass. No unrelated reference bytes may change.
+- Automated native: `pnpm --filter @web-audio/audio-regression build:deps`, then `pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/source-mix.test.ts`, plus existing native `noise.test.ts` and `unison.test.ts` serially. These passed with finite, repeatable output and the specific additive/stereo/pitch/timing invariants; signed automation remains on the existing path.
+- Candidate/reference workflow: `audio:render --case source-mix` produced `packages/audio-regression/artifacts/render/source-mix.wav` (196146 frames, 48 kHz, 132 BPM, approximately 4.086 seconds) with rendered Float32 channel peaks 0.1382509171962738 and 0.13491852581501007 (reported rounded as 0.138251 and 0.134919). All source gains were multiplied by 4x (+12.04 dB) to preserve main/sub ratios while increasing overall level. The user explicitly approved this candidate with “cool. I'm good with this.” The authorized `audio:update --case source-mix` then created `packages/audio-regression/references/source-mix/render.wav` and its metadata; no other reference case was updated.
+- Reference comparison: candidate WAV SHA-256 `f56586620b673e1c25dd45664948e3aca46f97cf6a04247fb2daf22f0aaadc32`; saved reference WAV SHA-256 `80ed18641b7c2f734d5539bbe66714957ad56d7c19953eb6f25062f4b7682140`. Both contain 196146 frames, 48 kHz, 2 channels, 32-bit Float WAV data and identical channel peaks. The candidate and saved reference are not byte/sample-identical: 8473 of 392292 Float32 samples differ, with maximum absolute difference `1.4901161193847656e-8`; metadata is byte-identical (SHA-256 `3f1f5b6c49a3a6cb9427840df2f31aebfec8817c7a250ad7fe00e8acf5535fb6`).
+- Automated reference verification: `audio:verify --case source-mix` passed with channel maxima `7.450581e-9` / `1.490116e-8` and RMS `2.684100e-10` / `2.657184e-10`, below the `1e-6` / `1e-7` limits. The final root `pnpm test` passed 15/15 registered cases (audio-regression tooling: 23 files / 196 tests); `pnpm check` and `pnpm lint` passed 14 workspace tasks each. An earlier serial root run's transient `ch-ch-chocolate` mismatch was already rerun successfully without reference changes, as recorded above; this final run had no such failure.
+- Manual: Final listening of `packages/audio-regression/references/source-mix/render.wav` was completed by reviewer `user`, who approved it with the exact response: “Yep, sounds good.” This is separate from the earlier historic candidate approval (“cool. I'm good with this.”); no assistant listening is claimed.
+- Final automated gate: Root `pnpm test`, `pnpm check`, and `pnpm lint` passed after dependency builds; Prettier on all changed text files and `git diff --check` also passed. No unrelated reference bytes changed.
 
-Completion gate: Native composition assertions, unchanged approved references, workspace quality gates, and the new case's human listening acceptance pass. A missing reviewer or browser keeps the applicable gate blocked, not verified. No implementation-complete claim while required listening remains pending.
-Evidence: Not run.
+Completion gate: Native composition assertions, candidate approval, reference creation, automated verification, and final saved-reference listening pass. Step 2.3 is verified and the source-mix feature is implementation-complete.
+Evidence: [evidence/2.3.md](evidence/2.3.md) — automated native coverage, explicit candidate approval, reference creation/comparison, final saved-reference listening approval, and final-gate results recorded.
 
-Phase exit gate: After Step 2.3's checks, review the acceptance map, each owning gate's evidence, unchanged existing reference files, public documentation, and any recorded baseline failures. The full one-PR feature is ready only when all required outcomes and listening acceptance are satisfied. Evidence stays in the owning steps, with substantive final native/listening details linked from Step 2.3.
-Evidence: Not run.
+Phase exit gate: Passed. After Step 2.3's checks, the acceptance map, owning-gate evidence, unchanged existing reference files, public documentation, and recorded baseline results were reviewed. All required outcomes and listening acceptance are satisfied; Phase 2 and the complete one-PR source-mix delivery are verified.
+Evidence: [evidence/2.3.md](evidence/2.3.md) records the final native, reference, and listening results.
 
 ## Final acceptance
 
@@ -304,6 +306,8 @@ checklist or a claim that verification has occurred.
 | AC11               | Steps 1.2, 2.1               | Setup/source failures, retirement, and repeated destruction release whole-voice ownership correctly                           | Steps 1.2/2.1 evidence                                  |
 | AC12               | Steps 1.1, 1.2, 2.1          | Omitted schemas work; malformed new fields/sampler misuse fail without replacing valid graphs                                 | Owning step evidence                                    |
 | AC13               | Step 2.3; Phase 2 exit       | Repeatable native mixes, unchanged existing recordings, and human-approved sound                                              | Step 2.3 evidence and its linked native/listening note  |
+
+All acceptance criteria are complete. The final saved-reference listening approval was recorded from reviewer `user` as: “Yep, sounds good.”
 
 ## Rollback and recovery
 

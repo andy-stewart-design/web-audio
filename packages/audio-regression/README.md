@@ -1,6 +1,6 @@
 # @web-audio/audio-regression
 
-Private local tooling that renders Fluid sketches through the real AudioEngine and Chromium `OfflineAudioContext`, then compares raw audio with listening-approved recordings. The initial set has **11 cases with reviewed references**. It is a local Mac regression suite, not cross-platform or musical-quality certification.
+Private local tooling that renders Fluid sketches through the real AudioEngine and Chromium `OfflineAudioContext`, then compares raw audio with listening-approved recordings. The suite has **15 cases with reviewed references**, including `source-mix`. It is a local Mac regression suite, not cross-platform or musical-quality certification.
 
 ## Setup and commands
 
@@ -53,6 +53,20 @@ browser heap usage in-page but does not establish a real-time CPU guarantee.
 It also does not create or update reviewed references. Human listening remains a
 separate acceptance step; numerical rendering success and `afplay` playback are
 not listening approval.
+
+## Source-mix native acceptance (complete)
+
+The focused native suite in `src/__tests__/source-mix.test.ts` covers omitted/unity parity, shorthand/structured mix equivalence, additive main+sub mixing through a linear effect, centered-sub stereo behavior, common-detune pitch independence from unison controls, non-quantum source timing/shared release, 48 kHz repeatability, and a small 44.1 kHz timing/pitch smoke. It also records a bounded overlapping-voice characterization without defining a performance SLA.
+
+Run the automated coverage serially when sharing the local harness port:
+
+```sh
+pnpm --filter @web-audio/audio-regression build:deps
+pnpm --filter @web-audio/audio-regression exec vitest run src/__tests__/source-mix.test.ts
+pnpm --filter @web-audio/audio-regression audio:render --case source-mix
+```
+
+The render command writes the candidate to `artifacts/render/source-mix.wav` and does not compare or update references. The candidate was explicitly approved, and `audio:update --case source-mix` created the saved reference. `audio:verify --case source-mix` and root `pnpm test` pass it numerically; final listening of the saved reference was approved by reviewer `user` with “Yep, sounds good.” Do not use `audio:update` without explicit candidate approval.
 
 ## Authoring cases
 

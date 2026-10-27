@@ -11,7 +11,7 @@ This is a **feature roadmap, not a single-PR scope or a commitment to implement 
 - [x] Move per-instrument effects before each note's amplitude envelope ([implementation plan](pre-envelope-effects/plan.md)).
 - [x] Deliver the saw-only unison engine with canonical `"unison"` / `"uni"` selectors.
 - [ ] Design/expose a public waveform API for the Unison engine
-- [ ] Add an optional main-source gain argument to `d.synth()` and `.sub()` to synths in one PR ([source-mixing spec](source-mix/spec.md); [implementation plan](source-mix/plan.md)). Public factory forms are documented; native and final acceptance remain pending.
+- [x] Add an optional main-source gain argument to `d.synth()` and `.sub()` to synths in one PR ([source-mixing spec](source-mix/spec.md); [implementation plan](source-mix/plan.md)). Public forms, native verification, and final saved-reference listening are complete; reviewer `user` approved the saved reference with “Yep, sounds good.”
 - [x] Add `.noise()` to both synths and samplers ([spec](noise/spec.md), [implementation plan](noise/plan.md)).
 - [ ] Add standalone `d.noise()` instruments as a separate follow-up to noise layers ([scope](#standalone-noise-instrument-follow-up)).
 - [ ] Add a saturator effect.

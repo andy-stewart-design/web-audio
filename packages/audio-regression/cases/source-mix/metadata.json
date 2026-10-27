@@ -1,0 +1,10 @@
+{
+  "description": "Deterministic source-mix listening candidate with all sub waveforms and centered unison bass",
+  "bars": 2,
+  "tailSeconds": 0.35,
+  "settings": {
+    "sampleRate": 48000,
+    "channels": 2,
+    "startOffsetFrames": 4800
+  }
+}
