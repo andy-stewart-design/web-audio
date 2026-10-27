@@ -2,10 +2,10 @@
 
 ## Status
 
-- Readiness: Ready for planning.
-- Blocking decisions: None for planning.
+- Readiness: Delivered.
+- Blocking decisions: None.
 - Source: The [analog-engine roadmap](../roadmap.md) and source-mixing design discussion. Parameter inputs follow the existing [parameter shorthand](../../completed/parameter-shorthand/spec.md) and [Fluid pattern-input](../../fluid-pattern-inputs/spec.md) contracts.
-- Delivery: Specification only; this feature is not implemented. Readiness is not permission to implement or approve audio references.
+- Delivery: Implemented and accepted. The completed plan and [Step 2.3 evidence](evidence/2.3.md) record automated/native verification, unchanged unrelated references, and final saved-reference listening approval from reviewer `user`: “Yep, sounds good.”
 
 ## Problem and intended outcome
 

@@ -10,9 +10,10 @@ The motivating sound is simple: wide, detuned saws with a steady, centered sine
 underneath. Turn the saws down, bring the sub up, and send the combination through
 the same filter and amplitude envelope.
 
-**Status:** This is planned work, not an already available feature. The
-[spec](spec.md) defines the exact behavior; the [plan](plan.md) describes the
-implementation and verification steps.
+**Status:** Delivered. Main-source gain and `.sub()` are implemented and
+available. The [spec](spec.md) defines the behavior; the [plan](plan.md) and
+[evidence/2.3.md](evidence/2.3.md) record the completed verification and final
+saved-reference listening approval from reviewer `user`: “Yep, sounds good.”
 
 ## Two levels of control
 

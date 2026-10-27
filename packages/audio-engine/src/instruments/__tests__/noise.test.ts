@@ -140,6 +140,43 @@ class TestInstrument extends Instrument {
     });
     return source;
   }
+
+  scheduleComposedVoice(
+    startTime: number,
+    main = new FakeSourceNode(),
+    sub = new FakeSourceNode(),
+  ) {
+    this._scheduleVoice({
+      sources: [{ node: main }],
+      sub: {
+        source: { node: sub },
+        gain: staticGain,
+      },
+      event: {
+        barIndex: 0,
+        hitIndex: 0,
+        startTime,
+        duration: 1,
+        endTime: startTime + 1,
+      },
+      gainEnvelope: {
+        min: 0,
+        max: 1,
+        a: 0,
+        d: 0,
+        s: 1,
+        r: 0,
+        mode: "bleed",
+      },
+      effects: [],
+      noise: { color: "white", gain: staticGain },
+    });
+    return {
+      main,
+      sub,
+      noise: FakeAudioWorkletNode.instances.at(-1)!,
+    };
+  }
 }
 
 const staticGain = {
@@ -182,6 +219,115 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Instrument noise voice composition", () => {
+  it.each([
+    ["main", "sub", "noise"],
+    ["main", "noise", "sub"],
+    ["sub", "main", "noise"],
+    ["sub", "noise", "main"],
+    ["noise", "main", "sub"],
+    ["noise", "sub", "main"],
+  ] as const)(
+    "cleans composed sources once in completion order %s/%s/%s",
+    async (...order) => {
+      const instrument = new TestInstrument(
+        new FakeAudioContext() as unknown as BaseAudioContext,
+        {} as never,
+      );
+      const voice = instrument.scheduleComposedVoice(0);
+      const staleCallbacks = {
+        main: voice.main.onended,
+        sub: voice.sub.onended,
+        noise: voice.noise.port.onmessage,
+      };
+      instrument.retire();
+
+      for (const [index, name] of order.slice(0, 2).entries()) {
+        if (name === "noise") voice.noise.port.emit({ type: "ended" });
+        else voice[name].fireEnded();
+        const completed = order.slice(0, index + 1);
+        expect(voice.main.disconnect).toHaveBeenCalledTimes(
+          completed.includes("main") ? 1 : 0,
+        );
+        expect(voice.sub.disconnect).toHaveBeenCalledTimes(
+          completed.includes("sub") ? 1 : 0,
+        );
+        expect(voice.noise.disconnect).toHaveBeenCalledTimes(
+          completed.includes("noise") ? 1 : 0,
+        );
+      }
+
+      const final = order[2];
+      if (final === "noise") voice.noise.port.emit({ type: "ended" });
+      else voice[final].fireEnded();
+
+      staleCallbacks.main?.();
+      staleCallbacks.sub?.();
+      staleCallbacks.noise?.({ data: { type: "ended" } } as MessageEvent);
+      voice.noise.port.emit({ type: "ended" });
+
+      expect(voice.main.disconnect).toHaveBeenCalledOnce();
+      expect(voice.sub.disconnect).toHaveBeenCalledOnce();
+      expect(voice.noise.disconnect).toHaveBeenCalledOnce();
+      let finished = false;
+      instrument.finished.then(() => {
+        finished = true;
+      });
+      await Promise.resolve();
+      expect(finished).toBe(true);
+    },
+  );
+
+  it("cancels a future composed voice without affecting an active one", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const active = instrument.scheduleComposedVoice(0);
+    const future = instrument.scheduleComposedVoice(1);
+    const activeMainStops = active.main.stop.mock.calls.length;
+    const activeSubStops = active.sub.stop.mock.calls.length;
+    const activeNoiseStops = active.noise.port.postMessage.mock.calls.length;
+
+    instrument.cancelFutureNotes();
+
+    expect(active.main.stop).toHaveBeenCalledTimes(activeMainStops);
+    expect(active.sub.stop).toHaveBeenCalledTimes(activeSubStops);
+    expect(active.main.disconnect).not.toHaveBeenCalled();
+    expect(active.sub.disconnect).not.toHaveBeenCalled();
+    expect(active.noise.disconnect).not.toHaveBeenCalled();
+    expect(active.noise.port.postMessage).toHaveBeenCalledTimes(
+      activeNoiseStops,
+    );
+    expect(future.main.stop).toHaveBeenCalledTimes(2);
+    expect(future.sub.stop).toHaveBeenCalledTimes(2);
+    expect(future.noise.port.postMessage).toHaveBeenCalledTimes(3);
+    expect(future.main.disconnect).toHaveBeenCalledOnce();
+    expect(future.sub.disconnect).toHaveBeenCalledOnce();
+    expect(future.noise.disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("destroys all main, sub, and noise resources once when repeated", () => {
+    const instrument = new TestInstrument(
+      new FakeAudioContext() as unknown as BaseAudioContext,
+      {} as never,
+    );
+    const voice = instrument.scheduleComposedVoice(0);
+    const voiceGains = FakeGainNode.instances.slice(-3);
+
+    instrument.destroy();
+    instrument.destroy();
+
+    expect(voice.main.stop).toHaveBeenCalledTimes(2);
+    expect(voice.sub.stop).toHaveBeenCalledTimes(2);
+    expect(voice.noise.port.postMessage).toHaveBeenCalledTimes(3);
+    expect(voice.main.disconnect).toHaveBeenCalledOnce();
+    expect(voice.sub.disconnect).toHaveBeenCalledOnce();
+    expect(voice.noise.disconnect).toHaveBeenCalledOnce();
+    expect(voiceGains.map((node) => node.disconnect.mock.calls.length)).toEqual(
+      [1, 1, 1],
+    );
+  });
+
   it("does not allocate a noise source when the layer is omitted", () => {
     const ctx = new FakeAudioContext();
     const instrument = new TestInstrument(

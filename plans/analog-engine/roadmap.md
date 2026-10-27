@@ -10,12 +10,12 @@ This is a **feature roadmap, not a single-PR scope or a commitment to implement 
 
 - [x] Move per-instrument effects before each note's amplitude envelope ([implementation plan](pre-envelope-effects/plan.md)).
 - [x] Deliver the saw-only unison engine with canonical `"unison"` / `"uni"` selectors.
-- [ ] Design/expose a public waveform API for the Unison engine
-- [ ] Add an optional main-source gain argument to `d.synth()` and `.sub()` to synths in one PR ([source-mixing spec](source-mix/spec.md)).
+- [x] Add an optional main-source gain argument to `d.synth()` and `.sub()` to synths in one PR ([source-mixing spec](source-mix/spec.md); [implementation plan](source-mix/plan.md)). Public forms, native verification, and final saved-reference listening are complete; reviewer `user` approved the saved reference with “Yep, sounds good.”
 - [x] Add `.noise()` to both synths and samplers ([spec](noise/spec.md), [implementation plan](noise/plan.md)).
-- [ ] Add standalone `d.noise()` instruments as a separate follow-up to noise layers ([scope](#standalone-noise-instrument-follow-up)).
 - [ ] Add a saturator effect.
 - [ ] Add an opt-in compressor effect, primarily for buses.
+- [ ] Add standalone `d.noise()` instruments as a separate follow-up to noise layers ([scope](#standalone-noise-instrument-follow-up)).
+- [ ] Design/expose a public waveform API for the Unison engine
 
 ## Signal architecture
 
@@ -65,7 +65,9 @@ Main-source and sub gains each use the existing single-slot parameter contract:
 a number, shorthand string or `d.sh()` value, numeric `d.str()` / `d.structured()`
 value, or direct random-cycle, envelope, LFO, or MIDI CC builder. Raw gain arrays
 and extra pattern arguments are rejected. `d.str(0.3, 0.5)` expresses successive
-bars; `d.str([0.3, 0.5])` expresses within-bar values.
+bars; `d.str([0.3, 0.5])` expresses within-bar values. See the
+[source-mixing implementation plan](source-mix/plan.md) for the delivery and
+acceptance boundary; native/listening acceptance is not claimed here.
 
 Known sole synth-selector strings select the source; other sole strings are gain
 shorthand for the default sine synth. Octave precedes sub gain. Finite negative

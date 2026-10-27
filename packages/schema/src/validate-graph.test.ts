@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import type {
   BankSchema,
   DromeSchema,
@@ -8,6 +8,7 @@ import type {
   SamplerSchema,
   StaticPattern,
   BasicSynthesizerSchema,
+  SynthEngine,
   SynthEventPattern,
   UnisonSynthesizerSchema,
   TimingPattern,
@@ -439,9 +440,10 @@ describe("validateDromeGraph", () => {
   });
 
   it("accepts and validates the unison schema variant", () => {
+    expectTypeOf<SynthEngine>().toEqualTypeOf<"unison">();
     const value = {
       ...instrument(),
-      engine: "unison" as const,
+      engine: "unison" satisfies SynthEngine,
       waveform: "sawtooth" as const,
       voices: staticParam(7),
       spread: staticParam(10),
@@ -453,6 +455,60 @@ describe("validateDromeGraph", () => {
     Object.assign(value, { width: { type: "invalid" } });
     expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
       "[Schema] Instrument 0.width has an invalid audio parameter type.",
+    );
+  });
+
+  it("accepts optional source gain, including finite negative static values", () => {
+    const value = instrument();
+    value.sourceGain = staticParam(-0.5);
+
+    expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
+  });
+
+  it("validates source gain as an audio parameter", () => {
+    const value = instrument();
+    Object.assign(value, { sourceGain: { type: "invalid" } });
+
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+      "[Schema] Instrument 0.sourceGain has an invalid audio parameter type.",
+    );
+  });
+
+  it("accepts and validates an optional pitched sub", () => {
+    const value = instrument();
+    Object.assign(value, {
+      sub: { waveform: "triangle", octave: -2, gain: staticParam(-0.5) },
+    });
+
+    expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
+
+    Object.assign(value, {
+      sub: { waveform: "invalid", octave: -3, gain: staticParam(1) },
+    });
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+      "[Schema] Instrument 0.sub.waveform is invalid.",
+    );
+
+    Object.assign(value, {
+      sub: { waveform: "sine", octave: -3, gain: staticParam(1) },
+    });
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+      "[Schema] Instrument 0.sub.octave must be -1 or -2.",
+    );
+  });
+
+  it("rejects synth-only source controls on samplers", () => {
+    const value = sampler();
+    Object.assign(value, { sourceGain: staticParam(1) });
+
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+      "[Schema] Instrument 0.sourceGain is only valid for synthesizers.",
+    );
+
+    Reflect.deleteProperty(value, "sourceGain");
+    Object.assign(value, { sub: {} });
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+      "[Schema] Instrument 0.sub is only valid for synthesizers.",
     );
   });
 

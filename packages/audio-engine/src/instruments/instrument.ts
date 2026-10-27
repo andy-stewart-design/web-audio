@@ -70,11 +70,16 @@ interface BaseInstrumentOptions extends Pick<
 
 interface BaseScheduleVoiceParams {
   sources: readonly [ScheduledVoiceSource, ...ScheduledVoiceSource[]];
+  sub?: {
+    source: ScheduledVoiceSource;
+    gain: AudioParamSchema;
+  };
   event: EventScheduleContext;
   detune?: {
-    param: AudioParam;
+    params: readonly [AudioParam, ...AudioParam[]];
     resolved: ResolvedDetune;
   };
+  sourceGain?: AudioParamSchema;
   sourceParams?: { param: AudioParam; schema: AudioParamSchema }[];
   gainEnvelope: ResolvedEnvelopeSchema;
   effects: EffectSchema[];
@@ -226,10 +231,11 @@ abstract class Instrument {
   protected _scheduleVoice(params: BaseScheduleVoiceParams) {
     const { event, detune, gainEnvelope, effects } = params;
     const mainSourceNodes = params.sources.map(({ node }) => node);
-    const scheduled = this._createScheduledNote(
-      mainSourceNodes,
-      event.startTime,
-    );
+    const sourceNodes = [
+      ...mainSourceNodes,
+      ...(params.sub ? [params.sub.source.node] : []),
+    ];
+    const scheduled = this._createScheduledNote(sourceNodes, event.startTime);
     const ownNode = (node: AudioNode) => scheduled.audioNodes.add(node);
     let noiseSource: NoiseSource | undefined;
 
@@ -250,6 +256,30 @@ abstract class Instrument {
       ownNode(gain);
       this._scheduleParamEnvelope(gain.gain, gainEnvelope, event);
 
+      let mainGain: GainNode | undefined;
+      if (params.sourceGain) {
+        mainGain = new GainNode(this._ctx);
+        ownNode(mainGain);
+        this._applySourceGain(
+          mainGain.gain,
+          params.sourceGain,
+          event,
+          scheduled.completionCleanups,
+        );
+      }
+
+      let subGain: GainNode | undefined;
+      if (params.sub) {
+        subGain = new GainNode(this._ctx);
+        ownNode(subGain);
+        this._applySourceGain(
+          subGain.gain,
+          params.sub.gain,
+          event,
+          scheduled.completionCleanups,
+        );
+      }
+
       let noiseGain: GainNode | undefined;
       if (params.noise && noiseSource) {
         noiseGain = new GainNode(this._ctx);
@@ -264,21 +294,22 @@ abstract class Instrument {
       }
 
       if (detune) {
-        if (detune.resolved.type === "envelope") {
-          this._scheduleParamEnvelope(
-            detune.param,
-            detune.resolved.envelope,
-            event,
+        const resolved = detune.resolved;
+        if (resolved.type === "envelope") {
+          detune.params.forEach((param) =>
+            this._scheduleParamEnvelope(param, resolved.envelope, event),
           );
-        } else if (detune.resolved.type === "lfo") {
-          this._connectLfo(
-            detune.param,
-            detune.resolved.schema,
-            scheduled.completionCleanups,
+        } else if (resolved.type === "lfo") {
+          detune.params.forEach((param) =>
+            this._connectLfo(
+              param,
+              resolved.schema,
+              scheduled.completionCleanups,
+            ),
           );
-        } else if (detune.resolved.type === "midi-cc") {
+        } else if (resolved.type === "midi-cc") {
           scheduled.completionCleanups.push(
-            this._bindMidiParam(detune.param, detune.resolved.schema, 1),
+            this._bindMidiParams(detune.params, resolved.schema, 1),
           );
         }
       }
@@ -302,7 +333,13 @@ abstract class Instrument {
         ),
       );
       const chain: AudioNode[] = [...effectNodes, gain];
-      mainSourceNodes.forEach((source) => source.connect(chain[0]));
+      const sourceDestination = mainGain ?? chain[0]!;
+      mainSourceNodes.forEach((source) => source.connect(sourceDestination));
+      if (mainGain) mainGain.connect(chain[0]!);
+      if (params.sub && subGain) {
+        params.sub.source.node.connect(subGain);
+        subGain.connect(chain[0]!);
+      }
       if (noiseSource && noiseGain) {
         noiseSource.connect(noiseGain);
         noiseGain.connect(chain[0]);
@@ -315,7 +352,10 @@ abstract class Instrument {
       chain[chain.length - 1].connect(this._balancingNode);
 
       this._track(scheduled);
-      for (const { node, offset } of params.sources) {
+      for (const { node, offset } of [
+        ...params.sources,
+        ...(params.sub ? [params.sub.source] : []),
+      ]) {
         if (scheduled.released) break;
         if (offset === undefined) node.start(event.startTime);
         else node.start(event.startTime, offset);
@@ -448,6 +488,27 @@ abstract class Instrument {
   // Parameter resolution and automation
   // ---------------------------------------------------------------------------
 
+  private _applySourceGain(
+    param: AudioParam,
+    schema: AudioParamSchema,
+    event: EventScheduleContext,
+    completionCleanups: (() => void)[],
+  ) {
+    if (schema.type === "static") {
+      param.setValueAtTime(
+        safeAudioParamValue(
+          Math.max(
+            0,
+            this._resolveValue(schema, event.barIndex, event.hitIndex),
+          ),
+        ),
+        event.startTime,
+      );
+      return;
+    }
+    this._applyParamSchema(param, schema, event, 1, completionCleanups);
+  }
+
   protected _applyParamSchema(
     param: AudioParam,
     schema: AudioParamSchema,
@@ -456,7 +517,7 @@ abstract class Instrument {
     completionCleanups: (() => void)[] = [],
   ) {
     if (schema.type === "midi-cc") {
-      completionCleanups.push(this._bindMidiParam(param, schema, scale));
+      completionCleanups.push(this._bindMidiParams([param], schema, scale));
     } else if (schema.type === "lfo") {
       this._connectLfo(param, schema, completionCleanups);
     } else if (schema.type === "envelope") {
@@ -596,13 +657,15 @@ abstract class Instrument {
     };
   }
 
-  private _bindMidiParam(
-    param: AudioParam,
+  private _bindMidiParams(
+    params: readonly AudioParam[],
     schema: MidiCcSchema,
     scale: number,
   ) {
     let unsubscribe: (() => void) | null = null;
-    param.value = safeAudioParamValue(schema.default * scale);
+    params.forEach((param) => {
+      param.value = safeAudioParamValue(schema.default * scale);
+    });
 
     return this._registerMidiBinding((midi) => {
       unsubscribe?.();
@@ -624,13 +687,17 @@ abstract class Instrument {
           : schema.default;
         if (!isInitialized) {
           isInitialized = true;
-          param.value = safeAudioParamValue(mapped * scale);
+          params.forEach((param) => {
+            param.value = safeAudioParamValue(mapped * scale);
+          });
           return;
         }
-        param.setTargetAtTime(
-          safeAudioParamValue(mapped * scale),
-          this._ctx.currentTime,
-          0.01,
+        params.forEach((param) =>
+          param.setTargetAtTime(
+            safeAudioParamValue(mapped * scale),
+            this._ctx.currentTime,
+            0.01,
+          ),
         );
       });
     });

@@ -976,6 +976,149 @@ describe("AudioEngine", () => {
       expect(active.retire).not.toHaveBeenCalled();
     });
 
+    it("rejects invalid source gain without replacing the active graph", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      engine.update(makeSchema());
+      clock.emit("prebar");
+      const active = instances()[0];
+      const invalid = makeSchema();
+      const invalidInstrument = invalid.instruments[0];
+      if (invalidInstrument.type !== "synthesizer") expect.unreachable();
+      invalidInstrument.sourceGain = { type: "invalid" } as never;
+
+      expect(() => engine.update(invalid)).toThrow(
+        "[Schema] Instrument 0.sourceGain has an invalid audio parameter type.",
+      );
+      clock.emit("bar");
+
+      expect(active.scheduleBar).toHaveBeenCalledOnce();
+      expect(active.retire).not.toHaveBeenCalled();
+    });
+
+    it("preserves a composed active graph when a new sub schema is invalid", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const valid = makeSchema();
+      valid.buses = { drums: { gain: 0.8, transition: 0, effects: [] } };
+      valid.instruments[0].route = "drums";
+      if (valid.instruments[0].type !== "synthesizer") expect.unreachable();
+      valid.instruments[0].sourceGain = staticParam(0);
+      valid.instruments[0].sub = {
+        waveform: "sine",
+        octave: -1,
+        gain: staticParam(0.5),
+      };
+      valid.instruments[0].noise = {
+        color: "pink",
+        gain: staticParam(0.1),
+      };
+
+      engine.update(valid);
+      clock.emit("prebar");
+      const active = instances()[0];
+      const originalRouting = active._routing;
+      const invalid = makeSchema();
+      invalid.buses = { drums: { gain: 0.8, transition: 0, effects: [] } };
+      invalid.instruments[0].route = "drums";
+      if (invalid.instruments[0].type !== "synthesizer") expect.unreachable();
+      invalid.instruments[0].sub = {
+        waveform: "not-a-waveform",
+        octave: -1,
+        gain: staticParam(0.5),
+      } as never;
+
+      expect(() => engine.update(invalid)).toThrow();
+      clock.emit("bar");
+
+      expect(instances()).toHaveLength(1);
+      expect(active.scheduleBar).toHaveBeenCalledOnce();
+      expect(active.retire).not.toHaveBeenCalled();
+      expect(active._routing).toBe(originalRouting);
+      expect(active._schema).toMatchObject({
+        sourceGain: staticParam(0),
+        sub: { waveform: "sine", octave: -1, gain: staticParam(0.5) },
+        noise: { color: "pink", gain: staticParam(0.1) },
+      });
+    });
+
+    it("preserves a valid composed pending update after an invalid sub update", () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const valid = makeSchema();
+      if (valid.instruments[0].type !== "synthesizer") expect.unreachable();
+      valid.instruments[0].sourceGain = staticParam(0);
+      valid.instruments[0].sub = {
+        waveform: "triangle",
+        octave: -2,
+        gain: staticParam(0.4),
+      };
+      engine.update(valid);
+
+      const invalid = makeSchema();
+      if (invalid.instruments[0].type !== "synthesizer") expect.unreachable();
+      invalid.instruments[0].sub = {
+        waveform: "invalid" as never,
+        octave: -2,
+        gain: staticParam(0.4),
+      };
+
+      expect(() => engine.update(invalid)).toThrow();
+      clock.emit("prebar");
+
+      expect(instances()).toHaveLength(1);
+      expect(instances()[0]._schema).toMatchObject({
+        sourceGain: staticParam(0),
+        sub: { waveform: "triangle", octave: -2, gain: staticParam(0.4) },
+      });
+    });
+
+    it("preserves composed routing while an updated graph retires", async () => {
+      const clock = new FakeClock();
+      const engine = new AudioEngine(fakeCtx, clock as never);
+      const initial = makeSchema();
+      initial.buses = { drums: { gain: 0.8, transition: 0, effects: [] } };
+      initial.instruments[0].route = "drums";
+      if (initial.instruments[0].type !== "synthesizer") expect.unreachable();
+      initial.instruments[0].sourceGain = staticParam(0);
+      initial.instruments[0].sub = {
+        waveform: "sine",
+        octave: -1,
+        gain: staticParam(0.5),
+      };
+      engine.update(initial);
+      clock.emit("prebar");
+      const old = instances()[0];
+      const oldRouting = old._routing;
+
+      const replacement = makeSchema();
+      replacement.buses = {
+        drums: { gain: 0.8, transition: 0, effects: [] },
+      };
+      replacement.instruments[0].route = "drums";
+      if (replacement.instruments[0].type !== "synthesizer")
+        expect.unreachable();
+      replacement.instruments[0].sourceGain = staticParam(0.2);
+      replacement.instruments[0].sub = {
+        waveform: "square",
+        octave: -2,
+        gain: staticParam(0.4),
+      };
+      engine.update(replacement);
+      clock.emit("prebar");
+
+      const next = instances()[1];
+      expect(old.retire).toHaveBeenCalledOnce();
+      expect(old._routing).toBe(oldRouting);
+      expect(next._routing.primary).not.toBe(old._routing.primary);
+      expect(old.destroy).not.toHaveBeenCalled();
+
+      old._resolveFinished();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(old.destroy).toHaveBeenCalledOnce();
+    });
+
     it("does not create pending state for an invalid update", () => {
       const clock = new FakeClock();
       const engine = new AudioEngine(fakeCtx, clock as never);

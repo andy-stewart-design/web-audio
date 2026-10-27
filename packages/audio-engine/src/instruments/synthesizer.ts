@@ -41,6 +41,8 @@ class Synthesizer extends Instrument {
     this._schema = opts.schema;
     this._midiOutputScheduler = opts.midiOutputScheduler;
     this._initLfos(opts.schema, opts.startingBar, opts.barStartTime, [
+      ...(opts.schema.sourceGain ? [opts.schema.sourceGain] : []),
+      ...(opts.schema.sub ? [opts.schema.sub.gain] : []),
       ...(opts.schema.engine === "unison"
         ? [opts.schema.spread, opts.schema.width]
         : []),
@@ -130,25 +132,53 @@ class Synthesizer extends Instrument {
     detune: ResolvedDetune,
     gainEnvelope: ResolvedEnvelopeSchema,
   ) {
-    const osc = new OscillatorNode(this._ctx, {
-      type: schema.waveform,
-      frequency: safeAudioParamValue(midiToFrequency(midiNote)),
-      detune: safeAudioParamValue(detune.value),
-    });
+    let main: OscillatorNode | undefined;
+    let sub: OscillatorNode | undefined;
+    let handedOff = false;
+    try {
+      main = new OscillatorNode(this._ctx, {
+        type: schema.waveform,
+        frequency: safeAudioParamValue(midiToFrequency(midiNote)),
+        detune: safeAudioParamValue(detune.value),
+      });
+      sub = schema.sub
+        ? new OscillatorNode(this._ctx, {
+            type: schema.sub.waveform,
+            frequency: safeAudioParamValue(
+              midiToFrequency(midiNote) * 2 ** schema.sub.octave,
+            ),
+            detune: safeAudioParamValue(detune.value),
+          })
+        : undefined;
 
-    this._scheduleVoice({
-      sources: [{ node: osc }],
-      detune: { param: osc.detune, resolved: detune },
-      gainEnvelope,
-      effects: schema.effects,
-      event,
-      noise: schema.noise
-        ? {
-            color: schema.noise.color,
-            gain: schema.noise.gain,
-          }
-        : undefined,
-    });
+      handedOff = true;
+      this._scheduleVoice({
+        sources: [{ node: main! }],
+        sub: sub
+          ? { source: { node: sub }, gain: schema.sub!.gain }
+          : undefined,
+        sourceGain: schema.sourceGain,
+        detune: {
+          params: sub ? [main!.detune, sub.detune] : [main!.detune],
+          resolved: detune,
+        },
+        gainEnvelope,
+        effects: schema.effects,
+        event,
+        noise: schema.noise
+          ? {
+              color: schema.noise.color,
+              gain: schema.noise.gain,
+            }
+          : undefined,
+      });
+    } catch (error) {
+      if (!handedOff) {
+        main?.disconnect();
+        sub?.disconnect();
+      }
+      throw error;
+    }
   }
 
   private _scheduleUnisonNote(
@@ -172,41 +202,70 @@ class Synthesizer extends Instrument {
       ),
     );
     const stopTime = this._resolveVoiceStopTime(gainEnvelope, event);
-    const source = new SupersawSource(this._ctx, {
-      voices,
-      phaseSeed: phaseSeed(event, midiNote, voiceIndex),
-      startFrame: toAudioFrame(this._ctx, event.startTime),
-      stopFrame: toAudioFrame(this._ctx, stopTime),
-    });
-    source.frequency.setValueAtTime(
-      safeAudioParamValue(midiToFrequency(midiNote)),
-      event.startTime,
-    );
-    if (detune.type === "static") {
-      source.detune.setValueAtTime(
-        safeAudioParamValue(detune.value),
+    let source: SupersawSource | undefined;
+    let sub: OscillatorNode | undefined;
+    let handedOff = false;
+    try {
+      source = new SupersawSource(this._ctx, {
+        voices,
+        phaseSeed: phaseSeed(event, midiNote, voiceIndex),
+        startFrame: toAudioFrame(this._ctx, event.startTime),
+        stopFrame: toAudioFrame(this._ctx, stopTime),
+      });
+      source.frequency.setValueAtTime(
+        safeAudioParamValue(midiToFrequency(midiNote)),
         event.startTime,
       );
-    }
+      if (detune.type === "static") {
+        source.detune.setValueAtTime(
+          safeAudioParamValue(detune.value),
+          event.startTime,
+        );
+      }
 
-    this._scheduleVoice({
-      sources: [{ node: source }],
-      detune: { param: source.detune, resolved: detune },
-      sourceParams: [
-        { param: source.spread, schema: schema.spread },
-        { param: source.width, schema: schema.width },
-      ],
-      gainEnvelope,
-      effects: schema.effects,
-      event,
-      noise: schema.noise
-        ? {
-            color: schema.noise.color,
-            gain: schema.noise.gain,
-          }
-        : undefined,
-      stopTime,
-    });
+      sub = schema.sub
+        ? new OscillatorNode(this._ctx, {
+            type: schema.sub.waveform,
+            frequency: safeAudioParamValue(
+              midiToFrequency(midiNote) * 2 ** schema.sub.octave,
+            ),
+            detune: safeAudioParamValue(detune.value),
+          })
+        : undefined;
+
+      handedOff = true;
+      this._scheduleVoice({
+        sources: [{ node: source! }],
+        sub: sub
+          ? { source: { node: sub }, gain: schema.sub!.gain }
+          : undefined,
+        sourceGain: schema.sourceGain,
+        detune: {
+          params: sub ? [source!.detune, sub.detune] : [source!.detune],
+          resolved: detune,
+        },
+        sourceParams: [
+          { param: source.spread, schema: schema.spread },
+          { param: source.width, schema: schema.width },
+        ],
+        gainEnvelope,
+        effects: schema.effects,
+        event,
+        noise: schema.noise
+          ? {
+              color: schema.noise.color,
+              gain: schema.noise.gain,
+            }
+          : undefined,
+        stopTime,
+      });
+    } catch (error) {
+      if (!handedOff) {
+        source?.disconnect();
+        sub?.disconnect();
+      }
+      throw error;
+    }
   }
 }
 

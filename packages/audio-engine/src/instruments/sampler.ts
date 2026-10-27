@@ -231,7 +231,7 @@ class Sampler extends Instrument {
     this._scheduleVoice({
       sources: [{ node: source, offset: sourceWindow.offset }],
       detune: {
-        param: source.detune,
+        params: [source.detune],
         resolved: detune,
       },
       gainEnvelope: this._resolveEnvelope(this._schema.gain, event),

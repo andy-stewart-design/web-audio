@@ -16,6 +16,8 @@ import type {
 
 type Waveform = (typeof WAVEFORMS)[number];
 
+type SynthEngine = "unison";
+
 type EnvelopeMode = (typeof ENVELOPE_MODES)[number];
 
 type ClipMode = (typeof CLIP_MODES)[number];
@@ -274,8 +276,16 @@ interface InstrumentSchema<TEventPattern extends EventPattern> {
   noise?: NoiseLayerSchema;
 }
 
+interface SubSynthesizerSchema {
+  waveform: Waveform;
+  octave: -1 | -2;
+  gain: AudioParamSchema;
+}
+
 interface SynthesizerCommonSchema extends InstrumentSchema<SynthEventPattern> {
   type: "synthesizer";
+  sourceGain?: AudioParamSchema;
+  sub?: SubSynthesizerSchema;
   notesOut?: MidiOutSchema;
 }
 
@@ -285,7 +295,7 @@ interface BasicSynthesizerSchema extends SynthesizerCommonSchema {
 }
 
 interface UnisonSynthesizerSchema extends SynthesizerCommonSchema {
-  engine: "unison";
+  engine: SynthEngine;
   waveform: "sawtooth";
   voices: NumberPattern;
   spread: AudioParamSchema;
@@ -347,6 +357,7 @@ export type {
   SamplerEventPattern,
   SynthEventPattern,
   SynthesizerCommonSchema,
+  SubSynthesizerSchema,
   UnisonSynthesizerSchema,
   NotePattern,
   NormalizedSampleSchema,
@@ -363,6 +374,7 @@ export type {
   StaticRegionSchema,
   StaticPattern,
   StaticVariationIndexPattern,
+  SynthEngine,
   SynthesizerSchema,
   SampleNamePattern,
   TimingPattern,
