@@ -3,7 +3,7 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md); plain-language scope: [overview.md](overview.md).
-- Delivery state: Planning only. No baseline, implementation checks, renders, or listening were performed while authoring this plan.
+- Delivery state: Baseline characterization complete; application implementation, real-time characterization, listening, and approved-reference work have not begun.
 - Acceptance still pending: All implementation gates, native verification, real-time characterization, user listening approval, and approved-reference creation.
 - Blockers: None for planning. Missing local browser/dependencies or unavailable user listening block the affected execution gate, not permission to skip it. The spec's A1–A3 remain working assumptions, not individually approved product decisions.
 
@@ -54,7 +54,7 @@ reference updates, or recovery of old branch implementations.
 
 ### Step 0.1 — Record the source-built baseline
 
-Status: Pending
+Status: Verified
 Requirements / acceptance: R8; AC10 (baseline portion only; final parity belongs to Steps 2.1 and 2.3).
 Depends on: None.
 Review boundary: Establish tooling and existing behavior, not a preparatory refactor.
@@ -65,10 +65,10 @@ Expected files:
 
 Tasks:
 
-- [ ] Record revision, relevant working-tree changes, runtime/package-manager versions, and browser availability. Do not reset or clean another person's work.
-- [ ] Force rebuild Fluid/audio-engine and their dependencies from source, replacing stale generated output through the build, not manual edits.
-- [ ] Run the baseline below and distinguish pre-existing failures from new regressions. Record actual results; do not assume the historical green state still applies.
-- [ ] Use 44.1 and 48 kHz for new offline coverage. Reserve the current local Mac/browser/audio device for real-time characterization; record its actual rate rather than requiring it to honor an offline rate.
+- [x] Record revision, relevant working-tree changes, runtime/package-manager versions, and browser availability. Do not reset or clean another person's work.
+- [x] Force rebuild Fluid/audio-engine and their dependencies from source, replacing stale generated output through the build, not manual edits.
+- [x] Run the baseline below and distinguish pre-existing failures from new regressions. Record actual results; do not assume the historical green state still applies.
+- [x] Use 44.1 and 48 kHz for new offline coverage. Reserve the current local Mac/browser/audio device for real-time characterization; record its actual rate rather than requiring it to honor an offline rate.
 
 Verification — existing commands, from repository root:
 
@@ -89,15 +89,16 @@ availability of an interactive browser for Step 2.2.
 Manual: Inspect baseline failures and local changes; no new listening approval
 is needed for unchanged references at this step.
 
-Completion gate: Baseline commands pass, or each failure has a specific disposition
-and affected work is stopped. A pre-existing failure is not an automatic waiver;
-record an explicitly accepted deviation separately if one is granted.
-Evidence: Not run.
+Completion gate: Passed. The forced source build, forced scoped unit/type/lint
+checks, focused regression tests, and existing-reference verification all passed;
+no unexplained baseline failure relevant to the feature was found. The cache
+controlled rerun is documented as a command-argument deviation, not a waiver.
+Evidence: [baseline](evidence/baseline.md).
 
-Phase exit gate: Assess Step 0.1 after its checks. Advance only with usable
-current-source unit/native gates and no unexplained baseline failures relevant
-to the feature. Record limitations before requesting approval to advance.
-Evidence: Not run.
+Phase exit gate assessment: Passed. Step 0.1 provides usable current-source
+unit/native gates and records the bounded environment and limitations. This is
+an assessment of the gate only; no manual phase-advancement approval is claimed.
+Evidence: [baseline](evidence/baseline.md).
 
 ## Phase 1 — Implement and integrate one-node saturation
 
@@ -421,6 +422,6 @@ the owning step or phase gate; these links identify it without duplicating resul
 
 ## Deferred checks and accepted deviations
 
-- None accepted. Every step and phase gate is currently pending with evidence `Not run`.
+- None accepted. Step 0.1 and the Phase 0 exit-gate assessment are verified with baseline evidence; Steps 1.1–2.3 and the Phase 1/2 gates remain Pending/not run.
 - Human listening/reference approval and the interactive real-time run require user/environment access later; they are explicit gates, not implicitly waived checks.
 - Cross-browser/device certification, a numerical real-time SLA, maximum supported polyphony, compressor/main effects, and other spec non-goals remain outside this plan.
