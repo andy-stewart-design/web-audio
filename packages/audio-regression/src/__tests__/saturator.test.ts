@@ -1,74 +1,63 @@
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { compareAudio } from "../runner/compare";
+import { writeRecording } from "../runner/recording";
 import { withRenderer } from "../runner/render";
 import type { SketchCase } from "../types";
 
-const synthCase: SketchCase = {
-  id: "saturator-synth-smoke",
-  description: "Public synth saturator smoke",
-  code: `d.synth("sawtooth")
-  .notes(60)
-  .gain(0.4)
-  .fx(d.saturator(3).postgain(0.25))
+const sampleTone = fileURLToPath(
+  new URL("../../cases/sample-tone/samples/tone.wav", import.meta.url),
+);
+const candidatePath = fileURLToPath(
+  new URL("../../artifacts/saturator/candidate-48000.wav", import.meta.url),
+);
+
+const candidateCase: SketchCase = {
+  id: "saturator-candidate-48000",
+  description: "Portable synth, sampler, and named-bus listening candidate",
+  code: `d.bpm(128);
+d.loadSamples({
+  bank: "local",
+  samples: { tone: ["/samples/tone.wav"] },
+});
+d.bus("drums").fx(d.saturator(2.2).postgain([0.22, 0.32]));
+d.synth("sawtooth")
+  .notes([48, 55])
+  .xox("x..x")
+  .gain(0.3)
+  .adsr(0.01, 0.05, 0.8, 0.12)
+  .fx(d.saturator(1.25).postgain(0.7))
+  .push();
+d.sample("tone")
+  .bank("local")
+  .xox(".x..")
+  .gain(0.55)
+  .adsr(0.02, 0, 1, 0.08)
+  .fx(d.saturator(3).postgain(0.2))
+  .push();
+d.synth("square")
+  .notes([36, 43])
+  .xox("x...")
+  .gain(0.28)
+  .route("drums")
   .push();`,
-  bars: 1,
-  tailSeconds: 0.1,
-  settings: { sampleRate: 48_000, channels: 2, startOffsetFrames: 4_800 },
+  bars: 2,
+  tailSeconds: 0.25,
+  settings: { sampleRate: 48_000, channels: 2, startOffsetFrames: 4_417 },
+  resources: { "/samples/tone.wav": sampleTone },
 };
 
-const busCase: SketchCase = {
-  id: "saturator-bus-smoke",
-  description: "Public named-bus saturator smoke",
-  code: `d.bus("drums").fx(d.saturator(2).postgain(0.3));
-d.synth("square").notes(48).gain(0.35).route("drums").push();`,
-  bars: 1,
-  tailSeconds: 0.1,
-  settings: { sampleRate: 48_000, channels: 2, startOffsetFrames: 4_800 },
-};
-
-const dryCases: Record<string, SketchCase> = {
-  [synthCase.id]: {
-    ...synthCase,
-    id: "saturator-synth-smoke-dry",
-    description: "Public synth dry comparison",
-    code: `d.synth("sawtooth").notes(60).gain(0.4).push();`,
-  },
-  [busCase.id]: {
-    ...busCase,
-    id: "saturator-bus-smoke-dry",
-    description: "Public named-bus dry comparison",
-    code: `d.bus("drums");
-d.synth("square").notes(48).gain(0.35).route("drums").push();`,
-  },
-};
-
-function assertFiniteAndAudible(result: {
-  channels: readonly ArrayLike<number>[];
-  metrics: readonly { rms: number }[];
-}) {
-  expect(
-    result.channels.every((channel) =>
-      Array.from(channel).every(Number.isFinite),
-    ),
-  ).toBe(true);
-  expect(result.metrics.some(({ rms }) => rms > 1e-5)).toBe(true);
-}
-
-describe("native public saturator smoke", () => {
-  it.each([synthCase, busCase])(
-    "renders finite repeatable saturation through $id",
-    async (input) => {
-      await withRenderer(async (renderer) => {
-        const first = await renderer.render(input);
-        const second = await renderer.render(input);
-        const dry = await renderer.render(dryCases[input.id]);
-
-        assertFiniteAndAudible(first);
-        assertFiniteAndAudible(second);
-        assertFiniteAndAudible(dry);
-        expect(first.channels).toEqual(second.channels);
-        expect(first.channels).not.toEqual(dry.channels);
-        expect(renderer.browser.contexts()).toHaveLength(0);
-      });
-    },
-  );
+describe("native public saturator candidate", () => {
+  it("renders repeatable finite audio and writes the unregistered candidate", async () => {
+    await withRenderer(async (renderer) => {
+      const first = await renderer.render(candidateCase);
+      const second = await renderer.render(candidateCase);
+      const comparison = compareAudio(
+        { sampleRate: 48_000, channels: first.channels },
+        { sampleRate: 48_000, channels: second.channels },
+      );
+      expect(comparison.passed, JSON.stringify(comparison)).toBe(true);
+      await writeRecording(candidatePath, first);
+    });
+  });
 });

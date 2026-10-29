@@ -15,17 +15,18 @@ feature.
 
 This document explains the scope in plain language. The [specification](spec.md)
 is the detailed behavioral contract, and the [implementation plan](plan.md)
-describes the reviewable changes and verification gates. Step 1.1 and the
-minimal Step 1.2 integration redo are verified after parent review, and the
-Phase 1 implementation exit is verified. Phase 2 native characterization,
-real-time characterization, listening approval, saved-reference work, and final
-feature acceptance remain pending. No user manual listening or approval is
-claimed. The latest minimal-integration scope amendment supersedes the earlier
-broad failure-hardening direction.
+describes the reviewable work and verification gates. Step 1.1, Step 1.2, the
+Phase 1 implementation exit, and the scoped Step 2.1 gate are verified. Step
+2.1 has one repeatable unregistered synth/sampler/named-bus candidate, focused
+checks, and completed parent review. The historical `bends` limitation remains
+unresolved, while current read-only verification passed all 15 existing
+references. Step 2.2 will obtain user listening approval for one representative
+case, save its reference, and run final existing checks. No user listening or
+reference approval is claimed.
 
 ## What using it will look like
 
-The proposed API is:
+The API for this scope is:
 
 ```js
 // Saturate a synth, then lower its output level.
@@ -48,9 +49,9 @@ both controls. Unity drive still applies saturation: leaving the effect out is
 how to get an unchanged signal. Drive `0` means silence after any brief internal
 transition, not a clean bypass.
 
-The API, defaults, and signed-gain behavior are carried-forward working choices,
-not separately approved product decisions. The agreed commitments are the
-AudioWorklet implementation and the voice/named-bus-first scope.
+The documented defaults and signed-gain behavior apply to this scope. The
+AudioWorklet implementation and voice/named-bus support are the current scope;
+compression and main-output effects remain separate work.
 
 ## Where it fits in the sound
 
@@ -76,8 +77,8 @@ first.
 
 The starting sound is a single smooth saturation curve, called `tanh`. The
 working approach uses ADAA, a technique that considers consecutive samples to
-reduce unwanted digital distortion artifacts. Earlier listening supports this
-choice, but the finished implementation still needs testing and listening.
+reduce unwanted digital distortion artifacts. The finished implementation still
+needs testing and listening.
 It is not perfectly artifact-free and can soften very high frequencies.
 
 The surrounding work is limited to making that processor available through
@@ -97,6 +98,8 @@ This project will not expand bus modulation.
 - Wet/dry mixing, a separate bypass switch, or automatic volume compensation.
 - New effect tails, longer notes, or changes to sequencing and routing.
 - Broad cleanup or refactoring unrelated to making this effect work reliably.
+- Extra native infrastructure or coverage beyond the focused checks and one
+  selected approved recording.
 
 ## What finished means
 
@@ -111,14 +114,20 @@ The deliverable is an integrated effect, not just a standalone DSP experiment:
 - Finished or cancelled notes, replaced buses, and failed setup attempts leave
   no orphaned processors or control connections running.
 - Existing music without a saturator sounds and behaves as before.
-- Automated checks and browser audio renders verify the behavior, followed by
-  the user's listening approval before accepting the feature and saving new
-  reference recordings.
-- A representative real-time workload is checked and documented. This is not
-  a promise of unlimited simultaneous notes or identical performance on every
-  device; any observed glitches remain visible risks.
+- Focused unit and integration checks cover the DSP math, API/schema,
+  automation, topology, ownership, and lifecycle boundaries already accepted.
+  One approved native regression case covers representative synth, sampler, and
+  named-bus musical behavior in a single reused candidate.
+- The candidate and saved recording are listened to and explicitly approved by
+  the user before feature acceptance and any reference update. Existing fixed
+  tolerances remain raw: no normalization or tolerance widening.
+- No extra infrastructure, machine benchmark, maximum-CPU, or
+  supported-polyphony guarantee is required. Ordinary manual audition may
+  expose an obvious issue, which remains visible rather than creating a new
+  verification obligation.
 
-The main tradeoffs to watch are sound quality at strong drive, behavior during
-fast control changes, and CPU cost when many notes each own a saturator. If those
-checks expose a material problem, revisit the affected choice explicitly rather
-than quietly expanding the scope.
+The main tradeoffs to watch are sound quality at strong drive and behavior during
+fast control changes. CPU cost may be noticed during ordinary use, but it has no
+required benchmark or capacity guarantee. If audition or focused checks expose
+a material problem, revisit the affected choice explicitly rather than quietly
+expanding the scope.

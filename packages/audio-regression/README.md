@@ -68,6 +68,26 @@ pnpm --filter @web-audio/audio-regression audio:render --case source-mix
 
 The render command writes the candidate to `artifacts/render/source-mix.wav` and does not compare or update references. The candidate was explicitly approved, and `audio:update --case source-mix` created the saved reference. `audio:verify --case source-mix` and root `pnpm test` pass it numerically; final listening of the saved reference was approved by reviewer `user` with “Yep, sounds good.” Do not use `audio:update` without explicit candidate approval.
 
+## Saturator native candidate check
+
+The focused native command uses Chromium `OfflineAudioContext` and the existing
+local sample fixture:
+
+```sh
+pnpm --filter @web-audio/audio-regression exec vitest run \\
+  src/__tests__/saturator.test.ts \\
+  src/__tests__/worklets.test.ts \\
+  src/__tests__/pre-envelope-effects.test.ts
+```
+
+The saturator test renders one 48 kHz, stereo, two-bar candidate containing a
+saw synth, local sampler, and named bus. It renders two fresh candidates,
+compares their raw Float32 audio with the suite's fixed tolerances, and writes
+an ignored listening candidate to
+`artifacts/saturator/candidate-48000.wav` plus its JSON metadata sidecar. It is
+not a registered case or saved reference, and rendering does not constitute
+listening approval.
+
 ## Authoring cases
 
 ```text
