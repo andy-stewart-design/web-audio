@@ -6,6 +6,7 @@ import type { DromeSchema } from "@web-audio/schema";
 import {
   lfoProcessorSource,
   noiseProcessorSource,
+  saturatorProcessorSource,
   supersawProcessorSource,
 } from "@web-audio/worklets";
 import RuntimeBus from "./buses/runtime-bus";
@@ -71,6 +72,7 @@ class AudioEngine {
       lfoProcessorSource,
       supersawProcessorSource,
       noiseProcessorSource,
+      saturatorProcessorSource,
     ]);
 
     this._unsub = new Set([

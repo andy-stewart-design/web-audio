@@ -131,7 +131,7 @@ const destinationNode = new FakeAudioNode();
 // Stub AudioContext with audioWorklet.addModule for worklet registration
 const fakeCtx = {
   currentTime: 0,
-  audioWorklet: { addModule: () => Promise.resolve() },
+  audioWorklet: { addModule: vi.fn(() => Promise.resolve()) },
   decodeAudioData: vi.fn(async () => ({ duration: 1 }) as AudioBuffer),
   destination: destinationNode,
   createAnalyser: createAnalyserMock,
@@ -255,6 +255,52 @@ beforeEach(() => {
 });
 
 describe("AudioEngine", () => {
+  it("registers the saturator worklet as part of readiness", async () => {
+    const moduleSources: string[] = [];
+    vi.stubGlobal(
+      "Blob",
+      class {
+        constructor(parts: unknown[]) {
+          moduleSources.push(String(parts[0]));
+        }
+      },
+    );
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:test"),
+    });
+
+    try {
+      const engine = new AudioEngine(fakeCtx, new FakeClock() as never);
+
+      await expect(engine.ready).resolves.toBeUndefined();
+      expect(fakeCtx.audioWorklet.addModule).toHaveBeenCalledTimes(4);
+      expect(moduleSources).toHaveLength(4);
+      expect(new Set(moduleSources).size).toBe(4);
+      expect(
+        moduleSources.filter((source) =>
+          /registerProcessor\(["']saturator-processor["']/.test(source),
+        ),
+      ).toHaveLength(1);
+      engine.destroy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("rejects readiness when worklet registration fails", async () => {
+    const registrationError = new Error("registration failed");
+    const failingContext = {
+      ...fakeCtx,
+      audioWorklet: {
+        addModule: vi.fn(() => Promise.reject(registrationError)),
+      },
+    } as unknown as BaseAudioContext;
+    const engine = new AudioEngine(failingContext, new FakeClock() as never);
+
+    await expect(engine.ready).rejects.toThrow(registrationError);
+    engine.destroy();
+  });
+
   describe("structural clock driver", () => {
     it("commits and schedules through manual events with committed tempo and cleanup", async () => {
       const driver = createManualClock(fakeCtx);

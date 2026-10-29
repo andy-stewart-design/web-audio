@@ -3,8 +3,8 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md); plain-language scope: [overview.md](overview.md).
-- Delivery state: Baseline characterization complete; application implementation, real-time characterization, listening, and approved-reference work have not begun.
-- Acceptance still pending: All implementation gates, native verification, real-time characterization, user listening approval, and approved-reference creation.
+- Delivery state: Baseline characterization complete; Step 1.1 processor/adapter implementation and parent review are complete; public authoring integration, native verification, real-time characterization, listening, and approved-reference work have not begun.
+- Acceptance still pending: All later implementation, native verification, real-time characterization, user listening approval, and approved-reference gates remain outstanding.
 - Blockers: None for planning. Missing local browser/dependencies or unavailable user listening block the affected execution gate, not permission to skip it. The spec's A1–A3 remain working assumptions, not individually approved product decisions.
 
 Step statuses below are the authoritative execution record. A phase is complete
@@ -110,7 +110,7 @@ compressor/main routing and broad effect or engine transaction refactoring.
 
 ### Step 1.1 — Implement the processor and its disposable adapter
 
-Status: Pending
+Status: Verified (implementation, checks, and parent review passed)
 Requirements / acceptance: R3, R4, R6, R7; AC3 (DSP), AC4 (unit portion), AC5 (DSP portion), AC7 (sample-array portion), AC9 (registration/adapter portion). Native/channel composition, owner binding, and owner failure portions remain in Steps 1.2 and 2.1.
 Depends on: Step 0.1 and Phase 0 exit gate.
 Review boundary: A tested, registered but not yet publicly authored processor;
@@ -126,12 +126,12 @@ Expected files:
 
 Tasks:
 
-- [ ] Implement the spec's first-order ADAA equations with stable antiderivative evaluation, a justified near-equality threshold, zero initial state, and independent per-channel history. Keep state across blocks; do not dispose on silence.
-- [ ] Expose `drive` and `postgain` as a-rate AudioParams defaulting to `1`; support scalar and per-sample arrays, signed multipliers, output muting without frozen history, and the zero-drive transition. Avoid render-loop allocation where practical.
-- [ ] Define a minimal explicit disposal message/processor stop path. A disposal request stops processing rather than merely muting or disconnecting output; test the processor's terminal return/state directly.
-- [ ] Add a small adapter exposing the node, required parameters, and idempotent disposal. Validate parameter presence; clean partial allocation; observe native processor errors using existing worklet conventions, remove listeners/close ports, and preserve a silent failed path without bypass or retry.
-- [ ] Export and register through existing bundling/readiness. Update registration mocks atomically; rejection of module loading must reject engine readiness.
-- [ ] Add independent DSP fixtures or explicit expected samples, channel/block partition checks, modulation-array checks, and adapter/error/disposal tests. Do not generate expected output by calling the production DSP under test.
+- [x] Implement the spec's first-order ADAA equations with stable antiderivative evaluation, a justified near-equality threshold, zero initial state, and independent per-channel history. Keep state across blocks; do not dispose on silence.
+- [x] Expose `drive` and `postgain` as a-rate AudioParams defaulting to `1`; support scalar and per-sample arrays, signed multipliers, output muting without frozen history, and the zero-drive transition. Avoid render-loop allocation where practical.
+- [x] Define a minimal explicit disposal message/processor stop path. A disposal request stops processing rather than merely muting or disconnecting output; test the processor's terminal return/state directly.
+- [x] Add a small adapter exposing the node, required parameters, and idempotent disposal. Validate parameter presence; clean partial allocation; observe native processor errors using existing worklet conventions, remove listeners/close ports, and preserve a silent failed path without bypass or retry.
+- [x] Export and register through existing bundling/readiness. Update registration mocks atomically; rejection of module loading must reject engine readiness.
+- [x] Add independent DSP fixtures or explicit expected samples, channel/block partition checks, modulation-array checks, and adapter/error/disposal tests. Do not generate expected output by calling the production DSP under test.
 
 Verification — tests below are added by this step; scripts already exist:
 
@@ -152,10 +152,14 @@ Run Prettier on the changed files and `git diff --check` before review.
 Manual: Review the numerical threshold and the owned-resource/disposal boundary;
 no listening gate yet.
 
-Completion gate: Processor and adapter behave as specified, bundle/type/lint
-checks pass, existing registration behavior remains usable, and implementation
-review finds no fallback, shared channel history, or silence-triggered shutdown.
-Evidence: Not run.
+Completion gate: Focused processor/adapter tests, source build, bundle/type/lint
+checks, readiness assertions, and the same-step strict independent-reference
+assertion fix passed. Parent implementation review is complete. No fallback,
+shared channel history, or silence-triggered shutdown was introduced.
+Evidence: [step 1.1](evidence/step-1.1.md).
+
+Phase 1 exit gate: **NOT satisfied**. Step 1.2 remains Pending and its public
+API, voice/bus ownership, and native gates have not been run.
 
 ### Step 1.2 — Wire the public effect, voices, and named buses atomically
 
@@ -422,6 +426,6 @@ the owning step or phase gate; these links identify it without duplicating resul
 
 ## Deferred checks and accepted deviations
 
-- None accepted. Step 0.1 and the Phase 0 exit-gate assessment are verified with baseline evidence; Steps 1.1–2.3 and the Phase 1/2 gates remain Pending/not run.
+- None accepted. Step 0.1 and the Phase 0 exit-gate assessment are verified with baseline evidence; Step 1.1 is verified with its scoped evidence; Steps 1.2–2.3 and the Phase 1/2 gates remain Pending/not run.
 - Human listening/reference approval and the interactive real-time run require user/environment access later; they are explicit gates, not implicitly waived checks.
 - Cross-browser/device certification, a numerical real-time SLA, maximum supported polyphony, compressor/main effects, and other spec non-goals remain outside this plan.
