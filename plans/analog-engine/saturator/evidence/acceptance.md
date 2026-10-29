@@ -2,10 +2,11 @@
 
 ## Status
 
-Step 2.2 is **In progress**. The approved candidate is registered as the
-`saturator` case and its named reference pair was generated. Saved-reference
-listening approval, the Phase 2 exit gate, and final feature acceptance
-remain pending.
+Step 2.2 is **Verified** and final feature acceptance is **Delivered**. The
+approved candidate is registered as the `saturator` case and its named reference
+pair was generated. The user then approved the saved WAV with the exact quote:
+**“Looks good.”** This completes the saved-reference listening gate and Phase 2
+exit.
 
 ## Candidate and reference checks
 
@@ -18,9 +19,9 @@ remain pending.
 ## Approval and limits
 
 The user explicitly approved the candidate with the exact quote: **“yes, sounds fine”**.
-This approval authorizes case registration and named-reference generation; it
-does not approve the saved reference WAV. Checks used revision
-`68639a453150d2a22e29f9d8258e0bd880ed42b7`, Chromium `147.0.7727.15`, and the
+The later saved-reference approval, **“Looks good.”**, completes the manual gate.
+Final checks used revision
+`2dedd626c12d771c8cd0d84d6a4d70360ebeaa19`, Chromium `147.0.7727.15`, and the
 existing raw fixed tolerances above. The historical intermittent `bends`
 limitation remains unresolved; no source fix, tolerance change, or reference
 change was made for it.
@@ -28,5 +29,6 @@ change was made for it.
 Final existing gates passed from the repository root: forced source build
 `6/6`; `pnpm test` `19/19` Turbo tasks with `16/16` audio-regression cases;
 `pnpm check` `14/14`; `pnpm lint` `14/14`; audio-regression `format:check`; and
-`git diff --check`. Saved-reference listening approval and final feature
-acceptance are still required.
+`git diff --check`. Documentation-only updates after the checked revision do
+not change code, case inputs, or references; final feature acceptance is
+complete.

@@ -3,8 +3,8 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md); plain-language scope: [overview.md](overview.md).
-- Delivery state: Source build, Step 1.1, Step 1.2, the Phase 1 implementation exit, and the scoped Step 2.1 gate are **Verified**. Step 2.1 has one repeatable candidate, focused checks, and completed parent review; historical native evidence records an unresolved intermittent `bends` limitation. Step 2.2 is **In progress**: the explicitly approved candidate is registered, its named reference pair is generated, and final existing checks pass; saved-reference listening approval remains.
-- Acceptance still pending: saved-reference listening approval, the Phase 2 exit gate, and final whole-feature acceptance remain outstanding. The recorded `bends` limitation remains unresolved. No extra infrastructure or supported-capacity claim is required.
+- Delivery state: Source build, Step 1.1, Step 1.2, the Phase 1 implementation exit, Step 2.1, Step 2.2, the Phase 2 exit, and final feature acceptance are **Verified**. Step 2.2 contains one repeatable candidate, its approved case/reference pair, saved-reference listening approval, and final existing checks; the historical intermittent `bends` result remains an unresolved follow-up risk.
+- Acceptance delivered: The user approved the saved reference with **“Looks good.”** No extra infrastructure or supported-capacity claim is made.
 - Blockers: No concrete supported-product-path blocker was identified. Missing local browser/dependencies or unavailable user listening block the affected execution gate, not permission to skip it. The spec's A1–A3 remain working assumptions, not individually approved product decisions.
 
 Step statuses below are the authoritative execution record. A phase is complete
@@ -158,8 +158,8 @@ shared channel history, or silence-triggered shutdown was introduced.
 Evidence: [step 1.1](evidence/step-1.1.md).
 
 Phase 1 exit gate: **Verified** for the current implementation scope. Evidence:
-[Step 1.2](evidence/step-1.2-minimal.md). Phase 2 remains **Pending**; no user
-manual listening or approval is claimed.
+[Step 1.2](evidence/step-1.2-minimal.md). Phase 2 is **Verified**; its acceptance
+record is in [acceptance evidence](evidence/acceptance.md).
 
 ### Step 1.2 — Wire the public effect, voices, and named buses atomically
 
@@ -214,7 +214,7 @@ Evidence: [Step 1.2](evidence/step-1.2-minimal.md).
 
 Phase exit gate assessment: **Verified** for the current implementation scope;
 parent review passed. Evidence: [Step 1.2](evidence/step-1.2-minimal.md). Phase
-2 remains **Pending**; no manual listening or reference approval is claimed.
+2 is **Verified** in [acceptance evidence](evidence/acceptance.md).
 
 ## Phase 2 — Verify the sound and finish acceptance
 
@@ -228,10 +228,11 @@ reference update without explicit approval.
 ### Step 2.1 — Align native coverage and prepare a portable candidate
 
 Status: **Verified** for scoped candidate preparation, repeatability checks,
-focused verification, and parent review. The candidate remains unregistered;
-historical native evidence in [native evidence](evidence/native.md) records an
-unresolved intermittent `bends` limitation, while the current read-only
-verification passed all 15 existing references.
+focused verification, and parent review. The candidate's approval, registration,
+reference, and final verification are recorded in Step 2.2. Historical native
+evidence in [native evidence](evidence/native.md) records an unresolved
+intermittent `bends` follow-up risk, while current read-only verification passed
+all 15 other references.
 Requirements / acceptance: R2–R8; retain focused native evidence only where it
 adds distinct coverage to the accepted unit/integration checks and candidate.
 Depends on: Step 1.2 and Phase 1 exit gate.
@@ -269,19 +270,22 @@ pnpm --filter @web-audio/audio-regression format:check
 pnpm --filter @web-audio/audio-regression audio:verify
 ```
 
-A candidate is rendered under ignored artifacts and remains unregistered.
-Existing saved references are checked read-only; no reference is updated in
-this step. No user listening or approval is claimed.
+The candidate is retained under ignored artifacts for provenance. Existing
+saved references were checked read-only during this scoped preparation gate;
+registration, reference generation, and listening approval are recorded in Step
+2.2. Evidence: [candidate](evidence/candidate.md) and the [native
+evidence](evidence/native.md).
 
 Completion gate: Candidate preparation, repeatability checks, focused checks,
 and parent review are complete; Step 2.1 is **Verified** for this scoped gate.
-Listening approval, registration, and reference update belong to Step 2.2 and
-remain pending. Evidence: [candidate](evidence/candidate.md) and the
-historical [native evidence](evidence/native.md).
+The resulting approved case and reference are covered by the delivered Step 2.2
+acceptance record.
 
 ### Step 2.2 — Approve one case and run final existing checks
 
-Status: **In progress** — candidate approval, case registration, named-reference generation, fresh named verification, and final existing checks passed; saved-reference listening approval remains.
+Status: **Verified** — candidate approval, case registration, named-reference
+generation, fresh named verification, saved-reference listening approval, and
+final existing checks passed.
 Requirements / acceptance: R8; AC10 (final regression) and AC11 (user and
 saved-reference acceptance).
 Depends on: Step 2.1.
@@ -310,8 +314,8 @@ Tasks:
       case and reference together.
 - [x] Verify fresh output against the saved reference. Fresh verification
       passed.
-- [ ] Have the user approve the saved WAV itself. Playback success is not
-      approval.
+- [x] Have the user approve the saved WAV itself. Playback success is not
+      approval; the user recorded **“Looks good.”**
 - [x] Run final existing checks and record only established outcomes, preserving
       unresolved risks and deviations.
 
@@ -339,21 +343,21 @@ Manual: The user listens to the candidate and then the saved reference. Approval
 must cover onset quality, drive/postgain control, and the representative voice
 and bus examples. Existing listening evidence does not approve these files.
 
-Completion gate: User approval, the complete case/reference pair, retained
-behavioral checks, and final existing checks are all required. No publication or
-deployment is part of this gate.
+Completion gate: **Passed.** User approval, the complete case/reference pair,
+retained behavioral checks, and final existing checks are complete. No
+publication or deployment is part of this gate.
 
-Phase exit gate: Confirm every retained acceptance row points to passed owning
-evidence, the saved-reference listening is approved, and final existing checks
-are complete before declaring feature acceptance. A blocked check is not a
-passing gate.
+Phase exit gate: **Verified.** Every retained acceptance row points to passed
+owning evidence, the saved-reference listening is approved, and final existing
+checks are complete. The historical intermittent `bends` result remains a
+follow-up risk, not a current failing gate.
 
-Evidence: [acceptance](evidence/acceptance.md). Saved-reference listening
-approval remains outstanding.
+Evidence: [acceptance](evidence/acceptance.md).
 
 ## Final acceptance
 
-Status: **Pending**. Phase 2 evidence and whole-feature acceptance remain outstanding.
+Status: **Delivered / Verified.** Phase 2 evidence and whole-feature acceptance
+are complete; the feature is ready for review in this PR.
 
 This is a coverage map, not another progress checklist. Evidence/status lives in
 the owning step or phase gate; these links identify it without duplicating results.

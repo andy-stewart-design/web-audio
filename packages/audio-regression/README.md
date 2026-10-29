@@ -1,6 +1,6 @@
 # @web-audio/audio-regression
 
-Private local tooling that renders Fluid sketches through the real AudioEngine and Chromium `OfflineAudioContext`, then compares raw audio with listening-approved recordings. The suite has **16 cases with reviewed references**, including `source-mix` and the registered `saturator` case. The saturator saved recording still awaits separate user listening approval; final feature acceptance is pending. It is a local Mac regression suite, not cross-platform or musical-quality certification.
+Private local tooling that renders Fluid sketches through the real AudioEngine and Chromium `OfflineAudioContext`, then compares raw audio with listening-approved recordings. The suite has **16 cases with reviewed references**, including `source-mix` and the registered `saturator` case. The saturator saved recording was approved by the user with **“Looks good.”** It is a local Mac regression suite, not cross-platform or musical-quality certification.
 
 ## Setup and commands
 
@@ -84,8 +84,8 @@ candidate remains at `artifacts/saturator/candidate-48000.wav` with its JSON
 sidecar for provenance/comparison. The named reference was generated only
 after explicit candidate approval and matches the candidate's raw Float32
 samples, settings, and frame count under the fixed tolerances. The saved WAV
-still awaits separate user listening approval; rendering, verification, and
-playback are not listening approval.
+was subsequently approved by the user with **“Looks good.”** Rendering,
+verification, and playback alone are not listening approval.
 
 ## Authoring cases
 

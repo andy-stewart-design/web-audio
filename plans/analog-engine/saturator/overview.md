@@ -16,14 +16,14 @@ feature.
 This document explains the scope in plain language. The [specification](spec.md)
 is the detailed behavioral contract, and the [implementation plan](plan.md)
 describes the reviewable work and verification gates. Step 1.1, Step 1.2, the
-Phase 1 implementation exit, and the scoped Step 2.1 gate are verified. Step
-2.1 produced one repeatable synth/sampler/named-bus candidate, focused checks,
-and completed parent review. The candidate was explicitly approved, registered
-as the `saturator` case, and used to generate its named reference pair. The
-historical `bends` limitation remains unresolved, while current read-only
-verification passed all 15 pre-existing references and the fresh `saturator`
-case. Saved-reference listening approval and final existing checks remain
-pending; final feature acceptance is not claimed.
+Phase 1 implementation exit, Step 2.1, Step 2.2, and the Phase 2 exit are
+verified. One repeatable synth/sampler/named-bus candidate was explicitly
+approved, registered as the `saturator` case, and used to generate its named
+reference pair. The saved reference was then approved by the user, completing
+the manual gate. The historical intermittent `bends` risk remains an unresolved
+follow-up; it was neither fixed nor waived by this feature. Current read-only
+verification passed all 15 other references and the fresh `saturator` case, and
+final feature acceptance is delivered.
 
 ## What using it will look like
 
@@ -120,9 +120,9 @@ The deliverable is an integrated effect, not just a standalone DSP experiment:
   One approved native regression case covers representative synth, sampler, and
   named-bus musical behavior in a single reused candidate.
 - The candidate was explicitly approved before registration and the named
-  reference update. The saved recording still requires separate user listening
-  approval before feature acceptance. Existing fixed tolerances remain raw: no
-  normalization or tolerance widening.
+  reference update, and the saved recording was subsequently approved by the
+  user. Existing fixed tolerances remain raw: no normalization or tolerance
+  widening.
 - No extra infrastructure, machine benchmark, maximum-CPU, or
   supported-polyphony guarantee is required. Ordinary manual audition may
   expose an obvious issue, which remains visible rather than creating a new
