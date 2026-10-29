@@ -3,8 +3,8 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md); plain-language scope: [overview.md](overview.md).
-- Delivery state: Source build, Step 1.1, Step 1.2, the Phase 1 implementation exit, and the scoped Step 2.1 gate are **Verified**. Step 2.1 has one repeatable unregistered candidate, focused checks, and completed parent review; historical native evidence records an unresolved intermittent `bends` limitation. Step 2.2 remains **Pending** for user listening approval, registration, the saved reference, and final checks.
-- Acceptance still pending: one approved representative synth/sampler/named-bus native case, user listening approval, the saved-reference gate, and final whole-feature acceptance remain outstanding. The recorded `bends` limitation remains unresolved. No extra infrastructure or supported-capacity claim is required.
+- Delivery state: Source build, Step 1.1, Step 1.2, the Phase 1 implementation exit, and the scoped Step 2.1 gate are **Verified**. Step 2.1 has one repeatable candidate, focused checks, and completed parent review; historical native evidence records an unresolved intermittent `bends` limitation. Step 2.2 is **In progress**: the explicitly approved candidate is registered, its named reference pair is generated, and final existing checks pass; saved-reference listening approval remains.
+- Acceptance still pending: saved-reference listening approval, the Phase 2 exit gate, and final whole-feature acceptance remain outstanding. The recorded `bends` limitation remains unresolved. No extra infrastructure or supported-capacity claim is required.
 - Blockers: No concrete supported-product-path blocker was identified. Missing local browser/dependencies or unavailable user listening block the affected execution gate, not permission to skip it. The spec's A1–A3 remain working assumptions, not individually approved product decisions.
 
 Step statuses below are the authoritative execution record. A phase is complete
@@ -281,7 +281,7 @@ historical [native evidence](evidence/native.md).
 
 ### Step 2.2 — Approve one case and run final existing checks
 
-Status: **Pending**
+Status: **In progress** — candidate approval, case registration, named-reference generation, fresh named verification, and final existing checks passed; saved-reference listening approval remains.
 Requirements / acceptance: R8; AC10 (final regression) and AC11 (user and
 saved-reference acceptance).
 Depends on: Step 2.1.
@@ -300,16 +300,19 @@ Expected files:
 
 Tasks:
 
-- [ ] Present the Step 2.1 candidate and its disclosed quality limitations,
+- [x] Present the Step 2.1 candidate and its disclosed quality limitations,
       including the unresolved `bends` result, for explicit listening approval.
-      If changes are requested, rerun the affected gate; do not assume consent.
-- [ ] After approval, add the same candidate as one discovered `saturator` case
-      and verify its identity/settings. Keep the case unregistered until then.
-- [ ] Render the registered case, obtain renewed approval if it differs, and
-      generate only the named saved reference. Add case and reference together.
-- [ ] Verify fresh output against the saved reference and have the user approve
-      the saved WAV itself. Playback success is not approval.
-- [ ] Run final existing checks and record only established outcomes, preserving
+      The exact candidate approval is recorded in [acceptance evidence](evidence/acceptance.md).
+- [x] After approval, add the same candidate as one discovered `saturator` case
+      and verify its identity/settings.
+- [x] Render the registered case, confirm it remains within the existing raw
+      comparison tolerances, and generate only the named saved reference. Add
+      case and reference together.
+- [x] Verify fresh output against the saved reference. Fresh verification
+      passed.
+- [ ] Have the user approve the saved WAV itself. Playback success is not
+      approval.
+- [x] Run final existing checks and record only established outcomes, preserving
       unresolved risks and deviations.
 
 Verification — case commands become valid after the case is added:
@@ -345,8 +348,8 @@ evidence, the saved-reference listening is approved, and final existing checks
 are complete before declaring feature acceptance. A blocked check is not a
 passing gate.
 
-Evidence: Not run; create an acceptance note only if it adds useful links to
-approval records or unresolved outcomes.
+Evidence: [acceptance](evidence/acceptance.md). Saved-reference listening
+approval remains outstanding.
 
 ## Final acceptance
 

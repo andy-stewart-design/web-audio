@@ -1,6 +1,6 @@
 # @web-audio/audio-regression
 
-Private local tooling that renders Fluid sketches through the real AudioEngine and Chromium `OfflineAudioContext`, then compares raw audio with listening-approved recordings. The suite has **15 cases with reviewed references**, including `source-mix`. It is a local Mac regression suite, not cross-platform or musical-quality certification.
+Private local tooling that renders Fluid sketches through the real AudioEngine and Chromium `OfflineAudioContext`, then compares raw audio with listening-approved recordings. The suite has **16 cases with reviewed references**, including `source-mix` and the registered `saturator` case. The saturator saved recording still awaits separate user listening approval; final feature acceptance is pending. It is a local Mac regression suite, not cross-platform or musical-quality certification.
 
 ## Setup and commands
 
@@ -68,25 +68,24 @@ pnpm --filter @web-audio/audio-regression audio:render --case source-mix
 
 The render command writes the candidate to `artifacts/render/source-mix.wav` and does not compare or update references. The candidate was explicitly approved, and `audio:update --case source-mix` created the saved reference. `audio:verify --case source-mix` and root `pnpm test` pass it numerically; final listening of the saved reference was approved by reviewer `user` with “Yep, sounds good.” Do not use `audio:update` without explicit candidate approval.
 
-## Saturator native candidate check
+## Saturator native acceptance
 
-The focused native command uses Chromium `OfflineAudioContext` and the existing
-local sample fixture:
+The registered `saturator` case uses Chromium `OfflineAudioContext`, the
+existing local sample fixture, and the same 48 kHz, stereo, two-bar sketch that
+was approved as the candidate:
 
 ```sh
-pnpm --filter @web-audio/audio-regression exec vitest run \\
-  src/__tests__/saturator.test.ts \\
-  src/__tests__/worklets.test.ts \\
-  src/__tests__/pre-envelope-effects.test.ts
+pnpm --filter @web-audio/audio-regression audio:render --case saturator
+pnpm --filter @web-audio/audio-regression audio:verify --case saturator
 ```
 
-The saturator test renders one 48 kHz, stereo, two-bar candidate containing a
-saw synth, local sampler, and named bus. It renders two fresh candidates,
-compares their raw Float32 audio with the suite's fixed tolerances, and writes
-an ignored listening candidate to
-`artifacts/saturator/candidate-48000.wav` plus its JSON metadata sidecar. It is
-not a registered case or saved reference, and rendering does not constitute
-listening approval.
+It contains a saw synth, local sampler, and named `drums` bus. The ignored
+candidate remains at `artifacts/saturator/candidate-48000.wav` with its JSON
+sidecar for provenance/comparison. The named reference was generated only
+after explicit candidate approval and matches the candidate's raw Float32
+samples, settings, and frame count under the fixed tolerances. The saved WAV
+still awaits separate user listening approval; rendering, verification, and
+playback are not listening approval.
 
 ## Authoring cases
 

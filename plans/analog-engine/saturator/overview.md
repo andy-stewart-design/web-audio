@@ -17,12 +17,13 @@ This document explains the scope in plain language. The [specification](spec.md)
 is the detailed behavioral contract, and the [implementation plan](plan.md)
 describes the reviewable work and verification gates. Step 1.1, Step 1.2, the
 Phase 1 implementation exit, and the scoped Step 2.1 gate are verified. Step
-2.1 has one repeatable unregistered synth/sampler/named-bus candidate, focused
-checks, and completed parent review. The historical `bends` limitation remains
-unresolved, while current read-only verification passed all 15 existing
-references. Step 2.2 will obtain user listening approval for one representative
-case, save its reference, and run final existing checks. No user listening or
-reference approval is claimed.
+2.1 produced one repeatable synth/sampler/named-bus candidate, focused checks,
+and completed parent review. The candidate was explicitly approved, registered
+as the `saturator` case, and used to generate its named reference pair. The
+historical `bends` limitation remains unresolved, while current read-only
+verification passed all 15 pre-existing references and the fresh `saturator`
+case. Saved-reference listening approval and final existing checks remain
+pending; final feature acceptance is not claimed.
 
 ## What using it will look like
 
@@ -78,7 +79,7 @@ first.
 The starting sound is a single smooth saturation curve, called `tanh`. The
 working approach uses ADAA, a technique that considers consecutive samples to
 reduce unwanted digital distortion artifacts. The finished implementation still
-needs testing and listening.
+requires final saved-reference listening approval.
 It is not perfectly artifact-free and can soften very high frequencies.
 
 The surrounding work is limited to making that processor available through
@@ -118,9 +119,10 @@ The deliverable is an integrated effect, not just a standalone DSP experiment:
   automation, topology, ownership, and lifecycle boundaries already accepted.
   One approved native regression case covers representative synth, sampler, and
   named-bus musical behavior in a single reused candidate.
-- The candidate and saved recording are listened to and explicitly approved by
-  the user before feature acceptance and any reference update. Existing fixed
-  tolerances remain raw: no normalization or tolerance widening.
+- The candidate was explicitly approved before registration and the named
+  reference update. The saved recording still requires separate user listening
+  approval before feature acceptance. Existing fixed tolerances remain raw: no
+  normalization or tolerance widening.
 - No extra infrastructure, machine benchmark, maximum-CPU, or
   supported-polyphony guarantee is required. Ordinary manual audition may
   expose an obvious issue, which remains visible rather than creating a new
@@ -128,6 +130,7 @@ The deliverable is an integrated effect, not just a standalone DSP experiment:
 
 The main tradeoffs to watch are sound quality at strong drive and behavior during
 fast control changes. CPU cost may be noticed during ordinary use, but it has no
-required benchmark or capacity guarantee. If audition or focused checks expose
-a material problem, revisit the affected choice explicitly rather than quietly
-expanding the scope.
+required benchmark or capacity guarantee. The historical intermittent `bends`
+comparison remains unresolved. If audition or focused checks expose a material
+problem, revisit the affected choice explicitly rather than quietly expanding the
+scope.

@@ -2,10 +2,10 @@
 
 ## Status
 
-- Readiness: Ready for implementation planning; this is not implementation acceptance.
+- Readiness: Implementation and integration are complete through the registered case and named reference; saved-reference listening and final acceptance remain pending.
 - Blocking decisions: None for planning; working defaults are identified under Assumptions.
 - Source: The [analog-engine roadmap](../roadmap.md) and the approved AudioWorklet, voice, and named-bus scope. Compression and main-output effects are separate work.
-- Delivery: Step 1.1, Step 1.2, the Phase 1 implementation exit, and the scoped Step 2.1 gate are verified. Step 2.1 has one repeatable unregistered synth/sampler/named-bus candidate, focused checks, and completed parent review. The historical native evidence records an unresolved intermittent `bends` limitation, while current read-only verification passed all 15 existing references. The remaining work is user listening approval, registration, the saved reference, and final existing checks. See the [implementation plan](plan.md), [Step 1.2 evidence](evidence/step-1.2-minimal.md), and [native evidence](evidence/native.md). The Phase 2 exit and final feature acceptance remain pending; no user listening or reference approval is claimed.
+- Delivery: Step 1.1, Step 1.2, the Phase 1 implementation exit, and the scoped Step 2.1 gate are verified. Step 2.1 produced one repeatable synth/sampler/named-bus candidate, focused checks, and completed parent review. The candidate was explicitly approved, registered as the `saturator` case, and used to generate its named reference pair. The historical native evidence records an unresolved intermittent `bends` limitation, while current read-only verification passed all 15 pre-existing references and the fresh `saturator` case. Saved-reference listening approval, the Phase 2 exit, and final feature acceptance remain pending. See the [implementation plan](plan.md), [Step 1.2 evidence](evidence/step-1.2-minimal.md), [native evidence](evidence/native.md), and [acceptance evidence](evidence/acceptance.md). Candidate approval does not claim saved-reference listening approval.
 - Integration boundary: Clean up saturator-owned resources through existing common voice/bus lifecycle seams. Universal rollback for existing MIDI subscriptions, constructors, or every native graph operation is outside this contract. This specification does not itself constitute final acceptance or authorize reference updates.
 
 ## Problem and intended outcome
