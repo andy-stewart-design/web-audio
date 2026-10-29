@@ -7,6 +7,7 @@ import type {
 import { FILTER_TYPE_MAP, MIN_RAMP } from "@/constants";
 import ValuePatternResolver from "@/patterns/value-pattern-resolver";
 import { DuckAutomation, type DuckRequest } from "./duck-automation";
+import Saturator from "../effects/saturator";
 
 interface ActiveTransition {
   from: number;
@@ -26,6 +27,7 @@ interface BusParameterBinding {
 interface RuntimeEffect {
   node: AudioNode;
   bindings: BusParameterBinding[];
+  dispose?: () => void;
 }
 
 interface RuntimeBusOptions {
@@ -56,7 +58,16 @@ class RuntimeBus {
   ) {
     this._ctx = ctx;
     this.input = ctx.createGain();
-    this._effects = schema.effects.map((effect) => buildEffect(ctx, effect));
+
+    const effects: RuntimeEffect[] = [];
+    try {
+      for (const effect of schema.effects)
+        effects.push(buildEffect(ctx, effect));
+    } catch (error) {
+      for (const effect of effects) effect.dispose?.();
+      throw error;
+    }
+    this._effects = effects;
     this._duckGain = ctx.createGain();
     this._duckGain.gain.value = 1;
     this._output = ctx.createGain();
@@ -65,7 +76,7 @@ class RuntimeBus {
     this._transition = schema.transition;
 
     let previous: AudioNode = this.input;
-    for (const effect of this._effects) {
+    for (const effect of effects) {
       previous.connect(effect.node);
       previous = effect.node;
     }
@@ -73,7 +84,12 @@ class RuntimeBus {
     this._duckGain.connect(this._output);
     this._output.connect(destination);
 
-    this.scheduleBar(options.startingBar, options.barStartTime);
+    try {
+      this.scheduleBar(options.startingBar, options.barStartTime);
+    } catch (error) {
+      for (const effect of effects) effect.dispose?.();
+      throw error;
+    }
   }
 
   scheduleBar(barIndex: number, startTime?: number, barDuration = 0) {
@@ -152,7 +168,9 @@ class RuntimeBus {
     this._destroyed = true;
     this._duckAutomation.destroy();
     this.input.disconnect();
-    this._effects.forEach((effect) => effect.node.disconnect());
+    this._effects.forEach((effect) =>
+      effect.dispose ? effect.dispose() : effect.node.disconnect(),
+    );
     this._duckGain.disconnect();
     this._output.disconnect();
   }
@@ -174,11 +192,33 @@ function buildEffect(ctx: BaseAudioContext, effect: EffectSchema) {
     };
   }
 
-  const node = new GainNode(ctx);
-  return {
-    node,
-    bindings: [binding(node.gain, effect.gain)],
-  };
+  if (effect.type === "gain") {
+    const node = new GainNode(ctx);
+    return {
+      node,
+      bindings: [binding(node.gain, effect.gain)],
+    };
+  }
+
+  if (effect.type === "saturator") {
+    const saturator = new Saturator(ctx);
+    try {
+      const bindings = [
+        binding(saturator.drive, effect.drive),
+        binding(saturator.postgain, effect.postgain),
+      ];
+      return {
+        node: saturator.node,
+        bindings,
+        dispose: () => saturator.dispose(),
+      };
+    } catch (error) {
+      saturator.dispose();
+      throw error;
+    }
+  }
+
+  throw new Error("[RuntimeBus] Unsupported effect type.");
 }
 
 function binding(target: AudioParam, schema: AudioParamSchema) {

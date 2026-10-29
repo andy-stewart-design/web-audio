@@ -24,6 +24,7 @@ import { SYNTH_BASE_GAIN, FILTER_TYPE_MAP } from "@/constants";
 import NoiseSource from "../sources/noise-source";
 import { toAudioFrame } from "../sources/supersaw-source";
 import { computeEnvelope } from "@/parameters/compute-envelope";
+import Saturator from "../effects/saturator";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -413,6 +414,25 @@ abstract class Instrument {
         );
         return node;
       }
+      case "saturator": {
+        const saturator = new Saturator(this._ctx);
+        completionCleanups.push(() => saturator.dispose());
+        this._applyParamSchema(
+          saturator.drive,
+          effect.drive,
+          event,
+          1,
+          completionCleanups,
+        );
+        this._applyParamSchema(
+          saturator.postgain,
+          effect.postgain,
+          event,
+          1,
+          completionCleanups,
+        );
+        return saturator.node;
+      }
     }
   }
 
@@ -774,6 +794,10 @@ abstract class Instrument {
         }
       } else if (effect.type === "gain") {
         if (effect.gain.type === "lfo") register(effect.gain);
+      } else if (effect.type === "saturator") {
+        for (const param of [effect.drive, effect.postgain]) {
+          if (param.type === "lfo") register(param);
+        }
       }
     }
   }

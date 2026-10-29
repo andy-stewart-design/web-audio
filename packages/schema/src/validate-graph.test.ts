@@ -195,6 +195,57 @@ describe("validateDromeGraph", () => {
     ).toThrow("[Schema] Effects on main are not supported in the bus MVP.");
   });
 
+  it("accepts saturator controls with finite static and automation schemas", () => {
+    const effect: EffectSchema = {
+      type: "saturator",
+      drive: staticParam(-2),
+      postgain: {
+        type: "lfo",
+        id: "drive-lfo",
+        outputA: staticParam(0),
+        outputB: staticParam(1),
+        speed: [1],
+        waveform: ["sine"],
+        phase: 0,
+        norm: false,
+        invert: false,
+      },
+    };
+
+    expect(() =>
+      validateDromeGraph(
+        schema({ drums: { gain: 1, transition: 0, effects: [effect] } }),
+      ),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ["drive", undefined],
+    ["postgain", undefined],
+    ["drive", { type: "static", cycle: [[Number.NaN]] }],
+    ["postgain", { type: "invalid" }],
+  ])("rejects malformed saturator %s", (field, value) => {
+    const effect: Record<string, unknown> = {
+      type: "saturator",
+      drive: staticParam(1),
+      postgain: staticParam(1),
+    };
+    if (value === undefined) Reflect.deleteProperty(effect, field);
+    else effect[field] = value;
+
+    expect(() =>
+      validateDromeGraph(
+        schema({
+          drums: {
+            gain: 1,
+            transition: 0,
+            effects: [effect as unknown as EffectSchema],
+          },
+        }),
+      ),
+    ).toThrow(`[Schema] Bus "drums" effects[0].${field}`);
+  });
+
   it("accepts multi-bar and multi-step static bus effect parameters", () => {
     const effect: EffectSchema = {
       type: "gain",

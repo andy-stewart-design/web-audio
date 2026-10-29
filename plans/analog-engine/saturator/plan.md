@@ -3,9 +3,9 @@
 ## Status and governing source
 
 - Governing spec: [spec.md](spec.md); plain-language scope: [overview.md](overview.md).
-- Delivery state: Baseline characterization complete; Step 1.1 processor/adapter implementation and parent review are complete; public authoring integration, native verification, real-time characterization, listening, and approved-reference work have not begun.
-- Acceptance still pending: All later implementation, native verification, real-time characterization, user listening approval, and approved-reference gates remain outstanding.
-- Blockers: None for planning. Missing local browser/dependencies or unavailable user listening block the affected execution gate, not permission to skip it. The spec's A1–A3 remain working assumptions, not individually approved product decisions.
+- Delivery state: Source build, Step 1.1, the minimal Step 1.2 integration redo, and the Phase 1 implementation exit are **Verified** after parent review. Phase 2 remains **Pending**.
+- Acceptance still pending: native characterization, real-time characterization, user listening approval, approved-reference gates, and final whole-feature acceptance remain outstanding.
+- Blockers: No concrete supported-product-path blocker was identified. Missing local browser/dependencies or unavailable user listening block the affected execution gate, not permission to skip it. The spec's A1–A3 remain working assumptions, not individually approved product decisions.
 
 Step statuses below are the authoritative execution record. A phase is complete
 only when its step completion gates and phase exit gate are satisfied. Task
@@ -38,8 +38,9 @@ not task checkboxes; evidence may link to that record without duplicating it.
 Delivery boundary: **one feature-complete PR**, containing reviewable increments;
 these phases are not separate release commitments. Step 1.1 may be reviewed as an
 unused tested processor/adapter, but is not feature completion. Step 1.2 is the
-atomic schema/authoring/runtime integration group: land and revert its consumers
-together. Step 2.3 adds the registry case and its approved reference together;
+minimal schema/authoring/runtime integration group: land and revert its
+consumers together without broad failure-hardening refactors. Step 2.3 adds the
+registry case and its approved reference together;
 never leave a registered case with a missing reference at a review boundary.
 
 ## Phase 0 — Establish a trustworthy baseline
@@ -158,16 +159,20 @@ assertion fix passed. Parent implementation review is complete. No fallback,
 shared channel history, or silence-triggered shutdown was introduced.
 Evidence: [step 1.1](evidence/step-1.1.md).
 
-Phase 1 exit gate: **NOT satisfied**. Step 1.2 remains Pending and its public
-API, voice/bus ownership, and native gates have not been run.
+Phase 1 exit gate: **Verified** for the minimal integration redo after parent
+review. Evidence: [minimal Step 1.2](evidence/step-1.2-minimal.md). Phase 2
+remains **Pending**; no user manual listening or approval is claimed.
 
 ### Step 1.2 — Wire the public effect, voices, and named buses atomically
 
-Status: Pending
+Status: **Verified** — minimal integration redo; parent review passed
 Requirements / acceptance: R1–R8; AC1, AC2, AC6, AC7 (binding/scheduling), AC8, AC9 (owner/failure portions); AC4/AC5/AC10/AC11 (native smoke or targeted portions only). Full native comparison/listening/parity remain Phase 2.
 Depends on: Step 1.1.
-Review boundary: The complete typed effect discriminator and every affected
-consumer, with lifecycle proof in the same increment—not a later hardening phase.
+Review boundary: Keep the typed discriminator, authoring, voice path, and
+narrow named-bus worklet ownership needed for saturation. The latest scope
+amendment explicitly supersedes the prior broad failure-hardening direction:
+reuse existing lifecycle seams and do not add generic MIDI, constructor, or
+resource-host rollback.
 
 Expected files:
 
@@ -176,17 +181,17 @@ Expected files:
 - `packages/fluid/src/instruments/instrument.ts`, `src/buses/bus.ts`, and their existing relevant tests — accepted builder unions and attachments.
 - `packages/audio-engine/src/instruments/instrument.ts`, `instruments/__tests__/pre-envelope-effects.test.ts`, and relevant existing voice/source tests — node construction, modulation discovery, cleanup, ordering.
 - `packages/audio-engine/src/buses/runtime-bus.ts` and `buses/__tests__/runtime-bus.test.ts` — explicit dispatch, bindings, partial-constructor cleanup.
-- `packages/audio-engine/src/__tests__/engine.test.ts` and narrow adapter tests as needed — pending-update preservation, replacement failure, retirement, and error boundaries.
-- `packages/audio-regression/src/__tests__/saturator.test.ts` and `support/saturator/` — new minimal public-path native smoke; expanded in Step 2.1.
+- `packages/audio-engine/src/__tests__/engine.test.ts` and narrow adapter tests as needed — existing pending-update and registration boundaries only.
+- `packages/audio-regression/src/__tests__/saturator.test.ts` — minimal public-path native smoke; expanded in Step 2.1.
+- `plans/analog-engine/saturator/evidence/step-1.2-minimal.md` and `follow-ups.md` — concise final evidence and explicitly deferred observations.
 
 Tasks:
 
-- [ ] Add the distinct `{ type: "saturator", drive, postgain }` variant and required-field validation, plus the spec's optional single-slot factory and variadic postgain setter. Preserve reusable inputs, signed values, default `1`/`1`, replacement semantics, and argument rejection.
-- [ ] Update all effect consumers/types together. Replace the bus's non-filter-means-gain fallback with explicit supported-effect dispatch; include both saturator controls in voice LFO discovery. Do not leave an accepted variant without a working runtime branch.
-- [ ] Bind through existing parameter helpers, including first-audible-sample initialization, per-voice envelope/LFO/MIDI behavior, and named-bus step-zero static/random transitions. Reject unsupported bus modulation before activation; keep main effects rejected without redesigning other effects' validation.
-- [ ] Connect one adapter per voice/effect or shared bus/effect in authored order. Register disposal with the existing owners, preserve pre-ADSR placement and retirement, and keep failed series paths silent without stopping sibling owners or shared modulation sources.
-- [ ] Make partial voice/bus construction release newly acquired resources, including earlier effects in a bus constructor that fails before engine registration. Add cancellation/completion/retirement/repeated-destroy/stale-event and injected-failure coverage now. Preserve schema-validation-before-pending-assignment without promising general engine rollback.
-- [ ] Add authoring/type/schema negatives, synth/sampler/bus topology and control tests, and one deterministic fresh native smoke through the public factory. Update affected mocks/fixtures/exports in this atomic group; keep existing graphs supported.
+- [x] Retain the distinct `{ type: "saturator", drive, postgain }` variant, required validation, factory/setter defaults, signed values, replacement semantics, and supported public unions.
+- [x] Redo voice integration minimally: use the existing completion cleanup list for each adapter and both parameter helpers; retain explicit LFO discovery without private binding rollback or global MIDI changes.
+- [x] Redo named-bus integration minimally: explicit dispatch, an optional dispose hook only for saturators, and cleanup of newly created saturators when later construction or initial scheduling fails. Preserve existing filter/gain scheduling and destruction behavior.
+- [x] Remove the rejected generic MIDI rollback, constructor-local LFO rollback, RuntimeBus definite-assignment assertions, broad cleanup helper, and speculative failure matrices/tests.
+- [x] Re-run focused schema, builder, control/topology, ownership/cancel/end/dispose, unsupported bus modulation, new-node binding failure, and minimal native smoke checks. Do not add Phase 2 coverage or reference cases.
 
 Verification:
 
@@ -198,29 +203,24 @@ pnpm --filter @web-audio/audio-regression check
 pnpm --filter @web-audio/audio-regression lint
 ```
 
-The core suites must cover AC1/AC2 authoring and validation, AC6 ordering/node
-ownership, AC7 target discovery/scheduling/stop, and AC8/AC9 lifecycle/failures.
-Check every new union consumer rather than relying only on a successful build.
-The new native smoke proves the source-built public path actually produces
-finite, repeatable audible saturation; it is not listening approval or the full
-native matrix. Format changed files and run `git diff --check`.
+The focused suites cover AC1/AC2 authoring and validation, AC6 ordering and
+ownership, AC7 discovery/scheduling/stop, and the narrow AC8/AC9 saturator
+lifecycle boundaries. They do not claim rollback for existing MIDI, constructors,
+or every native graph operation. Format changed files and run `git diff --check`.
 
-Manual: Review all new owner-cleanup registrations and every failed setup path.
-Confirm tests distinguish a silent failed path from a dry fallback and verify
-that another voice/bus remains connected and its controls remain alive.
+Manual: Review the minimal owner boundary, especially voice completion cleanup
+and the named-bus cleanup of newly created worklets. Do not treat the historical
+broad failure matrix as a required implementation target.
 
-Completion gate: This atomic group's API, schema, runtime, and affected tests pass
-together; native smoke passes after rebuilding; no new discriminator is handled
-as gain accidentally; ownership safety is not deferred to Phase 2.
-Evidence: Not run.
+Completion gate: The minimal API/schema/runtime integration, focused tests, and
+fresh public-path native smoke pass together. Parent review is complete. No new
+generic rollback, helper, cast, or alternate resource host is introduced.
+Evidence: [minimal Step 1.2](evidence/step-1.2-minimal.md).
 
-Phase exit gate: After Step 1.2 checks, force rebuild as above and run the new
-`saturator.test.ts` together with existing `worklets.test.ts` and
-`pre-envelope-effects.test.ts` through `pnpm --filter @web-audio/audio-regression exec vitest run`.
-Require composed registration, public-path smoke, and unchanged existing routing
-coverage to pass. Assess before requesting approval to advance. Mocks alone do
-not satisfy this integration gate.
-Evidence: Not run.
+Phase exit gate assessment: **Verified** for this minimal implementation scope;
+parent review passed. Evidence: [minimal Step 1.2](evidence/step-1.2-minimal.md).
+Phase 2 remains **Pending**; no manual listening or reference approval is
+claimed.
 
 ## Phase 2 — Verify the sound and finish acceptance
 
@@ -397,6 +397,8 @@ Evidence: Not run.
 
 ## Final acceptance
 
+Status: **Pending**. Phase 2 evidence and whole-feature acceptance remain outstanding.
+
 This is a coverage map, not another progress checklist. Evidence/status lives in
 the owning step or phase gate; these links identify it without duplicating results.
 
@@ -426,6 +428,6 @@ the owning step or phase gate; these links identify it without duplicating resul
 
 ## Deferred checks and accepted deviations
 
-- None accepted. Step 0.1 and the Phase 0 exit-gate assessment are verified with baseline evidence; Step 1.1 is verified with its scoped evidence; Steps 1.2–2.3 and the Phase 1/2 gates remain Pending/not run.
+- Scope amendment applied: the user's latest minimal-integration direction supersedes the prior broad Step 1.2 failure-hardening instructions. Step 1.2 and the Phase 1 implementation exit are Verified after parent review. Steps 2.1–2.3 and Phase 2 remain Pending/not run.
 - Human listening/reference approval and the interactive real-time run require user/environment access later; they are explicit gates, not implicitly waived checks.
 - Cross-browser/device certification, a numerical real-time SLA, maximum supported polyphony, compressor/main effects, and other spec non-goals remain outside this plan.

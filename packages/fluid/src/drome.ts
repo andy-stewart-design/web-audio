@@ -12,6 +12,7 @@ import { BUILT_IN_BANKS } from "./samples/built-in-banks";
 import Bus from "./buses/bus";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
+import Saturator from "./effects/saturator";
 import Instrument from "./instruments/instrument";
 import { MidiBuilders } from "./midi/builders";
 import Sampler from "./instruments/sampler";
@@ -277,6 +278,13 @@ class Drome {
 
   gain(...input: AudioParamInput) {
     return new GainEffect(...input);
+  }
+
+  saturator(drive?: SingleSlotAudioParamInput) {
+    if (arguments.length > 1) {
+      throw new TypeError("[Drome] saturator() accepts one drive value.");
+    }
+    return new Saturator(drive);
   }
 
   filter(type: FilterType, frequency: SingleSlotAudioParamInput) {

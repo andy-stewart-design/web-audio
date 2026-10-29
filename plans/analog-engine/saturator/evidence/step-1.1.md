@@ -4,8 +4,8 @@
 
 The processor and narrow AudioWorklet adapter are implemented, the independent
 reference assertion now uses strict six-decimal-digit matching, and parent review
-is complete. Step 1.1 is **Verified**; Phase 1 exit is not satisfied because
-Step 1.2 has not started.
+is complete. Step 1.1 is **Verified**. Phase 1 exit status is assessed by the
+minimal Step 1.2 evidence linked from the implementation plan.
 
 ## DSP and lifecycle proof
 

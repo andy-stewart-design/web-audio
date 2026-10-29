@@ -15,9 +15,13 @@ feature.
 
 This document explains the scope in plain language. The [specification](spec.md)
 is the detailed behavioral contract, and the [implementation plan](plan.md)
-describes the reviewable changes and verification gates. Implementation has not
-begun under that plan; the feature is not implemented on the inspected `main`
-branch.
+describes the reviewable changes and verification gates. Step 1.1 and the
+minimal Step 1.2 integration redo are verified after parent review, and the
+Phase 1 implementation exit is verified. Phase 2 native characterization,
+real-time characterization, listening approval, saved-reference work, and final
+feature acceptance remain pending. No user manual listening or approval is
+claimed. The latest minimal-integration scope amendment supersedes the earlier
+broad failure-hardening direction.
 
 ## What using it will look like
 
