@@ -13,6 +13,7 @@ import {
 class Saturator {
   private _drive: AudioParamSource;
   private _postgain: AudioParamSource;
+  pg: (...input: AudioParamInput) => this;
 
   constructor(drive?: SingleSlotAudioParamInput) {
     if (arguments.length > 1) {
@@ -23,6 +24,7 @@ class Saturator {
         ? new Parameter(1)
         : resolveAudioParamValue(drive, "[Saturator] drive()");
     this._postgain = new Parameter(1);
+    this.pg = this.postgain.bind(this);
   }
 
   postgain(...input: AudioParamInput) {

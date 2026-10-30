@@ -50,6 +50,7 @@ class Drome {
   private _buses = new Map<string, Bus>();
   sh: (source: string) => Shorthand;
   str: Drome["structured"];
+  sat: (drive?: SingleSlotAudioParamInput) => Saturator;
 
   constructor() {
     this._instruments = new Set();
@@ -57,6 +58,7 @@ class Drome {
     this._bankNames = Object.create(null);
     this.sh = this.shorthand.bind(this);
     this.str = this.structured.bind(this);
+    this.sat = this.saturator.bind(this);
   }
 
   bpm(value: number) {
