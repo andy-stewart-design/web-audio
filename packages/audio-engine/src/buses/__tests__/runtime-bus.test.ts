@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { EffectSchema, RandomNumberPattern } from "@web-audio/schema";
+import type {
+  AudioParamSchema,
+  EffectSchema,
+  RandomNumberPattern,
+} from "@web-audio/schema";
 import RuntimeBus from "../runtime-bus";
 
 class FakeAudioParam {
@@ -40,6 +44,37 @@ class FakeFilterNode {
   }
 }
 
+class FakeSaturatorNode {
+  static instances: FakeSaturatorNode[] = [];
+  parameters = new Map([
+    ["drive", new FakeAudioParam()],
+    ["postgain", new FakeAudioParam()],
+  ]);
+  port = { postMessage: vi.fn(), close: vi.fn(), onmessage: null };
+  connect = vi.fn();
+  disconnect = vi.fn();
+  listeners = new Map<string, Set<EventListener>>();
+
+  constructor() {
+    FakeSaturatorNode.instances.push(this);
+  }
+
+  addEventListener(type: string, listener: EventListener) {
+    const listeners = this.listeners.get(type) ?? new Set<EventListener>();
+    listeners.add(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  removeEventListener(type: string, listener: EventListener) {
+    this.listeners.get(type)?.delete(listener);
+  }
+
+  emit(type: string) {
+    for (const listener of this.listeners.get(type) ?? [])
+      listener(new Event(type));
+  }
+}
+
 function staticParam(...values: number[]) {
   return {
     type: "static" as const,
@@ -58,6 +93,47 @@ function randomParam(overrides: Partial<RandomNumberPattern> = {}) {
     order: "forward" as const,
     ...overrides,
   };
+}
+
+function unsupportedParams(): [string, AudioParamSchema][] {
+  return [
+    [
+      "envelope",
+      {
+        type: "envelope",
+        min: staticParam(0),
+        max: staticParam(1),
+        a: staticParam(0),
+        d: staticParam(0),
+        s: staticParam(1),
+        r: staticParam(0),
+        mode: "bleed",
+      },
+    ],
+    [
+      "lfo",
+      {
+        type: "lfo",
+        id: "bus-lfo",
+        outputA: staticParam(0),
+        outputB: staticParam(1),
+        speed: [1],
+        waveform: ["sine"],
+        phase: 0,
+        norm: true,
+        invert: false,
+      },
+    ],
+    [
+      "MIDI CC",
+      {
+        type: "midi-cc",
+        cc: 74,
+        range: { min: 0, max: 1, curve: "linear" },
+        default: 0.5,
+      },
+    ],
+  ];
 }
 
 function createBus(
@@ -90,8 +166,10 @@ function createBus(
 beforeEach(() => {
   FakeEffectGainNode.instances = [];
   FakeFilterNode.instances = [];
+  FakeSaturatorNode.instances = [];
   vi.stubGlobal("GainNode", FakeEffectGainNode);
   vi.stubGlobal("BiquadFilterNode", FakeFilterNode);
+  vi.stubGlobal("AudioWorkletNode", FakeSaturatorNode);
 });
 
 describe("RuntimeBus", () => {
@@ -106,6 +184,22 @@ describe("RuntimeBus", () => {
     expect(duck.connect).toHaveBeenCalledWith(output);
     expect(output.gain.value).toBe(0.75);
     expect(output.connect).toHaveBeenCalledWith(main);
+  });
+
+  it("initializes and serially connects a saturator with both controls", () => {
+    createBus([
+      {
+        type: "saturator",
+        drive: staticParam(-2),
+        postgain: staticParam(0.5),
+      },
+    ]);
+
+    const saturator = FakeSaturatorNode.instances[0];
+    expect(FakeSaturatorNode.instances).toHaveLength(1);
+    expect(saturator.parameters.get("drive")?.value).toBe(-2);
+    expect(saturator.parameters.get("postgain")?.value).toBe(0.5);
+    expect(saturator.connect).toHaveBeenCalledOnce();
   });
 
   it("initializes and serially connects gain and filter effects", () => {
@@ -150,6 +244,33 @@ describe("RuntimeBus", () => {
 
     expect(FakeEffectGainNode.instances).toHaveLength(1);
     expect(FakeEffectGainNode.instances[0].gain.value).toBe(1);
+  });
+
+  it("schedules both saturator controls through bus transitions and stop", () => {
+    const { bus } = createBus(
+      [
+        {
+          type: "saturator",
+          drive: staticParam(1, 2),
+          postgain: staticParam(0.5, 0.25),
+        },
+      ],
+      { startingBar: 0, barStartTime: undefined },
+      0.25,
+    );
+    const saturator = FakeSaturatorNode.instances[0];
+    const drive = saturator.parameters.get("drive")!;
+    const postgain = saturator.parameters.get("postgain")!;
+
+    bus.scheduleBar(1, 10, 2);
+    bus.stop(10.25);
+
+    expect(drive.setValueAtTime).toHaveBeenCalledWith(1, 10);
+    expect(postgain.setValueAtTime).toHaveBeenCalledWith(0.5, 10);
+    expect(drive.linearRampToValueAtTime).toHaveBeenCalledWith(2, 10.5);
+    expect(postgain.linearRampToValueAtTime).toHaveBeenCalledWith(0.25, 10.5);
+    expect(drive.cancelAndHoldAtTime).toHaveBeenCalledWith(10.25);
+    expect(postgain.cancelAndHoldAtTime).toHaveBeenCalledWith(10.25);
   });
 
   it("schedules static cycles at exact bar times using step zero", () => {
@@ -232,6 +353,24 @@ describe("RuntimeBus", () => {
     expect(duck.gain.linearRampToValueAtTime).toHaveBeenCalledWith(1, 10.35);
     expect(output.gain.setValueAtTime).not.toHaveBeenCalled();
     expect(output.gain.linearRampToValueAtTime).not.toHaveBeenCalled();
+  });
+
+  it("silences a failed bus saturator without destroying its owner", () => {
+    const { bus } = createBus([
+      {
+        type: "saturator",
+        drive: staticParam(2),
+        postgain: staticParam(0.5),
+      },
+    ]);
+    const saturator = FakeSaturatorNode.instances[0];
+
+    saturator.emit("processorerror");
+    bus.scheduleBar(1, 10);
+
+    expect(saturator.port.postMessage).toHaveBeenCalledOnce();
+    expect(saturator.disconnect).toHaveBeenCalledOnce();
+    expect(() => bus.stop(10)).not.toThrow();
   });
 
   it("stops duck automation independently from effect automation", () => {
@@ -324,6 +463,79 @@ describe("RuntimeBus", () => {
         },
       ]),
     ).toThrow("[RuntimeBus] Expected a validated bus parameter.");
+  });
+
+  it.each(
+    unsupportedParams().flatMap(([name, parameter]) => [
+      [name, "drive", parameter] as const,
+      [name, "postgain", parameter] as const,
+    ]),
+  )(
+    "rejects a schema-valid bus %s control before activation",
+    (_name, control, parameter) => {
+      expect(() =>
+        createBus([
+          { type: "gain", gain: staticParam(0.5) },
+          {
+            type: "saturator",
+            drive: control === "drive" ? parameter : staticParam(2),
+            postgain: control === "postgain" ? parameter : staticParam(0.5),
+          },
+        ]),
+      ).toThrow("[RuntimeBus] Expected a validated bus parameter.");
+
+      expect(
+        FakeSaturatorNode.instances[0].port.postMessage,
+      ).toHaveBeenCalledWith({ type: "dispose" });
+      expect(FakeSaturatorNode.instances[0].disconnect).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("rejects an unknown effect discriminator instead of treating it as a saturator", () => {
+    expect(() =>
+      createBus([
+        { type: "gain", gain: staticParam(0.5) },
+        { type: "compressor" } as unknown as EffectSchema,
+      ]),
+    ).toThrow("[RuntimeBus] Unsupported effect type.");
+
+    expect(FakeSaturatorNode.instances).toHaveLength(0);
+  });
+
+  it("cleans a new saturator when a later effect fails construction", () => {
+    expect(() =>
+      createBus([
+        {
+          type: "saturator",
+          drive: staticParam(2),
+          postgain: staticParam(0.5),
+        },
+        { type: "gain", gain: { type: "lfo" } as never },
+      ]),
+    ).toThrow("[RuntimeBus] Expected a validated bus parameter.");
+
+    expect(
+      FakeSaturatorNode.instances[0].port.postMessage,
+    ).toHaveBeenCalledWith({ type: "dispose" });
+    expect(FakeSaturatorNode.instances[0].disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("cleans a new saturator when initial scheduling fails", () => {
+    expect(() =>
+      createBus([
+        {
+          type: "saturator",
+          drive: staticParam(2),
+          postgain: staticParam(0.5),
+        },
+        { type: "gain", gain: randomParam({ valueMap: [] }) },
+      ]),
+    ).toThrow("[RuntimeBus] Expected a validated bus parameter.");
+
+    expect(
+      FakeSaturatorNode.instances[0].port.postMessage,
+    ).toHaveBeenCalledWith({ type: "dispose" });
+    expect(FakeSaturatorNode.instances[0].disconnect).toHaveBeenCalledOnce();
   });
 
   it("holds the exact in-progress value when stopped mid-transition", () => {

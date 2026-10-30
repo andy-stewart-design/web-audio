@@ -7,8 +7,7 @@ import {
   type ScheduledValue,
 } from "@web-audio/patterns";
 import Envelope, { type ADSR } from "@/automations/envelope";
-import Filter from "@/effects/filter";
-import GainEffect from "@/effects/gain";
+import type { Effect } from "@/effects/types";
 import type { InstrumentEventState } from "@/events/state";
 import {
   composeEventTiming,
@@ -56,7 +55,7 @@ abstract class Instrument {
   protected abstract _eventState: InstrumentEventState;
   protected _detune: AudioParamSource;
   protected _gain: Envelope;
-  protected _effects: (Filter | GainEffect)[] = [];
+  protected _effects: Effect[] = [];
   protected _noise: { color: NoiseColor; gain: AudioParamSource } | undefined;
   protected _host: Drome | undefined;
   protected _muted = false;
@@ -311,7 +310,7 @@ abstract class Instrument {
     return this;
   }
 
-  fx(...effects: (Filter | GainEffect)[]) {
+  fx(...effects: Effect[]) {
     this._effects.push(...effects);
     return this;
   }

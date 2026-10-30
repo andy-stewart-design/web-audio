@@ -1,13 +1,12 @@
 import type { BusSchema } from "@web-audio/schema";
-import type Filter from "@/effects/filter";
-import type GainEffect from "@/effects/gain";
+import type { Effect } from "@/effects/types";
 
 class Bus {
   readonly name: string;
   readonly trans: (value: number) => this;
   private _gain = 1;
   private _transition = 0;
-  private _effects: (Filter | GainEffect)[] = [];
+  private _effects: Effect[] = [];
 
   constructor(name: string) {
     this.name = name;
@@ -32,7 +31,7 @@ class Bus {
     return this;
   }
 
-  fx(...effects: (Filter | GainEffect)[]) {
+  fx(...effects: Effect[]) {
     if (this.name === "main") {
       throw new Error(
         "[Bus] Effects on main are not supported in the bus MVP.",

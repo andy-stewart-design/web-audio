@@ -1,0 +1,13 @@
+{
+  "description": "Portable synth, sampler, and named-bus saturation candidate",
+  "bars": 2,
+  "tailSeconds": 0.25,
+  "settings": {
+    "sampleRate": 48000,
+    "channels": 2,
+    "startOffsetFrames": 4417
+  },
+  "resources": {
+    "/samples/tone.wav": "../sample-tone/samples/tone.wav"
+  }
+}

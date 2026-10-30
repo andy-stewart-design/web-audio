@@ -49,6 +49,41 @@ class FakeFilterNode {
   }
 }
 
+class FakeSaturatorNode {
+  static instances: FakeSaturatorNode[] = [];
+  readonly parameters = new Map([
+    ["drive", new FakeAudioParam()],
+    ["postgain", new FakeAudioParam()],
+  ]);
+  readonly port = {
+    postMessage: vi.fn(),
+    close: vi.fn(),
+    onmessage: null,
+  };
+  readonly connect = vi.fn();
+  readonly disconnect = vi.fn();
+  readonly listeners = new Map<string, Set<EventListener>>();
+
+  constructor() {
+    FakeSaturatorNode.instances.push(this);
+  }
+
+  addEventListener(type: string, listener: EventListener) {
+    const listeners = this.listeners.get(type) ?? new Set<EventListener>();
+    listeners.add(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  removeEventListener(type: string, listener: EventListener) {
+    this.listeners.get(type)?.delete(listener);
+  }
+
+  emit(type: string) {
+    for (const listener of this.listeners.get(type) ?? [])
+      listener(new Event(type));
+  }
+}
+
 class FakeOscillatorNode {
   static instances: FakeOscillatorNode[] = [];
   readonly detune = new FakeAudioParam();
@@ -129,6 +164,14 @@ function gainEffect(value = 0.5): EffectSchema {
   };
 }
 
+function saturatorEffect(drive = 2, postgain = 0.5): EffectSchema {
+  return {
+    type: "saturator",
+    drive: staticNumberPattern([drive]),
+    postgain: staticNumberPattern([postgain]),
+  };
+}
+
 function effectPair(reversed: boolean): EffectSchema[] {
   return reversed
     ? [gainEffect(), filterEffect()]
@@ -182,10 +225,12 @@ function voiceEnvelopes(ctx: FakeAudioContext) {
 beforeEach(() => {
   FakeGainNode.instances = [];
   FakeFilterNode.instances = [];
+  FakeSaturatorNode.instances = [];
   FakeOscillatorNode.instances = [];
   FakeBufferSourceNode.instances = [];
   vi.stubGlobal("GainNode", FakeGainNode);
   vi.stubGlobal("BiquadFilterNode", FakeFilterNode);
+  vi.stubGlobal("AudioWorkletNode", FakeSaturatorNode);
   vi.stubGlobal("OscillatorNode", FakeOscillatorNode);
   vi.stubGlobal("AudioBufferSourceNode", FakeBufferSourceNode);
 });
@@ -225,6 +270,30 @@ describe("pre-envelope voice topology", () => {
       expect(envelopeNode.connect).toHaveBeenCalledWith(ctx.gains[0]);
     },
   );
+
+  it("creates one saturator node per authored voice effect before the envelope", () => {
+    const ctx = new FakeAudioContext();
+    const instance = createSynth(
+      ctx,
+      synthSchema({ effects: [saturatorEffect()] }),
+    );
+
+    instance.scheduleBar(0, 10);
+
+    const source = FakeOscillatorNode.instances[0];
+    const saturator = FakeSaturatorNode.instances[0];
+    const envelopeNode = voiceEnvelopes(ctx)[0];
+    expect(FakeSaturatorNode.instances).toHaveLength(1);
+    expect(source.connect).toHaveBeenCalledWith(saturator);
+    expect(saturator.connect).toHaveBeenCalledWith(envelopeNode);
+    expect(envelopeNode.connect).toHaveBeenCalledWith(ctx.gains[0]);
+    expect(
+      saturator.parameters.get("drive")?.setValueAtTime,
+    ).toHaveBeenCalledWith(2, 10);
+    expect(
+      saturator.parameters.get("postgain")?.setValueAtTime,
+    ).toHaveBeenCalledWith(0.5, 10);
+  });
 
   it("connects a synth source directly to its envelope when effects are empty", () => {
     const ctx = new FakeAudioContext();
@@ -350,5 +419,34 @@ describe("pre-envelope voice lifecycle", () => {
     secondSource.fireEnded();
     expect(secondSource.disconnect).toHaveBeenCalledOnce();
     expect(filters[1].disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("disposes each voice saturator at completion without affecting siblings", () => {
+    const ctx = new FakeAudioContext();
+    const instance = createSynth(
+      ctx,
+      synthSchema({
+        effects: [saturatorEffect()],
+        eventPattern: {
+          timing: timing(),
+          notes: { type: "static", cycle: [[[60, 64]]] },
+        },
+      }),
+    );
+
+    instance.scheduleBar(0, 10);
+    const [first, second] = FakeSaturatorNode.instances;
+    first.emit("processorerror");
+    expect(first.port.postMessage).toHaveBeenCalledOnce();
+    expect(first.disconnect).toHaveBeenCalledOnce();
+    expect(second.port.postMessage).not.toHaveBeenCalled();
+    expect(second.disconnect).not.toHaveBeenCalled();
+
+    FakeOscillatorNode.instances[0].fireEnded();
+    expect(first.port.postMessage).toHaveBeenCalledOnce();
+
+    FakeOscillatorNode.instances[1].fireEnded();
+    expect(second.port.postMessage).toHaveBeenCalledOnce();
+    expect(second.disconnect).toHaveBeenCalledOnce();
   });
 });

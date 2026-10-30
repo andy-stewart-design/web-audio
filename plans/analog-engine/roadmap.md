@@ -12,7 +12,7 @@ This is a **feature roadmap, not a single-PR scope or a commitment to implement 
 - [x] Deliver the saw-only unison engine with canonical `"unison"` / `"uni"` selectors.
 - [x] Add an optional main-source gain argument to `d.synth()` and `.sub()` to synths in one PR ([source-mixing spec](source-mix/spec.md); [implementation plan](source-mix/plan.md)). Public forms, native verification, and final saved-reference listening are complete; reviewer `user` approved the saved reference with “Yep, sounds good.”
 - [x] Add `.noise()` to both synths and samplers ([spec](noise/spec.md), [implementation plan](noise/plan.md)).
-- [ ] Add a saturator effect.
+- [x] Add a saturator effect on voices and named buses ([spec](saturator/spec.md)); compressor and main-output effects follow separately.
 - [ ] Add an opt-in compressor effect, primarily for buses.
 - [ ] Add standalone `d.noise()` instruments as a separate follow-up to noise layers ([scope](#standalone-noise-instrument-follow-up)).
 - [ ] Design/expose a public waveform API for the Unison engine
@@ -177,16 +177,16 @@ Implementation details to revisit:
 Provide one effect with **drive and output gain**, rather than requiring separate conceptual drive and saturation effects:
 
 ```text
-input → drive gain → nonlinear waveshaper → output gain
+input → one AudioWorkletNode [drive → nonlinear processing → output gain]
 ```
 
 - Drive determines how hard the signal hits the nonlinear stage.
 - Saturation adds harmonics and rounds waveform peaks.
 - Output gain lets users balance loudness independently of drive.
-- A fixed `tanh` curve with smoothly automated input gain is a useful starting point. Native `WaveShaperNode` oversampling can reduce aliasing.
+- Use one AudioWorkletNode per saturator, not a chain of native nodes. The [saturator spec](saturator/spec.md) carries forward fixed `tanh` with first-order ADAA as the working DSP default, informed by earlier listening.
 - Users can place filters or gain before/after it through `.fx()`; do not hard-code one tonal recipe into every voice.
-- Specify low-drive and bypass behavior explicitly. Minimum drive is not automatically equivalent to bypass.
-- Public factory naming, parameter units/ranges, and defaults remain feature-level design work.
+- The [saturator spec](saturator/spec.md) defines low-drive/bypass behavior, the proposed public API, parameter defaults, and verification boundaries, distinguishing working assumptions from explicit agreement.
+- Deliver voice and named-bus saturation independently; compressor and main-output routing are not prerequisites.
 
 ## Compressor
 

@@ -12,6 +12,7 @@ import { BUILT_IN_BANKS } from "./samples/built-in-banks";
 import Bus from "./buses/bus";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
+import Saturator from "./effects/saturator";
 import Instrument from "./instruments/instrument";
 import { MidiBuilders } from "./midi/builders";
 import Sampler from "./instruments/sampler";
@@ -49,6 +50,7 @@ class Drome {
   private _buses = new Map<string, Bus>();
   sh: (source: string) => Shorthand;
   str: Drome["structured"];
+  sat: (drive?: SingleSlotAudioParamInput) => Saturator;
 
   constructor() {
     this._instruments = new Set();
@@ -56,6 +58,7 @@ class Drome {
     this._bankNames = Object.create(null);
     this.sh = this.shorthand.bind(this);
     this.str = this.structured.bind(this);
+    this.sat = this.saturator.bind(this);
   }
 
   bpm(value: number) {
@@ -277,6 +280,13 @@ class Drome {
 
   gain(...input: AudioParamInput) {
     return new GainEffect(...input);
+  }
+
+  saturator(drive?: SingleSlotAudioParamInput) {
+    if (arguments.length > 1) {
+      throw new TypeError("[Drome] saturator() accepts one drive value.");
+    }
+    return new Saturator(drive);
   }
 
   filter(type: FilterType, frequency: SingleSlotAudioParamInput) {

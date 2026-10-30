@@ -387,6 +387,11 @@ function validateEffects(effects: unknown, path: string) {
       validateAudioParam(effect.gain, `${effectPath}.gain`);
       return;
     }
+    if (effect.type === "saturator") {
+      validateAudioParam(effect.drive, `${effectPath}.drive`);
+      validateAudioParam(effect.postgain, `${effectPath}.postgain`);
+      return;
+    }
     throw new Error(`[Schema] ${effectPath}.type is invalid.`);
   });
 }

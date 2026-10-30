@@ -228,7 +228,13 @@ interface GainEffectSchema {
   gain: AudioParamSchema;
 }
 
-type EffectSchema = FilterSchema | GainEffectSchema;
+interface SaturatorEffectSchema {
+  type: "saturator";
+  drive: AudioParamSchema;
+  postgain: AudioParamSchema;
+}
+
+type EffectSchema = FilterSchema | GainEffectSchema | SaturatorEffectSchema;
 
 // ---------------------------------------------------
 // SIGNAL GRAPH --------------------------------------
@@ -347,6 +353,7 @@ export type {
   FilterType,
   FitSchema,
   GainEffectSchema,
+  SaturatorEffectSchema,
   LfoSchema,
   MidiCcSchema,
   MidiOutSchema,
