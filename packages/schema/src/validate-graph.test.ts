@@ -8,6 +8,7 @@ import type {
   SamplerSchema,
   StaticPattern,
   BasicSynthesizerSchema,
+  BusEffectSchema,
   SynthEngine,
   SynthEventPattern,
   UnisonSynthesizerSchema,
@@ -193,6 +194,69 @@ describe("validateDromeGraph", () => {
         }),
       ),
     ).toThrow("[Schema] Effects on main are not supported in the bus MVP.");
+  });
+
+  it("accepts compressor controls on named buses", () => {
+    const effect: BusEffectSchema = {
+      type: "compressor",
+      threshold: staticParam(-18),
+      ratio: staticParam(4),
+      knee: staticParam(30),
+      attack: staticParam(0.003),
+      release: staticParam(0.25),
+    };
+
+    expect(() =>
+      validateDromeGraph(
+        schema({ drums: { gain: 1, transition: 0, effects: [effect] } }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects compressor controls on instruments", () => {
+    const effect = {
+      type: "compressor",
+      threshold: staticParam(-18),
+      ratio: staticParam(4),
+      knee: staticParam(30),
+      attack: staticParam(0.003),
+      release: staticParam(0.25),
+    };
+
+    expect(() =>
+      validateDromeGraph(
+        schema({}, [
+          { ...instrument(), effects: [effect as unknown as EffectSchema] },
+        ]),
+      ),
+    ).toThrow("[Schema] Instrument 0.effects[0].type is invalid.");
+  });
+
+  it("requires every compressor control on named buses", () => {
+    const effect: Record<string, unknown> = {
+      type: "compressor",
+      threshold: staticParam(-18),
+      ratio: staticParam(4),
+      knee: staticParam(30),
+      attack: staticParam(0.003),
+      release: staticParam(0.25),
+    };
+
+    for (const field of ["threshold", "ratio", "knee", "attack", "release"]) {
+      const incomplete = { ...effect };
+      Reflect.deleteProperty(incomplete, field);
+      expect(() =>
+        validateDromeGraph(
+          schema({
+            drums: {
+              gain: 1,
+              transition: 0,
+              effects: [incomplete as unknown as BusEffectSchema],
+            },
+          }),
+        ),
+      ).toThrow(`[Schema] Bus "drums" effects[0].${field}`);
+    }
   });
 
   it("accepts saturator controls with finite static and automation schemas", () => {

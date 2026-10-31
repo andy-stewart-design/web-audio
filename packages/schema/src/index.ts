@@ -234,7 +234,17 @@ interface SaturatorEffectSchema {
   postgain: AudioParamSchema;
 }
 
+interface CompressorEffectSchema {
+  type: "compressor";
+  threshold: AudioParamSchema;
+  ratio: AudioParamSchema;
+  knee: AudioParamSchema;
+  attack: AudioParamSchema;
+  release: AudioParamSchema;
+}
+
 type EffectSchema = FilterSchema | GainEffectSchema | SaturatorEffectSchema;
+type BusEffectSchema = EffectSchema | CompressorEffectSchema;
 
 // ---------------------------------------------------
 // SIGNAL GRAPH --------------------------------------
@@ -243,7 +253,7 @@ type EffectSchema = FilterSchema | GainEffectSchema | SaturatorEffectSchema;
 interface BusSchema {
   gain: number;
   transition: number;
-  effects: EffectSchema[];
+  effects: BusEffectSchema[];
 }
 
 interface DuckSchema {
@@ -338,10 +348,12 @@ export type {
   BankDefinition,
   BankSchema,
   BasicSynthesizerSchema,
+  BusEffectSchema,
   BusSchema,
   ChopRegionSchema,
   ChopSliceSchema,
   ClipMode,
+  CompressorEffectSchema,
   DromeSchema,
   DuckSchema,
   EffectSchema,

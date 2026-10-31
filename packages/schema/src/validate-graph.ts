@@ -66,7 +66,7 @@ function validateDromeGraph(schema: DromeSchema) {
         "[Schema] Effects on main are not supported in the bus MVP.",
       );
     }
-    validateEffects(bus.effects, `${path} effects`);
+    validateEffects(bus.effects, `${path} effects`, true);
   }
 
   if (!Array.isArray(schema.instruments)) {
@@ -180,7 +180,7 @@ function validateInstrumentCommon(
 
   validateEnvelope(instrument.gain, `${path}.gain`);
   validateAudioParam(instrument.detune, `${path}.detune`);
-  validateEffects(instrument.effects, `${path}.effects`);
+  validateEffects(instrument.effects, `${path}.effects`, false);
   if (instrument.noise !== undefined) {
     validateNoiseLayer(instrument.noise, `${path}.noise`);
   }
@@ -364,7 +364,11 @@ function validateNoiseLayer(schema: unknown, path: string) {
   validateAudioParam(schema.gain, `${path}.gain`);
 }
 
-function validateEffects(effects: unknown, path: string) {
+function validateEffects(
+  effects: unknown,
+  path: string,
+  allowCompressor: boolean,
+) {
   if (!Array.isArray(effects)) {
     throw new Error(`[Schema] ${path} must be an array.`);
   }
@@ -390,6 +394,14 @@ function validateEffects(effects: unknown, path: string) {
     if (effect.type === "saturator") {
       validateAudioParam(effect.drive, `${effectPath}.drive`);
       validateAudioParam(effect.postgain, `${effectPath}.postgain`);
+      return;
+    }
+    if (allowCompressor && effect.type === "compressor") {
+      validateAudioParam(effect.threshold, `${effectPath}.threshold`);
+      validateAudioParam(effect.ratio, `${effectPath}.ratio`);
+      validateAudioParam(effect.knee, `${effectPath}.knee`);
+      validateAudioParam(effect.attack, `${effectPath}.attack`);
+      validateAudioParam(effect.release, `${effectPath}.release`);
       return;
     }
     throw new Error(`[Schema] ${effectPath}.type is invalid.`);
