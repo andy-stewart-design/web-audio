@@ -3,6 +3,7 @@ import type { ScheduledSource } from "./types";
 interface SupersawSourceOptions {
   voices: number;
   phaseSeed: number;
+  phaseOffset?: number;
   startFrame: number;
   stopFrame: number;
 }
@@ -62,6 +63,7 @@ class SupersawSource implements ScheduledSource {
       processorOptions: {
         voices: options.voices,
         phaseSeed: options.phaseSeed,
+        phaseOffset: options.phaseOffset ?? 0,
         startFrame: options.startFrame,
         stopFrame: options.stopFrame,
       },

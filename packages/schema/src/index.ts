@@ -319,6 +319,7 @@ interface UnisonSynthesizerSchema extends SynthesizerCommonSchema {
   spread: AudioParamSchema;
   width: AudioParamSchema;
   phase?: UnisonPhase;
+  phaseOffset?: number;
 }
 
 type SynthesizerSchema = BasicSynthesizerSchema | UnisonSynthesizerSchema;

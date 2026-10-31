@@ -113,6 +113,22 @@ function validateDromeGraph(schema: DromeSchema) {
         ) {
           throw new Error(`[Schema] ${path}.phase is invalid.`);
         }
+        if (instrument.phaseOffset !== undefined) {
+          if (instrument.phase !== "fixed") {
+            throw new Error(
+              `[Schema] ${path}.phaseOffset is only valid with fixed phase.`,
+            );
+          }
+          if (
+            !isFiniteNumber(instrument.phaseOffset) ||
+            instrument.phaseOffset < 0 ||
+            instrument.phaseOffset > 1
+          ) {
+            throw new Error(
+              `[Schema] ${path}.phaseOffset must be a finite number in [0, 1].`,
+            );
+          }
+        }
       } else {
         if (instrument.engine !== undefined) {
           throw new Error(`[Schema] ${path}.engine is invalid.`);
@@ -131,6 +147,11 @@ function validateDromeGraph(schema: DromeSchema) {
           `[Schema] ${path}.${field} is only valid for synthesizers.`,
         );
       }
+    }
+    if (Object.hasOwn(instrument, "phaseOffset")) {
+      throw new Error(
+        `[Schema] ${path}.phaseOffset is only valid for the unison engine.`,
+      );
     }
     if (!isNonEmptyString(instrument.bank)) {
       throw new Error(`[Schema] ${path}.bank must be non-empty.`);
@@ -157,7 +178,7 @@ function validateDromeGraph(schema: DromeSchema) {
 }
 
 function rejectUnisonFields(instrument: Record<string, unknown>, path: string) {
-  for (const field of ["voices", "spread", "width", "phase"]) {
+  for (const field of ["voices", "spread", "width", "phase", "phaseOffset"]) {
     if (Object.hasOwn(instrument, field)) {
       throw new Error(
         `[Schema] ${path}.${field} is only valid for the unison engine.`,

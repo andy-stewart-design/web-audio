@@ -210,6 +210,7 @@ class Synthesizer extends Instrument {
         voices,
         phaseSeed:
           schema.phase === "fixed" ? 0 : phaseSeed(event, midiNote, voiceIndex),
+        phaseOffset: schema.phaseOffset ?? 0,
         startFrame: toAudioFrame(this._ctx, event.startTime),
         stopFrame: toAudioFrame(this._ctx, stopTime),
       });

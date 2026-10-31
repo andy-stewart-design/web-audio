@@ -160,16 +160,20 @@ Unison phases are deterministic from the event, note, and oscillator identity.
 Fresh renders therefore have stable phase identity without exposing a public
 seed control or depending on ambient randomness. Use `.phase("fixed")` to reuse
 one deterministic oscillator layout for every musical note, or
-`.phase("random")` to retain the default event-varying layout:
+`.phase("random")` to retain the default event-varying layout. A fixed phase
+can optionally add a static initial relative offset in cycles between adjacent
+oscillators, such as `.phase("fixed", 0.5)` for a half-cycle step; this affects
+initialization only and does not change attack timing:
 
 ```ts
-d.synth("unison").phase("fixed").spread(12).notes(60).push();
+d.synth("unison").phase("fixed", 0.5).spread(12).notes(60).push();
 ```
 
 The phase setting is static for the instrument and omitted schemas keep the
-existing random behavior. It controls phase policy, not the internal seed;
-`.detune()` remains the common synth detune control, while `.spread()` adds the
-per-oscillator cents offsets.
+existing random behavior. The optional offset is only valid with `"fixed"` and
+is not ongoing modulation or a clock delay. Phase controls policy, not the
+internal seed; `.detune()` remains the common synth detune control, while
+`.spread()` adds the per-oscillator cents offsets.
 
 ## Per-voice noise layers
 

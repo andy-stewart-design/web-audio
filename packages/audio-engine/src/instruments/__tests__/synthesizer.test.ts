@@ -826,6 +826,8 @@ describe("Synthesizer scheduling", () => {
         },
         spread: staticNumberPattern([20]),
         width: staticNumberPattern([0.75]),
+        phase: "fixed",
+        phaseOffset: 0.5,
         eventPattern: {
           timing: timing([[{ offset: 0.25, duration: 0.5 }]]),
           notes: { type: "static", cycle: [[[60]]] },
@@ -839,6 +841,8 @@ describe("Synthesizer scheduling", () => {
     expect(node.name).toBe("supersaw-processor");
     expect(node.options.processorOptions).toMatchObject({
       voices: 7,
+      phaseSeed: 0,
+      phaseOffset: 0.5,
       startFrame: 504_000,
       stopFrame: 566_400,
     });
@@ -865,6 +869,11 @@ describe("Synthesizer scheduling", () => {
       (node) => node.options.processorOptions?.phaseSeed,
     );
     expect(fixedSeeds).toEqual([0, 0, 0, 0]);
+    expect(
+      FakeAudioWorkletNode.instances
+        .slice(0, 4)
+        .map((node) => node.options.processorOptions?.phaseOffset),
+    ).toEqual([0, 0, 0, 0]);
 
     for (const phase of [undefined, "random"] as const) {
       const start = FakeAudioWorkletNode.instances.length;

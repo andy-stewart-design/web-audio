@@ -446,6 +446,7 @@ d.synth("tri")
   .push();
 
 // ————————————————————————
+
 d.bus("sub").fx(d.comp(-20, 14).knee(3).attack(0.001).release(0.15));
 
 d.synth("uni")
@@ -459,3 +460,25 @@ d.synth("uni")
   .phase("fixed")
   .route("sub")
   .push();
+
+// ————————————————————————
+
+d.bus("sub").fx(d.comp(-18, 14).knee(3).attack(0.001).release(0.15));
+d.bus("drums").fx(d.comp());
+
+d.synth("uni")
+  // .notes("<[45!8] [48!8]>")
+  .notes(45)
+  .voices(2)
+  .spread(16)
+  .width(0)
+  .sub("sine", -1, 0.9)
+  .fx(d.sat(5).pg(1), d.lpf(400).q(1))
+  .adsr(0.05, 0.5, 0.7, 0.1)
+  .phase("fixed", 0.5)
+  .route("sub")
+  .push();
+
+// d.sample("bd", 0).hex(0xf).duck("sub", 0.5, 0, 0.5).route("drums").push()
+// d.sample("hh", 0).hex(0xff).duck("sub", 0.5, 0, 0.5).gain(0.25).route("drums").push()
+// d.sample("oh", 1).hex(0x55).duck("sub", 0.5, 0, 0.5).gain(0.375).route("drums").push()

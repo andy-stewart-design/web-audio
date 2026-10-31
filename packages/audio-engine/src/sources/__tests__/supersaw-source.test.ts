@@ -104,6 +104,7 @@ describe("SupersawSource", () => {
       processorOptions: {
         voices: 7,
         phaseSeed: 123,
+        phaseOffset: 0,
         startFrame: 0,
         stopFrame: 48_000,
       },
@@ -112,6 +113,20 @@ describe("SupersawSource", () => {
     expect(supersaw.detune).toBe(node.parameters.get("detune"));
     expect(supersaw.spread).toBe(node.parameters.get("spread"));
     expect(supersaw.width).toBe(node.parameters.get("width"));
+  });
+
+  it("forwards an initial phase offset to the processor", () => {
+    new SupersawSource(new FakeAudioContext() as unknown as BaseAudioContext, {
+      voices: 2,
+      phaseSeed: 123,
+      phaseOffset: 0.5,
+      startFrame: 0,
+      stopFrame: 48_000,
+    });
+
+    expect(
+      FakeAudioWorkletNode.instances[0]?.options.processorOptions,
+    ).toMatchObject({ phaseOffset: 0.5 });
   });
 
   it.each([44_100, 48_000])(

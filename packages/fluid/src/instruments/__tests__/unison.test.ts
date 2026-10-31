@@ -56,6 +56,12 @@ describe("unison authoring", () => {
     expect(unison.getSchema()).not.toHaveProperty("phase");
     expect(unison.phase("fixed")).toBe(unison);
     expect(unison.getSchema().phase).toBe("fixed");
+    expect(unison.phase("fixed", 0.5)).toBe(unison);
+    expect(unison.getSchema()).toMatchObject({
+      phase: "fixed",
+      phaseOffset: 0.5,
+    });
+    expect(unison.phase("fixed").getSchema()).not.toHaveProperty("phaseOffset");
     expect(unison.phase("random")).toBe(unison);
     expect(unison.getSchema().phase).toBe("random");
   });
@@ -68,6 +74,11 @@ describe("unison authoring", () => {
       throw new Error("Expected unison phase setter");
     }
     expect(() => Reflect.apply(setPhase, unison, ["free"])).toThrow();
+    expect(() => Reflect.apply(setPhase, unison, ["random", 0.5])).toThrow();
+    expect(() => Reflect.apply(setPhase, unison, ["fixed", -0.1])).toThrow();
+    expect(() => Reflect.apply(setPhase, unison, ["fixed", 1.1])).toThrow();
+    expect(() => Reflect.apply(setPhase, unison, ["fixed", NaN])).toThrow();
+    expect(() => Reflect.apply(setPhase, unison, ["fixed", 0.5, 0])).toThrow();
 
     const setType = Reflect.get(unison, "type");
     if (typeof setType !== "function") {
