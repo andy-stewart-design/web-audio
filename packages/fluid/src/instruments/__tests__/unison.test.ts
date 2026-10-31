@@ -49,9 +49,26 @@ describe("unison authoring", () => {
     expect(() => validateDromeGraph(drome.getSchema())).not.toThrow();
   });
 
-  it("rejects unsupported unison shapes and selectors at runtime", () => {
+  it("serializes explicit phase modes and preserves fluent chaining", () => {
     const drome = new Drome();
     const unison = drome.synth("unison");
+
+    expect(unison.getSchema()).not.toHaveProperty("phase");
+    expect(unison.phase("fixed")).toBe(unison);
+    expect(unison.getSchema().phase).toBe("fixed");
+    expect(unison.phase("random")).toBe(unison);
+    expect(unison.getSchema().phase).toBe("random");
+  });
+
+  it("rejects unsupported unison shapes, phase modes, and selectors at runtime", () => {
+    const drome = new Drome();
+    const unison = drome.synth("unison");
+    const setPhase = Reflect.get(unison, "phase");
+    if (typeof setPhase !== "function") {
+      throw new Error("Expected unison phase setter");
+    }
+    expect(() => Reflect.apply(setPhase, unison, ["free"])).toThrow();
+
     const setType = Reflect.get(unison, "type");
     if (typeof setType !== "function") {
       throw new Error("Expected unison type setter");

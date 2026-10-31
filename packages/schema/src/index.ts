@@ -18,6 +18,8 @@ type Waveform = (typeof WAVEFORMS)[number];
 
 type SynthEngine = "unison";
 
+type UnisonPhase = "random" | "fixed";
+
 type EnvelopeMode = (typeof ENVELOPE_MODES)[number];
 
 type ClipMode = (typeof CLIP_MODES)[number];
@@ -316,6 +318,7 @@ interface UnisonSynthesizerSchema extends SynthesizerCommonSchema {
   voices: NumberPattern;
   spread: AudioParamSchema;
   width: AudioParamSchema;
+  phase?: UnisonPhase;
 }
 
 type SynthesizerSchema = BasicSynthesizerSchema | UnisonSynthesizerSchema;
@@ -377,6 +380,7 @@ export type {
   SynthEventPattern,
   SynthesizerCommonSchema,
   SubSynthesizerSchema,
+  UnisonPhase,
   UnisonSynthesizerSchema,
   NotePattern,
   NormalizedSampleSchema,

@@ -852,6 +852,39 @@ describe("Synthesizer scheduling", () => {
     );
   });
 
+  it("selects fixed phases without changing the existing random seed policy", () => {
+    const eventPattern = {
+      timing: timing([[{ offset: 0, duration: 1 }]]),
+      notes: { type: "static" as const, cycle: [[[60, 64]]] },
+    };
+    const fixed = synth(unisonSchema({ phase: "fixed", eventPattern }));
+    fixed.scheduleBar(0, 10);
+    fixed.scheduleBar(1, 12);
+
+    const fixedSeeds = FakeAudioWorkletNode.instances.map(
+      (node) => node.options.processorOptions?.phaseSeed,
+    );
+    expect(fixedSeeds).toEqual([0, 0, 0, 0]);
+
+    for (const phase of [undefined, "random"] as const) {
+      const start = FakeAudioWorkletNode.instances.length;
+      const random = synth(
+        unisonSchema({
+          ...(phase === undefined ? {} : { phase }),
+          eventPattern,
+        }),
+      );
+      random.scheduleBar(0, 10);
+      random.scheduleBar(1, 12);
+
+      const randomSeeds = FakeAudioWorkletNode.instances
+        .slice(start)
+        .map((node) => node.options.processorOptions?.phaseSeed);
+      expect(randomSeeds).toHaveLength(4);
+      expect(new Set(randomSeeds).size).toBe(4);
+    }
+  });
+
   it("releases an allocated unison source when sub construction fails", () => {
     FakeOscillatorNode.failOnConstruction = 1;
     const instance = synth(

@@ -567,7 +567,16 @@ describe("validateDromeGraph", () => {
 
     expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
 
-    Object.assign(value, { width: { type: "invalid" } });
+    Object.assign(value, { phase: "fixed" });
+    expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
+    Object.assign(value, { phase: "random" });
+    expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
+    Object.assign(value, { phase: "free" });
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+      "[Schema] Instrument 0.phase is invalid.",
+    );
+
+    Object.assign(value, { phase: undefined, width: { type: "invalid" } });
     expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
       "[Schema] Instrument 0.width has an invalid audio parameter type.",
     );

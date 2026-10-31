@@ -158,8 +158,18 @@ level. There is no automatic limiter or cross-device loudness guarantee.
 
 Unison phases are deterministic from the event, note, and oscillator identity.
 Fresh renders therefore have stable phase identity without exposing a public
-seed control or depending on ambient randomness. `.detune()` remains the
-common synth detune control; `.spread()` adds the per-oscillator cents offsets.
+seed control or depending on ambient randomness. Use `.phase("fixed")` to reuse
+one deterministic oscillator layout for every musical note, or
+`.phase("random")` to retain the default event-varying layout:
+
+```ts
+d.synth("unison").phase("fixed").spread(12).notes(60).push();
+```
+
+The phase setting is static for the instrument and omitted schemas keep the
+existing random behavior. It controls phase policy, not the internal seed;
+`.detune()` remains the common synth detune control, while `.spread()` adds the
+per-oscillator cents offsets.
 
 ## Per-voice noise layers
 

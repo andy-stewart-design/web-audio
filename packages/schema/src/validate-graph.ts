@@ -106,6 +106,13 @@ function validateDromeGraph(schema: DromeSchema) {
         validateNumberPattern(instrument.voices, `${path}.voices`);
         validateAudioParam(instrument.spread, `${path}.spread`);
         validateAudioParam(instrument.width, `${path}.width`);
+        if (
+          instrument.phase !== undefined &&
+          instrument.phase !== "random" &&
+          instrument.phase !== "fixed"
+        ) {
+          throw new Error(`[Schema] ${path}.phase is invalid.`);
+        }
       } else {
         if (instrument.engine !== undefined) {
           throw new Error(`[Schema] ${path}.engine is invalid.`);
@@ -150,7 +157,7 @@ function validateDromeGraph(schema: DromeSchema) {
 }
 
 function rejectUnisonFields(instrument: Record<string, unknown>, path: string) {
-  for (const field of ["voices", "spread", "width"]) {
+  for (const field of ["voices", "spread", "width", "phase"]) {
     if (Object.hasOwn(instrument, field)) {
       throw new Error(
         `[Schema] ${path}.${field} is only valid for the unison engine.`,

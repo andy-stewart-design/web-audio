@@ -444,3 +444,18 @@ d.synth("tri")
   .adsr(0, 0.5, 0.25, 0.25)
   .gain(1.5)
   .push();
+
+// ————————————————————————
+d.bus("sub").fx(d.comp(-20, 14).knee(3).attack(0.001).release(0.15));
+
+d.synth("uni")
+  .notes(45) // 110 Hz; sub will be 55 Hz
+  .voices(2)
+  .spread(16)
+  .width(0.1)
+  .sub("sine", -1, 0.9)
+  .fx(d.sat(5).pg(1), d.lpf(300).q(1))
+  .adsr(0.1, 0.5, 0.7, 0.1)
+  .phase("fixed")
+  .route("sub")
+  .push();
