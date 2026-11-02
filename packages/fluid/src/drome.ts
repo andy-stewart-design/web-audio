@@ -13,6 +13,7 @@ import Bus from "./buses/bus";
 import Filter from "./effects/filter";
 import GainEffect from "./effects/gain";
 import Saturator from "./effects/saturator";
+import Compressor from "./effects/compressor";
 import Instrument from "./instruments/instrument";
 import { MidiBuilders } from "./midi/builders";
 import Sampler from "./instruments/sampler";
@@ -51,6 +52,10 @@ class Drome {
   sh: (source: string) => Shorthand;
   str: Drome["structured"];
   sat: (drive?: SingleSlotAudioParamInput) => Saturator;
+  comp: (
+    threshold?: SingleSlotAudioParamInput | undefined,
+    ratio?: SingleSlotAudioParamInput,
+  ) => Compressor;
 
   constructor() {
     this._instruments = new Set();
@@ -59,6 +64,7 @@ class Drome {
     this.sh = this.shorthand.bind(this);
     this.str = this.structured.bind(this);
     this.sat = this.saturator.bind(this);
+    this.comp = this.compressor.bind(this);
   }
 
   bpm(value: number) {
@@ -287,6 +293,18 @@ class Drome {
       throw new TypeError("[Drome] saturator() accepts one drive value.");
     }
     return new Saturator(drive);
+  }
+
+  compressor(
+    threshold?: SingleSlotAudioParamInput,
+    ratio?: SingleSlotAudioParamInput,
+  ) {
+    if (arguments.length > 2) {
+      throw new TypeError(
+        "[Drome] compressor() accepts at most two threshold and ratio values.",
+      );
+    }
+    return new Compressor(threshold, ratio);
   }
 
   filter(type: FilterType, frequency: SingleSlotAudioParamInput) {

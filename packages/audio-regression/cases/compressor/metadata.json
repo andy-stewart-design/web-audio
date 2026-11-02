@@ -1,0 +1,11 @@
+{
+  "description": "Native named-bus compressor with two synth sources",
+  "bars": 4,
+  "tailSeconds": 0.25,
+  "settings": {
+    "sampleRate": 48000,
+    "channels": 2,
+    "beatsPerBar": 4,
+    "startOffsetFrames": 4800
+  }
+}

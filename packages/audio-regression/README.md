@@ -1,6 +1,6 @@
 # @web-audio/audio-regression
 
-Private local tooling that renders Fluid sketches through the real AudioEngine and Chromium `OfflineAudioContext`, then compares raw audio with listening-approved recordings. The suite has **16 cases with reviewed references**, including `source-mix` and the registered `saturator` case. The saturator saved recording was approved by the user with **“Looks good.”** It is a local Mac regression suite, not cross-platform or musical-quality certification.
+Private local tooling that renders Fluid sketches through the real AudioEngine and Chromium `OfflineAudioContext`, then compares raw audio with listening-approved recordings. The suite has **17 cases with reviewed references**, including `source-mix`, the registered `saturator` case, and the registered named-bus `compressor` case. The saturator saved recording was approved by the user with **“Looks good.”** It is a local Mac regression suite, not cross-platform or musical-quality certification.
 
 ## Setup and commands
 
@@ -86,6 +86,15 @@ after explicit candidate approval and matches the candidate's raw Float32
 samples, settings, and frame count under the fixed tolerances. The saved WAV
 was subsequently approved by the user with **“Looks good.”** Rendering,
 verification, and playback alone are not listening approval.
+
+## Compressor native acceptance
+
+The registered `compressor` case uses the approved four-bar, 48 kHz native compressor candidate with two synth sources routed to a named `drums` bus. The candidate was explicitly approved by the user with **“Yeah, that sounds good.”** The saved reference has identical raw Float32 WAV samples, settings, channels, and frame count; the candidate approval and verified identity are the basis for registration.
+
+```sh
+pnpm --filter @web-audio/audio-regression audio:render --case compressor
+pnpm --filter @web-audio/audio-regression audio:verify --case compressor
+```
 
 ## Authoring cases
 

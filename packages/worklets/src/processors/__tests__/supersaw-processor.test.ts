@@ -5,6 +5,7 @@ interface SupersawProcessorOptions {
   processorOptions?: {
     voices?: number;
     phaseSeed?: number;
+    phaseOffset?: number;
     startFrame?: number;
     stopFrame?: number;
   };
@@ -222,6 +223,63 @@ describe("SupersawProcessor", () => {
     expect(first.left).toEqual(second.left);
     expect(first.right).toEqual(second.right);
     expect(first.left).not.toEqual(different.left);
+  });
+
+  it("applies relative initial phase offsets without changing seeded phase zero", () => {
+    const baseline = createProcessor({
+      voices: 2,
+      phaseSeed: 17,
+      startFrame: 0,
+    });
+    const shifted = createProcessor({
+      voices: 2,
+      phaseSeed: 17,
+      phaseOffset: 0.5,
+      startFrame: 0,
+    });
+    const baselinePhases = Array.from(
+      Reflect.get(baseline, "_phase") as Float64Array,
+    );
+    const shiftedPhases = Array.from(
+      Reflect.get(shifted, "_phase") as Float64Array,
+    );
+
+    expect(shiftedPhases[0]).toBe(baselinePhases[0]);
+    expect(shiftedPhases[1]).toBe((baselinePhases[1] + 0.5) % 1);
+    expect(shiftedPhases[1]).not.toBe(baselinePhases[1]);
+  });
+
+  it("keeps omitted, zero, and one-cycle phase offsets equivalent", () => {
+    const omitted = render(
+      createProcessor({ voices: 2, phaseSeed: 31, startFrame: 0 }),
+      0,
+      512,
+    );
+    const zero = render(
+      createProcessor({
+        voices: 2,
+        phaseSeed: 31,
+        phaseOffset: 0,
+        startFrame: 0,
+      }),
+      0,
+      512,
+    );
+    const one = render(
+      createProcessor({
+        voices: 2,
+        phaseSeed: 31,
+        phaseOffset: 1,
+        startFrame: 0,
+      }),
+      0,
+      512,
+    );
+
+    expect(zero.left).toEqual(omitted.left);
+    expect(zero.right).toEqual(omitted.right);
+    expect(one.left).toEqual(omitted.left);
+    expect(one.right).toEqual(omitted.right);
   });
 
   it("clamps high frequencies without wrapping them into a different pitch", () => {

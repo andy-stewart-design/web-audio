@@ -208,7 +208,9 @@ class Synthesizer extends Instrument {
     try {
       source = new SupersawSource(this._ctx, {
         voices,
-        phaseSeed: phaseSeed(event, midiNote, voiceIndex),
+        phaseSeed:
+          schema.phase === "fixed" ? 0 : phaseSeed(event, midiNote, voiceIndex),
+        phaseOffset: schema.phaseOffset ?? 0,
         startFrame: toAudioFrame(this._ctx, event.startTime),
         stopFrame: toAudioFrame(this._ctx, stopTime),
       });

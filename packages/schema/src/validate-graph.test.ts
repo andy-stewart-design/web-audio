@@ -8,6 +8,7 @@ import type {
   SamplerSchema,
   StaticPattern,
   BasicSynthesizerSchema,
+  BusEffectSchema,
   SynthEngine,
   SynthEventPattern,
   UnisonSynthesizerSchema,
@@ -193,6 +194,69 @@ describe("validateDromeGraph", () => {
         }),
       ),
     ).toThrow("[Schema] Effects on main are not supported in the bus MVP.");
+  });
+
+  it("accepts compressor controls on named buses", () => {
+    const effect: BusEffectSchema = {
+      type: "compressor",
+      threshold: staticParam(-18),
+      ratio: staticParam(4),
+      knee: staticParam(30),
+      attack: staticParam(0.003),
+      release: staticParam(0.25),
+    };
+
+    expect(() =>
+      validateDromeGraph(
+        schema({ drums: { gain: 1, transition: 0, effects: [effect] } }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects compressor controls on instruments", () => {
+    const effect = {
+      type: "compressor",
+      threshold: staticParam(-18),
+      ratio: staticParam(4),
+      knee: staticParam(30),
+      attack: staticParam(0.003),
+      release: staticParam(0.25),
+    };
+
+    expect(() =>
+      validateDromeGraph(
+        schema({}, [
+          { ...instrument(), effects: [effect as unknown as EffectSchema] },
+        ]),
+      ),
+    ).toThrow("[Schema] Instrument 0.effects[0].type is invalid.");
+  });
+
+  it("requires every compressor control on named buses", () => {
+    const effect: Record<string, unknown> = {
+      type: "compressor",
+      threshold: staticParam(-18),
+      ratio: staticParam(4),
+      knee: staticParam(30),
+      attack: staticParam(0.003),
+      release: staticParam(0.25),
+    };
+
+    for (const field of ["threshold", "ratio", "knee", "attack", "release"]) {
+      const incomplete = { ...effect };
+      Reflect.deleteProperty(incomplete, field);
+      expect(() =>
+        validateDromeGraph(
+          schema({
+            drums: {
+              gain: 1,
+              transition: 0,
+              effects: [incomplete as unknown as BusEffectSchema],
+            },
+          }),
+        ),
+      ).toThrow(`[Schema] Bus "drums" effects[0].${field}`);
+    }
   });
 
   it("accepts saturator controls with finite static and automation schemas", () => {
@@ -503,9 +567,61 @@ describe("validateDromeGraph", () => {
 
     expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
 
-    Object.assign(value, { width: { type: "invalid" } });
+    Object.assign(value, { phase: "fixed" });
+    expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
+    Object.assign(value, { phase: "random" });
+    expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
+    Object.assign(value, { phase: "fixed", phaseOffset: 0.5 });
+    expect(() => validateDromeGraph(schema({}, [value]))).not.toThrow();
+    Object.assign(value, { phase: "free" });
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+      "[Schema] Instrument 0.phase is invalid.",
+    );
+
+    Object.assign(value, {
+      phase: undefined,
+      phaseOffset: undefined,
+      width: { type: "invalid" },
+    });
     expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
       "[Schema] Instrument 0.width has an invalid audio parameter type.",
+    );
+  });
+
+  it.each([-0.1, 1.1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects an invalid unison phase offset %s",
+    (phaseOffset) => {
+      const value = {
+        ...instrument(),
+        engine: "unison" as const,
+        waveform: "sawtooth" as const,
+        voices: staticParam(7),
+        spread: staticParam(10),
+        width: staticParam(0.4),
+        phase: "fixed" as const,
+        phaseOffset,
+      };
+
+      expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+        "[Schema] Instrument 0.phaseOffset must be a finite number in [0, 1].",
+      );
+    },
+  );
+
+  it("requires fixed phase for an unison phase offset", () => {
+    const value = {
+      ...instrument(),
+      engine: "unison" as const,
+      waveform: "sawtooth" as const,
+      voices: staticParam(7),
+      spread: staticParam(10),
+      width: staticParam(0.4),
+      phase: "random" as const,
+      phaseOffset: 0.5,
+    };
+
+    expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
+      "[Schema] Instrument 0.phaseOffset is only valid with fixed phase.",
     );
   });
 
@@ -563,12 +679,18 @@ describe("validateDromeGraph", () => {
     );
   });
 
-  it("rejects unison-only fields on basic synths", () => {
+  it("rejects unison-only fields on basic synths and samplers", () => {
     const value = instrument();
-    Object.assign(value, { voices: staticParam(7) });
+    Object.assign(value, { phaseOffset: 0.5 });
 
     expect(() => validateDromeGraph(schema({}, [value]))).toThrow(
-      "[Schema] Instrument 0.voices is only valid for the unison engine.",
+      "[Schema] Instrument 0.phaseOffset is only valid for the unison engine.",
+    );
+
+    const sample = sampler();
+    Object.assign(sample, { phaseOffset: 0.5 });
+    expect(() => validateDromeGraph(schema({}, [sample]))).toThrow(
+      "[Schema] Instrument 0.phaseOffset is only valid for the unison engine.",
     );
   });
 

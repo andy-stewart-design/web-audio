@@ -13,6 +13,7 @@ interface SupersawProcessorOptions {
   processorOptions?: {
     voices?: number;
     phaseSeed?: number;
+    phaseOffset?: number;
     startFrame?: number;
     stopFrame?: number;
   };
@@ -134,8 +135,13 @@ class SupersawProcessor extends AudioWorkletProcessor {
         ? stopFrame
         : Number.POSITIVE_INFINITY;
 
+    const phaseOffset = processorOptions.phaseOffset ?? 0;
     for (let voice = 0; voice < this._voices; voice++) {
-      this._phase[voice] = hashPhase(processorOptions.phaseSeed ?? 0, voice);
+      const phase = hashPhase(processorOptions.phaseSeed ?? 0, voice);
+      this._phase[voice] =
+        phaseOffset === 0 || phaseOffset === 1
+          ? phase
+          : (phase + voice * phaseOffset) % 1;
       this._panPosition[voice] =
         this._voices === 1 ? 0 : (voice / (this._voices - 1)) * 2 - 1;
     }

@@ -1,7 +1,7 @@
 import type {
   AudioParamSchema,
+  BusEffectSchema,
   BusSchema,
-  EffectSchema,
   NumberPattern,
 } from "@web-audio/schema";
 import { FILTER_TYPE_MAP, MIN_RAMP } from "@/constants";
@@ -176,7 +176,7 @@ class RuntimeBus {
   }
 }
 
-function buildEffect(ctx: BaseAudioContext, effect: EffectSchema) {
+function buildEffect(ctx: BaseAudioContext, effect: BusEffectSchema) {
   if (effect.type === "filter") {
     const node = new BiquadFilterNode(ctx, {
       type: FILTER_TYPE_MAP[effect.filterType],
@@ -216,6 +216,20 @@ function buildEffect(ctx: BaseAudioContext, effect: EffectSchema) {
       saturator.dispose();
       throw error;
     }
+  }
+
+  if (effect.type === "compressor") {
+    const node = new DynamicsCompressorNode(ctx);
+    return {
+      node,
+      bindings: [
+        binding(node.threshold, effect.threshold),
+        binding(node.ratio, effect.ratio),
+        binding(node.knee, effect.knee),
+        binding(node.attack, effect.attack),
+        binding(node.release, effect.release),
+      ],
+    };
   }
 
   throw new Error("[RuntimeBus] Unsupported effect type.");

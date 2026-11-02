@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   AudioParamSchema,
-  EffectSchema,
+  BusEffectSchema,
   RandomNumberPattern,
 } from "@web-audio/schema";
 import RuntimeBus from "../runtime-bus";
@@ -41,6 +41,21 @@ class FakeFilterNode {
   constructor(_ctx: AudioContext, options: BiquadFilterOptions = {}) {
     this.type = options.type ?? "lowpass";
     FakeFilterNode.instances.push(this);
+  }
+}
+
+class FakeCompressorNode {
+  static instances: FakeCompressorNode[] = [];
+  threshold = new FakeAudioParam();
+  ratio = new FakeAudioParam();
+  knee = new FakeAudioParam();
+  attack = new FakeAudioParam();
+  release = new FakeAudioParam();
+  connect = vi.fn();
+  disconnect = vi.fn();
+
+  constructor() {
+    FakeCompressorNode.instances.push(this);
   }
 }
 
@@ -137,7 +152,7 @@ function unsupportedParams(): [string, AudioParamSchema][] {
 }
 
 function createBus(
-  effects: EffectSchema[] = [],
+  effects: BusEffectSchema[] = [],
   options?: {
     startingBar: number;
     barStartTime: number | undefined;
@@ -167,9 +182,11 @@ beforeEach(() => {
   FakeEffectGainNode.instances = [];
   FakeFilterNode.instances = [];
   FakeSaturatorNode.instances = [];
+  FakeCompressorNode.instances = [];
   vi.stubGlobal("GainNode", FakeEffectGainNode);
   vi.stubGlobal("BiquadFilterNode", FakeFilterNode);
   vi.stubGlobal("AudioWorkletNode", FakeSaturatorNode);
+  vi.stubGlobal("DynamicsCompressorNode", FakeCompressorNode);
 });
 
 describe("RuntimeBus", () => {
@@ -184,6 +201,34 @@ describe("RuntimeBus", () => {
     expect(duck.connect).toHaveBeenCalledWith(output);
     expect(output.gain.value).toBe(0.75);
     expect(output.connect).toHaveBeenCalledWith(main);
+  });
+
+  it("initializes and serially connects a compressor with all controls", () => {
+    const { bus, gains, main } = createBus([
+      {
+        type: "compressor",
+        threshold: staticParam(-18),
+        ratio: staticParam(4),
+        knee: staticParam(12),
+        attack: staticParam(0.01),
+        release: staticParam(0.2),
+      },
+    ]);
+
+    const compressor = FakeCompressorNode.instances[0];
+    expect(FakeCompressorNode.instances).toHaveLength(1);
+    expect(compressor.threshold.value).toBe(-18);
+    expect(compressor.ratio.value).toBe(4);
+    expect(compressor.knee.value).toBe(12);
+    expect(compressor.attack.value).toBe(0.01);
+    expect(compressor.release.value).toBe(0.2);
+    expect(compressor.connect).toHaveBeenCalledOnce();
+    expect(gains[0].connect).toHaveBeenCalledWith(compressor);
+    expect(compressor.connect).toHaveBeenCalledWith(gains[1]);
+    expect(gains[1].connect).toHaveBeenCalledWith(gains[2]);
+    expect(gains[2].connect).toHaveBeenCalledWith(main);
+    bus.destroy();
+    expect(compressor.disconnect).toHaveBeenCalledOnce();
   });
 
   it("initializes and serially connects a saturator with both controls", () => {
@@ -491,15 +536,15 @@ describe("RuntimeBus", () => {
     },
   );
 
-  it("rejects an unknown effect discriminator instead of treating it as a saturator", () => {
+  it("rejects an unknown effect discriminator instead of treating it as a compressor", () => {
     expect(() =>
       createBus([
         { type: "gain", gain: staticParam(0.5) },
-        { type: "compressor" } as unknown as EffectSchema,
+        { type: "reverb" } as unknown as BusEffectSchema,
       ]),
     ).toThrow("[RuntimeBus] Unsupported effect type.");
 
-    expect(FakeSaturatorNode.instances).toHaveLength(0);
+    expect(FakeCompressorNode.instances).toHaveLength(0);
   });
 
   it("cleans a new saturator when a later effect fails construction", () => {

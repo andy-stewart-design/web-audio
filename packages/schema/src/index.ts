@@ -18,6 +18,8 @@ type Waveform = (typeof WAVEFORMS)[number];
 
 type SynthEngine = "unison";
 
+type UnisonPhase = "random" | "fixed";
+
 type EnvelopeMode = (typeof ENVELOPE_MODES)[number];
 
 type ClipMode = (typeof CLIP_MODES)[number];
@@ -234,7 +236,17 @@ interface SaturatorEffectSchema {
   postgain: AudioParamSchema;
 }
 
+interface CompressorEffectSchema {
+  type: "compressor";
+  threshold: AudioParamSchema;
+  ratio: AudioParamSchema;
+  knee: AudioParamSchema;
+  attack: AudioParamSchema;
+  release: AudioParamSchema;
+}
+
 type EffectSchema = FilterSchema | GainEffectSchema | SaturatorEffectSchema;
+type BusEffectSchema = EffectSchema | CompressorEffectSchema;
 
 // ---------------------------------------------------
 // SIGNAL GRAPH --------------------------------------
@@ -243,7 +255,7 @@ type EffectSchema = FilterSchema | GainEffectSchema | SaturatorEffectSchema;
 interface BusSchema {
   gain: number;
   transition: number;
-  effects: EffectSchema[];
+  effects: BusEffectSchema[];
 }
 
 interface DuckSchema {
@@ -306,6 +318,8 @@ interface UnisonSynthesizerSchema extends SynthesizerCommonSchema {
   voices: NumberPattern;
   spread: AudioParamSchema;
   width: AudioParamSchema;
+  phase?: UnisonPhase;
+  phaseOffset?: number;
 }
 
 type SynthesizerSchema = BasicSynthesizerSchema | UnisonSynthesizerSchema;
@@ -338,10 +352,12 @@ export type {
   BankDefinition,
   BankSchema,
   BasicSynthesizerSchema,
+  BusEffectSchema,
   BusSchema,
   ChopRegionSchema,
   ChopSliceSchema,
   ClipMode,
+  CompressorEffectSchema,
   DromeSchema,
   DuckSchema,
   EffectSchema,
@@ -365,6 +381,7 @@ export type {
   SynthEventPattern,
   SynthesizerCommonSchema,
   SubSynthesizerSchema,
+  UnisonPhase,
   UnisonSynthesizerSchema,
   NotePattern,
   NormalizedSampleSchema,

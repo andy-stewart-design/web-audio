@@ -12,8 +12,8 @@ This is a **feature roadmap, not a single-PR scope or a commitment to implement 
 - [x] Deliver the saw-only unison engine with canonical `"unison"` / `"uni"` selectors.
 - [x] Add an optional main-source gain argument to `d.synth()` and `.sub()` to synths in one PR ([source-mixing spec](source-mix/spec.md); [implementation plan](source-mix/plan.md)). Public forms, native verification, and final saved-reference listening are complete; reviewer `user` approved the saved reference with “Yep, sounds good.”
 - [x] Add `.noise()` to both synths and samplers ([spec](noise/spec.md), [implementation plan](noise/plan.md)).
-- [x] Add a saturator effect on voices and named buses ([spec](saturator/spec.md)); compressor and main-output effects follow separately.
-- [ ] Add an opt-in compressor effect, primarily for buses.
+- [x] Add a saturator effect on voices and named buses ([spec](saturator/spec.md)); main-output effects remain separate future scope.
+- [x] Add an opt-in compressor effect, primarily for buses.
 - [ ] Add standalone `d.noise()` instruments as a separate follow-up to noise layers ([scope](#standalone-noise-instrument-follow-up)).
 - [ ] Design/expose a public waveform API for the Unison engine
 
@@ -190,16 +190,20 @@ input → one AudioWorkletNode [drive → nonlinear processing → output gain]
 
 ## Compressor
 
-Add an explicit, opt-in compressor, primarily for shared instrument buses, drum buses, and the main mix.
+The opt-in compressor is available on named buses through the native
+`DynamicsCompressorNode`:
 
-- Expose threshold, ratio, knee, attack, and release.
-- Route through it for conventional compression. A send mixed with the dry path creates parallel compression, a distinct use case.
-- Do not enable compression by default or silently add it to every voice.
-- Keep it outside the initial bounded per-voice effects set.
-- Native `DynamicsCompressorNode` is a reasonable starting point, but its lookahead introduces latency and it is not a guaranteed brick-wall/true-peak limiter.
-- Default output protection is a separate, deferred decision; it should not be conflated with creative compression.
+```js
+d.bus("drums").fx(d.comp(-18, 4).knee(12).attack(0.003).release(0.2));
+```
 
-Ensure the main mix actually supports the chosen effect path rather than treating its configuration as gain-only. Public builder details remain to be designed.
+`d.compressor()` and its `d.comp()` alias accept optional threshold and ratio
+constructor values, followed by `threshold()`, `ratio()`, `knee()`, `attack()`,
+and `release()` setters. Compression is not enabled by default and is not
+available on main, per-voice effects, or delay compensation. A default output
+limiter remains separate from this creative compressor.
+
+The main mix remains gain-only; main-output effects remain separate future scope.
 
 ## Reference sound: Subsonic
 
