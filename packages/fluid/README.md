@@ -22,7 +22,7 @@ src/
 │   └── __tests__/
 ├── automations/          # Envelope (including ADSR) and LFO
 │   └── __tests__/
-├── effects/              # Filter and gain effects
+├── effects/              # Filter, gain, saturation, and compressor builders
 │   └── __tests__/
 ├── buses/                # Bus authoring
 │   └── __tests__/
@@ -298,6 +298,16 @@ Declare named buses for group processing and auxiliary returns. Named buses feed
 ```ts
 d.bus("drums").gain(0.8).fx(d.lpf(8_000));
 d.bus("verb").gain(0.5);
+```
+
+Named buses can also use the native dynamics compressor. Its optional constructor
+arguments set threshold and ratio; `.threshold()`, `.ratio()`, `.knee()`,
+`.attack()`, and `.release()` replace the five controls. The `d.comp()` alias is
+equivalent to `d.compressor()`. Compression is opt-in and bus-only; main buses,
+per-voice effects, and delay compensation are not provided by this API:
+
+```ts
+d.bus("drums").fx(d.comp(-18, 4).knee(12).attack(0.003).release(0.2));
 ```
 
 An instrument has one primary route, defaulting to main. Selecting a named route replaces the direct-main path:
